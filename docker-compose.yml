@@ -1,0 +1,215 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: lifefile-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-lifefile}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-lifefile123}
+      POSTGRES_DB: ${DATABASE_NAME:-lifefile_ehr}
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-lifefile}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lifefile-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: lifefile-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lifefile-network
+
+  # PgBouncer for Connection Pooling
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: lifefile-pgbouncer
+    restart: unless-stopped
+    ports:
+      - "6432:5432"
+    environment:
+      DATABASES_HOST: postgres
+      DATABASES_PORT: 5432
+      DATABASES_DBNAME: ${DATABASE_NAME:-lifefile_ehr}
+      DATABASES_USER: ${DATABASE_USER:-lifefile}
+      DATABASES_PASSWORD: ${DATABASE_PASSWORD:-lifefile123}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 25
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lifefile-network
+
+  # Elasticsearch for Logging
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: lifefile-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - lifefile-network
+
+  # Kibana for Log Visualization
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: lifefile-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - lifefile-network
+
+  # MinIO for S3-compatible Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: lifefile-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - lifefile-network
+
+  # Nginx as Reverse Proxy and Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: lifefile-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - lifefile-network
+
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: lifefile-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${DATABASE_USER:-lifefile}:${DATABASE_PASSWORD:-lifefile123}@pgbouncer:5432/${DATABASE_NAME:-lifefile_ehr}?schema=public&connection_limit=5
+      REDIS_URL: redis://default:${REDIS_PASSWORD:-redis123}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      SENTRY_DSN: ${SENTRY_DSN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LIFEFILE_API_BASE_URL: ${LIFEFILE_API_BASE_URL}
+      LIFEFILE_API_USERNAME: ${LIFEFILE_API_USERNAME}
+      LIFEFILE_API_PASSWORD: ${LIFEFILE_API_PASSWORD}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      S3_BUCKET: ${S3_BUCKET:-lifefile-uploads}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - lifefile-network
+
+  # Development Tools
+  adminer:
+    image: adminer
+    container_name: lifefile-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    networks:
+      - lifefile-network
+    profiles:
+      - dev
+
+  # Redis Commander for Redis Management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: lifefile-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-redis123}
+    ports:
+      - "8081:8081"
+    networks:
+      - lifefile-network
+    profiles:
+      - dev
+
+networks:
+  lifefile-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  minio_data:

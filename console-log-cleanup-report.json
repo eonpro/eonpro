@@ -1,0 +1,1075 @@
+{
+  "timestamp": "2025-11-26T01:54:11.730Z",
+  "totalFiles": 196,
+  "totalReplacements": 178,
+  "replacements": [
+    {
+      "file": "src/services/paymentMethodService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/services/intakePdfService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/services/intakePdfService.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/services/influencerService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/services/influencerService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/services/influencerService.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/lib/webhookLogger.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/stripe.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/lib/pdf.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/monitoring.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/lib/lifefile.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/lifefile.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/components/WebhookStats.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/SignaturePadCanvas.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/components/SignaturePadCanvas.tsx",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/components/PrescriptionForm.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/PatientSOAPNotesView.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/PatientPaymentMethods.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/PatientIntakeView.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/PatientDocumentsView.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/PatientBillingView.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/FeatureFlagsLogger.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/components/ErrorBoundary.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/BeccaAIChat.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/AddressAutocomplete.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/services/stripe/paymentService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/services/stripe/paymentService.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/services/stripe/invoiceService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/services/stripe/invoiceService.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/services/stripe/customerService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/services/stripe/customerService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/services/ai/soapNoteService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/services/ai/soapNoteService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/services/ai/openaiService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/services/ai/openaiService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/services/ai/assistantService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/medlink/intakeNormalizer.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/lib/i18n/useTranslation.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/i18n/useTranslation.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/lib/heyflow/intakeNormalizer.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/components/twilio/ChatWidget.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/components/twilio/ChatWidget.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/stripe/SubscriptionForm.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/components/stripe/SubscriptionForm.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/zoom/MeetingRoom.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/components/zoom/MeetingRoom.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/components/aws/FileUploader.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/telehealth/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/providers/page.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/providers/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/patients/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/orders/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/intakes/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/documents/page.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/documents/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/integrations/twilio/smsService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/lib/integrations/twilio/smsService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/integrations/twilio/mockService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/lib/integrations/twilio/chatService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/lib/integrations/twilio/chatService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/integrations/zoom/meetingService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/lib/integrations/zoom/meetingService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/integrations/aws/sesService.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/lib/integrations/aws/sesService.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/lib/integrations/aws/s3Service.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/test/zoom/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/test/ses/page.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/test/ses/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/test/s3/page.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/test/languages/page.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/test/stripe/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/webhooks/monitor/page.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/webhooks/monitor/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/patients/[id]/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/orders/dashboard/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/influencer/dashboard/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/influencer/bank-accounts/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/communications/sms/page.tsx",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/communications/sms/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/communications/email/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/test-webhook-log/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/soap-notes/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/providers/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/prescriptions/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/prescriptions/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/payment-methods/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/intakes/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/lifefile-webhook/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/lifefile-webhook/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/lifefile-webhook/route.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/app/admin/billing/page.tsx",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/webhooks/medlink-intake/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/webhooks/medlink-intake/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/webhooks/medlink-intake/route.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-test/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-test/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-intake/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-intake/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-intake/route.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-debug/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-intake-v2/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-intake-v2/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/webhooks/heyflow-intake-v2/route.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/app/api/stripe/webhook/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/stripe/webhook/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/stripe/invoices/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/stripe/payments/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/stripe/customer-portal/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/soap-notes/[id]/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/providers/[id]/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/orders/[id]/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/patients/protected/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/patients/protected/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/patients/[id]/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/payment-methods/default/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/maps/details/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/maps/autocomplete/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/influencers/stats/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/influencers/payment-settings/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/influencers/bank-accounts/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/auth/login/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/auth/login/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/auth/login/route.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/app/api/commissions/process/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/commissions/process/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/ai/chat/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/admin/influencers/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/subscriptions/[id]/resume/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/subscriptions/[id]/cancel/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/subscriptions/[id]/pause/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/zoom/meetings/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/zoom/meetings/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/stripe/webhook/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/stripe/webhook/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/stripe/validate-config/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/stripe/test-webhook/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/stripe/test-webhook/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/stripe/test-customer/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/stripe/test-customer/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/stripe/test-payment/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/stripe/test-payment/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/stripe/create-subscription/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/stripe/cancel-subscription/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/stripe/cancel-subscription/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/twilio/webhook/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/twilio/webhook/route.ts",
+      "line": 0,
+      "original": "console.warn(",
+      "replacement": "logger.warn("
+    },
+    {
+      "file": "src/app/api/v2/twilio/send-sms/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/i18n/translations/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/stripe/invoices/[id]/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/stripe/payments/process/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/providers/[id]/set-password/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/providers/[id]/set-password/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/patients/[id]/subscriptions/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/patients/[id]/documents/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/influencers/auth/login/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/influencers/auth/login/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/influencers/bank-accounts/[id]/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/admin/influencers/[id]/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/admin/billing/stats/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/twilio/chat/token/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/twilio/chat/token/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/ses/validate/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/ses/quota/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/ses/send/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/ses/preview/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/upload/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/upload/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/signed-url/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/list/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/download/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/delete/route.ts",
+      "line": 0,
+      "original": "console.log(",
+      "replacement": "logger.debug("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/delete/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/archive/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/v2/aws/s3/access/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/patients/[id]/documents/[documentId]/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/influencers/bank-accounts/[id]/set-default/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/admin/influencers/[id]/reset-password/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    },
+    {
+      "file": "src/app/api/patients/[id]/documents/[documentId]/download/route.ts",
+      "line": 0,
+      "original": "console.error(",
+      "replacement": "logger.error("
+    }
+  ]
+}

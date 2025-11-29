@@ -1,0 +1,284 @@
+// =====================================================
+// PRESCRIPTION FULFILLMENT TRACKING MODELS
+// Add these to your main schema.prisma file
+// =====================================================
+
+// Main prescription tracking model
+model PrescriptionTracking {
+  id                     Int                        @id @default(autoincrement())
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  
+  // Relations
+  orderId                Int
+  order                  Order                      @relation(fields: [orderId], references: [id])
+  patientId              Int
+  patient                Patient                    @relation(fields: [patientId], references: [id])
+  providerId             Int?
+  provider               Provider?                  @relation(fields: [providerId], references: [id])
+  
+  // Prescription Details
+  rxNumber               String                     @unique
+  medicationName         String
+  quantity               Int
+  refills                Int                        @default(0)
+  
+  // Current Status
+  currentStatus          PrescriptionStatus         @default(PENDING)
+  currentStatusNote      String?
+  
+  // Tracking Information
+  trackingNumber         String?
+  carrier                String?                    // USPS, FedEx, UPS, etc.
+  estimatedDeliveryDate  DateTime?
+  actualDeliveryDate     DateTime?
+  
+  // Pharmacy Information
+  pharmacyName           String?
+  pharmacyOrderId        String?
+  pharmacyPhone          String?
+  
+  // Timeline Events
+  statusHistory          PrescriptionStatusEvent[]
+  notifications          PrescriptionNotification[]
+  
+  // Analytics Fields
+  timeToProcess          Int?                       // Minutes from received to processing
+  timeToShip             Int?                       // Minutes from processing to shipped
+  timeToDeliver          Int?                       // Minutes from shipped to delivered
+  totalFulfillmentTime   Int?                       // Total minutes from received to delivered
+  
+  // Metadata
+  metadata               Json?                      // Additional data from webhooks
+  
+  @@index([patientId])
+  @@index([orderId])
+  @@index([currentStatus])
+  @@index([rxNumber])
+  @@index([createdAt])
+}
+
+// Status tracking for prescription lifecycle
+model PrescriptionStatusEvent {
+  id                     Int                        @id @default(autoincrement())
+  createdAt              DateTime                   @default(now())
+  
+  prescriptionId         Int
+  prescription           PrescriptionTracking       @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  
+  status                 PrescriptionStatus
+  previousStatus         PrescriptionStatus?
+  
+  // Event details
+  description            String?
+  notes                  String?
+  source                 String?                    // webhook, manual, system
+  webhookPayload         Json?                      // Raw webhook data
+  
+  // Location/tracking updates
+  location               String?
+  trackingUpdate         Json?
+  
+  // Who/what triggered this event
+  triggeredBy            String?                    // system, webhook, user email
+  userId                 Int?
+  user                   User?                      @relation(fields: [userId], references: [id])
+  
+  @@index([prescriptionId, createdAt])
+  @@index([status])
+}
+
+// Notification log for patient communications
+model PrescriptionNotification {
+  id                     Int                        @id @default(autoincrement())
+  createdAt              DateTime                   @default(now())
+  
+  prescriptionId         Int
+  prescription           PrescriptionTracking       @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  
+  type                   NotificationType           // SMS, CHAT, EMAIL
+  status                 NotificationStatus         @default(PENDING)
+  
+  // Notification content
+  subject                String?
+  message                String
+  templateUsed           String?
+  
+  // Delivery details
+  sentAt                 DateTime?
+  deliveredAt            DateTime?
+  failedAt               DateTime?
+  errorMessage           String?
+  
+  // Recipient info
+  recipientPhone         String?
+  recipientEmail         String?
+  recipientId            String?
+  
+  // Response tracking
+  readAt                 DateTime?
+  clickedLinks           Json?
+  
+  // Twilio/SendGrid metadata
+  externalId             String?                    // Twilio message SID, SendGrid ID, etc.
+  externalStatus         String?
+  
+  @@index([prescriptionId])
+  @@index([type, status])
+  @@index([createdAt])
+}
+
+// Analytics aggregation for reporting
+model FulfillmentAnalytics {
+  id                     Int                        @id @default(autoincrement())
+  createdAt              DateTime                   @default(now())
+  
+  // Time period
+  date                   DateTime                   @db.Date
+  week                   Int
+  month                  Int
+  year                   Int
+  
+  // Pharmacy metrics
+  pharmacyName           String?
+  
+  // Volume metrics
+  totalOrders            Int                        @default(0)
+  completedOrders        Int                        @default(0)
+  cancelledOrders        Int                        @default(0)
+  pendingOrders          Int                        @default(0)
+  
+  // Time metrics (in minutes)
+  avgTimeToProcess       Float?
+  avgTimeToShip          Float?
+  avgTimeToDeliver       Float?
+  avgTotalFulfillment    Float?
+  
+  minTimeToProcess       Int?
+  maxTimeToProcess       Int?
+  minTimeToShip          Int?
+  maxTimeToShip          Int?
+  minTimeToDeliver       Int?
+  maxTimeToDeliver       Int?
+  
+  // Performance metrics
+  onTimeDeliveryRate     Float?                     // Percentage
+  sameDay ShipmentRate   Float?                     // Percentage
+  nextDayShipmentRate    Float?                     // Percentage
+  
+  // Communication metrics
+  totalNotificationsSent Int                        @default(0)
+  smsNotifications       Int                        @default(0)
+  chatNotifications      Int                        @default(0)
+  emailNotifications     Int                        @default(0)
+  failedNotifications    Int                        @default(0)
+  
+  @@unique([date, pharmacyName])
+  @@index([date])
+  @@index([pharmacyName])
+  @@index([year, month])
+}
+
+// Webhook event log for debugging and replay
+model WebhookEvent {
+  id                     String                     @id @default(cuid())
+  createdAt              DateTime                   @default(now())
+  
+  // Webhook details
+  source                 String                     // lifefile, pharmacy, shipping
+  eventType              String                     // prescription.received, prescription.shipped, etc.
+  webhookId              String?                    // External webhook ID
+  
+  // Payload
+  headers                Json
+  payload                Json
+  rawBody                String?                    @db.Text
+  
+  // Processing
+  processed              Boolean                    @default(false)
+  processedAt            DateTime?
+  processingError        String?
+  retryCount             Int                        @default(0)
+  nextRetryAt            DateTime?
+  
+  // Related entities
+  prescriptionId         Int?
+  orderId                Int?
+  patientId              Int?
+  
+  @@index([source, eventType])
+  @@index([processed, nextRetryAt])
+  @@index([createdAt])
+  @@index([webhookId])
+}
+
+// Automation rules for notifications
+model NotificationRule {
+  id                     Int                        @id @default(autoincrement())
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  
+  name                   String
+  description            String?
+  isActive               Boolean                    @default(true)
+  
+  // Trigger conditions
+  triggerStatus          PrescriptionStatus
+  triggerEvent           String?                    // additional event type
+  
+  // Actions
+  sendSMS                Boolean                    @default(false)
+  sendChat               Boolean                    @default(false)
+  sendEmail              Boolean                    @default(false)
+  
+  // Templates
+  smsTemplate            String?                    @db.Text
+  chatTemplate           String?                    @db.Text
+  emailTemplate          String?                    @db.Text
+  emailSubject           String?
+  
+  // Delay (in minutes after trigger)
+  delayMinutes           Int                        @default(0)
+  
+  // Conditions
+  conditions             Json?                      // Additional conditions
+  
+  @@index([triggerStatus, isActive])
+}
+
+// Enums
+enum PrescriptionStatus {
+  PENDING                // Order created but not sent to pharmacy
+  SENT_TO_PHARMACY       // Sent to pharmacy
+  RECEIVED              // Pharmacy received the order
+  PROCESSING            // Pharmacy is processing
+  READY_FOR_PICKUP      // Ready for in-store pickup
+  SHIPPED               // Shipped to patient
+  OUT_FOR_DELIVERY      // With local carrier
+  DELIVERED             // Delivered to patient
+  RETURNED              // Returned to pharmacy
+  CANCELLED             // Order cancelled
+  ON_HOLD               // On hold for some reason
+  REFILL_REQUESTED      // Patient requested refill
+  REFILL_APPROVED       // Refill approved by provider
+  FAILED                // Failed to process
+}
+
+enum NotificationType {
+  SMS
+  CHAT
+  EMAIL
+  PUSH
+  VOICE
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+  READ
+}

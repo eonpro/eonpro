@@ -1,0 +1,1416 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id                  Int                         @id @default(autoincrement())
+  createdAt           DateTime                    @default(now())
+  clinicId            Int? // Multi-clinic support
+  clinic              Clinic?                     @relation(fields: [clinicId], references: [id])
+  firstName           String
+  lastName            String
+  dob                 String
+  gender              String
+  phone               String
+  email               String
+  address1            String
+  city                String
+  state               String
+  zip                 String
+  lifefileId          String?
+  notes               String?
+  tags                Json?
+  address2            String?
+  patientId           String?                     @unique
+  stripeCustomerId    String?                     @unique
+  source              String                      @default("manual") // "webhook", "api", "manual", "referral", "import"
+  sourceMetadata      Json? // Additional source details (e.g., webhook URL, referrer ID, import batch)
+  aiConversations     AIConversation[]
+  invoices            Invoice[]
+  orders              Order[]
+  auditEntries        PatientAudit[]
+  documents           PatientDocument[]
+  payments            Payment[]
+  paymentMethods      PaymentMethod[]
+  soapNotes           SOAPNote[]
+  subscriptions       Subscription[]
+  referrals           ReferralTracking[]
+  user                User?
+  intakeSubmissions   IntakeFormSubmission[]
+  weightLogs          PatientWeightLog[]
+  medicationReminders PatientMedicationReminder[]
+  tickets             Ticket[]
+
+  @@unique([clinicId, patientId])
+  @@index([clinicId])
+}
+
+model Order {
+  id                 Int          @id @default(autoincrement())
+  createdAt          DateTime     @default(now())
+  clinicId           Int? // Multi-clinic support
+  clinic             Clinic?      @relation(fields: [clinicId], references: [id])
+  updatedAt          DateTime     @updatedAt
+  messageId          String
+  referenceId        String
+  lifefileOrderId    String?
+  status             String?
+  patientId          Int
+  providerId         Int
+  shippingMethod     Int
+  primaryMedName     String?
+  primaryMedStrength String?
+  primaryMedForm     String?
+  errorMessage       String?
+  requestJson        String?
+  responseJson       String?
+  lastWebhookAt      DateTime?
+  lastWebhookPayload String?
+  shippingStatus     String?
+  trackingNumber     String?
+  trackingUrl        String?
+  provider           Provider     @relation(fields: [providerId], references: [id])
+  patient            Patient      @relation(fields: [patientId], references: [id])
+  events             OrderEvent[]
+  rxs                Rx[]
+  tickets            Ticket[]
+}
+
+model Rx {
+  id            Int    @id @default(autoincrement())
+  orderId       Int
+  medicationKey String
+  medName       String
+  strength      String
+  form          String
+  quantity      String
+  refills       String
+  sig           String
+  order         Order  @relation(fields: [orderId], references: [id])
+}
+
+model Provider {
+  id                   Int                  @id @default(autoincrement())
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  clinicId             Int? // Multi-clinic support
+  clinic               Clinic?              @relation(fields: [clinicId], references: [id])
+  firstName            String
+  lastName             String
+  titleLine            String?
+  npi                  String               @unique
+  licenseState         String?
+  licenseNumber        String?
+  dea                  String?
+  email                String?
+  phone                String?
+  signatureDataUrl     String?
+  npiVerifiedAt        DateTime?
+  npiRawResponse       Json?
+  lastLogin            DateTime?
+  user                 User?
+  passwordHash         String?
+  passwordResetExpires DateTime?
+  passwordResetToken   String?
+  orders               Order[]
+  auditEntries         ProviderAudit[]
+  approvedSoapNotes    SOAPNote[]
+  intakeFormTemplates  IntakeFormTemplate[]
+}
+
+model PatientDocument {
+  id                 Int                     @id @default(autoincrement())
+  createdAt          DateTime                @default(now())
+  clinicId           Int? // Multi-clinic support
+  clinic             Clinic?                 @relation(fields: [clinicId], references: [id])
+  patientId          Int
+  filename           String
+  mimeType           String
+  source             String?
+  data               Bytes?
+  externalUrl        String?
+  sourceSubmissionId String?                 @unique
+  category           PatientDocumentCategory @default(OTHER)
+  patient            Patient                 @relation(fields: [patientId], references: [id])
+  soapNotes          SOAPNote[]
+}
+
+model PatientCounter {
+  id      Int @id @default(autoincrement())
+  current Int @default(0)
+}
+
+model OrderEvent {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  orderId         Int
+  lifefileOrderId String?
+  eventType       String
+  payload         Json?
+  note            String?
+  order           Order    @relation(fields: [orderId], references: [id])
+}
+
+model ProviderAudit {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  providerId Int
+  actorEmail String?
+  action     String
+  diff       Json?
+  provider   Provider @relation(fields: [providerId], references: [id])
+}
+
+model PatientAudit {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  patientId  Int
+  actorEmail String?
+  action     String
+  diff       Json?
+  patient    Patient  @relation(fields: [patientId], references: [id])
+}
+
+model Invoice {
+  id                  Int           @id @default(autoincrement())
+  createdAt           DateTime      @default(now())
+  clinicId            Int? // Multi-clinic support
+  clinic              Clinic?       @relation(fields: [clinicId], references: [id])
+  updatedAt           DateTime      @updatedAt
+  stripeInvoiceId     String?       @unique // Optional for demo mode
+  stripeInvoiceNumber String?
+  stripeInvoiceUrl    String?
+  stripePdfUrl        String?
+  patientId           Int
+  description         String?
+  amount              Int?          // Total amount for demo mode
+  amountDue           Int?
+  amountPaid          Int           @default(0)
+  currency            String        @default("usd")
+  status              InvoiceStatus @default(DRAFT)
+  dueDate             DateTime?
+  paidAt              DateTime?
+  lineItems           Json?
+  metadata            Json?
+  orderId             Int?
+  commissionGenerated Boolean       @default(false)
+  patient             Patient       @relation(fields: [patientId], references: [id])
+  commission          Commission?
+  payments            Payment[]
+}
+
+model Payment {
+  id                    Int           @id @default(autoincrement())
+  createdAt             DateTime      @default(now())
+  clinicId              Int? // Multi-clinic support
+  clinic                Clinic?       @relation(fields: [clinicId], references: [id])
+  stripePaymentIntentId String?       @unique
+  stripeChargeId        String?
+  amount                Int
+  currency              String        @default("usd")
+  status                PaymentStatus @default(PENDING)
+  paymentMethod         String?
+  failureReason         String?
+  patientId             Int
+  invoiceId             Int?
+  subscriptionId        Int?
+  description           String?
+  notes                 String?
+  metadata              Json?
+  invoice               Invoice?      @relation(fields: [invoiceId], references: [id])
+  patient               Patient       @relation(fields: [patientId], references: [id])
+  subscription          Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+model PaymentMethod {
+  id                    Int            @id @default(autoincrement())
+  createdAt             DateTime       @default(now())
+  clinicId              Int? // Multi-clinic support
+  clinic                Clinic?        @relation(fields: [clinicId], references: [id])
+  updatedAt             DateTime       @updatedAt
+  patientId             Int
+  encryptedCardNumber   String
+  cardLast4             String
+  cardBrand             String?
+  expiryMonth           Int
+  expiryYear            Int
+  cardholderName        String
+  encryptedCvv          String?
+  billingZip            String
+  stripePaymentMethodId String?        @unique
+  isDefault             Boolean        @default(false)
+  isActive              Boolean        @default(true)
+  lastUsedAt            DateTime?
+  encryptionKeyId       String
+  fingerprint           String?
+  patient               Patient        @relation(fields: [patientId], references: [id])
+  subscriptions         Subscription[]
+}
+
+model SOAPNote {
+  id                 Int                @id @default(autoincrement())
+  createdAt          DateTime           @default(now())
+  clinicId           Int? // Multi-clinic support
+  clinic             Clinic?            @relation(fields: [clinicId], references: [id])
+  updatedAt          DateTime           @updatedAt
+  patientId          Int
+  subjective         String
+  objective          String
+  assessment         String
+  plan               String
+  sourceType         SOAPSourceType     @default(MANUAL)
+  intakeDocumentId   Int?
+  generatedByAI      Boolean            @default(false)
+  aiModelVersion     String?
+  status             SOAPNoteStatus     @default(DRAFT)
+  approvedBy         Int?
+  approvedAt         DateTime?
+  lockedAt           DateTime?
+  editPasswordHash   String?
+  promptTokens       Int?
+  completionTokens   Int?
+  estimatedCost      Float?
+  medicalNecessity   String?
+  approvedByProvider Provider?          @relation(fields: [approvedBy], references: [id])
+  intakeDocument     PatientDocument?   @relation(fields: [intakeDocumentId], references: [id])
+  patient            Patient            @relation(fields: [patientId], references: [id])
+  revisions          SOAPNoteRevision[]
+
+  @@index([patientId, status])
+}
+
+model SOAPNoteRevision {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  soapNoteId      Int
+  editorEmail     String?
+  editorRole      String?
+  previousContent Json
+  newContent      Json
+  changeReason    String?
+  soapNote        SOAPNote @relation(fields: [soapNoteId], references: [id])
+
+  @@index([soapNoteId])
+}
+
+model AIConversation {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  clinicId      Int? // Multi-clinic support
+  clinic        Clinic?     @relation(fields: [clinicId], references: [id])
+  updatedAt     DateTime    @updatedAt
+  patientId     Int?
+  userEmail     String
+  sessionId     String
+  isActive      Boolean     @default(true)
+  lastMessageAt DateTime?
+  patient       Patient?    @relation(fields: [patientId], references: [id])
+  messages      AIMessage[]
+
+  @@index([sessionId])
+  @@index([patientId])
+}
+
+model AIMessage {
+  id               Int            @id @default(autoincrement())
+  createdAt        DateTime       @default(now())
+  conversationId   Int
+  role             String
+  content          String
+  queryType        String?
+  citations        Json?
+  confidence       Float?
+  promptTokens     Int?
+  completionTokens Int?
+  estimatedCost    Float?
+  responseTimeMs   Int?
+  conversation     AIConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+}
+
+model Subscription {
+  id                   Int                @id @default(autoincrement())
+  createdAt            DateTime           @default(now())
+  clinicId             Int? // Multi-clinic support
+  clinic               Clinic?            @relation(fields: [clinicId], references: [id])
+  updatedAt            DateTime           @updatedAt
+  patientId            Int
+  planId               String
+  planName             String
+  planDescription      String
+  status               SubscriptionStatus @default(ACTIVE)
+  amount               Int
+  currency             String             @default("usd")
+  interval             String             @default("month")
+  intervalCount        Int                @default(1)
+  startDate            DateTime           @default(now())
+  currentPeriodStart   DateTime           @default(now())
+  currentPeriodEnd     DateTime           @default(now())
+  nextBillingDate      DateTime?
+  canceledAt           DateTime?
+  pausedAt             DateTime?
+  resumeAt             DateTime?
+  endedAt              DateTime?
+  paymentMethodId      Int?
+  stripeSubscriptionId String?            @unique
+  metadata             Json?
+  lastPaymentId        Int?
+  failedAttempts       Int                @default(0)
+  patient              Patient            @relation(fields: [patientId], references: [id])
+  paymentMethod        PaymentMethod?     @relation(fields: [paymentMethodId], references: [id])
+  payments             Payment[]
+
+  @@index([patientId])
+  @@index([status])
+}
+
+model Influencer {
+  id                     Int                     @id @default(autoincrement())
+  createdAt              DateTime                @default(now())
+  clinicId               Int? // Multi-clinic support
+  clinic                 Clinic?                 @relation(fields: [clinicId], references: [id])
+  updatedAt              DateTime                @updatedAt
+  email                  String                  @unique
+  name                   String
+  promoCode              String                  @unique
+  commissionRate         Float                   @default(0.10) // 10% default commission
+  status                 InfluencerStatus        @default(ACTIVE)
+  passwordHash           String?
+  passwordResetToken     String?
+  passwordResetExpires   DateTime?
+  lastLogin              DateTime?
+  phone                  String?
+  paypalEmail            String?
+  preferredPaymentMethod String?                 @default("paypal")
+  notes                  String?
+  metadata               Json?
+  referrals              ReferralTracking[]
+  commissions            Commission[]
+  payouts                CommissionPayout[]
+  bankAccounts           InfluencerBankAccount[]
+  user                   User?
+
+  @@index([promoCode])
+  @@index([email])
+}
+
+model InfluencerBankAccount {
+  id            Int        @id @default(autoincrement())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  influencerId  Int
+  bankName      String
+  accountNumber String // Encrypted
+  routingNumber String // Encrypted
+  accountType   String     @default("checking")
+  isDefault     Boolean    @default(false)
+  influencer    Influencer @relation(fields: [influencerId], references: [id])
+
+  @@index([influencerId])
+}
+
+model ReferralTracking {
+  id                  Int          @id @default(autoincrement())
+  createdAt           DateTime     @default(now())
+  clinicId            Int? // Multi-clinic support
+  clinic              Clinic?      @relation(fields: [clinicId], references: [id])
+  updatedAt           DateTime     @updatedAt
+  patientId           Int          @unique
+  influencerId        Int
+  promoCode           String
+  referralSource      String? // e.g., "instagram", "youtube", "tiktok"
+  referralExpiresAt   DateTime // 90 days from creation
+  isConverted         Boolean      @default(false)
+  convertedAt         DateTime?
+  conversionInvoiceId Int?         @unique
+  metadata            Json? // Store additional tracking data
+  patient             Patient      @relation(fields: [patientId], references: [id])
+  influencer          Influencer   @relation(fields: [influencerId], references: [id])
+  commissions         Commission[]
+
+  @@index([influencerId])
+  @@index([patientId])
+  @@index([referralExpiresAt])
+  @@index([isConverted])
+}
+
+model Commission {
+  id               Int               @id @default(autoincrement())
+  createdAt        DateTime          @default(now())
+  clinicId         Int? // Multi-clinic support
+  clinic           Clinic?           @relation(fields: [clinicId], references: [id])
+  updatedAt        DateTime          @updatedAt
+  influencerId     Int
+  referralId       Int
+  invoiceId        Int               @unique
+  orderAmount      Int // Amount in cents
+  commissionRate   Float // Rate at time of commission (e.g., 0.10 for 10%)
+  commissionAmount Int // Calculated commission in cents
+  status           CommissionStatus  @default(PENDING)
+  payoutId         Int?
+  notes            String?
+  metadata         Json?
+  influencer       Influencer        @relation(fields: [influencerId], references: [id])
+  referral         ReferralTracking  @relation(fields: [referralId], references: [id])
+  invoice          Invoice           @relation(fields: [invoiceId], references: [id])
+  payout           CommissionPayout? @relation(fields: [payoutId], references: [id])
+
+  @@index([influencerId])
+  @@index([status])
+  @@index([payoutId])
+  @@index([invoiceId])
+}
+
+model CommissionPayout {
+  id              Int          @id @default(autoincrement())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  influencerId    Int
+  payoutMethod    String // "paypal", "bank_transfer", "check"
+  payoutReference String? // Transaction ID, check number, etc.
+  totalAmount     Int // Total payout amount in cents
+  currency        String       @default("usd")
+  status          PayoutStatus @default(PENDING)
+  paidAt          DateTime?
+  failureReason   String?
+  notes           String?
+  metadata        Json?
+  influencer      Influencer   @relation(fields: [influencerId], references: [id])
+  commissions     Commission[]
+
+  @@index([influencerId])
+  @@index([status])
+}
+
+enum InfluencerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_APPROVAL
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+  DISPUTED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PatientDocumentCategory {
+  MEDICAL_INTAKE_FORM
+  MEDICAL_RECORDS
+  LAB_RESULTS
+  INSURANCE
+  CONSENT_FORMS
+  PRESCRIPTIONS
+  IMAGING
+  OTHER
+}
+
+enum WebhookStatus {
+  SUCCESS
+  ERROR
+  INVALID_AUTH
+  INVALID_PAYLOAD
+  PROCESSING_ERROR
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  REFUNDED
+}
+
+enum SOAPNoteStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  LOCKED
+  ARCHIVED
+}
+
+enum SOAPSourceType {
+  MANUAL
+  MEDLINK_INTAKE
+  AI_GENERATED
+  IMPORTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELED
+  PAST_DUE
+  EXPIRED
+}
+
+model WebhookLog {
+  id               Int           @id @default(autoincrement())
+  clinicId         Int? // Multi-clinic support
+  clinic           Clinic?       @relation(fields: [clinicId], references: [id])
+  endpoint         String
+  method           String
+  headers          Json?
+  payload          Json?
+  status           WebhookStatus
+  statusCode       Int
+  errorMessage     String?
+  responseData     Json?
+  ipAddress        String?
+  userAgent        String?
+  processingTimeMs Int?
+  createdAt        DateTime      @default(now())
+
+  @@index([endpoint, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+
+// Unified User Management System
+model User {
+  id                  Int                  @id @default(autoincrement())
+  clinicId            Int? // Multi-clinic support (nullable for super admins)
+  clinic              Clinic?              @relation(fields: [clinicId], references: [id])
+  email               String               @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                UserRole
+  status              UserStatus           @default(ACTIVE)
+  permissions         Json? // Custom permissions override
+  features            Json? // Enabled features for this user
+  metadata            Json? // Additional user metadata
+  lastLogin           DateTime?
+  lastPasswordChange  DateTime?
+  failedLoginAttempts Int                  @default(0)
+  lockedUntil         DateTime?
+  
+  // Two-Factor Authentication fields
+  twoFactorEnabled     Boolean              @default(false)
+  twoFactorSecret      String? // Encrypted TOTP secret
+  twoFactorBackupCodes Json?                @default("[]") // Hashed backup codes (stored as JSON array)
+  twoFactorVerifiedAt  DateTime? // When 2FA was last verified
+  
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  createdById         Int?
+  createdBy           User?                @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers        User[]               @relation("UserCreatedBy")
+  auditLogs           UserAuditLog[]
+  sessions            UserSession[]
+  apiKeys             ApiKey[]
+  systemSettings      SystemSettings[]
+  integrations        Integration[]
+  intakeTemplates     IntakeFormTemplate[]
+  passwordResetTokens PasswordResetToken[]
+
+  // Relations to existing models
+  providerId   Int?        @unique
+  influencerId Int?        @unique
+  patientId    Int?        @unique
+  provider     Provider?   @relation(fields: [providerId], references: [id])
+  influencer   Influencer? @relation(fields: [influencerId], references: [id])
+  patient      Patient?    @relation(fields: [patientId], references: [id])
+
+  // Internal Communication Relations
+  sentMessages        InternalMessage[]     @relation("SentMessages")
+  receivedMessages    InternalMessage[]     @relation("ReceivedMessages")
+  ticketsCreated      Ticket[]              @relation("TicketsCreated")
+  ticketsAssigned     Ticket[]              @relation("TicketsAssigned")
+  ticketsResolved     Ticket[]              @relation("TicketsResolved")
+  ticketsOwned        Ticket[]              @relation("TicketsOwned")
+  ticketsLastWorked   Ticket[]              @relation("TicketsLastWorked")
+  assignmentsMade     TicketAssignment[]    @relation("AssignmentsMade")
+  assignmentsReceived TicketAssignment[]    @relation("AssignmentsReceived")
+  ticketComments      TicketComment[]       @relation("TicketComments")
+  statusChanges       TicketStatusHistory[] @relation("StatusChanges")
+  ticketWorkLogs      TicketWorkLog[]       @relation("TicketWorkLogs")
+  escalationsMade     TicketEscalation[]    @relation("EscalationsMade")
+  escalationsReceived TicketEscalation[]    @relation("EscalationsReceived")
+  clinicAuditLogs     ClinicAuditLog[] // Multi-clinic audit logs
+
+  @@index([email])
+  @@index([role, status])
+  @@index([createdAt(sort: Desc)])
+  @@index([clinicId])
+}
+
+model UserSession {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  token        String   @unique
+  refreshToken String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActivity DateTime @default(now())
+
+  @@index([token])
+  @@index([userId, expiresAt])
+}
+
+model UserAuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String // LOGIN, LOGOUT, PASSWORD_CHANGE, PERMISSION_CHANGE, etc.
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+}
+
+// General audit log for all system activities (HIPAA compliance)
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  action    String   // TWO_FACTOR_ENABLED, PHI_ACCESS, PRESCRIPTION_CREATED, etc.
+  resource  String?  // Resource type (Patient, Order, etc.)
+  resourceId Int?    // ID of the resource
+  details   Json?    // Additional audit details
+  ipAddress String?
+  userAgent String?
+  clinicId  Int?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([resource, resourceId])
+}
+
+// Password Reset Token
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  token     String    @unique // Hashed token
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([token])
+  @@index([userId, expiresAt])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  PROVIDER
+  INFLUENCER
+  PATIENT
+  STAFF
+  SUPPORT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+  LOCKED
+}
+
+// Settings & Configuration System
+model SystemSettings {
+  id          Int      @id @default(autoincrement())
+  clinicId    Int? // Multi-clinic support (null for global settings)
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
+  category    String // general, security, integrations, notifications, etc.
+  key         String
+  value       Json
+  description String?
+  isPublic    Boolean  @default(false) // Can be exposed to non-admins
+  isEncrypted Boolean  @default(false) // Should be encrypted at rest
+  updatedAt   DateTime @updatedAt
+  updatedById Int?
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
+
+  @@unique([category, key])
+  @@index([category])
+}
+
+model Integration {
+  id          Int               @id @default(autoincrement())
+  clinicId    Int? // Multi-clinic support
+  clinic      Clinic?           @relation(fields: [clinicId], references: [id])
+  name        String            @unique
+  provider    String // stripe, lifefile, twilio, sendgrid, etc.
+  status      IntegrationStatus @default(INACTIVE)
+  config      Json // Encrypted configuration
+  credentials Json? // Encrypted credentials
+  webhookUrl  String?
+  lastSyncAt  DateTime?
+  errorCount  Int               @default(0)
+  lastError   String?
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  createdById Int?
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  apiKeys     ApiKey[]
+  webhooks    WebhookConfig[]
+  logs        IntegrationLog[]
+
+  @@index([provider, status])
+}
+
+model ApiKey {
+  id            Int           @id @default(autoincrement())
+  clinicId      Int? // Multi-clinic support
+  clinic        Clinic?       @relation(fields: [clinicId], references: [id])
+  name          String
+  key           String        @unique
+  hashedKey     String // Store hashed version for security
+  prefix        String // First 7 chars for identification
+  permissions   Json // Specific permissions for this key
+  rateLimit     Int           @default(1000) // Requests per hour
+  expiresAt     DateTime?
+  lastUsedAt    DateTime?
+  lastUsedIp    String?
+  status        ApiKeyStatus  @default(ACTIVE)
+  integrationId Int?
+  integration   Integration?  @relation(fields: [integrationId], references: [id])
+  userId        Int
+  user          User          @relation(fields: [userId], references: [id])
+  createdAt     DateTime      @default(now())
+  usageLogs     ApiUsageLog[]
+
+  @@index([key])
+  @@index([userId])
+  @@index([status])
+}
+
+model ApiUsageLog {
+  id           Int      @id @default(autoincrement())
+  apiKeyId     Int
+  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id])
+  endpoint     String
+  method       String
+  statusCode   Int
+  responseTime Int // in milliseconds
+  ipAddress    String
+  userAgent    String?
+  requestBody  Json?
+  responseBody Json?
+  createdAt    DateTime @default(now())
+
+  @@index([apiKeyId, createdAt(sort: Desc)])
+  @@index([endpoint, createdAt(sort: Desc)])
+}
+
+model WebhookConfig {
+  id            Int               @id @default(autoincrement())
+  clinicId      Int? // Multi-clinic support
+  clinic        Clinic?           @relation(fields: [clinicId], references: [id])
+  name          String
+  url           String
+  events        Json // Array of event types to trigger
+  headers       Json? // Custom headers
+  secret        String? // For webhook signature verification
+  isActive      Boolean           @default(true)
+  retryPolicy   Json? // Retry configuration
+  integrationId Int?
+  integration   Integration?      @relation(fields: [integrationId], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deliveries    WebhookDelivery[]
+
+  @@index([isActive])
+}
+
+model WebhookDelivery {
+  id          Int                   @id @default(autoincrement())
+  webhookId   Int
+  webhook     WebhookConfig         @relation(fields: [webhookId], references: [id])
+  event       String
+  payload     Json
+  status      WebhookDeliveryStatus
+  attempts    Int                   @default(1)
+  statusCode  Int?
+  response    Json?
+  error       String?
+  deliveredAt DateTime?
+  createdAt   DateTime              @default(now())
+
+  @@index([webhookId, status])
+  @@index([createdAt(sort: Desc)])
+}
+
+model IntegrationLog {
+  id            Int         @id @default(autoincrement())
+  integrationId Int
+  integration   Integration @relation(fields: [integrationId], references: [id])
+  action        String // sync, webhook_received, api_call, etc.
+  status        String // success, error, warning
+  message       String
+  details       Json?
+  createdAt     DateTime    @default(now())
+
+  @@index([integrationId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model DeveloperTool {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique
+  category     String // database, cache, queue, monitoring, etc.
+  status       String // enabled, disabled, error
+  config       Json
+  lastCheckAt  DateTime?
+  healthStatus Json? // Latest health check results
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([category])
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  MAINTENANCE
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+}
+
+// ===== INTAKE FORM SYSTEM =====
+
+model IntakeFormTemplate {
+  id            Int                    @id @default(autoincrement())
+  createdAt     DateTime               @default(now())
+  clinicId      Int? // Multi-clinic support
+  clinic        Clinic?                @relation(fields: [clinicId], references: [id])
+  updatedAt     DateTime               @updatedAt
+  name          String // e.g., "General Medical Intake", "Weight Loss Program Intake"
+  description   String?
+  treatmentType String // e.g., "general", "weight-loss", "hormone-therapy", "aesthetic"
+  isActive      Boolean                @default(true)
+  providerId    Int? // Optional: specific provider's form
+  provider      Provider?              @relation(fields: [providerId], references: [id])
+  createdById   Int? // User who created this template
+  createdBy     User?                  @relation(fields: [createdById], references: [id])
+  questions     IntakeFormQuestion[]
+  submissions   IntakeFormSubmission[]
+  formLinks     IntakeFormLink[]
+  version       Int                    @default(1)
+  metadata      Json? // Additional settings, styling, etc.
+
+  @@index([treatmentType, isActive])
+  @@index([providerId])
+  @@index([createdById])
+}
+
+model IntakeFormQuestion {
+  id               Int                  @id @default(autoincrement())
+  createdAt        DateTime             @default(now())
+  templateId       Int
+  template         IntakeFormTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  questionText     String
+  questionType     String // "text", "textarea", "select", "radio", "checkbox", "date", "number", "email", "phone", "signature", "file"
+  options          Json? // For select/radio/checkbox: ["Option 1", "Option 2"]
+  isRequired       Boolean              @default(false)
+  validation       Json? // { "min": 0, "max": 100, "pattern": "regex" }
+  placeholder      String?
+  helpText         String?
+  orderIndex       Int                  @default(0)
+  section          String? // Group questions into sections
+  conditionalLogic Json? // Show/hide based on other answers
+  responses        IntakeFormResponse[]
+
+  @@index([templateId, orderIndex])
+}
+
+model IntakeFormSubmission {
+  id             Int                  @id @default(autoincrement())
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  templateId     Int
+  template       IntakeFormTemplate   @relation(fields: [templateId], references: [id])
+  patientId      Int
+  patient        Patient              @relation(fields: [patientId], references: [id])
+  status         String               @default("pending") // "pending", "in_progress", "completed", "expired"
+  completedAt    DateTime?
+  formLinkId     String?              @unique
+  formLink       IntakeFormLink?      @relation(fields: [formLinkId], references: [id])
+  responses      IntakeFormResponse[]
+  pdfUrl         String? // URL to generated PDF
+  pdfGeneratedAt DateTime?
+  metadata       Json? // IP address, device info, etc.
+  signature      String? // Base64 signature image
+  signedAt       DateTime?
+
+  @@index([patientId, status])
+  @@index([templateId])
+}
+
+model IntakeFormResponse {
+  id           Int                  @id @default(autoincrement())
+  createdAt    DateTime             @default(now())
+  submissionId Int
+  submission   IntakeFormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   Int
+  question     IntakeFormQuestion   @relation(fields: [questionId], references: [id])
+  answer       String? // Text answer or JSON for complex types
+  fileUrl      String? // For file uploads
+
+  @@unique([submissionId, questionId])
+  @@index([submissionId])
+}
+
+model IntakeFormLink {
+  id           String                @id @default(cuid())
+  createdAt    DateTime              @default(now())
+  expiresAt    DateTime
+  templateId   Int
+  template     IntakeFormTemplate    @relation(fields: [templateId], references: [id])
+  patientEmail String
+  patientPhone String?
+  sentVia      String? // "email", "sms", "both"
+  sentAt       DateTime?
+  clickedAt    DateTime?
+  submission   IntakeFormSubmission?
+  isActive     Boolean               @default(true)
+  metadata     Json? // Tracking info, utm params, etc.
+
+  @@index([patientEmail, isActive])
+  @@index([expiresAt])
+}
+
+// ===== PATIENT PROGRESS TRACKING =====
+
+model PatientWeightLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  patientId  Int
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  weight     Float // Weight in pounds
+  unit       String   @default("lbs") // "lbs" or "kg"
+  notes      String? // Optional notes from patient
+  source     String   @default("patient") // "patient", "provider", "import"
+  recordedAt DateTime @default(now()) // When the measurement was taken
+
+  @@index([patientId, recordedAt])
+}
+
+model PatientMedicationReminder {
+  id             Int       @id @default(autoincrement())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  patientId      Int
+  patient        Patient   @relation(fields: [patientId], references: [id])
+  medicationName String // e.g., "Semaglutide 0.5mg"
+  dayOfWeek      Int // 0=Sunday, 1=Monday, etc.
+  timeOfDay      String    @default("08:00") // HH:MM format
+  isActive       Boolean   @default(true)
+  lastTriggered  DateTime? // Last time reminder was sent
+  metadata       Json? // Additional reminder settings
+
+  @@unique([patientId, medicationName, dayOfWeek]) // One reminder per medication per day
+  @@index([patientId, isActive])
+}
+
+// ===== INTERNAL COMMUNICATION SYSTEM =====
+
+model InternalMessage {
+  id              Int                 @id @default(autoincrement())
+  createdAt       DateTime            @default(now())
+  clinicId        Int? // Multi-clinic support
+  clinic          Clinic?             @relation(fields: [clinicId], references: [id])
+  senderId        Int
+  sender          User                @relation("SentMessages", fields: [senderId], references: [id])
+  recipientId     Int? // Null for broadcast messages
+  recipient       User?               @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  message         String
+  isRead          Boolean             @default(false)
+  readAt          DateTime?
+  attachments     Json? // File URLs/references
+  messageType     InternalMessageType @default(DIRECT)
+  channelId       String? // For channel/group messages
+  parentMessageId Int? // For threaded replies
+  parentMessage   InternalMessage?    @relation("MessageThread", fields: [parentMessageId], references: [id])
+  replies         InternalMessage[]   @relation("MessageThread")
+  metadata        Json? // Additional context
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, isRead])
+  @@index([channelId, createdAt])
+}
+
+model Ticket {
+  id           Int                @id @default(autoincrement())
+  createdAt    DateTime           @default(now())
+  clinicId     Int? // Multi-clinic support
+  clinic       Clinic?            @relation(fields: [clinicId], references: [id])
+  updatedAt    DateTime           @updatedAt
+  ticketNumber String             @unique @default("")
+  title        String
+  description  String
+  priority     TicketPriority     @default(MEDIUM)
+  status       TicketStatus       @default(OPEN)
+  disposition  TicketDisposition?
+  category     TicketCategory     @default(GENERAL)
+
+  // Related entities
+  patientId        Int?
+  patient          Patient? @relation(fields: [patientId], references: [id])
+  orderId          Int?
+  order            Order?   @relation(fields: [orderId], references: [id])
+  isNonClientIssue Boolean  @default(false)
+
+  // People involved
+  createdById  Int
+  createdBy    User  @relation("TicketsCreated", fields: [createdById], references: [id])
+  assignedToId Int?
+  assignedTo   User? @relation("TicketsAssigned", fields: [assignedToId], references: [id])
+
+  // Activity tracking
+  assignments   TicketAssignment[]
+  comments      TicketComment[]
+  statusHistory TicketStatusHistory[]
+  workLogs      TicketWorkLog[]
+  escalations   TicketEscalation[]
+  sla           TicketSLA?
+
+  // Ownership tracking
+  currentOwnerId Int?
+  currentOwner   User?     @relation("TicketsOwned", fields: [currentOwnerId], references: [id])
+  lastWorkedById Int?
+  lastWorkedBy   User?     @relation("TicketsLastWorked", fields: [lastWorkedById], references: [id])
+  lastWorkedAt   DateTime?
+
+  // Resolution
+  resolvedAt      DateTime?
+  resolvedById    Int?
+  resolvedBy      User?     @relation("TicketsResolved", fields: [resolvedById], references: [id])
+  resolutionNotes String?
+  resolutionTime  Int? // Total time to resolution in minutes
+  actualWorkTime  Int? // Actual time worked in minutes
+
+  // Additional data
+  tags         Json? // Array of tags
+  customFields Json? // Custom field values
+  attachments  Json? // File references
+
+  @@index([status, priority, createdAt])
+  @@index([assignedToId, status])
+  @@index([patientId])
+  @@index([ticketNumber])
+}
+
+model TicketAssignment {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  ticketId     Int
+  ticket       Ticket   @relation(fields: [ticketId], references: [id])
+  assignedById Int
+  assignedBy   User     @relation("AssignmentsMade", fields: [assignedById], references: [id])
+  assignedToId Int
+  assignedTo   User     @relation("AssignmentsReceived", fields: [assignedToId], references: [id])
+  notes        String?
+
+  @@index([ticketId])
+  @@index([assignedToId])
+}
+
+model TicketComment {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  ticketId    Int
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+  authorId    Int
+  author      User     @relation("TicketComments", fields: [authorId], references: [id])
+  comment     String
+  isInternal  Boolean  @default(false) // Internal notes vs customer-visible
+  attachments Json? // File references
+
+  @@index([ticketId, createdAt])
+}
+
+model TicketStatusHistory {
+  id          Int          @id @default(autoincrement())
+  createdAt   DateTime     @default(now())
+  ticketId    Int
+  ticket      Ticket       @relation(fields: [ticketId], references: [id])
+  fromStatus  TicketStatus
+  toStatus    TicketStatus
+  changedById Int
+  changedBy   User         @relation("StatusChanges", fields: [changedById], references: [id])
+  reason      String?
+
+  @@index([ticketId, createdAt])
+}
+
+model TicketWorkLog {
+  id          Int          @id @default(autoincrement())
+  createdAt   DateTime     @default(now())
+  ticketId    Int
+  ticket      Ticket       @relation(fields: [ticketId], references: [id])
+  userId      Int
+  user        User         @relation("TicketWorkLogs", fields: [userId], references: [id])
+  action      TicketAction
+  duration    Int? // Duration in minutes
+  description String
+  isInternal  Boolean      @default(true)
+  metadata    Json? // Additional action-specific data
+
+  @@index([ticketId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model TicketEscalation {
+  id            Int       @id @default(autoincrement())
+  createdAt     DateTime  @default(now())
+  ticketId      Int
+  ticket        Ticket    @relation(fields: [ticketId], references: [id])
+  escalatedById Int
+  escalatedBy   User      @relation("EscalationsMade", fields: [escalatedById], references: [id])
+  escalatedToId Int
+  escalatedTo   User      @relation("EscalationsReceived", fields: [escalatedToId], references: [id])
+  level         Int       @default(1) // Escalation level (1, 2, 3, etc.)
+  reason        String
+  isActive      Boolean   @default(true)
+  resolvedAt    DateTime?
+
+  @@index([ticketId, isActive])
+}
+
+model TicketSLA {
+  id               Int       @id @default(autoincrement())
+  createdAt        DateTime  @default(now())
+  ticketId         Int       @unique
+  ticket           Ticket    @relation(fields: [ticketId], references: [id])
+  firstResponseDue DateTime? // When first response is due
+  firstResponseAt  DateTime? // When first response occurred
+  resolutionDue    DateTime // When resolution is due
+  resolvedAt       DateTime? // When actually resolved
+  breached         Boolean   @default(false)
+  breachReason     String?
+
+  @@index([resolutionDue, breached])
+}
+
+// Enums for Internal Communication
+
+enum InternalMessageType {
+  DIRECT // One-to-one message
+  BROADCAST // System-wide announcement
+  CHANNEL // Channel/group message
+  ALERT // Urgent notification
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING
+  ON_HOLD
+  ESCALATED
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketDisposition {
+  RESOLVED_SUCCESSFULLY
+  RESOLVED_WITH_WORKAROUND
+  NOT_RESOLVED
+  DUPLICATE
+  NOT_REPRODUCIBLE
+  BY_DESIGN
+  CUSTOMER_ERROR
+  TRAINING_ISSUE
+  REFERRED_TO_SPECIALIST
+  PENDING_CUSTOMER
+  CANCELLED_BY_CUSTOMER
+}
+
+enum TicketCategory {
+  GENERAL
+  BILLING
+  PRESCRIPTION
+  APPOINTMENT
+  TECHNICAL_ISSUE
+  MEDICATION_QUESTION
+  INSURANCE
+  DELIVERY
+  SIDE_EFFECTS
+  DOSAGE
+  REFILL
+  PORTAL_ACCESS
+  OTHER
+}
+
+enum TicketAction {
+  CREATED
+  ASSIGNED
+  REASSIGNED
+  STARTED_WORK
+  STOPPED_WORK
+  ADDED_COMMENT
+  UPDATED_STATUS
+  ESCALATED
+  DE_ESCALATED
+  REQUESTED_INFO
+  PROVIDED_INFO
+  RESEARCHED
+  CONTACTED_PATIENT
+  CONTACTED_PROVIDER
+  CONTACTED_PHARMACY
+  CONTACTED_INSURANCE
+  APPLIED_SOLUTION
+  TESTED_SOLUTION
+  RESOLVED
+  REOPENED
+  CLOSED
+  MERGED
+  SPLIT
+}
+
+// ===== MULTI-CLINIC SUPPORT =====
+
+model Clinic {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Basic Information
+  name         String
+  subdomain    String       @unique
+  customDomain String?      @unique
+  status       ClinicStatus @default(ACTIVE)
+
+  // Configuration
+  settings     Json // UI settings, themes, branding
+  features     Json // Enabled features per clinic
+  integrations Json // API keys, webhooks per clinic
+
+  // Billing & Limits
+  billingPlan   String @default("starter")
+  patientLimit  Int    @default(100)
+  providerLimit Int    @default(5)
+  storageLimit  Int    @default(5000) // MB
+
+  // Contact Information
+  adminEmail   String
+  supportEmail String?
+  phone        String?
+  address      Json? // {address1, address2, city, state, zip, country}
+  timezone     String  @default("America/New_York")
+
+  // Branding
+  logoUrl        String?
+  faviconUrl     String?
+  primaryColor   String  @default("#3B82F6")
+  secondaryColor String  @default("#10B981")
+  customCss      String? // Custom CSS overrides
+
+  // Database Configuration (for future isolation)
+  databaseUrl String? // Optional: for dedicated databases
+  schemaName  String? // Optional: for schema-per-clinic
+
+  // Relations
+  users              User[]
+  providers          Provider[]
+  patients           Patient[]
+  orders             Order[]
+  tickets            Ticket[]
+  intakeTemplates    IntakeFormTemplate[]
+  invoices           Invoice[]
+  payments           Payment[]
+  paymentMethods     PaymentMethod[]
+  subscriptions      Subscription[]
+  soapNotes          SOAPNote[]
+  documents          PatientDocument[]
+  auditLogs          ClinicAuditLog[]
+  aiConversations    AIConversation[]
+  influencers        Influencer[]
+  referralTrackings  ReferralTracking[]
+  commissions        Commission[]
+  internalMessages   InternalMessage[]
+  webhookLogs        WebhookLog[]
+  integrationConfigs Integration[]
+  apiKeys            ApiKey[]
+  webhookConfigs     WebhookConfig[]
+  systemSettings     SystemSettings[]
+
+  @@index([subdomain])
+  @@index([status])
+  @@index([customDomain])
+}
+
+model ClinicAuditLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  action    String // CREATE, UPDATE, DELETE, STATUS_CHANGE, BILLING_CHANGE, etc.
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  details   Json? // Detailed change information
+  ipAddress String?
+  userAgent String?
+
+  @@index([clinicId, createdAt])
+  @@index([action])
+}
+
+enum ClinicStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TRIAL
+  EXPIRED
+  PENDING_SETUP
+}

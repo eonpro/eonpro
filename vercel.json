@@ -1,0 +1,86 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-DNS-Prefetch-Control",
+          "value": "on"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://js.stripe.com https://cdn.sentry.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.stripe.com https://maps.googleapis.com https://*.sentry.io https://host47a.lifefile.net wss://api.twilio.com https://api.openai.com; frame-src https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/health",
+      "destination": "/api/monitoring/health"
+    },
+    {
+      "source": "/api/ready",
+      "destination": "/api/monitoring/ready"
+    }
+  ],
+  "functions": {
+    "api/auth/login/route.ts": {
+      "maxDuration": 10
+    },
+    "api/patients/*/route.ts": {
+      "maxDuration": 30
+    },
+    "api/prescriptions/route.ts": {
+      "maxDuration": 60
+    },
+    "api/webhooks/*/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

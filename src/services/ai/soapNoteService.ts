@@ -1,0 +1,584 @@
+import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import { prisma } from '@/lib/db';
+import { generateSOAPNote, type SOAPGenerationInput } from './openaiService';
+import type { Patient as PrismaPatient, PatientDocument, Provider as PrismaProvider, SOAPNote as PrismaSOAPNote } from '@prisma/client';
+import { logger } from '@/lib/logger';
+import { Patient, Provider, Order } from '@/types/models';
+
+/**
+ * SOAP Note Service
+ * Handles generation, storage, approval, and management of SOAP notes
+ */
+
+// Input validation schemas
+export const createSOAPNoteSchema = z.object({
+  patientId: z.number(),
+  intakeDocumentId: z.number().optional(),
+  generateFromIntake: z.boolean().default(false),
+  manualContent: z.object({
+    subjective: z.string(),
+    objective: z.string(),
+    assessment: z.string(),
+    plan: z.string(),
+  }).optional(),
+});
+
+export const approveSOAPNoteSchema = z.object({
+  soapNoteId: z.number(),
+  providerId: z.number(),
+  password: z.string().min(8),
+});
+
+export const editSOAPNoteSchema = z.object({
+  soapNoteId: z.number(),
+  password: z.string(),
+  updates: z.object({
+    subjective: z.string().optional(),
+    objective: z.string().optional(),
+    assessment: z.string().optional(),
+    plan: z.string().optional(),
+  }),
+  changeReason: z.string(),
+});
+
+/**
+ * Generate SOAP note from MedLink intake data
+ */
+export async function generateSOAPFromIntake(
+  patientId: number,
+  intakeDocumentId?: number
+): Promise<PrismaSOAPNote> {
+  // Fetch patient and intake data
+  const patient = await prisma.patient.findUnique({
+    where: { id: patientId },
+    include: {
+      documents: intakeDocumentId ? {
+        where: { id: intakeDocumentId }
+      } : {
+        where: { category: 'MEDICAL_INTAKE_FORM' },
+        orderBy: { createdAt: 'desc' },
+        take: 1
+      }
+    }
+  });
+
+  if (!patient) {
+    throw new Error('Patient not found');
+  }
+
+  // Prevent creating SOAP notes for test/dummy patients
+  const isTestPatient = 
+    patient.firstName.toLowerCase() === 'unknown' ||
+    patient.lastName.toLowerCase() === 'unknown' ||
+    patient.firstName.toLowerCase().includes('test') ||
+    patient.lastName.toLowerCase().includes('test') ||
+    patient.firstName.toLowerCase().includes('demo') ||
+    patient.lastName.toLowerCase().includes('demo') ||
+    patient.email?.toLowerCase().includes('test') ||
+    patient.email?.toLowerCase().includes('demo');
+
+  if (isTestPatient) {
+    throw new Error('Cannot generate SOAP notes for test/demo patients');
+  }
+
+  const intakeDocument = patient.documents[0];
+  if (!intakeDocument) {
+    throw new Error('No intake document found for patient');
+  }
+
+  // Parse intake data
+  let intakeData: any = {};
+  let structuredData: any = {};
+  
+  try {
+    // If the document has external URL, it might be a PDF
+    // For now, we'll assume we have normalized data stored
+    if (intakeDocument.data) {
+      let dataStr = '';
+      
+      // Check if data is stored as comma-separated bytes or as a proper Buffer
+      const rawDataStr = typeof intakeDocument.data === 'string' 
+        ? intakeDocument.data 
+        : Buffer.isBuffer(intakeDocument.data) 
+        ? intakeDocument.data.toString('utf8')
+        : JSON.stringify(intakeDocument.data);
+        
+      if (rawDataStr.match(/^\d+,\d+,\d+/)) {
+        // Data is stored as comma-separated byte values
+        const bytes = rawDataStr.split(',').map((b: string) => parseInt(b.trim()));
+        dataStr = Buffer.from(bytes).toString('utf8');
+      } else {
+        // Data is stored as a proper string
+        dataStr = rawDataStr;
+      }
+      
+      logger.debug('[SOAP Service] Raw data preview:', { preview: dataStr.substring(0, 100) });
+      const parsedData = JSON.parse(dataStr);
+      
+      // If the data has an answers array, transform it to a structured format
+      if (parsedData.answers && Array.isArray(parsedData.answers)) {
+        parsedData.answers.forEach((answer: any) => {
+          structuredData[answer.label] = answer.value;
+        });
+        intakeData = structuredData;
+        logger.debug('[SOAP Service] Parsed intake answers:', { count: parsedData.answers.length });
+      } else {
+        intakeData = parsedData;
+      }
+      
+      logger.debug('[SOAP Service] Parsed intake data with fields:', { fields: Object.keys(intakeData).slice(0, 10).join(', ') });
+    }
+  } catch (error: any) {
+    // @ts-ignore
+   
+    logger.error('Error parsing intake data:', { error });
+    // Fallback to basic patient info
+    intakeData = {
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      dateOfBirth: patient.dob,
+      gender: patient.gender,
+      notes: patient.notes,
+    };
+  }
+
+  // Generate SOAP note using AI
+  const soapInput: SOAPGenerationInput = {
+    intakeData,
+    patientName: `${patient.firstName} ${patient.lastName}`,
+    dateOfBirth: patient.dob,
+    chiefComplaint: intakeData["How would your life change by losing weight?"] || 
+                    intakeData.chiefComplaint || 
+                    intakeData.reasonForVisit || 
+                    "Weight loss evaluation",
+  };
+
+  logger.debug('[SOAP Service] Generating SOAP note for patient:', { value: patient.id });
+  logger.debug('[SOAP Service] Intake data sample:', { sample: JSON.stringify(soapInput.intakeData, null, 2).slice(0, 500) });
+  
+  try {
+    const generatedSOAP = await generateSOAPNote(soapInput);
+    
+    // Store in database
+    const soapNote = await prisma.sOAPNote.create({
+      data: {
+        patientId: patient.id,
+        subjective: generatedSOAP.subjective,
+        objective: generatedSOAP.objective,
+        assessment: generatedSOAP.assessment,
+        plan: generatedSOAP.plan,
+        medicalNecessity: generatedSOAP.medicalNecessity,
+        sourceType: 'MEDLINK_INTAKE',
+        intakeDocumentId: intakeDocument.id,
+        generatedByAI: true,
+        aiModelVersion: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+        status: 'DRAFT',
+        promptTokens: generatedSOAP.metadata.usage?.promptTokens,
+        completionTokens: generatedSOAP.metadata.usage?.completionTokens,
+        estimatedCost: generatedSOAP.metadata.usage?.estimatedCost,
+      },
+    });
+
+    logger.debug('[SOAP Service] SOAP note created successfully:', { value: soapNote.id });
+    
+    return soapNote;
+  } catch (error: any) {
+    // @ts-ignore
+   
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[SOAP Service] Error generating SOAP note:', { error });
+    throw new Error(`Failed to generate SOAP note: ${errorMessage}`);
+  }
+}
+
+/**
+ * Create manual SOAP note
+ */
+export async function createManualSOAPNote(
+  patientId: number,
+  content: {
+    subjective: string;
+    objective: string;
+    assessment: string;
+    plan: string;
+  }
+): Promise<PrismaSOAPNote> {
+  const patient = await prisma.patient.findUnique({
+    where: { id: patientId },
+  });
+
+  if (!patient) {
+    throw new Error('Patient not found');
+  }
+
+  // Prevent creating SOAP notes for test/dummy patients
+  const isTestPatient = 
+    patient.firstName.toLowerCase() === 'unknown' ||
+    patient.lastName.toLowerCase() === 'unknown' ||
+    patient.firstName.toLowerCase().includes('test') ||
+    patient.lastName.toLowerCase().includes('test') ||
+    patient.firstName.toLowerCase().includes('demo') ||
+    patient.lastName.toLowerCase().includes('demo') ||
+    patient.email?.toLowerCase().includes('test') ||
+    patient.email?.toLowerCase().includes('demo');
+
+  if (isTestPatient) {
+    throw new Error('Cannot create SOAP notes for test/demo patients');
+  }
+
+  const soapNote = await prisma.sOAPNote.create({
+    data: {
+      patientId: patient.id,
+      subjective: content.subjective,
+      objective: content.objective,
+      assessment: content.assessment,
+      plan: content.plan,
+      sourceType: 'MANUAL',
+      generatedByAI: false,
+      status: 'DRAFT',
+    },
+  });
+
+  logger.debug('[SOAP Service] Manual SOAP note created:', { id: soapNote.id });
+  
+  return soapNote;
+}
+
+/**
+ * Approve SOAP note with password protection
+ */
+export async function approveSOAPNote(
+  soapNoteId: number,
+  providerId: number,
+  password: string
+): Promise<PrismaSOAPNote> {
+  // Verify provider exists
+  const provider = await prisma.provider.findUnique({
+    where: { id: providerId },
+  });
+
+  if (!provider) {
+    throw new Error('Provider not found');
+  }
+
+  // Get SOAP note
+  const soapNote = await prisma.sOAPNote.findUnique({
+    where: { id: soapNoteId },
+  });
+
+  if (!soapNote) {
+    throw new Error('SOAP note not found');
+  }
+
+  if (soapNote.status === 'APPROVED' || soapNote.status === 'LOCKED') {
+    throw new Error('SOAP note is already approved');
+  }
+
+  // Hash the password for future edits
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  // Create revision record
+  await prisma.sOAPNoteRevision.create({
+    data: {
+      soapNoteId,
+      editorEmail: provider.email || `provider-${provider.id}`,
+      editorRole: 'doctor',
+      previousContent: {
+        subjective: soapNote.subjective,
+        objective: soapNote.objective,
+        assessment: soapNote.assessment,
+        plan: soapNote.plan,
+        status: soapNote.status,
+      },
+      newContent: {
+        status: 'APPROVED',
+      },
+      changeReason: 'Doctor approval',
+    },
+  });
+
+  // Update SOAP note
+  const updatedNote = await prisma.sOAPNote.update({
+    where: { id: soapNoteId },
+    data: {
+      status: 'APPROVED',
+      approvedBy: providerId,
+      approvedAt: new Date(),
+      editPasswordHash: passwordHash,
+    },
+  });
+
+  logger.debug('[SOAP Service] SOAP note approved by provider:', { value: providerId });
+  
+  return updatedNote;
+}
+
+/**
+ * Lock SOAP note to prevent any edits
+ */
+export async function lockSOAPNote(
+  soapNoteId: number,
+  providerId: number
+): Promise<PrismaSOAPNote> {
+  const soapNote = await prisma.sOAPNote.findUnique({
+    where: { id: soapNoteId },
+  });
+
+  if (!soapNote) {
+    throw new Error('SOAP note not found');
+  }
+
+  if (soapNote.status === 'LOCKED') {
+    throw new Error('SOAP note is already locked');
+  }
+
+  if (soapNote.approvedBy !== providerId) {
+    throw new Error('Only the approving provider can lock the note');
+  }
+
+  const lockedNote = await prisma.sOAPNote.update({
+    where: { id: soapNoteId },
+    data: {
+      status: 'LOCKED',
+      lockedAt: new Date(),
+    },
+  });
+
+  logger.debug('[SOAP Service] SOAP note locked:', { value: soapNoteId });
+  
+  return lockedNote;
+}
+
+/**
+ * Edit approved SOAP note with password verification
+ */
+export async function editApprovedSOAPNote(
+  soapNoteId: number,
+  password: string,
+  updates: {
+    subjective?: string;
+    objective?: string;
+    assessment?: string;
+    plan?: string;
+  },
+  editorEmail: string,
+  changeReason: string
+): Promise<PrismaSOAPNote> {
+  const soapNote = await prisma.sOAPNote.findUnique({
+    where: { id: soapNoteId },
+  });
+
+  if (!soapNote) {
+    throw new Error('SOAP note not found');
+  }
+
+  if (soapNote.status === 'LOCKED') {
+    throw new Error('SOAP note is locked and cannot be edited');
+  }
+
+  if (soapNote.status !== 'APPROVED') {
+    throw new Error('Only approved notes require password for editing');
+  }
+
+  // Verify password
+  if (!soapNote.editPasswordHash) {
+    throw new Error('No password set for this SOAP note');
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, soapNote.editPasswordHash);
+  if (!isPasswordValid) {
+    throw new Error('Invalid password');
+  }
+
+  // Record revision
+  await prisma.sOAPNoteRevision.create({
+    data: {
+      soapNoteId,
+      editorEmail,
+      editorRole: 'doctor',
+      previousContent: {
+        subjective: soapNote.subjective,
+        objective: soapNote.objective,
+        assessment: soapNote.assessment,
+        plan: soapNote.plan,
+      },
+      newContent: updates,
+      changeReason,
+    },
+  });
+
+  // Apply updates
+  const updatedNote = await prisma.sOAPNote.update({
+    where: { id: soapNoteId },
+    data: {
+      ...updates,
+      updatedAt: new Date(),
+    },
+  });
+
+  logger.debug('[SOAP Service] Approved SOAP note edited:', { value: soapNoteId });
+  
+  return updatedNote;
+}
+
+/**
+ * Get SOAP notes for a patient (only provider-approved or real intake submissions)
+ */
+export async function getPatientSOAPNotes(
+  patientId: number,
+  includeRevisions = false
+): Promise<any[]> {
+  // Get all SOAP notes that are either approved or from real intake forms
+  const allSoapNotes = await prisma.sOAPNote.findMany({
+    where: { 
+      patientId,
+      // Only show SOAP notes that meet quality criteria
+      OR: [
+        // Show approved notes regardless of source
+        { approvedBy: { not: null } },
+        // OR show notes from real MedLink intake with proper data
+        {
+          AND: [
+            { sourceType: 'MEDLINK_INTAKE' },
+            { generatedByAI: true },
+            { intakeDocumentId: { not: null } },
+            // Ensure the intake document has actual data
+            {
+              intakeDocument: {
+                data: { not: null }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    include: {
+      approvedByProvider: true,
+      intakeDocument: true,
+      revisions: includeRevisions,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Additional filtering for quality control
+  const filteredNotes = allSoapNotes.filter((note: any) => {
+    // Exclude test patient names
+    const subjective = note.subjective?.toLowerCase() || '';
+    const objective = note.objective?.toLowerCase() || '';
+    
+    // Check for dummy/test content indicators
+    const hasTestContent = 
+      subjective.includes('test patient') ||
+      subjective.includes('demo patient') ||
+      subjective.includes('sample patient') ||
+      objective.includes('test data') ||
+      objective.includes('sample data');
+    
+    // Exclude if it has test content and is not approved
+    if (hasTestContent && !note.approvedBy) {
+      return false;
+    }
+    
+    // For intake-based notes, ensure we only show the most recent per intake document
+    if (note.intakeDocumentId) {
+      // Check if intake document has valid data
+      if (note.intakeDocument && (!note.intakeDocument.data || note.intakeDocument.data.length === 0)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  // Remove duplicates - keep only the most recent per intake document
+  const seenIntakeDocuments = new Set<number>();
+  const deduplicatedNotes = filteredNotes.filter((note: any) => {
+    if (note.intakeDocumentId) {
+      if (!seenIntakeDocuments.has(note.intakeDocumentId)) {
+        seenIntakeDocuments.add(note.intakeDocumentId);
+        return true;
+      }
+      // Keep if it's approved even if duplicate
+      return note.approvedBy !== null;
+    }
+    return true;
+  });
+
+  return deduplicatedNotes;
+}
+
+/**
+ * Get single SOAP note with details
+ */
+export async function getSOAPNoteById(
+  soapNoteId: number,
+  includeRevisions = false
+): Promise<any> {
+  const soapNote = await prisma.sOAPNote.findUnique({
+    where: { id: soapNoteId },
+    include: {
+      patient: true,
+      approvedByProvider: true,
+      intakeDocument: true,
+      revisions: includeRevisions ? {
+        orderBy: { createdAt: 'desc' },
+      } : false,
+    },
+  });
+
+  if (!soapNote) {
+    throw new Error('SOAP note not found');
+  }
+
+  return soapNote;
+}
+
+/**
+ * Export SOAP note as formatted text
+ */
+export function formatSOAPNote(soapNote: any): string {
+  const patient = soapNote.patient;
+  const provider = soapNote.approvedByProvider;
+  
+  let formatted = `SOAP NOTE\n`;
+  formatted += `${'='.repeat(80)}\n\n`;
+  
+  if (patient) {
+    formatted += `Patient: ${patient.firstName} ${patient.lastName}\n`;
+    formatted += `DOB: ${patient.dob}\n`;
+    formatted += `Patient ID: ${patient.patientId || patient.id}\n`;
+  }
+  
+  formatted += `Date: ${new Date(soapNote.createdAt).toLocaleDateString()}\n`;
+  
+  if (provider) {
+    formatted += `Provider: ${provider.firstName} ${provider.lastName}, ${provider.titleLine || ''}\n`;
+    formatted += `NPI: ${provider.npi}\n`;
+  }
+  
+  formatted += `\n${'='.repeat(80)}\n\n`;
+  
+  formatted += `SUBJECTIVE:\n${'-'.repeat(40)}\n`;
+  formatted += `${soapNote.subjective}\n\n`;
+  
+  formatted += `OBJECTIVE:\n${'-'.repeat(40)}\n`;
+  formatted += `${soapNote.objective}\n\n`;
+  
+  formatted += `ASSESSMENT:\n${'-'.repeat(40)}\n`;
+  formatted += `${soapNote.assessment}\n\n`;
+  
+  formatted += `PLAN:\n${'-'.repeat(40)}\n`;
+  formatted += `${soapNote.plan}\n\n`;
+  
+  if (soapNote.status === 'APPROVED' && soapNote.approvedAt) {
+    formatted += `${'='.repeat(80)}\n`;
+    formatted += `Approved on: ${new Date(soapNote.approvedAt).toLocaleString()}\n`;
+  }
+  
+  if (soapNote.generatedByAI) {
+    formatted += `\nNote: This SOAP note was generated with AI assistance.\n`;
+  }
+  
+  return formatted;
+}

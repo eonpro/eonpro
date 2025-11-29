@@ -1,0 +1,71 @@
+# Multi-stage build for EONPRO staging deployment
+FROM node:20-alpine AS builder
+
+# Install dependencies for native modules
+RUN apk add --no-cache libc6-compat python3 make g++
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install dependencies
+RUN npm ci --include=dev
+
+# Copy source code
+COPY . .
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Build the application
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine AS runner
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Create app user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+
+WORKDIR /app
+
+# Copy necessary files from builder
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/prisma ./prisma
+
+# Copy startup scripts
+COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
+# Create necessary directories
+RUN mkdir -p private-storage uploads logs
+RUN chown -R nextjs:nodejs private-storage uploads logs
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port
+EXPOSE 3000
+
+# Environment variables
+ENV NODE_ENV=staging
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });"
+
+# Start the application with proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["./docker-entrypoint.sh"]

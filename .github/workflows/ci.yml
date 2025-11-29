@@ -1,0 +1,171 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, staging, develop]
+  pull_request:
+    branches: [main, staging]
+
+env:
+  NODE_VERSION: '18.x'
+
+jobs:
+  # Lint and Type Check
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      
+      - name: Check for security vulnerabilities
+        run: npm audit --audit-level=moderate
+
+  # Test Suite
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Setup test environment
+        run: |
+          cp .env.example .env.local
+          echo "JWT_SECRET=test-secret-for-ci" >> .env.local
+          echo "ENCRYPTION_KEY=test-encryption-key-32-characters" >> .env.local
+          echo "DATABASE_URL=file:./test.db" >> .env.local
+      
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/coverage-final.json
+          flags: unittests
+          fail_ci_if_error: false
+
+  # Build Check
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+      
+      - name: Check build output
+        run: |
+          if [ ! -d ".next" ]; then
+            echo "Build failed: .next directory not found"
+            exit 1
+          fi
+
+  # Security Scan
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Deploy to Staging (only on staging branch)
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [quality, test, build, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.lifefile.com
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Vercel Staging
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          alias-domains: staging.lifefile.com
+
+  # Deploy to Production (only on main branch)
+  deploy-production:
+    name: Deploy to Production
+    needs: [quality, test, build, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://app.lifefile.com
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Vercel Production
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          alias-domains: app.lifefile.com
+      
+      - name: Run smoke tests
+        run: |
+          npm install -g newman
+          newman run tests/smoke-tests.json --env-var BASE_URL=https://app.lifefile.com
+        continue-on-error: true
+      
+      - name: Notify deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment completed'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()

@@ -1,0 +1,77 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+*.production
+production.env.ready
+
+# Misc
+.DS_Store
+*.pem
+.vscode/
+.idea/
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging
+
+# Vercel
+.vercel
+
+# Typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Database
+prisma/dev.db
+prisma/dev.db-journal
+*.db
+*.sqlite
+
+# Private/Sensitive
+private-storage/
+uploads/
+*.key
+*.pem
+*.cert
+*.p12
+
+# Logs
+logs/
+*.log
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.cursor/
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Build artifacts
+.turbo/

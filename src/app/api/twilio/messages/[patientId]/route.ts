@@ -1,0 +1,152 @@
+/**
+ * API Route for Twilio Message History
+ * GET: Retrieve message history for a patient
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { withProviderAuth } from '@/lib/auth/middleware';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import twilio from 'twilio';
+
+interface RouteParams {
+  params: Promise<{
+    patientId: string;
+  }>;
+}
+
+/**
+ * GET /api/twilio/messages/[patientId]
+ * Get message history for a patient
+ */
+export const GET = withProviderAuth(
+  async (req: NextRequest, user, context: RouteParams) => {
+    try {
+      const resolvedParams = await context.params;
+      const patientId = parseInt(resolvedParams.patientId);
+
+      if (isNaN(patientId)) {
+        return NextResponse.json(
+          { error: 'Invalid patient ID' },
+          { status: 400 }
+        );
+      }
+
+      // Get patient to verify phone number
+      const patient = await prisma.patient.findUnique({
+        where: { id: patientId },
+        select: {
+          id: true,
+          phone: true,
+        }
+      });
+
+      if (!patient) {
+        return NextResponse.json(
+          { error: 'Patient not found' },
+          { status: 404 }
+        );
+      }
+
+      const patientPhone = patient.phone;
+      
+      if (!patientPhone) {
+        return NextResponse.json({
+          messages: [],
+          message: 'Patient has no phone number'
+        });
+      }
+
+      // If Twilio is configured, get real messages
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+        try {
+          const client = twilio(
+            process.env.TWILIO_ACCOUNT_SID,
+            process.env.TWILIO_AUTH_TOKEN
+          );
+
+          // Format phone number for Twilio (ensure it has country code)
+          const formattedPhone = patientPhone.startsWith('+') 
+            ? patientPhone 
+            : `+1${patientPhone.replace(/\D/g, '')}`;
+
+          const messages = await client.messages.list({
+            to: formattedPhone,
+            limit: 50
+          });
+
+          const sentMessages = await client.messages.list({
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: formattedPhone,
+            limit: 50
+          });
+
+          // Combine and sort messages
+          const allMessages = [...messages, ...sentMessages]
+            .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime())
+            .map((msg: any) => ({
+              sid: msg.sid,
+              body: msg.body,
+              direction: msg.direction,
+              status: msg.status,
+              dateCreated: msg.dateCreated,
+              from: msg.from,
+              to: msg.to
+            }));
+
+          return NextResponse.json({
+            messages: allMessages
+          });
+        } catch (twilioError: any) {
+          logger.error('Twilio error fetching messages', { value: twilioError });
+          // Fall through to return demo messages
+        }
+      }
+
+      // Return demo messages if Twilio not configured
+      const demoMessages = [
+        {
+          id: 'demo-1',
+          body: 'Hi, I received the intake form link. Thank you!',
+          direction: 'inbound',
+          status: 'delivered',
+          dateCreated: new Date(Date.now() - 3600000), // 1 hour ago
+          from: patientPhone,
+          to: 'clinic'
+        },
+        {
+          id: 'demo-2',
+          body: 'You\'re welcome! Please complete it at your earliest convenience.',
+          direction: 'outbound',
+          status: 'delivered',
+          dateCreated: new Date(Date.now() - 3000000), // 50 minutes ago
+          from: 'clinic',
+          to: patientPhone
+        },
+        {
+          id: 'demo-3',
+          body: 'Just completed the form. When is my appointment?',
+          direction: 'inbound',
+          status: 'delivered',
+          dateCreated: new Date(Date.now() - 1800000), // 30 minutes ago
+          from: patientPhone,
+          to: 'clinic'
+        }
+      ];
+
+      return NextResponse.json({
+        messages: demoMessages,
+        demo: true
+      });
+
+    } catch (error: any) {
+    // @ts-ignore
+   
+      logger.error('Failed to get message history', error);
+      return NextResponse.json(
+        { error: 'Failed to get message history' },
+        { status: 500 }
+      );
+    }
+  }
+);

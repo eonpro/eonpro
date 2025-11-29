@@ -1,0 +1,205 @@
+import { NextResponse, NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import { withAuth } from '@/lib/auth/middleware';
+
+// GET /api/internal/messages - Fetch messages
+async function getHandler(request: NextRequest, user: any) {
+  try {
+    const { searchParams } = new URL(request.url);
+    // Use authenticated user's ID instead of accepting it from query
+    const userId = user.id;
+    const channelId = searchParams.get('channelId');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const offset = parseInt(searchParams.get('offset') || '0');
+    const unreadOnly = searchParams.get('unreadOnly') === 'true';
+    
+    // Log access for audit
+    logger.api('GET', '/api/internal/messages', {
+      userId: user.id,
+      userRole: user.role,
+      channelId,
+      unreadOnly
+    });
+
+    const whereClause: any = {
+      OR: [
+        { senderId: userId },
+        { recipientId: userId },
+        { AND: [
+          { channelId: { not: null } },
+          { channelId }
+        ]}
+      ]
+    };
+
+    if (unreadOnly) {
+      whereClause.isRead = false;
+      whereClause.recipientId = userId;
+    }
+
+    const messages = await prisma.internalMessage.findMany({
+      where: channelId ? { channelId } : whereClause,
+      include: {
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        },
+        replies: {
+          include: {
+            sender: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'asc'
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: limit,
+      skip: offset
+    });
+
+    // Mark messages as read
+    if (!unreadOnly) {
+      const messageIds = messages
+        .filter(m => m.recipientId === userId && !m.isRead)
+        .map(m => m.id);
+      
+      if (messageIds.length > 0) {
+        await prisma.internalMessage.updateMany({
+          where: {
+            id: { in: messageIds }
+          },
+          data: {
+            isRead: true,
+            readAt: new Date()
+          }
+        });
+      }
+    }
+
+    return NextResponse.json(messages);
+  } catch (error) {
+    logger.error('Error fetching messages:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch messages' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/internal/messages - Send a message
+async function postHandler(request: NextRequest, user: any) {
+  try {
+    const body = await request.json();
+    // Use authenticated user as sender
+    const senderId = user.id;
+    const {
+      recipientId,
+      message,
+      messageType = 'DIRECT',
+      channelId,
+      parentMessageId,
+      attachments
+    } = body;
+    
+    // Log message sending for audit
+    logger.api('POST', '/api/internal/messages', {
+      userId: user.id,
+      userRole: user.role,
+      recipientId,
+      messageType,
+      channelId
+    });
+
+    if (!message) {
+      return NextResponse.json(
+        { error: 'Message content is required' },
+        { status: 400 }
+      );
+    }
+
+    if (messageType === 'DIRECT' && !recipientId) {
+      return NextResponse.json(
+        { error: 'Recipient ID is required for direct messages' },
+        { status: 400 }
+      );
+    }
+
+    const newMessage = await prisma.internalMessage.create({
+      data: {
+        senderId,
+        recipientId,
+        message,
+        messageType,
+        channelId,
+        parentMessageId,
+        attachments,
+        metadata: body.metadata
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    });
+
+    // TODO: Trigger real-time notification here (WebSocket/SSE)
+
+    return NextResponse.json(newMessage, { status: 201 });
+  } catch (error) {
+    logger.error('Error sending message:', error);
+    return NextResponse.json(
+      { error: 'Failed to send message' },
+      { status: 500 }
+    );
+  }
+}
+
+// Export handlers with authentication
+export const GET = withAuth(getHandler, { 
+  roles: ['admin', 'provider', 'influencer'] 
+});
+
+export const POST = withAuth(postHandler, { 
+  roles: ['admin', 'provider', 'influencer'] 
+});
