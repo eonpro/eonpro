@@ -39,7 +39,7 @@ export async function GET(request: Request) {
           email: 'admin@eonpro.com',
           name: 'Admin User',
           passwordHash: '$2a$10$K7L1OJ0TfPAf8jkXqLPZXeQm6wD6mFXSZv/xHPQKJrYIOVqTf2Cve', // password: admin123
-          role: 'admin',
+          role: 'ADMIN',
           isActive: true,
           emailVerified: new Date(),
         }
