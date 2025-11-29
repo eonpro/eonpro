@@ -15,33 +15,19 @@ const nextConfig = {
     ],
   },
   
-  // Sentry error handling
-  sentry: {
-    hideSourceMaps: true, // Hide source maps in production
-    widenClientFileUpload: true, // Upload larger files
-  },
-  
-  // Performance optimizations
-  swcMinify: true,
+  // Compiler optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error', 'warn'],
     } : false,
   },
   
-  // Experimental features for better performance
+  // Experimental features compatible with Turbopack
   experimental: {
-    optimizeCss: false, // Disabled due to font rendering issues
     optimizePackageImports: ['lucide-react', '@stripe/stripe-js'],
-    esmExternals: 'loose', // Help with SSR issues
   },
   
-  // Turbopack configuration (Next.js 16+)
-  turbopack: {
-    // Turbopack is now the default in Next.js 16
-  },
-  
-  // Webpack configuration (fallback)
+  // Webpack configuration (when not using Turbopack)
   webpack: (config, { isServer }) => {
     // Fix for Prisma client in production
     if (isServer && config.externals) {
