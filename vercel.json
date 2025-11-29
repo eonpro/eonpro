@@ -70,16 +70,16 @@
     }
   ],
   "functions": {
-    "api/auth/login/route.ts": {
+    "src/app/api/auth/login/route.ts": {
       "maxDuration": 10
     },
-    "api/patients/*/route.ts": {
+    "src/app/api/patients/[id]/route.ts": {
       "maxDuration": 30
     },
-    "api/prescriptions/route.ts": {
+    "src/app/api/prescriptions/route.ts": {
       "maxDuration": 60
     },
-    "api/webhooks/*/route.ts": {
+    "src/app/api/webhooks/stripe/route.ts": {
       "maxDuration": 30
     }
   }
