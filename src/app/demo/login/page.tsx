@@ -21,7 +21,7 @@ interface DemoUser {
 // Demo users with pre-generated tokens (in production, these would come from a secure API)
 const DEMO_USERS: DemoUser[] = [
   {
-    id: 0,
+    id: 2,
     email: 'superadmin@eonpro.com',
     password: 'SuperAdmin2024!',
     role: 'super_admin',

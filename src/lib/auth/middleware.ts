@@ -29,7 +29,7 @@ async function verifyToken(token: string): Promise<AuthUser | null> {
     // In production, remove this block
     const demoUsers: Record<string, AuthUser> = {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MCwiZW1haWwiOiJzdXBlcmFkbWluQGVvbnByby5jb20iLCJyb2xlIjoic3VwZXJfYWRtaW4ifQ.demo-superadmin-token': {
-        id: 0,
+        id: 2, // Actual ID from database
         email: 'superadmin@eonpro.com',
         role: 'super_admin',
       },
