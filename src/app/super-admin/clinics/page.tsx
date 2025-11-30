@@ -218,7 +218,7 @@ export default function ClinicsListPage() {
                       Edit
                     </button>
                     <button
-                      onClick={() => router.push(`/super-admin/clinics/${clinic.id}/settings`)}
+                      onClick={() => router.push(`/super-admin/clinics/${clinic.id}?tab=settings`)}
                       className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
                     >
                       <Settings className="h-4 w-4" />

@@ -2,7 +2,7 @@
 
 // Clinic Detail Page - Super Admin
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, Building2, Globe, Palette, Save, Trash2, 
@@ -53,12 +53,16 @@ interface ClinicUser {
 export default function ClinicDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const clinicId = params.id;
+  
+  // Get initial tab from URL query param
+  const initialTab = searchParams.get('tab') as 'overview' | 'branding' | 'features' | 'users' | 'settings' || 'overview';
   
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'branding' | 'features' | 'users' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'branding' | 'features' | 'users' | 'settings'>(initialTab);
   
   // Users state
   const [clinicUsers, setClinicUsers] = useState<ClinicUser[]>([]);
