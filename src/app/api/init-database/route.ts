@@ -39,7 +39,7 @@ export async function GET(request: Request) {
           email: 'admin@eonpro.com',
           firstName: 'Admin',
           lastName: 'User',
-          passwordHash: '$2a$10$K7L1OJ0TfPAf8jkXqLPZXeQm6wD6mFXSZv/xHPQKJrYIOVqTf2Cve', // password: admin123
+          passwordHash: '$2b$10$r5fNQ9W.9tKuYSYwO5zTb.9htYrx2OLWM8oaR3Qz4klTN7AsWp7O.', // password: admin123
           role: 'ADMIN',
         }
       });
