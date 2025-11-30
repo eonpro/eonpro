@@ -190,6 +190,17 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
       },
     });
 
+    // Create UserClinic record for multi-clinic support
+    await prisma.userClinic.create({
+      data: {
+        userId: newUser.id,
+        clinicId,
+        role,
+        isPrimary: true,
+        isActive: true,
+      },
+    });
+
     // If role is PROVIDER, also create a Provider record with credentials
     if (role === 'PROVIDER') {
       await prisma.provider.create({

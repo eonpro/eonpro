@@ -595,8 +595,9 @@ model WebhookLog {
 // Unified User Management System
 model User {
   id                  Int                  @id @default(autoincrement())
-  clinicId            Int? // Multi-clinic support (nullable for super admins)
+  clinicId            Int? // Primary clinic (nullable for super admins)
   clinic              Clinic?              @relation(fields: [clinicId], references: [id])
+  activeClinicId      Int? // Currently active clinic for multi-clinic users
   email               String               @unique
   passwordHash        String
   firstName           String
@@ -629,6 +630,9 @@ model User {
   integrations        Integration[]
   intakeTemplates     IntakeFormTemplate[]
   passwordResetTokens PasswordResetToken[]
+  
+  // Multi-clinic support
+  userClinics         UserClinic[] // All clinics this user belongs to
 
   // Relations to existing models
   providerId   Int?        @unique
@@ -658,6 +662,25 @@ model User {
   @@index([email])
   @@index([role, status])
   @@index([createdAt(sort: Desc)])
+  @@index([clinicId])
+  @@index([activeClinicId])
+}
+
+// Junction table for users belonging to multiple clinics
+model UserClinic {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  role      UserRole // Role can be different per clinic
+  isPrimary Boolean  @default(false) // Is this the user's primary clinic?
+  isActive  Boolean  @default(true) // Is this assignment active?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, clinicId]) // User can only be assigned once per clinic
+  @@index([userId])
   @@index([clinicId])
 }
 
@@ -1384,6 +1407,7 @@ model Clinic {
   apiKeys            ApiKey[]
   webhookConfigs     WebhookConfig[]
   systemSettings     SystemSettings[]
+  userClinics        UserClinic[] // Multi-clinic user assignments
 
   @@index([subdomain])
   @@index([status])

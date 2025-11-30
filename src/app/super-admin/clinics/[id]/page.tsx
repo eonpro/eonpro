@@ -808,7 +808,14 @@ export default function ClinicDetailPage() {
                               ? new Date(user.lastLogin).toLocaleDateString() 
                               : 'Never'}
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3 px-4 text-right space-x-2">
+                            <button
+                              onClick={() => window.open(`/super-admin/users/${user.id}/clinics`, '_blank')}
+                              className="text-teal-600 hover:text-teal-800 text-sm font-medium"
+                              title="Manage clinic assignments"
+                            >
+                              Clinics
+                            </button>
                             <button
                               onClick={() => handleDeleteUser(user.id)}
                               className="text-red-600 hover:text-red-800 text-sm font-medium"
