@@ -204,7 +204,7 @@ export default function ClinicDetailPage() {
     }
   };
 
-  // NPI Lookup using NPPES API
+  // NPI Lookup using our proxy API (avoids CORS issues with NPPES)
   const lookupNpi = async () => {
     if (!newUser.npi || newUser.npi.length !== 10) {
       setNpiError('NPI must be 10 digits');
@@ -215,28 +215,26 @@ export default function ClinicDetailPage() {
     setNpiError('');
     
     try {
-      // NPPES NPI Registry API
-      const response = await fetch(
-        `https://npiregistry.cms.hhs.gov/api/?version=2.1&number=${newUser.npi}`
-      );
+      // Use our proxy API to avoid CORS issues
+      const response = await fetch(`/api/npi-lookup?npi=${newUser.npi}`);
       const data = await response.json();
       
-      if (data.result_count > 0) {
-        const provider = data.results[0];
-        const basic = provider.basic;
-        
-        // Auto-fill provider information
-        setNewUser(prev => ({
-          ...prev,
-          firstName: basic.first_name || prev.firstName,
-          lastName: basic.last_name || prev.lastName,
-          specialty: provider.taxonomies?.[0]?.desc || prev.specialty,
-        }));
-        
-        setNpiError('');
-      } else {
-        setNpiError('NPI not found in registry');
+      if (!response.ok) {
+        setNpiError(data.error || 'NPI not found in registry');
+        return;
       }
+      
+      // Auto-fill provider information from the lookup
+      setNewUser(prev => ({
+        ...prev,
+        firstName: data.firstName || prev.firstName,
+        lastName: data.lastName || prev.lastName,
+        specialty: data.primarySpecialty || prev.specialty,
+        licenseNumber: data.licenseNumber || prev.licenseNumber,
+        licenseState: data.licenseState || prev.licenseState,
+      }));
+      
+      setNpiError('');
     } catch (error) {
       console.error('NPI lookup failed:', error);
       setNpiError('Failed to lookup NPI. Please enter information manually.');
