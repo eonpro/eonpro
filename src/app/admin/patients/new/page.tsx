@@ -48,8 +48,8 @@ export default function NewPatientPage() {
 
   // Initialize Google Maps Autocomplete
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.google && addressInputRef.current) {
-      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+    if (typeof window !== 'undefined' && (window as any).google && addressInputRef.current) {
+      const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, {
         componentRestrictions: { country: 'us' },
         fields: ['address_components', 'formatted_address'],
         types: ['address'],
