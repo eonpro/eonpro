@@ -1,11 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ClinicSwitcher } from "@/components/clinic/ClinicSwitcher";
+import { LogOut, User } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function ConditionalHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    // Clear all auth data
+    localStorage.removeItem('auth-token');
+    localStorage.removeItem('admin-token');
+    localStorage.removeItem('provider-token');
+    localStorage.removeItem('super_admin-token');
+    localStorage.removeItem('user');
+    
+    // Clear cookies
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    
+    // Redirect to login
+    router.push('/login');
+  };
   
   // Don't show admin header on role-specific pages (they have their own headers)
   const roleSpecificPages = [
@@ -109,6 +138,36 @@ export default function ConditionalHeader() {
             </svg>
             Settings
           </Link>
+          
+          {/* User Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition"
+            >
+              <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-teal-600" />
+              </div>
+              <span className="hidden md:inline">{user?.name || user?.email || 'User'}</span>
+            </button>
+            
+            {showDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <div className="px-4 py-2 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">{user?.name || 'User'}</p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                  <p className="text-xs text-teal-600 capitalize">{user?.role?.replace('_', ' ')}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
       </div>
     </header>

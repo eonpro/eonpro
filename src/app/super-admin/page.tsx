@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Building2, Users, Settings, BarChart3, Shield, Plus, 
-  Globe, Palette, CreditCard, Activity, AlertCircle
+  Globe, Palette, CreditCard, Activity, AlertCircle, LogOut
 } from 'lucide-react';
 
 interface Clinic {
@@ -99,6 +99,18 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('auth-token');
+    localStorage.removeItem('admin-token');
+    localStorage.removeItem('provider-token');
+    localStorage.removeItem('super_admin-token');
+    localStorage.removeItem('user');
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    router.push('/login');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -112,13 +124,22 @@ export default function SuperAdminDashboard() {
               </div>
               <p className="text-slate-300">Manage all clinics, branding, and platform settings</p>
             </div>
-            <button
-              onClick={() => router.push('/super-admin/clinics/new')}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg font-medium flex items-center gap-2 transition-colors"
-            >
-              <Plus className="h-5 w-5" />
-              Create Clinic
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/super-admin/clinics/new')}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg font-medium flex items-center gap-2 transition-colors"
+              >
+                <Plus className="h-5 w-5" />
+                Create Clinic
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/50 rounded-lg font-medium flex items-center gap-2 transition-colors text-red-200"
+              >
+                <LogOut className="h-5 w-5" />
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </div>
