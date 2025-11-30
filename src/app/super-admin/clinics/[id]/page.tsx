@@ -9,6 +9,14 @@ import {
   Users, Activity, Calendar, Settings, AlertTriangle
 } from 'lucide-react';
 
+interface ClinicFeatures {
+  telehealth: boolean;
+  messaging: boolean;
+  billing: boolean;
+  pharmacy: boolean;
+  ai: boolean;
+}
+
 interface Clinic {
   id: number;
   name: string;
@@ -21,13 +29,7 @@ interface Clinic {
   secondaryColor?: string;
   isActive: boolean;
   plan: string;
-  features: {
-    telehealth?: boolean;
-    messaging?: boolean;
-    billing?: boolean;
-    pharmacy?: boolean;
-    ai?: boolean;
-  };
+  features: ClinicFeatures;
   stats: {
     patients: number;
     providers: number;
@@ -46,7 +48,19 @@ export default function ClinicDetailPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'branding' | 'features' | 'settings'>('overview');
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    subdomain: string;
+    customDomain: string;
+    adminEmail: string;
+    phone: string;
+    address: string;
+    primaryColor: string;
+    secondaryColor: string;
+    plan: string;
+    isActive: boolean;
+    features: ClinicFeatures;
+  }>({
     name: '',
     subdomain: '',
     customDomain: '',
@@ -88,8 +102,8 @@ export default function ClinicDetailPage() {
           telehealth: true,
           messaging: true,
           billing: true,
-          pharmacy: clinicId === '1',
-          ai: clinicId === '1',
+          pharmacy: clinicId === '1' ? true : false,
+          ai: clinicId === '1' ? true : false,
         },
         stats: {
           patients: clinicId === '1' ? 1247 : Math.floor(Math.random() * 500),
