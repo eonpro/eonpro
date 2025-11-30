@@ -13,7 +13,7 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 export interface AuthUser {
   id: number;
   email: string;
-  role: 'admin' | 'provider' | 'influencer' | 'patient' | 'staff' | 'support';
+  role: 'super_admin' | 'admin' | 'provider' | 'influencer' | 'patient' | 'staff' | 'support';
   clinicId?: number;
   sessionId?: string;
   [key: string]: any;
