@@ -87,9 +87,9 @@ export async function GET(request: Request) {
         success: false,
         error: 'Database connection failed',
       troubleshooting: [
-        '1. Check DATABASE_URL is using port 6543 (not 5432)',
-        '2. Ensure pgbouncer=true is in the connection string',
-        '3. Verify Supabase project is active',
+        '1. Check DATABASE_URL is correct in Vercel environment variables',
+        '2. Verify AWS RDS Security Group allows Vercel Static IPs',
+        '3. Ensure RDS instance has "Public access" enabled',
         '4. Redeploy after updating DATABASE_URL',
       ],
         details: error.message
