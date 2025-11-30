@@ -143,7 +143,6 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
         passwordHash,
         clinicId,
         status: 'ACTIVE',
-        mustChangePassword: true, // Force password change on first login
       },
       select: {
         id: true,
