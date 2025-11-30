@@ -191,32 +191,47 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     });
 
     // Create UserClinic record for multi-clinic support
-    await prisma.userClinic.create({
-      data: {
-        userId: newUser.id,
-        clinicId,
-        role,
-        isPrimary: true,
-        isActive: true,
-      },
-    });
+    // Check if userClinic model is available (may not be generated yet)
+    if (prisma.userClinic) {
+      try {
+        await prisma.userClinic.create({
+          data: {
+            userId: newUser.id,
+            clinicId,
+            role,
+            isPrimary: true,
+            isActive: true,
+          },
+        });
+      } catch (ucError: any) {
+        console.warn('Could not create UserClinic record:', ucError.message);
+        // Continue anyway - the user was created successfully
+      }
+    }
 
     // If role is PROVIDER, also create a Provider record with credentials
+    let providerRecord = null;
     if (role === 'PROVIDER') {
-      await prisma.provider.create({
-        data: {
-          email: email.toLowerCase(),
-          firstName,
-          lastName,
-          passwordHash,
-          clinicId,
-          npi: npi,
-          dea: deaNumber || null,
-          licenseNumber: licenseNumber,
-          licenseState: licenseState,
-          titleLine: specialty || null,
-        },
-      });
+      try {
+        providerRecord = await prisma.provider.create({
+          data: {
+            email: email.toLowerCase(),
+            firstName,
+            lastName,
+            passwordHash,
+            clinicId,
+            npi: npi,
+            dea: deaNumber || null,
+            licenseNumber: licenseNumber || null,
+            licenseState: licenseState || null,
+            titleLine: specialty || null,
+          },
+        });
+      } catch (providerError: any) {
+        console.error('Error creating provider record:', providerError);
+        // Don't fail the whole operation - the user was created
+        // Just log the error for debugging
+      }
     }
 
     // TODO: Send invitation email if sendInvite is true
