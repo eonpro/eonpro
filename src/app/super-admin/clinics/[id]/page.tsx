@@ -434,7 +434,7 @@ export default function ClinicDetailPage() {
                   </span>
                 </div>
                 <p className="text-gray-500 text-sm mt-1">
-                  {clinic.subdomain}.eonpro.com
+                  {clinic.subdomain}.eonpro.app
                   {clinic.customDomain && (
                     <span className="ml-2">• {clinic.customDomain}</span>
                   )}
@@ -595,7 +595,7 @@ export default function ClinicDetailPage() {
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                     <span className="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500">
-                      .eonpro.com
+                      .eonpro.app
                     </span>
                   </div>
                 </div>
@@ -614,7 +614,7 @@ export default function ClinicDetailPage() {
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
-                      value={formData.primaryColor}
+                      value={/^#[0-9A-Fa-f]{6}$/.test(formData.primaryColor) ? formData.primaryColor : '#10B981'}
                       onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
                       className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
                     />
@@ -622,6 +622,7 @@ export default function ClinicDetailPage() {
                       type="text"
                       value={formData.primaryColor}
                       onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
+                      placeholder="#10B981"
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                   </div>
@@ -631,7 +632,7 @@ export default function ClinicDetailPage() {
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
-                      value={formData.secondaryColor}
+                      value={/^#[0-9A-Fa-f]{6}$/.test(formData.secondaryColor) ? formData.secondaryColor : '#EFECE7'}
                       onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
                       className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
                     />
@@ -639,6 +640,7 @@ export default function ClinicDetailPage() {
                       type="text"
                       value={formData.secondaryColor}
                       onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
+                      placeholder="#EFECE7"
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                   </div>
@@ -656,7 +658,7 @@ export default function ClinicDetailPage() {
                   </div>
                   <div>
                     <p className="font-semibold" style={{ color: formData.primaryColor }}>{formData.name}</p>
-                    <p className="text-sm text-gray-500">{formData.subdomain}.eonpro.com</p>
+                    <p className="text-sm text-gray-500">{formData.subdomain}.eonpro.app</p>
                   </div>
                 </div>
                 <div className="flex gap-3 mt-4">

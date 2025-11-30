@@ -236,7 +236,7 @@ export default function SuperAdminDashboard() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1 text-sm">
                           <Globe className="h-4 w-4 text-gray-400" />
-                          <span className="text-gray-600">{clinic.subdomain}.eonpro.com</span>
+                          <span className="text-gray-600">{clinic.subdomain}.eonpro.app</span>
                         </div>
                         {clinic.customDomain && (
                           <p className="text-xs text-emerald-600 mt-1">{clinic.customDomain}</p>

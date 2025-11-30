@@ -193,7 +193,7 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{clinic.name}</p>
                   <p className="text-xs text-gray-500 truncate">
-                    {clinic.subdomain}.eonpro.com
+                    {clinic.subdomain}.eonpro.app
                     {clinic.isPrimary && (
                       <span className="ml-2 text-teal-600">(Primary)</span>
                     )}

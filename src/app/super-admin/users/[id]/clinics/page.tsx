@@ -307,7 +307,7 @@ export default function UserClinicsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500">{uc.clinic.subdomain}.eonpro.com</p>
+                      <p className="text-sm text-gray-500">{uc.clinic.subdomain}.eonpro.app</p>
                       <p className="text-xs text-gray-400 mt-1">
                         Role: <span className="font-medium">{uc.role}</span>
                         {!uc.isActive && (
@@ -407,7 +407,7 @@ export default function UserClinicsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 truncate">{clinic.name}</p>
-                          <p className="text-xs text-gray-500">{clinic.subdomain}.eonpro.com</p>
+                          <p className="text-xs text-gray-500">{clinic.subdomain}.eonpro.app</p>
                         </div>
                         {selectedClinicId === clinic.id && (
                           <Check className="h-5 w-5 text-teal-600 flex-shrink-0" />

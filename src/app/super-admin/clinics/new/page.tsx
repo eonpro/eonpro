@@ -252,7 +252,7 @@ export default function CreateClinicPage() {
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                       <span className="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm">
-                        .eonpro.com
+                        .eonpro.app
                       </span>
                     </div>
                   </div>
@@ -337,7 +337,7 @@ export default function CreateClinicPage() {
                     <input
                       type="color"
                       name="primaryColor"
-                      value={formData.primaryColor}
+                      value={/^#[0-9A-Fa-f]{6}$/.test(formData.primaryColor) ? formData.primaryColor : '#10B981'}
                       onChange={handleChange}
                       className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
                     />
@@ -345,6 +345,7 @@ export default function CreateClinicPage() {
                       type="text"
                       value={formData.primaryColor}
                       onChange={(e) => setFormData(prev => ({ ...prev, primaryColor: e.target.value }))}
+                      placeholder="#10B981"
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
@@ -355,7 +356,7 @@ export default function CreateClinicPage() {
                     <input
                       type="color"
                       name="secondaryColor"
-                      value={formData.secondaryColor}
+                      value={/^#[0-9A-Fa-f]{6}$/.test(formData.secondaryColor) ? formData.secondaryColor : '#EFECE7'}
                       onChange={handleChange}
                       className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
                     />
@@ -363,6 +364,7 @@ export default function CreateClinicPage() {
                       type="text"
                       value={formData.secondaryColor}
                       onChange={(e) => setFormData(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                      placeholder="#EFECE7"
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
