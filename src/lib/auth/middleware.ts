@@ -94,7 +94,9 @@ function extractToken(req: NextRequest): string | null {
     'auth-token',
     'influencer-token',
     'provider-token',
-    'admin-token'
+    'admin-token',
+    'super_admin-token',
+    'SUPER_ADMIN-token'
   ];
 
   for (const cookieName of cookieTokens) {

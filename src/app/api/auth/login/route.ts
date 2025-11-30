@@ -130,13 +130,16 @@ async function loginHandler(req: NextRequest) {
       }
     }
 
+    // Normalize role to lowercase for consistency
+    const userRole = (user.role || role).toLowerCase();
+    
     // Create JWT token
     const tokenPayload: any = {
       id: user.id,
       email: user.email,
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-      role: user.role || role.toUpperCase(),
-      clinicId: 1, // Default clinic ID - in multi-tenant setup, get from user's clinic assignment
+      role: userRole,
+      clinicId: userRole === 'super_admin' ? undefined : 1, // Super Admin doesn't need clinicId
     };
 
     // Add permissions and features if available
@@ -195,7 +198,7 @@ async function loginHandler(req: NextRequest) {
         id: user.id,
         email: user.email,
         name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-        role: user.role || role.toUpperCase(),
+        role: userRole,
         permissions: 'permissions' in user ? user.permissions : undefined,
         features: 'features' in user ? user.features : undefined,
       },
@@ -203,9 +206,17 @@ async function loginHandler(req: NextRequest) {
       refreshToken,
     });
 
-    // Set secure cookie
+    // Set secure cookie - use the actual user role for cookie name
     response.cookies.set({
-      name: `${role}-token`,
+      name: `${userRole}-token`,
+      value: token,
+      ...AUTH_CONFIG.cookie,
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+    
+    // Also set a generic auth-token cookie for broader compatibility
+    response.cookies.set({
+      name: 'auth-token',
       value: token,
       ...AUTH_CONFIG.cookie,
       maxAge: 60 * 60 * 24, // 24 hours

@@ -37,9 +37,12 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
       
       // Store role-specific tokens
-      if (data.user.role === 'ADMIN' || data.user.role === 'admin') {
+      const userRole = data.user.role?.toLowerCase();
+      if (userRole === 'super_admin') {
+        localStorage.setItem('super_admin-token', data.token);
+      } else if (userRole === 'admin') {
         localStorage.setItem('admin-token', data.token);
-      } else if (data.user.role === 'PROVIDER' || data.user.role === 'provider') {
+      } else if (userRole === 'provider') {
         localStorage.setItem('provider-token', data.token);
       }
 
