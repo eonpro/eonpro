@@ -53,6 +53,7 @@ export async function GET(request: Request) {
         data: {
           name: 'EONPRO Main Clinic',
           subdomain: 'main',
+          adminEmail: 'admin@eonpro.com',
           settings: {},
           features: {},
           integrations: {},
