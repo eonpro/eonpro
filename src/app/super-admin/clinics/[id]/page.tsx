@@ -1,5 +1,6 @@
 'use client';
 
+// Clinic Detail Page - Super Admin
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
