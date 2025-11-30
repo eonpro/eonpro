@@ -86,12 +86,12 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: false,
         error: 'Database connection failed',
-        troubleshooting: [
-          '1. Ensure AWS Security Group includes Vercel Static IPs',
-          '2. Static IP 1: 98.89.149.96/32',
-          '3. Static IP 2: 52.0.7.126/32',
-          '4. Redeploy after updating security group',
-        ],
+      troubleshooting: [
+        '1. Check DATABASE_URL is using port 6543 (not 5432)',
+        '2. Ensure pgbouncer=true is in the connection string',
+        '3. Verify Supabase project is active',
+        '4. Redeploy after updating DATABASE_URL',
+      ],
         details: error.message
       }, { status: 500 });
     }
