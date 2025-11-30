@@ -37,11 +37,10 @@ export async function GET(request: Request) {
       const admin = await prisma.user.create({
         data: {
           email: 'admin@eonpro.com',
-          name: 'Admin User',
+          firstName: 'Admin',
+          lastName: 'User',
           passwordHash: '$2a$10$K7L1OJ0TfPAf8jkXqLPZXeQm6wD6mFXSZv/xHPQKJrYIOVqTf2Cve', // password: admin123
           role: 'ADMIN',
-          isActive: true,
-          emailVerified: new Date(),
         }
       });
       console.log('✅ Created admin user:', admin.email);
@@ -53,12 +52,10 @@ export async function GET(request: Request) {
       const clinic = await prisma.clinic.create({
         data: {
           name: 'EONPRO Main Clinic',
-          address: '123 Health Street',
-          city: 'Washington',
-          state: 'DC',
-          zipCode: '20001',
-          phone: '555-0100',
-          email: 'clinic@eonpro.com',
+          subdomain: 'main',
+          settings: {},
+          features: {},
+          integrations: {},
         }
       });
       console.log('✅ Created test clinic:', clinic.name);
