@@ -1,0 +1,189 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
+
+/**
+ * Middleware to check for Super Admin role
+ */
+function withSuperAdminAuth(
+  handler: (req: NextRequest, user: AuthUser, params: { id: string; userId: string }) => Promise<Response>
+) {
+  return async (req: NextRequest, context: { params: Promise<{ id: string; userId: string }> }) => {
+    const params = await context.params;
+    return withAuth(
+      (req: NextRequest, user: AuthUser) => handler(req, user, params),
+      { roles: ['super_admin', 'SUPER_ADMIN'] }
+    )(req);
+  };
+}
+
+/**
+ * GET /api/super-admin/clinics/[id]/users/[userId]
+ * Get a specific user
+ */
+export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, params: { id: string; userId: string }) => {
+  try {
+    const clinicId = parseInt(params.id);
+    const userId = parseInt(params.userId);
+    
+    if (isNaN(clinicId) || isNaN(userId)) {
+      return NextResponse.json(
+        { error: 'Invalid clinic or user ID' },
+        { status: 400 }
+      );
+    }
+
+    const clinicUser = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        clinicId,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        lastLogin: true,
+      },
+    });
+
+    if (!clinicUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ user: clinicUser });
+  } catch (error: any) {
+    console.error('Error fetching user:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch user' },
+      { status: 500 }
+    );
+  }
+});
+
+/**
+ * PUT /api/super-admin/clinics/[id]/users/[userId]
+ * Update a user
+ */
+export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, params: { id: string; userId: string }) => {
+  try {
+    const clinicId = parseInt(params.id);
+    const userId = parseInt(params.userId);
+    
+    if (isNaN(clinicId) || isNaN(userId)) {
+      return NextResponse.json(
+        { error: 'Invalid clinic or user ID' },
+        { status: 400 }
+      );
+    }
+
+    // Verify user belongs to this clinic
+    const existingUser = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        clinicId,
+      },
+    });
+
+    if (!existingUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const body = await req.json();
+    const { firstName, lastName, role, status } = body;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+        ...(role && { role }),
+        ...(status && { status }),
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        lastLogin: true,
+      },
+    });
+
+    return NextResponse.json({
+      user: updatedUser,
+      message: 'User updated successfully',
+    });
+  } catch (error: any) {
+    console.error('Error updating user:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to update user' },
+      { status: 500 }
+    );
+  }
+});
+
+/**
+ * DELETE /api/super-admin/clinics/[id]/users/[userId]
+ * Remove a user from a clinic
+ */
+export const DELETE = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, params: { id: string; userId: string }) => {
+  try {
+    const clinicId = parseInt(params.id);
+    const userId = parseInt(params.userId);
+    
+    if (isNaN(clinicId) || isNaN(userId)) {
+      return NextResponse.json(
+        { error: 'Invalid clinic or user ID' },
+        { status: 400 }
+      );
+    }
+
+    // Verify user belongs to this clinic
+    const existingUser = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        clinicId,
+      },
+    });
+
+    if (!existingUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Delete associated provider record if exists
+    await prisma.provider.deleteMany({
+      where: { userId },
+    });
+
+    // Delete the user
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return NextResponse.json({
+      message: 'User removed successfully',
+    });
+  } catch (error: any) {
+    console.error('Error removing user:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to remove user' },
+      { status: 500 }
+    );
+  }
+});
+

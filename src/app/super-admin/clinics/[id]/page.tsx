@@ -6,7 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, Building2, Globe, Palette, Save, Trash2, 
-  Users, Activity, Calendar, Settings, AlertTriangle
+  Users, Activity, Calendar, Settings, AlertTriangle, Plus,
+  UserPlus, Mail, Shield, X, Eye, EyeOff
 } from 'lucide-react';
 
 interface ClinicFeatures {
@@ -38,6 +39,17 @@ interface Clinic {
   createdAt: string;
 }
 
+interface ClinicUser {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  status: string;
+  createdAt: string;
+  lastLogin?: string;
+}
+
 export default function ClinicDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -46,7 +58,22 @@ export default function ClinicDetailPage() {
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'branding' | 'features' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'branding' | 'features' | 'users' | 'settings'>('overview');
+  
+  // Users state
+  const [clinicUsers, setClinicUsers] = useState<ClinicUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [addingUser, setAddingUser] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [newUser, setNewUser] = useState({
+    email: '',
+    firstName: '',
+    lastName: '',
+    role: 'ADMIN',
+    password: '',
+    sendInvite: true,
+  });
   
   const [formData, setFormData] = useState<{
     name: string;
@@ -145,6 +172,96 @@ export default function ClinicDetailPage() {
       setLoading(false);
     }
   };
+
+  const fetchClinicUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/users`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setClinicUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch clinic users:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddingUser(true);
+    
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(newUser),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setShowAddUserModal(false);
+        setNewUser({
+          email: '',
+          firstName: '',
+          lastName: '',
+          role: 'ADMIN',
+          password: '',
+          sendInvite: true,
+        });
+        fetchClinicUsers();
+        alert(`User created successfully!${newUser.sendInvite ? ' An invitation email has been sent.' : ''}`);
+      } else {
+        alert(data.error || 'Failed to create user');
+      }
+    } catch (error) {
+      console.error('Error creating user:', error);
+      alert('Failed to create user');
+    } finally {
+      setAddingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    if (!confirm('Are you sure you want to remove this user from the clinic?')) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        fetchClinicUsers();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to remove user');
+      }
+    } catch (error) {
+      console.error('Error removing user:', error);
+      alert('Failed to remove user');
+    }
+  };
+
+  // Fetch users when switching to users tab
+  useEffect(() => {
+    if (activeTab === 'users' && clinicUsers.length === 0) {
+      fetchClinicUsers();
+    }
+  }, [activeTab]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -289,6 +406,7 @@ export default function ClinicDetailPage() {
               { id: 'overview', label: 'Overview', icon: Building2 },
               { id: 'branding', label: 'Branding', icon: Palette },
               { id: 'features', label: 'Features', icon: Settings },
+              { id: 'users', label: 'Users', icon: Users },
               { id: 'settings', label: 'Settings', icon: Globe },
             ].map((tab) => (
               <button
@@ -543,6 +661,112 @@ export default function ClinicDetailPage() {
           </div>
         )}
 
+        {activeTab === 'users' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Clinic Users</h3>
+                  <p className="text-sm text-gray-500">Manage administrators, providers, and staff for this clinic</p>
+                </div>
+                <button
+                  onClick={() => setShowAddUserModal(true)}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Add User
+                </button>
+              </div>
+
+              {loadingUsers ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                </div>
+              ) : clinicUsers.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">No users yet</h4>
+                  <p className="text-gray-500 mb-4">Add the first administrator to get started</p>
+                  <button
+                    onClick={() => setShowAddUserModal(true)}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors inline-flex items-center gap-2"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Add First User
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">User</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Role</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Last Login</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clinicUsers.map((user) => (
+                        <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                                <span className="text-teal-700 font-medium">
+                                  {user.firstName?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  {user.firstName} {user.lastName}
+                                </p>
+                                <p className="text-sm text-gray-500">{user.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                              user.role === 'PROVIDER' ? 'bg-blue-100 text-blue-700' :
+                              user.role === 'STAFF' ? 'bg-green-100 text-green-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              user.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
+                              user.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {user.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-500">
+                            {user.lastLogin 
+                              ? new Date(user.lastLogin).toLocaleDateString() 
+                              : 'Never'}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'settings' && (
           <div className="space-y-6">
             <div className="bg-white rounded-xl p-6 border border-gray-200">
@@ -587,6 +811,141 @@ export default function ClinicDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Add New User</h3>
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddUser} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newUser.firstName}
+                    onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    placeholder="John"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newUser.lastName}
+                    onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    placeholder="Doe"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  placeholder="john@example.com"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="ADMIN">Admin - Full clinic access</option>
+                  <option value="PROVIDER">Provider - Patient care access</option>
+                  <option value="STAFF">Staff - Limited administrative access</option>
+                  <option value="SUPPORT">Support - Customer service access</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Temporary Password *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 pr-10"
+                    placeholder="Min 8 characters"
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">User will be prompted to change password on first login</p>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="sendInvite"
+                  checked={newUser.sendInvite}
+                  onChange={(e) => setNewUser({ ...newUser, sendInvite: e.target.checked })}
+                  className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                />
+                <label htmlFor="sendInvite" className="text-sm text-gray-700">
+                  Send invitation email with login details
+                </label>
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUserModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingUser}
+                  className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {addingUser ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      Create User
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
