@@ -211,7 +211,7 @@ export default function ClinicsListPage() {
                       View
                     </button>
                     <button
-                      onClick={() => router.push(`/super-admin/clinics/${clinic.id}/edit`)}
+                      onClick={() => router.push(`/super-admin/clinics/${clinic.id}`)}
                       className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center gap-1"
                     >
                       <Edit className="h-4 w-4" />

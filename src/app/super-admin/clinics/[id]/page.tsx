@@ -86,47 +86,59 @@ export default function ClinicDetailPage() {
 
   const fetchClinic = async () => {
     try {
-      const mockClinic: Clinic = {
-        id: Number(clinicId),
-        name: clinicId === '1' ? 'EONPRO Main Clinic' : `Clinic ${clinicId}`,
-        subdomain: clinicId === '1' ? 'main' : `clinic${clinicId}`,
-        customDomain: clinicId === '1' ? 'app.eonpro.com' : undefined,
-        adminEmail: `admin${clinicId}@eonpro.com`,
-        phone: '(555) 123-4567',
-        address: '123 Medical Center Dr, Suite 100, New York, NY 10001',
-        primaryColor: '#0d9488',
-        secondaryColor: '#6366f1',
-        isActive: true,
-        plan: 'professional',
-        features: {
-          telehealth: true,
-          messaging: true,
-          billing: true,
-          pharmacy: clinicId === '1' ? true : false,
-          ai: clinicId === '1' ? true : false,
-        },
-        stats: {
-          patients: clinicId === '1' ? 1247 : Math.floor(Math.random() * 500),
-          providers: clinicId === '1' ? 12 : Math.floor(Math.random() * 10) + 1,
-          appointments: clinicId === '1' ? 3421 : Math.floor(Math.random() * 1000),
-        },
-        createdAt: '2024-01-15T00:00:00Z',
-      };
-      
-      setClinic(mockClinic);
-      setFormData({
-        name: mockClinic.name,
-        subdomain: mockClinic.subdomain,
-        customDomain: mockClinic.customDomain || '',
-        adminEmail: mockClinic.adminEmail,
-        phone: mockClinic.phone || '',
-        address: mockClinic.address || '',
-        primaryColor: mockClinic.primaryColor || '#0d9488',
-        secondaryColor: mockClinic.secondaryColor || '#6366f1',
-        plan: mockClinic.plan,
-        isActive: mockClinic.isActive,
-        features: mockClinic.features,
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
       });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const clinicData = data.clinic;
+        
+        const fetchedClinic: Clinic = {
+          id: clinicData.id,
+          name: clinicData.name,
+          subdomain: clinicData.subdomain,
+          customDomain: clinicData.customDomain || undefined,
+          adminEmail: clinicData.adminEmail,
+          phone: clinicData.phone || '',
+          address: clinicData.address || '',
+          primaryColor: clinicData.primaryColor || '#0d9488',
+          secondaryColor: clinicData.secondaryColor || '#6366f1',
+          isActive: clinicData.status === 'ACTIVE',
+          plan: clinicData.billingPlan || 'starter',
+          features: {
+            telehealth: clinicData.features?.telehealth ?? true,
+            messaging: clinicData.features?.messaging ?? true,
+            billing: clinicData.features?.billing ?? true,
+            pharmacy: clinicData.features?.pharmacy ?? false,
+            ai: clinicData.features?.ai ?? false,
+          },
+          stats: {
+            patients: clinicData._count?.patients || 0,
+            providers: clinicData._count?.providers || 0,
+            appointments: 0,
+          },
+          createdAt: clinicData.createdAt,
+        };
+        
+        setClinic(fetchedClinic);
+        setFormData({
+          name: fetchedClinic.name,
+          subdomain: fetchedClinic.subdomain,
+          customDomain: fetchedClinic.customDomain || '',
+          adminEmail: fetchedClinic.adminEmail,
+          phone: fetchedClinic.phone || '',
+          address: fetchedClinic.address || '',
+          primaryColor: fetchedClinic.primaryColor || '#0d9488',
+          secondaryColor: fetchedClinic.secondaryColor || '#6366f1',
+          plan: fetchedClinic.plan,
+          isActive: fetchedClinic.isActive,
+          features: fetchedClinic.features,
+        });
+      } else {
+        console.error('Failed to fetch clinic');
+      }
     } catch (error) {
       console.error('Error fetching clinic:', error);
     } finally {
@@ -137,8 +149,35 @@ export default function ClinicDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      alert('Clinic settings saved successfully!');
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          subdomain: formData.subdomain,
+          customDomain: formData.customDomain || null,
+          adminEmail: formData.adminEmail,
+          phone: formData.phone || null,
+          address: formData.address || null,
+          primaryColor: formData.primaryColor,
+          secondaryColor: formData.secondaryColor,
+          billingPlan: formData.plan,
+          status: formData.isActive ? 'ACTIVE' : 'INACTIVE',
+          features: formData.features,
+        }),
+      });
+
+      if (response.ok) {
+        alert('Clinic settings saved successfully!');
+        fetchClinic(); // Refresh data
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to save clinic settings');
+      }
     } catch (error) {
       console.error('Error saving clinic:', error);
       alert('Failed to save clinic settings');
@@ -153,8 +192,20 @@ export default function ClinicDetailPage() {
     }
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      router.push('/super-admin/clinics');
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        router.push('/super-admin/clinics');
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to delete clinic');
+      }
     } catch (error) {
       console.error('Error deleting clinic:', error);
       alert('Failed to delete clinic');
