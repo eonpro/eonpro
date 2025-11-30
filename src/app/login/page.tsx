@@ -46,6 +46,9 @@ export default function LoginPage() {
       // Redirect based on role
       const role = data.user.role?.toLowerCase();
       switch (role) {
+        case 'super_admin':
+          router.push('/super-admin');
+          break;
         case 'admin':
           router.push('/admin');
           break;

@@ -28,6 +28,11 @@ async function verifyToken(token: string): Promise<AuthUser | null> {
     // Handle demo tokens (for development/demo purposes only)
     // In production, remove this block
     const demoUsers: Record<string, AuthUser> = {
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MCwiZW1haWwiOiJzdXBlcmFkbWluQGVvbnByby5jb20iLCJyb2xlIjoic3VwZXJfYWRtaW4ifQ.demo-superadmin-token': {
+        id: 0,
+        email: 'superadmin@eonpro.com',
+        role: 'super_admin',
+      },
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBsaWZlZmlsZS5jb20iLCJyb2xlIjoiYWRtaW4iLCJjbGluaWNJZCI6MX0.demo-admin-token': {
         id: 1,
         email: 'admin@eonpro.com',

@@ -21,6 +21,16 @@ interface DemoUser {
 // Demo users with pre-generated tokens (in production, these would come from a secure API)
 const DEMO_USERS: DemoUser[] = [
   {
+    id: 0,
+    email: 'superadmin@eonpro.com',
+    password: 'SuperAdmin2024!',
+    role: 'super_admin',
+    firstName: 'Super',
+    lastName: 'Admin',
+    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MCwiZW1haWwiOiJzdXBlcmFkbWluQGVvbnByby5jb20iLCJyb2xlIjoic3VwZXJfYWRtaW4ifQ.demo-superadmin-token',
+    redirectTo: '/super-admin'
+  },
+  {
     id: 1,
     email: 'admin@eonpro.com',
     password: 'admin123',
@@ -73,6 +83,7 @@ const DEMO_USERS: DemoUser[] = [
 ];
 
 const roleIcons: Record<string, any> = {
+  super_admin: Shield,
   admin: Users,
   provider: Activity,
   staff: UserCheck,
@@ -82,6 +93,7 @@ const roleIcons: Record<string, any> = {
 };
 
 const roleColors: Record<string, string> = {
+  super_admin: 'from-slate-700 to-slate-900',
   admin: 'from-purple-600 to-indigo-700',
   provider: 'from-green-600 to-teal-700',
   staff: 'from-cyan-600 to-blue-700',
