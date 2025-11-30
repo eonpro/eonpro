@@ -70,6 +70,8 @@ export default function ClinicDetailPage() {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [lookingUpNpi, setLookingUpNpi] = useState(false);
+  const [npiError, setNpiError] = useState('');
   const [newUser, setNewUser] = useState({
     email: '',
     firstName: '',
@@ -77,6 +79,12 @@ export default function ClinicDetailPage() {
     role: 'ADMIN',
     password: '',
     sendInvite: true,
+    // Provider-specific fields
+    npi: '',
+    deaNumber: '',
+    licenseNumber: '',
+    licenseState: '',
+    specialty: '',
   });
   
   const [formData, setFormData] = useState<{
@@ -196,6 +204,47 @@ export default function ClinicDetailPage() {
     }
   };
 
+  // NPI Lookup using NPPES API
+  const lookupNpi = async () => {
+    if (!newUser.npi || newUser.npi.length !== 10) {
+      setNpiError('NPI must be 10 digits');
+      return;
+    }
+    
+    setLookingUpNpi(true);
+    setNpiError('');
+    
+    try {
+      // NPPES NPI Registry API
+      const response = await fetch(
+        `https://npiregistry.cms.hhs.gov/api/?version=2.1&number=${newUser.npi}`
+      );
+      const data = await response.json();
+      
+      if (data.result_count > 0) {
+        const provider = data.results[0];
+        const basic = provider.basic;
+        
+        // Auto-fill provider information
+        setNewUser(prev => ({
+          ...prev,
+          firstName: basic.first_name || prev.firstName,
+          lastName: basic.last_name || prev.lastName,
+          specialty: provider.taxonomies?.[0]?.desc || prev.specialty,
+        }));
+        
+        setNpiError('');
+      } else {
+        setNpiError('NPI not found in registry');
+      }
+    } catch (error) {
+      console.error('NPI lookup failed:', error);
+      setNpiError('Failed to lookup NPI. Please enter information manually.');
+    } finally {
+      setLookingUpNpi(false);
+    }
+  };
+
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddingUser(true);
@@ -222,7 +271,13 @@ export default function ClinicDetailPage() {
           role: 'ADMIN',
           password: '',
           sendInvite: true,
+          npi: '',
+          deaNumber: '',
+          licenseNumber: '',
+          licenseState: '',
+          specialty: '',
         });
+        setNpiError('');
         fetchClinicUsers();
         alert(`User created successfully!${newUser.sendInvite ? ' An invitation email has been sent.' : ''}`);
       } else {
@@ -818,10 +873,12 @@ export default function ClinicDetailPage() {
 
       {/* Add User Modal */}
       {showAddUserModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-8">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 my-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Add New User</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {newUser.role === 'PROVIDER' ? 'Add New Provider' : 'Add New User'}
+              </h3>
               <button
                 onClick={() => setShowAddUserModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -830,7 +887,116 @@ export default function ClinicDetailPage() {
               </button>
             </div>
             
-            <form onSubmit={handleAddUser} className="p-6 space-y-4">
+            <form onSubmit={handleAddUser} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Role Selection First */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="ADMIN">Admin - Full clinic access</option>
+                  <option value="PROVIDER">Provider - Patient care & prescriptions</option>
+                  <option value="STAFF">Staff - Limited administrative access</option>
+                  <option value="SUPPORT">Support - Customer service access</option>
+                </select>
+              </div>
+
+              {/* Provider-specific fields */}
+              {newUser.role === 'PROVIDER' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+                  <h4 className="font-medium text-blue-900 flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Provider Credentials
+                  </h4>
+                  
+                  {/* NPI Lookup */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">NPI Number *</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        required={newUser.role === 'PROVIDER'}
+                        value={newUser.npi}
+                        onChange={(e) => setNewUser({ ...newUser, npi: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        placeholder="10-digit NPI"
+                        maxLength={10}
+                      />
+                      <button
+                        type="button"
+                        onClick={lookupNpi}
+                        disabled={lookingUpNpi || newUser.npi.length !== 10}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm whitespace-nowrap"
+                      >
+                        {lookingUpNpi ? 'Looking up...' : 'Lookup NPI'}
+                      </button>
+                    </div>
+                    {npiError && (
+                      <p className="text-xs text-red-600 mt-1">{npiError}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Enter NPI and click lookup to auto-fill provider info</p>
+                  </div>
+
+                  {/* DEA Number */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">DEA Number</label>
+                    <input
+                      type="text"
+                      value={newUser.deaNumber}
+                      onChange={(e) => setNewUser({ ...newUser, deaNumber: e.target.value.toUpperCase() })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      placeholder="e.g., AB1234567"
+                      maxLength={9}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Required for prescribing controlled substances</p>
+                  </div>
+
+                  {/* License */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">License Number *</label>
+                      <input
+                        type="text"
+                        required={newUser.role === 'PROVIDER'}
+                        value={newUser.licenseNumber}
+                        onChange={(e) => setNewUser({ ...newUser, licenseNumber: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        placeholder="License #"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                      <select
+                        required={newUser.role === 'PROVIDER'}
+                        value={newUser.licenseState}
+                        onChange={(e) => setNewUser({ ...newUser, licenseState: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      >
+                        <option value="">Select State</option>
+                        {['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'].map(state => (
+                          <option key={state} value={state}>{state}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Specialty */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
+                    <input
+                      type="text"
+                      value={newUser.specialty}
+                      onChange={(e) => setNewUser({ ...newUser, specialty: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      placeholder="e.g., Family Medicine, Internal Medicine"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
@@ -866,20 +1032,6 @@ export default function ClinicDetailPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   placeholder="john@example.com"
                 />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                >
-                  <option value="ADMIN">Admin - Full clinic access</option>
-                  <option value="PROVIDER">Provider - Patient care access</option>
-                  <option value="STAFF">Staff - Limited administrative access</option>
-                  <option value="SUPPORT">Support - Customer service access</option>
-                </select>
               </div>
               
               <div>
@@ -920,7 +1072,7 @@ export default function ClinicDetailPage() {
                 </label>
               </div>
               
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setShowAddUserModal(false)}

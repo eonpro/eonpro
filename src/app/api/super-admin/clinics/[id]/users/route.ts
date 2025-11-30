@@ -99,7 +99,11 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     }
 
     const body = await req.json();
-    const { email, firstName, lastName, role, password, sendInvite } = body;
+    const { 
+      email, firstName, lastName, role, password, sendInvite,
+      // Provider-specific fields
+      npi, deaNumber, licenseNumber, licenseState, specialty 
+    } = body;
 
     // Validate required fields
     if (!email || !firstName || !lastName || !role || !password) {
@@ -107,6 +111,24 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
         { error: 'Email, first name, last name, role, and password are required' },
         { status: 400 }
       );
+    }
+
+    // Validate provider-specific required fields
+    if (role === 'PROVIDER') {
+      if (!npi || !licenseNumber || !licenseState) {
+        return NextResponse.json(
+          { error: 'NPI, license number, and license state are required for providers' },
+          { status: 400 }
+        );
+      }
+      
+      // Validate NPI format (10 digits)
+      if (!/^\d{10}$/.test(npi)) {
+        return NextResponse.json(
+          { error: 'NPI must be exactly 10 digits' },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if email is already in use
@@ -119,6 +141,19 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
         { error: 'A user with this email already exists' },
         { status: 400 }
       );
+    }
+
+    // Check if NPI is already in use (for providers)
+    if (role === 'PROVIDER' && npi) {
+      const existingProvider = await prisma.provider.findFirst({
+        where: { npi },
+      });
+      if (existingProvider) {
+        return NextResponse.json(
+          { error: 'A provider with this NPI already exists' },
+          { status: 400 }
+        );
+      }
     }
 
     // Validate role
@@ -155,7 +190,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
       },
     });
 
-    // If role is PROVIDER, also create a Provider record
+    // If role is PROVIDER, also create a Provider record with credentials
     if (role === 'PROVIDER') {
       await prisma.provider.create({
         data: {
@@ -164,9 +199,11 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
           lastName,
           passwordHash,
           clinicId,
-          userId: newUser.id,
-          specialty: 'General',
-          status: 'ACTIVE',
+          npi: npi,
+          dea: deaNumber || null,
+          licenseNumber: licenseNumber,
+          licenseState: licenseState,
+          titleLine: specialty || null,
         },
       });
     }
