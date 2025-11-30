@@ -1,6 +1,6 @@
 // API route for user's clinic management
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 // GET /api/user/clinics - Get all clinics the user belongs to
