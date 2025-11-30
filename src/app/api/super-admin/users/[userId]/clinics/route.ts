@@ -3,16 +3,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-// GET /api/super-admin/users/[userId]/clinics - Get all clinics a user belongs to
-async function handleGet(
-  req: NextRequest,
-  user: AuthUser,
-  { params }: { params: Promise<{ userId: string }> }
-) {
-  const { userId: userIdParam } = await params;
-  const userId = parseInt(userIdParam);
+// Helper to extract userId from URL path
+function extractUserId(req: NextRequest): number | null {
+  const url = new URL(req.url);
+  const pathParts = url.pathname.split('/');
+  // Path is /api/super-admin/users/[userId]/clinics
+  const userIdIndex = pathParts.findIndex(part => part === 'users') + 1;
+  if (userIdIndex > 0 && userIdIndex < pathParts.length) {
+    const userId = parseInt(pathParts[userIdIndex]);
+    return isNaN(userId) ? null : userId;
+  }
+  return null;
+}
 
-  if (isNaN(userId)) {
+// GET /api/super-admin/users/[userId]/clinics - Get all clinics a user belongs to
+async function handleGet(req: NextRequest, user: AuthUser) {
+  const userId = extractUserId(req);
+
+  if (!userId) {
     return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
   }
 
@@ -76,15 +84,10 @@ async function handleGet(
 }
 
 // POST /api/super-admin/users/[userId]/clinics - Add user to a clinic
-async function handlePost(
-  req: NextRequest,
-  user: AuthUser,
-  { params }: { params: Promise<{ userId: string }> }
-) {
-  const { userId: userIdParam } = await params;
-  const userId = parseInt(userIdParam);
+async function handlePost(req: NextRequest, user: AuthUser) {
+  const userId = extractUserId(req);
 
-  if (isNaN(userId)) {
+  if (!userId) {
     return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
   }
 
@@ -175,15 +178,10 @@ async function handlePost(
 }
 
 // DELETE /api/super-admin/users/[userId]/clinics - Remove user from a clinic
-async function handleDelete(
-  req: NextRequest,
-  user: AuthUser,
-  { params }: { params: Promise<{ userId: string }> }
-) {
-  const { userId: userIdParam } = await params;
-  const userId = parseInt(userIdParam);
+async function handleDelete(req: NextRequest, user: AuthUser) {
+  const userId = extractUserId(req);
 
-  if (isNaN(userId)) {
+  if (!userId) {
     return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
   }
 
@@ -237,4 +235,3 @@ async function handleDelete(
 export const GET = withAuth(handleGet);
 export const POST = withAuth(handlePost);
 export const DELETE = withAuth(handleDelete);
-
