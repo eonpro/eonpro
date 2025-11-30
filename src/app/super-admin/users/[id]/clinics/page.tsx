@@ -66,13 +66,7 @@ export default function UserClinicsPage() {
   };
 
   const fetchUserData = async () => {
-    try {
-      const token = getAuthToken();
-      // For now, we'll get user data from the clinics endpoint
-      // In a full implementation, you'd have a /api/super-admin/users/[id] endpoint
-    } catch (error) {
-      console.error('Error fetching user:', error);
-    }
+    // User data is now fetched along with clinics
   };
 
   const fetchUserClinics = async () => {
@@ -86,10 +80,27 @@ export default function UserClinicsPage() {
         const data = await response.json();
         setUserClinics(data.userClinics || []);
         
-        // Extract user info from first clinic assignment if available
-        if (data.userClinics?.[0]) {
-          // We'll need to fetch user separately or include in response
+        // Set user data from the response
+        if (data.user) {
+          setUser(data.user);
         }
+        
+        // If no userClinics but there's a legacy clinic, show that
+        if ((!data.userClinics || data.userClinics.length === 0) && data.legacyClinic) {
+          // Create a pseudo UserClinic entry from legacy data
+          setUserClinics([{
+            id: 0,
+            clinicId: data.legacyClinic.id,
+            role: data.user?.role || 'STAFF',
+            isPrimary: true,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            clinic: data.legacyClinic,
+          }]);
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
       }
     } catch (error) {
       console.error('Error fetching user clinics:', error);
@@ -241,12 +252,15 @@ export default function UserClinicsPage() {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl font-bold text-teal-700">
-                  {userClinics[0]?.clinic?.name?.charAt(0) || 'U'}
+                  {user ? `${user.firstName?.charAt(0) || ''}${user.lastName?.charAt(0) || ''}` : 'U'}
                 </span>
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">User #{userId}</h2>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {user ? `${user.firstName} ${user.lastName}` : `User #${userId}`}
+                </h2>
                 <p className="text-gray-500">
+                  {user?.email && <span className="block text-sm">{user.email}</span>}
                   Assigned to {userClinics.length} clinic{userClinics.length !== 1 ? 's' : ''}
                 </p>
               </div>

@@ -30,31 +30,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   }
 
   try {
-    const userClinics = await prisma.userClinic.findMany({
-      where: { userId },
-      include: {
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-            subdomain: true,
-            customDomain: true,
-            logoUrl: true,
-            primaryColor: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: [
-        { isPrimary: 'desc' },
-        { createdAt: 'asc' },
-      ],
-    });
-
-    // Also get legacy clinic assignment
+    // First, get the user's basic info
     const userData = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
         clinicId: true,
         clinic: {
           select: {
@@ -70,14 +54,55 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       },
     });
 
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Try to get UserClinic records (may not exist if table not migrated)
+    let userClinics: any[] = [];
+    try {
+      if (prisma.userClinic) {
+        userClinics = await prisma.userClinic.findMany({
+          where: { userId },
+          include: {
+            clinic: {
+              select: {
+                id: true,
+                name: true,
+                subdomain: true,
+                customDomain: true,
+                logoUrl: true,
+                primaryColor: true,
+                status: true,
+              },
+            },
+          },
+          orderBy: [
+            { isPrimary: 'desc' },
+            { createdAt: 'asc' },
+          ],
+        });
+      }
+    } catch (ucError) {
+      console.warn('UserClinic table may not exist:', ucError);
+      // Fall back to legacy clinic assignment
+    }
+
     return NextResponse.json({
+      user: {
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role,
+      },
       userClinics,
-      legacyClinic: userData?.clinic,
+      legacyClinic: userData.clinic,
     });
   } catch (error: any) {
     console.error('Error fetching user clinics:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch user clinics' },
+      { error: error.message || 'Failed to fetch user clinics' },
       { status: 500 }
     );
   }
@@ -122,12 +147,31 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
 
+    // Check if UserClinic table exists
+    if (!prisma.userClinic) {
+      // Fallback: just update the user's clinicId
+      await prisma.user.update({
+        where: { id: userId },
+        data: { clinicId },
+      });
+      
+      return NextResponse.json({
+        message: `User assigned to ${clinic.name}`,
+        userClinic: null,
+      });
+    }
+
     // Check if assignment already exists
-    const existingAssignment = await prisma.userClinic.findUnique({
-      where: {
-        userId_clinicId: { userId, clinicId },
-      },
-    });
+    let existingAssignment = null;
+    try {
+      existingAssignment = await prisma.userClinic.findUnique({
+        where: {
+          userId_clinicId: { userId, clinicId },
+        },
+      });
+    } catch (e) {
+      // Table might not exist, continue
+    }
 
     if (existingAssignment) {
       return NextResponse.json(
@@ -138,31 +182,45 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     // If setting as primary, unset other primaries
     if (isPrimary) {
-      await prisma.userClinic.updateMany({
-        where: { userId, isPrimary: true },
-        data: { isPrimary: false },
-      });
+      try {
+        await prisma.userClinic.updateMany({
+          where: { userId, isPrimary: true },
+          data: { isPrimary: false },
+        });
+      } catch (e) {
+        // Ignore if table doesn't exist
+      }
     }
 
     // Create the assignment
-    const userClinic = await prisma.userClinic.create({
-      data: {
-        userId,
-        clinicId,
-        role: role || targetUser.role,
-        isPrimary: isPrimary || false,
-        isActive: true,
-      },
-      include: {
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-            subdomain: true,
+    let userClinic = null;
+    try {
+      userClinic = await prisma.userClinic.create({
+        data: {
+          userId,
+          clinicId,
+          role: role || targetUser.role,
+          isPrimary: isPrimary || false,
+          isActive: true,
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (e: any) {
+      console.warn('Could not create UserClinic record:', e.message);
+      // Fallback: update user's clinicId
+      await prisma.user.update({
+        where: { id: userId },
+        data: { clinicId },
+      });
+    }
 
     return NextResponse.json({
       userClinic,
