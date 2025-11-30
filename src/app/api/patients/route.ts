@@ -78,11 +78,12 @@ export const POST = withClinicalAuth(async (req: NextRequest, user) => {
     // Encrypt PHI fields before storing
     const encryptedData = encryptPatientPHI(parsed.data, ['email', 'phone', 'dob']);
     
-    // Create patient (clinicId is automatically added by Prisma proxy)
+    // Create patient with explicit clinicId
     const newPatient = await tx.patient.create({
       data: {
         ...encryptedData,
         patientId,
+        clinicId: user.clinicId || 1, // Use user's clinic or default to 1
         notes: parsed.data.notes ?? null,
         tags: parsed.data.tags ?? [],
         source: "api",

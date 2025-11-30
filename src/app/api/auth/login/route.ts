@@ -136,6 +136,7 @@ async function loginHandler(req: NextRequest) {
       email: user.email,
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
       role: user.role || role.toUpperCase(),
+      clinicId: 1, // Default clinic ID - in multi-tenant setup, get from user's clinic assignment
     };
 
     // Add permissions and features if available
