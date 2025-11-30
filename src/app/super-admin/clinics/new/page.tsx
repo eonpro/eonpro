@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, Save, Building2, Globe, Palette, Mail, 
@@ -12,6 +12,28 @@ export default function CreateClinicPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
+
+  useEffect(() => {
+    // Check if user is super admin
+    const user = localStorage.getItem('user');
+    const token = localStorage.getItem('auth-token');
+    
+    if (!token) {
+      setError('Please log in to access this page');
+      setTimeout(() => router.push('/login'), 2000);
+      return;
+    }
+    
+    if (user) {
+      const userData = JSON.parse(user);
+      const role = userData.role?.toLowerCase();
+      if (role !== 'super_admin') {
+        setError('Access denied. Super Admin privileges required.');
+        setTimeout(() => router.push('/admin'), 2000);
+        return;
+      }
+    }
+  }, [router]);
 
   const [formData, setFormData] = useState({
     // Basic Info
