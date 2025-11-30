@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { AddressInput, AddressData } from "@/components/AddressAutocomplete";
 import { LOGOS_PRODUCTS } from "@/data/logosProducts";
 import { MEDS, MedicationConfig, SigTemplate } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
@@ -694,23 +694,25 @@ export default function PrescriptionForm({
             value={form.patient.email}
             onChange={(e: any) => updatePatient("email", e.target.value)}
           />
-          <AddressAutocomplete
-            value={form.patient.address1}
-            onChange={(value: any) => {
-              setPatientAddressLocked(false);
-              updatePatient("address1", value);
-            }}
-            onAddressSelect={({ address1, city, state, zip }) => {
-              setPatientAddressLocked(true);
-              updatePatient("address1", address1);
-              updatePatient("city", city);
-              updatePatient("state", state);
-              updatePatient("zip", zip);
-            }}
-            placeholder="Address Line 1"
-            className="col-span-2"
-            inputClassName="border p-2 w-full"
-          />
+          <div className="col-span-2">
+            <AddressInput
+              value={form.patient.address1}
+              onChange={(value: string, parsed?: AddressData) => {
+                if (parsed) {
+                  setPatientAddressLocked(true);
+                  updatePatient("address1", parsed.address1);
+                  updatePatient("city", parsed.city);
+                  updatePatient("state", parsed.state);
+                  updatePatient("zip", parsed.zip);
+                } else {
+                  setPatientAddressLocked(false);
+                  updatePatient("address1", value);
+                }
+              }}
+              placeholder="Address Line 1"
+              className="w-full"
+            />
+          </div>
           <input
             placeholder="Apartment / Suite"
             className="border p-2 col-span-2"

@@ -1,6 +1,6 @@
 "use client";
 
-import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { AddressInput, AddressData } from "@/components/AddressAutocomplete";
 import { formatDobInput } from "@/lib/format";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import { ChangeEvent, useState } from "react";
@@ -181,19 +181,23 @@ export default function EditPatientForm({ patient, documents }: Props) {
           value={form.email}
           onChange={(e: any) => update("email", e.target.value)}
         />
-        <AddressAutocomplete
-          value={form.address1}
-          onChange={(value: any) => update("address1", value)}
-          onAddressSelect={({ address1, city, state, zip }) => {
-            update("address1", address1);
-            update("city", city);
-            update("state", state);
-            update("zip", zip);
-          }}
-          placeholder="Address Line 1"
-          className="col-span-2"
-          inputClassName="border p-2 w-full"
-        />
+        <div className="col-span-2">
+          <AddressInput
+            value={form.address1}
+            onChange={(value: string, parsed?: AddressData) => {
+              if (parsed) {
+                update("address1", parsed.address1);
+                update("city", parsed.city);
+                update("state", parsed.state);
+                update("zip", parsed.zip);
+              } else {
+                update("address1", value);
+              }
+            }}
+            placeholder="Address Line 1"
+            className="w-full"
+          />
+        </div>
         <input
           className="border p-2 col-span-2"
           placeholder="Apartment / Suite"
