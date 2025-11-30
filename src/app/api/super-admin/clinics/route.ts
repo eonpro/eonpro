@@ -137,18 +137,33 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       },
     });
 
-    // Create audit log
-    await prisma.clinicAuditLog.create({
-      data: {
-        clinicId: clinic.id,
-        action: 'CREATE',
-        userId: user.id,
-        details: {
-          createdBy: user.email,
-          initialSettings: settings,
-        },
-      },
-    });
+    // Create audit log (optional - don't fail if user doesn't exist in DB)
+    try {
+      // Check if user exists in database before creating audit log
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+      });
+      
+      if (dbUser) {
+        await prisma.clinicAuditLog.create({
+          data: {
+            clinicId: clinic.id,
+            action: 'CREATE',
+            userId: user.id,
+            details: {
+              createdBy: user.email,
+              initialSettings: settings,
+            },
+          },
+        });
+      } else {
+        // Log without userId if user doesn't exist in DB
+        console.log(`Clinic ${clinic.id} created by ${user.email} (user not in DB)`);
+      }
+    } catch (auditError) {
+      // Don't fail the request if audit log fails
+      console.error('Failed to create audit log:', auditError);
+    }
 
     return NextResponse.json({
       clinic,
