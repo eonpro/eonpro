@@ -1,6 +1,6 @@
 "use client";
 
-import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { AddressInput, AddressData } from "@/components/AddressAutocomplete";
 import { formatDobInput } from "@/lib/format";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import Link from "next/link";
@@ -275,23 +275,25 @@ export default function PatientsPage() {
             value={form.email}
             onChange={(e: any) => updateForm("email", e.target.value)}
           />
-        <AddressAutocomplete
-          value={form.address1}
-          onChange={(value: any) => {
-            setAddressLocked(false);
-            updateForm("address1", value);
-          }}
-          onAddressSelect={({ address1, city, state, zip }) => {
-            setAddressLocked(true);
-            updateForm("address1", address1);
-            updateForm("city", city);
-            updateForm("state", state);
-            updateForm("zip", zip);
-          }}
-          placeholder="Address Line 1"
-          className="col-span-2"
-          inputClassName="border p-2 w-full"
-        />
+        <div className="col-span-2">
+          <AddressInput
+            value={form.address1}
+            onChange={(value: string, parsed?: AddressData) => {
+              if (parsed) {
+                setAddressLocked(true);
+                updateForm("address1", parsed.address1);
+                updateForm("city", parsed.city);
+                updateForm("state", parsed.state);
+                updateForm("zip", parsed.zip);
+              } else {
+                setAddressLocked(false);
+                updateForm("address1", value);
+              }
+            }}
+            placeholder="Address Line 1"
+            className="w-full"
+          />
+        </div>
         <input
           className="border p-2 col-span-2"
           placeholder="Apartment / Suite"
