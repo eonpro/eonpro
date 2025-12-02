@@ -38,7 +38,6 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
         _count: {
           select: {
             patients: true,
-            providers: true,
             users: true,
           }
         }
@@ -52,7 +51,24 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       );
     }
 
-    return NextResponse.json({ clinic });
+    // Count providers (users with role PROVIDER) for this clinic
+    const providerCount = await prisma.user.count({
+      where: {
+        clinicId: clinic.id,
+        role: 'PROVIDER',
+      },
+    });
+
+    // Add provider count to the response
+    const clinicWithProviderCount = {
+      ...clinic,
+      _count: {
+        ...clinic._count,
+        providers: providerCount,
+      },
+    };
+
+    return NextResponse.json({ clinic: clinicWithProviderCount });
   } catch (error: any) {
     console.error('Error fetching clinic:', error);
     return NextResponse.json(
