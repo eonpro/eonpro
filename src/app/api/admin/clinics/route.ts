@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
         _count: {
           select: {
             patients: true,
-            providers: true,
             users: true,
             orders: true,
             invoices: true,
@@ -28,7 +27,26 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    return NextResponse.json(clinics);
+    // Count providers (users with role PROVIDER) per clinic
+    const clinicsWithProviderCount = await Promise.all(
+      clinics.map(async (clinic) => {
+        const providerCount = await prisma.user.count({
+          where: {
+            clinicId: clinic.id,
+            role: 'PROVIDER',
+          },
+        });
+        return {
+          ...clinic,
+          _count: {
+            ...clinic._count,
+            providers: providerCount,
+          },
+        };
+      })
+    );
+    
+    return NextResponse.json(clinicsWithProviderCount);
   } catch (error) {
     logger.error('Error fetching clinics:', error);
     return NextResponse.json(

@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
         _count: {
           select: {
             patients: true,
-            providers: true,
           }
         }
       },
@@ -35,17 +34,27 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // Transform the data
-    const transformedClinics = clinics.map(clinic => ({
-      id: clinic.id,
-      name: clinic.name,
-      subdomain: clinic.subdomain,
-      logoUrl: clinic.logoUrl,
-      status: clinic.status,
-      billingPlan: clinic.billingPlan,
-      patientCount: clinic._count.patients,
-      providerCount: clinic._count.providers,
-    }));
+    // Count providers (users with role PROVIDER) per clinic
+    const transformedClinics = await Promise.all(
+      clinics.map(async (clinic) => {
+        const providerCount = await prisma.user.count({
+          where: {
+            clinicId: clinic.id,
+            role: 'PROVIDER',
+          },
+        });
+        return {
+          id: clinic.id,
+          name: clinic.name,
+          subdomain: clinic.subdomain,
+          logoUrl: clinic.logoUrl,
+          status: clinic.status,
+          billingPlan: clinic.billingPlan,
+          patientCount: clinic._count.patients,
+          providerCount: providerCount,
+        };
+      })
+    );
     
     return NextResponse.json(transformedClinics);
   } catch (error) {

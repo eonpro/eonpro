@@ -22,7 +22,6 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         _count: {
           select: {
             patients: true,
-            providers: true,
             users: true,
           }
         }
@@ -30,12 +29,34 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       orderBy: { createdAt: 'desc' },
     });
 
+    // Count providers (users with role PROVIDER) per clinic
+    const clinicsWithProviderCount = await Promise.all(
+      clinics.map(async (clinic) => {
+        const providerCount = await prisma.user.count({
+          where: {
+            clinicId: clinic.id,
+            role: 'PROVIDER',
+          },
+        });
+        return {
+          ...clinic,
+          _count: {
+            ...clinic._count,
+            providers: providerCount,
+          },
+        };
+      })
+    );
+
     // Get total stats
     const totalPatients = await prisma.patient.count();
-    const totalProviders = await prisma.provider.count();
+    // Count total providers as users with PROVIDER role
+    const totalProviders = await prisma.user.count({
+      where: { role: 'PROVIDER' },
+    });
 
     return NextResponse.json({
-      clinics,
+      clinics: clinicsWithProviderCount,
       totalPatients,
       totalProviders,
       totalClinics: clinics.length,
