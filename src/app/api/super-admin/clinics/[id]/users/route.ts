@@ -227,6 +227,14 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
             titleLine: specialty || null,
           },
         });
+
+        // Link the Provider record to the User
+        if (providerRecord) {
+          await prisma.user.update({
+            where: { id: newUser.id },
+            data: { providerId: providerRecord.id },
+          });
+        }
       } catch (providerError: any) {
         console.error('Error creating provider record:', providerError);
         // Don't fail the whole operation - the user was created
