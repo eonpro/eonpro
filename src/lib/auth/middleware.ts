@@ -247,15 +247,17 @@ export function withAuth(
 
 /**
  * Middleware for admin-only routes
+ * Also allows super_admin to access all admin routes
  */
 export function withAdminAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
 ) {
-  return withAuth(handler, { roles: ['admin'] });
+  return withAuth(handler, { roles: ['super_admin', 'admin'] });
 }
 
 /**
  * Middleware for provider routes
+ * Also allows super_admin to access all provider routes
  */
 export function withProviderAuth(
   handler: (req: NextRequest, user: AuthUser, context?: any) => Promise<Response>
@@ -263,7 +265,7 @@ export function withProviderAuth(
   return async (req: NextRequest, context?: any) => {
     const authHandler = withAuth(
       (authedReq: NextRequest, user: AuthUser) => handler(authedReq, user, context),
-      { roles: ['admin', 'provider'] }
+      { roles: ['super_admin', 'admin', 'provider'] }
     );
     return authHandler(req);
   };
@@ -271,6 +273,7 @@ export function withProviderAuth(
 
 /**
  * Middleware for clinical routes (providers and staff)
+ * Also allows super_admin to access all clinical routes
  */
 export function withClinicalAuth(
   handler: (req: NextRequest, user: AuthUser, context?: any) => Promise<Response>
@@ -278,7 +281,7 @@ export function withClinicalAuth(
   return async (req: NextRequest, context?: any) => {
     const authHandler = withAuth(
       (authedReq: NextRequest, user: AuthUser) => handler(authedReq, user, context),
-      { roles: ['admin', 'provider', 'staff'] }
+      { roles: ['super_admin', 'admin', 'provider', 'staff'] }
     );
     return authHandler(req);
   };
@@ -286,11 +289,12 @@ export function withClinicalAuth(
 
 /**
  * Middleware for influencer routes
+ * Also allows super_admin to access all influencer routes
  */
 export function withInfluencerAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
 ) {
-  return withAuth(handler, { roles: ['admin', 'influencer'] });
+  return withAuth(handler, { roles: ['super_admin', 'admin', 'influencer'] });
 }
 
 /**
