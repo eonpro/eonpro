@@ -24,12 +24,31 @@ body {
 }
 
 input,
-select,
 textarea {
   border-radius: 12px;
   border: 1px solid rgba(17, 24, 39, 0.15);
   padding: 0.65rem 0.9rem;
   background-color: #fff;
+}
+
+/* Ensure select dropdowns work properly across all browsers */
+select {
+  border-radius: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.15);
+  padding: 0.65rem 0.9rem;
+  background-color: #fff;
+  cursor: pointer;
+  /* Ensure native dropdown behavior works */
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  appearance: menulist;
+}
+
+select:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #10b981;
+  border-color: #10b981;
 }
 
 .btn-ghost {
