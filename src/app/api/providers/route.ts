@@ -5,10 +5,41 @@ import { NextRequest } from "next/server";
 import { logger } from '@/lib/logger';
 
 export async function GET() {
-  const providers = await prisma.provider.findMany({
+  // Get providers from Provider table
+  const providerRecords = await prisma.provider.findMany({
     orderBy: { createdAt: "desc" },
   });
-  return Response.json({ providers });
+
+  // Also get users with PROVIDER role who might not have a Provider record
+  const providerUsers = await prisma.user.findMany({
+    where: {
+      role: 'PROVIDER',
+      providerId: null, // Only get users without a linked Provider record
+    },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      createdAt: true,
+    },
+  });
+
+  // Convert User records to provider-like format for UI compatibility
+  const userProviders = providerUsers.map(user => ({
+    id: user.id * -1, // Use negative ID to differentiate from Provider table
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    npi: 'Pending', // No NPI yet
+    createdAt: user.createdAt,
+    isUserOnly: true, // Flag to identify these
+  }));
+
+  // Combine both sources
+  const allProviders = [...providerRecords, ...userProviders];
+
+  return Response.json({ providers: allProviders });
 }
 
 export async function POST(req: NextRequest) {

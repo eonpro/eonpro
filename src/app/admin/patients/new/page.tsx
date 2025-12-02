@@ -237,7 +237,8 @@ export default function NewPatientPage() {
                 value={formData.gender}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer bg-white appearance-none"
+                style={{ WebkitAppearance: 'menulist', MozAppearance: 'menulist' }}
               >
                 <option value="">Select gender</option>
                 <option value="m">Male</option>
