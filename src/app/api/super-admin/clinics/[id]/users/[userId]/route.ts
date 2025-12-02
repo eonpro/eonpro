@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import bcrypt from 'bcryptjs';
 
 /**
  * Middleware to check for Super Admin role
@@ -25,7 +26,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
   try {
     const clinicId = parseInt(params.id);
     const userId = parseInt(params.userId);
-    
+
     if (isNaN(clinicId) || isNaN(userId)) {
       return NextResponse.json(
         { error: 'Invalid clinic or user ID' },
@@ -34,7 +35,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
     }
 
     const clinicUser = await prisma.user.findFirst({
-      where: { 
+      where: {
         id: userId,
         clinicId,
       },
@@ -69,13 +70,13 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
 
 /**
  * PUT /api/super-admin/clinics/[id]/users/[userId]
- * Update a user
+ * Update a user (including password reset)
  */
 export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, params: { id: string; userId: string }) => {
   try {
     const clinicId = parseInt(params.id);
     const userId = parseInt(params.userId);
-    
+
     if (isNaN(clinicId) || isNaN(userId)) {
       return NextResponse.json(
         { error: 'Invalid clinic or user ID' },
@@ -85,7 +86,7 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
 
     // Verify user belongs to this clinic
     const existingUser = await prisma.user.findFirst({
-      where: { 
+      where: {
         id: userId,
         clinicId,
       },
@@ -99,16 +100,30 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
     }
 
     const body = await req.json();
-    const { firstName, lastName, role, status } = body;
+    const { firstName, lastName, role, status, password } = body;
+
+    // Build update data
+    const updateData: any = {};
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    if (role) updateData.role = role;
+    if (status) updateData.status = status;
+
+    // Handle password reset
+    if (password) {
+      if (password.length < 8) {
+        return NextResponse.json(
+          { error: 'Password must be at least 8 characters' },
+          { status: 400 }
+        );
+      }
+      updateData.passwordHash = await bcrypt.hash(password, 10);
+      updateData.lastPasswordChange = new Date();
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        ...(firstName && { firstName }),
-        ...(lastName && { lastName }),
-        ...(role && { role }),
-        ...(status && { status }),
-      },
+      data: updateData,
       select: {
         id: true,
         email: true,
@@ -123,7 +138,7 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
 
     return NextResponse.json({
       user: updatedUser,
-      message: 'User updated successfully',
+      message: password ? 'User updated and password reset successfully' : 'User updated successfully',
     });
   } catch (error: any) {
     console.error('Error updating user:', error);
@@ -142,7 +157,7 @@ export const DELETE = withSuperAdminAuth(async (req: NextRequest, user: AuthUser
   try {
     const clinicId = parseInt(params.id);
     const userId = parseInt(params.userId);
-    
+
     if (isNaN(clinicId) || isNaN(userId)) {
       return NextResponse.json(
         { error: 'Invalid clinic or user ID' },
@@ -152,7 +167,7 @@ export const DELETE = withSuperAdminAuth(async (req: NextRequest, user: AuthUser
 
     // Verify user belongs to this clinic
     const existingUser = await prisma.user.findFirst({
-      where: { 
+      where: {
         id: userId,
         clinicId,
       },

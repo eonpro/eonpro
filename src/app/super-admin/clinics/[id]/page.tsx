@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  ArrowLeft, Building2, Globe, Palette, Save, Trash2, 
+import {
+  ArrowLeft, Building2, Globe, Palette, Save, Trash2,
   Users, Activity, Calendar, Settings, AlertTriangle, Plus,
   UserPlus, Mail, Shield, X, Eye, EyeOff
 } from 'lucide-react';
@@ -55,15 +55,15 @@ export default function ClinicDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clinicId = params.id;
-  
+
   // Get initial tab from URL query param
   const initialTab = searchParams.get('tab') as 'overview' | 'branding' | 'features' | 'users' | 'settings' || 'overview';
-  
+
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'branding' | 'features' | 'users' | 'settings'>(initialTab);
-  
+
   // Users state
   const [clinicUsers, setClinicUsers] = useState<ClinicUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -72,6 +72,11 @@ export default function ClinicDetailPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [lookingUpNpi, setLookingUpNpi] = useState(false);
   const [npiError, setNpiError] = useState('');
+
+  // Password reset state
+  const [resetPasswordModal, setResetPasswordModal] = useState<{ show: boolean; userId: number | null; userName: string }>({ show: false, userId: null, userName: '' });
+  const [newPassword, setNewPassword] = useState('');
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [newUser, setNewUser] = useState({
     email: '',
     firstName: '',
@@ -86,7 +91,7 @@ export default function ClinicDetailPage() {
     licenseState: '',
     specialty: '',
   });
-  
+
   const [formData, setFormData] = useState<{
     name: string;
     subdomain: string;
@@ -129,11 +134,11 @@ export default function ClinicDetailPage() {
       const response = await fetch(`/api/super-admin/clinics/${clinicId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         const clinicData = data.clinic;
-        
+
         const fetchedClinic: Clinic = {
           id: clinicData.id,
           name: clinicData.name,
@@ -160,7 +165,7 @@ export default function ClinicDetailPage() {
           },
           createdAt: clinicData.createdAt,
         };
-        
+
         setClinic(fetchedClinic);
         setFormData({
           name: fetchedClinic.name,
@@ -192,7 +197,7 @@ export default function ClinicDetailPage() {
       const response = await fetch(`/api/super-admin/clinics/${clinicId}/users`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setClinicUsers(data.users || []);
@@ -210,20 +215,20 @@ export default function ClinicDetailPage() {
       setNpiError('NPI must be 10 digits');
       return;
     }
-    
+
     setLookingUpNpi(true);
     setNpiError('');
-    
+
     try {
       // Use our proxy API to avoid CORS issues
       const response = await fetch(`/api/npi-lookup?npi=${newUser.npi}`);
       const data = await response.json();
-      
+
       if (!response.ok) {
         setNpiError(data.error || 'NPI not found in registry');
         return;
       }
-      
+
       // Auto-fill provider information from the lookup
       setNewUser(prev => ({
         ...prev,
@@ -233,7 +238,7 @@ export default function ClinicDetailPage() {
         licenseNumber: data.licenseNumber || prev.licenseNumber,
         licenseState: data.licenseState || prev.licenseState,
       }));
-      
+
       setNpiError('');
     } catch (error) {
       console.error('NPI lookup failed:', error);
@@ -246,7 +251,7 @@ export default function ClinicDetailPage() {
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddingUser(true);
-    
+
     try {
       const token = localStorage.getItem('auth-token');
       const response = await fetch(`/api/super-admin/clinics/${clinicId}/users`, {
@@ -259,7 +264,7 @@ export default function ClinicDetailPage() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         setShowAddUserModal(false);
         setNewUser({
@@ -293,7 +298,7 @@ export default function ClinicDetailPage() {
     if (!confirm('Are you sure you want to remove this user from the clinic?')) {
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('auth-token');
       const response = await fetch(`/api/super-admin/clinics/${clinicId}/users/${userId}`, {
@@ -310,6 +315,45 @@ export default function ClinicDetailPage() {
     } catch (error) {
       console.error('Error removing user:', error);
       alert('Failed to remove user');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordModal.userId || !newPassword) {
+      alert('Please enter a new password');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      alert('Password must be at least 8 characters');
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/users/${resetPasswordModal.userId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert(`Password reset successfully for ${resetPasswordModal.userName}`);
+        setResetPasswordModal({ show: false, userId: null, userName: '' });
+        setNewPassword('');
+      } else {
+        alert(data.error || 'Failed to reset password');
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('Failed to reset password');
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -364,7 +408,7 @@ export default function ClinicDetailPage() {
     if (!confirm('Are you sure you want to delete this clinic? This action cannot be undone.')) {
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('auth-token');
       const response = await fetch(`/api/super-admin/clinics/${clinicId}`, {
@@ -414,7 +458,7 @@ export default function ClinicDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link 
+              <Link
                 href="/super-admin/clinics"
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -424,8 +468,8 @@ export default function ClinicDetailPage() {
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-gray-900">{clinic.name}</h1>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    clinic.isActive 
-                      ? 'bg-green-100 text-green-700' 
+                    clinic.isActive
+                      ? 'bg-green-100 text-green-700'
                       : 'bg-red-100 text-red-700'
                   }`}>
                     {clinic.isActive ? 'Active' : 'Inactive'}
@@ -648,7 +692,7 @@ export default function ClinicDetailPage() {
               <div className="mt-6 p-6 bg-gray-50 rounded-lg">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Preview</h4>
                 <div className="flex items-center gap-4">
-                  <div 
+                  <div
                     className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold"
                     style={{ backgroundColor: formData.primaryColor }}
                   >
@@ -660,13 +704,13 @@ export default function ClinicDetailPage() {
                   </div>
                 </div>
                 <div className="flex gap-3 mt-4">
-                  <button 
+                  <button
                     className="px-4 py-2 rounded-lg text-white"
                     style={{ backgroundColor: formData.primaryColor }}
                   >
                     Primary Button
                   </button>
-                  <button 
+                  <button
                     className="px-4 py-2 rounded-lg text-white"
                     style={{ backgroundColor: formData.secondaryColor }}
                   >
@@ -690,7 +734,7 @@ export default function ClinicDetailPage() {
                   { key: 'pharmacy', label: 'Pharmacy Integration', description: 'E-prescriptions and pharmacy network' },
                   { key: 'ai', label: 'AI Assistant (Becca)', description: 'AI-powered clinical assistance' },
                 ].map((feature) => (
-                  <div 
+                  <div
                     key={feature.key}
                     className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
                   >
@@ -804,11 +848,21 @@ export default function ClinicDetailPage() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-500">
-                            {user.lastLogin 
-                              ? new Date(user.lastLogin).toLocaleDateString() 
+                            {user.lastLogin
+                              ? new Date(user.lastLogin).toLocaleDateString()
                               : 'Never'}
                           </td>
                           <td className="py-3 px-4 text-right space-x-2">
+                            <button
+                              onClick={() => setResetPasswordModal({
+                                show: true,
+                                userId: user.id,
+                                userName: `${user.firstName} ${user.lastName}`
+                              })}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                              Reset Password
+                            </button>
                             <button
                               onClick={() => window.open(`/super-admin/users/${user.id}/clinics`, '_blank')}
                               className="text-teal-600 hover:text-teal-800 text-sm font-medium"
@@ -893,7 +947,7 @@ export default function ClinicDetailPage() {
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddUser} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               {/* Role Selection First */}
               <div>
@@ -917,7 +971,7 @@ export default function ClinicDetailPage() {
                     <Shield className="h-4 w-4" />
                     Provider Credentials
                   </h4>
-                  
+
                   {/* NPI Lookup */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">NPI Number *</label>
@@ -1028,7 +1082,7 @@ export default function ClinicDetailPage() {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
                 <input
@@ -1040,7 +1094,7 @@ export default function ClinicDetailPage() {
                   placeholder="john@example.com"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Temporary Password *
@@ -1065,7 +1119,7 @@ export default function ClinicDetailPage() {
                 </div>
                 <p className="text-xs text-gray-500 mt-1">User will be prompted to change password on first login</p>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -1078,7 +1132,7 @@ export default function ClinicDetailPage() {
                   Send invitation email with login details
                 </label>
               </div>
-              
+
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
@@ -1106,6 +1160,68 @@ export default function ClinicDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {resetPasswordModal.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Reset Password
+              </h3>
+              <button
+                onClick={() => {
+                  setResetPasswordModal({ show: false, userId: null, userName: '' });
+                  setNewPassword('');
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                Set a new password for <span className="font-medium">{resetPasswordModal.userName}</span>
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password
+                </label>
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  placeholder="Min 8 characters"
+                  minLength={8}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetPasswordModal({ show: false, userId: null, userName: '' });
+                    setNewPassword('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleResetPassword}
+                  disabled={resettingPassword || newPassword.length < 8}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {resettingPassword ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
