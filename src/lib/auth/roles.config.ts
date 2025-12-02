@@ -23,33 +23,33 @@ export interface RoleConfig {
     deletePatients: boolean;
     viewPatientPHI: boolean;
     exportPatientData: boolean;
-    
+
     // Clinical Features
     createSoapNotes: boolean;
     prescribeRx: boolean;
     orderLabs: boolean;
     viewMedicalRecords: boolean;
     uploadDocuments: boolean;
-    
+
     // Administrative
     manageUsers: boolean;
     manageClinics: boolean;
     viewAnalytics: boolean;
     viewFinancials: boolean;
     manageSubscriptions: boolean;
-    
+
     // Communication
     internalMessaging: boolean;
     patientMessaging: boolean;
     ticketManagement: boolean;
     supportTickets: boolean;
-    
+
     // System
     systemSettings: boolean;
     auditLogs: boolean;
     apiAccess: boolean;
     bulkOperations: boolean;
-    
+
     // Commerce
     manageOrders: boolean;
     processPayments: boolean;
@@ -199,31 +199,30 @@ export const ADMIN_CONFIG: RoleConfig = {
   navigation: {
     primary: [
       { label: 'Dashboard', path: '/admin', icon: 'Home' },
-      { 
-        label: 'Patients', 
-        path: '/admin/patients', 
+      {
+        label: 'Patients',
+        path: '/patients',
         icon: 'Users',
         subItems: [
-          { label: 'All Patients', path: '/admin/patients', icon: 'UserCheck' },
+          { label: 'All Patients', path: '/patients', icon: 'UserCheck' },
           { label: 'New Intake', path: '/admin/patients/new', icon: 'UserPlus' },
           { label: 'Reports', path: '/admin/patients/reports', icon: 'FileText' },
         ]
       },
-      { 
-        label: 'Staff', 
-        path: '/admin/staff', 
+      {
+        label: 'Staff',
+        path: '/providers',
         icon: 'Briefcase',
         subItems: [
-          { label: 'Providers', path: '/admin/staff/providers', icon: 'Stethoscope' },
-          { label: 'Support Team', path: '/admin/staff/support', icon: 'Headphones' },
-          { label: 'Roles', path: '/admin/staff/roles', icon: 'Shield' },
+          { label: 'Providers', path: '/providers', icon: 'Stethoscope' },
+          { label: 'Manage Users', path: '/settings/users', icon: 'Users' },
         ]
       },
-      { label: 'Orders', path: '/admin/orders', icon: 'ShoppingCart' },
+      { label: 'Orders', path: '/orders', icon: 'ShoppingCart' },
+      { label: 'Intake Forms', path: '/intake-forms', icon: 'ClipboardList' },
       { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp' },
-      { label: 'Finance', path: '/admin/finance', icon: 'DollarSign' },
-      { label: 'Tickets', path: '/support/tickets', icon: 'Ticket' },
-      { label: 'Settings', path: '/admin/settings', icon: 'Settings' },
+      { label: 'Billing', path: '/admin/billing', icon: 'DollarSign' },
+      { label: 'Settings', path: '/settings', icon: 'Settings' },
     ],
     quick: [
       { label: 'Add Patient', action: 'add-patient', icon: 'UserPlus', color: 'blue' },
