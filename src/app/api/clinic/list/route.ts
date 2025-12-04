@@ -34,15 +34,24 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // Count providers (users with role PROVIDER) per clinic
+    // Count providers per clinic from both User table (role PROVIDER) and Provider table
     const transformedClinics = await Promise.all(
       clinics.map(async (clinic) => {
-        const providerCount = await prisma.user.count({
-          where: {
-            clinicId: clinic.id,
-            role: 'PROVIDER',
-          },
-        });
+        const [userProviderCount, providerTableCount] = await Promise.all([
+          prisma.user.count({
+            where: {
+              clinicId: clinic.id,
+              role: 'PROVIDER',
+            },
+          }),
+          prisma.provider.count({
+            where: {
+              clinicId: clinic.id,
+            },
+          }),
+        ]);
+        // Use the higher count (some providers may be in both tables)
+        const providerCount = Math.max(userProviderCount, providerTableCount);
         return {
           id: clinic.id,
           name: clinic.name,

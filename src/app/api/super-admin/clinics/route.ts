@@ -29,15 +29,24 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       orderBy: { createdAt: 'desc' },
     });
 
-    // Count providers (users with role PROVIDER) per clinic
+    // Count providers per clinic from both User table (role PROVIDER) and Provider table
     const clinicsWithProviderCount = await Promise.all(
       clinics.map(async (clinic) => {
-        const providerCount = await prisma.user.count({
-          where: {
-            clinicId: clinic.id,
-            role: 'PROVIDER',
-          },
-        });
+        const [userProviderCount, providerTableCount] = await Promise.all([
+          prisma.user.count({
+            where: {
+              clinicId: clinic.id,
+              role: 'PROVIDER',
+            },
+          }),
+          prisma.provider.count({
+            where: {
+              clinicId: clinic.id,
+            },
+          }),
+        ]);
+        // Use the higher count (some providers may be in both tables)
+        const providerCount = Math.max(userProviderCount, providerTableCount);
         return {
           ...clinic,
           _count: {
@@ -50,10 +59,13 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
 
     // Get total stats
     const totalPatients = await prisma.patient.count();
-    // Count total providers as users with PROVIDER role
-    const totalProviders = await prisma.user.count({
-      where: { role: 'PROVIDER' },
-    });
+    // Count total providers from both User table (role PROVIDER) and Provider table
+    const [userProviderCount, providerTableCount] = await Promise.all([
+      prisma.user.count({ where: { role: 'PROVIDER' } }),
+      prisma.provider.count(),
+    ]);
+    // Use the higher count (some providers may be in both tables)
+    const totalProviders = Math.max(userProviderCount, providerTableCount);
 
     return NextResponse.json({
       clinics: clinicsWithProviderCount,
