@@ -20,6 +20,15 @@ type Provider = {
   phone?: string | null;
   npiVerifiedAt?: string | null;
   signatureDataUrl?: string | null;
+  clinicId?: number | null;
+  clinic?: { name: string } | null;
+};
+
+type Clinic = {
+  id: number;
+  name: string;
+  subdomain: string;
+  status: string;
 };
 
 const TITLE_OPTIONS = [
@@ -38,8 +47,12 @@ const TITLE_OPTIONS = [
 
 export default function ProvidersPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>("");
+  const [userClinicId, setUserClinicId] = useState<number | null>(null);
+
   const providerInitialForm = {
     npi: "",
     firstName: "",
@@ -51,11 +64,44 @@ export default function ProvidersPage() {
     email: "",
     phone: "",
     signatureDataUrl: undefined as string | undefined,
+    clinicId: "" as string,
   };
   const [form, setForm] = useState(providerInitialForm);
   const [useSignaturePad, setUseSignaturePad] = useState(true);
   const [verifyingNpi, setVerifyingNpi] = useState(false);
   const [step, setStep] = useState<"npi" | "details">("npi");
+
+  // Check user role and fetch clinics if super admin
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      const role = user.role?.toLowerCase() || '';
+      setUserRole(role);
+      setUserClinicId(user.clinicId || null);
+
+      // If not super admin, set the clinic to user's clinic
+      if (role !== 'super_admin' && user.clinicId) {
+        setForm(prev => ({ ...prev, clinicId: String(user.clinicId) }));
+      }
+    }
+  }, []);
+
+  // Fetch clinics for super admin dropdown
+  const fetchClinics = async () => {
+    try {
+      const token = localStorage.getItem('auth-token');
+      const res = await fetch("/api/super-admin/clinics", {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClinics(data.clinics ?? []);
+      }
+    } catch (err: any) {
+      logger.error("Failed to fetch clinics:", err);
+    }
+  };
 
   const fetchProviders = async () => {
     try {
@@ -65,7 +111,7 @@ export default function ProvidersPage() {
       setProviders(data.providers ?? []);
     } catch (err: any) {
     // @ts-ignore
-   
+
       logger.error(err);
       setError("Failed to load providers");
     } finally {
@@ -75,13 +121,19 @@ export default function ProvidersPage() {
 
   useEffect(() => {
     fetchProviders();
-  }, []);
+    // Fetch clinics for super admin
+    if (userRole === 'super_admin') {
+      fetchClinics();
+    }
+  }, [userRole]);
 
   const updateForm = (k: string, v: string | null) =>
     setForm((f: any) => ({ ...f, [k]: v }));
 
   const resetForm = () => {
-    setForm(providerInitialForm);
+    // Preserve clinicId for non-super-admin users
+    const clinicIdToKeep = userRole !== 'super_admin' && userClinicId ? String(userClinicId) : "";
+    setForm({ ...providerInitialForm, clinicId: clinicIdToKeep });
     setUseSignaturePad(true);
     setStep("npi");
   };
@@ -133,7 +185,7 @@ export default function ProvidersPage() {
       setStep("details");
     } catch (err: any) {
     // @ts-ignore
-   
+
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     setError(errorMessage ?? "Failed to lookup NPI");
     } finally {
@@ -151,30 +203,37 @@ export default function ProvidersPage() {
         setError("NPI must be exactly 10 digits.");
         return;
       }
-      
+
+      // Validate clinic selection for super admin
+      if (userRole === 'super_admin' && !form.clinicId) {
+        setError("Please select a clinic for this provider.");
+        return;
+      }
+
       // Validate signature - check for actual data content
       if (!form.signatureDataUrl || form.signatureDataUrl.trim() === "") {
         setError("Provider signature is required for e-prescriptions. Please draw or upload a signature.");
         return;
       }
-      
+
       // Additional validation for base64 data
       if (!form.signatureDataUrl.startsWith("data:image/")) {
         setError("Invalid signature format. Please try drawing or uploading the signature again.");
         return;
       }
-      
+
       logger.debug("Submitting provider with signature:", { status: form.signatureDataUrl ? "Present" : "Missing" });
       logger.debug("Signature format:", { format: form.signatureDataUrl?.substring(0, 30) || "None" });
       setError(null);
-      
+
       const payload = {
         ...form,
         npi: form.npi.trim(),
         licenseState: form.licenseState?.trim() || null,
         signatureDataUrl: form.signatureDataUrl,
+        clinicId: form.clinicId ? parseInt(form.clinicId) : (userClinicId || null),
       };
-      
+
       const res = await fetch("/api/providers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,7 +248,7 @@ export default function ProvidersPage() {
       fetchProviders();
     } catch (err: any) {
     // @ts-ignore
-   
+
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     setError(errorMessage ?? "Failed to add provider");
     }
@@ -264,6 +323,38 @@ export default function ProvidersPage() {
 
         {step === "details" && (
           <>
+            {/* Clinic Selection - Required for Super Admin */}
+            {userRole === 'super_admin' && (
+              <div className="rounded-lg border bg-amber-50 border-amber-200 p-4 mb-4">
+                <label className="flex flex-col text-sm font-medium text-gray-700">
+                  <span className="flex items-center gap-2 mb-2">
+                    <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Assign to Clinic *
+                  </span>
+                  <select
+                    className="border border-amber-300 p-2 text-base rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    value={form.clinicId}
+                    onChange={(e: any) => updateForm("clinicId", e.target.value)}
+                    required
+                  >
+                    <option value="">Select a clinic…</option>
+                    {clinics
+                      .filter((c) => c.status === 'ACTIVE')
+                      .map((clinic) => (
+                        <option key={clinic.id} value={clinic.id}>
+                          {clinic.name} ({clinic.subdomain})
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-amber-700 mt-1">
+                    This provider will be assigned to the selected clinic
+                  </p>
+                </label>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col text-sm font-medium text-gray-600">
                 NPI (locked)
@@ -418,6 +509,7 @@ export default function ProvidersPage() {
             <thead className="bg-gray-100">
               <tr>
                 <th className="border px-2 py-1 text-left">Name</th>
+                <th className="border px-2 py-1 text-left">Clinic</th>
                 <th className="border px-2 py-1 text-left">NPI</th>
                 <th className="border px-2 py-1 text-left">License</th>
                 <th className="border px-2 py-1 text-left">DEA</th>
@@ -436,6 +528,15 @@ export default function ProvidersPage() {
                       #PROVIDER
                     </span>
                     <div className="text-xs text-gray-500">{provider.titleLine}</div>
+                  </td>
+                  <td className="border px-2 py-1">
+                    {provider.clinic ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                        {provider.clinic.name}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">Not assigned</span>
+                    )}
                   </td>
                   <td className="border px-2 py-1">{provider.npi}</td>
                   <td className="border px-2 py-1">

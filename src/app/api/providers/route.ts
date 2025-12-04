@@ -6,8 +6,18 @@ import { logger } from '@/lib/logger';
 
 export async function GET() {
   // Get all providers from Provider table (these have NPI and credentials)
+  // Include clinic info for display
   const providers = await prisma.provider.findMany({
     orderBy: { createdAt: "desc" },
+    include: {
+      clinic: {
+        select: {
+          id: true,
+          name: true,
+          subdomain: true,
+        }
+      }
+    }
   });
 
   return Response.json({ providers });
@@ -15,7 +25,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const parsed = providerSchema.safeParse(body);
+
+  // Extract clinicId separately as it's not in the schema
+  const { clinicId, ...providerData } = body;
+
+  const parsed = providerSchema.safeParse(providerData);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
     return Response.json(
@@ -50,13 +64,23 @@ export async function POST(req: NextRequest) {
         signatureDataUrl: data.signatureDataUrl ?? undefined,
         npiVerifiedAt: new Date(),
         npiRawResponse: registry as any,
+        // Add clinic assignment
+        clinicId: clinicId ? parseInt(clinicId) : null,
       },
+      include: {
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+          }
+        }
+      }
     });
 
     return Response.json({ provider });
   } catch (err: any) {
     // @ts-ignore
-   
+
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     logger.error("[PROVIDERS/POST] Failed to create provider", err);
     return Response.json(
