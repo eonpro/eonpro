@@ -147,7 +147,9 @@ export default function DemoLoginPage() {
 
     // Store appropriate token based on role
     localStorage.setItem('auth-token', user.token);
-    if (user.role === 'admin') {
+    if (user.role === 'super_admin') {
+      localStorage.setItem('super_admin-token', user.token);
+    } else if (user.role === 'admin') {
       localStorage.setItem('admin-token', user.token);
     } else if (user.role === 'provider') {
       localStorage.setItem('provider-token', user.token);

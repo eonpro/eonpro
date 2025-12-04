@@ -107,18 +107,20 @@ export default function PatientsPage() {
   const fetchPatients = async () => {
     try {
       setLoading(true);
-      // Get token from localStorage or cookies
-      const token = localStorage.getItem('auth-token') || 
-                   localStorage.getItem('admin-token') || 
+      // Get token from localStorage or cookies (check all possible token storage locations)
+      const token = localStorage.getItem('auth-token') ||
+                   localStorage.getItem('super_admin-token') ||
+                   localStorage.getItem('admin-token') ||
                    localStorage.getItem('provider-token') ||
+                   localStorage.getItem('SUPER_ADMIN-token') ||
                    sessionStorage.getItem('auth-token');
-      
+
       const res = await fetch("/api/patients", {
         headers: token ? {
           'Authorization': `Bearer ${token}`
         } : {}
       });
-      
+
       if (!res.ok) {
         if (res.status === 401) {
           setError("Please log in to view patients");
@@ -128,14 +130,14 @@ export default function PatientsPage() {
         }
         throw new Error('Failed to fetch patients');
       }
-      
+
       const data = await res.json();
       const patientData = data.patients ?? [];
       setPatients(patientData);
       setFilteredPatients(patientData);
     } catch (err: any) {
     // @ts-ignore
-   
+
       logger.error(err);
       setError("Failed to load patients");
     } finally {
@@ -159,7 +161,7 @@ export default function PatientsPage() {
         const id = patient.patientId?.toLowerCase() || "";
         const tags = toTagArray(patient.tags).join(" ").toLowerCase();
         const address = formatPatientAddress(patient).toLowerCase();
-        
+
         return (
           fullName.includes(query) ||
           email.includes(query) ||
@@ -191,10 +193,15 @@ export default function PatientsPage() {
         notes: rest.notes?.trim() || undefined,
         tags: parseTagsInput(tagsInput),
       };
-      
-      // Get token from localStorage or cookies
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
+
+      // Get token from localStorage or cookies (check all possible token storage locations)
+      const token = localStorage.getItem('auth-token') ||
+                   localStorage.getItem('super_admin-token') ||
+                   localStorage.getItem('admin-token') ||
+                   localStorage.getItem('provider-token') ||
+                   localStorage.getItem('SUPER_ADMIN-token') ||
+                   sessionStorage.getItem('auth-token');
+
       const res = await fetch("/api/patients", {
         method: "POST",
         headers: {
@@ -203,9 +210,9 @@ export default function PatientsPage() {
         },
         body: JSON.stringify(payload),
       });
-      
+
       const data = await res.json();
-      
+
       if (!res.ok) {
         if (res.status === 401) {
           setError("Invalid or expired token. Please log in again.");
@@ -215,13 +222,13 @@ export default function PatientsPage() {
         }
         throw new Error(data.error ?? "Failed to save patient");
       }
-      
+
       setForm(initialForm);
       setAddressLocked(false);
       fetchPatients();
     } catch (err: any) {
     // @ts-ignore
-   
+
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     setError(errorMessage ?? "Failed to save patient");
     }
@@ -368,7 +375,7 @@ export default function PatientsPage() {
 
       <section className="border rounded p-4 bg-white shadow">
         <h2 className="text-xl font-semibold mb-3">Saved Patients</h2>
-        
+
         {/* Search Bar */}
         {patients.length > 0 && (
           <div className="mb-4">
@@ -381,7 +388,7 @@ export default function PatientsPage() {
             />
           </div>
         )}
-        
+
         {loading ? (
           <p>Loading…</p>
         ) : patients.length === 0 ? (
