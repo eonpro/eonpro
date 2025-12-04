@@ -1,4 +1,5 @@
-import lifefile, { LifefileOrderPayload } from "@/lib/lifefile";
+import lifefile, { LifefileOrderPayload, getEnvCredentials } from "@/lib/lifefile";
+import { getClinicLifefileClient, getClinicLifefileCredentials } from "@/lib/clinic-lifefile";
 import { prescriptionSchema } from "@/lib/validate";
 import { generatePrescriptionPDF } from "@/lib/pdf";
 import { MEDS } from "@/lib/medications";
@@ -53,9 +54,42 @@ export async function POST(req: Request) {
 
     const provider = await prisma.provider.findUnique({
       where: { id: p.providerId },
+      include: {
+        clinic: true, // Include clinic to get Lifefile credentials
+      },
     });
     if (!provider) {
       return Response.json({ error: "Invalid providerId" }, { status: 400 });
+    }
+
+    // Get clinic-specific Lifefile credentials or fall back to env vars
+    let lifefileClient;
+    let lifefileCredentials;
+
+    if (provider.clinicId) {
+      try {
+        lifefileCredentials = await getClinicLifefileCredentials(provider.clinicId);
+        if (lifefileCredentials) {
+          lifefileClient = await getClinicLifefileClient(provider.clinicId);
+          logger.info(`[PRESCRIPTIONS] Using clinic ${provider.clinicId} Lifefile credentials`);
+        }
+      } catch (err) {
+        logger.warn(`[PRESCRIPTIONS] Failed to get clinic credentials, falling back to env vars:`, err);
+      }
+    }
+
+    // Fall back to default client (env vars) if no clinic credentials
+    if (!lifefileClient) {
+      lifefileClient = lifefile;
+      lifefileCredentials = getEnvCredentials();
+      logger.info(`[PRESCRIPTIONS] Using environment variable Lifefile credentials`);
+    }
+
+    if (!lifefileCredentials) {
+      return Response.json(
+        { error: "Lifefile not configured. Please contact your administrator to set up pharmacy integration." },
+        { status: 400 }
+      );
     }
 
     // If a new signature is provided and provider doesn't have one, save it
@@ -118,8 +152,8 @@ export async function POST(req: Request) {
           npi: provider.npi,
           dea: provider.dea,
           licenseNumber: provider.licenseNumber,
-          address1: process.env.LIFEFILE_PRACTICE_ADDRESS,
-          phone: process.env.LIFEFILE_PRACTICE_PHONE ?? provider.phone ?? undefined,
+          address1: lifefileCredentials.practiceAddress || process.env.LIFEFILE_PRACTICE_ADDRESS,
+          phone: lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE || provider.phone || undefined,
         },
         patient: {
           firstName: p.patient.firstName,
@@ -186,12 +220,12 @@ export async function POST(req: Request) {
           dea: provider.dea ?? undefined,
           firstName: provider.firstName,
           lastName: provider.lastName,
-          phone: provider.phone ?? process.env.LIFEFILE_PRACTICE_PHONE ?? undefined,
+          phone: provider.phone || lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE || undefined,
           email: provider.email ?? undefined,
         },
         practice: {
-          id: process.env.LIFEFILE_PRACTICE_ID,
-          name: process.env.LIFEFILE_PRACTICE_NAME ?? "APOLLO BASED HEALTH LLC",
+          id: lifefileCredentials.practiceId || process.env.LIFEFILE_PRACTICE_ID,
+          name: lifefileCredentials.practiceName || process.env.LIFEFILE_PRACTICE_NAME || "APOLLO BASED HEALTH LLC",
         },
         patient: {
           firstName: p.patient.firstName,
@@ -309,7 +343,7 @@ export async function POST(req: Request) {
         })),
       });
 
-      const orderResponse = await lifefile.createFullOrder(orderPayload);
+      const orderResponse = await lifefileClient.createFullOrder(orderPayload);
       const updated = await prisma.order.update({
         where: { id: order.id },
         data: {

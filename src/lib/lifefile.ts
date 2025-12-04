@@ -2,6 +2,22 @@ import axios, { AxiosError, AxiosInstance } from "axios";
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 
+// Lifefile credentials can come from clinic config or env vars as fallback
+export type LifefileCredentials = {
+  baseUrl: string;
+  username: string;
+  password: string;
+  vendorId: string;
+  practiceId: string;
+  locationId: string;
+  networkId: string;
+  practiceName?: string;
+  practiceAddress?: string;
+  practicePhone?: string;
+  practiceFax?: string;
+};
+
+// Required env vars (legacy - for backwards compatibility)
 const REQUIRED_ENV = [
   "LIFEFILE_BASE_URL",
   "LIFEFILE_USERNAME",
@@ -12,33 +28,55 @@ const REQUIRED_ENV = [
   "LIFEFILE_NETWORK_ID",
 ] as const;
 
-function getClient(): AxiosInstance {
-  if (clientInstance) {
-    return clientInstance;
-  }
+// Cache for clinic-specific clients
+const clientCache = new Map<string, AxiosInstance>();
+
+/**
+ * Get credentials from environment variables (legacy/fallback)
+ */
+export function getEnvCredentials(): LifefileCredentials | null {
   const missing = REQUIRED_ENV.filter((key: any) => !process.env[key]);
   if (missing.length > 0) {
-    throw new Error(
-      `Missing Lifefile environment variables: ${missing.join(", ")}`
-    );
+    logger.warn(`Missing Lifefile environment variables: ${missing.join(", ")}`);
+    return null;
   }
-  clientInstance = axios.create({
-    baseURL: process.env.LIFEFILE_BASE_URL!,
+
+  return {
+    baseUrl: process.env.LIFEFILE_BASE_URL!,
+    username: process.env.LIFEFILE_USERNAME!,
+    password: process.env.LIFEFILE_PASSWORD!,
+    vendorId: process.env.LIFEFILE_VENDOR_ID!,
+    practiceId: process.env.LIFEFILE_PRACTICE_ID!,
+    locationId: process.env.LIFEFILE_LOCATION_ID!,
+    networkId: process.env.LIFEFILE_NETWORK_ID!,
+    practiceName: process.env.LIFEFILE_PRACTICE_NAME,
+    practiceAddress: process.env.LIFEFILE_PRACTICE_ADDRESS,
+    practicePhone: process.env.LIFEFILE_PRACTICE_PHONE,
+    practiceFax: process.env.LIFEFILE_PRACTICE_FAX,
+  };
+}
+
+/**
+ * Create an Axios client for the given credentials
+ */
+function createClient(credentials: LifefileCredentials): AxiosInstance {
+  const client = axios.create({
+    baseURL: credentials.baseUrl,
     auth: {
-      username: process.env.LIFEFILE_USERNAME!,
-      password: process.env.LIFEFILE_PASSWORD!,
+      username: credentials.username,
+      password: credentials.password,
     },
     headers: {
-      "X-Vendor-ID": process.env.LIFEFILE_VENDOR_ID!,
-      "X-Practice-ID": process.env.LIFEFILE_PRACTICE_ID!,
-      "X-Location-ID": process.env.LIFEFILE_LOCATION_ID!,
-      "X-API-Network-ID": process.env.LIFEFILE_NETWORK_ID!,
+      "X-Vendor-ID": credentials.vendorId,
+      "X-Practice-ID": credentials.practiceId,
+      "X-Location-ID": credentials.locationId,
+      "X-API-Network-ID": credentials.networkId,
       "Content-Type": "application/json",
     },
     timeout: 20000,
   });
 
-  clientInstance.interceptors.response.use(
+  client.interceptors.response.use(
     (res: any) => res,
     (error: AxiosError) => {
       logger.error("[LIFEFILE ERROR]", {
@@ -51,23 +89,52 @@ function getClient(): AxiosInstance {
     }
   );
 
-  return clientInstance;
+  return client;
 }
 
-let clientInstance: AxiosInstance | null = null;
+/**
+ * Get or create a client for the given credentials
+ * Uses caching to avoid creating multiple clients for the same clinic
+ */
+function getClient(credentials: LifefileCredentials): AxiosInstance {
+  const cacheKey = `${credentials.baseUrl}-${credentials.vendorId}-${credentials.practiceId}`;
+
+  if (clientCache.has(cacheKey)) {
+    return clientCache.get(cacheKey)!;
+  }
+
+  const client = createClient(credentials);
+  clientCache.set(cacheKey, client);
+  return client;
+}
+
+/**
+ * Legacy: Get client from environment variables
+ */
+function getLegacyClient(): AxiosInstance {
+  const credentials = getEnvCredentials();
+  if (!credentials) {
+    throw new Error(
+      `Missing Lifefile environment variables: ${REQUIRED_ENV.join(", ")}`
+    );
+  }
+  return getClient(credentials);
+}
 
 async function callLifefile<T = any>(
   fn: (client: AxiosInstance) => Promise<{ data: T }>,
-  context: string
+  context: string,
+  credentials?: LifefileCredentials
 ): Promise<T> {
-  const client = getClient();
+  const client = credentials ? getClient(credentials) : getLegacyClient();
+
   try {
     const res = await fn(client);
     return res.data;
   } catch (err: any) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     // @ts-ignore
-   
+
     if (err.response?.status && err.response.status >= 500) {
       logger.warn(`[LIFEFILE RETRY] ${context}`);
       const res = await fn(client);
@@ -177,33 +244,54 @@ export type LifefileOrderResponse = {
   [key: string]: any;
 };
 
-const lifefile = {
-  createPatient: (data: any) =>
-    callLifefile((client: any) => client.post("/patients", data), "createPatient"),
-  createPrescription: (data: any) =>
-    callLifefile(
-      (client: any) => client.post("/prescriptions", data),
-      "createPrescription"
-    ),
-  addMedication: (id: string | number, data: any) =>
-    callLifefile(
-      (client: any) => client.post(`/prescriptions/${id}/medications`, data),
-      "addMedication"
-    ),
-  attachPdf: (id: string | number, data: any) =>
-    callLifefile(
-      (client: any) => client.post(`/prescriptions/${id}/attachments`, data),
-      "attachPdf"
-    ),
-  createOrder: (data: any) =>
-    callLifefile((client: any) => client.post("/orders", data), "createOrder"),
-  createFullOrder: (payload: LifefileOrderPayload) =>
-    callLifefile<LifefileOrderResponse>(
-      (client: any) => client.post("/order", payload),
-      "createFullOrder"
-    ),
-  getOrderStatus: (orderId: string | number) =>
-    callLifefile((client: any) => client.get(`/order/${orderId}`), "getOrderStatus"),
-};
+/**
+ * Create Lifefile API methods with optional clinic-specific credentials
+ */
+export function createLifefileClient(credentials?: LifefileCredentials) {
+  return {
+    createPatient: (data: any) =>
+      callLifefile((client: any) => client.post("/patients", data), "createPatient", credentials),
+
+    createPrescription: (data: any) =>
+      callLifefile(
+        (client: any) => client.post("/prescriptions", data),
+        "createPrescription",
+        credentials
+      ),
+
+    addMedication: (id: string | number, data: any) =>
+      callLifefile(
+        (client: any) => client.post(`/prescriptions/${id}/medications`, data),
+        "addMedication",
+        credentials
+      ),
+
+    attachPdf: (id: string | number, data: any) =>
+      callLifefile(
+        (client: any) => client.post(`/prescriptions/${id}/attachments`, data),
+        "attachPdf",
+        credentials
+      ),
+
+    createOrder: (data: any) =>
+      callLifefile((client: any) => client.post("/orders", data), "createOrder", credentials),
+
+    createFullOrder: (payload: LifefileOrderPayload) =>
+      callLifefile<LifefileOrderResponse>(
+        (client: any) => client.post("/order", payload),
+        "createFullOrder",
+        credentials
+      ),
+
+    getOrderStatus: (orderId: string | number) =>
+      callLifefile((client: any) => client.get(`/order/${orderId}`), "getOrderStatus", credentials),
+
+    // Return the credentials being used (useful for building payloads)
+    getCredentials: () => credentials || getEnvCredentials(),
+  };
+}
+
+// Default client using environment variables (legacy compatibility)
+const lifefile = createLifefileClient();
 
 export default lifefile;
