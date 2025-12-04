@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p ${PORT:-3001}",
-    "build": "prisma generate && prisma migrate deploy && next build --webpack",
+    "build": "prisma generate && next build --webpack",
+    "db:migrate": "prisma migrate deploy",
     "start": "next start",
     "postinstall": "prisma generate",
     "test": "vitest run --coverage",
