@@ -6,7 +6,7 @@ import { US_STATE_OPTIONS } from "@/lib/usStates";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { logger } from '@/lib/logger';
-import { Provider, Order } from '@/types/models';
+import { Provider, Order, Clinic } from '@/types/models';
 
 type Patient = {
   id: number;
@@ -25,6 +25,8 @@ type Patient = {
   createdAt: string;
   notes?: string | null;
   tags?: string[] | null;
+  clinicId?: number | null;
+  clinicName?: string | null;
 };
 
 const GENDER_OPTIONS = [
@@ -49,6 +51,7 @@ const initialForm = {
   zip: "",
   notes: "",
   tagsInput: "",
+  clinicId: "" as string,
 };
 
 const parseTagsInput = (input: string): string[] =>
@@ -101,6 +104,9 @@ export default function PatientsPage() {
   const [addressLocked, setAddressLocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userClinicId, setUserClinicId] = useState<number | null>(null);
 
   const updateForm = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
 
@@ -145,8 +151,37 @@ export default function PatientsPage() {
     }
   };
 
+  const fetchClinics = async () => {
+    try {
+      const token = localStorage.getItem('auth-token') ||
+                   localStorage.getItem('super_admin-token') ||
+                   localStorage.getItem('admin-token');
+      const res = await fetch("/api/super-admin/clinics", {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClinics(data.clinics || []);
+      }
+    } catch (err) {
+      logger.error("Error fetching clinics:", err);
+    }
+  };
+
   useEffect(() => {
+    // Get user info from localStorage
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUserRole(parsedUser.role?.toLowerCase());
+        setUserClinicId(parsedUser.clinicId || null);
+      } catch (e) {
+        logger.error("Error parsing user data:", e);
+      }
+    }
     fetchPatients();
+    fetchClinics();
   }, []);
 
   useEffect(() => {
@@ -186,12 +221,18 @@ export default function PatientsPage() {
         setError("Please select a state.");
         return;
       }
-      const { tagsInput, ...rest } = form as typeof initialForm;
+      // Validate clinic selection for super admin
+      if (userRole === 'super_admin' && !form.clinicId) {
+        setError("Please select a clinic for this patient.");
+        return;
+      }
+      const { tagsInput, clinicId, ...rest } = form as typeof initialForm;
       const payload = {
         ...rest,
         address2: rest.address2 || undefined,
         notes: rest.notes?.trim() || undefined,
         tags: parseTagsInput(tagsInput),
+        clinicId: clinicId ? parseInt(clinicId) : (userClinicId || undefined),
       };
 
       // Get token from localStorage or cookies (check all possible token storage locations)
@@ -363,9 +404,29 @@ export default function PatientsPage() {
               onChange={(e: any) => updateForm("tagsInput", e.target.value)}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Separate tags with spaces or commas. We’ll store without the # symbol.
+              Separate tags with spaces or commas. We'll store without the # symbol.
             </p>
           </div>
+          {/* Clinic selection for super admin */}
+          {userRole === 'super_admin' && (
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Assign to Clinic *
+              </label>
+              <select
+                className="border p-2 w-full"
+                value={form.clinicId}
+                onChange={(e: any) => updateForm("clinicId", e.target.value)}
+              >
+                <option value="">Select a clinic...</option>
+                {clinics.map((clinic) => (
+                  <option key={clinic.id} value={clinic.id}>
+                    {clinic.name} ({clinic.subdomain})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <button onClick={submit} className="btn-primary">
           Save Patient
@@ -404,6 +465,9 @@ export default function PatientsPage() {
                 <th className="border px-2 py-1 text-left">Contact</th>
                 <th className="border px-2 py-1 text-left">Address</th>
                 <th className="border px-2 py-1 text-left">Tags</th>
+                {userRole === 'super_admin' && (
+                  <th className="border px-2 py-1 text-left">Clinic</th>
+                )}
                 <th className="border px-2 py-1 text-left">Actions</th>
               </tr>
             </thead>
@@ -444,6 +508,13 @@ export default function PatientsPage() {
                       )}
                     </div>
                   </td>
+                  {userRole === 'super_admin' && (
+                    <td className="border px-2 py-1">
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                        {patient.clinicName || 'Not assigned'}
+                      </span>
+                    </td>
+                  )}
                   <td className="border px-2 py-1 text-right">
                     <Link
                       href={`/patients/${patient.id}`}

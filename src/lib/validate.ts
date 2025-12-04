@@ -15,6 +15,7 @@ export const patientSchema = z.object({
   zip: z.string(),
   notes: z.string().optional().or(z.literal("")).transform((val: any) => val || undefined),
   tags: z.array(z.string()).optional(),
+  clinicId: z.number().nullable().optional(),
 });
 
 export const rxSchema = z.object({

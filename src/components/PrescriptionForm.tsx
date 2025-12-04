@@ -366,16 +366,18 @@ export default function PrescriptionForm({
       });
       const data = await res.json();
       if (!res.ok) {
-        logger.error("Error:", data);
-        alert("Error submitting prescription. Check console.");
+        logger.error("Prescription submission error:", data);
+        // Show detailed error message to user
+        const errorMsg = data.error || data.detail || "Unknown error";
+        const detailMsg = data.detail ? `\n\nDetails: ${data.detail}` : "";
+        alert(`Error submitting prescription:\n${errorMsg}${detailMsg}`);
         return;
       }
       router.push(redirectPath ?? "/orders/dashboard?submitted=1");
     } catch (err: any) {
-    // @ts-ignore
-   
-      logger.error(err);
-      alert("Unexpected error submitting prescription.");
+      logger.error("Prescription fetch error:", err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Unexpected error submitting prescription:\n${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

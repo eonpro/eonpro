@@ -8,40 +8,78 @@ import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encrypt
  * GET /api/patients
  * Protected endpoint - requires provider, admin, or staff authentication
  * Providers see only their patients, admins and staff see all clinic patients
+ * Super admins see all patients across all clinics
  */
 export const GET = withClinicalAuth(async (req: NextRequest, user) => {
-  // The Prisma proxy in db.ts automatically applies clinic filtering
-  // based on the global clinic context, so we don't need to manually filter
-  
-  const patients = await prisma.patient.findMany({
-    select: {
-      id: true,
-      patientId: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      phone: true,
-      dob: true,
-      gender: true,
-      address1: true,
-      address2: true,
-      city: true,
-      state: true,
-      zip: true,
-      tags: true,
-      source: true,
-      createdAt: true,
-      // Exclude sensitive fields like notes, lifefileId, stripeCustomerId
-    },
-    orderBy: { createdAt: "desc" },
+  // For super admin, get all patients across all clinics
+  // For other roles, the Prisma proxy in db.ts applies clinic filtering
+  let patients;
+
+  if (user.role === 'super_admin') {
+    // Super admin sees all patients with clinic info
+    patients = await prisma.patient.findMany({
+      select: {
+        id: true,
+        patientId: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        dob: true,
+        gender: true,
+        address1: true,
+        address2: true,
+        city: true,
+        state: true,
+        zip: true,
+        tags: true,
+        source: true,
+        createdAt: true,
+        clinicId: true,
+        clinic: {
+          select: {
+            name: true,
+            subdomain: true,
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  } else {
+    patients = await prisma.patient.findMany({
+      select: {
+        id: true,
+        patientId: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        dob: true,
+        gender: true,
+        address1: true,
+        address2: true,
+        city: true,
+        state: true,
+        zip: true,
+        tags: true,
+        source: true,
+        createdAt: true,
+        clinicId: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  // Decrypt PHI fields for authorized users and add clinic name
+  const decryptedPatients = patients.map((patient: any) => {
+    const decrypted = decryptPatientPHI(patient, ['email', 'phone', 'dob']);
+    return {
+      ...decrypted,
+      clinicName: patient.clinic?.name || null,
+    };
   });
-  
-  // Decrypt PHI fields for authorized users
-  const decryptedPatients = patients.map(patient => 
-    decryptPatientPHI(patient, ['email', 'phone', 'dob'])
-  );
-  
-  return Response.json({ 
+
+  return Response.json({
     patients: decryptedPatients,
     meta: {
       count: patients.length,
@@ -59,13 +97,31 @@ export const GET = withClinicalAuth(async (req: NextRequest, user) => {
 export const POST = withClinicalAuth(async (req: NextRequest, user) => {
   const body = await req.json();
   const parsed = patientSchema.safeParse(body);
-  
+
   if (!parsed.success) {
     return Response.json(parsed.error, { status: 400 });
   }
-  
-  // The Prisma proxy in db.ts automatically applies clinic context
-  
+
+  // Determine clinic ID:
+  // - Super admin: must provide clinicId in the request
+  // - Other roles: use their assigned clinicId
+  let clinicIdToUse: number;
+
+  if (user.role === 'super_admin') {
+    // Super admin must specify a clinic
+    if (parsed.data.clinicId) {
+      clinicIdToUse = parsed.data.clinicId;
+    } else {
+      return Response.json(
+        { error: 'Super admin must specify a clinic for the patient' },
+        { status: 400 }
+      );
+    }
+  } else {
+    // For other roles, use their clinic or the provided one (if they have access)
+    clinicIdToUse = parsed.data.clinicId || user.clinicId || 1;
+  }
+
   const patient = await prisma.$transaction(async (tx: any) => {
     // Get next patient ID
     const counter = await tx.patientCounter.upsert({
@@ -74,16 +130,19 @@ export const POST = withClinicalAuth(async (req: NextRequest, user) => {
       update: { current: { increment: 1 } },
     });
     const patientId = counter.current.toString().padStart(6, "0");
-    
+
+    // Extract clinicId from parsed data to avoid including it in encryptedData
+    const { clinicId: _, ...dataToEncrypt } = parsed.data;
+
     // Encrypt PHI fields before storing
-    const encryptedData = encryptPatientPHI(parsed.data, ['email', 'phone', 'dob']);
-    
+    const encryptedData = encryptPatientPHI(dataToEncrypt, ['email', 'phone', 'dob']);
+
     // Create patient with explicit clinicId
     const newPatient = await tx.patient.create({
       data: {
         ...encryptedData,
         patientId,
-        clinicId: user.clinicId || 1, // Use user's clinic or default to 1
+        clinicId: clinicIdToUse,
         notes: parsed.data.notes ?? null,
         tags: parsed.data.tags ?? [],
         source: "api",
@@ -97,7 +156,7 @@ export const POST = withClinicalAuth(async (req: NextRequest, user) => {
         }
       },
     });
-    
+
     // Create audit log
     await tx.patientAudit.create({
       data: {
@@ -111,11 +170,11 @@ export const POST = withClinicalAuth(async (req: NextRequest, user) => {
         },
       },
     });
-    
+
     return newPatient;
   });
-  
-  return Response.json({ 
+
+  return Response.json({
     patient,
     message: 'Patient created successfully',
   });
