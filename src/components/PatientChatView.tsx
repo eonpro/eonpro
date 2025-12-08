@@ -39,8 +39,12 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     if (patientPhone) {
       loadMessageHistory();
       initializeTwilioConnection();
+    } else {
+      // No phone number, but still allow the chat UI to show "connected"
+      // (the no-phone-number message will be shown instead)
+      setConnected(true);
     }
-  }, [patient.id]);
+  }, [patient.id, patientPhone]);
 
   useEffect(() => {
     scrollToBottom();
@@ -83,6 +87,12 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
   };
 
   const initializeTwilioConnection = async () => {
+    // Set a timeout to force connection status after 5 seconds
+    const timeout = setTimeout(() => {
+      logger.warn('Twilio connection timed out, enabling chat anyway');
+      setConnected(true);
+    }, 5000);
+
     try {
       const res = await fetch('/api/twilio/token', {
         method: 'POST',
@@ -93,6 +103,8 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         body: JSON.stringify({ patientId: patient.id })
       });
 
+      clearTimeout(timeout);
+
       if (res.ok) {
         const data = await res.json();
         // Here you would initialize Twilio Conversations SDK
@@ -102,11 +114,13 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       } else {
         // Even if Twilio token fails, allow SMS sending via the send endpoint
         // which will work in demo mode
-        logger.warn('Twilio token request failed, enabling demo mode');
+        const errorData = await res.json().catch(() => ({}));
+        logger.warn('Twilio token request failed', { status: res.status, error: errorData });
         setConnected(true);
         setError(null);
       }
     } catch (error: any) {
+      clearTimeout(timeout);
       // @ts-ignore
       logger.error('Failed to initialize Twilio', error);
       // Still allow the chat to work - SMS sending can work without real-time connection

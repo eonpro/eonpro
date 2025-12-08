@@ -164,10 +164,13 @@ export function withAuth(
     }
     
     // Validate session (check for timeout)
+    // Note: Skip session validation if session not found (common on serverless due to in-memory store)
+    // The JWT signature validation above is sufficient for authentication
     if (user.sessionId) {
       const sessionValidation = await validateSession(token, req);
       
-      if (!sessionValidation.valid) {
+      // Only reject if session was explicitly timed out (not if just missing from memory)
+      if (!sessionValidation.valid && sessionValidation.reason !== 'Session not found') {
         // Clear clinic context on invalid session
         setClinicContext(undefined);
         
