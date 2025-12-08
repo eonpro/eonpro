@@ -54,13 +54,17 @@ export class StripeInvoiceService {
     
     // Add line items
     for (const item of options.lineItems) {
+      // Stripe requires either 'amount' (total) OR 'unit_amount' with 'quantity', not both
+      // Use unit_amount when quantity is specified, otherwise use amount directly
+      const quantity = item.quantity || 1;
+
       await stripeClient.invoiceItems.create({
         customer: customer.id,
         invoice: stripeInvoice.id,
         description: item.description,
-        amount: item.amount,
+        unit_amount: item.amount, // Per-unit amount in cents
         currency: STRIPE_CONFIG.currency,
-        quantity: item.quantity || 1,
+        quantity: quantity,
         metadata: item.metadata,
       });
     }
