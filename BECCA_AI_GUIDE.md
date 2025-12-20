@@ -2,9 +2,36 @@
 
 ## 🤖 Overview
 
-Becca AI is an intelligent medical assistant integrated into the platform that provides two main features:
+Becca AI is an intelligent medical assistant integrated into the platform that provides:
 1. **Automatic SOAP Note Generation** from intake forms
 2. **Natural Language Patient Data Queries** through a chat interface
+3. **🆕 AI Scribe** - Real-time transcription during telehealth consultations
+
+## 🎙️ AI Scribe (New Feature)
+
+AI Scribe extends Becca AI with real-time audio transcription and automatic documentation generation during video consultations.
+
+### Features:
+- **Real-time Transcription** - Uses OpenAI Whisper for speech-to-text
+- **Speaker Diarization** - Identifies provider vs patient speech
+- **Auto SOAP Generation** - Creates structured notes from conversations
+- **Red Flag Detection** - Alerts for urgent concerns in transcripts
+- **Medication Extraction** - Automatically extracts prescription changes
+
+### How to Use:
+1. During a telehealth appointment, click the "AI Scribe" button
+2. Grant microphone permission when prompted
+3. Speak normally - transcription appears in real-time
+4. Click "Stop" when finished, then "Generate SOAP Note"
+5. Review and approve the generated documentation
+
+### Components:
+- `BeccaAIScribe.tsx` - Main scribe interface
+- `BeccaAIScribeButton.tsx` - Launch button for scribe
+
+### API Endpoints:
+- `POST /api/ai-scribe/transcribe` - Transcribe audio
+- `POST /api/ai-scribe/generate-soap` - Generate SOAP from transcript
 
 ## 🎨 Lottie Animation Integration
 

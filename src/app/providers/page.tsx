@@ -87,19 +87,45 @@ export default function ProvidersPage() {
     }
   }, []);
 
-  // Fetch clinics for super admin dropdown
+  // Fetch clinics for dropdown
   const fetchClinics = async () => {
     try {
-      const token = localStorage.getItem('auth-token');
-      const res = await fetch("/api/super-admin/clinics", {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setClinics(data.clinics ?? []);
+      const token = localStorage.getItem('auth-token') ||
+                   localStorage.getItem('super_admin-token') ||
+                   localStorage.getItem('admin-token');
+      
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      // Try multiple endpoints in order of preference
+      const endpoints = [
+        "/api/user/clinics",     // User's assigned clinics
+        "/api/admin/clinics",    // Admin endpoint (returns array)
+        "/api/clinic/list",      // Public clinic list (returns array)
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          const res = await fetch(endpoint, { headers });
+          
+          if (res.ok) {
+            const data = await res.json();
+            // Handle different response formats
+            const clinicList = data.clinics || (Array.isArray(data) ? data : []);
+            if (clinicList.length > 0) {
+              setClinics(clinicList);
+              return;
+            }
+          }
+        } catch {
+          // Continue to next endpoint
+        }
       }
+      
+      // If all endpoints fail or return empty, set empty array
+      setClinics([]);
     } catch (err: any) {
       logger.error("Failed to fetch clinics:", err);
+      setClinics([]);
     }
   };
 
@@ -121,10 +147,8 @@ export default function ProvidersPage() {
 
   useEffect(() => {
     fetchProviders();
-    // Fetch clinics for super admin
-    if (userRole === 'super_admin') {
-      fetchClinics();
-    }
+    // Fetch clinics for all roles
+    fetchClinics();
   }, [userRole]);
 
   const updateForm = (k: string, v: string | null) =>

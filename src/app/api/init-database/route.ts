@@ -40,7 +40,7 @@ export async function GET(request: Request) {
           firstName: 'Admin',
           lastName: 'User',
           passwordHash: '$2b$10$r5fNQ9W.9tKuYSYwO5zTb.9htYrx2OLWM8oaR3Qz4klTN7AsWp7O.', // password: admin123
-          role: 'admin',
+          role: 'ADMIN',
         }
       });
       console.log('✅ Created admin user:', admin.email);
@@ -54,6 +54,7 @@ export async function GET(request: Request) {
           name: 'EONPRO Main Clinic',
           subdomain: 'main',
           adminEmail: 'admin@eonpro.com',
+          status: 'ACTIVE',
           settings: {},
           features: {},
           integrations: {},

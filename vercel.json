@@ -6,6 +6,12 @@
   "env": {
     "NODE_ENV": "production"
   },
+  "crons": [
+    {
+      "path": "/api/scheduling/reminders/process",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "build": {
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"

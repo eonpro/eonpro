@@ -176,3 +176,36 @@ export interface AuditEntry {
   metadata?: Record<string, unknown>;
   createdAt: Date;
 }
+
+// Clinic types
+export interface Clinic extends BaseRecord {
+  name: string;
+  slug: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING';
+  subdomain?: string;
+  customDomain?: string;
+  settings?: ClinicSettings;
+  branding?: ClinicBranding;
+  lifefileVendorId?: string;
+  lifefilePracticeId?: string;
+  stripeAccountId?: string;
+  twilioAccountSid?: string;
+}
+
+export interface ClinicSettings {
+  timezone?: string;
+  currency?: string;
+  language?: string;
+  enableTelehealth?: boolean;
+  enableMessaging?: boolean;
+  enablePrescriptions?: boolean;
+  sessionTimeout?: number;
+  requireMFA?: boolean;
+}
+
+export interface ClinicBranding {
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  faviconUrl?: string;
+}

@@ -45,6 +45,9 @@ model Patient {
   weightLogs          PatientWeightLog[]
   medicationReminders PatientMedicationReminder[]
   tickets             Ticket[]
+  appointments        Appointment[]
+  superbills          Superbill[]
+  carePlans           CarePlan[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
@@ -95,15 +98,15 @@ model Rx {
 }
 
 model Provider {
-  id                   Int                  @id @default(autoincrement())
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  id                   Int                    @id @default(autoincrement())
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
   clinicId             Int? // Multi-clinic support
-  clinic               Clinic?              @relation(fields: [clinicId], references: [id])
+  clinic               Clinic?                @relation(fields: [clinicId], references: [id])
   firstName            String
   lastName             String
   titleLine            String?
-  npi                  String               @unique
+  npi                  String                 @unique
   licenseState         String?
   licenseNumber        String?
   dea                  String?
@@ -121,6 +124,11 @@ model Provider {
   auditEntries         ProviderAudit[]
   approvedSoapNotes    SOAPNote[]
   intakeFormTemplates  IntakeFormTemplate[]
+  appointments         Appointment[]
+  availability         ProviderAvailability[]
+  timeOff              ProviderTimeOff[]
+  superbills           Superbill[]
+  carePlans            CarePlan[]
 }
 
 model PatientDocument {
@@ -658,6 +666,11 @@ model User {
   escalationsMade     TicketEscalation[]    @relation("EscalationsMade")
   escalationsReceived TicketEscalation[]    @relation("EscalationsReceived")
   clinicAuditLogs     ClinicAuditLog[] // Multi-clinic audit logs
+  
+  // Scheduling & Care Plan Relations
+  appointmentsCreated   Appointment[]        @relation("AppointmentCreatedBy")
+  carePlanTemplates     CarePlanTemplate[]
+  carePlanProgress      CarePlanProgress[]
 
   @@index([email])
   @@index([role, status])
@@ -944,24 +957,25 @@ enum WebhookDeliveryStatus {
 // ===== INTAKE FORM SYSTEM =====
 
 model IntakeFormTemplate {
-  id            Int                    @id @default(autoincrement())
-  createdAt     DateTime               @default(now())
-  clinicId      Int? // Multi-clinic support
-  clinic        Clinic?                @relation(fields: [clinicId], references: [id])
-  updatedAt     DateTime               @updatedAt
-  name          String // e.g., "General Medical Intake", "Weight Loss Program Intake"
-  description   String?
-  treatmentType String // e.g., "general", "weight-loss", "hormone-therapy", "aesthetic"
-  isActive      Boolean                @default(true)
-  providerId    Int? // Optional: specific provider's form
-  provider      Provider?              @relation(fields: [providerId], references: [id])
-  createdById   Int? // User who created this template
-  createdBy     User?                  @relation(fields: [createdById], references: [id])
-  questions     IntakeFormQuestion[]
-  submissions   IntakeFormSubmission[]
-  formLinks     IntakeFormLink[]
-  version       Int                    @default(1)
-  metadata      Json? // Additional settings, styling, etc.
+  id               Int                     @id @default(autoincrement())
+  createdAt        DateTime                @default(now())
+  clinicId         Int? // Multi-clinic support
+  clinic           Clinic?                 @relation(fields: [clinicId], references: [id])
+  updatedAt        DateTime                @updatedAt
+  name             String // e.g., "General Medical Intake", "Weight Loss Program Intake"
+  description      String?
+  treatmentType    String // e.g., "general", "weight-loss", "hormone-therapy", "aesthetic"
+  isActive         Boolean                 @default(true)
+  providerId       Int? // Optional: specific provider's form
+  provider         Provider?               @relation(fields: [providerId], references: [id])
+  createdById      Int? // User who created this template
+  createdBy        User?                   @relation(fields: [createdById], references: [id])
+  questions        IntakeFormQuestion[]
+  submissions      IntakeFormSubmission[]
+  formLinks        IntakeFormLink[]
+  version          Int                     @default(1)
+  metadata         Json? // Additional settings, styling, etc.
+  appointmentTypes AppointmentTypeConfig[]
 
   @@index([treatmentType, isActive])
   @@index([providerId])
@@ -1425,6 +1439,16 @@ model Clinic {
   webhookConfigs     WebhookConfig[]
   systemSettings     SystemSettings[]
   userClinics        UserClinic[] // Multi-clinic user assignments
+  
+  // Scheduling & Care Plan Relations
+  appointments         Appointment[]
+  appointmentTypes     AppointmentTypeConfig[]
+  providerAvailability ProviderAvailability[]
+  providerTimeOff      ProviderTimeOff[]
+  superbills           Superbill[]
+  billingCodes         BillingCode[]
+  carePlans            CarePlan[]
+  carePlanTemplates    CarePlanTemplate[]
 
   @@index([subdomain])
   @@index([status])
@@ -1454,4 +1478,382 @@ enum ClinicStatus {
   TRIAL
   EXPIRED
   PENDING_SETUP
+}
+
+// ===== SCHEDULING SYSTEM =====
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum AppointmentModeType {
+  IN_PERSON
+  VIDEO
+  PHONE
+}
+
+enum ReminderType {
+  EMAIL
+  SMS
+  BOTH
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model AppointmentTypeConfig {
+  id                   Int                  @id @default(autoincrement())
+  clinicId             Int?
+  clinic               Clinic?              @relation(fields: [clinicId], references: [id])
+  name                 String
+  description          String?
+  duration             Int                  @default(30) // in minutes
+  color                String               @default("#3B82F6")
+  isActive             Boolean              @default(true)
+  requiresVideoLink    Boolean              @default(false)
+  allowSelfScheduling  Boolean              @default(true)
+  bufferBefore         Int                  @default(0) // minutes before
+  bufferAfter          Int                  @default(0) // minutes after
+  price                Int? // in cents
+  intakeFormTemplateId Int?
+  intakeFormTemplate   IntakeFormTemplate?  @relation(fields: [intakeFormTemplateId], references: [id])
+  appointments         Appointment[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([clinicId])
+}
+
+model ProviderAvailability {
+  id               Int       @id @default(autoincrement())
+  providerId       Int
+  provider         Provider  @relation(fields: [providerId], references: [id])
+  clinicId         Int?
+  clinic           Clinic?   @relation(fields: [clinicId], references: [id])
+  dayOfWeek        Int // 0 = Sunday, 6 = Saturday
+  startTime        String // "09:00"
+  endTime          String // "17:00"
+  isActive         Boolean   @default(true)
+  locationId       Int?
+  appointmentTypes Json? // Array of allowed appointment type IDs
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([providerId])
+  @@index([dayOfWeek])
+}
+
+model ProviderTimeOff {
+  id          Int      @id @default(autoincrement())
+  providerId  Int
+  provider    Provider @relation(fields: [providerId], references: [id])
+  clinicId    Int?
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  startTime   DateTime?
+  endTime     DateTime?
+  reason      String?
+  isApproved  Boolean  @default(true)
+  isAllDay    Boolean  @default(false)
+  isRecurring Boolean  @default(false)
+  source      String?  // 'manual', 'calendar_sync'
+  createdAt   DateTime @default(now())
+
+  @@index([providerId])
+  @@index([startDate, endDate])
+}
+
+model ProviderCalendarIntegration {
+  id            Int      @id @default(autoincrement())
+  providerId    Int
+  provider      String   // 'google', 'outlook'
+  clinicId      Int?
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
+  accountId     String?
+  calendarId    String?  @default("primary")
+  isActive      Boolean  @default(true)
+  syncEnabled   Boolean  @default(true)
+  syncDirection String   @default("both") // 'to_external', 'from_external', 'both'
+  lastSyncAt    DateTime?
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([providerId, provider], name: "providerId_provider")
+  @@index([providerId])
+}
+
+model Appointment {
+  id                  Int                    @id @default(autoincrement())
+  clinicId            Int?
+  clinic              Clinic?                @relation(fields: [clinicId], references: [id])
+  patientId           Int
+  patient             Patient                @relation(fields: [patientId], references: [id])
+  providerId          Int
+  provider            Provider               @relation(fields: [providerId], references: [id])
+  appointmentTypeId   Int?
+  appointmentType     AppointmentTypeConfig? @relation(fields: [appointmentTypeId], references: [id])
+  title               String?
+  startTime           DateTime
+  endTime             DateTime
+  duration            Int                    @default(30)
+  type                AppointmentModeType    @default(IN_PERSON)
+  status              AppointmentStatus      @default(SCHEDULED)
+  reason              String?
+  notes               String? // Patient-visible notes
+  internalNotes       String? // Provider-only notes
+  location            String?
+  roomNumber          String?
+  videoLink           String?
+  zoomMeetingId       String?
+  confirmedAt         DateTime?
+  checkedInAt         DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  cancellationReason  String?
+  rescheduledFromId   Int?
+  rescheduledToId     Int?
+  noShowAt            DateTime?
+  createdById         Int?
+  createdBy           User?                  @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  metadata            Json?
+  reminders              AppointmentReminder[]
+  superbills             Superbill[]
+  googleCalendarEventId  String?
+  outlookCalendarEventId String?
+  zoomJoinUrl            String?
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([providerId])
+  @@index([startTime])
+  @@index([status])
+}
+
+model AppointmentReminder {
+  id            Int            @id @default(autoincrement())
+  appointmentId Int
+  appointment   Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  type          ReminderType   @default(BOTH)
+  scheduledFor  DateTime
+  status        ReminderStatus @default(PENDING)
+  sentAt        DateTime?
+  errorMessage  String?
+  messageId     String? // Twilio message ID or email ID
+  template      String? // Which template was used
+  createdAt     DateTime       @default(now())
+
+  @@index([appointmentId])
+  @@index([scheduledFor, status])
+}
+
+// ===== SUPERBILL / INSURANCE SYSTEM =====
+
+model Superbill {
+  id            Int             @id @default(autoincrement())
+  clinicId      Int?
+  clinic        Clinic?         @relation(fields: [clinicId], references: [id])
+  patientId     Int
+  patient       Patient         @relation(fields: [patientId], references: [id])
+  providerId    Int
+  provider      Provider        @relation(fields: [providerId], references: [id])
+  appointmentId Int?
+  appointment   Appointment?    @relation(fields: [appointmentId], references: [id])
+  serviceDate   DateTime
+  totalAmount   Int             @default(0) // in cents
+  paidAmount    Int             @default(0) // in cents
+  status        String          @default("DRAFT") // DRAFT, FINALIZED, SENT, PAID
+  pdfUrl        String?
+  pdfGeneratedAt DateTime?
+  sentToPatient Boolean         @default(false)
+  sentAt        DateTime?
+  notes         String?
+  items         SuperbillItem[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([providerId])
+  @@index([serviceDate])
+}
+
+model SuperbillItem {
+  id              Int       @id @default(autoincrement())
+  superbillId     Int
+  superbill       Superbill @relation(fields: [superbillId], references: [id], onDelete: Cascade)
+  cptCode         String
+  cptDescription  String
+  icdCodes        String[] // Array of ICD-10 codes
+  icdDescriptions String[] // Array of ICD-10 descriptions
+  modifier        String? // CPT modifier (e.g., "25")
+  units           Int       @default(1)
+  unitPrice       Int // in cents
+  totalPrice      Int // in cents
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  @@index([superbillId])
+}
+
+model BillingCode {
+  id           Int      @id @default(autoincrement())
+  clinicId     Int?
+  clinic       Clinic?  @relation(fields: [clinicId], references: [id])
+  codeType     String // "CPT" or "ICD10"
+  code         String
+  description  String
+  defaultPrice Int? // in cents (for CPT)
+  category     String? // e.g., "Evaluation", "Procedure", "Lab"
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([clinicId, codeType, code])
+}
+
+// ===== CARE PLAN SYSTEM =====
+
+enum CarePlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+  CANCELLED
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+model CarePlan {
+  id                Int               @id @default(autoincrement())
+  clinicId          Int?
+  clinic            Clinic?           @relation(fields: [clinicId], references: [id])
+  patientId         Int
+  patient           Patient           @relation(fields: [patientId], references: [id])
+  providerId        Int?
+  provider          Provider?         @relation(fields: [providerId], references: [id])
+  title             String
+  description       String?
+  status            CarePlanStatus    @default(DRAFT)
+  startDate         DateTime?
+  endDate           DateTime?
+  templateId        Int?
+  template          CarePlanTemplate? @relation(fields: [templateId], references: [id])
+  pdfUrl            String?
+  patientSignature  String? // Base64 signature
+  patientSignedAt   DateTime?
+  providerSignature String?
+  providerSignedAt  DateTime?
+  activatedAt       DateTime?
+  completedAt       DateTime?
+  notes             String?
+  metadata          Json?
+  goals             CarePlanGoal[]
+  activities        CarePlanActivity[]
+  progress          CarePlanProgress[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([status])
+}
+
+model CarePlanTemplate {
+  id                  Int        @id @default(autoincrement())
+  clinicId            Int?
+  clinic              Clinic?    @relation(fields: [clinicId], references: [id])
+  name                String
+  description         String?
+  treatmentType       String? // e.g., "weight-loss", "hormone-therapy"
+  defaultDurationDays Int?       @default(90)
+  isActive            Boolean    @default(true)
+  content             Json // Template structure with goals, activities
+  createdById         Int?
+  createdBy           User?      @relation(fields: [createdById], references: [id])
+  carePlans           CarePlan[]
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@index([clinicId])
+}
+
+model CarePlanGoal {
+  id           Int                @id @default(autoincrement())
+  carePlanId   Int
+  carePlan     CarePlan           @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  targetValue  String? // e.g., "180" for target weight
+  currentValue String? // e.g., "200" for current weight
+  unit         String? // e.g., "lbs", "mg/dL"
+  status       GoalStatus         @default(NOT_STARTED)
+  targetDate   DateTime?
+  completedAt  DateTime?
+  orderIndex   Int                @default(0)
+  activities   CarePlanActivity[]
+  progress     CarePlanProgress[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([carePlanId])
+}
+
+model CarePlanActivity {
+  id           Int                @id @default(autoincrement())
+  carePlanId   Int
+  carePlan     CarePlan           @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  goalId       Int?
+  goal         CarePlanGoal?      @relation(fields: [goalId], references: [id])
+  title        String
+  description  String?
+  frequency    String? // e.g., "daily", "weekly", "3x per week"
+  instructions String?
+  orderIndex   Int                @default(0)
+  progress     CarePlanProgress[]
+  createdAt    DateTime           @default(now())
+
+  @@index([carePlanId])
+}
+
+model CarePlanProgress {
+  id                Int               @id @default(autoincrement())
+  carePlanId        Int
+  carePlan          CarePlan          @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  goalId            Int?
+  goal              CarePlanGoal?     @relation(fields: [goalId], references: [id])
+  activityId        Int?
+  activity          CarePlanActivity? @relation(fields: [activityId], references: [id])
+  value             String? // Recorded value
+  notes             String?
+  recordedById      Int?
+  recordedBy        User?             @relation(fields: [recordedById], references: [id])
+  recordedByPatient Boolean           @default(false)
+  recordedAt        DateTime          @default(now())
+
+  @@index([carePlanId])
+  @@index([recordedAt])
 }

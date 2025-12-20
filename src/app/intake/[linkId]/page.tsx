@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
+import { evaluateConditionalLogic, ConditionalLogic } from '@/lib/intake-forms/conditional-logic';
 
 interface FormQuestion {
   id: number;
@@ -14,6 +15,7 @@ interface FormQuestion {
   helpText?: string;
   section?: string;
   orderIndex: number;
+  conditionalLogic?: ConditionalLogic;
 }
 
 interface FormData {
@@ -101,14 +103,25 @@ export default function IntakeFormPage({
     }
   };
 
+  // Check if a question is visible based on conditional logic
+  const isQuestionVisible = (question: FormQuestion): boolean => {
+    return evaluateConditionalLogic(question.conditionalLogic, responses);
+  };
+
+  // Get visible questions
+  const visibleQuestions = useMemo(() => {
+    if (!form) return [];
+    return form.template.questions.filter((q: FormQuestion) => isQuestionVisible(q));
+  }, [form, responses]);
+
   const validateForm = (): boolean => {
     if (!form) return false;
 
     const errors: Record<number, string> = {};
     let isValid = true;
 
-    // Validate required questions
-    form.template.questions.forEach((question: any) => {
+    // Only validate VISIBLE required questions (skip hidden questions due to conditional logic)
+    visibleQuestions.forEach((question: FormQuestion) => {
       if (question.isRequired && !responses[question.id]) {
         errors[question.id] = 'This field is required';
         isValid = false;
@@ -160,7 +173,8 @@ export default function IntakeFormPage({
       setSubmitting(true);
       setError(null);
 
-      const formResponses = form.template.questions.map((question: any) => ({
+      // Only submit responses for visible questions
+      const formResponses = visibleQuestions.map((question: FormQuestion) => ({
         questionId: question.id,
         answer: responses[question.id] || '',
       }));
@@ -355,9 +369,9 @@ export default function IntakeFormPage({
 
   if (!form) return null;
 
-  // Group questions by section
+  // Group VISIBLE questions by section (applying conditional logic)
   const sections: Record<string, FormQuestion[]> = {};
-  form.template.questions.forEach((question: any) => {
+  visibleQuestions.forEach((question: FormQuestion) => {
     const section = question.section || 'General Information';
     if (!sections[section]) {
       sections[section] = [];

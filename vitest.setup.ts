@@ -3,20 +3,20 @@
  * Configures global test environment for all tests
  */
 
-import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, vi, expect } from 'vitest';
 
 // ============================================================================
 // Environment Configuration
 // ============================================================================
 
-// Set test environment variables
-process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-jwt-secret-min-32-characters-long-for-testing';
-process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-min-32-characters';
-process.env.ENCRYPTION_KEY = 'a'.repeat(64); // 32 bytes hex
-process.env.DATABASE_URL = 'file:./test.db';
-process.env.NEXTAUTH_URL = 'http://localhost:3000';
-process.env.NEXTAUTH_SECRET = 'test-nextauth-secret-for-testing';
+// Set test environment variables before anything else
+// NODE_ENV is already set to 'test' by vitest
+process.env['JWT_SECRET'] = 'test-jwt-secret-min-32-characters-long-for-testing';
+process.env['JWT_REFRESH_SECRET'] = 'test-refresh-secret-min-32-characters';
+process.env['ENCRYPTION_KEY'] = 'a'.repeat(64); // 32 bytes hex
+process.env['DATABASE_URL'] = 'file:./test.db';
+process.env['NEXTAUTH_URL'] = 'http://localhost:3000';
+process.env['NEXTAUTH_SECRET'] = 'test-nextauth-secret-for-testing';
 
 // ============================================================================
 // Global Mocks
@@ -60,8 +60,8 @@ vi.mock('@sentry/nextjs', () => ({
   setTag: vi.fn(),
   setContext: vi.fn(),
   addBreadcrumb: vi.fn(),
-  startSpan: vi.fn((_, callback) => callback()),
-  withScope: vi.fn((callback) => callback({ setExtra: vi.fn() })),
+  startSpan: vi.fn((_opts: unknown, callback: () => unknown) => callback()),
+  withScope: vi.fn((callback: (scope: { setExtra: () => void }) => void) => callback({ setExtra: vi.fn() })),
   browserTracingIntegration: vi.fn(() => ({})),
   replayIntegration: vi.fn(() => ({})),
   breadcrumbsIntegration: vi.fn(() => ({})),
@@ -72,7 +72,7 @@ vi.mock('@prisma/client', () => {
   const mockPrismaClient = {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
-    $transaction: vi.fn((fn) => fn(mockPrismaClient)),
+    $transaction: vi.fn((fn: (client: unknown) => unknown) => fn(mockPrismaClient)),
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
     user: {
@@ -130,8 +130,24 @@ vi.mock('@prisma/client', () => {
     },
   };
 
+  // Create a proper class constructor mock
+  class MockPrismaClient {
+    $connect = mockPrismaClient.$connect;
+    $disconnect = mockPrismaClient.$disconnect;
+    $transaction = mockPrismaClient.$transaction;
+    $queryRaw = mockPrismaClient.$queryRaw;
+    $executeRaw = mockPrismaClient.$executeRaw;
+    user = mockPrismaClient.user;
+    patient = mockPrismaClient.patient;
+    provider = mockPrismaClient.provider;
+    order = mockPrismaClient.order;
+    clinic = mockPrismaClient.clinic;
+    auditLog = mockPrismaClient.auditLog;
+    userAuditLog = mockPrismaClient.userAuditLog;
+  }
+
   return {
-    PrismaClient: vi.fn(() => mockPrismaClient),
+    PrismaClient: MockPrismaClient,
   };
 });
 
@@ -276,7 +292,7 @@ export function createMockUser(overrides: Partial<{
  */
 export async function createTestToken(payload: Record<string, unknown> = {}): Promise<string> {
   const { SignJWT } = await import('jose');
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+  const secret = new TextEncoder().encode(process.env['JWT_SECRET']);
   
   return new SignJWT({
     id: 1,
@@ -304,24 +320,5 @@ export async function waitFor(
       throw new Error('Timeout waiting for condition');
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
-// ============================================================================
-// Type Augmentations
-// ============================================================================
-
-declare module 'vitest' {
-  interface Assertion<T = unknown> {
-    toBeValidJWT(): T;
-    toBeEncrypted(): T;
-    toBeValidUUID(): T;
-    toHaveSecurityHeaders(): T;
-  }
-  interface AsymmetricMatchersContaining {
-    toBeValidJWT(): unknown;
-    toBeEncrypted(): unknown;
-    toBeValidUUID(): unknown;
-    toHaveSecurityHeaders(): unknown;
   }
 }

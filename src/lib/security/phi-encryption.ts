@@ -2,21 +2,67 @@
  * PHI Encryption Service
  * HIPAA-compliant encryption for Protected Health Information
  * Uses AES-256-GCM for authenticated encryption
+ * 
+ * In production, encryption keys are managed by AWS KMS
  */
 
 import crypto from 'crypto';
 import { logger } from '@/lib/logger';
+import { getEncryptionKey, isKMSEnabled } from './kms';
 
 const algorithm = 'aes-256-gcm';
-const saltLength = 64; // Salt for key derivation
-const tagLength = 16;  // GCM auth tag length
 const ivLength = 16;    // Initialization vector length
+const tagLength = 16;   // GCM auth tag length
+
+// ============================================================================
+// Key Management
+// ============================================================================
+
+let encryptionKey: Buffer | null = null;
+let keyInitPromise: Promise<void> | null = null;
 
 /**
- * Validates and retrieves the encryption key from environment
- * Throws if key is missing or invalid
+ * Initialize the encryption key (async for KMS support)
  */
-function getEncryptionKey(): Buffer {
+async function initializeKey(): Promise<void> {
+  if (encryptionKey) {
+    return;
+  }
+  
+  encryptionKey = await getEncryptionKey();
+  
+  if (encryptionKey.length !== 32) {
+    throw new Error('Encryption key must be 32 bytes');
+  }
+}
+
+/**
+ * Get the encryption key, initializing if needed
+ */
+async function getKey(): Promise<Buffer> {
+  if (!keyInitPromise) {
+    keyInitPromise = initializeKey();
+  }
+  
+  await keyInitPromise;
+  
+  if (!encryptionKey) {
+    throw new Error('Encryption key not initialized');
+  }
+  
+  return encryptionKey;
+}
+
+/**
+ * Get the encryption key synchronously (for legacy code)
+ * Falls back to environment variable if KMS not ready
+ */
+function getKeySync(): Buffer {
+  if (encryptionKey) {
+    return encryptionKey;
+  }
+  
+  // Fallback to environment variable for sync operations
   const keyHex = process.env.ENCRYPTION_KEY;
   
   if (!keyHex) {
@@ -34,14 +80,17 @@ function getEncryptionKey(): Buffer {
   }
   
   try {
-    return Buffer.from(keyHex, 'hex');
-  } catch (error) {
+    const key = Buffer.from(keyHex, 'hex');
+    encryptionKey = key; // Cache it
+    return key;
+  } catch {
     throw new Error('ENCRYPTION_KEY must be valid hexadecimal');
   }
 }
 
-// Validate key on module load
-const encryptionKey = getEncryptionKey();
+// ============================================================================
+// Encryption Functions
+// ============================================================================
 
 /**
  * Encrypts PHI data using AES-256-GCM
@@ -49,11 +98,14 @@ const encryptionKey = getEncryptionKey();
  * @returns Encrypted string in format: iv:authTag:encryptedData
  */
 export function encryptPHI(text: string | null | undefined): string | null {
-  if (!text) return null;
+  if (!text) {
+    return null;
+  }
   
   try {
+    const key = getKeySync();
     const iv = crypto.randomBytes(ivLength);
-    const cipher = crypto.createCipheriv(algorithm, encryptionKey, iv);
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
     
     const encrypted = Buffer.concat([
       cipher.update(text, 'utf8'),
@@ -70,7 +122,38 @@ export function encryptPHI(text: string | null | undefined): string | null {
       encrypted.toString('base64')
     ].join(':');
   } catch (error) {
-    logger.error('Failed to encrypt PHI', error);
+    logger.error('Failed to encrypt PHI', error as Error);
+    throw new Error('Encryption failed - PHI cannot be stored unencrypted');
+  }
+}
+
+/**
+ * Async version of encryptPHI (uses KMS in production)
+ */
+export async function encryptPHIAsync(text: string | null | undefined): Promise<string | null> {
+  if (!text) {
+    return null;
+  }
+  
+  try {
+    const key = await getKey();
+    const iv = crypto.randomBytes(ivLength);
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+    
+    const encrypted = Buffer.concat([
+      cipher.update(text, 'utf8'),
+      cipher.final()
+    ]);
+    
+    const authTag = cipher.getAuthTag();
+    
+    return [
+      iv.toString('base64'),
+      authTag.toString('base64'),
+      encrypted.toString('base64')
+    ].join(':');
+  } catch (error) {
+    logger.error('Failed to encrypt PHI', error as Error);
     throw new Error('Encryption failed - PHI cannot be stored unencrypted');
   }
 }
@@ -81,23 +164,25 @@ export function encryptPHI(text: string | null | undefined): string | null {
  * @returns Decrypted plaintext or null
  */
 export function decryptPHI(encryptedData: string | null | undefined): string | null {
-  if (!encryptedData) return null;
+  if (!encryptedData) {
+    return null;
+  }
   
   try {
     const parts = encryptedData.split(':');
     
     if (parts.length !== 3) {
       // Data might be unencrypted (migration period)
-      // Log this for monitoring but don't break
       logger.warn('Attempting to decrypt non-encrypted data');
       return encryptedData;
     }
     
+    const key = getKeySync();
     const iv = Buffer.from(parts[0], 'base64');
     const authTag = Buffer.from(parts[1], 'base64');
     const encrypted = Buffer.from(parts[2], 'base64');
     
-    const decipher = crypto.createDecipheriv(algorithm, encryptionKey, iv);
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
     decipher.setAuthTag(authTag);
     
     const decrypted = Buffer.concat([
@@ -107,7 +192,7 @@ export function decryptPHI(encryptedData: string | null | undefined): string | n
     
     return decrypted.toString('utf8');
   } catch (error) {
-    logger.error('Failed to decrypt PHI', error, { 
+    logger.error('Failed to decrypt PHI', error as Error, { 
       dataLength: encryptedData?.length 
     });
     throw new Error('Decryption failed - PHI data may be corrupted');
@@ -115,17 +200,59 @@ export function decryptPHI(encryptedData: string | null | undefined): string | n
 }
 
 /**
+ * Async version of decryptPHI (uses KMS in production)
+ */
+export async function decryptPHIAsync(encryptedData: string | null | undefined): Promise<string | null> {
+  if (!encryptedData) {
+    return null;
+  }
+  
+  try {
+    const parts = encryptedData.split(':');
+    
+    if (parts.length !== 3) {
+      logger.warn('Attempting to decrypt non-encrypted data');
+      return encryptedData;
+    }
+    
+    const key = await getKey();
+    const iv = Buffer.from(parts[0], 'base64');
+    const authTag = Buffer.from(parts[1], 'base64');
+    const encrypted = Buffer.from(parts[2], 'base64');
+    
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    decipher.setAuthTag(authTag);
+    
+    const decrypted = Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final()
+    ]);
+    
+    return decrypted.toString('utf8');
+  } catch (error) {
+    logger.error('Failed to decrypt PHI', error as Error, { 
+      dataLength: encryptedData?.length 
+    });
+    throw new Error('Decryption failed - PHI data may be corrupted');
+  }
+}
+
+// ============================================================================
+// Batch & Object Operations
+// ============================================================================
+
+/**
  * Encrypts an entire patient object's PHI fields
  */
-export function encryptPatientPHI<T extends Record<string, any>>(
+export function encryptPatientPHI<T extends Record<string, unknown>>(
   patient: T,
-  fieldsToEncrypt: (keyof T)[] = ['ssn', 'dob', 'phone', 'email']
+  fieldsToEncrypt: (keyof T)[] = ['ssn', 'dob', 'phone', 'email'] as (keyof T)[]
 ): T {
   const encrypted = { ...patient };
   
   for (const field of fieldsToEncrypt) {
     if (patient[field]) {
-      (encrypted[field] as any) = encryptPHI(String(patient[field]));
+      (encrypted[field] as unknown) = encryptPHI(String(patient[field]));
     }
   }
   
@@ -135,15 +262,15 @@ export function encryptPatientPHI<T extends Record<string, any>>(
 /**
  * Decrypts an entire patient object's PHI fields
  */
-export function decryptPatientPHI<T extends Record<string, any>>(
+export function decryptPatientPHI<T extends Record<string, unknown>>(
   patient: T,
-  fieldsToDecrypt: (keyof T)[] = ['ssn', 'dob', 'phone', 'email']
+  fieldsToDecrypt: (keyof T)[] = ['ssn', 'dob', 'phone', 'email'] as (keyof T)[]
 ): T {
   const decrypted = { ...patient };
   
   for (const field of fieldsToDecrypt) {
     if (patient[field]) {
-      (decrypted[field] as any) = decryptPHI(String(patient[field]));
+      (decrypted[field] as unknown) = decryptPHI(String(patient[field]));
     }
   }
   
@@ -154,11 +281,15 @@ export function decryptPatientPHI<T extends Record<string, any>>(
  * Checks if a string appears to be encrypted
  */
 export function isEncrypted(value: string | null | undefined): boolean {
-  if (!value) return false;
+  if (!value) {
+    return false;
+  }
   
   // Check for our encryption format: base64:base64:base64
   const parts = value.split(':');
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) {
+    return false;
+  }
   
   try {
     // Verify each part is valid base64
@@ -185,10 +316,89 @@ export function decryptBatch(values: (string | null)[]): (string | null)[] {
   return values.map(value => decryptPHI(value));
 }
 
+// ============================================================================
+// Key Rotation Support
+// ============================================================================
+
+/**
+ * Re-encrypt data with a new key (for key rotation)
+ */
+export async function reencryptPHI(
+  encryptedData: string,
+  oldKey: Buffer,
+  newKey: Buffer
+): Promise<string> {
+  // Decrypt with old key
+  const parts = encryptedData.split(':');
+  if (parts.length !== 3) {
+    throw new Error('Invalid encrypted data format');
+  }
+  
+  const iv = Buffer.from(parts[0], 'base64');
+  const authTag = Buffer.from(parts[1], 'base64');
+  const encrypted = Buffer.from(parts[2], 'base64');
+  
+  const decipher = crypto.createDecipheriv(algorithm, oldKey, iv);
+  decipher.setAuthTag(authTag);
+  
+  const plaintext = Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final()
+  ]).toString('utf8');
+  
+  // Encrypt with new key
+  const newIv = crypto.randomBytes(ivLength);
+  const cipher = crypto.createCipheriv(algorithm, newKey, newIv);
+  
+  const newEncrypted = Buffer.concat([
+    cipher.update(plaintext, 'utf8'),
+    cipher.final()
+  ]);
+  
+  const newAuthTag = cipher.getAuthTag();
+  
+  return [
+    newIv.toString('base64'),
+    newAuthTag.toString('base64'),
+    newEncrypted.toString('base64')
+  ].join(':');
+}
+
+// ============================================================================
+// Initialization
+// ============================================================================
+
+/**
+ * Initialize encryption service (call at app startup)
+ */
+export async function initializeEncryption(): Promise<void> {
+  try {
+    await getKey();
+    logger.info('PHI encryption initialized', {
+      kmsEnabled: isKMSEnabled(),
+    });
+  } catch (error) {
+    logger.error('Failed to initialize PHI encryption', error as Error);
+    throw error;
+  }
+}
+
+/**
+ * Clear encryption key from memory (for security events)
+ */
+export function clearEncryptionKey(): void {
+  encryptionKey = null;
+  keyInitPromise = null;
+  logger.security('Encryption key cleared from memory');
+}
+
+// ============================================================================
 // Export for testing
+// ============================================================================
+
 export const _testExports = {
-  getEncryptionKey,
   algorithm,
   ivLength,
-  tagLength
+  tagLength,
+  getKeySync,
 };

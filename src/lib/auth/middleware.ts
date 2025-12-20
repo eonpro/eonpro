@@ -103,7 +103,7 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
     }
 
     // Check token version for revocation
-    const tokenVersion = (payload as AuthUser).tokenVersion || 1;
+    const tokenVersion = (payload as unknown as AuthUser).tokenVersion || 1;
     if (tokenVersion < AUTH_CONFIG.security.minimumTokenVersion) {
       return {
         valid: false,
@@ -157,13 +157,27 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
 
 /**
  * Check if token appears to be a demo/test token
- * @security CRITICAL - This prevents demo tokens from being used
+ * @security This prevents explicitly-created demo tokens from being used
+ * Note: Valid JWTs start with "eyJ" (base64 for '{"'), so we only reject
+ * tokens that DON'T look like valid JWTs AND start with demo patterns
  */
 function isDemoToken(token: string): boolean {
+  // Valid JWTs always start with "eyJ" (base64 encoded '{"')
+  // If it looks like a valid JWT structure, it's not a demo token
+  if (token.startsWith('eyJ') && token.split('.').length === 3) {
+    return false;
+  }
+  
+  // Only check non-JWT tokens for demo patterns
   const demoPatterns = [
     'demo-',
+    'demo_',
+    'demo:',
     'test-',
+    'test_',
+    'test:',
     'dev-',
+    'dev_',
     'fake-',
     'mock-',
     'sample-',
@@ -171,7 +185,7 @@ function isDemoToken(token: string): boolean {
   ];
   
   const tokenLower = token.toLowerCase();
-  return demoPatterns.some(pattern => tokenLower.includes(pattern));
+  return demoPatterns.some(pattern => tokenLower.startsWith(pattern));
 }
 
 /**
@@ -429,14 +443,21 @@ export function withAuth(
       }
 
       // Inject user info into request headers
-      const modifiedReq = req.clone();
-      modifiedReq.headers.set('x-user-id', user.id.toString());
-      modifiedReq.headers.set('x-user-email', user.email);
-      modifiedReq.headers.set('x-user-role', user.role);
-      modifiedReq.headers.set('x-request-id', requestId);
+      const headers = new Headers(req.headers);
+      headers.set('x-user-id', user.id.toString());
+      headers.set('x-user-email', user.email);
+      headers.set('x-user-role', user.role);
+      headers.set('x-request-id', requestId);
       if (user.clinicId) {
-        modifiedReq.headers.set('x-clinic-id', user.clinicId.toString());
+        headers.set('x-clinic-id', user.clinicId.toString());
       }
+      
+      // Create a new NextRequest with the modified headers
+      const modifiedReq = new NextRequest(req.url, {
+        method: req.method,
+        headers,
+        body: req.body,
+      });
       
       // Execute handler
       const response = await handler(modifiedReq, user);

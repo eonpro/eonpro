@@ -148,7 +148,7 @@ describe('PHI Encryption', () => {
 
   describe('encryptPatientPHI', () => {
     it('should encrypt specified fields', () => {
-      const patient = {
+      const patient: Record<string, unknown> = {
         id: 1,
         firstName: 'John',
         lastName: 'Doe',
@@ -167,11 +167,11 @@ describe('PHI Encryption', () => {
       expect(encrypted.dob).not.toBe(patient.dob);
       expect(encrypted.phone).not.toBe(patient.phone);
       expect(encrypted.email).not.toBe(patient.email);
-      expect(isEncrypted(encrypted.ssn)).toBe(true);
+      expect(isEncrypted(encrypted.ssn as string)).toBe(true);
     });
 
     it('should not modify non-specified fields', () => {
-      const patient = {
+      const patient: Record<string, unknown> = {
         id: 1,
         firstName: 'John',
         lastName: 'Doe',
@@ -185,7 +185,7 @@ describe('PHI Encryption', () => {
     });
 
     it('should handle missing fields gracefully', () => {
-      const patient = {
+      const patient: Record<string, unknown> = {
         id: 1,
         firstName: 'John',
       };
@@ -199,7 +199,7 @@ describe('PHI Encryption', () => {
 
   describe('decryptPatientPHI', () => {
     it('should decrypt specified fields', () => {
-      const original = {
+      const original: Record<string, unknown> = {
         id: 1,
         firstName: 'John',
         ssn: '123-45-6789',
@@ -228,7 +228,7 @@ describe('PHI Encryption', () => {
       });
 
       it('should handle null values in batch', () => {
-        const values = ['value1', null, 'value3'];
+        const values: (string | null)[] = ['value1', null, 'value3'];
         const encrypted = encryptBatch(values);
         
         expect(encrypted.length).toBe(3);
