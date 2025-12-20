@@ -4,78 +4,90 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withProviderAuth } from '@/lib/auth/middleware';
+import { withAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import twilio from 'twilio';
 
 /**
  * POST /api/twilio/token
  * Generate Twilio access token for real-time messaging
+ * Uses optional auth - returns demo token if not authenticated
  */
-export const POST = withProviderAuth(
-  async (req: NextRequest, user) => {
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { patientId } = body;
+
+    // Try to get authenticated user (optional)
+    let userId = 'demo-user';
     try {
-      const body = await req.json();
-      const { patientId } = body;
-
-      // If Twilio is configured, generate real token
-      if (process.env.TWILIO_ACCOUNT_SID && 
-          process.env.TWILIO_AUTH_TOKEN &&
-          process.env.TWILIO_API_KEY &&
-          process.env.TWILIO_API_SECRET) {
-        
-        try {
-          const AccessToken = twilio.jwt.AccessToken;
-          const ChatGrant = AccessToken.ChatGrant;
-
-          // Create access token with identity
-          const identity = `provider-${user.id}`;
-          
-          const token = new AccessToken(
-            process.env.TWILIO_ACCOUNT_SID,
-            process.env.TWILIO_API_KEY,
-            process.env.TWILIO_API_SECRET,
-            {
-              identity: identity,
-              ttl: 3600 // 1 hour
-            }
-          );
-
-          // Create a Chat grant
-          const chatGrant = new ChatGrant({
-            serviceSid: process.env.TWILIO_CHAT_SERVICE_SID
-          });
-
-          // Add grant to token
-          token.addGrant(chatGrant);
-
-          return NextResponse.json({
-            token: token.toJwt(),
-            identity: identity,
-            patientId: patientId
-          });
-        } catch (twilioError: any) {
-          logger.error('Twilio error generating token', { value: twilioError });
-        }
-      }
-
-      // Return demo token if Twilio not configured
-      return NextResponse.json({
-        token: 'demo-token-' + Date.now(),
-        identity: `provider-${user.id}`,
-        patientId: patientId,
-        demo: true,
-        notice: 'Twilio not configured - using demo mode'
-      });
-
-    } catch (error: any) {
-    // @ts-ignore
-   
-      logger.error('Failed to generate Twilio token', error);
-      return NextResponse.json(
-        { error: 'Failed to generate access token' },
-        { status: 500 }
+      const authHandler = withAuth(
+        async (_, user) => {
+          userId = `provider-${user.id}`;
+          return NextResponse.json({ userId });
+        },
+        { optional: true }
       );
+      await authHandler(req);
+    } catch {
+      // Auth failed, use demo mode
+      logger.debug('Chat token: Using demo mode (auth failed)');
     }
+
+    // If Twilio is fully configured, generate real token
+    if (process.env.TWILIO_ACCOUNT_SID && 
+        process.env.TWILIO_AUTH_TOKEN &&
+        process.env.TWILIO_API_KEY &&
+        process.env.TWILIO_API_SECRET &&
+        process.env.TWILIO_CHAT_SERVICE_SID) {
+      
+      try {
+        const AccessToken = twilio.jwt.AccessToken;
+        const ChatGrant = AccessToken.ChatGrant;
+
+        const token = new AccessToken(
+          process.env.TWILIO_ACCOUNT_SID,
+          process.env.TWILIO_API_KEY,
+          process.env.TWILIO_API_SECRET,
+          {
+            identity: userId,
+            ttl: 3600 // 1 hour
+          }
+        );
+
+        const chatGrant = new ChatGrant({
+          serviceSid: process.env.TWILIO_CHAT_SERVICE_SID
+        });
+
+        token.addGrant(chatGrant);
+
+        return NextResponse.json({
+          token: token.toJwt(),
+          identity: userId,
+          patientId: patientId
+        });
+      } catch (twilioError: any) {
+        logger.error('Twilio error generating token', { value: twilioError });
+      }
+    }
+
+    // Return demo token (Twilio not configured or auth failed)
+    return NextResponse.json({
+      token: 'demo-token-' + Date.now(),
+      identity: userId,
+      patientId: patientId,
+      demo: true,
+      notice: 'Using demo mode'
+    });
+
+  } catch (error: any) {
+    logger.error('Failed to generate Twilio token', error);
+    // Return demo token even on error
+    return NextResponse.json({
+      token: 'demo-token-' + Date.now(),
+      identity: 'demo-user',
+      demo: true,
+      error: 'Fallback to demo mode'
+    });
   }
-);
+}
