@@ -145,7 +145,7 @@ export const AUTH_CONFIG = {
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV !== "test", // Always secure except in tests
-    sameSite: 'strict' as const,
+    sameSite: 'lax' as const, // 'lax' allows cookies to be sent with same-site fetch requests
     path: '/',
     maxAge: undefined, // Session cookie (expires on browser close)
   },
