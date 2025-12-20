@@ -7,8 +7,8 @@ import { logger } from '@/lib/logger';
 
 export interface InvoiceLineItem {
   description: string;
-  amount: number; // Amount in cents
-  quantity?: number;
+  amount: number; // Total amount in cents for this line item (not per-unit)
+  quantity?: number; // Optional: for display purposes only (e.g., "Item x2")
   metadata?: Record<string, string>;
 }
 
@@ -54,17 +54,16 @@ export class StripeInvoiceService {
     
     // Add line items
     for (const item of options.lineItems) {
-      // Stripe requires either 'amount' (total) OR 'unit_amount' with 'quantity', not both
-      // Use unit_amount when quantity is specified, otherwise use amount directly
-      const quantity = item.quantity || 1;
-
+      // Stripe API: use 'amount' for total line item cost (cannot combine with 'quantity')
+      // Our InvoiceLineItem.amount is the TOTAL cost, not per-unit price
       await stripeClient.invoiceItems.create({
         customer: customer.id,
         invoice: stripeInvoice.id,
-        description: item.description,
-        unit_amount: item.amount, // Per-unit amount in cents
+        description: item.quantity && item.quantity > 1
+          ? `${item.description} (x${item.quantity})`
+          : item.description,
+        amount: item.amount, // Total amount in cents for this line item
         currency: STRIPE_CONFIG.currency,
-        quantity: quantity,
         metadata: item.metadata,
       });
     }
@@ -77,9 +76,9 @@ export class StripeInvoiceService {
       await stripeClient.invoices.sendInvoice(finalizedInvoice.id);
     }
     
-    // Calculate total amount
+    // Calculate total amount (amount is already the total for each line item)
     const totalAmount = options.lineItems.reduce(
-      (sum, item) => sum + (item.amount * (item.quantity || 1)),
+      (sum, item) => sum + item.amount,
       0
     );
     

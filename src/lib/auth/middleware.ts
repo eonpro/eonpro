@@ -1,115 +1,250 @@
 /**
  * Authentication Middleware for API Routes
- * Provides centralized authentication and authorization
+ * HIPAA-Compliant - Production Ready
+ * 
+ * @module auth/middleware
+ * @version 2.0.0
+ * @security CRITICAL - This module handles all authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-import { JWT_SECRET } from './config';
+import { jwtVerify, JWTPayload } from 'jose';
+import { JWT_SECRET, AUTH_CONFIG } from './config';
 import { setClinicContext } from '@/lib/db';
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { logger } from '@/lib/logger';
+
+// ============================================================================
+// Types & Interfaces
+// ============================================================================
 
 export interface AuthUser {
   id: number;
   email: string;
-  role: 'super_admin' | 'admin' | 'provider' | 'influencer' | 'patient' | 'staff' | 'support';
+  role: UserRole;
   clinicId?: number;
   sessionId?: string;
-  [key: string]: any;
+  providerId?: number;
+  patientId?: number;
+  influencerId?: number;
+  permissions?: string[];
+  tokenVersion?: number;
+  iat?: number;
+  exp?: number;
+}
+
+export type UserRole = 
+  | 'super_admin' 
+  | 'admin' 
+  | 'provider' 
+  | 'influencer' 
+  | 'patient' 
+  | 'staff' 
+  | 'support';
+
+export interface AuthOptions {
+  /** Allowed roles for this endpoint */
+  roles?: UserRole[];
+  /** If true, unauthenticated requests will pass through with null user */
+  optional?: boolean;
+  /** Skip session validation (use only for specific endpoints like logout) */
+  skipSessionValidation?: boolean;
+  /** Required permissions for this endpoint */
+  permissions?: string[];
+  /** Custom error message for unauthorized access */
+  unauthorizedMessage?: string;
+}
+
+interface TokenValidationResult {
+  valid: boolean;
+  user?: AuthUser;
+  error?: string;
+  errorCode?: 'EXPIRED' | 'INVALID' | 'REVOKED' | 'MALFORMED';
+}
+
+// ============================================================================
+// Token Verification
+// ============================================================================
+
+/**
+ * Verify and decode JWT token
+ * @security This function ONLY accepts properly signed JWTs - NO demo/test tokens
+ */
+async function verifyToken(token: string): Promise<TokenValidationResult> {
+  // Security: Reject any token that looks like a demo/test token
+  if (isDemoToken(token)) {
+    logger.security('Attempted use of demo token in production', {
+      tokenPrefix: token.substring(0, 20),
+      environment: process.env.NODE_ENV
+    });
+    
+    return {
+      valid: false,
+      error: 'Demo tokens are not allowed',
+      errorCode: 'INVALID'
+    };
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      clockTolerance: 30, // Allow 30 seconds clock skew
+    });
+    
+    // Validate required claims
+    const validationError = validateTokenClaims(payload);
+    if (validationError) {
+      return {
+        valid: false,
+        error: validationError,
+        errorCode: 'MALFORMED'
+      };
+    }
+
+    // Check token version for revocation
+    const tokenVersion = (payload as AuthUser).tokenVersion || 1;
+    if (tokenVersion < AUTH_CONFIG.security.minimumTokenVersion) {
+      return {
+        valid: false,
+        error: 'Token has been revoked',
+        errorCode: 'REVOKED'
+      };
+    }
+
+    const user: AuthUser = {
+      id: payload.id as number,
+      email: payload.email as string,
+      role: payload.role as UserRole,
+      clinicId: payload.clinicId as number | undefined,
+      sessionId: payload.sessionId as string | undefined,
+      providerId: payload.providerId as number | undefined,
+      patientId: payload.patientId as number | undefined,
+      influencerId: payload.influencerId as number | undefined,
+      permissions: payload.permissions as string[] | undefined,
+      tokenVersion: tokenVersion,
+      iat: payload.iat,
+      exp: payload.exp,
+    };
+
+    return { valid: true, user };
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('expired')) {
+        return {
+          valid: false,
+          error: 'Token has expired',
+          errorCode: 'EXPIRED'
+        };
+      }
+      if (error.message.includes('signature')) {
+        return {
+          valid: false,
+          error: 'Invalid token signature',
+          errorCode: 'INVALID'
+        };
+      }
+    }
+    
+    logger.error('Token verification failed', error as Error);
+    return {
+      valid: false,
+      error: 'Token verification failed',
+      errorCode: 'INVALID'
+    };
+  }
 }
 
 /**
- * Verify JWT token from various sources
+ * Check if token appears to be a demo/test token
+ * @security CRITICAL - This prevents demo tokens from being used
  */
-async function verifyToken(token: string): Promise<AuthUser | null> {
-  // Check if this is a demo token
-  if (token.includes('demo-')) {
-    // Handle demo tokens (for development/demo purposes only)
-    // In production, remove this block
-    const demoUsers: Record<string, AuthUser> = {
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MCwiZW1haWwiOiJzdXBlcmFkbWluQGVvbnByby5jb20iLCJyb2xlIjoic3VwZXJfYWRtaW4ifQ.demo-superadmin-token': {
-        id: 2, // Actual ID from database
-        email: 'superadmin@eonpro.com',
-        role: 'super_admin',
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBsaWZlZmlsZS5jb20iLCJyb2xlIjoiYWRtaW4iLCJjbGluaWNJZCI6MX0.demo-admin-token': {
-        id: 1,
-        email: 'admin@eonpro.com',
-        role: 'admin',
-        clinicId: 1
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiZW1haWwiOiJwcm92aWRlckBsaWZlZmlsZS5jb20iLCJyb2xlIjoicHJvdmlkZXIiLCJjbGluaWNJZCI6MX0.demo-provider-token': {
-        id: 2,
-        email: 'provider@eonpro.com',
-        role: 'provider',
-        clinicId: 1
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiZW1haWwiOiJzdGFmZkBsaWZlZmlsZS5jb20iLCJyb2xlIjoic3RhZmYiLCJjbGluaWNJZCI6MX0.demo-staff-token': {
-        id: 3,
-        email: 'staff@eonpro.com',
-        role: 'staff' as any,
-        clinicId: 1
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NCwiZW1haWwiOiJzdXBwb3J0QGxpZmVmaWxlLmNvbSIsInJvbGUiOiJzdXBwb3J0IiwiY2xpbmljSWQiOjF9.demo-support-token': {
-        id: 4,
-        email: 'support@eonpro.com',
-        role: 'support' as any,
-        clinicId: 1
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJwYXRpZW50QGV4YW1wbGUuY29tIiwicm9sZSI6InBhdGllbnQiLCJjbGluaWNJZCI6MX0.demo-patient-token': {
-        id: 5,
-        email: 'patient@example.com',
-        role: 'patient',
-        clinicId: 1,
-        patientId: 1 // Link to Test Patient
-      }
-    };
-    
-    return demoUsers[token] || null;
+function isDemoToken(token: string): boolean {
+  const demoPatterns = [
+    'demo-',
+    'test-',
+    'dev-',
+    'fake-',
+    'mock-',
+    'sample-',
+    'example-',
+  ];
+  
+  const tokenLower = token.toLowerCase();
+  return demoPatterns.some(pattern => tokenLower.includes(pattern));
+}
+
+/**
+ * Validate required JWT claims
+ */
+function validateTokenClaims(payload: JWTPayload): string | null {
+  if (!payload.id || typeof payload.id !== 'number') {
+    return 'Missing or invalid user ID in token';
   }
   
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as AuthUser;
-  } catch (error: any) {
-    // @ts-ignore
-   
-    return null;
+  if (!payload.email || typeof payload.email !== 'string') {
+    return 'Missing or invalid email in token';
   }
+  
+  if (!payload.role || typeof payload.role !== 'string') {
+    return 'Missing or invalid role in token';
+  }
+  
+  const validRoles: UserRole[] = [
+    'super_admin', 'admin', 'provider', 'influencer', 
+    'patient', 'staff', 'support'
+  ];
+  
+  if (!validRoles.includes(payload.role as UserRole)) {
+    return `Invalid role: ${payload.role}`;
+  }
+  
+  return null;
 }
 
+// ============================================================================
+// Token Extraction
+// ============================================================================
+
 /**
- * Extract token from request
+ * Extract authentication token from request
+ * Checks multiple sources in priority order
  */
 function extractToken(req: NextRequest): string | null {
-  // Check Authorization header
+  // Priority 1: Authorization header (most secure)
   const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.slice(7);
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
   }
 
-  // Check cookies for various token types
-  const cookieTokens = [
+  // Priority 2: HTTP-only cookies (secure for browser clients)
+  const cookieTokenNames = [
     'auth-token',
-    'influencer-token',
-    'provider-token',
-    'admin-token',
     'super_admin-token',
-    'SUPER_ADMIN-token'
+    'admin-token',
+    'provider-token',
+    'influencer-token',
+    'patient-token',
+    'staff-token',
+    'support-token',
   ];
 
-  for (const cookieName of cookieTokens) {
+  for (const cookieName of cookieTokenNames) {
     const token = req.cookies.get(cookieName)?.value;
     if (token) {
       return token;
     }
   }
 
-  // Check query parameter (less secure, use only for specific cases)
+  // Priority 3: Query parameter (only for specific use cases like email links)
+  // Security: This should be avoided when possible
   const url = new URL(req.url);
   const queryToken = url.searchParams.get('token');
   if (queryToken) {
+    logger.warn('Token passed via query parameter', {
+      path: url.pathname,
+      ip: getClientIP(req)
+    });
     return queryToken;
   }
 
@@ -117,155 +252,312 @@ function extractToken(req: NextRequest): string | null {
 }
 
 /**
- * Main authentication middleware
+ * Get client IP address from request
+ */
+function getClientIP(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+         req.headers.get('x-real-ip') ||
+         req.headers.get('cf-connecting-ip') ||
+         'unknown';
+}
+
+// ============================================================================
+// Main Authentication Middleware
+// ============================================================================
+
+/**
+ * Main authentication middleware factory
+ * 
+ * @example
+ * // Basic authentication
+ * export const GET = withAuth(async (req, user) => {
+ *   return NextResponse.json({ user });
+ * });
+ * 
+ * @example
+ * // Role-based access
+ * export const POST = withAuth(async (req, user) => {
+ *   // Only admins can access
+ * }, { roles: ['admin', 'super_admin'] });
  */
 export function withAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>,
-  options: {
-    roles?: string[];
-    optional?: boolean;
-  } = {}
-) {
-  return async (req: NextRequest) => {
-    const token = extractToken(req);
-
-    if (!token) {
-      if (options.optional) {
-        // Pass through without user for optional auth
-        return handler(req, null as any);
-      }
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const user = await verifyToken(token);
-
-    if (!user) {
-      if (options.optional) {
-        return handler(req, null as any);
-      }
-      
-      // Log failed authentication
-      await auditLog(req, {
-        userId: 'unknown',
-        eventType: AuditEventType.LOGIN_FAILED,
-        resourceType: 'API',
-        action: 'AUTHENTICATION_FAILED',
-        outcome: 'FAILURE',
-        reason: 'Invalid or expired token'
-      });
-      
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
+  options: AuthOptions = {}
+): (req: NextRequest) => Promise<Response> {
+  return async (req: NextRequest): Promise<Response> => {
+    const startTime = Date.now();
+    const requestId = crypto.randomUUID();
     
-    // Validate session (check for timeout)
-    // Note: Skip session validation if session not found (common on serverless due to in-memory store)
-    // The JWT signature validation above is sufficient for authentication
-    if (user.sessionId) {
-      const sessionValidation = await validateSession(token, req);
-      
-      // Only reject if session was explicitly timed out (not if just missing from memory)
-      if (!sessionValidation.valid && sessionValidation.reason !== 'Session not found') {
-        // Clear clinic context on invalid session
-        setClinicContext(undefined);
+    try {
+      // Extract token
+      const token = extractToken(req);
+
+      if (!token) {
+        if (options.optional) {
+          return handler(req, null as unknown as AuthUser);
+        }
         
-        // Log session timeout
-        await auditLog(req, {
-          userId: user.id.toString(),
-          userEmail: user.email,
-          userRole: user.role,
-          eventType: AuditEventType.SESSION_TIMEOUT,
-          resourceType: 'Session',
-          resourceId: user.sessionId,
-          action: 'SESSION_VALIDATION_FAILED',
-          outcome: 'FAILURE',
-          reason: sessionValidation.reason
-        });
+        await logAuthFailure(req, requestId, 'NO_TOKEN', 'No authentication token provided');
         
         return NextResponse.json(
-          { error: sessionValidation.reason || 'Session expired' },
+          { 
+            error: options.unauthorizedMessage || 'Authentication required',
+            code: 'AUTH_REQUIRED',
+            requestId 
+          },
           { status: 401 }
         );
       }
-    }
 
-    // Check role-based access (case-insensitive)
-    if (options.roles && options.roles.length > 0) {
-      const userRole = user.role.toLowerCase();
-      const allowedRoles = options.roles.map((r: any) => r.toLowerCase());
-      if (!allowedRoles.includes(userRole)) {
-        // Log authorization failure
-        await auditLog(req, {
-          userId: user.id.toString(),
-          userEmail: user.email,
-          userRole: user.role,
-          clinicId: user.clinicId,
-          eventType: AuditEventType.SYSTEM_ACCESS,
-          resourceType: 'API',
-          action: 'AUTHORIZATION_FAILED',
-          outcome: 'FAILURE',
-          reason: `Required roles: ${options.roles.join(', ')}`
-        });
+      // Verify token
+      const tokenResult = await verifyToken(token);
+
+      if (!tokenResult.valid || !tokenResult.user) {
+        if (options.optional) {
+          return handler(req, null as unknown as AuthUser);
+        }
         
+        await logAuthFailure(req, requestId, tokenResult.errorCode || 'INVALID', tokenResult.error || 'Token verification failed');
+        
+        // Return specific error for expired tokens (client can refresh)
+        const status = tokenResult.errorCode === 'EXPIRED' ? 401 : 401;
         return NextResponse.json(
-          { error: 'Insufficient permissions' },
-          { status: 403 }
+          { 
+            error: tokenResult.error || 'Invalid or expired token',
+            code: tokenResult.errorCode || 'AUTH_FAILED',
+            requestId 
+          },
+          { status }
         );
       }
-    }
-    
-    // Set clinic context for database queries
-    if (user.clinicId) {
-      setClinicContext(user.clinicId);
-    }
 
-    // Add user to request headers for downstream use
-    const modifiedReq = req.clone();
-    modifiedReq.headers.set('x-user-id', user.id.toString());
-    modifiedReq.headers.set('x-user-email', user.email);
-    modifiedReq.headers.set('x-user-role', user.role);
-    if (user.clinicId) {
-      modifiedReq.headers.set('x-clinic-id', user.clinicId.toString());
-    }
-    
-    try {
-      const response = await handler(modifiedReq as NextRequest, user);
+      const user = tokenResult.user;
       
-      // Clear clinic context after request
+      // Session validation (skip for serverless compatibility when session is missing)
+      if (!options.skipSessionValidation && user.sessionId) {
+        const sessionResult = await validateSession(token, req);
+        
+        if (!sessionResult.valid && sessionResult.reason !== 'Session not found') {
+          setClinicContext(undefined);
+          
+          await auditLog(req, {
+            userId: user.id.toString(),
+            userEmail: user.email,
+            userRole: user.role,
+            eventType: AuditEventType.SESSION_TIMEOUT,
+            resourceType: 'Session',
+            resourceId: user.sessionId,
+            action: 'SESSION_VALIDATION_FAILED',
+            outcome: 'FAILURE',
+            reason: sessionResult.reason
+          });
+          
+          return NextResponse.json(
+            { 
+              error: sessionResult.reason || 'Session expired',
+              code: 'SESSION_EXPIRED',
+              requestId 
+            },
+            { status: 401 }
+          );
+        }
+      }
+
+      // Role-based access control
+      if (options.roles && options.roles.length > 0) {
+        const userRole = user.role.toLowerCase() as UserRole;
+        const allowedRoles = options.roles.map(r => r.toLowerCase());
+        
+        if (!allowedRoles.includes(userRole)) {
+          await auditLog(req, {
+            userId: user.id.toString(),
+            userEmail: user.email,
+            userRole: user.role,
+            clinicId: user.clinicId,
+            eventType: AuditEventType.SYSTEM_ACCESS,
+            resourceType: 'API',
+            action: 'AUTHORIZATION_FAILED',
+            outcome: 'FAILURE',
+            reason: `Required roles: ${options.roles.join(', ')}, User role: ${user.role}`
+          });
+          
+          return NextResponse.json(
+            { 
+              error: 'Insufficient permissions',
+              code: 'FORBIDDEN',
+              requestId 
+            },
+            { status: 403 }
+          );
+        }
+      }
+
+      // Permission-based access control
+      if (options.permissions && options.permissions.length > 0) {
+        const userPermissions = user.permissions || [];
+        const hasAllPermissions = options.permissions.every(
+          p => userPermissions.includes(p)
+        );
+        
+        if (!hasAllPermissions) {
+          await auditLog(req, {
+            userId: user.id.toString(),
+            userEmail: user.email,
+            userRole: user.role,
+            clinicId: user.clinicId,
+            eventType: AuditEventType.SYSTEM_ACCESS,
+            resourceType: 'API',
+            action: 'PERMISSION_CHECK_FAILED',
+            outcome: 'FAILURE',
+            reason: `Required permissions: ${options.permissions.join(', ')}`
+          });
+          
+          return NextResponse.json(
+            { 
+              error: 'Missing required permissions',
+              code: 'FORBIDDEN',
+              requestId 
+            },
+            { status: 403 }
+          );
+        }
+      }
+      
+      // Set clinic context for multi-tenant queries
+      if (user.clinicId) {
+        setClinicContext(user.clinicId);
+      }
+
+      // Inject user info into request headers
+      const modifiedReq = req.clone();
+      modifiedReq.headers.set('x-user-id', user.id.toString());
+      modifiedReq.headers.set('x-user-email', user.email);
+      modifiedReq.headers.set('x-user-role', user.role);
+      modifiedReq.headers.set('x-request-id', requestId);
+      if (user.clinicId) {
+        modifiedReq.headers.set('x-clinic-id', user.clinicId.toString());
+      }
+      
+      // Execute handler
+      const response = await handler(modifiedReq, user);
+      
+      // Clear clinic context
       setClinicContext(undefined);
       
-      return response;
+      // Add security headers to response
+      const finalResponse = addSecurityHeaders(response, requestId);
+      
+      // Log successful access for high-privilege operations
+      if (shouldLogAccess(user.role, req.method)) {
+        logger.api(req.method, new URL(req.url).pathname, {
+          userId: user.id,
+          role: user.role,
+          clinicId: user.clinicId,
+          duration: Date.now() - startTime,
+          requestId
+        });
+      }
+      
+      return finalResponse;
     } catch (error) {
-      // Clear clinic context on error
       setClinicContext(undefined);
-      throw error;
+      
+      logger.error('Authentication middleware error', error as Error, { requestId });
+      
+      return NextResponse.json(
+        { 
+          error: 'Internal authentication error',
+          code: 'AUTH_ERROR',
+          requestId 
+        },
+        { status: 500 }
+      );
     }
   };
 }
 
 /**
- * Middleware for admin-only routes
- * Also allows super_admin to access all admin routes
+ * Log authentication failure
+ */
+async function logAuthFailure(
+  req: NextRequest, 
+  requestId: string, 
+  code: string, 
+  reason: string
+): Promise<void> {
+  await auditLog(req, {
+    userId: 'anonymous',
+    eventType: AuditEventType.LOGIN_FAILED,
+    resourceType: 'API',
+    action: 'AUTHENTICATION_FAILED',
+    outcome: 'FAILURE',
+    reason,
+    metadata: { code, requestId }
+  });
+}
+
+/**
+ * Determine if access should be logged
+ */
+function shouldLogAccess(role: UserRole, method: string): boolean {
+  // Log all write operations
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    return true;
+  }
+  
+  // Log access for high-privilege roles
+  if (['super_admin', 'admin', 'provider'].includes(role)) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Add security headers to response
+ */
+function addSecurityHeaders(response: Response, requestId: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set('X-Request-ID', requestId);
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'DENY');
+  
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
+// ============================================================================
+// Convenience Middleware Factories
+// ============================================================================
+
+/**
+ * Middleware for super admin only routes
+ */
+export function withSuperAdminAuth(
+  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
+): (req: NextRequest) => Promise<Response> {
+  return withAuth(handler, { roles: ['super_admin'] });
+}
+
+/**
+ * Middleware for admin routes (includes super_admin)
  */
 export function withAdminAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
-) {
+): (req: NextRequest) => Promise<Response> {
   return withAuth(handler, { roles: ['super_admin', 'admin'] });
 }
 
 /**
  * Middleware for provider routes
- * Also allows super_admin to access all provider routes
  */
 export function withProviderAuth(
-  handler: (req: NextRequest, user: AuthUser, context?: any) => Promise<Response>
-) {
-  return async (req: NextRequest, context?: any) => {
+  handler: (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
+): (req: NextRequest, context?: unknown) => Promise<Response> {
+  return async (req: NextRequest, context?: unknown): Promise<Response> => {
     const authHandler = withAuth(
       (authedReq: NextRequest, user: AuthUser) => handler(authedReq, user, context),
       { roles: ['super_admin', 'admin', 'provider'] }
@@ -276,12 +568,11 @@ export function withProviderAuth(
 
 /**
  * Middleware for clinical routes (providers and staff)
- * Also allows super_admin to access all clinical routes
  */
 export function withClinicalAuth(
-  handler: (req: NextRequest, user: AuthUser, context?: any) => Promise<Response>
-) {
-  return async (req: NextRequest, context?: any) => {
+  handler: (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
+): (req: NextRequest, context?: unknown) => Promise<Response> {
+  return async (req: NextRequest, context?: unknown): Promise<Response> => {
     const authHandler = withAuth(
       (authedReq: NextRequest, user: AuthUser) => handler(authedReq, user, context),
       { roles: ['super_admin', 'admin', 'provider', 'staff'] }
@@ -291,22 +582,49 @@ export function withClinicalAuth(
 }
 
 /**
+ * Middleware for support routes
+ */
+export function withSupportAuth(
+  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
+): (req: NextRequest) => Promise<Response> {
+  return withAuth(handler, { 
+    roles: ['super_admin', 'admin', 'support', 'staff'] 
+  });
+}
+
+/**
  * Middleware for influencer routes
- * Also allows super_admin to access all influencer routes
  */
 export function withInfluencerAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
-) {
+): (req: NextRequest) => Promise<Response> {
   return withAuth(handler, { roles: ['super_admin', 'admin', 'influencer'] });
 }
 
 /**
- * Helper to get current user from request
+ * Middleware for patient routes
+ */
+export function withPatientAuth(
+  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
+): (req: NextRequest) => Promise<Response> {
+  return withAuth(handler, { 
+    roles: ['super_admin', 'admin', 'provider', 'staff', 'patient'] 
+  });
+}
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Extract current user from request headers
+ * Use after authentication middleware has run
  */
 export function getCurrentUser(req: NextRequest): AuthUser | null {
   const userId = req.headers.get('x-user-id');
   const userEmail = req.headers.get('x-user-email');
   const userRole = req.headers.get('x-user-role');
+  const clinicId = req.headers.get('x-clinic-id');
 
   if (!userId || !userEmail || !userRole) {
     return null;
@@ -315,6 +633,44 @@ export function getCurrentUser(req: NextRequest): AuthUser | null {
   return {
     id: parseInt(userId, 10),
     email: userEmail,
-    role: userRole as AuthUser['role'],
+    role: userRole as UserRole,
+    clinicId: clinicId ? parseInt(clinicId, 10) : undefined,
   };
+}
+
+/**
+ * Check if user has specific role
+ */
+export function hasRole(user: AuthUser | null, roles: UserRole[]): boolean {
+  if (!user) {
+    return false;
+  }
+  return roles.includes(user.role);
+}
+
+/**
+ * Check if user has specific permission
+ */
+export function hasPermission(user: AuthUser | null, permission: string): boolean {
+  if (!user || !user.permissions) {
+    return false;
+  }
+  return user.permissions.includes(permission);
+}
+
+/**
+ * Check if user can access a specific clinic
+ */
+export function canAccessClinic(user: AuthUser | null, clinicId: number): boolean {
+  if (!user) {
+    return false;
+  }
+  
+  // Super admins can access all clinics
+  if (user.role === 'super_admin') {
+    return true;
+  }
+  
+  // Others can only access their own clinic
+  return user.clinicId === clinicId;
 }

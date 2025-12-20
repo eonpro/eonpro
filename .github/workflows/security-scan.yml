@@ -1,0 +1,241 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ============================================================================
+  # Dependency Vulnerability Scan
+  # ============================================================================
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        
+      - name: Run npm audit
+        run: npm audit --production --json > npm-audit-results.json || true
+        
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-results
+          path: npm-audit-results.json
+          
+      - name: Check critical vulnerabilities
+        run: |
+          CRITICAL=$(cat npm-audit-results.json | jq '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(cat npm-audit-results.json | jq '.metadata.vulnerabilities.high // 0')
+          
+          echo "Critical: $CRITICAL, High: $HIGH"
+          
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ Critical vulnerabilities found!"
+            exit 1
+          fi
+
+  # ============================================================================
+  # Static Analysis Security Testing (SAST)
+  # ============================================================================
+  sast:
+    name: SAST Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, typescript
+          queries: security-and-quality
+          
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+        
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
+  # ============================================================================
+  # Secret Detection
+  # ============================================================================
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: TruffleHog scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+          
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
+  # Container Security Scan
+  # ============================================================================
+  container-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Build Docker image
+        run: docker build -t app:scan .
+        
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'app:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ============================================================================
+  # License Compliance
+  # ============================================================================
+  license-scan:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        
+      - name: Check licenses
+        run: |
+          npx license-checker --production --json --excludePrivatePackages > licenses.json
+          
+          # Check for problematic licenses
+          PROBLEMATIC=$(cat licenses.json | jq -r 'to_entries[] | select(.value.licenses | test("GPL|AGPL|SSPL|CC-BY-NC")) | .key' | head -5)
+          
+          if [ -n "$PROBLEMATIC" ]; then
+            echo "⚠️ Potentially problematic licenses found:"
+            echo "$PROBLEMATIC"
+          fi
+          
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: licenses.json
+
+  # ============================================================================
+  # HIPAA Security Assessment
+  # ============================================================================
+  hipaa-check:
+    name: HIPAA Security Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Check encryption configuration
+        run: |
+          echo "Checking encryption implementation..."
+          
+          # Check for encryption usage in security files
+          if grep -r "aes-256" src/lib/security/ src/lib/encryption.ts 2>/dev/null; then
+            echo "✅ AES-256 encryption found"
+          else
+            echo "⚠️ Check encryption implementation"
+          fi
+          
+          # Check for audit logging
+          if [ -f "src/lib/audit/hipaa-audit.ts" ]; then
+            echo "✅ HIPAA audit logging found"
+          else
+            echo "❌ HIPAA audit logging missing"
+            exit 1
+          fi
+          
+      - name: Check authentication security
+        run: |
+          echo "Checking authentication security..."
+          
+          # Check for demo tokens (should not exist in production code)
+          if grep -r "demo-.*-token" src/lib/auth/ 2>/dev/null | grep -v "test" | grep -v ".test."; then
+            echo "❌ Demo tokens found in authentication code!"
+            exit 1
+          else
+            echo "✅ No demo tokens in authentication"
+          fi
+          
+          # Check for 2FA implementation
+          if [ -f "src/lib/auth/two-factor.ts" ]; then
+            echo "✅ Two-factor authentication found"
+          else
+            echo "⚠️ Two-factor authentication not found"
+          fi
+          
+      - name: Check data handling
+        run: |
+          echo "Checking PHI handling..."
+          
+          # Check for PHI encryption helpers
+          if [ -f "src/lib/security/phi-encryption.ts" ]; then
+            echo "✅ PHI encryption module found"
+          else
+            echo "❌ PHI encryption module missing"
+            exit 1
+          fi
+          
+          # Check for PHI anonymization
+          if [ -f "src/lib/security/phi-anonymization.ts" ]; then
+            echo "✅ PHI anonymization module found"
+          fi

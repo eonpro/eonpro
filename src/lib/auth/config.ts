@@ -131,6 +131,9 @@ export const AUTH_CONFIG = {
     concurrentSessions: 1, // Only one session per user
     logoutOnWindowClose: true,
     clearClipboardOnLogout: true,
+    
+    // Token versioning for revocation (increment to invalidate all tokens)
+    minimumTokenVersion: parseInt(process.env.TOKEN_VERSION || '1', 10),
   },
   
   // Cookie settings (HIPAA compliant)

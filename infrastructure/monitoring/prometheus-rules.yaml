@@ -1,0 +1,236 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: eonpro-alerts
+  namespace: eonpro
+  labels:
+    app: eonpro
+    prometheus: main
+spec:
+  groups:
+    # ========================================================================
+    # Application Alerts
+    # ========================================================================
+    - name: eonpro-application
+      rules:
+        # High Error Rate
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[5m])) 
+            / sum(rate(http_requests_total[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            team: backend
+          annotations:
+            summary: "High error rate detected"
+            description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+            runbook_url: "https://runbooks.eonpro.health/high-error-rate"
+
+        # High Response Time
+        - alert: HighResponseTime
+          expr: |
+            histogram_quantile(0.95, 
+              sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+            ) > 2
+          for: 5m
+          labels:
+            severity: warning
+            team: backend
+          annotations:
+            summary: "High response time detected"
+            description: "P95 response time is {{ $value }}s (threshold: 2s)"
+
+        # Application Down
+        - alert: ApplicationDown
+          expr: up{job="eonpro-app"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Application instance is down"
+            description: "EONPRO application instance {{ $labels.instance }} is down"
+            runbook_url: "https://runbooks.eonpro.health/app-down"
+
+        # Health Check Failing
+        - alert: HealthCheckFailing
+          expr: |
+            probe_success{job="blackbox-eonpro"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Health check failing"
+            description: "Health check for {{ $labels.instance }} is failing"
+
+    # ========================================================================
+    # Database Alerts
+    # ========================================================================
+    - name: eonpro-database
+      rules:
+        # Database Connection Pool Exhausted
+        - alert: DatabaseConnectionPoolExhausted
+          expr: |
+            pg_stat_activity_count{datname="eonpro_production"} 
+            / pg_settings_max_connections > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            team: backend
+          annotations:
+            summary: "Database connection pool nearly exhausted"
+            description: "Connection usage is at {{ $value | humanizePercentage }}"
+
+        # Slow Queries
+        - alert: SlowQueries
+          expr: |
+            rate(pg_stat_statements_seconds_total[5m]) > 1
+          for: 10m
+          labels:
+            severity: warning
+            team: backend
+          annotations:
+            summary: "Slow database queries detected"
+            description: "Average query time is {{ $value }}s"
+
+        # Database Down
+        - alert: DatabaseDown
+          expr: pg_up == 0
+          for: 1m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "PostgreSQL database is down"
+            description: "PostgreSQL instance {{ $labels.instance }} is not responding"
+            runbook_url: "https://runbooks.eonpro.health/db-down"
+
+    # ========================================================================
+    # Security Alerts
+    # ========================================================================
+    - name: eonpro-security
+      rules:
+        # High Failed Login Rate
+        - alert: HighFailedLoginRate
+          expr: |
+            sum(rate(auth_login_failed_total[5m])) > 10
+          for: 5m
+          labels:
+            severity: warning
+            team: security
+          annotations:
+            summary: "High failed login rate detected"
+            description: "{{ $value }} failed logins per second - possible brute force attack"
+            runbook_url: "https://runbooks.eonpro.health/brute-force"
+
+        # Unusual API Access Pattern
+        - alert: UnusualAPIAccess
+          expr: |
+            sum(rate(http_requests_total[5m])) by (path) 
+            > 2 * avg_over_time(sum(rate(http_requests_total[5m])) by (path)[1h:5m])
+          for: 10m
+          labels:
+            severity: warning
+            team: security
+          annotations:
+            summary: "Unusual API access pattern detected"
+            description: "Traffic to {{ $labels.path }} is 2x normal levels"
+
+        # Unauthorized PHI Access Attempt
+        - alert: UnauthorizedPHIAccessAttempt
+          expr: |
+            sum(rate(phi_access_denied_total[5m])) > 5
+          for: 2m
+          labels:
+            severity: critical
+            team: security
+          annotations:
+            summary: "Unauthorized PHI access attempts detected"
+            description: "{{ $value }} unauthorized PHI access attempts per second"
+            runbook_url: "https://runbooks.eonpro.health/phi-access"
+
+    # ========================================================================
+    # Infrastructure Alerts
+    # ========================================================================
+    - name: eonpro-infrastructure
+      rules:
+        # High CPU Usage
+        - alert: HighCPUUsage
+          expr: |
+            100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High CPU usage detected"
+            description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+        # High Memory Usage
+        - alert: HighMemoryUsage
+          expr: |
+            (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High memory usage detected"
+            description: "Memory usage is {{ $value }}% on {{ $labels.instance }}"
+
+        # Disk Space Low
+        - alert: DiskSpaceLow
+          expr: |
+            (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 15
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Disk space is running low"
+            description: "Only {{ $value }}% disk space remaining on {{ $labels.instance }}"
+
+        # Pod Restart
+        - alert: PodRestarting
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="eonpro"}[1h]) > 3
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Pod is restarting frequently"
+            description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour"
+
+    # ========================================================================
+    # Business Alerts
+    # ========================================================================
+    - name: eonpro-business
+      rules:
+        # No New Orders
+        - alert: NoNewOrders
+          expr: |
+            sum(increase(orders_created_total[1h])) == 0
+          for: 2h
+          labels:
+            severity: warning
+            team: business
+          annotations:
+            summary: "No new orders in the last 2 hours"
+            description: "This may indicate a system issue or unusual business pattern"
+
+        # Prescription Processing Delayed
+        - alert: PrescriptionProcessingDelayed
+          expr: |
+            histogram_quantile(0.95, 
+              sum(rate(prescription_processing_duration_seconds_bucket[5m])) by (le)
+            ) > 300
+          for: 15m
+          labels:
+            severity: warning
+            team: clinical
+          annotations:
+            summary: "Prescription processing is slow"
+            description: "P95 prescription processing time is {{ $value }}s (threshold: 5min)"

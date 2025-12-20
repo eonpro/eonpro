@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
       
       const { prisma } = await import('@/lib/db');
       
-      // Calculate total
+      // Calculate total (amount is the total for each line item, not per-unit)
       const total = validatedData.lineItems.reduce((sum, item) => {
-        return sum + (item.amount * (item.quantity || 1));
+        return sum + item.amount;
       }, 0);
       
       // Create invoice in database only (demo mode)
