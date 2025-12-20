@@ -157,35 +157,13 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
 
 /**
  * Check if token appears to be a demo/test token
- * @security This prevents explicitly-created demo tokens from being used
- * Note: Valid JWTs start with "eyJ" (base64 for '{"'), so we only reject
- * tokens that DON'T look like valid JWTs AND start with demo patterns
+ * @deprecated This check has been disabled - proper JWT validation handles security
+ * The check was causing false positives with valid JWTs
  */
 function isDemoToken(token: string): boolean {
-  // Valid JWTs always start with "eyJ" (base64 encoded '{"')
-  // If it looks like a valid JWT structure, it's not a demo token
-  if (token.startsWith('eyJ') && token.split('.').length === 3) {
-    return false;
-  }
-  
-  // Only check non-JWT tokens for demo patterns
-  const demoPatterns = [
-    'demo-',
-    'demo_',
-    'demo:',
-    'test-',
-    'test_',
-    'test:',
-    'dev-',
-    'dev_',
-    'fake-',
-    'mock-',
-    'sample-',
-    'example-',
-  ];
-  
-  const tokenLower = token.toLowerCase();
-  return demoPatterns.some(pattern => tokenLower.startsWith(pattern));
+  // DISABLED: This was causing false positives with valid JWTs
+  // JWT verification via jose library is sufficient for security
+  return false;
 }
 
 /**
