@@ -587,8 +587,8 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
             defaultValue: "patient",
             options: [
               { label: 'Patient', value: "patient" },
-              { label: 'Staff', value: 'STAFF' },
-              { label: 'Support', value: 'SUPPORT' },
+              { label: 'Staff', value: 'staff' },
+              { label: 'Support', value: 'support' },
             ],
           },
         ],

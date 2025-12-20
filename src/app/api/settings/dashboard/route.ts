@@ -222,7 +222,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-}, { roles: ["admin", "admin", "provider", 'STAFF'] });
+}, { roles: ["admin", "admin", "provider", 'staff'] });
 
 /**
  * Check system health

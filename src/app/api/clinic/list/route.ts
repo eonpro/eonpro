@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
           prisma.user.count({
             where: {
               clinicId: clinic.id,
-              role: 'PROVIDER',
+              role: 'provider',
             },
           }),
           prisma.provider.count({

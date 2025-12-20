@@ -14,12 +14,17 @@ const WEAK_SECRET_PATTERNS = [
   'dev-secret', 'placeholder'
 ];
 
+// Check if we're during build time
+const isBuildTime = process.argv.some(arg => arg.includes('build')) || 
+                    process.env.NEXT_PHASE === 'phase-production-build' ||
+                    process.env.BUILDING === 'true';
+
 // Validate JWT_SECRET is set at initialization
 let jwtSecret = process.env.JWT_SECRET;
 
 // During build, use a placeholder
-if (!jwtSecret && process.argv.includes('build')) {
-  jwtSecret = 'BUILD-TIME-PLACEHOLDER-REPLACE-BEFORE-RUNTIME';
+if (!jwtSecret && isBuildTime) {
+  jwtSecret = 'BUILD-TIME-PLACEHOLDER-REPLACE-BEFORE-RUNTIME-32-CHARS-MIN';
 }
 
 // CRITICAL: No default secrets in any environment for HIPAA compliance
@@ -51,7 +56,7 @@ if (jwtSecret.length < MIN_SECRET_LENGTH) {
 }
 
 // Check for weak secrets (skip during build)
-if (!process.argv.includes('build')) {
+if (!isBuildTime) {
   const secretLower = jwtSecret.toLowerCase();
   const hasWeakPattern = WEAK_SECRET_PATTERNS.some(pattern => 
     secretLower.includes(pattern)
@@ -71,7 +76,7 @@ if (!process.argv.includes('build')) {
 }
 
 // Calculate entropy score (skip during build)
-if (!process.argv.includes('build')) {
+if (!isBuildTime) {
   const hasUpperCase = /[A-Z]/.test(jwtSecret);
   const hasLowerCase = /[a-z]/.test(jwtSecret);
   const hasNumbers = /[0-9]/.test(jwtSecret);

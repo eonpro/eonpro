@@ -116,13 +116,13 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-}, { roles: ["admin", "admin", 'STAFF', 'SUPPORT'] });
+}, { roles: ["admin", "admin", 'staff', 'support'] });
 
 // Update user schema
 const updateUserSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
-  role: z.enum(["admin", "admin", "provider", "influencer", "patient", 'STAFF', 'SUPPORT']).optional(),
+  role: z.enum(["admin", "admin", "provider", "influencer", "patient", 'staff', 'support']).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION', 'LOCKED']).optional(),
   permissions: z.array(z.string()).optional(),
   features: z.array(z.string()).optional(),

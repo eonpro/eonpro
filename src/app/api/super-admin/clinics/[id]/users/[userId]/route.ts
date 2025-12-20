@@ -13,7 +13,7 @@ function withSuperAdminAuth(
     const params = await context.params;
     return withAuth(
       (req: NextRequest, user: AuthUser) => handler(req, user, params),
-      { roles: ['super_admin', 'SUPER_ADMIN'] }
+      { roles: ['super_admin', 'super_admin'] }
     )(req);
   };
 }

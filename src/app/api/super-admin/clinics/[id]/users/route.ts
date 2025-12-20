@@ -13,7 +13,7 @@ function withSuperAdminAuth(
     const params = await context.params;
     return withAuth(
       (req: NextRequest, user: AuthUser) => handler(req, user, params),
-      { roles: ['super_admin', 'SUPER_ADMIN'] }
+      { roles: ['super_admin', 'super_admin'] }
     )(req);
   };
 }
@@ -114,7 +114,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     }
 
     // Validate provider-specific required fields
-    if (role === 'PROVIDER') {
+    if (role === 'provider') {
       if (!npi || !licenseNumber || !licenseState) {
         return NextResponse.json(
           { error: 'NPI, license number, and license state are required for providers' },
@@ -144,7 +144,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     }
 
     // Check if NPI is already in use (for providers)
-    if (role === 'PROVIDER' && npi) {
+    if (role === 'provider' && npi) {
       const existingProvider = await prisma.provider.findFirst({
         where: { npi },
       });
@@ -157,7 +157,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     }
 
     // Validate role
-    const validRoles = ['ADMIN', 'PROVIDER', 'STAFF', 'SUPPORT'];
+    const validRoles = ['admin', 'provider', 'staff', 'support'];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
         { error: 'Invalid role. Must be ADMIN, PROVIDER, STAFF, or SUPPORT' },
@@ -211,7 +211,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
 
     // If role is PROVIDER, also create a Provider record with credentials
     let providerRecord = null;
-    if (role === 'PROVIDER') {
+    if (role === 'provider') {
       try {
         providerRecord = await prisma.provider.create({
           data: {

@@ -12,7 +12,7 @@ function withSuperAdminAuth(
     const params = await context.params;
     return withAuth(
       (req: NextRequest, user: AuthUser) => handler(req, user, params),
-      { roles: ['super_admin', 'SUPER_ADMIN'] }
+      { roles: ['super_admin', 'super_admin'] }
     )(req);
   };
 }
@@ -55,7 +55,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
     const providerCount = await prisma.user.count({
       where: {
         clinicId: clinic.id,
-        role: 'PROVIDER',
+        role: 'provider',
       },
     });
 

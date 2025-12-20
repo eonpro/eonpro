@@ -42,7 +42,7 @@ export default function SuperAdminDashboard() {
     const user = localStorage.getItem('user');
     if (user) {
       const userData = JSON.parse(user);
-      if (userData.role !== 'SUPER_ADMIN' && userData.role !== 'super_admin') {
+      if (userData.role !== 'super_admin' && userData.role !== 'super_admin') {
         router.push('/admin');
         return;
       }

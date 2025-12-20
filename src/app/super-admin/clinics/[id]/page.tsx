@@ -81,7 +81,7 @@ export default function ClinicDetailPage() {
     email: '',
     firstName: '',
     lastName: '',
-    role: 'ADMIN',
+    role: 'admin',
     password: '',
     sendInvite: true,
     // Provider-specific fields
@@ -271,7 +271,7 @@ export default function ClinicDetailPage() {
           email: '',
           firstName: '',
           lastName: '',
-          role: 'ADMIN',
+          role: 'admin',
           password: '',
           sendInvite: true,
           npi: '',
@@ -830,9 +830,9 @@ export default function ClinicDetailPage() {
                           </td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                              user.role === 'PROVIDER' ? 'bg-blue-100 text-blue-700' :
-                              user.role === 'STAFF' ? 'bg-green-100 text-green-700' :
+                              user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                              user.role === 'provider' ? 'bg-blue-100 text-blue-700' :
+                              user.role === 'staff' ? 'bg-green-100 text-green-700' :
                               'bg-gray-100 text-gray-700'
                             }`}>
                               {user.role}
@@ -938,7 +938,7 @@ export default function ClinicDetailPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 my-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                {newUser.role === 'PROVIDER' ? 'Add New Provider' : 'Add New User'}
+                {newUser.role === 'provider' ? 'Add New Provider' : 'Add New User'}
               </h3>
               <button
                 onClick={() => setShowAddUserModal(false)}
@@ -965,7 +965,7 @@ export default function ClinicDetailPage() {
               </div>
 
               {/* Provider-specific fields */}
-              {newUser.role === 'PROVIDER' && (
+              {newUser.role === 'provider' && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
                   <h4 className="font-medium text-blue-900 flex items-center gap-2">
                     <Shield className="h-4 w-4" />
@@ -978,7 +978,7 @@ export default function ClinicDetailPage() {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        required={newUser.role === 'PROVIDER'}
+                        required={newUser.role === 'provider'}
                         value={newUser.npi}
                         onChange={(e) => setNewUser({ ...newUser, npi: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -1020,7 +1020,7 @@ export default function ClinicDetailPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">License Number *</label>
                       <input
                         type="text"
-                        required={newUser.role === 'PROVIDER'}
+                        required={newUser.role === 'provider'}
                         value={newUser.licenseNumber}
                         onChange={(e) => setNewUser({ ...newUser, licenseNumber: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -1030,7 +1030,7 @@ export default function ClinicDetailPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
                       <select
-                        required={newUser.role === 'PROVIDER'}
+                        required={newUser.role === 'provider'}
                         value={newUser.licenseState}
                         onChange={(e) => setNewUser({ ...newUser, licenseState: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"

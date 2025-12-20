@@ -25,7 +25,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   }
 
   // Check if requester is super admin
-  if (user.role?.toUpperCase() !== 'SUPER_ADMIN') {
+  if (user.role?.toUpperCase() !== 'super_admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -117,7 +117,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
   }
 
   // Check if requester is super admin
-  if (user.role?.toUpperCase() !== 'SUPER_ADMIN') {
+  if (user.role?.toUpperCase() !== 'super_admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -244,7 +244,7 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
   }
 
   // Check if requester is super admin
-  if (user.role?.toUpperCase() !== 'SUPER_ADMIN') {
+  if (user.role?.toUpperCase() !== 'super_admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 

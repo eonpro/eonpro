@@ -79,7 +79,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-}, { roles: ["admin", "admin", 'STAFF'] });
+}, { roles: ["admin", "admin", 'staff'] });
 
 /**
  * PUT /api/settings

@@ -91,7 +91,7 @@ export default function UserClinicsPage() {
           setUserClinics([{
             id: 0,
             clinicId: data.legacyClinic.id,
-            role: data.user?.role || 'STAFF',
+            role: data.user?.role || 'staff',
             isPrimary: true,
             isActive: true,
             createdAt: new Date().toISOString(),

@@ -20,7 +20,7 @@ const createUserSchema = z.object({
   ),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
-  role: z.enum(["admin", "admin", "provider", "influencer", "patient", 'STAFF', 'SUPPORT']),
+  role: z.enum(["admin", "admin", "provider", "influencer", "patient", 'staff', 'support']),
   permissions: z.array(z.string()).optional(),
   features: z.array(z.string()).optional(),
   metadata: z.object({}).passthrough().optional(),

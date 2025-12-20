@@ -8,7 +8,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 function withSuperAdminAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
 ) {
-  return withAuth(handler, { roles: ['super_admin', 'SUPER_ADMIN'] });
+  return withAuth(handler, { roles: ['super_admin', 'super_admin'] });
 }
 
 /**
@@ -36,7 +36,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
           prisma.user.count({
             where: {
               clinicId: clinic.id,
-              role: 'PROVIDER',
+              role: 'provider',
             },
           }),
           prisma.provider.count({
@@ -61,7 +61,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     const totalPatients = await prisma.patient.count();
     // Count total providers from both User table (role PROVIDER) and Provider table
     const [userProviderCount, providerTableCount] = await Promise.all([
-      prisma.user.count({ where: { role: 'PROVIDER' } }),
+      prisma.user.count({ where: { role: 'provider' } }),
       prisma.provider.count(),
     ]);
     // Use the higher count (some providers may be in both tables)

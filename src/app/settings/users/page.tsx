@@ -134,8 +134,8 @@ export default function UserManagementPage() {
       case "provider": return 'bg-green-100 text-green-800';
       case "influencer": return 'bg-pink-100 text-pink-800';
       case "patient": return 'bg-gray-100 text-gray-800';
-      case 'STAFF': return 'bg-yellow-100 text-yellow-800';
-      case 'SUPPORT': return 'bg-orange-100 text-orange-800';
+      case 'staff': return 'bg-yellow-100 text-yellow-800';
+      case 'support': return 'bg-orange-100 text-orange-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
