@@ -102,34 +102,17 @@ export default function IntakeFormsPage() {
   // Authentication check
   useEffect(() => {
     const checkAuthAndFetch = async () => {
-      const token = localStorage.getItem('token');
+      // Check multiple possible token locations
+      const token = localStorage.getItem('auth-token') ||
+                   localStorage.getItem('token') ||
+                   localStorage.getItem('super_admin-token') ||
+                   localStorage.getItem('admin-token');
+      
       if (token) {
         await fetchTemplates();
       } else {
-        // Try dev auth automatically
-        try {
-          const res = await fetch('/api/auth/dev-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: 'provider' }),
-          });
-          
-          if (res.ok) {
-            const data = await res.json();
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            await fetchTemplates();
-            showNotification('success', 'Automatically logged in for development');
-          } else {
-            setError('Please log in to view intake forms');
-            setLoading(false);
-          }
-        } catch (err: any) {
-    // @ts-ignore
-   
-          setError('Please log in to view intake forms');
-          setLoading(false);
-        }
+        setError('Please log in to view intake forms');
+        setLoading(false);
       }
     };
     
@@ -141,7 +124,11 @@ export default function IntakeFormsPage() {
       setLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('token');
+      // Check multiple possible token locations
+      const token = localStorage.getItem('auth-token') ||
+                   localStorage.getItem('token') ||
+                   localStorage.getItem('super_admin-token') ||
+                   localStorage.getItem('admin-token');
       
       if (!token) {
         setError('Please log in to view intake forms');
@@ -241,7 +228,10 @@ export default function IntakeFormsPage() {
 
     try {
       setCreatingForm(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') ||
+                   localStorage.getItem('token') ||
+                   localStorage.getItem('super_admin-token') ||
+                   localStorage.getItem('admin-token');
       
       if (!token) {
         showNotification('error', 'Please log in to create forms');
@@ -310,7 +300,10 @@ export default function IntakeFormsPage() {
 
     try {
       setSendingLink(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') ||
+                   localStorage.getItem('token') ||
+                   localStorage.getItem('super_admin-token') ||
+                   localStorage.getItem('admin-token');
       
       const res = await fetch('/api/intake-forms/send-link', {
         method: 'POST',
