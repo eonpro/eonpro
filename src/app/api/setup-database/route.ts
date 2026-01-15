@@ -14,13 +14,10 @@ export async function GET(request: Request) {
   }
   
   try {
-    console.log('Starting database setup...');
-    
     // Run Prisma db push
     const { stdout, stderr } = await execAsync('npx prisma db push --accept-data-loss');
     
-    console.log('Database setup output:', stdout);
-    if (stderr) console.error('Database setup warnings:', stderr);
+    // Log results are captured in stdout/stderr and returned in response
     
     // Generate Prisma Client
     await execAsync('npx prisma generate');

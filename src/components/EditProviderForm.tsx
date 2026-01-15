@@ -2,9 +2,16 @@
 
 import SignaturePadCanvas from "@/components/SignaturePadCanvas";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ProviderPasswordSetup from "./ProviderPasswordSetup";
-import { Patient, Provider, Order } from '@/types/models';
+import { Building2 } from "lucide-react";
+
+type Clinic = {
+  id: number;
+  name: string;
+  subdomain: string;
+  status: string;
+};
 
 type EditableProvider = {
   id: number;
@@ -19,6 +26,8 @@ type EditableProvider = {
   phone?: string | null;
   signatureDataUrl?: string | null;
   passwordHash?: string | null;
+  clinicId?: number | null;
+  clinic?: { id: number; name: string } | null;
 };
 
 type Props = {
@@ -35,10 +44,31 @@ export default function EditProviderForm({ provider }: Props) {
     email: provider.email ?? "",
     phone: provider.phone ?? "",
     signatureDataUrl: provider.signatureDataUrl ?? "",
+    clinicId: provider.clinicId ?? null,
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [useSignaturePad, setUseSignaturePad] = useState(true);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [loadingClinics, setLoadingClinics] = useState(true);
+
+  // Fetch available clinics
+  useEffect(() => {
+    const fetchClinics = async () => {
+      try {
+        const res = await fetch('/api/clinics/list');
+        if (res.ok) {
+          const data = await res.json();
+          setClinics(Array.isArray(data) ? data : data.clinics || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch clinics:', err);
+      } finally {
+        setLoadingClinics(false);
+      }
+    };
+    fetchClinics();
+  }, []);
 
   const update = (key: keyof typeof form, value: string | null) => {
     setForm((prev: any) => ({ ...prev, [key]: value ?? "" }));
@@ -144,6 +174,39 @@ export default function EditProviderForm({ provider }: Props) {
           value={form.phone ?? ""}
           onChange={(e: any) => update("phone", e.target.value)}
         />
+        
+        {/* Clinic Assignment */}
+        <div className="col-span-2">
+          <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">
+            <Building2 className="inline h-3 w-3 mr-1" />
+            Assigned Clinic
+          </label>
+          <select
+            className="border p-2 w-full rounded"
+            value={form.clinicId ?? ""}
+            onChange={(e: any) => {
+              const val = e.target.value;
+              setForm((prev: any) => ({ 
+                ...prev, 
+                clinicId: val ? parseInt(val, 10) : null 
+              }));
+            }}
+            disabled={loadingClinics}
+          >
+            <option value="">-- No Clinic Assigned --</option>
+            {clinics.map((clinic) => (
+              <option key={clinic.id} value={clinic.id}>
+                {clinic.name} ({clinic.subdomain})
+              </option>
+            ))}
+          </select>
+          {provider.clinic && (
+            <p className="text-xs text-gray-500 mt-1">
+              Currently assigned to: <strong>{provider.clinic.name}</strong>
+            </p>
+          )}
+        </div>
+
         <div className="col-span-2 space-y-2">
           <p className="text-sm font-medium text-gray-600">
             Provider Signature (upload or draw)

@@ -1,16 +1,18 @@
 import { prisma } from "@/lib/db";
 import { patientSchema } from "@/lib/validate";
 import { withClinicalAuth } from '@/lib/auth/middleware';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
 
 /**
  * GET /api/patients
  * Protected endpoint - requires provider, admin, or staff authentication
  * Providers see only their patients, admins and staff see all clinic patients
  * Super admins see all patients across all clinics
+ * Rate limit: 200 requests per minute (relaxed for list endpoints)
  */
-export const GET = withClinicalAuth(async (req: NextRequest, user) => {
+const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
   // For super admin, get all patients across all clinics
   // For other roles, the Prisma proxy in db.ts applies clinic filtering
   let patients;
@@ -89,12 +91,16 @@ export const GET = withClinicalAuth(async (req: NextRequest, user) => {
   });
 });
 
+// Apply rate limiting to GET endpoint
+export const GET = relaxedRateLimit(getPatientsHandler);
+
 /**
  * POST /api/patients
  * Protected endpoint - requires provider or admin authentication
  * Creates a new patient with audit trail
+ * Rate limit: 60 requests per minute (standard)
  */
-export const POST = withClinicalAuth(async (req: NextRequest, user) => {
+const createPatientHandler = withClinicalAuth(async (req: NextRequest, user) => {
   const body = await req.json();
   const parsed = patientSchema.safeParse(body);
 
@@ -179,3 +185,6 @@ export const POST = withClinicalAuth(async (req: NextRequest, user) => {
     message: 'Patient created successfully',
   });
 });
+
+// Apply rate limiting to POST endpoint
+export const POST = standardRateLimit(createPatientHandler);

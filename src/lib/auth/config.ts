@@ -144,8 +144,8 @@ export const AUTH_CONFIG = {
   // Cookie settings (HIPAA compliant)
   cookie: {
     httpOnly: true,
-    secure: process.env.NODE_ENV !== "test", // Always secure except in tests
-    sameSite: 'lax' as const, // 'lax' allows cookies to be sent with same-site fetch requests
+    secure: process.env.NODE_ENV === 'production', // HTTPS required in production
+    sameSite: 'strict' as const, // Strict for production security
     path: '/',
     maxAge: undefined, // Session cookie (expires on browser close)
   },

@@ -10,16 +10,33 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { CalendarEvent, SyncResult } from './google-calendar.service';
 
-// MSAL configuration
-const msalConfig = {
-  auth: {
-    clientId: process.env.MICROSOFT_CLIENT_ID || '',
-    clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
-    authority: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID || 'common'}`,
-  },
-};
+// MSAL configuration - lazy initialization to avoid build errors
+let msalClient: ConfidentialClientApplication | null = null;
 
-const msalClient = new ConfidentialClientApplication(msalConfig);
+function getMsalClient(): ConfidentialClientApplication {
+  if (msalClient) {
+    return msalClient;
+  }
+  
+  const clientId = process.env.MICROSOFT_CLIENT_ID;
+  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
+  const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
+  
+  if (!clientId || !clientSecret) {
+    throw new Error('Microsoft OAuth credentials not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET.');
+  }
+  
+  const msalConfig = {
+    auth: {
+      clientId,
+      clientSecret,
+      authority: `https://login.microsoftonline.com/${tenantId}`,
+    },
+  };
+  
+  msalClient = new ConfidentialClientApplication(msalConfig);
+  return msalClient;
+}
 
 // Scopes required for calendar access
 const SCOPES = [
@@ -36,7 +53,7 @@ export async function getOutlookAuthUrl(providerId: number, clinicId: number): P
   const redirectUri = process.env.MICROSOFT_REDIRECT_URI || 
     `${process.env.NEXTAUTH_URL}/api/calendar-sync/outlook/callback`;
 
-  return await msalClient.getAuthCodeUrl({
+  return await getMsalClient().getAuthCodeUrl({
     scopes: SCOPES,
     redirectUri,
     state,
@@ -52,7 +69,7 @@ export async function getOutlookAuthUrlAsync(providerId: number, clinicId: numbe
   const redirectUri = process.env.MICROSOFT_REDIRECT_URI || 
     `${process.env.NEXTAUTH_URL}/api/calendar-sync/outlook/callback`;
 
-  return await msalClient.getAuthCodeUrl({
+  return await getMsalClient().getAuthCodeUrl({
     scopes: SCOPES,
     redirectUri,
     state,
@@ -72,7 +89,7 @@ export async function exchangeOutlookCodeForTokens(
     const redirectUri = process.env.MICROSOFT_REDIRECT_URI || 
       `${process.env.NEXTAUTH_URL}/api/calendar-sync/outlook/callback`;
 
-    const result = await msalClient.acquireTokenByCode({
+    const result = await getMsalClient().acquireTokenByCode({
       code,
       scopes: SCOPES,
       redirectUri,
@@ -146,7 +163,7 @@ async function getGraphClient(providerId: number): Promise<Client | null> {
     // Token expired, try silent acquisition
     if (integration.accountId) {
       try {
-        const result = await msalClient.acquireTokenSilent({
+        const result = await getMsalClient().acquireTokenSilent({
           scopes: SCOPES,
           account: {
             homeAccountId: integration.accountId,

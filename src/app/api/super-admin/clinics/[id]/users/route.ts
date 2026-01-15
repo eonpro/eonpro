@@ -245,7 +245,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     // TODO: Send invitation email if sendInvite is true
     // This would integrate with your email service (SES, SendGrid, etc.)
     if (sendInvite) {
-      console.log(`Invitation email would be sent to ${email} for clinic ${clinic.name}`);
+      // TODO: Implement invitation email via SES/SendGrid
       // await sendInvitationEmail({ email, firstName, password, clinicName: clinic.name });
     }
 

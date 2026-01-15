@@ -79,6 +79,7 @@ export async function PATCH(request: Request, { params }: Params) {
       "email",
       "phone",
       "signatureDataUrl",
+      "clinicId",
     ]);
 
     if (Object.keys(changeSet).length > 0) {

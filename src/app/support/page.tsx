@@ -17,13 +17,13 @@ export default function SupportDashboard() {
     // Check authentication
     const user = localStorage.getItem('user');
     if (!user) {
-      router.push('/demo/login');
+      router.push('/login');
       return;
     }
     
     const data = JSON.parse(user);
     if (data.role?.toLowerCase() !== 'support') {
-      router.push('/demo/login');
+      router.push('/login');
       return;
     }
     

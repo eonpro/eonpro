@@ -1,14 +1,129 @@
 import { NextRequest, NextResponse } from 'next/server';
 import clinicMiddleware from '@/middleware/clinic';
 
+/**
+ * Security Headers Configuration
+ * HIPAA-compliant Content Security Policy
+ */
+const securityHeaders = {
+  // Content Security Policy - Prevents XSS attacks
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://lottie.host",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https: http:",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "connect-src 'self' https://api.stripe.com https://vitals.vercel-insights.com https://o4508611993468928.ingest.us.sentry.io https://lottie.host wss: ws:",
+    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://*.zoom.us",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+    "upgrade-insecure-requests",
+  ].join('; '),
+  
+  // Prevent MIME type sniffing
+  'X-Content-Type-Options': 'nosniff',
+  
+  // Prevent clickjacking
+  'X-Frame-Options': 'SAMEORIGIN',
+  
+  // Enable XSS protection (legacy browsers)
+  'X-XSS-Protection': '1; mode=block',
+  
+  // Control referrer information
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  
+  // Permissions Policy - Disable unnecessary features
+  'Permissions-Policy': [
+    'camera=(self)',
+    'microphone=(self)',
+    'geolocation=()',
+    'interest-cohort=()',
+    'accelerometer=()',
+    'gyroscope=()',
+    'magnetometer=()',
+    'payment=(self)',
+    'usb=()',
+    'sync-xhr=()',
+  ].join(', '),
+  
+  // HSTS - Strict Transport Security (1 year)
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+  
+  // Prevent DNS prefetch leaks
+  'X-DNS-Prefetch-Control': 'on',
+  
+  // Cache control for sensitive pages
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+};
+
+/**
+ * Add security headers to response
+ */
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
+}
+
+/**
+ * Check if request is for a static asset
+ */
+function isStaticAsset(pathname: string): boolean {
+  return (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/static') ||
+    pathname.includes('.') && !pathname.endsWith('.html')
+  );
+}
+
+/**
+ * Check if request is for an API route
+ */
+function isApiRoute(pathname: string): boolean {
+  return pathname.startsWith('/api/');
+}
+
 export async function middleware(request: NextRequest) {
-  // Apply clinic middleware for multi-tenant support
-  if (process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true') {
-    return clinicMiddleware(request);
+  const { pathname } = request.nextUrl;
+  
+  // Skip security headers for static assets (they have their own caching)
+  if (isStaticAsset(pathname)) {
+    return NextResponse.next();
   }
   
-  // Default pass-through if multi-clinic is disabled
-  return NextResponse.next();
+  // Create base response
+  let response: NextResponse;
+  
+  // Apply clinic middleware for multi-tenant support
+  if (process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true') {
+    const clinicResponse = await clinicMiddleware(request);
+    response = clinicResponse || NextResponse.next();
+  } else {
+    response = NextResponse.next();
+  }
+  
+  // Add security headers to all responses (except static assets)
+  response = addSecurityHeaders(response);
+  
+  // Add request ID for tracing
+  const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
+  response.headers.set('x-request-id', requestId);
+  
+  // Add CORS headers for API routes if needed
+  if (isApiRoute(pathname)) {
+    // Only allow same-origin by default
+    response.headers.set('Access-Control-Allow-Origin', request.headers.get('origin') || '');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-webhook-secret');
+    response.headers.set('Access-Control-Max-Age', '86400');
+  }
+  
+  return response;
 }
 
 // Configure which routes the middleware should run on

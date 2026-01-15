@@ -5,6 +5,7 @@ import { AppError, ApiResponse } from '@/types/common';
 import { Patient, Provider, Order } from '@/types/models';
 import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -24,7 +25,7 @@ function diffPatient(
   return diff;
 }
 
-export const GET = withAuthParams(async (_request, user, { params }: Params) => {
+const getPatientHandler = withAuthParams(async (_request, user, { params }: Params) => {
   const resolvedParams = await params;
   const id = Number(resolvedParams.id);
   if (Number.isNaN(id)) {
@@ -50,7 +51,10 @@ export const GET = withAuthParams(async (_request, user, { params }: Params) => 
   return Response.json({ patient: decryptedPatient });
 }, { roles: ['admin', 'provider', 'patient'] });
 
-export const PATCH = withAuthParams(async (request, user, { params }: Params) => {
+// Apply rate limiting to GET
+export const GET = relaxedRateLimit(getPatientHandler);
+
+const updatePatientHandler = withAuthParams(async (request, user, { params }: Params) => {
   const resolvedParams = await params;
   const id = Number(resolvedParams.id);
   if (Number.isNaN(id)) {
@@ -127,3 +131,5 @@ export const PATCH = withAuthParams(async (request, user, { params }: Params) =>
   }
 }, { roles: ['admin', 'provider', 'patient'] });
 
+// Apply rate limiting to PATCH
+export const PATCH = standardRateLimit(updatePatientHandler);

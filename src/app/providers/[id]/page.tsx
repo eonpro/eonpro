@@ -1,4 +1,5 @@
 import EditProviderForm from "@/components/EditProviderForm";
+import Breadcrumb from "@/components/Breadcrumb";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 
@@ -12,6 +13,9 @@ export default async function ProviderDetailPage({ params }: Params) {
   const provider = await prisma.provider.findUnique({
     where: { id },
     include: {
+      clinic: {
+        select: { id: true, name: true, subdomain: true },
+      },
       orders: {
         orderBy: { createdAt: "desc" },
         include: { patient: true, rxs: true },
@@ -37,6 +41,13 @@ export default async function ProviderDetailPage({ params }: Params) {
 
   return (
     <div className="p-10 space-y-8">
+      <Breadcrumb 
+        items={[
+          { label: "Providers", href: "/providers" },
+          { label: `${provider.firstName} ${provider.lastName}` }
+        ]} 
+      />
+      
       <div className="flex items-start justify-between gap-6">
         <div>
           <p className="text-xs uppercase tracking-widest text-gray-500">
@@ -54,11 +65,13 @@ export default async function ProviderDetailPage({ params }: Params) {
             </p>
             <p>DEA: {provider.dea ?? "—"}</p>
             <p>Email: {provider.email ?? "—"} • Phone: {provider.phone ?? "—"}</p>
+            {provider.clinic && (
+              <p className="text-emerald-600 font-medium">
+                Clinic: {provider.clinic.name}
+              </p>
+            )}
           </div>
         </div>
-        <Link href="/providers" className="text-[#4fa77e] underline text-sm">
-          ← Back to providers
-        </Link>
       </div>
 
       <section className="grid md:grid-cols-2 gap-6">

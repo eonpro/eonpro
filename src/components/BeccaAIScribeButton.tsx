@@ -21,9 +21,9 @@ export default function BeccaAIScribeButton({
 }: ScribeButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleSOAPGenerated = (soapNote: any) => {
+  const handleSOAPGenerated = (_soapNote: unknown) => {
     // Could navigate to SOAP note view or trigger a refresh
-    console.log('SOAP note generated:', soapNote);
+    // SOAP note generated - callback could be extended for navigation
   };
 
   return (

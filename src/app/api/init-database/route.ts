@@ -1,23 +1,25 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: Request) {
-  // Security check
+  // Security check - should use env variable in production
   const { searchParams } = new URL(request.url);
   const initKey = searchParams.get('key');
+  const expectedKey = process.env.DB_INIT_KEY || 'init-eonpro-2024';
   
-  if (initKey !== 'init-eonpro-2024') {
+  if (initKey !== expectedKey) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const prisma = new PrismaClient();
   
   try {
-    console.log('🔄 Initializing database...');
+    logger.db('INIT', 'database');
     
     // Test connection
     await prisma.$connect();
-    console.log('✅ Connected to database');
+    logger.db('CONNECT', 'database');
     
     // Check existing tables
     const tables = await prisma.$queryRaw`
@@ -25,13 +27,13 @@ export async function GET(request: Request) {
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
       AND table_type = 'BASE TABLE'
-    ` as any[];
+    ` as { table_name: string }[];
     
-    console.log(`📊 Found ${tables.length} tables`);
+    logger.db('SELECT', 'information_schema.tables', { count: tables.length });
     
     // Create admin user if no users exist
     const userCount = await prisma.user.count();
-    console.log(`👥 Existing users: ${userCount}`);
+    logger.db('COUNT', 'users', { count: userCount });
     
     if (userCount === 0) {
       const admin = await prisma.user.create({
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
           role: 'ADMIN',
         }
       });
-      console.log('✅ Created admin user:', admin.email);
+      logger.db('INSERT', 'users', { email: admin.email });
     }
     
     // Create test clinic if none exists
@@ -60,7 +62,7 @@ export async function GET(request: Request) {
           integrations: {},
         }
       });
-      console.log('✅ Created test clinic:', clinic.name);
+      logger.db('INSERT', 'clinics', { name: clinic.name });
     }
     
     return NextResponse.json({

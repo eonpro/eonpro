@@ -95,5 +95,15 @@ export const providerSchema = z.object({
       }
       return undefined;
     }),
+  clinicId: z
+    .union([z.number(), z.string(), z.null()])
+    .optional()
+    .transform((value: any) => {
+      if (value === null || value === undefined || value === "") {
+        return null;
+      }
+      const num = typeof value === "number" ? value : parseInt(value, 10);
+      return isNaN(num) ? null : num;
+    }),
 });
 

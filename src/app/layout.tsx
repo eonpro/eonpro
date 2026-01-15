@@ -4,7 +4,7 @@ import Script from "next/script";
 import ConditionalHeader from "@/components/ConditionalHeader";
 import BeccaAIGlobalChat from "@/components/BeccaAIGlobalChat";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import DevAuth from "@/components/DevAuth";
+// DevAuth removed for production
 import { ClientProviders } from "@/components/providers/ClientProviders";
 // Using Outfit as fallback until Sofia Pro files are added
 // To use Sofia Pro: 1) Add font files to public/fonts/ 2) Switch import to './fonts'
@@ -30,8 +30,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
           {/* Becca AI Assistant - Available for all roles except patients */}
           <BeccaAIGlobalChat userEmail="user@clinic.com" />
-          {/* Development Authentication Helper - Remove in production */}
-          <DevAuth />
         </ClientProviders>
 {mapsKey ? (
   <Script

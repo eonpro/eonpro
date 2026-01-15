@@ -17,13 +17,13 @@ export default function ProviderDashboard() {
     // Check authentication
     const user = localStorage.getItem('user');
     if (!user) {
-      router.push('/demo/login');
+      router.push('/login');
       return;
     }
     
     const data = JSON.parse(user);
     if (data.role?.toLowerCase() !== 'provider') {
-      router.push('/demo/login');
+      router.push('/login');
       return;
     }
     

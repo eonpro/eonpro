@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Package, Search, Filter, Eye, CheckCircle, Clock, XCircle } from 'lucide-react';
+import Link from 'next/link';
+import Breadcrumb from '@/components/Breadcrumb';
+import { Package, Search, Filter, Eye, CheckCircle, Clock, XCircle, Plus } from 'lucide-react';
 
 export default function AdminOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,9 +48,20 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-        <p className="text-gray-600 mt-1">Manage and track patient orders</p>
+      <Breadcrumb items={[{ label: 'Orders', href: '/admin/orders' }]} />
+      
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+          <p className="text-gray-600 mt-1">Manage and track patient orders</p>
+        </div>
+        <Link
+          href="/admin/orders/new"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all shadow-md hover:shadow-lg"
+        >
+          <Plus className="h-5 w-5" />
+          New Order
+        </Link>
       </div>
 
       {/* Filters */}

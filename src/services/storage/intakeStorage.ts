@@ -1,12 +1,18 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { logger } from "@/lib/logger";
 
-const DEFAULT_STORAGE_DIR = path.join(process.cwd(), "public", "intake-pdfs");
+// On Vercel, use /tmp which is writable; locally use public folder
+const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV;
+const DEFAULT_STORAGE_DIR = isVercel
+  ? "/tmp/intake-pdfs"
+  : path.join(process.cwd(), "public", "intake-pdfs");
 
 export type StoredPdf = {
   filePath: string;
   filename: string;
   publicPath: string;
+  storedInDatabase: boolean;
 };
 
 export type StoreIntakePdfOptions = {
@@ -22,19 +28,36 @@ export async function storeIntakePdf(options: StoreIntakePdfOptions): Promise<St
     ? path.resolve(process.env.STORAGE_INTAKE_DIR)
     : DEFAULT_STORAGE_DIR;
 
-  await mkdir(baseDir, { recursive: true });
-
   const filename = `patient_${patientId}_${submissionId}.pdf`;
   const filePath = path.join(baseDir, filename);
 
-  await writeFile(filePath, pdfBuffer);
+  try {
+    await mkdir(baseDir, { recursive: true });
+    await writeFile(filePath, pdfBuffer);
+    
+    logger.info(`[INTAKE STORAGE] PDF stored at ${filePath}`);
 
-  // Return a public URL path that can be served
-  const publicPath = `/intake-pdfs/${filename}`;
+    // On Vercel /tmp files are ephemeral - mark as stored in DB primarily
+    // For production, integrate with S3 for persistent storage
+    const publicPath = isVercel
+      ? `database://intake-pdfs/${filename}` // Indicates PDF data is in database
+      : `/intake-pdfs/${filename}`;
 
-  return {
-    filePath,
-    filename,
-    publicPath,
-  };
+    return {
+      filePath,
+      filename,
+      publicPath,
+      storedInDatabase: true,
+    };
+  } catch (error) {
+    // If filesystem write fails (e.g., read-only), store only in database
+    logger.warn(`[INTAKE STORAGE] Filesystem write failed, storing in database only: ${error}`);
+    
+    return {
+      filePath: "database",
+      filename,
+      publicPath: `database://intake-pdfs/${filename}`,
+      storedInDatabase: true,
+    };
+  }
 }

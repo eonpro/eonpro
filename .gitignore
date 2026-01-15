@@ -36,6 +36,13 @@ yarn-error.log*
 .env.production.local
 .env.staging
 
+# Sensitive environment files (NEVER commit these)
+VERCEL_ENV_VARS.txt
+vercel-env-aws.txt
+*.env.txt
+*-env-*.txt
+*_ENV_*.txt
+
 # Vercel
 .vercel
 

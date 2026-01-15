@@ -190,8 +190,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
           },
         });
       } else {
-        // Log without userId if user doesn't exist in DB
-        console.log(`Clinic ${clinic.id} created by ${user.email} (user not in DB)`);
+        // User not in DB - audit log skipped for this clinic creation
       }
     } catch (auditError) {
       // Don't fail the request if audit log fails

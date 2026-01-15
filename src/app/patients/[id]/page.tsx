@@ -8,6 +8,7 @@ import PatientChatView from "@/components/PatientChatView";
 import PatientAppointmentsView from "@/components/PatientAppointmentsView";
 import PatientProgressView from "@/components/PatientProgressView";
 import PatientTimeline, { TimelineEvent } from "@/components/PatientTimeline";
+import Breadcrumb from "@/components/Breadcrumb";
 import { prisma } from "@/lib/db";
 import { SHIPPING_METHODS } from "@/lib/shipping";
 import Link from "next/link";
@@ -262,14 +263,12 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <Link
-            href="/patients"
-            className="text-[#4fa77e] hover:text-[#3f8660] text-sm font-medium"
-          >
-            ← Back to patients
-          </Link>
-        </div>
+        <Breadcrumb 
+          items={[
+            { label: "Patients", href: "/patients" },
+            { label: `${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}` }
+          ]} 
+        />
         
         <div className="space-y-1">
           <h1 className="text-3xl font-bold text-gray-900">

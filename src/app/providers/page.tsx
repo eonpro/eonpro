@@ -1,11 +1,11 @@
 "use client";
 
 import SignaturePadCanvas from "@/components/SignaturePadCanvas";
+import Breadcrumb from "@/components/Breadcrumb";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { logger } from '@/lib/logger';
-import { Patient, Order } from '@/types/models';
 
 type Provider = {
   id: number;
@@ -280,6 +280,7 @@ export default function ProvidersPage() {
 
   return (
     <div className="p-8 space-y-6">
+      <Breadcrumb items={[{ label: "Providers" }]} />
       <h1 className="text-3xl font-bold">Providers</h1>
       <section className="border rounded p-4 space-y-4 bg-white shadow">
         <h2 className="text-xl font-semibold">Add Provider</h2>
