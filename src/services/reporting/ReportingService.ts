@@ -847,12 +847,10 @@ export class ReportingService {
       },
       include: {
         patient: {
-          select: { id: true, firstName: true, lastName: true },
           include: {
             orders: {
               orderBy: { createdAt: 'desc' },
-              take: 1,
-              select: { primaryMedName: true, createdAt: true }
+              take: 1
             }
           }
         }
