@@ -416,8 +416,11 @@ export function withAuth(
       }
       
       // Set clinic context for multi-tenant queries
-      if (user.clinicId) {
+      // Super admins should NOT have clinic context so they can access all data
+      if (user.clinicId && user.role !== 'super_admin') {
         setClinicContext(user.clinicId);
+      } else {
+        setClinicContext(undefined);
       }
 
       // Inject user info into request headers
