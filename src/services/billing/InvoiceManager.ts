@@ -965,7 +965,6 @@ export class InvoiceManager {
         patient: true,
         clinic: true,
         payments: true,
-        order: true,
       },
     });
   }
