@@ -73,7 +73,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
   } catch (error: any) {
     console.error('Error fetching clinic:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch clinic' },
+      { error: 'Failed to fetch clinic', details: error?.message || String(error) },
       { status: 500 }
     );
   }
