@@ -6,22 +6,22 @@ const globalForPrisma = global as unknown as {
   currentClinicId?: number;
 };
 
-// Models that require clinic isolation
+// Models that require clinic isolation (lowercase for comparison)
 const CLINIC_ISOLATED_MODELS = [
-  'Patient',
-  'Provider', 
-  'Order',
-  'Invoice',
-  'Payment',
-  'Subscription',
-  'Influencer',
-  'Ticket',
-  'PatientDocument',
-  'SOAPNote',
-  'Prescription',
-  'Appointment',
-  'IntakeFormTemplate',
-  'InternalMessage'
+  'patient',
+  'provider', 
+  'order',
+  'invoice',
+  'payment',
+  'subscription',
+  'influencer',
+  'ticket',
+  'patientdocument',
+  'soapnote',
+  'prescription',
+  'appointment',
+  'intakeformtemplate',
+  'internalmessage'
 ];
 
 /**
@@ -108,7 +108,8 @@ class PrismaWithClinicFilter {
     }
     
     // If model doesn't need clinic isolation, return original
-    if (!CLINIC_ISOLATED_MODELS.includes(modelName)) {
+    // Compare lowercase to handle case differences
+    if (!CLINIC_ISOLATED_MODELS.includes(modelName.toLowerCase())) {
       return model;
     }
     
