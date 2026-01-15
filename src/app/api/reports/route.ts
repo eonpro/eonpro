@@ -139,9 +139,14 @@ async function getReportsHandler(req: NextRequest, user: AuthUser): Promise<Resp
 
     return NextResponse.json(report);
   } catch (error) {
-    logger.error('Failed to generate report', error as Error);
+    const err = error as Error;
+    logger.error('Failed to generate report', err);
+    console.error('Report generation error:', err.message, err.stack);
     return NextResponse.json(
-      { error: 'Failed to generate report' },
+      { 
+        error: 'Failed to generate report',
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined
+      },
       { status: 500 }
     );
   }
