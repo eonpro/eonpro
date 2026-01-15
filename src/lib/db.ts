@@ -277,8 +277,11 @@ class PrismaWithClinicFilter {
   }
 }
 
-// Export the wrapped client
+// Export the wrapped client (uses clinic filtering)
 export const prisma = new PrismaWithClinicFilter(basePrisma) as any;
+
+// Export the base client for public endpoints (no clinic filtering)
+export { basePrisma };
 
 /**
  * Set the current clinic context for queries

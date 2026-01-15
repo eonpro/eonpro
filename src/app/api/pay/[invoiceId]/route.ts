@@ -6,19 +6,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ invoiceId: string }> }
+  context: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
-    const { invoiceId: invoiceIdParam } = await params;
+    const resolvedParams = await context.params;
+    const invoiceIdParam = resolvedParams.invoiceId;
     const invoiceId = parseInt(invoiceIdParam);
     
+    logger.debug('Invoice payment page request', { invoiceIdParam, invoiceId });
+    
     if (isNaN(invoiceId)) {
-      return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid invoice ID', received: invoiceIdParam }, { status: 400 });
     }
     
     const invoice = await prisma.invoice.findUnique({
