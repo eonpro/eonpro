@@ -10,9 +10,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { verifyAuth } from '@/lib/auth/middleware';
 import { createInvoiceManager } from '@/services/billing/InvoiceManager';
-import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
 const updateSchema = z.object({
@@ -30,13 +29,22 @@ const updateSchema = z.object({
 });
 
 // GET - Get invoice details
-async function getInvoiceHandler(
+export async function GET(
   req: NextRequest,
-  user: AuthUser,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   try {
-    const { id } = await context.params;
+    // Verify auth
+    const authResult = await verifyAuth(req);
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    const user = authResult.user;
+    
+    const { id } = await params;
     const invoiceId = parseInt(id);
     
     if (isNaN(invoiceId)) {
@@ -68,13 +76,22 @@ async function getInvoiceHandler(
 }
 
 // PUT - Update invoice
-async function updateInvoiceHandler(
+export async function PUT(
   req: NextRequest,
-  user: AuthUser,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   try {
-    const { id } = await context.params;
+    // Verify auth
+    const authResult = await verifyAuth(req);
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    const user = authResult.user;
+    
+    const { id } = await params;
     const invoiceId = parseInt(id);
     
     if (isNaN(invoiceId)) {
@@ -113,13 +130,22 @@ async function updateInvoiceHandler(
 }
 
 // DELETE - Void invoice
-async function deleteInvoiceHandler(
+export async function DELETE(
   req: NextRequest,
-  user: AuthUser,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   try {
-    const { id } = await context.params;
+    // Verify auth
+    const authResult = await verifyAuth(req);
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    const user = authResult.user;
+    
+    const { id } = await params;
     const invoiceId = parseInt(id);
     
     if (isNaN(invoiceId)) {
@@ -146,26 +172,3 @@ async function deleteInvoiceHandler(
     );
   }
 }
-
-// Wrap handlers to pass context
-const wrappedGetHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withProviderAuth((req: NextRequest, user: AuthUser) => 
-    getInvoiceHandler(req, user, context)
-  )(req);
-};
-
-const wrappedPutHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withProviderAuth((req: NextRequest, user: AuthUser) => 
-    updateInvoiceHandler(req, user, context)
-  )(req);
-};
-
-const wrappedDeleteHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withProviderAuth((req: NextRequest, user: AuthUser) => 
-    deleteInvoiceHandler(req, user, context)
-  )(req);
-};
-
-export const GET = standardRateLimit(wrappedGetHandler as any);
-export const PUT = standardRateLimit(wrappedPutHandler as any);
-export const DELETE = standardRateLimit(wrappedDeleteHandler as any);

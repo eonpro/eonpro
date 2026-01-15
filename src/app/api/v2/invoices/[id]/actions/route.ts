@@ -20,9 +20,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { verifyAuth } from '@/lib/auth/middleware';
 import { createInvoiceManager, LineItem, PaymentPlan, InvoiceReminder } from '@/services/billing/InvoiceManager';
-import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
 // Action schemas
@@ -113,13 +112,22 @@ const actionSchema = z.discriminatedUnion('action', [
   reminderSchema,
 ]);
 
-async function invoiceActionsHandler(
+export async function POST(
   req: NextRequest,
-  user: AuthUser,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   try {
-    const { id } = await context.params;
+    // Verify auth
+    const authResult = await verifyAuth(req);
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    const user = authResult.user;
+    
+    const { id } = await params;
     const invoiceId = parseInt(id);
     
     if (isNaN(invoiceId)) {
@@ -273,12 +281,3 @@ async function invoiceActionsHandler(
     );
   }
 }
-
-// Wrap handler to pass context
-const wrappedHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withProviderAuth((req: NextRequest, user: AuthUser) => 
-    invoiceActionsHandler(req, user, context)
-  )(req);
-};
-
-export const POST = standardRateLimit(wrappedHandler as any);

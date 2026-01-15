@@ -9,20 +9,28 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { verifyAuth } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { createInvoiceManager } from '@/services/billing/InvoiceManager';
-import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
 // GET - Get patient billing summary
-async function getPatientBillingHandler(
+export async function GET(
   req: NextRequest,
-  user: AuthUser,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   try {
-    const { id } = await context.params;
+    // Verify auth
+    const authResult = await verifyAuth(req);
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    const user = authResult.user;
+    
+    const { id } = await params;
     const patientId = parseInt(id);
     
     if (isNaN(patientId)) {
@@ -172,13 +180,22 @@ const addCreditSchema = z.object({
   applyToInvoice: z.number().optional(),
 });
 
-async function addPatientCreditHandler(
+export async function POST(
   req: NextRequest,
-  user: AuthUser,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   try {
-    const { id } = await context.params;
+    // Verify auth
+    const authResult = await verifyAuth(req);
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    const user = authResult.user;
+    
+    const { id } = await params;
     const patientId = parseInt(id);
     
     if (isNaN(patientId)) {
@@ -275,19 +292,3 @@ async function addPatientCreditHandler(
     );
   }
 }
-
-// Wrap handlers to pass context
-const wrappedGetHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withProviderAuth((req: NextRequest, user: AuthUser) => 
-    getPatientBillingHandler(req, user, context)
-  )(req);
-};
-
-const wrappedPostHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withProviderAuth((req: NextRequest, user: AuthUser) => 
-    addPatientCreditHandler(req, user, context)
-  )(req);
-};
-
-export const GET = standardRateLimit(wrappedGetHandler as any);
-export const POST = standardRateLimit(wrappedPostHandler as any);

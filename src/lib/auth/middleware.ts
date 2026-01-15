@@ -615,6 +615,100 @@ export function withPatientAuth(
 }
 
 // ============================================================================
+// Direct Auth Verification (for routes with dynamic params)
+// ============================================================================
+
+/**
+ * Directly verify authentication from a request
+ * Use this for routes with dynamic params where HOC wrappers don't work well
+ * 
+ * @example
+ * const authResult = await verifyAuth(req);
+ * if (!authResult.success) {
+ *   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+ * }
+ * const user = authResult.user;
+ */
+export async function verifyAuth(req: NextRequest): Promise<{
+  success: boolean;
+  user?: AuthUser;
+  error?: string;
+  errorCode?: string;
+}> {
+  // Extract token
+  const authHeader = req.headers.get('authorization');
+  let token: string | null = null;
+  
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7).trim();
+  }
+  
+  // Check cookies as fallback
+  if (!token) {
+    const cookieTokenNames = [
+      'auth-token',
+      'super_admin-token',
+      'admin-token',
+      'provider-token',
+      'influencer-token',
+      'patient-token',
+      'staff-token',
+      'support-token',
+    ];
+    
+    for (const cookieName of cookieTokenNames) {
+      const cookieToken = req.cookies.get(cookieName)?.value;
+      if (cookieToken) {
+        token = cookieToken;
+        break;
+      }
+    }
+  }
+  
+  if (!token) {
+    return { success: false, error: 'No authentication token', errorCode: 'NO_TOKEN' };
+  }
+  
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      clockTolerance: 30,
+    });
+    
+    const user: AuthUser = {
+      id: payload.id as number,
+      email: payload.email as string,
+      role: payload.role as UserRole,
+      clinicId: payload.clinicId as number | undefined,
+      sessionId: payload.sessionId as string | undefined,
+      providerId: payload.providerId as number | undefined,
+      patientId: payload.patientId as number | undefined,
+      influencerId: payload.influencerId as number | undefined,
+      permissions: payload.permissions as string[] | undefined,
+      iat: payload.iat,
+      exp: payload.exp,
+    };
+    
+    // Set clinic context for multi-tenant queries
+    // Super admins should NOT have clinic context so they can access all data
+    if (user.clinicId && user.role !== 'super_admin') {
+      setClinicContext(user.clinicId);
+    } else {
+      setClinicContext(undefined);
+    }
+    
+    return { success: true, user };
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('expired')) {
+        return { success: false, error: 'Token expired', errorCode: 'EXPIRED' };
+      }
+    }
+    return { success: false, error: 'Invalid token', errorCode: 'INVALID' };
+  }
+}
+
+// ============================================================================
 // Utility Functions
 // ============================================================================
 
