@@ -139,7 +139,7 @@ async function loginHandler(req: NextRequest) {
       email: user.email,
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
       role: userRole,
-      clinicId: userRole === 'super_admin' ? undefined : 1, // Super Admin doesn't need clinicId
+      clinicId: userRole === 'super_admin' ? undefined : user.clinicId, // Use user's actual clinicId
     };
 
     // Add permissions and features if available
