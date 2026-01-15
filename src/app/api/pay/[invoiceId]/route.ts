@@ -11,10 +11,11 @@ import { logger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { invoiceId: string } }
+  { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
-    const invoiceId = parseInt(params.invoiceId);
+    const { invoiceId: invoiceIdParam } = await params;
+    const invoiceId = parseInt(invoiceIdParam);
     
     if (isNaN(invoiceId)) {
       return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
