@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { UserRole } from '@prisma/client';
 
 /**
  * Middleware to check for Super Admin role
@@ -55,7 +56,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
     const providerCount = await prisma.user.count({
       where: {
         clinicId: clinic.id,
-        role: 'provider',
+        role: UserRole.PROVIDER,
       },
     });
 
