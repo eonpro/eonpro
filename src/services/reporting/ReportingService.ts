@@ -836,6 +836,7 @@ export class ReportingService {
   // ==========================================================================
 
   async getTreatmentMetrics(dateRange: DateRangeParams): Promise<TreatmentMetrics> {
+    try {
     const clinicFilter = this.getClinicFilter();
     const now = new Date();
 
@@ -846,14 +847,7 @@ export class ReportingService {
         status: 'ACTIVE'
       },
       include: {
-        patient: {
-          include: {
-            orders: {
-              orderBy: { createdAt: 'desc' },
-              take: 1
-            }
-          }
-        }
+        patient: true
       }
     });
 
@@ -878,7 +872,7 @@ export class ReportingService {
         id: s.patient.id,
         name: `${s.patient.firstName} ${s.patient.lastName}`,
         startDate: s.startDate,
-        treatment: s.patient.orders[0]?.primaryMedName || s.planName
+        treatment: s.planName
       });
     });
 
@@ -949,6 +943,17 @@ export class ReportingService {
       treatmentsByType,
       patientsOnMonth
     };
+    } catch (error) {
+      logger.error('Error in getTreatmentMetrics', error as Error);
+      // Return empty metrics on error
+      return {
+        patientsByTreatmentMonth: {},
+        treatmentCompletionRate: 0,
+        averageTreatmentDuration: 0,
+        treatmentsByType: {},
+        patientsOnMonth: []
+      };
+    }
   }
 
   // ==========================================================================
