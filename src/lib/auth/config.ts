@@ -104,22 +104,22 @@ export const TOKEN_VERSION = parseInt(process.env.TOKEN_VERSION || '1', 10);
 
 // Additional auth configuration - HIPAA compliant settings
 export const AUTH_CONFIG = {
-  // JWT token expiration times (HIPAA requires short-lived tokens)
+  // JWT token expiration times
   tokenExpiry: {
-    access: process.env.NODE_ENV === 'production' ? '15m' : '1h', // 15 min in prod
+    access: '8h', // 8 hours for super admin/admin
     refresh: '7d',
     influencer: '8h',
-    provider: '4h', // Shorter for providers accessing PHI
-    patient: '30m', // Shortest for patients
-    absoluteMax: '8h', // Maximum session length
+    provider: '8h', // 8 hours for providers
+    patient: '4h', // 4 hours for patients
+    absoluteMax: '24h', // Maximum session length
   },
   
   // Milliseconds for calculations
   tokenExpiryMs: {
-    access: process.env.NODE_ENV === 'production' ? 15 * 60 * 1000 : 60 * 60 * 1000,
+    access: 8 * 60 * 60 * 1000, // 8 hours
     refresh: 7 * 24 * 60 * 60 * 1000,
-    sessionTimeout: 15 * 60 * 1000, // 15 min inactivity timeout
-    warningBeforeTimeout: 2 * 60 * 1000, // Warn 2 min before timeout
+    sessionTimeout: 4 * 60 * 60 * 1000, // 4 hour inactivity timeout
+    warningBeforeTimeout: 15 * 60 * 1000, // Warn 15 min before timeout
   },
   
   // Security settings (HIPAA requirements)

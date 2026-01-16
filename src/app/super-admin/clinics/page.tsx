@@ -38,13 +38,31 @@ export default function ClinicsListPage() {
   const fetchClinics = async () => {
     try {
       const token = localStorage.getItem('auth-token');
+      
+      // If no token, redirect to login
+      if (!token) {
+        router.push('/login?redirect=/super-admin/clinics&reason=session_expired');
+        return;
+      }
+
       const response = await fetch('/api/super-admin/clinics', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        // Clear invalid token
+        localStorage.removeItem('auth-token');
+        localStorage.removeItem('super_admin-token');
+        router.push('/login?redirect=/super-admin/clinics&reason=session_expired');
+        return;
+      }
+
       if (response.ok) {
         const data = await response.json();
         setClinics(data.clinics || []);
+      } else {
+        console.error('Failed to fetch clinics:', response.status);
       }
     } catch (error) {
       console.error('Failed to fetch clinics:', error);

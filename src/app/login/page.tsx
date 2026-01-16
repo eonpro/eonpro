@@ -1,16 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { LogIn, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sessionMessage, setSessionMessage] = useState('');
+
+  // Check for session expired message
+  useEffect(() => {
+    const reason = searchParams.get('reason');
+    if (reason === 'session_expired') {
+      setSessionMessage('Your session has expired. Please log in again.');
+    } else if (reason === 'no_session') {
+      setSessionMessage('Please log in to continue.');
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,11 +58,18 @@ export default function LoginPage() {
         localStorage.setItem('provider-token', data.token);
       }
 
-      // Redirect based on role
+      // Check for redirect parameter first
+      const redirectTo = searchParams.get('redirect');
+      if (redirectTo) {
+        router.push(redirectTo);
+        return;
+      }
+
+      // Otherwise redirect based on role
       const role = data.user.role?.toLowerCase();
       switch (role) {
         case 'super_admin':
-          router.push('/super-admin');
+          router.push('/super-admin/clinics');
           break;
         case 'admin':
           router.push('/admin');
@@ -141,6 +160,14 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {/* Session Expired Message */}
+            {sessionMessage && (
+              <div className="flex items-center gap-2 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <Clock className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                <p className="text-sm text-amber-700">{sessionMessage}</p>
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (
