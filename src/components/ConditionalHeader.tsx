@@ -61,19 +61,26 @@ export default function ConditionalHeader() {
   const visibleLinks = navLinks.filter(link => link.roles.includes(userRole));
   
   // Don't show admin header on role-specific pages (they have their own headers)
-  const roleSpecificPages = [
+  // or on authentication/public pages
+  const noHeaderPages = [
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/verify-email',
     '/influencer',
     '/patient-portal',
     '/provider',
     '/staff',
     '/support',
     '/demo',
+    '/pay/',
   ];
   
-  const isRoleSpecificPage = roleSpecificPages.some(page => pathname?.startsWith(page));
+  const isNoHeaderPage = noHeaderPages.some(page => pathname?.startsWith(page));
   const multiClinicEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true';
   
-  if (isRoleSpecificPage) {
+  if (isNoHeaderPage) {
     return null;
   }
 
