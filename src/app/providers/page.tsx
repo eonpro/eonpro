@@ -149,20 +149,26 @@ export default function ProvidersPage() {
 
   const fetchClinics = async () => {
     try {
+      // Try multiple token storage locations
       const token = localStorage.getItem('auth-token') ||
                    localStorage.getItem('super_admin-token') ||
-                   localStorage.getItem('admin-token');
-      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+                   localStorage.getItem('admin-token') ||
+                   localStorage.getItem('token');
       
-      // Super admin endpoint first, then fallbacks
-      const endpoints = [
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      // Try multiple endpoints with auth
+      const authenticatedEndpoints = [
         "/api/super-admin/clinics",  // Super admin - returns { clinics: [...] }
         "/api/admin/clinics",         // Admin endpoint
         "/api/user/clinics",          // User's assigned clinics
-        "/api/clinic/list",           // Public clinic list
       ];
       
-      for (const endpoint of endpoints) {
+      for (const endpoint of authenticatedEndpoints) {
+        if (!token) continue; // Skip auth endpoints if no token
         try {
           console.log(`[fetchClinics] Trying endpoint: ${endpoint}`);
           const res = await fetch(endpoint, { headers });
@@ -182,6 +188,24 @@ export default function ProvidersPage() {
           console.log(`[fetchClinics] ${endpoint} failed:`, e);
         }
       }
+      
+      // Fallback: Try public clinic list (no auth required)
+      try {
+        console.log('[fetchClinics] Trying public endpoint /api/clinics');
+        const res = await fetch('/api/clinics');
+        if (res.ok) {
+          const data = await res.json();
+          const clinicList = data.clinics || (Array.isArray(data) ? data : []);
+          if (clinicList.length > 0) {
+            console.log(`[fetchClinics] Found ${clinicList.length} clinics from public endpoint`);
+            setClinics(clinicList);
+            return;
+          }
+        }
+      } catch (e) {
+        console.log('[fetchClinics] Public endpoint failed:', e);
+      }
+      
       console.log('[fetchClinics] No clinics found from any endpoint');
       setClinics([]);
     } catch (err: any) {
