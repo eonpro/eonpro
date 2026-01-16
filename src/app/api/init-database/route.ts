@@ -65,6 +65,35 @@ export async function GET(request: Request) {
       logger.db('INSERT', 'clinics', { name: clinic.name });
     }
     
+    // Create PhoneOtp table for SMS authentication
+    try {
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "PhoneOtp" (
+          "id" SERIAL PRIMARY KEY,
+          "phone" TEXT NOT NULL,
+          "code" TEXT NOT NULL,
+          "expiresAt" TIMESTAMP(3) NOT NULL,
+          "used" BOOLEAN NOT NULL DEFAULT false,
+          "usedAt" TIMESTAMP(3),
+          "userId" INTEGER,
+          "patientId" INTEGER,
+          "ipAddress" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "PhoneOtp_phone_code_expiresAt_idx" 
+        ON "PhoneOtp"("phone", "code", "expiresAt")
+      `;
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "PhoneOtp_phone_idx" 
+        ON "PhoneOtp"("phone")
+      `;
+      logger.db('CREATE', 'PhoneOtp table');
+    } catch (phoneOtpError: any) {
+      logger.warn('PhoneOtp table creation warning:', phoneOtpError.message);
+    }
+    
     return NextResponse.json({
       success: true,
       message: 'Database initialized successfully!',
