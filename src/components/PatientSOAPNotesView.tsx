@@ -473,7 +473,7 @@ export default function PatientSOAPNotesView({
               </button>
               <button
                 onClick={handleApprove}
-                disabled={approvalPassword.length < 8}
+                disabled={approvalPassword.length < 12}
                 className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] disabled:opacity-50"
               >
                 Approve & Lock

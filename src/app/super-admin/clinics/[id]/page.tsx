@@ -360,7 +360,7 @@ export default function ClinicDetailPage() {
       return;
     }
 
-    if (newPassword.length < 8) {
+    if (newPassword.length < 12) {
       alert('Password must be at least 8 characters');
       return;
     }
@@ -1651,7 +1651,7 @@ export default function ClinicDetailPage() {
                 </button>
                 <button
                   onClick={handleResetPassword}
-                  disabled={resettingPassword || newPassword.length < 8}
+                  disabled={resettingPassword || newPassword.length < 12}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
                   {resettingPassword ? 'Resetting...' : 'Reset Password'}

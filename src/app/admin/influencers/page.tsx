@@ -95,7 +95,7 @@ export default function AdminInfluencersPage() {
     const newPassword = prompt(`Enter new password for ${email}:`);
     if (!newPassword) return;
     
-    if (newPassword.length < 6) {
+    if (newPassword.length < 12) {
       alert("Password must be at least 6 characters long");
       return;
     }

@@ -12,7 +12,7 @@ export async function POST(
     const { password } = await req.json();
     const influencerId = parseInt(params.id);
 
-    if (!password || password.length < 6) {
+    if (!password || password.length < 12) {
       return NextResponse.json(
         { error: "Password must be at least 6 characters long" },
         { status: 400 }

@@ -41,7 +41,7 @@ export async function PUT(
     if (updates.notes !== undefined) updateData.notes = updates.notes || null;
     
     // If password is provided, hash it
-    if (updates.password && updates.password.length >= 6) {
+    if (updates.password && updates.password.length >= 12) {
       updateData.passwordHash = await bcrypt.hash(updates.password, 12);
     }
 

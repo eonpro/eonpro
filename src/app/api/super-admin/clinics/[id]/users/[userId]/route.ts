@@ -111,7 +111,7 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
 
     // Handle password reset
     if (password) {
-      if (password.length < 8) {
+      if (password.length < 12) {
         return NextResponse.json(
           { error: 'Password must be at least 8 characters' },
           { status: 400 }

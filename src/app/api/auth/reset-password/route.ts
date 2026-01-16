@@ -131,7 +131,7 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
     }
 
     // Validate password strength
-    if (newPassword.length < 8) {
+    if (newPassword.length < 12) {
       return NextResponse.json(
         { error: 'Password must be at least 8 characters long' },
         { status: 400 }

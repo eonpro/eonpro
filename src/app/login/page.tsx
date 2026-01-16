@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { LogIn, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
+import { Eye, EyeOff, X, Mail, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<'email' | 'password'>('email');
   const [sessionMessage, setSessionMessage] = useState('');
 
   // Check for session expired message
@@ -23,6 +24,16 @@ export default function LoginPage() {
       setSessionMessage('Please log in to continue.');
     }
   }, [searchParams]);
+
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email.trim() && email.includes('@')) {
+      setStep('password');
+      setError('');
+    } else {
+      setError('Please enter a valid email address');
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,121 +110,223 @@ export default function LoginPage() {
     }
   };
 
+  const handleBack = () => {
+    setStep('email');
+    setPassword('');
+    setError('');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo & Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-4 bg-white rounded-2xl shadow-lg mb-6">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Gradient Background - Similar to ro.co */}
+      <div 
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
+        }}
+      />
+      
+      {/* Subtle mesh overlay */}
+      <div 
+        className="absolute inset-0 opacity-30"
+        style={{
+          backgroundImage: `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+                           radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.15) 0%, transparent 50%),
+                           radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.1) 0%, transparent 50%)`,
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* Header with X button */}
+        <div className="p-6">
+          <button 
+            onClick={() => router.push('/')}
+            className="p-2 hover:bg-black/5 rounded-full transition-colors"
+            aria-label="Close"
+          >
+            <X className="h-6 w-6 text-gray-700" />
+          </button>
+        </div>
+
+        {/* Logo centered at top */}
+        <div className="flex justify-center pt-4 pb-8">
+          <div className="flex items-center gap-2">
             <img 
               src="https://static.wixstatic.com/media/c49a9b_2e6625f0f27d44068998ab51675c6d7b~mv2.png"
               alt="EONPRO"
-              className="h-12 w-12"
+              className="h-10 w-10"
             />
+            <span className="text-2xl font-bold text-gray-900 tracking-tight">eonpro</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Sign in to your EONPRO account</p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-          <form onSubmit={handleLogin} className="space-y-6">
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col items-center px-6 pt-8">
+          {/* Welcome Text */}
+          <h1 className="text-5xl md:text-6xl font-light text-gray-900 mb-4 tracking-tight">
+            Welcome
+          </h1>
+          <p className="text-gray-600 text-lg mb-12">
+            Let's get you logged in.
+          </p>
 
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                />
+          {/* Login Form */}
+          <div className="w-full max-w-md">
+            {step === 'email' ? (
+              <form onSubmit={handleEmailSubmit} className="space-y-4">
+                {/* Email Field */}
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
+                    placeholder="Email or phone number"
+                    required
+                    autoComplete="email"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Session Message */}
+                {sessionMessage && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                    <p className="text-sm text-amber-700 text-center">{sessionMessage}</p>
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  </div>
+                )}
+
+                {/* Continue Button */}
+                <button
+                  type="submit"
+                  className="w-full px-6 py-4 rounded-2xl font-semibold text-white bg-gray-900 hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                >
+                  Continue
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4">
+                {/* Email Display */}
+                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Email or phone number</p>
+                    <p className="text-gray-900 font-medium">{email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                {/* Password Field */}
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-4 pr-12 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
+                    placeholder="Password"
+                    required
+                    autoComplete="current-password"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  </div>
+                )}
+
+                {/* Login Button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full px-6 py-4 rounded-2xl font-semibold text-white transition-all flex items-center justify-center gap-2 ${
+                    loading 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gray-900 hover:bg-gray-800'
+                  }`}
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      Logging in...
+                    </>
+                  ) : (
+                    'Log in and continue'
+                  )}
+                </button>
+
+                {/* Divider */}
+                <div className="flex items-center gap-4 py-2">
+                  <div className="flex-1 h-px bg-gray-200"></div>
+                  <span className="text-sm text-gray-500">Or other log-in options</span>
+                  <div className="flex-1 h-px bg-gray-200"></div>
+                </div>
+
+                {/* Magic Link Button */}
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="w-full px-6 py-4 rounded-2xl font-semibold text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 transition-all"
+                  onClick={() => {/* TODO: Implement magic link */}}
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  Email login code
                 </button>
-              </div>
-            </div>
 
-            {/* Session Expired Message */}
-            {sessionMessage && (
-              <div className="flex items-center gap-2 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <Clock className="h-5 w-5 text-amber-600 flex-shrink-0" />
-                <p className="text-sm text-amber-700">{sessionMessage}</p>
-              </div>
+                {/* Bottom Links */}
+                <div className="flex items-center justify-center gap-4 pt-4">
+                  <button 
+                    type="button"
+                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                  <span className="text-gray-300">•</span>
+                  <button 
+                    type="button"
+                    onClick={handleBack}
+                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                  >
+                    Not you? Log in here
+                  </button>
+                </div>
+              </form>
             )}
-
-            {/* Error Message */}
-            {error && (
-              <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl">
-                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full px-4 py-3 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 ${
-                loading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg hover:shadow-xl'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <LogIn className="h-5 w-5" />
-                  Sign In
-                </>
-              )}
-            </button>
-          </form>
-
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-6">
-          <p className="text-sm text-gray-500">
-            HIPAA Compliant Healthcare Platform
-          </p>
-          <p className="text-xs text-gray-400 mt-2">
-            © 2024 EONPRO. All rights reserved.
+        <div className="p-6 text-center">
+          <p className="text-xs text-gray-500">
+            HIPAA Compliant Healthcare Platform • © 2024 EONPRO
           </p>
         </div>
       </div>
     </div>
   );
 }
-
