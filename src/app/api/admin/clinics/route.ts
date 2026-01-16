@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '../../../../lib/logger';
-
-import { prisma } from '@/lib/db';
+import { basePrisma as prisma } from '@/lib/db';
+import { UserRole } from '@prisma/client';
 
 /**
  * GET /api/admin/clinics
@@ -10,7 +10,7 @@ import { prisma } from '@/lib/db';
 export async function GET(request: NextRequest) {
   try {
     // TODO: Add admin authentication check
-    
+
     const clinics = await prisma.clinic.findMany({
       include: {
         _count: {
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         createdAt: 'desc'
       }
     });
-    
+
     // Count providers per clinic from both User table (role PROVIDER) and Provider table
     const clinicsWithProviderCount = await Promise.all(
       clinics.map(async (clinic) => {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
           prisma.user.count({
             where: {
               clinicId: clinic.id,
-              role: 'provider',
+              role: UserRole.PROVIDER,
             },
           }),
           prisma.provider.count({
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
         };
       })
     );
-    
-    return NextResponse.json(clinicsWithProviderCount);
+
+    return NextResponse.json({ clinics: clinicsWithProviderCount });
   } catch (error) {
     logger.error('Error fetching clinics:', error);
     return NextResponse.json(
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     // Validate required fields
     if (!body.name || !body.subdomain || !body.adminEmail) {
       return NextResponse.json(
@@ -80,19 +80,19 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Check if subdomain is already taken
     const existing = await prisma.clinic.findUnique({
       where: { subdomain: body.subdomain }
     });
-    
+
     if (existing) {
       return NextResponse.json(
         { error: 'Subdomain already exists' },
         { status: 409 }
       );
     }
-    
+
     // Create the clinic
     const clinic = await prisma.clinic.create({
       data: {

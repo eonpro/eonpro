@@ -9,12 +9,13 @@ const securityHeaders = {
   // Content Security Policy - Prevents XSS attacks
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://lottie.host",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://lottie.host https://maps.googleapis.com https://*.googleapis.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https: http:",
     "font-src 'self' https://fonts.gstatic.com data:",
-    "connect-src 'self' https://api.stripe.com https://vitals.vercel-insights.com https://o4508611993468928.ingest.us.sentry.io https://lottie.host wss: ws:",
-    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://*.zoom.us",
+    "connect-src 'self' https://api.stripe.com https://vitals.vercel-insights.com https://o4508611993468928.ingest.us.sentry.io https://lottie.host https://cdn.jsdelivr.net https://unpkg.com https://maps.googleapis.com https://*.googleapis.com wss: ws:",
+    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://*.zoom.us https://maps.googleapis.com",
+    "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
