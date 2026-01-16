@@ -115,6 +115,9 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       // Determine clinicId - super admin can specify, others inherit from creator
       const assignedClinicId = validated.clinicId || user.clinicId;
 
+      // Convert role to uppercase for Prisma enum
+      const prismaRole = validated.role.toUpperCase() as any;
+
       // Create the user
       const createdUser = await tx.user.create({
         data: {
@@ -122,7 +125,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
           passwordHash,
           firstName: validated.firstName,
           lastName: validated.lastName,
-          role: validated.role,
+          role: prismaRole,
           permissions: finalPermissions,
           features: finalFeatures,
           metadata: (validated.metadata || {}) as any,
