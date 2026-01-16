@@ -205,8 +205,17 @@ export default function ProvidersPage() {
   };
 
   useEffect(() => {
+    console.log('[ProvidersPage] Initial load, userRole:', userRole);
     fetchProviders();
     fetchClinics();
+  }, []);
+  
+  // Refetch clinics when userRole changes
+  useEffect(() => {
+    if (userRole) {
+      console.log('[ProvidersPage] userRole changed to:', userRole);
+      fetchClinics();
+    }
   }, [userRole]);
 
   const updateForm = (k: string, v: string | null) =>
@@ -484,8 +493,8 @@ export default function ProvidersPage() {
                       </div>
                     )}
 
-                    {/* Clinic Selection */}
-                    {userRole === 'super_admin' && (
+                    {/* Clinic Selection - Always show if clinics are available */}
+                    {clinics.length > 0 && (
                       <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200">
                         <label className="block">
                           <span className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-2">
@@ -497,7 +506,7 @@ export default function ProvidersPage() {
                             value={form.clinicId}
                             onChange={(e) => updateForm("clinicId", e.target.value)}
                           >
-                            <option value="">Select a clinic... ({clinics.length} available)</option>
+                            <option value="">Select a clinic...</option>
                             {clinics
                               .filter(c => !c.status || c.status === 'ACTIVE' || c.status === 'active')
                               .map((clinic) => (
@@ -507,6 +516,13 @@ export default function ProvidersPage() {
                               ))}
                           </select>
                         </label>
+                      </div>
+                    )}
+                    
+                    {/* Debug: Show if no clinics loaded */}
+                    {clinics.length === 0 && (
+                      <div className="p-4 bg-red-50 rounded-2xl border border-red-200">
+                        <p className="text-sm text-red-700">⚠️ No clinics loaded. User role: {userRole || 'unknown'}</p>
                       </div>
                     )}
 
