@@ -168,13 +168,16 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // Convert role to uppercase for Prisma enum
+    const prismaRole = role.toUpperCase();
+
     // Create the user
     const newUser = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
         firstName,
         lastName,
-        role,
+        role: prismaRole,
         passwordHash,
         clinicId,
         status: 'ACTIVE',
@@ -198,7 +201,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
           data: {
             userId: newUser.id,
             clinicId,
-            role,
+            role: prismaRole,
             isPrimary: true,
             isActive: true,
           },
