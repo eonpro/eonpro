@@ -24,7 +24,8 @@ const createUserSchema = z.object({
   permissions: z.array(z.string()).optional(),
   features: z.array(z.string()).optional(),
   metadata: z.object({}).passthrough().optional(),
-  
+  clinicId: z.number().optional(), // Clinic assignment (required for non-super-admin users)
+
   // Optional relations
   providerId: z.number().optional(),
   influencerId: z.number().optional(),
@@ -111,6 +112,9 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     
     // Create user in transaction
     const newUser = await prisma.$transaction(async (tx: any) => {
+      // Determine clinicId - super admin can specify, others inherit from creator
+      const assignedClinicId = validated.clinicId || user.clinicId;
+
       // Create the user
       const createdUser = await tx.user.create({
         data: {
@@ -121,8 +125,9 @@ export const POST = withAuth(async (req: NextRequest, user) => {
           role: validated.role,
           permissions: finalPermissions,
           features: finalFeatures,
-          metadata: (validated.metadata  || {}) as any,
-          createdById: user.id > 0  ? user.id  : undefined, // Handle admin with ID 0
+          metadata: (validated.metadata || {}) as any,
+          createdById: user.id > 0 ? user.id : undefined, // Handle admin with ID 0
+          clinicId: assignedClinicId, // Assign to clinic
           providerId: validated.providerId,
           influencerId: validated.influencerId,
           patientId: validated.patientId,
@@ -137,6 +142,13 @@ export const POST = withAuth(async (req: NextRequest, user) => {
           permissions: true,
           features: true,
           createdAt: true,
+          clinicId: true,
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           provider: {
             select: {
               id: true,
@@ -216,4 +228,4 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-}, { roles: ["admin", "admin"] });
+}, { roles: ['SUPER_ADMIN', 'super_admin', 'ADMIN', 'admin'] });
