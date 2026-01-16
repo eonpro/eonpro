@@ -27,8 +27,9 @@ type Provider = {
 type Clinic = {
   id: number;
   name: string;
-  subdomain: string;
+  subdomain?: string;
   status: string;
+  customDomain?: string | null;
 };
 
 const TITLE_OPTIONS = [
@@ -152,20 +153,36 @@ export default function ProvidersPage() {
                    localStorage.getItem('super_admin-token') ||
                    localStorage.getItem('admin-token');
       const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
-      const endpoints = ["/api/user/clinics", "/api/admin/clinics", "/api/clinic/list"];
+      
+      // Super admin endpoint first, then fallbacks
+      const endpoints = [
+        "/api/super-admin/clinics",  // Super admin - returns { clinics: [...] }
+        "/api/admin/clinics",         // Admin endpoint
+        "/api/user/clinics",          // User's assigned clinics
+        "/api/clinic/list",           // Public clinic list
+      ];
+      
       for (const endpoint of endpoints) {
         try {
+          console.log(`[fetchClinics] Trying endpoint: ${endpoint}`);
           const res = await fetch(endpoint, { headers });
+          console.log(`[fetchClinics] ${endpoint} response status: ${res.status}`);
+          
           if (res.ok) {
             const data = await res.json();
+            console.log(`[fetchClinics] ${endpoint} data:`, data);
             const clinicList = data.clinics || (Array.isArray(data) ? data : []);
             if (clinicList.length > 0) {
+              console.log(`[fetchClinics] Found ${clinicList.length} clinics from ${endpoint}`);
               setClinics(clinicList);
               return;
             }
           }
-        } catch { /* Continue */ }
+        } catch (e) { 
+          console.log(`[fetchClinics] ${endpoint} failed:`, e);
+        }
       }
+      console.log('[fetchClinics] No clinics found from any endpoint');
       setClinics([]);
     } catch (err: any) {
       logger.error("Failed to fetch clinics:", err);
@@ -480,12 +497,14 @@ export default function ProvidersPage() {
                             value={form.clinicId}
                             onChange={(e) => updateForm("clinicId", e.target.value)}
                           >
-                            <option value="">Select a clinic...</option>
-                            {clinics.filter(c => c.status === 'ACTIVE').map((clinic) => (
-                              <option key={clinic.id} value={clinic.id}>
-                                {clinic.name}
-                              </option>
-                            ))}
+                            <option value="">Select a clinic... ({clinics.length} available)</option>
+                            {clinics
+                              .filter(c => !c.status || c.status === 'ACTIVE' || c.status === 'active')
+                              .map((clinic) => (
+                                <option key={clinic.id} value={String(clinic.id)}>
+                                  {clinic.name}
+                                </option>
+                              ))}
                           </select>
                         </label>
                       </div>
