@@ -7,7 +7,8 @@ import Link from 'next/link';
 import {
   ArrowLeft, Building2, Globe, Palette, Save, Trash2,
   Users, Activity, Calendar, Settings, AlertTriangle, Plus,
-  UserPlus, Mail, Shield, X, Eye, EyeOff
+  UserPlus, Mail, Shield, X, Eye, EyeOff, Pill, FileText,
+  CheckCircle2, XCircle, ExternalLink, Zap
 } from 'lucide-react';
 
 interface ClinicFeatures {
@@ -57,12 +58,47 @@ export default function ClinicDetailPage() {
   const clinicId = params.id;
 
   // Get initial tab from URL query param
-  const initialTab = searchParams.get('tab') as 'overview' | 'branding' | 'features' | 'users' | 'settings' || 'overview';
+  const initialTab = searchParams.get('tab') as 'overview' | 'branding' | 'features' | 'pharmacy' | 'users' | 'settings' || 'overview';
 
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'branding' | 'features' | 'users' | 'settings'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'overview' | 'branding' | 'features' | 'pharmacy' | 'users' | 'settings'>(initialTab);
+
+  // Lifefile/Pharmacy settings state
+  const [lifefileSettings, setLifefileSettings] = useState<{
+    lifefileEnabled: boolean;
+    lifefileBaseUrl: string;
+    lifefileUsername: string;
+    lifefilePassword: string;
+    lifefileVendorId: string;
+    lifefilePracticeId: string;
+    lifefileLocationId: string;
+    lifefileNetworkId: string;
+    lifefilePracticeName: string;
+    lifefilePracticeAddress: string;
+    lifefilePracticePhone: string;
+    lifefilePracticeFax: string;
+    hasCredentials: boolean;
+  }>({
+    lifefileEnabled: false,
+    lifefileBaseUrl: '',
+    lifefileUsername: '',
+    lifefilePassword: '',
+    lifefileVendorId: '',
+    lifefilePracticeId: '',
+    lifefileLocationId: '',
+    lifefileNetworkId: '',
+    lifefilePracticeName: '',
+    lifefilePracticeAddress: '',
+    lifefilePracticePhone: '',
+    lifefilePracticeFax: '',
+    hasCredentials: false,
+  });
+  const [loadingLifefile, setLoadingLifefile] = useState(false);
+  const [savingLifefile, setSavingLifefile] = useState(false);
+  const [testingLifefile, setTestingLifefile] = useState(false);
+  const [lifefileMessage, setLifefileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Users state
   const [clinicUsers, setClinicUsers] = useState<ClinicUser[]>([]);
@@ -364,6 +400,97 @@ export default function ClinicDetailPage() {
     }
   }, [activeTab]);
 
+  // Fetch Lifefile settings when switching to pharmacy tab
+  useEffect(() => {
+    if (activeTab === 'pharmacy') {
+      fetchLifefileSettings();
+    }
+  }, [activeTab]);
+
+  const fetchLifefileSettings = async () => {
+    setLoadingLifefile(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLifefileSettings({
+          lifefileEnabled: data.settings.lifefileEnabled || false,
+          lifefileBaseUrl: data.settings.lifefileBaseUrl || '',
+          lifefileUsername: data.settings.lifefileUsername || '',
+          lifefilePassword: data.settings.lifefilePassword || '',
+          lifefileVendorId: data.settings.lifefileVendorId || '',
+          lifefilePracticeId: data.settings.lifefilePracticeId || '',
+          lifefileLocationId: data.settings.lifefileLocationId || '',
+          lifefileNetworkId: data.settings.lifefileNetworkId || '',
+          lifefilePracticeName: data.settings.lifefilePracticeName || '',
+          lifefilePracticeAddress: data.settings.lifefilePracticeAddress || '',
+          lifefilePracticePhone: data.settings.lifefilePracticePhone || '',
+          lifefilePracticeFax: data.settings.lifefilePracticeFax || '',
+          hasCredentials: data.settings.hasCredentials || false,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching Lifefile settings:', error);
+    } finally {
+      setLoadingLifefile(false);
+    }
+  };
+
+  const handleSaveLifefile = async () => {
+    setSavingLifefile(true);
+    setLifefileMessage(null);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(lifefileSettings),
+      });
+
+      if (response.ok) {
+        setLifefileMessage({ type: 'success', text: 'Pharmacy settings saved successfully!' });
+        fetchLifefileSettings();
+      } else {
+        const data = await response.json();
+        setLifefileMessage({ type: 'error', text: data.error || 'Failed to save settings' });
+      }
+    } catch (error) {
+      setLifefileMessage({ type: 'error', text: 'Failed to save settings' });
+    } finally {
+      setSavingLifefile(false);
+    }
+  };
+
+  const handleTestLifefile = async () => {
+    setTestingLifefile(true);
+    setLifefileMessage(null);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setLifefileMessage({ type: 'success', text: 'Connection test successful! Lifefile is configured correctly.' });
+      } else {
+        setLifefileMessage({ type: 'error', text: data.detail || data.error || 'Connection test failed' });
+      }
+    } catch (error) {
+      setLifefileMessage({ type: 'error', text: 'Failed to test connection' });
+    } finally {
+      setTestingLifefile(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -502,11 +629,12 @@ export default function ClinicDetailPage() {
             </div>
           </div>
 
-          <div className="flex gap-6 mt-6 border-b border-gray-200 -mb-px">
+          <div className="flex gap-6 mt-6 border-b border-gray-200 -mb-px overflow-x-auto">
             {[
               { id: 'overview', label: 'Overview', icon: Building2 },
               { id: 'branding', label: 'Branding', icon: Palette },
               { id: 'features', label: 'Features', icon: Settings },
+              { id: 'pharmacy', label: 'Pharmacy', icon: Pill, highlight: true },
               { id: 'users', label: 'Users', icon: Users },
               { id: 'settings', label: 'Settings', icon: Globe },
             ].map((tab) => (
@@ -761,6 +889,314 @@ export default function ClinicDetailPage() {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* PHARMACY / LIFEFILE INTEGRATION TAB */}
+        {activeTab === 'pharmacy' && (
+          <div className="space-y-6">
+            {/* Status Banner */}
+            <div className={`rounded-xl p-6 border-2 ${
+              lifefileSettings.lifefileEnabled && lifefileSettings.hasCredentials
+                ? 'bg-green-50 border-green-200'
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-xl ${
+                    lifefileSettings.lifefileEnabled && lifefileSettings.hasCredentials
+                      ? 'bg-green-100'
+                      : 'bg-amber-100'
+                  }`}>
+                    {lifefileSettings.lifefileEnabled && lifefileSettings.hasCredentials ? (
+                      <CheckCircle2 className="h-8 w-8 text-green-600" />
+                    ) : (
+                      <XCircle className="h-8 w-8 text-amber-600" />
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {lifefileSettings.lifefileEnabled && lifefileSettings.hasCredentials
+                        ? '✓ Pharmacy Integration Active'
+                        : 'Pharmacy Integration Not Configured'}
+                    </h2>
+                    <p className="text-gray-600">
+                      {lifefileSettings.lifefileEnabled && lifefileSettings.hasCredentials
+                        ? 'This clinic can send prescriptions to Logos Pharmacy via Lifefile'
+                        : 'Configure Lifefile credentials to enable e-prescribing'}
+                    </p>
+                  </div>
+                </div>
+                {lifefileSettings.hasCredentials && (
+                  <button
+                    onClick={handleTestLifefile}
+                    disabled={testingLifefile}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Zap className="h-4 w-4" />
+                    {testingLifefile ? 'Testing...' : 'Test Connection'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Messages */}
+            {lifefileMessage && (
+              <div className={`p-4 rounded-lg ${
+                lifefileMessage.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-700'
+                  : 'bg-red-50 border border-red-200 text-red-700'
+              }`}>
+                {lifefileMessage.text}
+              </div>
+            )}
+
+            {loadingLifefile ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-600"></div>
+              </div>
+            ) : (
+              <>
+                {/* Enable Toggle */}
+                <div className="bg-white rounded-xl p-6 border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-purple-100 rounded-lg">
+                        <Pill className="h-6 w-6 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Enable Lifefile Integration</h3>
+                        <p className="text-sm text-gray-500">
+                          When enabled, prescriptions from this clinic will be sent through Lifefile to Logos Pharmacy
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={lifefileSettings.lifefileEnabled}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileEnabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-teal-600"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* API Credentials */}
+                <div className="bg-white rounded-xl p-6 border border-gray-200">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">API Credentials</h3>
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">From Lifefile</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        API Base URL *
+                      </label>
+                      <input
+                        type="url"
+                        value={lifefileSettings.lifefileBaseUrl}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileBaseUrl: e.target.value })}
+                        placeholder="https://host47a.lifefile.net:10165/lfapi/v1"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        API Username *
+                      </label>
+                      <input
+                        type="text"
+                        value={lifefileSettings.lifefileUsername}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileUsername: e.target.value })}
+                        placeholder="api11596-3"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        API Password *
+                      </label>
+                      <input
+                        type="password"
+                        value={lifefileSettings.lifefilePassword}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefilePassword: e.target.value })}
+                        placeholder="••••••••"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Leave as •••••••• to keep existing password</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account IDs */}
+                <div className="bg-white rounded-xl p-6 border border-gray-200">
+                  <div className="flex items-center gap-3 mb-6">
+                    <FileText className="h-5 w-5 text-green-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Account Identifiers</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Vendor ID *
+                      </label>
+                      <input
+                        type="text"
+                        value={lifefileSettings.lifefileVendorId}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileVendorId: e.target.value })}
+                        placeholder="11596"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Practice ID *
+                      </label>
+                      <input
+                        type="text"
+                        value={lifefileSettings.lifefilePracticeId}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefilePracticeId: e.target.value })}
+                        placeholder="1270268"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Location ID * <span className="text-gray-400">(Logos Pharmacy = 110396)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={lifefileSettings.lifefileLocationId}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileLocationId: e.target.value })}
+                        placeholder="110396"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Network ID *
+                      </label>
+                      <input
+                        type="text"
+                        value={lifefileSettings.lifefileNetworkId}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileNetworkId: e.target.value })}
+                        placeholder="1592"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Practice Information */}
+                <div className="bg-white rounded-xl p-6 border border-gray-200">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Building2 className="h-5 w-5 text-purple-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Practice Information</h3>
+                    <span className="text-xs text-gray-500">Appears on prescriptions</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Practice Name
+                      </label>
+                      <input
+                        type="text"
+                        value={lifefileSettings.lifefilePracticeName}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefilePracticeName: e.target.value })}
+                        placeholder="SIPAMED LLC"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Practice Address
+                      </label>
+                      <input
+                        type="text"
+                        value={lifefileSettings.lifefilePracticeAddress}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefilePracticeAddress: e.target.value })}
+                        placeholder="123 Medical Center Dr, Suite 100, City, ST 12345"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Practice Phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={lifefileSettings.lifefilePracticePhone}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefilePracticePhone: e.target.value })}
+                        placeholder="555-555-5555"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Practice Fax
+                      </label>
+                      <input
+                        type="tel"
+                        value={lifefileSettings.lifefilePracticeFax}
+                        onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefilePracticeFax: e.target.value })}
+                        placeholder="555-555-5556"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Features Info */}
+                <div className="bg-gradient-to-br from-teal-50 to-blue-50 rounded-xl p-6 border border-teal-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-teal-600" />
+                    What's Included with Pharmacy Integration
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { icon: FileText, label: 'PDF64 e-Script Generation', desc: 'Automatic prescription PDF creation' },
+                      { icon: Shield, label: 'Doctor Signature Attachment', desc: 'Digital signatures on prescriptions' },
+                      { icon: Pill, label: 'Direct Pharmacy Submission', desc: 'Send directly to Logos Pharmacy' },
+                      { icon: Activity, label: 'Real-time Status Updates', desc: 'Track prescription fulfillment' },
+                    ].map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-3 p-3 bg-white/60 rounded-lg">
+                        <feature.icon className="h-5 w-5 text-teal-600 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-gray-900">{feature.label}</p>
+                          <p className="text-sm text-gray-500">{feature.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex items-center justify-between bg-white rounded-xl p-6 border border-gray-200">
+                  <div className="text-sm text-gray-500">
+                    All credentials are encrypted and stored securely (AES-256)
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handleTestLifefile}
+                      disabled={testingLifefile || !lifefileSettings.lifefileBaseUrl || !lifefileSettings.lifefileUsername}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      {testingLifefile ? 'Testing...' : 'Test Connection'}
+                    </button>
+                    <button
+                      onClick={handleSaveLifefile}
+                      disabled={savingLifefile}
+                      className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <Save className="h-5 w-5" />
+                      {savingLifefile ? 'Saving...' : 'Save Pharmacy Settings'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
