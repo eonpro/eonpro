@@ -64,6 +64,13 @@ export const GET = withAuth(async (req: NextRequest, user) => {
           status: true,
           lastLogin: true,
           createdAt: true,
+          clinicId: true,
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           createdBy: {
             select: {
               email: true,
