@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
+// Persistence Test v1 - This comment proves deployment happened
+
 export async function GET(request: NextRequest) {
   try {
     // Fetch all active clinics (basic info only for security)
