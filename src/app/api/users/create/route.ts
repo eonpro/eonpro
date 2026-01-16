@@ -20,7 +20,7 @@ const createUserSchema = z.object({
   ),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
-  role: z.enum(["admin", "admin", "provider", "influencer", "patient", 'staff', 'support']),
+  role: z.enum(["super_admin", "admin", "provider", "influencer", "patient", 'staff', 'support']),
   permissions: z.array(z.string()).optional(),
   features: z.array(z.string()).optional(),
   metadata: z.object({}).passthrough().optional(),
@@ -67,7 +67,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const newRoleLevel = roleHierarchy[validated.role] || 0;
     
     // Only SUPER_ADMIN can create other SUPER_ADMINs
-    if ((validated.role as string) === "admin" && user.role !== "admin") {
+    if ((validated.role as string) === "super_admin" && user.role !== "super_admin") {
       return NextResponse.json(
         { error: 'Only Super Admins can create other Super Admins' },
         { status: 403 }
