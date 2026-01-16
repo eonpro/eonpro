@@ -761,6 +761,23 @@ model PasswordResetToken {
   @@index([userId, expiresAt])
 }
 
+// Phone OTP for SMS-based authentication
+model PhoneOtp {
+  id        Int       @id @default(autoincrement())
+  phone     String    // Formatted phone number
+  code      String    // 6-digit OTP code
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  userId    Int?      // If associated with a User
+  patientId Int?      // If associated with a Patient
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([phone, code, expiresAt])
+  @@index([phone])
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
