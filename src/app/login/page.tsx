@@ -151,14 +151,11 @@ export default function LoginPage() {
 
         {/* Logo centered at top */}
         <div className="flex justify-center pt-4 pb-8">
-          <div className="flex items-center gap-2">
-            <img 
-              src="https://static.wixstatic.com/media/c49a9b_2e6625f0f27d44068998ab51675c6d7b~mv2.png"
-              alt="EONPRO"
-              className="h-10 w-10"
-            />
-            <span className="text-2xl font-bold text-gray-900 tracking-tight">eonpro</span>
-          </div>
+          <img 
+            src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+            alt="EONPRO"
+            className="h-10 w-auto"
+          />
         </div>
 
         {/* Main Content */}

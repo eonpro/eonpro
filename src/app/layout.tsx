@@ -29,8 +29,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ClientProviders>
           <ConditionalHeader />
           <ConditionalLayout>{children}</ConditionalLayout>
-          {/* Becca AI Assistant - Available for all roles except patients */}
-          <BeccaAIGlobalChat userEmail="user@clinic.com" />
+          {/* Becca AI Assistant - Only shown for authenticated users with proper roles */}
+          <BeccaAIGlobalChat />
         </ClientProviders>
 {mapsKey ? (
   <Script

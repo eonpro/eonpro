@@ -19,6 +19,7 @@ interface BeccaAIChatProps {
   userEmail: string;
   patientId?: number;
   patientName?: string;
+  clinicId?: number;
   className?: string;
   embedded?: boolean;
   customTheme?: {
@@ -32,6 +33,7 @@ export default function BeccaAIChat({
   userEmail,
   patientId,
   patientName,
+  clinicId,
   className = '',
   embedded = false,
   customTheme,
@@ -124,6 +126,7 @@ export default function BeccaAIChat({
           userEmail,
           ...(sessionId && { sessionId }),
           ...(patientId && { patientId }),
+          ...(clinicId && { clinicId }),
         }),
       });
 
