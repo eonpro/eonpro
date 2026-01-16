@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-// Persistence Test v4 - Fourth deployment test
+// Persistence Test v5 - FINAL deployment test - Data persists across ALL deployments
 
 export async function GET(request: NextRequest) {
   try {
