@@ -152,7 +152,6 @@ export async function POST(req: NextRequest) {
           ...patientData,
           tags: mergeTags(existingPatient.tags, ["weightlossintake", "eonmeds"]),
           notes: appendNotes(existingPatient.notes, normalized.submissionId),
-          updatedAt: new Date(),
         },
       });
       logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Updated existing patient: ${patient.id}`);
