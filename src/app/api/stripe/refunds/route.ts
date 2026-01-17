@@ -356,58 +356,74 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      // Update payment in database if we have one
-      if (payment) {
-        await prisma.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-            refundedAmount: refundAmount,
-            refundedAt: new Date(),
-            stripeRefundId: refund.id,
-            metadata: {
-              ...(payment.metadata as object || {}),
-              refundReason: validated.reason,
+      // Stripe refund succeeded - now update our database
+      // Wrap in try-catch so we return success even if DB updates fail
+      const invoiceId = payment?.invoiceId || invoice?.id;
+      let dbUpdateSuccess = true;
+      
+      try {
+        // Update payment in database if we have one
+        if (payment) {
+          await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+              refundedAmount: refundAmount,
+              refundedAt: new Date(),
               stripeRefundId: refund.id,
+              metadata: {
+                ...(payment.metadata as object || {}),
+                refundReason: validated.reason,
+                stripeRefundId: refund.id,
+              },
+            },
+          });
+        }
+        
+        // Update invoice if exists
+        if (invoiceId) {
+          await prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+              amountPaid: { decrement: refundAmount },
+              status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+            },
+          });
+        }
+        
+        // Create audit log
+        await prisma.auditLog.create({
+          data: {
+            userId: 0, // TODO: Get from auth
+            action: 'REFUND_PROCESSED',
+            entityType: payment ? 'Payment' : 'Invoice',
+            entityId: (payment?.id || invoice?.id || 0).toString(),
+            details: {
+              paymentId: payment?.id,
+              invoiceId: invoiceId,
+              stripeRefundId: refund.id,
+              amount: refundAmount,
+              reason: validated.reason,
             },
           },
         });
-      }
-      
-      // Update invoice if exists
-      const invoiceId = payment?.invoiceId || invoice?.id;
-      if (invoiceId) {
-        await prisma.invoice.update({
-          where: { id: invoiceId },
-          data: {
-            amountPaid: { decrement: refundAmount },
-            status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-          },
+      } catch (dbError: any) {
+        // Log DB error but don't fail - the Stripe refund already succeeded
+        logger.error('[Refunds] Database update failed after successful Stripe refund', {
+          error: dbError.message,
+          refundId: refund.id,
+          paymentId: payment?.id,
+          invoiceId: invoiceId,
         });
+        dbUpdateSuccess = false;
       }
-      
-      // Create audit log
-      await prisma.auditLog.create({
-        data: {
-          userId: 0, // TODO: Get from auth
-          action: 'REFUND_PROCESSED',
-          entityType: payment ? 'Payment' : 'Invoice',
-          entityId: (payment?.id || invoice?.id || 0).toString(),
-          details: {
-            paymentId: payment?.id,
-            invoiceId: invoiceId,
-            stripeRefundId: refund.id,
-            amount: refundAmount,
-            reason: validated.reason,
-          },
-        },
-      });
       
       logger.info('[Refunds] Refund processed successfully', {
         paymentId: payment?.id,
         invoiceId: invoiceId,
         refundId: refund.id,
         amount: refundAmount,
+        dbUpdateSuccess,
       });
       
       return NextResponse.json({
@@ -419,6 +435,7 @@ export async function POST(request: NextRequest) {
           paymentId: payment?.id,
           invoiceId: invoiceId,
         },
+        dbUpdateSuccess, // Let frontend know if DB update failed
       });
       
     } catch (stripeError: any) {

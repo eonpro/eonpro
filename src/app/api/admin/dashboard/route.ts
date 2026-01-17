@@ -74,41 +74,31 @@ export async function GET(req: NextRequest) {
       ? (((totalPatients - lastMonthPatients) / lastMonthPatients) * 100).toFixed(1)
       : totalPatients > 0 ? 100 : 0;
 
-    // Get active providers
+    // Get active providers - count all providers (PostgreSQL doesn't support isSet)
     let activeProviders = 0;
     try {
       activeProviders = await prisma.provider.count({
-        where: {
-          ...clinicFilter,
-          OR: [
-            { status: 'ACTIVE' },
-            { status: 'active' },
-            { status: null },
-            { status: { isSet: false } },
-          ],
-        },
+        where: clinicFilter,
       });
     } catch (providerError) {
-      // Fallback: try without status filter
-      logger.warn('[Dashboard] Provider count with status filter failed, trying without', { error: providerError });
-      try {
-        activeProviders = await prisma.provider.count({
-          where: clinicFilter,
-        });
-      } catch {
-        activeProviders = 0;
-      }
+      logger.warn('[Dashboard] Provider count failed', { error: providerError });
+      activeProviders = 0;
     }
 
     // Get provider count from last month
-    const lastMonthProviders = await prisma.provider.count({
-      where: {
-        ...clinicFilter,
-        createdAt: {
-          lt: startOfMonth,
+    let lastMonthProviders = 0;
+    try {
+      lastMonthProviders = await prisma.provider.count({
+        where: {
+          ...clinicFilter,
+          createdAt: {
+            lt: startOfMonth,
+          },
         },
-      },
-    });
+      });
+    } catch {
+      lastMonthProviders = 0;
+    }
 
     const providersChange = lastMonthProviders > 0
       ? (((activeProviders - lastMonthProviders) / lastMonthProviders) * 100).toFixed(1)
@@ -202,16 +192,22 @@ export async function GET(req: NextRequest) {
       : totalRevenue > 0 ? 100 : 0;
 
     // Get recent activity from audit logs
-    const recentAuditLogs = await prisma.auditLog.findMany({
-      where: clinicFilter,
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-      include: {
-        user: {
-          select: { firstName: true, lastName: true, email: true },
+    let recentAuditLogs: any[] = [];
+    try {
+      recentAuditLogs = await prisma.auditLog.findMany({
+        where: clinicFilter,
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: {
+          user: {
+            select: { firstName: true, lastName: true, email: true },
+          },
         },
-      },
-    });
+      });
+    } catch (auditLogError) {
+      logger.warn('[Dashboard] Audit log fetch failed', { error: auditLogError });
+      recentAuditLogs = [];
+    }
 
     // Transform audit logs to activity items
     const recentActivities = recentAuditLogs.map((log: any) => {
@@ -256,56 +252,64 @@ export async function GET(req: NextRequest) {
 
     // Get monthly revenue data for chart (last 6 months)
     const monthlyRevenueData: { month: string; revenue: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-      
-      const monthRevenue = await prisma.invoice.aggregate({
-        where: {
-          ...clinicFilter,
-          status: { in: ['PAID', 'paid'] },
-          paidAt: {
-            gte: monthStart,
-            lte: monthEnd,
+    try {
+      for (let i = 5; i >= 0; i--) {
+        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+        
+        const monthRevenue = await prisma.invoice.aggregate({
+          where: {
+            ...clinicFilter,
+            status: { in: ['PAID', 'paid'] },
+            paidAt: {
+              gte: monthStart,
+              lte: monthEnd,
+            },
           },
-        },
-        _sum: {
-          amountPaid: true,
-        },
-      });
+          _sum: {
+            amountPaid: true,
+          },
+        });
 
-      monthlyRevenueData.push({
-        month: monthStart.toLocaleString('default', { month: 'short' }),
-        revenue: (monthRevenue._sum.amountPaid || 0) / 100,
-      });
+        monthlyRevenueData.push({
+          month: monthStart.toLocaleString('default', { month: 'short' }),
+          revenue: (monthRevenue._sum.amountPaid || 0) / 100,
+        });
+      }
+    } catch (chartError) {
+      logger.warn('[Dashboard] Monthly revenue chart failed', { error: chartError });
     }
 
     // Get daily patient activity for the week
     const dailyPatientData: { day: string; newPatients: number; returningPatients: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const dayStart = new Date(now);
-      dayStart.setDate(now.getDate() - i);
-      dayStart.setHours(0, 0, 0, 0);
-      
-      const dayEnd = new Date(dayStart);
-      dayEnd.setHours(23, 59, 59, 999);
+    try {
+      for (let i = 6; i >= 0; i--) {
+        const dayStart = new Date(now);
+        dayStart.setDate(now.getDate() - i);
+        dayStart.setHours(0, 0, 0, 0);
+        
+        const dayEnd = new Date(dayStart);
+        dayEnd.setHours(23, 59, 59, 999);
 
-      const newPatients = await prisma.patient.count({
-        where: {
-          ...clinicFilter,
-          createdAt: {
-            gte: dayStart,
-            lte: dayEnd,
+        const newPatients = await prisma.patient.count({
+          where: {
+            ...clinicFilter,
+            createdAt: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
           },
-        },
-      });
+        });
 
-      const dayName = dayStart.toLocaleString('default', { weekday: 'short' });
-      dailyPatientData.push({
-        day: dayName,
-        newPatients,
-        returningPatients: 0, // We don't track returning patients separately yet
-      });
+        const dayName = dayStart.toLocaleString('default', { weekday: 'short' });
+        dailyPatientData.push({
+          day: dayName,
+          newPatients,
+          returningPatients: 0, // We don't track returning patients separately yet
+        });
+      }
+    } catch (patientChartError) {
+      logger.warn('[Dashboard] Daily patient chart failed', { error: patientChartError });
     }
 
     return NextResponse.json({
