@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 import twilio from 'twilio';
 
 interface RouteParams {
@@ -47,7 +48,15 @@ export async function GET(req: NextRequest, context: RouteParams) {
         );
       }
 
-      const patientPhone = patient.phone;
+      // Decrypt phone if it's encrypted (PHI protection)
+      let patientPhone = patient.phone;
+      try {
+        const decrypted = decryptPatientPHI(patient, ['phone']);
+        patientPhone = decrypted.phone || patient.phone;
+      } catch (e) {
+        // Phone might not be encrypted, use as-is
+        logger.debug('Phone not encrypted, using raw value');
+      }
       
       if (!patientPhone) {
         return NextResponse.json({
@@ -65,11 +74,19 @@ export async function GET(req: NextRequest, context: RouteParams) {
           );
 
           // Format phone number for Twilio (ensure it has country code)
-          const formattedPhone = patientPhone.startsWith('+') 
-            ? patientPhone 
-            : `+1${patientPhone.replace(/\D/g, '')}`;
+          // Remove any existing formatting and ensure +1 prefix
+          const digitsOnly = patientPhone.replace(/\D/g, '');
+          const formattedPhone = digitsOnly.startsWith('1') && digitsOnly.length === 11
+            ? `+${digitsOnly}`
+            : `+1${digitsOnly}`;
           
           const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+
+          logger.info('Fetching Twilio messages', { 
+            patientPhone: formattedPhone, 
+            twilioPhone,
+            originalPhone: patientPhone
+          });
 
           // Get OUTBOUND messages (sent TO patient FROM our Twilio number)
           const outboundMessages = await client.messages.list({
@@ -85,7 +102,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
             limit: 50
           });
 
-          logger.debug('Twilio messages fetched', { 
+          logger.info('Twilio messages fetched', { 
             outbound: outboundMessages.length, 
             inbound: inboundMessages.length,
             patientPhone: formattedPhone 
@@ -105,11 +122,26 @@ export async function GET(req: NextRequest, context: RouteParams) {
             }));
 
           return NextResponse.json({
-            messages: allMessages
+            messages: allMessages,
+            debug: {
+              patientPhone: formattedPhone,
+              twilioPhone,
+              outboundCount: outboundMessages.length,
+              inboundCount: inboundMessages.length
+            }
           });
         } catch (twilioError: any) {
-          logger.error('Twilio error fetching messages', { value: twilioError });
-          // Fall through to return demo messages
+          logger.error('Twilio error fetching messages', { 
+            error: twilioError.message,
+            code: twilioError.code,
+            patientPhone 
+          });
+          // Return empty with error info
+          return NextResponse.json({
+            messages: [],
+            error: twilioError.message,
+            code: twilioError.code
+          });
         }
       }
 
