@@ -50,15 +50,19 @@ export async function GET(req: NextRequest, context: RouteParams) {
 
       // Decrypt phone if it's encrypted (PHI protection)
       let patientPhone = patient.phone;
+      logger.info('[Messages] Raw phone from DB:', { rawPhone: patient.phone, patientId });
+      
       try {
         const decrypted = decryptPatientPHI(patient, ['phone']);
         patientPhone = decrypted.phone || patient.phone;
-      } catch (e) {
+        logger.info('[Messages] After decryption:', { decryptedPhone: patientPhone });
+      } catch (e: any) {
         // Phone might not be encrypted, use as-is
-        logger.debug('Phone not encrypted, using raw value');
+        logger.info('[Messages] Phone not encrypted, using raw value', { error: e.message });
       }
       
       if (!patientPhone) {
+        logger.warn('[Messages] No phone number found for patient', { patientId });
         return NextResponse.json({
           messages: [],
           message: 'Patient has no phone number'
@@ -82,27 +86,41 @@ export async function GET(req: NextRequest, context: RouteParams) {
           
           const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 
-          logger.info('Fetching Twilio messages', { 
+          logger.info('[Messages] Fetching Twilio messages', { 
             patientPhone: formattedPhone, 
             twilioPhone,
-            originalPhone: patientPhone
+            originalPhone: patientPhone,
+            twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
           });
 
           // Get OUTBOUND messages (sent TO patient FROM our Twilio number)
-          const outboundMessages = await client.messages.list({
-            from: twilioPhone,
-            to: formattedPhone,
-            limit: 50
-          });
+          let outboundMessages: any[] = [];
+          let inboundMessages: any[] = [];
+          
+          try {
+            outboundMessages = await client.messages.list({
+              from: twilioPhone,
+              to: formattedPhone,
+              limit: 50
+            });
+            logger.info('[Messages] Outbound fetch success', { count: outboundMessages.length });
+          } catch (outErr: any) {
+            logger.error('[Messages] Outbound fetch failed', { error: outErr.message });
+          }
 
-          // Get INBOUND messages (sent FROM patient TO our Twilio number)
-          const inboundMessages = await client.messages.list({
-            from: formattedPhone,
-            to: twilioPhone,
-            limit: 50
-          });
+          try {
+            // Get INBOUND messages (sent FROM patient TO our Twilio number)
+            inboundMessages = await client.messages.list({
+              from: formattedPhone,
+              to: twilioPhone,
+              limit: 50
+            });
+            logger.info('[Messages] Inbound fetch success', { count: inboundMessages.length });
+          } catch (inErr: any) {
+            logger.error('[Messages] Inbound fetch failed', { error: inErr.message });
+          }
 
-          logger.info('Twilio messages fetched', { 
+          logger.info('[Messages] Twilio messages fetched', { 
             outbound: outboundMessages.length, 
             inbound: inboundMessages.length,
             patientPhone: formattedPhone 
