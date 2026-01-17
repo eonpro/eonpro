@@ -5,6 +5,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import { formatDobInput } from "@/lib/format";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logger } from '@/lib/logger';
 
@@ -97,6 +98,7 @@ const formatDob = (isoDob: string) => {
 };
 
 export default function PatientsPage() {
+  const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -498,13 +500,22 @@ export default function PatientsPage() {
             </thead>
             <tbody>
               {filteredPatients.map((patient: any) => (
-                <tr key={patient.id} className="hover:bg-gray-50">
+                <tr 
+                  key={patient.id} 
+                  className="hover:bg-emerald-50 cursor-pointer transition-colors"
+                  onClick={() => router.push(`/patients/${patient.id}`)}
+                >
                   <td className="border px-2 py-1">
-                    <div className="font-medium">
-                      {patient.firstName} {patient.lastName}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      ID #{patient.patientId ?? "—"}
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 rounded-full bg-red-400"></span>
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {patient.firstName} {patient.lastName}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          #{patient.patientId ?? String(patient.id).padStart(6, '0')}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="border px-2 py-1">
@@ -543,7 +554,8 @@ export default function PatientsPage() {
                   <td className="border px-2 py-1 text-right">
                     <Link
                       href={`/patients/${patient.id}`}
-                      className="text-[#4fa77e] underline text-xs"
+                      className="text-[#4fa77e] hover:text-[#3d8a66] text-xs font-medium"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       View profile
                     </Link>
