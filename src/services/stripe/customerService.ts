@@ -1,5 +1,6 @@
 import { stripe, getStripe } from '@/lib/stripe';
 import { prisma } from '@/lib/db';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 import type { Patient } from '@prisma/client';
 import type Stripe from 'stripe';
 import { logger } from '@/lib/logger';
@@ -57,11 +58,19 @@ export class StripeCustomerService {
   private static async createNewCustomer(patient: Patient): Promise<Stripe.Customer> {
     const stripeClient = getStripe();
     
+    // Decrypt PHI fields before sending to Stripe
+    let decryptedPatient = patient;
+    try {
+      decryptedPatient = decryptPatientPHI(patient, ['email', 'phone']);
+    } catch (e) {
+      logger.debug('Patient data not encrypted, using raw values');
+    }
+    
     // Create customer in Stripe
     const customer = await stripeClient.customers.create({
-      email: patient.email,
+      email: decryptedPatient.email,
       name: `${patient.firstName} ${patient.lastName}`,
-      phone: patient.phone,
+      phone: decryptedPatient.phone,
       address: {
         line1: patient.address1,
         line2: patient.address2 || undefined,
@@ -108,11 +117,19 @@ export class StripeCustomerService {
       return await this.createNewCustomer(patient);
     }
     
+    // Decrypt PHI fields before sending to Stripe
+    let decryptedPatient = patient;
+    try {
+      decryptedPatient = decryptPatientPHI(patient, ['email', 'phone']);
+    } catch (e) {
+      logger.debug('Patient data not encrypted, using raw values');
+    }
+    
     // Update existing customer
     const customer = await stripeClient.customers.update(patient.stripeCustomerId, {
-      email: patient.email,
+      email: decryptedPatient.email,
       name: `${patient.firstName} ${patient.lastName}`,
-      phone: patient.phone,
+      phone: decryptedPatient.phone,
       address: {
         line1: patient.address1,
         line2: patient.address2 || undefined,
