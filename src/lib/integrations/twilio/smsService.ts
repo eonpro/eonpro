@@ -303,20 +303,23 @@ export async function processIncomingSMS(
     }
     
     if (SMS_KEYWORDS.RESCHEDULE.some((keyword: any) => messageBody.includes(keyword))) {
-      return 'To reschedule your appointment, please call us at (555) 123-4567 or visit our website.';
+      return 'To reschedule your appointment, please log in to your patient portal or contact your clinic directly.';
     }
     
     if (SMS_KEYWORDS.HELP.some((keyword: any) => messageBody.includes(keyword))) {
-      return 'Reply CONFIRM to confirm, CANCEL to cancel, or RESCHEDULE to change your appointment. Call (555) 123-4567 for assistance.';
+      return 'Reply CONFIRM to confirm, CANCEL to cancel your appointment. For assistance, contact your clinic or visit the patient portal.';
     }
     
-    // Default response
-    return 'Thank you for your message. A staff member will respond soon. Reply HELP for options.';
+    // Log the incoming message (could be saved to database for chat history)
+    logger.info('[INCOMING_SMS]', { from, body: messageBody, messageSid });
+    
+    // Default response - acknowledging receipt
+    return 'Thank you for your message. Your healthcare team has been notified and will respond soon.';
   } catch (error: any) {
     // @ts-ignore
    
     logger.error('[PROCESS_INCOMING_SMS_ERROR]', error);
-    return 'We received your message. Please call us at (555) 123-4567 for assistance.';
+    return 'We received your message. Please contact your clinic directly for immediate assistance.';
   }
 }
 
