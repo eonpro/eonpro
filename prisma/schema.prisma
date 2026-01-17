@@ -48,6 +48,7 @@ model Patient {
   appointments        Appointment[]
   superbills          Superbill[]
   carePlans           CarePlan[]
+  smsLogs             SmsLog[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
@@ -1466,6 +1467,7 @@ model Clinic {
   billingCodes         BillingCode[]
   carePlans            CarePlan[]
   carePlanTemplates    CarePlanTemplate[]
+  smsLogs              SmsLog[]
 
   @@index([subdomain])
   @@index([status])
@@ -1873,4 +1875,28 @@ model CarePlanProgress {
 
   @@index([carePlanId])
   @@index([recordedAt])
+}
+
+// ===== SMS MESSAGE LOG =====
+
+model SmsLog {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  clinicId    Int?
+  clinic      Clinic?   @relation(fields: [clinicId], references: [id])
+  patientId   Int?
+  patient     Patient?  @relation(fields: [patientId], references: [id])
+  messageSid  String?   @unique // Twilio message SID
+  fromPhone   String    // Sender phone number
+  toPhone     String    // Recipient phone number
+  body        String    // Message content
+  direction   String    // 'inbound' or 'outbound'
+  status      String    @default("sent") // sent, delivered, failed, etc.
+  error       String?   // Error message if failed
+  metadata    Json?     // Additional data
+  
+  @@index([patientId, createdAt])
+  @@index([fromPhone])
+  @@index([toPhone])
+  @@index([clinicId])
 }

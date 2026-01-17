@@ -121,13 +121,38 @@ export async function GET(req: NextRequest, context: RouteParams) {
               to: msg.to
             }));
 
+          // Also get messages from local database
+          const localMessages = await prisma.smsLog.findMany({
+            where: { patientId },
+            orderBy: { createdAt: 'asc' },
+            take: 100,
+          });
+
+          // Merge Twilio messages with local ones (prefer Twilio for real-time status)
+          const twilioSids = new Set(allMessages.map(m => m.sid));
+          const localOnly = localMessages
+            .filter(m => m.messageSid && !twilioSids.has(m.messageSid))
+            .map(m => ({
+              sid: m.messageSid || `local-${m.id}`,
+              body: m.body,
+              direction: m.direction === 'inbound' ? 'inbound' : 'outbound-api',
+              status: m.status,
+              dateCreated: m.createdAt,
+              from: m.fromPhone,
+              to: m.toPhone
+            }));
+
+          const combinedMessages = [...allMessages, ...localOnly]
+            .sort((a, b) => new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime());
+
           return NextResponse.json({
-            messages: allMessages,
+            messages: combinedMessages,
+            source: 'twilio+local',
             debug: {
               patientPhone: formattedPhone,
               twilioPhone,
-              outboundCount: outboundMessages.length,
-              inboundCount: inboundMessages.length
+              twilioCount: allMessages.length,
+              localCount: localMessages.length
             }
           });
         } catch (twilioError: any) {
@@ -136,6 +161,30 @@ export async function GET(req: NextRequest, context: RouteParams) {
             code: twilioError.code,
             patientPhone 
           });
+          
+          // Fall back to local database only
+          const localMessages = await prisma.smsLog.findMany({
+            where: { patientId },
+            orderBy: { createdAt: 'asc' },
+            take: 100,
+          });
+
+          if (localMessages.length > 0) {
+            return NextResponse.json({
+              messages: localMessages.map(m => ({
+                sid: m.messageSid || `local-${m.id}`,
+                body: m.body,
+                direction: m.direction === 'inbound' ? 'inbound' : 'outbound-api',
+                status: m.status,
+                dateCreated: m.createdAt,
+                from: m.fromPhone,
+                to: m.toPhone
+              })),
+              source: 'local',
+              twilioError: twilioError.message
+            });
+          }
+          
           // Return empty with error info
           return NextResponse.json({
             messages: [],

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import twilio from 'twilio';
 import { z } from 'zod';
@@ -33,27 +34,49 @@ async function handleSend(req: NextRequest, user: AuthUser) {
       }
 
       const { to, message, patientId } = parsed.data;
+      
+      // Format phone number for Twilio (ensure it has country code)
+      const digitsOnly = to.replace(/\D/g, '');
+      const formattedPhone = digitsOnly.startsWith('1') && digitsOnly.length === 11
+        ? `+${digitsOnly}`
+        : `+1${digitsOnly}`;
+      
+      const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 
       // If Twilio is configured, send real message
       if (process.env.TWILIO_ACCOUNT_SID && 
           process.env.TWILIO_AUTH_TOKEN && 
-          process.env.TWILIO_PHONE_NUMBER) {
+          twilioPhone) {
         try {
           const client = twilio(
             process.env.TWILIO_ACCOUNT_SID,
             process.env.TWILIO_AUTH_TOKEN
           );
 
-          // Format phone number for Twilio (ensure it has country code)
-          const formattedPhone = to.startsWith('+') 
-            ? to 
-            : `+1${to.replace(/\D/g, '')}`;
-
           const twilioMessage = await client.messages.create({
             body: message,
-            from: process.env.TWILIO_PHONE_NUMBER,
+            from: twilioPhone,
             to: formattedPhone
           });
+
+          // Save to local database for persistence
+          try {
+            await prisma.smsLog.create({
+              data: {
+                patientId,
+                clinicId: user.clinicId,
+                messageSid: twilioMessage.sid,
+                fromPhone: twilioPhone,
+                toPhone: formattedPhone,
+                body: message,
+                direction: 'outbound',
+                status: twilioMessage.status,
+              }
+            });
+          } catch (dbError) {
+            // Log but don't fail the request if DB save fails
+            logger.warn('Failed to save SMS to database', { error: dbError });
+          }
 
           logger.info('Twilio message sent', { 
             messageSid: twilioMessage.sid, 
@@ -83,6 +106,24 @@ async function handleSend(req: NextRequest, user: AuthUser) {
 
       // If Twilio not configured, return demo response
       const demoMessageId = `demo-${Date.now()}`;
+      
+      // Save demo message to database too
+      try {
+        await prisma.smsLog.create({
+          data: {
+            patientId,
+            clinicId: user.clinicId,
+            messageSid: demoMessageId,
+            fromPhone: 'demo-number',
+            toPhone: formattedPhone,
+            body: message,
+            direction: 'outbound',
+            status: 'demo',
+          }
+        });
+      } catch (dbError) {
+        logger.warn('Failed to save demo SMS to database', { error: dbError });
+      }
       
       logger.info('Demo message (Twilio not configured)', { 
         messageSid: demoMessageId, 
