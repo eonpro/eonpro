@@ -49,6 +49,8 @@ model Patient {
   superbills          Superbill[]
   carePlans           CarePlan[]
   smsLogs             SmsLog[]
+  discountUsages      DiscountUsage[]
+  affiliateReferrals  AffiliateReferral[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
@@ -377,6 +379,7 @@ model Subscription {
   patient              Patient            @relation(fields: [patientId], references: [id])
   paymentMethod        PaymentMethod?     @relation(fields: [paymentMethodId], references: [id])
   payments             Payment[]
+  actions              SubscriptionAction[]
 
   @@index([patientId])
   @@index([status])
@@ -407,6 +410,11 @@ model Influencer {
   payouts                CommissionPayout[]
   bankAccounts           InfluencerBankAccount[]
   user                   User?
+  
+  // New affiliate system relations
+  discountCodes          DiscountCode[]
+  affiliateReferrals     AffiliateReferral[]
+  affiliateCommissions   AffiliateCommission[]
 
   @@index([promoCode])
   @@index([email])
@@ -1474,6 +1482,16 @@ model Clinic {
   
   // Product Catalog
   products             Product[]
+  
+  // Pricing & Promotions
+  discountCodes        DiscountCode[]
+  promotions           Promotion[]
+  productBundles       ProductBundle[]
+  pricingRules         PricingRule[]
+  affiliateProgram     AffiliateProgram?
+  affiliateReferrals   AffiliateReferral[]
+  affiliateCommissions AffiliateCommission[]
+  retentionOffers      RetentionOffer[]
 
   @@index([subdomain])
   @@index([status])
@@ -1958,6 +1976,7 @@ model Product {
   
   // Relations
   invoiceItems       InvoiceItem[]
+  bundleItems        ProductBundleItem[]
   
   @@index([clinicId, isActive])
   @@index([clinicId, category])
@@ -2004,4 +2023,511 @@ enum BillingInterval {
   SEMI_ANNUAL    // Every 6 months
   ANNUAL         // Yearly
   CUSTOM         // Custom interval using billingIntervalCount
+}
+
+// ===== DISCOUNT & PROMO CODE SYSTEM =====
+
+model DiscountCode {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Code Details
+  code               String            // e.g., "WELCOME20", "SUMMER2026"
+  name               String            // Display name: "Welcome Discount"
+  description        String?           // Internal description
+  
+  // Discount Type
+  discountType       DiscountType      @default(PERCENTAGE)
+  discountValue      Float             // 20 for 20% or 2000 for $20 off (cents)
+  
+  // Applicability
+  applyTo            DiscountApplyTo   @default(ALL_PRODUCTS)
+  productIds         Json?             // Specific product IDs if LIMITED_PRODUCTS
+  categoryIds        Json?             // Specific categories if LIMITED_CATEGORIES
+  excludeProductIds  Json?             // Products to exclude
+  
+  // Usage Limits
+  maxUses            Int?              // Total uses allowed (null = unlimited)
+  maxUsesPerPatient  Int?              // Per patient limit (null = unlimited)
+  currentUses        Int               @default(0)
+  
+  // Validity
+  startsAt           DateTime          @default(now())
+  expiresAt          DateTime?         // null = never expires
+  isActive           Boolean           @default(true)
+  
+  // Requirements
+  minOrderAmount     Int?              // Minimum order in cents
+  minQuantity        Int?              // Minimum quantity of items
+  firstTimeOnly      Boolean           @default(false) // Only for new patients
+  
+  // Subscription Specifics
+  applyToFirstPayment  Boolean         @default(true)
+  applyToRecurring     Boolean         @default(false)
+  recurringDuration    Int?            // How many billing cycles to apply (null = all)
+  
+  // Stripe Integration
+  stripeCouponId     String?           @unique
+  
+  // Tracking
+  affiliateId        Int?              // If code belongs to affiliate
+  affiliate          Influencer?       @relation(fields: [affiliateId], references: [id])
+  
+  // Usage Records
+  usages             DiscountUsage[]
+  
+  @@unique([clinicId, code])
+  @@index([clinicId, isActive])
+  @@index([code])
+  @@index([affiliateId])
+}
+
+model DiscountUsage {
+  id              Int           @id @default(autoincrement())
+  createdAt       DateTime      @default(now())
+  discountCodeId  Int
+  discountCode    DiscountCode  @relation(fields: [discountCodeId], references: [id])
+  patientId       Int
+  patient         Patient       @relation(fields: [patientId], references: [id])
+  invoiceId       Int?
+  orderId         Int?
+  amountSaved     Int           // Amount saved in cents
+  orderTotal      Int           // Original order total
+  
+  @@index([discountCodeId])
+  @@index([patientId])
+}
+
+enum DiscountType {
+  PERCENTAGE        // % off
+  FIXED_AMOUNT      // $ off
+  FREE_SHIPPING     // Free shipping
+  FREE_TRIAL        // Extended trial period
+  BUY_X_GET_Y       // Buy X get Y free/discounted
+}
+
+enum DiscountApplyTo {
+  ALL_PRODUCTS
+  LIMITED_PRODUCTS    // Specific products only
+  LIMITED_CATEGORIES  // Specific categories only
+  SUBSCRIPTIONS_ONLY  // Only recurring products
+  ONE_TIME_ONLY       // Only one-time products
+}
+
+// ===== PROMOTIONS & SPECIALS =====
+
+model Promotion {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Basic Info
+  name               String            // "Summer Sale 2026"
+  description        String?
+  internalNotes      String?
+  
+  // Promotion Type
+  promotionType      PromotionType     @default(SALE)
+  
+  // Discount Configuration
+  discountType       DiscountType      @default(PERCENTAGE)
+  discountValue      Float
+  
+  // Applicability
+  applyTo            DiscountApplyTo   @default(ALL_PRODUCTS)
+  productIds         Json?
+  categoryIds        Json?
+  
+  // Schedule
+  startsAt           DateTime
+  endsAt             DateTime?
+  isActive           Boolean           @default(true)
+  
+  // Display
+  bannerText         String?           // "Save 20% - Limited Time!"
+  bannerColor        String?           // Hex color for banner
+  showOnProducts     Boolean           @default(true)
+  showBanner         Boolean           @default(false)
+  
+  // Limits
+  maxRedemptions     Int?
+  currentRedemptions Int               @default(0)
+  
+  // Auto-apply
+  autoApply          Boolean           @default(true) // Automatically apply vs. need code
+  requiresCode       Boolean           @default(false)
+  discountCodeId     Int?              // If requires code
+  
+  // Stripe
+  stripeCouponId     String?
+  
+  @@index([clinicId, isActive])
+  @@index([startsAt, endsAt])
+}
+
+enum PromotionType {
+  SALE              // General sale
+  FLASH_SALE        // Limited time (hours)
+  SEASONAL          // Holiday/seasonal
+  CLEARANCE         // Clearance pricing
+  NEW_PATIENT       // New patient special
+  LOYALTY           // Loyalty reward
+  BUNDLE            // Bundle deal
+  UPGRADE           // Upgrade offer
+}
+
+// ===== PRODUCT BUNDLES =====
+
+model ProductBundle {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Bundle Info
+  name               String            // "3-Month Weight Loss Program"
+  description        String?
+  shortDescription   String?
+  
+  // Pricing
+  regularPrice       Int               // Sum of individual products (cents)
+  bundlePrice        Int               // Discounted bundle price
+  savingsAmount      Int               // How much they save
+  savingsPercent     Float             // Percentage saved
+  
+  // Products in Bundle
+  items              ProductBundleItem[]
+  
+  // Billing
+  billingType        BillingType       @default(ONE_TIME)
+  billingInterval    BillingInterval?
+  
+  // Status
+  isActive           Boolean           @default(true)
+  isVisible          Boolean           @default(true)
+  displayOrder       Int               @default(0)
+  
+  // Stripe
+  stripeProductId    String?           @unique
+  stripePriceId      String?           @unique
+  
+  // Limits
+  maxPurchases       Int?              // Max times can be purchased
+  currentPurchases   Int               @default(0)
+  availableFrom      DateTime?
+  availableUntil     DateTime?
+  
+  @@index([clinicId, isActive])
+}
+
+model ProductBundleItem {
+  id          Int           @id @default(autoincrement())
+  bundleId    Int
+  bundle      ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId   Int
+  product     Product       @relation(fields: [productId], references: [id])
+  quantity    Int           @default(1)
+  
+  @@index([bundleId])
+  @@index([productId])
+}
+
+// ===== PRICING RULES ENGINE =====
+
+model PricingRule {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Rule Info
+  name               String            // "Volume Discount Tier 1"
+  description        String?
+  priority           Int               @default(0) // Higher = applied first
+  
+  // Rule Type
+  ruleType           PricingRuleType   @default(VOLUME_DISCOUNT)
+  
+  // Conditions (JSON for flexibility)
+  conditions         Json              // Array of condition objects
+  // Example: [{"type": "quantity", "operator": ">=", "value": 5}]
+  // Example: [{"type": "patientTag", "operator": "contains", "value": "VIP"}]
+  
+  // Action
+  discountType       DiscountType      @default(PERCENTAGE)
+  discountValue      Float
+  
+  // Applicability
+  applyTo            DiscountApplyTo   @default(ALL_PRODUCTS)
+  productIds         Json?
+  
+  // Status
+  isActive           Boolean           @default(true)
+  startsAt           DateTime?
+  endsAt             DateTime?
+  
+  @@index([clinicId, isActive, priority])
+}
+
+enum PricingRuleType {
+  VOLUME_DISCOUNT     // Buy more, save more
+  TIERED_PRICING      // Price decreases at quantity thresholds
+  PATIENT_SEGMENT     // Based on patient attributes/tags
+  LOYALTY_DISCOUNT    // Based on purchase history
+  TIME_BASED          // Different prices at different times
+  LOCATION_BASED      // Based on patient location
+  CUSTOM              // Custom rule logic
+}
+
+// ===== AFFILIATE/REFERRAL PROGRAM ENHANCEMENTS =====
+
+model AffiliateProgram {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  clinicId           Int               @unique
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Program Settings
+  name               String            @default("Affiliate Program")
+  isActive           Boolean           @default(true)
+  
+  // Default Commission
+  defaultCommissionType   CommissionType  @default(PERCENTAGE)
+  defaultCommissionValue  Float           @default(10) // 10% or $10
+  
+  // Commission Rules
+  commissionOnFirstPurchase  Boolean   @default(true)
+  commissionOnRecurring      Boolean   @default(true)
+  recurringCommissionDuration Int?     // Months to pay recurring (null = lifetime)
+  
+  // Cookie/Attribution
+  attributionWindowDays   Int          @default(30) // Days to attribute sale
+  
+  // Tiers
+  tiers              AffiliateTier[]
+  
+  // Payouts
+  minimumPayout      Int               @default(5000) // $50 minimum
+  payoutFrequency    PayoutFrequency   @default(MONTHLY)
+  
+  @@index([clinicId])
+}
+
+model AffiliateTier {
+  id                 Int               @id @default(autoincrement())
+  programId          Int
+  program            AffiliateProgram  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  // Tier Info
+  name               String            // "Bronze", "Silver", "Gold", "Platinum"
+  level              Int               @default(1) // 1, 2, 3, 4...
+  
+  // Requirements
+  minReferrals       Int               @default(0) // Min referrals to reach tier
+  minRevenue         Int               @default(0) // Min revenue generated (cents)
+  
+  // Benefits
+  commissionType     CommissionType    @default(PERCENTAGE)
+  commissionValue    Float             // Commission rate for this tier
+  bonusAmount        Int?              // One-time bonus for reaching tier
+  
+  // Perks
+  perks              Json?             // Array of perk descriptions
+  
+  @@unique([programId, level])
+  @@index([programId])
+}
+
+model AffiliateReferral {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Referral Details
+  affiliateId        Int               // The influencer/affiliate
+  affiliate          Influencer        @relation(fields: [affiliateId], references: [id])
+  referredPatientId  Int               // The patient who was referred
+  referredPatient    Patient           @relation(fields: [referredPatientId], references: [id])
+  
+  // Attribution
+  discountCodeUsed   String?           // Code they used
+  landingPage        String?           // Where they landed
+  utmSource          String?
+  utmMedium          String?
+  utmCampaign        String?
+  
+  // Status
+  status             ReferralStatus    @default(PENDING)
+  convertedAt        DateTime?         // When they made first purchase
+  
+  // Lifetime Value
+  totalRevenue       Int               @default(0) // Total revenue from this referral
+  totalCommission    Int               @default(0) // Total commission paid
+  
+  @@index([affiliateId])
+  @@index([referredPatientId])
+  @@index([clinicId])
+}
+
+model AffiliateCommission {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Commission Details
+  affiliateId        Int
+  affiliate          Influencer        @relation(fields: [affiliateId], references: [id])
+  referralId         Int?
+  
+  // Source
+  invoiceId          Int?
+  orderId            Int?
+  subscriptionId     Int?
+  
+  // Amounts
+  orderAmount        Int               // Order/payment amount
+  commissionRate     Float             // Rate applied
+  commissionAmount   Int               // Commission earned
+  
+  // Status
+  status             CommissionStatus  @default(PENDING)
+  paidAt             DateTime?
+  payoutId           String?           // External payout reference
+  
+  // Type
+  commissionType     String            @default("first_purchase") // first_purchase, recurring, bonus
+  
+  @@index([affiliateId])
+  @@index([clinicId])
+  @@index([status])
+}
+
+enum CommissionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PayoutFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
+enum ReferralStatus {
+  PENDING       // Signed up but no purchase
+  CONVERTED     // Made first purchase
+  ACTIVE        // Active customer
+  CHURNED       // Cancelled/inactive
+}
+
+enum CommissionStatus {
+  PENDING       // Awaiting payment
+  APPROVED      // Approved for payout
+  PAID          // Paid out
+  CANCELLED     // Cancelled (refund, chargeback)
+}
+
+// ===== SUBSCRIPTION MANAGEMENT =====
+
+model SubscriptionAction {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  subscriptionId     Int
+  subscription       Subscription      @relation(fields: [subscriptionId], references: [id])
+  
+  // Action Details
+  actionType         SubscriptionActionType
+  reason             String?
+  
+  // For Pauses
+  pausedUntil        DateTime?
+  
+  // For Plan Changes
+  previousPlanId     String?
+  newPlanId          String?
+  previousAmount     Int?
+  newAmount          Int?
+  
+  // For Cancellation
+  cancellationReason String?
+  retentionOfferMade Boolean           @default(false)
+  retentionOfferId   Int?
+  
+  // Who performed
+  performedBy        String?           // user ID or "system" or "patient"
+  
+  @@index([subscriptionId])
+}
+
+model RetentionOffer {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Offer Info
+  name               String            // "Stay with us - 50% off next month"
+  description        String?
+  
+  // Offer Type
+  offerType          RetentionOfferType @default(DISCOUNT)
+  
+  // Discount (if applicable)
+  discountType       DiscountType?
+  discountValue      Float?
+  discountDuration   Int?              // How many billing cycles
+  
+  // Free Period (if applicable)
+  freeMonths         Int?
+  
+  // Pause Option
+  pauseDuration      Int?              // Days to pause
+  
+  // Targeting
+  triggerOn          String            @default("cancellation") // cancellation, payment_failed, etc.
+  minSubscriptionAge Int?              // Min days subscribed to show offer
+  
+  // Status
+  isActive           Boolean           @default(true)
+  
+  // Stats
+  timesShown         Int               @default(0)
+  timesAccepted      Int               @default(0)
+  
+  @@index([clinicId, isActive])
+}
+
+enum SubscriptionActionType {
+  CREATED
+  ACTIVATED
+  PAUSED
+  RESUMED
+  UPGRADED
+  DOWNGRADED
+  CANCELLED
+  REACTIVATED
+  PAYMENT_FAILED
+  PAYMENT_SUCCEEDED
+  RETENTION_OFFERED
+  RETENTION_ACCEPTED
+  RETENTION_DECLINED
+}
+
+enum RetentionOfferType {
+  DISCOUNT          // Percentage or fixed off
+  FREE_PERIOD       // Free month(s)
+  PAUSE             // Pause subscription
+  DOWNGRADE         // Offer cheaper plan
+  BONUS             // Free add-on product
 }

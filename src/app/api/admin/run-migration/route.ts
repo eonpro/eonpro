@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
     if (!migration) {
       return NextResponse.json({
         message: 'Available migrations',
-        migrations: ['phone_otp', 'sms_log', 'product_catalog'],
-        usage: 'Add ?migration=product_catalog to URL'
+        migrations: ['phone_otp', 'sms_log', 'product_catalog', 'pricing_system'],
+        usage: 'Add ?migration=pricing_system to URL'
       });
     }
 
@@ -257,8 +257,229 @@ async function runMigration(body: any, auth: any) {
       });
     }
 
+    if (migration === 'pricing_system') {
+      // Create enums for pricing system
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "DiscountType" AS ENUM ('PERCENTAGE', 'FIXED_AMOUNT', 'FREE_SHIPPING', 'FREE_TRIAL', 'BUY_X_GET_Y');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "DiscountApplyTo" AS ENUM ('ALL_PRODUCTS', 'LIMITED_PRODUCTS', 'LIMITED_CATEGORIES', 'SUBSCRIPTIONS_ONLY', 'ONE_TIME_ONLY');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "PromotionType" AS ENUM ('SALE', 'FLASH_SALE', 'SEASONAL', 'CLEARANCE', 'NEW_PATIENT', 'LOYALTY', 'BUNDLE', 'UPGRADE');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "PricingRuleType" AS ENUM ('VOLUME_DISCOUNT', 'TIERED_PRICING', 'PATIENT_SEGMENT', 'LOYALTY_DISCOUNT', 'TIME_BASED', 'LOCATION_BASED', 'CUSTOM');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "CommissionType" AS ENUM ('PERCENTAGE', 'FIXED_AMOUNT');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "PayoutFrequency" AS ENUM ('WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "ReferralStatus" AS ENUM ('PENDING', 'CONVERTED', 'ACTIVE', 'CHURNED');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "CommissionStatus" AS ENUM ('PENDING', 'APPROVED', 'PAID', 'CANCELLED');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `;
+
+      // Create DiscountCode table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "DiscountCode" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "clinicId" INTEGER NOT NULL,
+          "code" TEXT NOT NULL,
+          "name" TEXT NOT NULL,
+          "description" TEXT,
+          "discountType" "DiscountType" NOT NULL DEFAULT 'PERCENTAGE',
+          "discountValue" DOUBLE PRECISION NOT NULL,
+          "applyTo" "DiscountApplyTo" NOT NULL DEFAULT 'ALL_PRODUCTS',
+          "productIds" JSONB,
+          "categoryIds" JSONB,
+          "excludeProductIds" JSONB,
+          "maxUses" INTEGER,
+          "maxUsesPerPatient" INTEGER,
+          "currentUses" INTEGER NOT NULL DEFAULT 0,
+          "startsAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "expiresAt" TIMESTAMP(3),
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "minOrderAmount" INTEGER,
+          "minQuantity" INTEGER,
+          "firstTimeOnly" BOOLEAN NOT NULL DEFAULT false,
+          "applyToFirstPayment" BOOLEAN NOT NULL DEFAULT true,
+          "applyToRecurring" BOOLEAN NOT NULL DEFAULT false,
+          "recurringDuration" INTEGER,
+          "stripeCouponId" TEXT UNIQUE,
+          "affiliateId" INTEGER,
+          CONSTRAINT "DiscountCode_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE CASCADE,
+          CONSTRAINT "DiscountCode_affiliateId_fkey" FOREIGN KEY ("affiliateId") REFERENCES "Influencer"("id") ON DELETE SET NULL
+        )
+      `;
+
+      await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "DiscountCode_clinicId_code_key" ON "DiscountCode"("clinicId", "code")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "DiscountCode_clinicId_isActive_idx" ON "DiscountCode"("clinicId", "isActive")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "DiscountCode_code_idx" ON "DiscountCode"("code")`;
+
+      // Create DiscountUsage table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "DiscountUsage" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "discountCodeId" INTEGER NOT NULL,
+          "patientId" INTEGER NOT NULL,
+          "invoiceId" INTEGER,
+          "orderId" INTEGER,
+          "amountSaved" INTEGER NOT NULL,
+          "orderTotal" INTEGER NOT NULL,
+          CONSTRAINT "DiscountUsage_discountCodeId_fkey" FOREIGN KEY ("discountCodeId") REFERENCES "DiscountCode"("id") ON DELETE CASCADE,
+          CONSTRAINT "DiscountUsage_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient"("id") ON DELETE CASCADE
+        )
+      `;
+
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "DiscountUsage_discountCodeId_idx" ON "DiscountUsage"("discountCodeId")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "DiscountUsage_patientId_idx" ON "DiscountUsage"("patientId")`;
+
+      // Create Promotion table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "Promotion" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "clinicId" INTEGER NOT NULL,
+          "name" TEXT NOT NULL,
+          "description" TEXT,
+          "internalNotes" TEXT,
+          "promotionType" "PromotionType" NOT NULL DEFAULT 'SALE',
+          "discountType" "DiscountType" NOT NULL DEFAULT 'PERCENTAGE',
+          "discountValue" DOUBLE PRECISION NOT NULL,
+          "applyTo" "DiscountApplyTo" NOT NULL DEFAULT 'ALL_PRODUCTS',
+          "productIds" JSONB,
+          "categoryIds" JSONB,
+          "startsAt" TIMESTAMP(3) NOT NULL,
+          "endsAt" TIMESTAMP(3),
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "bannerText" TEXT,
+          "bannerColor" TEXT,
+          "showOnProducts" BOOLEAN NOT NULL DEFAULT true,
+          "showBanner" BOOLEAN NOT NULL DEFAULT false,
+          "maxRedemptions" INTEGER,
+          "currentRedemptions" INTEGER NOT NULL DEFAULT 0,
+          "autoApply" BOOLEAN NOT NULL DEFAULT true,
+          "requiresCode" BOOLEAN NOT NULL DEFAULT false,
+          "discountCodeId" INTEGER,
+          "stripeCouponId" TEXT,
+          CONSTRAINT "Promotion_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE CASCADE
+        )
+      `;
+
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "Promotion_clinicId_isActive_idx" ON "Promotion"("clinicId", "isActive")`;
+
+      // Create ProductBundle table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "ProductBundle" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "clinicId" INTEGER NOT NULL,
+          "name" TEXT NOT NULL,
+          "description" TEXT,
+          "shortDescription" TEXT,
+          "regularPrice" INTEGER NOT NULL,
+          "bundlePrice" INTEGER NOT NULL,
+          "savingsAmount" INTEGER NOT NULL,
+          "savingsPercent" DOUBLE PRECISION NOT NULL,
+          "billingType" "BillingType" NOT NULL DEFAULT 'ONE_TIME',
+          "billingInterval" "BillingInterval",
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "isVisible" BOOLEAN NOT NULL DEFAULT true,
+          "displayOrder" INTEGER NOT NULL DEFAULT 0,
+          "stripeProductId" TEXT UNIQUE,
+          "stripePriceId" TEXT UNIQUE,
+          "maxPurchases" INTEGER,
+          "currentPurchases" INTEGER NOT NULL DEFAULT 0,
+          "availableFrom" TIMESTAMP(3),
+          "availableUntil" TIMESTAMP(3),
+          CONSTRAINT "ProductBundle_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE CASCADE
+        )
+      `;
+
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "ProductBundle_clinicId_isActive_idx" ON "ProductBundle"("clinicId", "isActive")`;
+
+      // Create ProductBundleItem table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "ProductBundleItem" (
+          "id" SERIAL PRIMARY KEY,
+          "bundleId" INTEGER NOT NULL,
+          "productId" INTEGER NOT NULL,
+          "quantity" INTEGER NOT NULL DEFAULT 1,
+          CONSTRAINT "ProductBundleItem_bundleId_fkey" FOREIGN KEY ("bundleId") REFERENCES "ProductBundle"("id") ON DELETE CASCADE,
+          CONSTRAINT "ProductBundleItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE
+        )
+      `;
+
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "ProductBundleItem_bundleId_idx" ON "ProductBundleItem"("bundleId")`;
+
+      // Create PricingRule table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "PricingRule" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "clinicId" INTEGER NOT NULL,
+          "name" TEXT NOT NULL,
+          "description" TEXT,
+          "priority" INTEGER NOT NULL DEFAULT 0,
+          "ruleType" "PricingRuleType" NOT NULL DEFAULT 'VOLUME_DISCOUNT',
+          "conditions" JSONB NOT NULL,
+          "discountType" "DiscountType" NOT NULL DEFAULT 'PERCENTAGE',
+          "discountValue" DOUBLE PRECISION NOT NULL,
+          "applyTo" "DiscountApplyTo" NOT NULL DEFAULT 'ALL_PRODUCTS',
+          "productIds" JSONB,
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "startsAt" TIMESTAMP(3),
+          "endsAt" TIMESTAMP(3),
+          CONSTRAINT "PricingRule_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE CASCADE
+        )
+      `;
+
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "PricingRule_clinicId_isActive_idx" ON "PricingRule"("clinicId", "isActive", "priority")`;
+
+      logger.info('Pricing system migration completed');
+
+      return NextResponse.json({
+        success: true,
+        message: 'Pricing system tables created successfully (DiscountCode, Promotion, ProductBundle, PricingRule)',
+      });
+    }
+
     return NextResponse.json(
-      { error: 'Unknown migration. Available: phone_otp, sms_log, product_catalog' },
+      { error: 'Unknown migration. Available: phone_otp, sms_log, product_catalog, pricing_system' },
       { status: 400 }
     );
 
