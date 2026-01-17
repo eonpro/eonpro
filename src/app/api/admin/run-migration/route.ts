@@ -15,8 +15,9 @@ import { logger } from '@/lib/logger';
 export async function GET(req: NextRequest) {
   try {
     const auth = await verifyAuth(req);
-    if (!auth || !['SUPER_ADMIN', 'super_admin'].includes(auth.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized - Super Admin only' }, { status: 401 });
+    const allowedRoles = ['SUPER_ADMIN', 'super_admin', 'ADMIN', 'admin'];
+    if (!auth || !allowedRoles.includes(auth.role || '')) {
+      return NextResponse.json({ error: 'Unauthorized - Admin access required', yourRole: auth?.role }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -43,8 +44,9 @@ export async function POST(req: NextRequest) {
   try {
     // Verify admin or super_admin
     const auth = await verifyAuth(req);
-    if (!auth || !['SUPER_ADMIN', 'super_admin'].includes(auth.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const allowedRoles = ['SUPER_ADMIN', 'super_admin', 'ADMIN', 'admin'];
+    if (!auth || !allowedRoles.includes(auth.role || '')) {
+      return NextResponse.json({ error: 'Unauthorized - Admin access required', yourRole: auth?.role }, { status: 401 });
     }
 
     const body = await req.json();
