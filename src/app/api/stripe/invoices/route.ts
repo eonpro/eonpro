@@ -244,21 +244,73 @@ export async function GET(request: NextRequest) {
   }
   
   try {
-    // Import prisma directly at the top level
     const { prisma } = await import('@/lib/db');
+    const { safeInvoiceQuery } = await import('@/lib/database/safe-query');
     
-    // Simple query - no relations to avoid potential issues
-    const invoices = await prisma.invoice.findMany({
-      where: { patientId: parsedPatientId },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Use safe query wrapper for critical billing data
+    const result = await safeInvoiceQuery(
+      () => prisma.invoice.findMany({
+        where: { patientId: parsedPatientId },
+        include: {
+          payments: true,
+          items: {
+            include: { product: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      `Fetch invoices for patient ${parsedPatientId}`
+    );
     
+    if (!result.success) {
+      // Safe query failed - try simpler query without relations
+      logger.warn('[API] Safe query failed, trying simple query', { 
+        error: result.error?.message,
+        patientId: parsedPatientId 
+      });
+      
+      const simpleResult = await safeInvoiceQuery(
+        () => prisma.invoice.findMany({
+          where: { patientId: parsedPatientId },
+          orderBy: { createdAt: 'desc' },
+        }),
+        `Fetch invoices (simple) for patient ${parsedPatientId}`
+      );
+      
+      if (!simpleResult.success) {
+        // Both queries failed - this is a critical error
+        logger.error('[API] CRITICAL: Both invoice queries failed', {
+          error: simpleResult.error,
+          patientId: parsedPatientId,
+        });
+        
+        return NextResponse.json({
+          error: 'Failed to fetch invoices',
+          errorType: simpleResult.error?.type || 'UNKNOWN',
+          errorMessage: simpleResult.error?.message || 'Database query failed',
+          critical: true,
+          timestamp: new Date().toISOString(),
+        }, { status: 503 });
+      }
+      
+      // Simple query succeeded
+      return NextResponse.json({
+        success: true,
+        invoices: simpleResult.data || [],
+        count: simpleResult.data?.length || 0,
+        timestamp: new Date().toISOString(),
+        warning: 'Relations could not be loaded',
+      });
+    }
+    
+    // Full query succeeded
     return NextResponse.json({
       success: true,
-      invoices: invoices || [],
-      count: invoices?.length || 0,
+      invoices: result.data || [],
+      count: result.data?.length || 0,
       timestamp: new Date().toISOString(),
     });
+    
   } catch (error: any) {
     // Log and return detailed error
     const errorInfo = {
