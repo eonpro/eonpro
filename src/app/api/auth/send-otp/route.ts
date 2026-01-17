@@ -150,9 +150,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
     
   } catch (error: any) {
-    logger.error('Error in send-otp endpoint', { error: error.message });
+    logger.error('Error in send-otp endpoint', { error: error.message, stack: error.stack });
     return NextResponse.json(
-      { error: 'An error occurred. Please try again.' },
+      { error: 'An error occurred. Please try again.', debug: error.message },
       { status: 500 }
     );
   }
