@@ -49,8 +49,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       );
     }
     
-    // Find user by phone number (check both User and Patient tables)
-    const user = await prisma.user.findFirst({
+    // Find provider by phone number
+    const provider = await prisma.provider.findFirst({
       where: {
         OR: [
           { phone: formattedPhone },
@@ -63,12 +63,21 @@ export async function POST(req: NextRequest): Promise<Response> {
         email: true,
         firstName: true,
         phone: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            role: true,
+            clinicId: true,
+          },
+        },
       },
     });
     
-    // Also check Patient table if no user found
+    // Also check Patient table if no provider found
     let patient = null;
-    if (!user) {
+    if (!provider) {
       patient = await prisma.patient.findFirst({
         where: {
           OR: [
@@ -86,9 +95,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       });
     }
     
-    // Don't reveal if user exists or not (security)
-    // But we won't send OTP if no user found
-    if (!user && !patient) {
+    // Don't reveal if account exists or not (security)
+    // But we won't send OTP if no account found
+    if (!provider && !patient) {
       // For security, still return success but log the attempt
       logger.warn('OTP request for unregistered phone number', { phone: formattedPhone });
       
@@ -120,7 +129,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         phone: formattedPhone,
         code: otp,
         expiresAt,
-        userId: user?.id || null,
+        userId: provider?.user?.id || null,
         patientId: patient?.id || null,
       },
     }).catch(async (err) => {
@@ -129,12 +138,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
     
     // Send SMS
-    const firstName = user?.firstName || patient?.firstName || 'there';
+    const firstName = provider?.firstName || patient?.firstName || 'there';
     const smsBody = `Hi ${firstName}! Your EONPRO verification code is: ${otp}. This code expires in ${OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.`;
     
     try {
       await sendSMS(formattedPhone, smsBody);
-      logger.info('OTP sent successfully', { phone: formattedPhone, userId: user?.id, patientId: patient?.id });
+      logger.info('OTP sent successfully', { phone: formattedPhone, providerId: provider?.id, patientId: patient?.id });
     } catch (smsError: any) {
       logger.error('Failed to send OTP SMS', { error: smsError.message, phone: formattedPhone });
       return NextResponse.json(

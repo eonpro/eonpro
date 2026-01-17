@@ -73,11 +73,12 @@ export async function POST(req: NextRequest): Promise<Response> {
       data: { used: true, usedAt: new Date() },
     }).catch(() => {});
     
-    // Find the user
+    // Find the account
     let user = null;
     let patient = null;
     let isPatientLogin = false;
     
+    // If OTP has userId, get the user
     if (otpRecord.userId) {
       user = await prisma.user.findUnique({
         where: { id: otpRecord.userId },
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       });
     }
     
+    // If OTP has patientId, get the patient
     if (!user && otpRecord.patientId) {
       patient = await prisma.patient.findUnique({
         where: { id: otpRecord.patientId },
@@ -107,9 +109,10 @@ export async function POST(req: NextRequest): Promise<Response> {
       isPatientLogin = true;
     }
     
-    // If still no user found, search by phone
+    // If still no account found, search by phone
     if (!user && !patient) {
-      user = await prisma.user.findFirst({
+      // Check Provider first (which has the phone field)
+      const provider = await prisma.provider.findFirst({
         where: {
           OR: [
             { phone: formattedPhone },
@@ -122,12 +125,25 @@ export async function POST(req: NextRequest): Promise<Response> {
           email: true,
           firstName: true,
           lastName: true,
-          role: true,
-          clinicId: true,
-          status: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              clinicId: true,
+              status: true,
+            },
+          },
         },
       });
       
+      if (provider?.user) {
+        user = provider.user;
+      }
+      
+      // Check Patient if no provider found
       if (!user) {
         patient = await prisma.patient.findFirst({
           where: {
@@ -201,7 +217,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       await prisma.auditLog.create({
         data: {
           action: 'LOGIN',
-          userId: user?.id || null,
+          userId: user?.id || 0,
           details: {
             method: 'phone_otp',
             phone: formattedPhone,
