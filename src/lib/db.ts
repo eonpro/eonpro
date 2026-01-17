@@ -250,6 +250,15 @@ class PrismaWithClinicFilter {
   get apiUsageLog() { return this.client.apiUsageLog; }
   get integrationLog() { return this.client.integrationLog; }
   get developerTool() { return this.client.developerTool; }
+  get auditLog() { return this.client.auditLog; }
+  get superbill() { return this.client.superbill; }
+  get carePlan() { return this.client.carePlan; }
+  get smsLog() { return this.client.smsLog; }
+  get discount() { return this.client.discount; }
+  get discountUsage() { return this.client.discountUsage; }
+  get affiliateInfluencer() { return this.client.affiliateInfluencer; }
+  get affiliateReferral() { return this.client.affiliateReferral; }
+  get affiliatePayout() { return this.client.affiliatePayout; }
   
   // Expose transaction support
   async $transaction(fn: (tx: any) => Promise<any>) {
