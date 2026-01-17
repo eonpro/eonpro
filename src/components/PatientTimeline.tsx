@@ -15,9 +15,28 @@ export interface TimelineEvent {
 interface PatientTimelineProps {
   events: TimelineEvent[];
   patientCreatedAt: Date;
+  patientSource?: string; // "webhook", "api", "manual", "referral", "import"
 }
 
-export default function PatientTimeline({ events, patientCreatedAt }: PatientTimelineProps) {
+// Map source to friendly display text
+const getSourceLabel = (source?: string): string => {
+  switch (source?.toLowerCase()) {
+    case 'webhook':
+    case 'heyflow':
+      return 'via Heyflow';
+    case 'api':
+      return 'via API';
+    case 'referral':
+      return 'via Referral';
+    case 'import':
+      return 'via Data Import';
+    case 'manual':
+    default:
+      return 'Created manually';
+  }
+};
+
+export default function PatientTimeline({ events, patientCreatedAt, patientSource }: PatientTimelineProps) {
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
 
   const toggleEvent = (eventId: string) => {
@@ -37,7 +56,7 @@ export default function PatientTimeline({ events, patientCreatedAt }: PatientTim
       date: patientCreatedAt,
       type: 'creation' as const,
       title: 'Patient created',
-      description: 'via Heyflow'
+      description: getSourceLabel(patientSource)
     } as TimelineEvent,
     ...events
   ].sort((a, b) => b.date.getTime() - a.date.getTime());

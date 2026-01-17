@@ -378,6 +378,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
             <PatientTimeline 
               events={timelineEvents}
               patientCreatedAt={new Date(patientWithDecryptedPHI.createdAt)}
+              patientSource={patientWithDecryptedPHI.source}
             />
           </div>
 
@@ -398,6 +399,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
               <PatientTimeline 
                 events={timelineEvents}
                 patientCreatedAt={new Date(patientWithDecryptedPHI.createdAt)}
+                patientSource={patientWithDecryptedPHI.source}
               />
             </div>
           </details>
