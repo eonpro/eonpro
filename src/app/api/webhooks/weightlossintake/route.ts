@@ -205,7 +205,6 @@ export async function POST(req: NextRequest) {
           filename: stored.filename,
           externalUrl: stored.publicPath,
           data: pdfContent,
-          updatedAt: new Date(),
         },
       });
       logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Updated existing document: ${patientDocument.id}`);
@@ -213,6 +212,7 @@ export async function POST(req: NextRequest) {
       patientDocument = await prisma.patientDocument.create({
         data: {
           patientId: patient.id,
+          clinicId: clinicId, // EONMEDS clinic isolation
           filename: stored.filename,
           mimeType: "application/pdf",
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
@@ -220,14 +220,27 @@ export async function POST(req: NextRequest) {
           data: pdfContent,
           source: "weightlossintake",
           sourceSubmissionId: normalized.submissionId,
-          intakeData: {
+        },
+      });
+      
+      // Store intake form data separately
+      await prisma.intakeForm.create({
+        data: {
+          patientId: patient.id,
+          clinicId: clinicId,
+          source: "weightlossintake",
+          rawPayload: {
             submissionId: normalized.submissionId,
             sections: normalized.sections,
             source: "weightlossintake",
             clinicId: clinicId,
             receivedAt: new Date().toISOString(),
           },
+          status: "COMPLETED",
         },
+      }).catch((err) => {
+        // IntakeForm creation is optional - don't fail if it errors
+        logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] IntakeForm creation failed (non-critical): ${err}`);
       });
       logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Created document: ${patientDocument.id}`);
     }
