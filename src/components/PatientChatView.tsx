@@ -144,12 +144,16 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     setNewMessage('');
 
     try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+      
       const res = await fetch('/api/twilio/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
-        credentials: 'include', // Include cookies for authentication
+        credentials: 'include', // Include cookies as fallback
         body: JSON.stringify({
           to: patientPhone,
           message: newMessage,
