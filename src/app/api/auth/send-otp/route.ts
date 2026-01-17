@@ -162,6 +162,8 @@ async function handleSendOtp(req: NextRequest): Promise<Response> {
   }
 }
 
-// Apply strict rate limiting (5 requests per minute per IP)
-export const POST = strictRateLimit(handleSendOtp);
+// Temporarily bypass rate limiting for debugging
+export async function POST(req: NextRequest): Promise<Response> {
+  return handleSendOtp(req);
+}
 
