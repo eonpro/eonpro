@@ -94,15 +94,22 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         }));
         setMessages(formattedMessages);
       } else {
-        // If message history fails, just start with empty messages
-        logger.warn('Failed to load message history, starting fresh');
-        setMessages([]);
+        // Only clear messages on first load, not during polling
+        if (showLoading) {
+          logger.warn('Failed to load message history, starting fresh');
+          setMessages([]);
+        } else {
+          // During polling, keep existing messages
+          logger.warn('Failed to refresh messages, keeping existing');
+        }
       }
     } catch (error: any) {
       // @ts-ignore
       logger.error('Failed to load message history', error);
-      // Don't show error, just start with empty messages
-      setMessages([]);
+      // Only clear on first load, keep existing on polling failures
+      if (showLoading) {
+        setMessages([]);
+      }
     } finally {
       setLoading(false);
     }
