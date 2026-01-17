@@ -250,21 +250,104 @@ export async function POST(request: NextRequest) {
             },
           });
         } else {
-          // No charge or payment intent - check if invoice is actually paid
-          logger.error('[Refunds] Invoice has no charge or payment_intent', {
+          // No charge or payment intent directly on invoice
+          // Try to find the charge by listing charges with invoice metadata
+          logger.info('[Refunds] No direct charge/payment_intent, searching for charges...', {
             invoiceId: validated.stripeInvoiceId,
             status: stripeInvoice.status,
-            amountPaid: stripeInvoice.amount_paid,
+            customerId: stripeInvoice.customer,
           });
           
-          return NextResponse.json(
-            { 
-              error: 'No charge found for this invoice. Invoice may not be paid yet.',
-              invoiceStatus: stripeInvoice.status,
+          // Try to find payment via Stripe API - search for charges with this invoice
+          try {
+            const customerId = typeof stripeInvoice.customer === 'string' 
+              ? stripeInvoice.customer 
+              : stripeInvoice.customer?.id;
+            
+            if (customerId) {
+              // List recent charges for this customer
+              const charges = await stripe.charges.list({
+                customer: customerId,
+                limit: 20,
+              });
+              
+              // Find a charge that matches the invoice amount
+              const matchingCharge = charges.data.find(charge => 
+                charge.amount === stripeInvoice.amount_paid && 
+                charge.status === 'succeeded' &&
+                !charge.refunded
+              );
+              
+              if (matchingCharge) {
+                logger.info('[Refunds] Found matching charge via customer lookup', {
+                  chargeId: matchingCharge.id,
+                  amount: matchingCharge.amount,
+                });
+                
+                refund = await stripe.refunds.create({
+                  charge: matchingCharge.id,
+                  amount: refundAmount,
+                  reason: validated.reason === 'fraudulent' ? 'fraudulent' 
+                        : validated.reason === 'duplicate' ? 'duplicate'
+                        : 'requested_by_customer',
+                  metadata: {
+                    invoiceId: validated.stripeInvoiceId,
+                    reason: validated.reason || 'requested_by_customer',
+                  },
+                });
+              } else {
+                // Try payment intents
+                const paymentIntents = await stripe.paymentIntents.list({
+                  customer: customerId,
+                  limit: 20,
+                });
+                
+                const matchingPI = paymentIntents.data.find(pi => 
+                  pi.amount === stripeInvoice.amount_paid && 
+                  pi.status === 'succeeded'
+                );
+                
+                if (matchingPI) {
+                  logger.info('[Refunds] Found matching payment intent via customer lookup', {
+                    paymentIntentId: matchingPI.id,
+                    amount: matchingPI.amount,
+                  });
+                  
+                  refund = await stripe.refunds.create({
+                    payment_intent: matchingPI.id,
+                    amount: refundAmount,
+                    reason: validated.reason === 'fraudulent' ? 'fraudulent' 
+                          : validated.reason === 'duplicate' ? 'duplicate'
+                          : 'requested_by_customer',
+                    metadata: {
+                      invoiceId: validated.stripeInvoiceId,
+                      reason: validated.reason || 'requested_by_customer',
+                    },
+                  });
+                }
+              }
+            }
+          } catch (lookupError: any) {
+            logger.error('[Refunds] Failed to lookup charges', { error: lookupError.message });
+          }
+          
+          // If we still don't have a refund, return error
+          if (!refund) {
+            logger.error('[Refunds] Invoice has no charge or payment_intent and lookup failed', {
+              invoiceId: validated.stripeInvoiceId,
+              status: stripeInvoice.status,
               amountPaid: stripeInvoice.amount_paid,
-            },
-            { status: 400 }
-          );
+            });
+            
+            return NextResponse.json(
+              { 
+                error: 'No charge found for this invoice. Please refund directly from Stripe dashboard.',
+                invoiceStatus: stripeInvoice.status,
+                amountPaid: stripeInvoice.amount_paid,
+              },
+              { status: 400 }
+            );
+          }
         }
       } else {
         return NextResponse.json(
