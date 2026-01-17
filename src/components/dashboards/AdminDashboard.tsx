@@ -7,7 +7,7 @@ import {
   FileText, UserPlus, Package, CreditCard,
   ArrowUp, ArrowDown, MoreVertical, ChevronRight
 } from 'lucide-react';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,7 +15,6 @@ import {
   PointElement,
   LineElement,
   BarElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -29,7 +28,6 @@ ChartJS.register(
   PointElement,
   LineElement,
   BarElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -173,21 +171,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
     ]
   };
 
-  const departmentChartData = {
-    labels: ['General', 'Cardiology', 'Dermatology', 'Pediatrics', 'Other'],
-    datasets: [
-      {
-        data: [35, 25, 20, 15, 5],
-        backgroundColor: [
-          'rgba(147, 51, 234, 0.8)',
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(16, 185, 129, 0.8)',
-          'rgba(251, 146, 60, 0.8)',
-          'rgba(156, 163, 175, 0.8)',
-        ],
-      }
-    ]
-  };
+  // Department data will be added in future when departments feature is implemented
 
   const chartOptions = {
     responsive: true,
@@ -351,13 +335,28 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
           </div>
         </div>
 
-        {/* Department Distribution */}
+        {/* Quick Stats */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">By Department</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Quick Stats</h2>
           </div>
-          <div className="h-64">
-            <Doughnut data={departmentChartData} options={{ ...chartOptions, plugins: { legend: { display: true, position: 'bottom' as const } } }} />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+              <span className="text-sm text-gray-600">Total Patients</span>
+              <span className="font-semibold text-purple-700">{stats?.totalPatients || 0}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <span className="text-sm text-gray-600">Active Providers</span>
+              <span className="font-semibold text-green-700">{stats?.activeProviders || 0}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <span className="text-sm text-gray-600">Monthly Revenue</span>
+              <span className="font-semibold text-blue-700">${stats?.totalRevenue?.toLocaleString() || 0}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+              <span className="text-sm text-gray-600">Pending Orders</span>
+              <span className="font-semibold text-orange-700">{stats?.pendingOrders || 0}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withProviderAuth } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import twilio from 'twilio';
 import { z } from 'zod';
@@ -18,9 +18,9 @@ const sendMessageSchema = z.object({
 /**
  * POST /api/twilio/send
  * Send a message to a patient
+ * Allowed roles: super_admin, admin, provider, staff
  */
-export const POST = withProviderAuth(
-  async (req: NextRequest, user) => {
+async function handleSend(req: NextRequest, user: AuthUser) {
     try {
       const body = await req.json();
       const parsed = sendMessageSchema.safeParse(body);
@@ -101,13 +101,15 @@ export const POST = withProviderAuth(
       });
 
     } catch (error: any) {
-    // @ts-ignore
-   
-      logger.error('Failed to send message', error);
+      logger.error('Failed to send message', { error: error.message });
       return NextResponse.json(
         { error: 'Failed to send message' },
         { status: 500 }
       );
     }
-  }
-);
+}
+
+// Allow admins, providers, and staff to send messages
+export const POST = withAuth(handleSend, { 
+  roles: ['super_admin', 'admin', 'provider', 'staff'] 
+});

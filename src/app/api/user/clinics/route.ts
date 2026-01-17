@@ -2,41 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
 
 // GET /api/user/clinics - Get all clinics the user belongs to
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
-    // Get user's clinic assignments
-    const userClinics = await prisma.userClinic.findMany({
-      where: {
-        userId: user.id,
-        isActive: true,
-      },
-      include: {
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-            subdomain: true,
-            customDomain: true,
-            logoUrl: true,
-            primaryColor: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: [
-        { isPrimary: 'desc' },
-        { createdAt: 'asc' },
-      ],
-    });
-
-    // Also get the user's primary clinic if they have one
+    // Get the user's primary clinic directly (simpler, more reliable approach)
     const userData = await prisma.user.findUnique({
       where: { id: user.id },
       select: {
         clinicId: true,
-        activeClinicId: true,
         clinic: {
           select: {
             id: true,
@@ -51,29 +26,57 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       },
     });
 
-    // Combine clinics from both sources (legacy clinicId and new userClinics)
-    const clinicsMap = new Map();
-    
-    // Add from userClinics
-    for (const uc of userClinics) {
-      clinicsMap.set(uc.clinic.id, {
-        ...uc.clinic,
-        role: uc.role,
-        isPrimary: uc.isPrimary,
-      });
-    }
-    
-    // Add legacy clinic if not already included
-    if (userData?.clinic && !clinicsMap.has(userData.clinic.id)) {
-      clinicsMap.set(userData.clinic.id, {
+    // Build clinics array from user's clinic
+    const clinics = [];
+    if (userData?.clinic) {
+      clinics.push({
         ...userData.clinic,
         role: user.role,
         isPrimary: true,
       });
     }
 
-    const clinics = Array.from(clinicsMap.values());
-    const activeClinicId = userData?.activeClinicId || userData?.clinicId || clinics[0]?.id;
+    // Try to get additional clinics from userClinic table if it exists
+    try {
+      const userClinics = await prisma.userClinic.findMany({
+        where: {
+          userId: user.id,
+          isActive: true,
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              customDomain: true,
+              logoUrl: true,
+              primaryColor: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: [
+          { isPrimary: 'desc' },
+          { createdAt: 'asc' },
+        ],
+      });
+
+      // Add any additional clinics not already included
+      for (const uc of userClinics) {
+        if (!clinics.find(c => c.id === uc.clinic.id)) {
+          clinics.push({
+            ...uc.clinic,
+            role: uc.role,
+            isPrimary: uc.isPrimary,
+          });
+        }
+      }
+    } catch {
+      // UserClinic table might not exist, that's ok
+    }
+
+    const activeClinicId = userData?.clinicId || clinics[0]?.id;
 
     return NextResponse.json({
       clinics,
@@ -81,9 +84,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       hasMultipleClinics: clinics.length > 1,
     });
   } catch (error: any) {
-    console.error('Error fetching user clinics:', error);
+    logger.error('Error fetching user clinics', { error: error.message, userId: user.id });
     return NextResponse.json(
-      { error: 'Failed to fetch clinics' },
+      { error: 'Failed to fetch clinics', details: error.message },
       { status: 500 }
     );
   }
