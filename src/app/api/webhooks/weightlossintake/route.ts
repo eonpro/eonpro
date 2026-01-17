@@ -23,6 +23,9 @@ import { logger } from '@/lib/logger';
  *   - Patients are created with EONMEDS clinicId
  *   - Patient lookup restricted to EONMEDS clinic
  *   - Complete audit trail
+ *   - PDF intake form generated and stored
+ * 
+ * Last Updated: 2026-01-17
  */
 
 // EONMEDS clinic identifier - DO NOT CHANGE
