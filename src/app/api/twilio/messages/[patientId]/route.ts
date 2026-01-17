@@ -21,53 +21,67 @@ interface RouteParams {
  * Get message history for a patient
  */
 export async function GET(req: NextRequest, context: RouteParams) {
+  let patientId: number;
+  
   try {
     const resolvedParams = await context.params;
-    const patientId = parseInt(resolvedParams.patientId);
+    patientId = parseInt(resolvedParams.patientId);
 
-      if (isNaN(patientId)) {
-        return NextResponse.json(
-          { error: 'Invalid patient ID' },
-          { status: 400 }
-        );
+    if (isNaN(patientId)) {
+      return NextResponse.json(
+        { error: 'Invalid patient ID', messages: [] },
+        { status: 400 }
+      );
+    }
+  } catch (paramError: any) {
+    logger.error('[Messages] Failed to parse params', { error: paramError.message });
+    return NextResponse.json(
+      { error: 'Invalid request parameters', messages: [] },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Get patient to verify phone number
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: {
+        id: true,
+        phone: true,
       }
+    });
 
-      // Get patient to verify phone number
-      const patient = await prisma.patient.findUnique({
-        where: { id: patientId },
-        select: {
-          id: true,
-          phone: true,
-        }
-      });
+    if (!patient) {
+      return NextResponse.json(
+        { error: 'Patient not found', messages: [] },
+        { status: 404 }
+      );
+    }
 
-      if (!patient) {
-        return NextResponse.json(
-          { error: 'Patient not found' },
-          { status: 404 }
-        );
-      }
-
-      // Decrypt phone if it's encrypted (PHI protection)
-      let patientPhone = patient.phone;
-      logger.info('[Messages] Raw phone from DB:', { rawPhone: patient.phone, patientId });
-      
+    // Get phone - don't try to decrypt, just use raw value
+    // PHI encryption may not be configured in all environments
+    let patientPhone = patient.phone;
+    logger.info('[Messages] Phone from DB:', { phone: patientPhone, patientId });
+    
+    // Only try decryption if phone looks encrypted (starts with certain patterns)
+    if (patientPhone && (patientPhone.startsWith('enc:') || patientPhone.length > 20)) {
       try {
         const decrypted = decryptPatientPHI(patient, ['phone']);
         patientPhone = decrypted.phone || patient.phone;
         logger.info('[Messages] After decryption:', { decryptedPhone: patientPhone });
       } catch (e: any) {
-        // Phone might not be encrypted, use as-is
-        logger.info('[Messages] Phone not encrypted, using raw value', { error: e.message });
+        // Decryption failed - phone is probably not encrypted, use as-is
+        logger.info('[Messages] Decryption skipped/failed, using raw value');
       }
-      
-      if (!patientPhone) {
-        logger.warn('[Messages] No phone number found for patient', { patientId });
-        return NextResponse.json({
-          messages: [],
-          message: 'Patient has no phone number'
-        });
-      }
+    }
+    
+    if (!patientPhone) {
+      logger.warn('[Messages] No phone number found for patient', { patientId });
+      return NextResponse.json({
+        messages: [],
+        message: 'Patient has no phone number'
+      });
+    }
 
       // If Twilio is configured, get real messages
       if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
@@ -213,44 +227,57 @@ export async function GET(req: NextRequest, context: RouteParams) {
       }
 
       // Twilio not configured - read from local database (smsLog)
-      // This ensures sent messages persist even in demo mode
-      const localMessages = await prisma.smsLog.findMany({
-        where: { patientId },
-        orderBy: { createdAt: 'asc' },
-        take: 100,
-      });
-
-      if (localMessages.length > 0) {
-        return NextResponse.json({
-          messages: localMessages.map(m => ({
-            sid: m.messageSid || `local-${m.id}`,
-            body: m.body,
-            direction: m.direction === 'inbound' ? 'inbound' : 'outbound-api',
-            status: m.status || 'delivered',
-            dateCreated: m.createdAt,
-            from: m.fromPhone,
-            to: m.toPhone
-          })),
-          source: 'local',
-          demo: true
+      logger.info('[Messages] Twilio not configured, trying local database', { patientId });
+      
+      try {
+        const localMessages = await prisma.smsLog.findMany({
+          where: { patientId },
+          orderBy: { createdAt: 'asc' },
+          take: 100,
         });
+
+        logger.info('[Messages] Local messages found:', { count: localMessages.length });
+
+        if (localMessages.length > 0) {
+          return NextResponse.json({
+            messages: localMessages.map(m => ({
+              sid: m.messageSid || `local-${m.id}`,
+              body: m.body,
+              direction: m.direction === 'inbound' ? 'inbound' : 'outbound-api',
+              status: m.status || 'delivered',
+              dateCreated: m.createdAt,
+              from: m.fromPhone,
+              to: m.toPhone
+            })),
+            source: 'local-db',
+            twilioConfigured: false
+          });
+        }
+      } catch (dbError: any) {
+        logger.error('[Messages] Database query failed', { error: dbError.message });
+        // Continue to return empty
       }
 
       // Return empty if no messages in database (new patient)
       return NextResponse.json({
         messages: [],
-        source: 'local',
-        demo: true,
-        message: 'No messages yet'
+        source: 'none',
+        twilioConfigured: false,
+        message: 'No messages yet - send your first message!'
       });
 
   } catch (error: any) {
-    logger.error('Failed to get message history', error);
-    // Return empty messages on error (demo mode)
+    logger.error('[Messages] Fatal error getting message history', { 
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    // Return empty messages with actual error info
     return NextResponse.json({
       messages: [],
-      demo: true,
-      error: 'Using demo mode'
+      error: error.message || 'Unknown error occurred',
+      errorType: error.name,
+      debug: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
