@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiResponse } from '@/types/common';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { withProviderAuth } from '@/lib/auth/middleware';
+import { verifyAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import {
   generateSOAPFromIntake, 
@@ -17,18 +17,43 @@ import {
  */
 export const GET = async (request: NextRequest) => {
   try {
-    // Temporary: Skip authentication in development
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    
+    // Allow either authenticated users OR development mode
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const user = isDevelopment ? { 
-      id: 1, 
-      email: 'doctor@clinic.com', 
-      role: 'provider' as const 
-    } : null;
+    
+    let user: { id: number; email: string; role: string } | null = null;
+    
+    if (authResult.success && authResult.user) {
+      user = {
+        id: authResult.user.id,
+        email: authResult.user.email,
+        role: authResult.user.role
+      };
+    } else if (isDevelopment) {
+      // Fallback to dev user only in development
+      user = { 
+        id: 1, 
+        email: 'doctor@clinic.com', 
+        role: 'provider'
+      };
+      logger.warn('[SOAP Notes API] Using development fallback user');
+    }
 
-    if (!isDevelopment) {
+    // Check if user has proper role
+    if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      );
+    }
+    
+    const allowedRoles = ['super_admin', 'admin', 'provider'];
+    if (!allowedRoles.includes(user.role.toLowerCase())) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions. Provider or admin access required.' },
+        { status: 403 }
       );
     }
     const { searchParams } = new URL(request.url);
@@ -46,7 +71,7 @@ export const GET = async (request: NextRequest) => {
     const patientIdNum = parseInt(patientId, 10);
     
     // Check if provider has access to this patient
-    if (user.role === 'provider') {
+    if (user && user.role === 'provider') {
       // TODO: Add provider-patient relationship check once the model is updated
       const patient = await prisma.patient.findUnique({
         where: { id: patientIdNum },
@@ -112,18 +137,43 @@ export const GET = async (request: NextRequest) => {
  */
 export const POST = async (request: NextRequest) => {
   try {
-    // Temporary: Skip authentication in development
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    
+    // Allow either authenticated users OR development mode
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const user = isDevelopment ? { 
-      id: 1, 
-      email: 'doctor@clinic.com', 
-      role: 'provider' as const 
-    } : null;
+    
+    let user: { id: number; email: string; role: string } | null = null;
+    
+    if (authResult.success && authResult.user) {
+      user = {
+        id: authResult.user.id,
+        email: authResult.user.email,
+        role: authResult.user.role
+      };
+    } else if (isDevelopment) {
+      // Fallback to dev user only in development
+      user = { 
+        id: 1, 
+        email: 'doctor@clinic.com', 
+        role: 'provider'
+      };
+      logger.warn('[SOAP Notes API] Using development fallback user for POST');
+    }
 
-    if (!isDevelopment) {
+    // Check if user has proper role
+    if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      );
+    }
+    
+    const allowedRoles = ['super_admin', 'admin', 'provider'];
+    if (!allowedRoles.includes(user.role.toLowerCase())) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions. Provider or admin access required.' },
+        { status: 403 }
       );
     }
     const body = await request.json();
@@ -132,7 +182,7 @@ export const POST = async (request: NextRequest) => {
     const parsedData = createSOAPNoteSchema.parse(body);
     
     // Verify provider has access to this patient
-    if (user.role === 'provider') {
+    if (user && user.role === 'provider') {
       // TODO: Add provider-patient relationship check once the model is updated
       const patient = await prisma.patient.findUnique({
         where: { id: parsedData.patientId },

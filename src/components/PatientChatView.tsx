@@ -16,7 +16,7 @@ interface Message {
   id: string;
   text: string;
   sender: 'provider' | 'patient';
-  timestamp: Date;
+  timestamp: string; // Store as ISO string to avoid hydration mismatch
   status?: 'sent' | 'delivered' | 'read' | 'failed';
 }
 
@@ -30,10 +30,16 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false); // Track client mount
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const patientPhone = patient.phoneNumber || patient.phone;
+
+  // Set mounted state on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (patientPhone) {
@@ -82,7 +88,8 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           text: msg.body || msg.text,
           // Twilio uses 'inbound' for patient messages, 'outbound-api' or 'outbound' for provider
           sender: msg.direction === 'inbound' ? 'patient' : 'provider',
-          timestamp: new Date(msg.dateCreated || msg.timestamp),
+          // Store as ISO string to avoid hydration mismatch
+          timestamp: new Date(msg.dateCreated || msg.timestamp).toISOString(),
           status: msg.status === 'delivered' ? 'delivered' : (msg.status === 'sent' ? 'sent' : msg.status)
         }));
         setMessages(formattedMessages);
@@ -151,7 +158,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       id: `temp-${Date.now()}`,
       text: newMessage,
       sender: 'provider',
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(), // Store as ISO string
       status: 'sent'
     };
 
@@ -201,33 +208,46 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     }
   };
 
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    }).format(date);
+  // Format time - only runs on client after mount to avoid hydration mismatch
+  const formatTime = (dateString: string) => {
+    if (!mounted) return ''; // Return empty on server
+    try {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }).format(date);
+    } catch {
+      return '';
+    }
   };
 
-  const formatDate = (date: Date) => {
-    const today = new Date();
-    const messageDate = new Date(date);
-    
-    if (messageDate.toDateString() === today.toDateString()) {
-      return 'Today';
+  // Format date - only runs on client after mount to avoid hydration mismatch
+  const formatDate = (dateString: string) => {
+    if (!mounted) return ''; // Return empty on server
+    try {
+      const today = new Date();
+      const messageDate = new Date(dateString);
+      
+      if (messageDate.toDateString() === today.toDateString()) {
+        return 'Today';
+      }
+      
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (messageDate.toDateString() === yesterday.toDateString()) {
+        return 'Yesterday';
+      }
+      
+      return messageDate.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      });
+    } catch {
+      return '';
     }
-    
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (messageDate.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    }
-    
-    return messageDate.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
-    });
   };
 
   if (!patientPhone) {
