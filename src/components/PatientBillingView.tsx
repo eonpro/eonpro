@@ -7,19 +7,6 @@ import { ProcessPaymentForm } from './ProcessPaymentForm';
 import { PatientSubscriptionManager } from './PatientSubscriptionManager';
 import { logger } from '@/lib/logger';
 
-// Helper to format dates only on client to avoid hydration mismatch
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return '—';
-  if (typeof window === 'undefined') return ''; // Server: return empty
-  return new Date(dateString).toLocaleDateString();
-}
-
-function formatDateTime(dateString: string | null | undefined): string {
-  if (!dateString) return '—';
-  if (typeof window === 'undefined') return ''; // Server: return empty
-  return new Date(dateString).toLocaleString();
-}
-
 interface Invoice {
   id: number;
   stripeInvoiceNumber: string | null;
@@ -60,11 +47,25 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showProcessPayment, setShowProcessPayment] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [refundModal, setRefundModal] = useState<{ invoiceId: number; paymentId?: number; maxAmount: number } | null>(null);
 
   // Track client mount for hydration-safe rendering
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Helper to format dates only after mount to avoid hydration mismatch
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return '—';
+    if (!mounted) return '—'; // Return placeholder until mounted
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatDateTime = (dateString: string | null | undefined): string => {
+    if (!dateString) return '—';
+    if (!mounted) return '—'; // Return placeholder until mounted
+    return new Date(dateString).toLocaleString();
+  };
 
   // Fetch invoices and payments
   useEffect(() => {
@@ -137,10 +138,45 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         alert('Failed to void invoice');
       }
     } catch (err: any) {
-    // @ts-ignore
-   
       logger.error('Error voiding invoice:', err);
       alert('Failed to void invoice');
+    }
+  };
+
+  const handleRefund = async (paymentId: number, amount: number, reason: string) => {
+    try {
+      const res = await fetch('/api/stripe/refunds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId,
+          amount, // Amount in cents
+          reason,
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        alert(`Refund of ${formatCurrency(amount)} processed successfully`);
+        setRefundModal(null);
+        fetchBillingData();
+      } else {
+        alert(data.error || 'Failed to process refund');
+      }
+    } catch (err: any) {
+      logger.error('Error processing refund:', err);
+      alert('Failed to process refund');
+    }
+  };
+
+  const handleViewInvoice = (invoice: Invoice) => {
+    // Open invoice in modal or new tab
+    if (invoice.stripeInvoiceUrl) {
+      window.open(invoice.stripeInvoiceUrl, '_blank');
+    } else {
+      // Open internal invoice view
+      window.open(`/invoices/${invoice.id}`, '_blank');
     }
   };
 
@@ -338,20 +374,16 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                       {getStatusBadge(invoice.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {mounted ? formatDate(invoice.dueDate) : ''}
+                      {formatDate(invoice.dueDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex gap-2">
-                        {invoice.stripeInvoiceUrl && (
-                          <a
-                            href={invoice.stripeInvoiceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#4fa77e] hover:text-[#3f8660]"
-                          >
-                            View
-                          </a>
-                        )}
+                        <button
+                          onClick={() => handleViewInvoice(invoice)}
+                          className="text-[#4fa77e] hover:text-[#3f8660]"
+                        >
+                          View
+                        </button>
                         {invoice.stripePdfUrl && (
                           <a
                             href={invoice.stripePdfUrl}
@@ -376,6 +408,17 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                             className="text-red-600 hover:text-red-800"
                           >
                             Void
+                          </button>
+                        )}
+                        {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
+                          <button
+                            onClick={() => setRefundModal({ 
+                              invoiceId: invoice.id, 
+                              maxAmount: invoice.amountPaid 
+                            })}
+                            className="text-purple-600 hover:text-purple-800"
+                          >
+                            Refund
                           </button>
                         )}
                       </div>
@@ -413,13 +456,16 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Invoice
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {payments.map((payment: any) => (
                   <tr key={payment.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {mounted ? formatDateTime(payment.createdAt) : ''}
+                      {formatDateTime(payment.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {formatCurrency(payment.amount)}
@@ -434,6 +480,23 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                       {payment.invoice
                         ? `#${payment.invoice.stripeInvoiceNumber || payment.invoice.id}`
                         : '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {payment.status === 'SUCCEEDED' && (
+                        <button
+                          onClick={() => setRefundModal({ 
+                            invoiceId: payment.invoice?.id || 0,
+                            paymentId: payment.id, 
+                            maxAmount: payment.amount 
+                          })}
+                          className="text-purple-600 hover:text-purple-800"
+                        >
+                          Refund
+                        </button>
+                      )}
+                      {payment.status === 'REFUNDED' && (
+                        <span className="text-gray-400">Refunded</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -462,6 +525,156 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
           patientName={patientName}
         />
       )}
+
+      {/* Refund Modal */}
+      {refundModal && (
+        <RefundModal
+          maxAmount={refundModal.maxAmount}
+          paymentId={refundModal.paymentId}
+          onConfirm={handleRefund}
+          onClose={() => setRefundModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Refund Modal Component
+function RefundModal({
+  maxAmount,
+  paymentId,
+  onConfirm,
+  onClose,
+}: {
+  maxAmount: number;
+  paymentId?: number;
+  onConfirm: (paymentId: number, amount: number, reason: string) => void;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState(maxAmount / 100); // Convert from cents to dollars
+  const [reason, setReason] = useState('requested_by_customer');
+  const [isPartial, setIsPartial] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentId) {
+      alert('Payment ID is required for refunds');
+      return;
+    }
+    
+    const amountInCents = Math.round(amount * 100);
+    if (amountInCents <= 0 || amountInCents > maxAmount) {
+      alert(`Amount must be between $0.01 and ${formatCurrency(maxAmount)}`);
+      return;
+    }
+    
+    setSubmitting(true);
+    await onConfirm(paymentId, amountInCents, reason);
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 className="text-lg font-semibold mb-4">Process Refund</h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Refund Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Refund Type
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  checked={!isPartial}
+                  onChange={() => {
+                    setIsPartial(false);
+                    setAmount(maxAmount / 100);
+                  }}
+                  className="mr-2"
+                />
+                Full Refund ({formatCurrency(maxAmount)})
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  checked={isPartial}
+                  onChange={() => setIsPartial(true)}
+                  className="mr-2"
+                />
+                Partial Refund
+              </label>
+            </div>
+          </div>
+
+          {/* Amount (for partial refunds) */}
+          {isPartial && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Refund Amount (max: {formatCurrency(maxAmount)})
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                  step="0.01"
+                  min="0.01"
+                  max={maxAmount / 100}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Reason */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Reason
+            </label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="requested_by_customer">Requested by customer</option>
+              <option value="duplicate">Duplicate charge</option>
+              <option value="fraudulent">Fraudulent charge</option>
+              <option value="service_not_rendered">Service not rendered</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Warning */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+            <strong>Warning:</strong> Refunds cannot be undone. The refund will be processed through Stripe and may take 5-10 business days to appear on the customer&apos;s statement.
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+            >
+              {submitting ? 'Processing...' : `Refund ${formatCurrency(isPartial ? amount * 100 : maxAmount)}`}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -225,11 +225,14 @@ model Payment {
   clinic                Clinic?       @relation(fields: [clinicId], references: [id])
   stripePaymentIntentId String?       @unique
   stripeChargeId        String?
+  stripeRefundId        String?       // Stripe refund ID if refunded
   amount                Int
   currency              String        @default("usd")
   status                PaymentStatus @default(PENDING)
   paymentMethod         String?
   failureReason         String?
+  refundedAmount        Int?          // Amount refunded in cents
+  refundedAt            DateTime?     // When refund was processed
   patientId             Int
   invoiceId             Int?
   subscriptionId        Int?
@@ -556,6 +559,8 @@ enum InvoiceStatus {
   PAID
   VOID
   UNCOLLECTIBLE
+  REFUNDED
+  PARTIALLY_REFUNDED
 }
 
 enum PaymentStatus {
@@ -565,6 +570,7 @@ enum PaymentStatus {
   FAILED
   CANCELED
   REFUNDED
+  PARTIALLY_REFUNDED
 }
 
 enum SOAPNoteStatus {
