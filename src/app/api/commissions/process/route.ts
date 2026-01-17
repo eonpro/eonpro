@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { processCommission } from "@/services/influencerService";
 import { logger } from '@/lib/logger';
+import { withAuth } from '@/lib/auth/middleware';
 
 /**
  * Process commission when an invoice is paid
- * This can be called from Stripe webhooks or manually
+ * Protected endpoint - requires admin or system role
+ * Can be called from Stripe webhooks (which handle their own auth) or manually by admins
  */
-export async function POST(req: NextRequest) {
+async function processCommissionHandler(req: NextRequest) {
   try {
     const { invoiceId, stripeInvoiceId } = await req.json();
 
@@ -73,3 +75,8 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// Protected route - requires admin or super_admin role
+export const POST = withAuth(processCommissionHandler, {
+  roles: ['admin', 'super_admin']
+});
