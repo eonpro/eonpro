@@ -267,10 +267,23 @@ export async function GET(request: NextRequest) {
         patientId: parsedPatientId 
       });
       // Fallback: try simpler query without relations
-      invoices = await prisma.invoice.findMany({
-        where: { patientId: parsedPatientId },
-        orderBy: { createdAt: 'desc' },
-      });
+      try {
+        invoices = await prisma.invoice.findMany({
+          where: { patientId: parsedPatientId },
+          orderBy: { createdAt: 'desc' },
+        });
+      } catch (fallbackError: any) {
+        logger.error('[API] Fallback query also failed:', fallbackError.message);
+        return NextResponse.json(
+          { 
+            error: 'Failed to fetch invoices',
+            errorType: 'DatabaseError',
+            errorMessage: dbError.message,
+            fallbackError: fallbackError.message,
+          },
+          { status: 500 }
+        );
+      }
     }
     
     return NextResponse.json({
@@ -284,10 +297,12 @@ export async function GET(request: NextRequest) {
       name: error.name 
     });
     
+    // Include error details for debugging (safe - no sensitive data)
     return NextResponse.json(
       { 
         error: 'Failed to fetch invoices',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        errorType: error.name || 'Unknown',
+        errorMessage: error.message || 'No message',
       },
       { status: 500 }
     );
