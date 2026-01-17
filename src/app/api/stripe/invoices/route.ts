@@ -225,86 +225,52 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const patientId = searchParams.get('patientId');
+  
+  if (!patientId) {
+    return NextResponse.json(
+      { error: 'Patient ID is required' },
+      { status: 400 }
+    );
+  }
+  
+  const parsedPatientId = parseInt(patientId, 10);
+  if (isNaN(parsedPatientId)) {
+    return NextResponse.json(
+      { error: 'Invalid patient ID' },
+      { status: 400 }
+    );
+  }
+  
   try {
-    const { searchParams } = new URL(request.url);
-    const patientId = searchParams.get('patientId');
-    
-    if (!patientId) {
-      return NextResponse.json(
-        { error: 'Patient ID is required' },
-        { status: 400 }
-      );
-    }
-    
-    const parsedPatientId = parseInt(patientId, 10);
-    if (isNaN(parsedPatientId)) {
-      return NextResponse.json(
-        { error: 'Invalid patient ID' },
-        { status: 400 }
-      );
-    }
-    
-    // Query invoices directly from database (doesn't require Stripe)
+    // Import prisma directly at the top level
     const { prisma } = await import('@/lib/db');
     
-    let invoices;
-    try {
-      invoices = await prisma.invoice.findMany({
-        where: { patientId: parsedPatientId },
-        include: {
-          payments: true,
-          items: {
-            include: {
-              product: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-    } catch (dbError: any) {
-      logger.error('[API] Database error fetching invoices:', { 
-        message: dbError.message,
-        patientId: parsedPatientId 
-      });
-      // Fallback: try simpler query without relations
-      try {
-        invoices = await prisma.invoice.findMany({
-          where: { patientId: parsedPatientId },
-          orderBy: { createdAt: 'desc' },
-        });
-      } catch (fallbackError: any) {
-        logger.error('[API] Fallback query also failed:', fallbackError.message);
-        return NextResponse.json(
-          { 
-            error: 'Failed to fetch invoices',
-            errorType: 'DatabaseError',
-            errorMessage: dbError.message,
-            fallbackError: fallbackError.message,
-          },
-          { status: 500 }
-        );
-      }
-    }
+    // Simple query - no relations to avoid potential issues
+    const invoices = await prisma.invoice.findMany({
+      where: { patientId: parsedPatientId },
+      orderBy: { createdAt: 'desc' },
+    });
     
     return NextResponse.json({
       success: true,
-      invoices,
+      invoices: invoices || [],
+      count: invoices?.length || 0,
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
-    logger.error('[API] Error fetching invoices:', { 
-      message: error.message, 
-      stack: error.stack,
-      name: error.name 
-    });
+    // Log and return detailed error
+    const errorInfo = {
+      error: 'Failed to fetch invoices',
+      errorType: error?.name || error?.constructor?.name || 'UnknownError',
+      errorMessage: error?.message || 'No error message',
+      errorCode: error?.code || null,
+      timestamp: new Date().toISOString(),
+    };
     
-    // Include error details for debugging (safe - no sensitive data)
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch invoices',
-        errorType: error.name || 'Unknown',
-        errorMessage: error.message || 'No message',
-      },
-      { status: 500 }
-    );
+    logger.error('[API] Invoice fetch error:', errorInfo);
+    
+    return NextResponse.json(errorInfo, { status: 500 });
   }
 }
