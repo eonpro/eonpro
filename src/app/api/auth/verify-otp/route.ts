@@ -205,6 +205,14 @@ export async function POST(req: NextRequest): Promise<Response> {
           clinicId: user!.clinicId,
         };
     
+    if (!JWT_SECRET) {
+      logger.error('JWT_SECRET is not configured');
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+    
     const token = sign(tokenPayload, JWT_SECRET, {
       expiresIn: AUTH_CONFIG.tokenExpiry.access,
     });

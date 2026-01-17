@@ -142,11 +142,11 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     const stats = {
       total: webhooks.length,
-      active: webhooks.filter((w: any) => w.isActive).length,
-      inactive: webhooks.filter((w: any) => !w.isActive).length,
-      deliveries24h: deliveryStats.reduce((sum, stat) => sum + stat._count, 0),
-      successful24h: deliveryStats.find((s: any) => s.status === "DELIVERED")?._count || 0,
-      failed24h: deliveryStats.find((s: any) => (s.status as any) === "FAILED")?._count || 0,
+      active: webhooks.filter((w: { isActive: boolean }) => w.isActive).length,
+      inactive: webhooks.filter((w: { isActive: boolean }) => !w.isActive).length,
+      deliveries24h: deliveryStats.reduce((sum: number, stat: { _count: number }) => sum + stat._count, 0),
+      successful24h: deliveryStats.find((s: { status: string }) => s.status === "DELIVERED")?._count || 0,
+      failed24h: deliveryStats.find((s: { status: string }) => s.status === "FAILED")?._count || 0,
     };
 
     return NextResponse.json({

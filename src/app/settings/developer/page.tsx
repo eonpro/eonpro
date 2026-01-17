@@ -164,7 +164,7 @@ export default function DeveloperToolsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {key.permissions.map((perm, idx) => (
+                        {key.permissions.map((perm: string, idx: number) => (
                           <span key={idx} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                             {perm}
                           </span>
@@ -217,7 +217,7 @@ export default function DeveloperToolsPage() {
                     <h3 className="text-lg font-semibold text-gray-900">{webhook.name}</h3>
                     <p className="text-sm text-gray-500 mt-1">{webhook.url}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {webhook.events.map((event, idx) => (
+                      {webhook.events.map((event: string, idx: number) => (
                         <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
                           {event}
                         </span>

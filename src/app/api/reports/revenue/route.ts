@@ -67,7 +67,7 @@ async function getRevenueReportsHandler(req: NextRequest, user: AuthUser): Promi
 
         const dailyRevenue: Record<string, { total: number; recurring: number; oneTime: number; count: number }> = {};
         
-        payments.forEach(p => {
+        payments.forEach((p: { createdAt: Date; amount: number; subscriptionId: number | null }) => {
           const dateKey = p.createdAt.toISOString().split('T')[0];
           if (!dailyRevenue[dateKey]) {
             dailyRevenue[dateKey] = { total: 0, recurring: 0, oneTime: 0, count: 0 };
@@ -161,7 +161,7 @@ async function getRevenueReportsHandler(req: NextRequest, user: AuthUser): Promi
           }
         });
 
-        const currentMRR = subscriptions.reduce((sum, s) => {
+        const currentMRR = subscriptions.reduce((sum: number, s: { interval: string; amount: number; intervalCount: number }) => {
           if (s.interval === 'month') return sum + (s.amount / s.intervalCount);
           if (s.interval === 'year') return sum + (s.amount / 12);
           return sum + s.amount;

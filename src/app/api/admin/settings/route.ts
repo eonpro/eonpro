@@ -102,7 +102,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     // User statistics
     const userStats = {
-      total: users.reduce((sum, group) => sum + group._count, 0),
+      total: users.reduce((sum: number, group: { _count: number }) => sum + group._count, 0),
       byRole: {} as Record<string, number>,
       byStatus: {} as Record<string, number>,
     };

@@ -163,10 +163,10 @@ export async function DELETE(
 
     // Check if influencer has active referrals or pending commissions
     const hasActiveReferrals = influencer.referrals.some(
-      r => !r.isConverted && new Date(r.referralExpiresAt) > new Date()
+      (r: { isConverted: boolean; referralExpiresAt: Date }) => !r.isConverted && new Date(r.referralExpiresAt) > new Date()
     );
     const hasPendingCommissions = influencer.commissions.some(
-      c => c.status === CommissionStatus.PENDING
+      (c: { status: string }) => c.status === CommissionStatus.PENDING
     );
 
     if (hasActiveReferrals || hasPendingCommissions) {

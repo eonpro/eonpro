@@ -41,7 +41,7 @@ export const GET = withAuth(async (req, user) => {
     });
     
     // Decrypt PHI fields for authorized users
-    const decryptedPatients = patients.map(patient => 
+    const decryptedPatients = patients.map((patient: Record<string, unknown>) => 
       decryptPatientPHI(patient, ['email', 'phone'])
     );
 

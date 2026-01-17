@@ -174,7 +174,7 @@ const normalizeKey = (value?: string) => {
 };
 
 // Helper function to format answer values exactly like the PDF
-const formatAnswerValue = (value): string => {
+const formatAnswerValue = (value: unknown): string => {
   if (!value) return "—";
   
   // Clean up any encoding issues and common corruptions
@@ -623,7 +623,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
           <div className="p-6">
             {section.entries.length > 0 ? (
               <div className="space-y-4">
-                {section.entries.map((entry, idx) => (
+                {section.entries.map((entry: { label: string; value: string }, idx: number) => (
                   <div key={idx} className="border-b last:border-0 pb-4 last:pb-0">
                     <div className="grid md:grid-cols-3 gap-4">
                       <div className="md:col-span-1">

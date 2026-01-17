@@ -67,7 +67,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
           orderBy: { createdAt: 'desc' }
         });
 
-        data = patients.map(p => ({
+        data = patients.map((p: { patientId?: string; id: number; firstName: string; lastName: string; email: string; phone: string; dob: string; gender: string; city: string; state: string; source: string; createdAt: Date; subscriptions: Array<{ planName: string; amount: number; startDate: Date | null }> }) => ({
           ID: p.patientId || p.id,
           'First Name': p.firstName,
           'Last Name': p.lastName,
@@ -103,7 +103,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
           orderBy: { createdAt: 'desc' }
         });
 
-        data = payments.map(p => ({
+        data = payments.map((p: { id: number; patient: { firstName: string; lastName: string; email: string }; amount: number; status: string; paymentMethod: string | null; subscriptionId: number | null; subscription: { planName: string } | null; failureReason: string | null; createdAt: Date }) => ({
           ID: p.id,
           'Patient Name': `${p.patient.firstName} ${p.patient.lastName}`,
           'Patient Email': p.patient.email,
@@ -131,7 +131,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
         });
 
         const now = new Date();
-        data = subscriptions.map(s => {
+        data = subscriptions.map((s: { id: number; patient: { firstName: string; lastName: string; email: string; phone: string }; planName: string; startDate: Date; endDate: Date | null; amount: number; status: string; paymentFrequency: string; createdAt: Date; cancelledAt: Date | null }) => {
           const monthsActive = Math.floor(
             (now.getTime() - s.startDate.getTime()) / (30 * 24 * 60 * 60 * 1000)
           ) + 1;

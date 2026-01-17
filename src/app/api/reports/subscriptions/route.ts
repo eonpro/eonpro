@@ -80,7 +80,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
         });
 
         const now = new Date();
-        const activeWithDetails = activeSubscriptions.map(s => {
+        const activeWithDetails = activeSubscriptions.map((s: { id: number; patient: unknown; planName: string; amount: number; interval: string; startDate: Date; nextBillingDate: Date | null; payments: Array<{ amount: number; status: string; createdAt: Date }> }) => {
           const monthsActive = Math.floor(
             (now.getTime() - s.startDate.getTime()) / (30 * 24 * 60 * 60 * 1000)
           ) + 1;
@@ -107,7 +107,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
           subscriptions: activeWithDetails,
           count: activeWithDetails.length,
           totalMRR: formatCurrency(
-            activeWithDetails.reduce((sum, s) => sum + s.amount, 0)
+            activeWithDetails.reduce((sum: number, s: { amount: number }) => sum + s.amount, 0)
           )
         });
 
@@ -198,7 +198,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
 
         const byMonth: Record<number, Array<{ id: number; patient: string; startDate: Date; amount: number }>> = {};
         
-        allSubscriptions.forEach(s => {
+        allSubscriptions.forEach((s: { id: number; patient: { firstName: string; lastName: string }; startDate: Date; amount: number }) => {
           const monthsActive = Math.floor(
             (now.getTime() - s.startDate.getTime()) / (30 * 24 * 60 * 60 * 1000)
           ) + 1;

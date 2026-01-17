@@ -83,7 +83,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     });
     
     // Group logs by endpoint for statistics
-    const endpointStats = recentLogs.reduce((acc: any, log) => {
+    const endpointStats = recentLogs.reduce((acc: Record<string, { total: number; success: number; failed: number }>, log: { endpoint: string; status: string }) => {
       if (!acc[log.endpoint]) {
         acc[log.endpoint] = {
           total: 0,
@@ -246,7 +246,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
         ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
         userAgent: req.headers.get('user-agent'),
       },
-    }).catch(error => {
+    }).catch((error: Error) => {
       logger.warn('Failed to create audit log:', error);
     });
     

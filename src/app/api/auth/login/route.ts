@@ -186,7 +186,7 @@ async function loginHandler(req: NextRequest) {
           ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
           userAgent: req.headers.get('user-agent'),
         },
-      }).catch(error => {
+      }).catch((error: Error) => {
         logger.warn('Failed to create audit log:', error);
       });
     }

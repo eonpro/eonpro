@@ -105,7 +105,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     // Calculate regular price (sum of individual products)
     let regularPrice = 0;
     for (const item of validated.items) {
-      const product = products.find(p => p.id === item.productId);
+      const product = products.find((p: { id: number; price: number }) => p.id === item.productId);
       if (product) {
         regularPrice += product.price * item.quantity;
       }

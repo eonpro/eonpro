@@ -327,7 +327,7 @@ export default function SubscriptionForm() {
               <span className="text-gray-500">/{plan.interval}</span>
             </div>
             <ul className="space-y-2 mb-6">
-              {plan.features.map((feature, index) => (
+              {plan.features.map((feature: string, index: number) => (
                 <li key={index} className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
                   <span className="text-sm">{feature}</span>

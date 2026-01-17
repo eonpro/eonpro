@@ -93,7 +93,7 @@ type RawAnswer = {
   section?: string;
 };
 
-export function normalizeMedLinkPayload(payload): NormalizedIntake {
+export function normalizeMedLinkPayload(payload: Record<string, unknown>): NormalizedIntake {
   // Log payload structure for debugging
   logger.debug("[Normalizer] Payload keys:", { keys: Object.keys(payload || {}) });
   logger.debug("[Normalizer] Payload type check", { 

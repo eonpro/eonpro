@@ -37,14 +37,14 @@ async function getHandler(
     });
 
     // Calculate total work time
-    const totalWorkTime = workLogs.reduce((total, log) => total + (log.duration || 0), 0);
+    const totalWorkTime = workLogs.reduce((total: number, log: { duration: number | null }) => total + (log.duration || 0), 0);
 
     return NextResponse.json({
       workLogs,
       totalWorkTime,
       summary: {
         totalEntries: workLogs.length,
-        uniqueWorkers: new Set(workLogs.map(log => log.userId)).size
+        uniqueWorkers: new Set(workLogs.map((log: { userId: number }) => log.userId)).size
       }
     });
   } catch (error) {

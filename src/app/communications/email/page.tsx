@@ -327,7 +327,7 @@ export default function EmailCommunicationsPage() {
                         <option value="">Custom Email</option>
                         {Object.values(EmailTemplate).map((tmpl: any) => (
                           <option key={tmpl} value={tmpl}>
-                            {tmpl.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                            {tmpl.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
                           </option>
                         ))}
                       </select>

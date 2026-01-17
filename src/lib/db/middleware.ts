@@ -11,8 +11,8 @@ import { logger } from '@/lib/logger';
  * Creates Prisma middleware for automatic data filtering based on user role
  * This ensures users can only access data they're authorized to see
  */
-export function createSecurityMiddleware(): any {
-  return async (params, next) => {
+export function createSecurityMiddleware(): unknown {
+  return async (params: { model?: string; action?: string; args?: { where?: Record<string, unknown> } }, next: (params: unknown) => Promise<unknown>) => {
     // Get current user from async context (requires AsyncLocalStorage)
     const user = await getCurrentUser();
     

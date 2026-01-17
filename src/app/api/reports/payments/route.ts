@@ -107,7 +107,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
           take: limit
         });
 
-        const recentDetails = recentPayments.map(p => ({
+        const recentDetails = recentPayments.map((p: { id: number; patient: { id: number; firstName: string; lastName: string; email: string }; amount: number; subscriptionId: number | null; subscription: { planName: string; startDate: Date } | null; paymentMethod: string | null; createdAt: Date }) => ({
           id: p.id,
           patient: {
             id: p.patient.id,
@@ -128,7 +128,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
         return NextResponse.json({
           payments: recentDetails,
           count: recentDetails.length,
-          total: formatCurrency(recentPayments.reduce((sum, p) => sum + p.amount, 0)),
+          total: formatCurrency(recentPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0)),
           dateRange: { start, end, label }
         });
 
@@ -159,7 +159,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
           orderBy: { createdAt: 'desc' }
         });
 
-        const failedDetails = failedPayments.map(p => ({
+        const failedDetails = failedPayments.map((p: { id: number; patient: { id: number; firstName: string; lastName: string; email: string; phone: string }; amount: number; failureReason: string | null; subscription: { planName: string; failedAttempts: number } | null; createdAt: Date }) => ({
           id: p.id,
           patient: {
             id: p.patient.id,
@@ -177,7 +177,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
           attemptedAt: p.createdAt
         }));
 
-        const lostRevenue = failedPayments.reduce((sum, p) => sum + p.amount, 0);
+        const lostRevenue = failedPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
         return NextResponse.json({
           payments: failedDetails,
@@ -198,9 +198,9 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
           _sum: { amount: true }
         });
 
-        const totalByMethod = paymentsByMethod.reduce((sum, p) => sum + (p._sum.amount || 0), 0);
+        const totalByMethod = paymentsByMethod.reduce((sum: number, p: { _sum: { amount: number | null } }) => sum + (p._sum.amount || 0), 0);
 
-        const methodBreakdown = paymentsByMethod.map(p => ({
+        const methodBreakdown = paymentsByMethod.map((p: { paymentMethod: string | null; _count: number; _sum: { amount: number | null } }) => ({
           method: p.paymentMethod || 'Unknown',
           count: p._count,
           total: p._sum.amount || 0,
@@ -208,7 +208,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
           percentage: totalByMethod > 0
             ? Math.round(((p._sum.amount || 0) / totalByMethod) * 100)
             : 0
-        })).sort((a, b) => b.total - a.total);
+        })).sort((a: { total: number }, b: { total: number }) => b.total - a.total);
 
         return NextResponse.json({
           byMethod: methodBreakdown,
@@ -243,7 +243,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
           lastPayment: Date;
         }>();
 
-        patientPayments.forEach(p => {
+        patientPayments.forEach((p: { patient: { id: number; firstName: string; lastName: string; email: string }; amount: number; createdAt: Date }) => {
           const existing = patientMap.get(p.patient.id);
           if (existing) {
             existing.payments++;
@@ -276,7 +276,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
         return NextResponse.json({
           byPatient,
           uniquePatients: byPatient.length,
-          totalRevenue: formatCurrency(patientPayments.reduce((sum, p) => sum + p.amount, 0)),
+          totalRevenue: formatCurrency(patientPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0)),
           dateRange: { start, end, label }
         });
 

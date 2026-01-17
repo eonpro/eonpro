@@ -149,10 +149,10 @@ export async function GET(req: NextRequest, context: RouteParams) {
           });
 
           // Merge Twilio messages with local ones (prefer Twilio for real-time status)
-          const twilioSids = new Set(allMessages.map(m => m.sid));
+          const twilioSids = new Set(allMessages.map((m: { sid: string }) => m.sid));
           const localOnly = localMessages
-            .filter(m => m.messageSid && !twilioSids.has(m.messageSid))
-            .map(m => ({
+            .filter((m: { messageSid: string | null }) => m.messageSid && !twilioSids.has(m.messageSid))
+            .map((m: { messageSid: string | null; id: number; body: string; direction: string; status: string; createdAt: Date; fromPhone: string; toPhone: string }) => ({
               sid: m.messageSid || `local-${m.id}`,
               body: m.body,
               direction: m.direction === 'inbound' ? 'inbound' : 'outbound-api',
@@ -191,7 +191,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
 
           if (localMessages.length > 0) {
             return NextResponse.json({
-              messages: localMessages.map(m => ({
+              messages: localMessages.map((m: { messageSid: string | null; id: number; body: string; direction: string; status: string; createdAt: Date; fromPhone: string; toPhone: string }) => ({
                 sid: m.messageSid || `local-${m.id}`,
                 body: m.body,
                 direction: m.direction === 'inbound' ? 'inbound' : 'outbound-api',
@@ -228,7 +228,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
 
         if (localMessages.length > 0) {
           return NextResponse.json({
-            messages: localMessages.map(m => ({
+            messages: localMessages.map((m: { messageSid: string | null; id: number; body: string; direction: string; status: string | null; createdAt: Date; fromPhone: string; toPhone: string }) => ({
               sid: m.messageSid || `local-${m.id}`,
               body: m.body,
               direction: m.direction === 'inbound' ? 'inbound' : 'outbound-api',

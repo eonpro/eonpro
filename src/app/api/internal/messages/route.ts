@@ -86,8 +86,8 @@ async function getHandler(request: NextRequest, user: any) {
     // Mark messages as read
     if (!unreadOnly) {
       const messageIds = messages
-        .filter(m => m.recipientId === userId && !m.isRead)
-        .map(m => m.id);
+        .filter((m: { recipientId: number; isRead: boolean }) => m.recipientId === userId && !m.isRead)
+        .map((m: { id: number }) => m.id);
       
       if (messageIds.length > 0) {
         await prisma.internalMessage.updateMany({

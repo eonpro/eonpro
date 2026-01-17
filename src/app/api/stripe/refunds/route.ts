@@ -508,7 +508,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      refunds: refundedPayments.map(p => ({
+      refunds: refundedPayments.map((p: { stripeRefundId: string | null; id: number; refundedAmount: number | null; status: string; refundedAt: Date | null; patient: unknown; invoice: unknown }) => ({
         id: p.stripeRefundId || `db_${p.id}`,
         paymentId: p.id,
         amount: p.refundedAmount,

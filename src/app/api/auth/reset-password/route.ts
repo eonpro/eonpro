@@ -99,7 +99,7 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
             actorEmail: email.toLowerCase(),
           },
           orderBy: { createdAt: 'desc' },
-        }).then(r => r  ? JSON.parse(r.diff as string).code  : undefined)) }),
+        }).then((r: { diff: string } | null) => r  ? JSON.parse(r.diff as string).code  : undefined)) }),
       }),
     });
   } catch (error: any) {

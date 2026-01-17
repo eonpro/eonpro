@@ -36,12 +36,12 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
       _count: true,
     });
 
-    const totalOrders = counts.reduce((sum, c) => sum + c._count, 0);
-    const completedOrders = counts.find((c: any) => (c.currentStatus as any) === "DELIVERED")?._count || 0;
+    const totalOrders = counts.reduce((sum: number, c: { _count: number }) => sum + c._count, 0);
+    const completedOrders = counts.find((c: { currentStatus: string }) => c.currentStatus === "DELIVERED")?._count || 0;
     const pendingOrders = counts
-      .filter((c: any) => ['PENDING', 'PROCESSING', 'SHIPPED'].includes(c.currentStatus))
-      .reduce((sum, c) => sum + c._count, 0);
-    const cancelledOrders = counts.find((c: any) => (c.currentStatus as any) === "CANCELLED")?._count || 0;
+      .filter((c: { currentStatus: string }) => ['PENDING', 'PROCESSING', 'SHIPPED'].includes(c.currentStatus))
+      .reduce((sum: number, c: { _count: number }) => sum + c._count, 0);
+    const cancelledOrders = counts.find((c: { currentStatus: string }) => c.currentStatus === "CANCELLED")?._count || 0;
 
     return NextResponse.json({
       ...report,
