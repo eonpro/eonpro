@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
     if (!migration) {
       return NextResponse.json({
         message: 'Available migrations',
-        migrations: ['phone_otp', 'sms_log'],
-        usage: 'Add ?migration=sms_log to URL'
+        migrations: ['phone_otp', 'sms_log', 'product_catalog'],
+        usage: 'Add ?migration=product_catalog to URL'
       });
     }
 
@@ -144,8 +144,121 @@ async function runMigration(body: any, auth: any) {
       });
     }
 
+    if (migration === 'product_catalog') {
+      // Create enums
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "ProductCategory" AS ENUM ('SERVICE', 'MEDICATION', 'SUPPLEMENT', 'LAB_TEST', 'PROCEDURE', 'PACKAGE', 'MEMBERSHIP', 'OTHER');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "BillingType" AS ENUM ('ONE_TIME', 'RECURRING');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `;
+
+      await prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "BillingInterval" AS ENUM ('WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'CUSTOM');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `;
+
+      // Create Product table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "Product" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "clinicId" INTEGER NOT NULL,
+          "name" TEXT NOT NULL,
+          "description" TEXT,
+          "shortDescription" TEXT,
+          "category" "ProductCategory" NOT NULL DEFAULT 'SERVICE',
+          "price" INTEGER NOT NULL,
+          "currency" TEXT NOT NULL DEFAULT 'usd',
+          "billingType" "BillingType" NOT NULL DEFAULT 'ONE_TIME',
+          "billingInterval" "BillingInterval",
+          "billingIntervalCount" INTEGER NOT NULL DEFAULT 1,
+          "trialDays" INTEGER,
+          "stripeProductId" TEXT UNIQUE,
+          "stripePriceId" TEXT UNIQUE,
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "isVisible" BOOLEAN NOT NULL DEFAULT true,
+          "displayOrder" INTEGER NOT NULL DEFAULT 0,
+          "trackInventory" BOOLEAN NOT NULL DEFAULT false,
+          "inventoryCount" INTEGER,
+          "lowStockThreshold" INTEGER,
+          "taxable" BOOLEAN NOT NULL DEFAULT false,
+          "taxRate" DOUBLE PRECISION,
+          "metadata" JSONB,
+          "tags" JSONB,
+          CONSTRAINT "Product_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        )
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "Product_clinicId_isActive_idx" ON "Product"("clinicId", "isActive")
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "Product_clinicId_category_idx" ON "Product"("clinicId", "category")
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "Product_stripeProductId_idx" ON "Product"("stripeProductId")
+      `;
+
+      // Create InvoiceItem table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "InvoiceItem" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "invoiceId" INTEGER NOT NULL,
+          "productId" INTEGER,
+          "description" TEXT NOT NULL,
+          "quantity" INTEGER NOT NULL DEFAULT 1,
+          "unitPrice" INTEGER NOT NULL,
+          "amount" INTEGER NOT NULL,
+          "metadata" JSONB,
+          CONSTRAINT "InvoiceItem_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          CONSTRAINT "InvoiceItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE
+        )
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "InvoiceItem_invoiceId_idx" ON "InvoiceItem"("invoiceId")
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "InvoiceItem_productId_idx" ON "InvoiceItem"("productId")
+      `;
+
+      // Add subscription columns to Invoice table
+      await prisma.$executeRaw`
+        ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "createSubscription" BOOLEAN NOT NULL DEFAULT false
+      `;
+
+      await prisma.$executeRaw`
+        ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "subscriptionCreated" BOOLEAN NOT NULL DEFAULT false
+      `;
+
+      logger.info('Product catalog migration completed');
+
+      return NextResponse.json({
+        success: true,
+        message: 'Product catalog tables and Invoice columns created successfully',
+      });
+    }
+
     return NextResponse.json(
-      { error: 'Unknown migration. Available: phone_otp, sms_log' },
+      { error: 'Unknown migration. Available: phone_otp, sms_log, product_catalog' },
       { status: 400 }
     );
 
