@@ -37,8 +37,15 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
 
   useEffect(() => {
     if (patientPhone) {
-      loadMessageHistory();
+      loadMessageHistory(true); // Show loading on initial load
       initializeTwilioConnection();
+      
+      // Poll for new messages every 10 seconds (silently)
+      const pollInterval = setInterval(() => {
+        loadMessageHistory(false); // Don't show loading during polling
+      }, 10000);
+      
+      return () => clearInterval(pollInterval);
     } else {
       // No phone number, but still allow the chat UI to show "connected"
       // (the no-phone-number message will be shown instead)
@@ -54,11 +61,18 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadMessageHistory = async () => {
+  const loadMessageHistory = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
+      
+      // Get auth token
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
+      
       const res = await fetch(`/api/twilio/messages/${patient.id}`, {
-        credentials: 'include', // Include cookies for authentication
+        credentials: 'include',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
       });
 
       if (res.ok) {
@@ -66,9 +80,10 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         const formattedMessages: Message[] = (data.messages || []).map((msg: any) => ({
           id: msg.sid || msg.id,
           text: msg.body || msg.text,
+          // Twilio uses 'inbound' for patient messages, 'outbound-api' or 'outbound' for provider
           sender: msg.direction === 'inbound' ? 'patient' : 'provider',
           timestamp: new Date(msg.dateCreated || msg.timestamp),
-          status: msg.status
+          status: msg.status === 'delivered' ? 'delivered' : (msg.status === 'sent' ? 'sent' : msg.status)
         }));
         setMessages(formattedMessages);
       } else {

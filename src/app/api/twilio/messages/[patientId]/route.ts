@@ -68,25 +68,36 @@ export async function GET(req: NextRequest, context: RouteParams) {
           const formattedPhone = patientPhone.startsWith('+') 
             ? patientPhone 
             : `+1${patientPhone.replace(/\D/g, '')}`;
+          
+          const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 
-          const messages = await client.messages.list({
+          // Get OUTBOUND messages (sent TO patient FROM our Twilio number)
+          const outboundMessages = await client.messages.list({
+            from: twilioPhone,
             to: formattedPhone,
             limit: 50
           });
 
-          const sentMessages = await client.messages.list({
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: formattedPhone,
+          // Get INBOUND messages (sent FROM patient TO our Twilio number)
+          const inboundMessages = await client.messages.list({
+            from: formattedPhone,
+            to: twilioPhone,
             limit: 50
           });
 
-          // Combine and sort messages
-          const allMessages = [...messages, ...sentMessages]
+          logger.debug('Twilio messages fetched', { 
+            outbound: outboundMessages.length, 
+            inbound: inboundMessages.length,
+            patientPhone: formattedPhone 
+          });
+
+          // Combine and sort all messages by date
+          const allMessages = [...outboundMessages, ...inboundMessages]
             .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime())
             .map((msg: any) => ({
               sid: msg.sid,
               body: msg.body,
-              direction: msg.direction,
+              direction: msg.direction, // 'inbound' or 'outbound-api'
               status: msg.status,
               dateCreated: msg.dateCreated,
               from: msg.from,
