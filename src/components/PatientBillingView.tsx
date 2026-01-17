@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger';
 
 interface Invoice {
   id: number;
+  stripeInvoiceId: string | null;
   stripeInvoiceNumber: string | null;
   stripeInvoiceUrl: string | null;
   stripePdfUrl: string | null;
@@ -30,6 +31,7 @@ interface Payment {
   paymentMethod: string | null;
   failureReason: string | null;
   createdAt: string;
+  invoiceId: number | null;
   invoice: Invoice | null;
 }
 
@@ -47,7 +49,12 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showProcessPayment, setShowProcessPayment] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [refundModal, setRefundModal] = useState<{ invoiceId: number; paymentId?: number; maxAmount: number } | null>(null);
+  const [refundModal, setRefundModal] = useState<{ 
+    invoiceId: number; 
+    paymentId?: number; 
+    stripeInvoiceId?: string | null;
+    maxAmount: number 
+  } | null>(null);
 
   // Track client mount for hydration-safe rendering
   useEffect(() => {
@@ -143,13 +150,14 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
     }
   };
 
-  const handleRefund = async (paymentId: number, amount: number, reason: string) => {
+  const handleRefund = async (paymentId: number | undefined, amount: number, reason: string, stripeInvoiceId?: string | null) => {
     try {
       const res = await fetch('/api/stripe/refunds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paymentId,
+          stripeInvoiceId, // For invoice-based refunds
           amount, // Amount in cents
           reason,
         }),
@@ -412,10 +420,26 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                         )}
                         {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
                           <button
-                            onClick={() => setRefundModal({ 
-                              invoiceId: invoice.id, 
-                              maxAmount: invoice.amountPaid 
-                            })}
+                            onClick={() => {
+                              // Find payment for this invoice
+                              const invoicePayment = payments.find(
+                                (p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED'
+                              );
+                              if (invoicePayment) {
+                                setRefundModal({ 
+                                  invoiceId: invoice.id,
+                                  paymentId: invoicePayment.id,
+                                  maxAmount: invoice.amountPaid 
+                                });
+                              } else {
+                                // No payment found - try invoice-based refund
+                                setRefundModal({ 
+                                  invoiceId: invoice.id,
+                                  stripeInvoiceId: invoice.stripeInvoiceId,
+                                  maxAmount: invoice.amountPaid 
+                                });
+                              }
+                            }}
                             className="text-purple-600 hover:text-purple-800"
                           >
                             Refund
@@ -531,6 +555,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         <RefundModal
           maxAmount={refundModal.maxAmount}
           paymentId={refundModal.paymentId}
+          stripeInvoiceId={refundModal.stripeInvoiceId}
           onConfirm={handleRefund}
           onClose={() => setRefundModal(null)}
         />
@@ -543,12 +568,14 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
 function RefundModal({
   maxAmount,
   paymentId,
+  stripeInvoiceId,
   onConfirm,
   onClose,
 }: {
   maxAmount: number;
   paymentId?: number;
-  onConfirm: (paymentId: number, amount: number, reason: string) => void;
+  stripeInvoiceId?: string | null;
+  onConfirm: (paymentId: number | undefined, amount: number, reason: string, stripeInvoiceId?: string | null) => void;
   onClose: () => void;
 }) {
   const [amount, setAmount] = useState(maxAmount / 100); // Convert from cents to dollars
@@ -558,8 +585,10 @@ function RefundModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentId) {
-      alert('Payment ID is required for refunds');
+    
+    // Need either paymentId or stripeInvoiceId
+    if (!paymentId && !stripeInvoiceId) {
+      alert('Unable to process refund - no payment or invoice reference found');
       return;
     }
     
@@ -570,7 +599,7 @@ function RefundModal({
     }
     
     setSubmitting(true);
-    await onConfirm(paymentId, amountInCents, reason);
+    await onConfirm(paymentId, amountInCents, reason, stripeInvoiceId);
     setSubmitting(false);
   };
 
