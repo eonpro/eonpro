@@ -26,30 +26,42 @@ function diffPatient(
 }
 
 const getPatientHandler = withAuthParams(async (_request, user, { params }: Params) => {
-  const resolvedParams = await params;
-  const id = Number(resolvedParams.id);
-  if (Number.isNaN(id)) {
-    return Response.json({ error: "Invalid patient id" }, { status: 400 });
+  try {
+    const resolvedParams = await params;
+    const id = Number(resolvedParams.id);
+    if (Number.isNaN(id)) {
+      return Response.json({ error: "Invalid patient id" }, { status: 400 });
+    }
+    
+    const patient = await prisma.patient.findUnique({
+      where: { id },
+    });
+    
+    if (!patient) {
+      return Response.json({ error: "Patient not found" }, { status: 404 });
+    }
+    
+    // Check authorization: patients can only see their own record
+    if (user.role === 'patient' && user.patientId !== patient.id) {
+      return Response.json({ error: "Access denied" }, { status: 403 });
+    }
+    
+    // Decrypt PHI fields for authorized users - with error handling
+    let decryptedPatient;
+    try {
+      decryptedPatient = decryptPatientPHI(patient, ['email', 'phone', 'dob']);
+    } catch (decryptError) {
+      // If decryption fails, return patient data without decryption
+      logger.warn('Failed to decrypt patient PHI, returning raw data', { patientId: id });
+      decryptedPatient = patient;
+    }
+    
+    return Response.json({ patient: decryptedPatient });
+  } catch (error: any) {
+    logger.error('[GET /api/patients/:id] Error', { error: error.message, stack: error.stack });
+    return Response.json({ error: 'Failed to fetch patient', details: error.message }, { status: 500 });
   }
-  
-  const patient = await prisma.patient.findUnique({
-    where: { id },
-  });
-  
-  if (!patient) {
-    return Response.json({ error: "Patient not found" }, { status: 404 });
-  }
-  
-  // Check authorization: patients can only see their own record
-  if (user.role === 'patient' && user.patientId !== patient.id) {
-    return Response.json({ error: "Access denied" }, { status: 403 });
-  }
-  
-  // Decrypt PHI fields for authorized users
-  const decryptedPatient = decryptPatientPHI(patient, ['email', 'phone', 'dob']);
-  
-  return Response.json({ patient: decryptedPatient });
-}, { roles: ['admin', 'provider', 'patient'] });
+}, { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff'] });
 
 // Apply rate limiting to GET
 export const GET = relaxedRateLimit(getPatientHandler);
@@ -129,7 +141,7 @@ const updatePatientHandler = withAuthParams(async (request, user, { params }: Pa
       { status: 400 }
     );
   }
-}, { roles: ['admin', 'provider', 'patient'] });
+}, { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff'] });
 
 // Apply rate limiting to PATCH
 export const PATCH = standardRateLimit(updatePatientHandler);
