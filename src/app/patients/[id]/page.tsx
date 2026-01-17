@@ -261,8 +261,8 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
+      {/* Header - Mobile Optimized */}
+      <div className="bg-white border-b px-4 sm:px-6 py-4">
         <Breadcrumb 
           items={[
             { label: "Patients", href: "/patients" },
@@ -270,16 +270,31 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           ]} 
         />
         
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold text-gray-900">
+        <div className="space-y-1 mt-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             {patientWithDecryptedPHI.firstName} {patientWithDecryptedPHI.lastName}
           </h1>
+          {/* Mobile: Stacked info, Desktop: Inline */}
           <div className="text-sm text-gray-600 space-y-0.5">
-            <p>Patient ID #{patientWithDecryptedPHI.patientId ?? patientWithDecryptedPHI.id} • DOB: {formatDob(patientWithDecryptedPHI.dob)} • Gender: {genderLabel}</p>
-            <p>Phone: {patientWithDecryptedPHI.phone} • Email: {patientWithDecryptedPHI.email}</p>
-            <p>
+            <p className="flex flex-wrap gap-x-2">
+              <span>ID #{patientWithDecryptedPHI.patientId ?? patientWithDecryptedPHI.id}</span>
+              <span className="hidden sm:inline">•</span>
+              <span>DOB: {formatDob(patientWithDecryptedPHI.dob)}</span>
+              <span className="hidden sm:inline">•</span>
+              <span>{genderLabel}</span>
+            </p>
+            <p className="break-all sm:break-normal">
+              <a href={`tel:${patientWithDecryptedPHI.phone}`} className="text-teal-600 hover:underline sm:text-gray-600 sm:no-underline">
+                {patientWithDecryptedPHI.phone}
+              </a>
+              <span className="hidden sm:inline"> • </span>
+              <br className="sm:hidden" />
+              <a href={`mailto:${patientWithDecryptedPHI.email}`} className="text-teal-600 hover:underline sm:text-gray-600 sm:no-underline">
+                {patientWithDecryptedPHI.email}
+              </a>
+            </p>
+            <p className="hidden md:block">
             {(() => {
-              // Check if address1 already contains city/state/zip
               const hasFullAddress = patientWithDecryptedPHI.address1 && 
                 (patientWithDecryptedPHI.address1.includes(patientWithDecryptedPHI.city) || 
                  patientWithDecryptedPHI.address1.includes(patientWithDecryptedPHI.state) ||
@@ -295,76 +310,100 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         </div>
       </div>
 
-        {/* Tabs with icons - Medical File Folder Style */}
-        <div className="flex items-end gap-0 mt-5">
-          {tabs.map((tab, index) => (
-        <Link
-              key={tab.id}
-              href={`/patients/${patientWithDecryptedPHI.id}?tab=${tab.id}`}
-              className={`
-                relative px-3 transition-all duration-200 flex-1
-                ${currentTab === tab.id 
-                  ? 'bg-white z-20' 
-                  : 'bg-gray-100 hover:bg-gray-50 z-10'
-                }
-              `}
-              style={{
-                paddingTop: '10px',
-                paddingBottom: '10px',
-                marginLeft: index === 0 ? '0' : '-1px',
-                borderTopLeftRadius: '10px',
-                borderTopRightRadius: '10px',
-                border: '1px solid #e5e7eb',
-                borderBottom: currentTab === tab.id ? '1px solid white' : '1px solid #e5e7eb',
-                boxShadow: currentTab === tab.id 
-                  ? '0 -2px 8px rgba(0,0,0,0.05)' 
-                  : 'inset 0 -1px 2px rgba(0,0,0,0.05)',
-                transform: currentTab === tab.id ? 'translateY(1px)' : 'none',
-                maxWidth: '120px'
-              }}
-            >
-              <div className="flex flex-col items-center gap-1">
-                <span className={`
-                  text-[11px] font-semibold whitespace-nowrap
-                  ${currentTab === tab.id ? 'text-gray-900' : 'text-gray-600'}
-                `}>
-                  {tab.label.replace('Patient ', '')}
-                </span>
-                <div className={`
-                  w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm
-                  shadow-sm transition-all duration-200
-                  ${currentTab === tab.id ? tab.color : 'bg-gray-400'}
-                `}>
-                  {tab.icon}
+        {/* Mobile Tabs - Horizontal Scroll */}
+        <div className="overflow-x-auto scrollable-x -mx-4 sm:mx-0 px-4 sm:px-0 mt-4 sm:mt-5">
+          <div className="flex items-end gap-0 min-w-max sm:min-w-0">
+            {tabs.map((tab, index) => (
+              <Link
+                key={tab.id}
+                href={`/patients/${patientWithDecryptedPHI.id}?tab=${tab.id}`}
+                className={`
+                  relative px-2 sm:px-3 transition-all duration-200 flex-shrink-0 sm:flex-1
+                  ${currentTab === tab.id 
+                    ? 'bg-white z-20' 
+                    : 'bg-gray-100 hover:bg-gray-50 z-10'
+                  }
+                `}
+                style={{
+                  paddingTop: '8px',
+                  paddingBottom: '8px',
+                  marginLeft: index === 0 ? '0' : '-1px',
+                  borderTopLeftRadius: '10px',
+                  borderTopRightRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderBottom: currentTab === tab.id ? '1px solid white' : '1px solid #e5e7eb',
+                  boxShadow: currentTab === tab.id 
+                    ? '0 -2px 8px rgba(0,0,0,0.05)' 
+                    : 'inset 0 -1px 2px rgba(0,0,0,0.05)',
+                  transform: currentTab === tab.id ? 'translateY(1px)' : 'none',
+                  minWidth: '70px',
+                  maxWidth: '120px'
+                }}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className={`
+                    text-[10px] sm:text-[11px] font-semibold whitespace-nowrap
+                    ${currentTab === tab.id ? 'text-gray-900' : 'text-gray-600'}
+                  `}>
+                    {tab.label.replace('Patient ', '')}
+                  </span>
+                  <div className={`
+                    w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm
+                    shadow-sm transition-all duration-200
+                    ${currentTab === tab.id ? tab.color : 'bg-gray-400'}
+                  `}>
+                    {tab.icon}
+                  </div>
                 </div>
-              </div>
-        </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 
       {submittedFlag && (currentTab === "profile" || currentTab === "prescriptions") && (
-        <div className="mx-6 mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-center gap-2">
-          <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mx-4 sm:mx-6 mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-center gap-2">
+          <svg className="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           Prescription submitted successfully.
         </div>
       )}
 
-      {/* Main content area with Timeline - File Folder Style */}
-      <div className="bg-white border-x border-b border-gray-200 min-h-[600px]" style={{ marginTop: '-1px' }}>
-        <div className="flex gap-6 p-6">
-          {/* Timeline sidebar */}
-          <div className="w-80 flex-shrink-0">
+      {/* Main content area with Timeline - Mobile Responsive */}
+      <div className="bg-white sm:border-x border-b border-gray-200 min-h-[400px] sm:min-h-[600px]" style={{ marginTop: '-1px' }}>
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 p-4 sm:p-6">
+          {/* Timeline sidebar - Hidden on mobile, shown on large screens */}
+          <div className="hidden lg:block lg:w-72 xl:w-80 flex-shrink-0">
             <PatientTimeline 
               events={timelineEvents}
               patientCreatedAt={new Date(patientWithDecryptedPHI.createdAt)}
             />
           </div>
 
+          {/* Mobile Timeline - Collapsed version for mobile */}
+          <details className="lg:hidden bg-gray-50 rounded-xl border border-gray-200 mb-2">
+            <summary className="flex items-center justify-between p-4 cursor-pointer font-medium text-gray-700">
+              <span className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Timeline ({timelineEvents.length} events)
+              </span>
+              <svg className="w-5 h-5 text-gray-400 transition-transform details-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </summary>
+            <div className="p-4 pt-0">
+              <PatientTimeline 
+                events={timelineEvents}
+                patientCreatedAt={new Date(patientWithDecryptedPHI.createdAt)}
+              />
+            </div>
+          </details>
+
           {/* Main content */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
           {currentTab === "profile" ? (
             <div className="space-y-6">
               {/* Overview Card */}

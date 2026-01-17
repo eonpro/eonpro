@@ -348,210 +348,189 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
       )}
 
       {activeTab === 'invoices' && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div>
           {invoices.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
               <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               No invoices found
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Invoice #
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Due Date
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {invoices.map((invoice: any) => (
-                    <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {invoice.stripeInvoiceNumber || `INV-${invoice.id}`}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-600 max-w-[200px] truncate">
-                        {invoice.description || 'Medical Services'}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div>
-                          <div className="font-medium">{formatCurrency(invoice.amountDue)}</div>
-                          {invoice.amountPaid > 0 && (
-                            <div className="text-xs text-green-600">
-                              Paid: {formatCurrency(invoice.amountPaid)}
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice #</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {invoices.map((invoice: any) => (
+                        <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.stripeInvoiceNumber || `INV-${invoice.id}`}</td>
+                          <td className="px-4 py-4 text-sm text-gray-600 max-w-[200px] truncate">{invoice.description || 'Medical Services'}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="font-medium">{formatCurrency(invoice.amountDue)}</div>
+                            {invoice.amountPaid > 0 && <div className="text-xs text-green-600">Paid: {formatCurrency(invoice.amountPaid)}</div>}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">{getStatusBadge(invoice.status)}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(invoice.dueDate)}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm">
+                            <div className="flex items-center gap-3">
+                              <button onClick={() => handleViewInvoice(invoice)} className="text-[#4fa77e] hover:text-[#3f8660] font-medium">View</button>
+                              {invoice.stripePdfUrl && <a href={invoice.stripePdfUrl} target="_blank" rel="noopener noreferrer" className="text-[#4fa77e] hover:text-[#3f8660] font-medium">PDF</a>}
+                              {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="text-green-600 hover:text-green-800 font-medium">Send</button>}
+                              {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="text-red-600 hover:text-red-800 font-medium">Void</button>}
+                              {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
+                                <button onClick={() => {
+                                  const invoicePayment = payments.find((p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED');
+                                  setRefundModal(invoicePayment ? { invoiceId: invoice.id, paymentId: invoicePayment.id, maxAmount: invoice.amountPaid } : { invoiceId: invoice.id, stripeInvoiceId: invoice.stripeInvoiceId, maxAmount: invoice.amountPaid });
+                                }} className="text-purple-600 hover:text-purple-800 font-medium">Refund</button>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        {getStatusBadge(invoice.status)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(invoice.dueDate)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleViewInvoice(invoice)}
-                            className="text-[#4fa77e] hover:text-[#3f8660] font-medium transition-colors"
-                          >
-                            View
-                          </button>
-                          {invoice.stripePdfUrl && (
-                            <a
-                              href={invoice.stripePdfUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[#4fa77e] hover:text-[#3f8660] font-medium transition-colors"
-                            >
-                              PDF
-                            </a>
-                          )}
-                          {invoice.status === 'DRAFT' && (
-                            <button
-                              onClick={() => handleSendInvoice(invoice.id)}
-                              className="text-green-600 hover:text-green-800 font-medium transition-colors"
-                            >
-                              Send
-                            </button>
-                          )}
-                          {invoice.status === 'OPEN' && (
-                            <button
-                              onClick={() => handleVoidInvoice(invoice.id)}
-                              className="text-red-600 hover:text-red-800 font-medium transition-colors"
-                            >
-                              Void
-                            </button>
-                          )}
-                          {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
-                            <button
-                              onClick={() => {
-                                const invoicePayment = payments.find(
-                                  (p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED'
-                                );
-                                if (invoicePayment) {
-                                  setRefundModal({ 
-                                    invoiceId: invoice.id,
-                                    paymentId: invoicePayment.id,
-                                    maxAmount: invoice.amountPaid 
-                                  });
-                                } else {
-                                  setRefundModal({ 
-                                    invoiceId: invoice.id,
-                                    stripeInvoiceId: invoice.stripeInvoiceId,
-                                    maxAmount: invoice.amountPaid 
-                                  });
-                                }
-                              }}
-                              className="text-purple-600 hover:text-purple-800 font-medium transition-colors"
-                            >
-                              Refund
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {invoices.map((invoice: any) => (
+                  <div key={invoice.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">{invoice.stripeInvoiceNumber || `INV-${invoice.id}`}</p>
+                        <p className="text-sm text-gray-500">{invoice.description || 'Medical Services'}</p>
+                      </div>
+                      {getStatusBadge(invoice.status)}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                      <div>
+                        <p className="text-gray-500 text-xs uppercase font-medium">Amount</p>
+                        <p className="font-semibold text-gray-900">{formatCurrency(invoice.amountDue)}</p>
+                        {invoice.amountPaid > 0 && <p className="text-xs text-green-600">Paid: {formatCurrency(invoice.amountPaid)}</p>}
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-xs uppercase font-medium">Due Date</p>
+                        <p className="text-gray-900">{formatDate(invoice.dueDate)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+                      <button onClick={() => handleViewInvoice(invoice)} className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-[#4fa77e] bg-green-50 rounded-lg hover:bg-green-100 transition-colors">View</button>
+                      {invoice.stripePdfUrl && <a href={invoice.stripePdfUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-center text-[#4fa77e] bg-green-50 rounded-lg hover:bg-green-100 transition-colors">PDF</a>}
+                      {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">Send</button>}
+                      {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">Void</button>}
+                      {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
+                        <button onClick={() => {
+                          const invoicePayment = payments.find((p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED');
+                          setRefundModal(invoicePayment ? { invoiceId: invoice.id, paymentId: invoicePayment.id, maxAmount: invoice.amountPaid } : { invoiceId: invoice.id, stripeInvoiceId: invoice.stripeInvoiceId, maxAmount: invoice.amountPaid });
+                        }} className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">Refund</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
 
       {activeTab === 'payments' && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div>
           {payments.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
               <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               No payments found
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Method
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Invoice
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {payments.map((payment: any) => (
-                    <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {formatDateTime(payment.createdAt)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {formatCurrency(payment.amount)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        {getStatusBadge(payment.status)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {payment.paymentMethod || '—'}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {payment.invoice
-                          ? `#${payment.invoice.stripeInvoiceNumber || payment.invoice.id}`
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Method</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {payments.map((payment: any) => (
+                        <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{formatDateTime(payment.createdAt)}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(payment.amount)}</td>
+                          <td className="px-4 py-4 whitespace-nowrap">{getStatusBadge(payment.status)}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{payment.paymentMethod || '—'}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{payment.invoice ? `#${payment.invoice.stripeInvoiceNumber || payment.invoice.id}` : '—'}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm">
+                            {payment.status === 'SUCCEEDED' && (
+                              <button onClick={() => setRefundModal({ invoiceId: payment.invoice?.id || 0, paymentId: payment.id, maxAmount: payment.amount })} className="text-purple-600 hover:text-purple-800 font-medium">Refund</button>
+                            )}
+                            {payment.status === 'REFUNDED' && <span className="text-gray-400 italic">Refunded</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {payments.map((payment: any) => (
+                  <div key={payment.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="text-lg font-semibold text-gray-900">{formatCurrency(payment.amount)}</p>
+                        <p className="text-sm text-gray-500">{formatDateTime(payment.createdAt)}</p>
+                      </div>
+                      {getStatusBadge(payment.status)}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-500 text-xs uppercase font-medium">Method</p>
+                        <p className="text-gray-900">{payment.paymentMethod || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-xs uppercase font-medium">Invoice</p>
+                        <p className="text-gray-900">{payment.invoice ? `#${payment.invoice.stripeInvoiceNumber || payment.invoice.id}` : '—'}</p>
+                      </div>
+                    </div>
+                    
+                    {(payment.status === 'SUCCEEDED' || payment.status === 'REFUNDED') && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
                         {payment.status === 'SUCCEEDED' && (
-                          <button
-                            onClick={() => setRefundModal({ 
-                              invoiceId: payment.invoice?.id || 0,
-                              paymentId: payment.id, 
-                              maxAmount: payment.amount 
-                            })}
-                            className="text-purple-600 hover:text-purple-800 font-medium transition-colors"
-                          >
-                            Refund
-                          </button>
+                          <button onClick={() => setRefundModal({ invoiceId: payment.invoice?.id || 0, paymentId: payment.id, maxAmount: payment.amount })} className="w-full py-2 px-3 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">Refund</button>
                         )}
                         {payment.status === 'REFUNDED' && (
-                          <span className="text-gray-400 italic">Refunded</span>
+                          <p className="text-center text-gray-400 italic text-sm">Refunded</p>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

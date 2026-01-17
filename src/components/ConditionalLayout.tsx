@@ -10,7 +10,7 @@ interface ConditionalLayoutProps {
 /**
  * ConditionalLayout
  * 
- * Wraps children in the standard layout container with padding and max-width,
+ * Wraps children in the standard layout container with responsive padding,
  * EXCEPT for specific pages that need full-width/custom layouts.
  */
 export default function ConditionalLayout({ children }: ConditionalLayoutProps) {
@@ -24,6 +24,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     '/reset-password',
     '/verify-email',
     '/pay/',
+    '/patients/', // Patient detail pages have their own layout
   ];
 
   const isFullWidthPage = fullWidthPages.some(page => pathname?.startsWith(page));
@@ -33,9 +34,9 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     return <>{children}</>;
   }
 
-  // Standard layout with container
+  // Standard layout with responsive container
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
       {children}
     </main>
   );
