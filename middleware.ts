@@ -115,13 +115,26 @@ export async function middleware(request: NextRequest) {
   const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
   response.headers.set('x-request-id', requestId);
   
-  // Add CORS headers for API routes if needed
+  // Add CORS headers for API routes - RESTRICTED to allowed origins
   if (isApiRoute(pathname)) {
-    // Only allow same-origin by default
-    response.headers.set('Access-Control-Allow-Origin', request.headers.get('origin') || '');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-webhook-secret');
-    response.headers.set('Access-Control-Max-Age', '86400');
+    const origin = request.headers.get('origin') || '';
+    const allowedOrigins = [
+      'https://app.eonpro.io',
+      'https://eonpro.io',
+      'https://staging.eonpro.io',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ];
+    
+    // Only set CORS headers if origin is allowed
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-webhook-secret');
+      response.headers.set('Access-Control-Max-Age', '86400');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+    }
+    // Don't set CORS headers for unknown origins - browser will block
   }
   
   return response;

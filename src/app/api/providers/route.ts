@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/db";
 import { lookupNpi } from "@/lib/npi";
 import { providerSchema } from "@/lib/providerSchema";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-export async function GET() {
+// GET - List providers (protected)
+export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   // Get all providers from Provider table (these have NPI and credentials)
   // Include clinic info for display
   const providers = await prisma.provider.findMany({
@@ -20,8 +22,8 @@ export async function GET() {
     }
   });
 
-  return Response.json({ providers });
-}
+  return NextResponse.json({ providers });
+}, { roles: ['admin', 'super_admin', 'provider'] });
 
 export async function POST(req: NextRequest) {
   const body = await req.json();

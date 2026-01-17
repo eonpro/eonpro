@@ -135,7 +135,7 @@ export async function POST(request: Request) {
   }
 
   const rawBody = await request.text();
-  if (!verifySignature(config, rawBody, request.headers.get(SIGNATURE_HEADER))) {
+  if (!verifySignature(config, rawBody, request.headers.get(SIGNATURE_HEADER) ?? undefined)) {
     await sendAlert(config, "webhook_signature_invalid", { ip, header: SIGNATURE_HEADER });
     return unauthorized("Unauthorized");
   }

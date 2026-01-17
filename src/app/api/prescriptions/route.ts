@@ -73,8 +73,8 @@ export async function POST(req: Request) {
           lifefileClient = await getClinicLifefileClient(provider.clinicId);
           logger.info(`[PRESCRIPTIONS] Using clinic ${provider.clinicId} Lifefile credentials`);
         }
-      } catch (err) {
-        logger.warn(`[PRESCRIPTIONS] Failed to get clinic credentials, falling back to env vars:`, err);
+      } catch (err: unknown) {
+        logger.warn(`[PRESCRIPTIONS] Failed to get clinic credentials, falling back to env vars:`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
 

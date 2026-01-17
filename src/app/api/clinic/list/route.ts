@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     
     // Count providers per clinic from both User table (role PROVIDER) and Provider table
     const transformedClinics = await Promise.all(
-      clinics.map(async (clinic) => {
+      clinics.map(async (clinic: { id: number; name: string; subdomain: string | null; logo: string | null; _count: { patients: number; users: number } }) => {
         const [userProviderCount, providerTableCount] = await Promise.all([
           prisma.user.count({
             where: {
