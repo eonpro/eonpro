@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { basePrisma as prisma } from '@/lib/db';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
+import { isTwilioConfigured } from '@/lib/integrations/twilio/config';
+import { isFeatureEnabled } from '@/lib/features';
 import { logger } from '@/lib/logger';
 
 // Schema for phone number
@@ -141,13 +143,61 @@ export async function POST(req: NextRequest): Promise<Response> {
     const firstName = provider?.firstName || patient?.firstName || 'there';
     const smsBody = `Hi ${firstName}! Your EONPRO verification code is: ${otp}. This code expires in ${OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.`;
     
+    // Debug: Check Twilio configuration
+    const twilioConfigured = isTwilioConfigured();
+    const twilioFeatureEnabled = isFeatureEnabled('TWILIO_SMS');
+    const useMock = !twilioConfigured || process.env.TWILIO_USE_MOCK === 'true';
+    
+    logger.info('Twilio configuration check', {
+      twilioConfigured,
+      twilioFeatureEnabled,
+      useMock,
+      hasAccountSid: !!process.env.TWILIO_ACCOUNT_SID,
+      hasAuthToken: !!process.env.TWILIO_AUTH_TOKEN,
+      hasPhoneNumber: !!process.env.TWILIO_PHONE_NUMBER,
+    });
+    
     try {
-      await sendSMS(formattedPhone, smsBody);
-      logger.info('OTP sent successfully', { phone: formattedPhone, providerId: provider?.id, patientId: patient?.id });
+      const smsResult = await sendSMS({
+        to: formattedPhone,
+        body: smsBody,
+      });
+      
+      if (!smsResult.success) {
+        logger.error('Failed to send OTP SMS', { 
+          error: smsResult.error, 
+          phone: formattedPhone,
+          twilioConfigured,
+          twilioFeatureEnabled,
+          useMock,
+        });
+        return NextResponse.json(
+          { error: 'Failed to send verification code. Please try again.', debug: { twilioConfigured, twilioFeatureEnabled, useMock } },
+          { status: 500 }
+        );
+      }
+      
+      logger.info('OTP sent successfully', { 
+        phone: formattedPhone, 
+        providerId: provider?.id, 
+        patientId: patient?.id, 
+        messageId: smsResult.messageId,
+        isMock: smsResult.details?.mock === true,
+      });
+      
+      // If using mock, return a warning
+      if (smsResult.details?.mock) {
+        return NextResponse.json({
+          success: true,
+          message: 'Verification code sent (MOCK MODE - real SMS not configured).',
+          expiresIn: OTP_EXPIRY_MINUTES * 60,
+          debug: { mock: true, twilioConfigured, twilioFeatureEnabled },
+        });
+      }
     } catch (smsError: any) {
       logger.error('Failed to send OTP SMS', { error: smsError.message, phone: formattedPhone });
       return NextResponse.json(
-        { error: 'Failed to send verification code. Please try again.' },
+        { error: 'Failed to send verification code. Please try again.', debug: smsError.message },
         { status: 500 }
       );
     }
