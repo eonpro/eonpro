@@ -79,6 +79,12 @@
     "src/app/api/auth/login/route.ts": {
       "maxDuration": 10
     },
+    "src/app/api/auth/send-otp/route.ts": {
+      "maxDuration": 15
+    },
+    "src/app/api/auth/verify-otp/route.ts": {
+      "maxDuration": 15
+    },
     "src/app/api/patients/[id]/route.ts": {
       "maxDuration": 30
     },
