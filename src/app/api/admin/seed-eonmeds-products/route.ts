@@ -363,6 +363,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // First, ensure Product table exists (run migration if needed)
+    try {
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "Product" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "clinicId" INTEGER NOT NULL REFERENCES "Clinic"("id") ON DELETE CASCADE,
+          "name" TEXT NOT NULL,
+          "description" TEXT,
+          "shortDescription" TEXT,
+          "category" TEXT NOT NULL DEFAULT 'SERVICE',
+          "price" INTEGER NOT NULL,
+          "currency" TEXT NOT NULL DEFAULT 'usd',
+          "billingType" TEXT NOT NULL DEFAULT 'ONE_TIME',
+          "billingInterval" TEXT,
+          "billingIntervalCount" INTEGER NOT NULL DEFAULT 1,
+          "trialDays" INTEGER,
+          "stripeProductId" TEXT UNIQUE,
+          "stripePriceId" TEXT UNIQUE,
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "isVisible" BOOLEAN NOT NULL DEFAULT true,
+          "displayOrder" INTEGER NOT NULL DEFAULT 0,
+          "trackInventory" BOOLEAN NOT NULL DEFAULT false,
+          "inventoryCount" INTEGER,
+          "lowStockThreshold" INTEGER,
+          "taxable" BOOLEAN NOT NULL DEFAULT false,
+          "taxRate" DOUBLE PRECISION,
+          "metadata" JSONB,
+          "tags" TEXT[]
+        )
+      `;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "Product_clinicId_isActive_idx" ON "Product"("clinicId", "isActive")`;
+      logger.info('[SEED PRODUCTS] Product table ensured');
+    } catch (tableError: any) {
+      // Table might already exist, continue
+      logger.info('[SEED PRODUCTS] Product table check:', tableError.message);
+    }
+
     // Find EONMEDS clinic
     const eonmeds = await prisma.clinic.findFirst({
       where: {
@@ -380,9 +419,14 @@ export async function POST(req: NextRequest) {
     logger.info(`[SEED PRODUCTS] Seeding products for EONMEDS clinic ID: ${eonmeds.id}`);
 
     // Delete existing products for EONMEDS (to avoid duplicates)
-    const deleted = await prisma.product.deleteMany({
-      where: { clinicId: eonmeds.id },
-    });
+    let deleted = { count: 0 };
+    try {
+      deleted = await prisma.product.deleteMany({
+        where: { clinicId: eonmeds.id },
+      });
+    } catch (e) {
+      // Table might not have data yet
+    }
     
     logger.info(`[SEED PRODUCTS] Deleted ${deleted.count} existing products`);
 
