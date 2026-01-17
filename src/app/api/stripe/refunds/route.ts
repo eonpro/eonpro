@@ -177,7 +177,8 @@ export async function POST(request: NextRequest) {
     
     // Production mode - use Stripe
     try {
-      const stripe = (await import('@/lib/stripe')).default;
+      const { getStripe } = await import('@/lib/stripe');
+      const stripe = getStripe();
       
       let refund;
       const isFullRefund = refundAmount >= maxRefundable;

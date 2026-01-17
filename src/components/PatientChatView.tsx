@@ -83,7 +83,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
 
       if (res.ok) {
         const data = await res.json();
-        const formattedMessages: Message[] = (data.messages || []).map((msg: any) => ({
+        const apiMessages: Message[] = (data.messages || []).map((msg: any) => ({
           id: msg.sid || msg.id,
           text: msg.body || msg.text,
           // Twilio uses 'inbound' for patient messages, 'outbound-api' or 'outbound' for provider
@@ -92,7 +92,54 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           timestamp: new Date(msg.dateCreated || msg.timestamp).toISOString(),
           status: msg.status === 'delivered' ? 'delivered' : (msg.status === 'sent' ? 'sent' : msg.status)
         }));
-        setMessages(formattedMessages);
+        
+        // Merge with existing messages to preserve locally-added messages
+        // that haven't appeared in the API yet (e.g., just-sent messages)
+        setMessages(prev => {
+          // If first load, just use API messages
+          if (showLoading || prev.length === 0) {
+            return apiMessages;
+          }
+          
+          // Get IDs of messages from API
+          const apiMessageIds = new Set(apiMessages.map(m => m.id));
+          
+          // Keep local temp messages (id starts with 'temp-') that aren't in API yet
+          // and any messages from the last 30 seconds not in API (recently sent)
+          const thirtySecondsAgo = Date.now() - 30000;
+          const localMessagesToKeep = prev.filter(localMsg => {
+            // Keep temp messages
+            if (localMsg.id.startsWith('temp-')) {
+              return true;
+            }
+            // Keep recent messages not in API (might be in transit)
+            const msgTime = new Date(localMsg.timestamp).getTime();
+            if (msgTime > thirtySecondsAgo && !apiMessageIds.has(localMsg.id)) {
+              return true;
+            }
+            return false;
+          });
+          
+          // Combine API messages with local messages to keep
+          const combined = [...apiMessages, ...localMessagesToKeep];
+          
+          // Sort by timestamp and dedupe
+          const sorted = combined.sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          
+          // Remove duplicates (prefer API version)
+          const seen = new Set<string>();
+          const deduped = sorted.filter(msg => {
+            // For temp messages, use text as additional key
+            const key = msg.id.startsWith('temp-') ? `${msg.text}-${msg.timestamp}` : msg.id;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          
+          return deduped;
+        });
       } else {
         // Only clear messages on first load, not during polling
         if (showLoading) {
@@ -104,7 +151,6 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         }
       }
     } catch (error: any) {
-      // @ts-ignore
       logger.error('Failed to load message history', error);
       // Only clear on first load, keep existing on polling failures
       if (showLoading) {
@@ -217,7 +263,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
 
   // Format time - only runs on client after mount to avoid hydration mismatch
   const formatTime = (dateString: string) => {
-    if (!mounted) return ''; // Return empty on server
+    if (!mounted) return '—'; // Return consistent placeholder
     try {
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('en-US', {
@@ -226,13 +272,13 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         hour12: true
       }).format(date);
     } catch {
-      return '';
+      return '—';
     }
   };
 
   // Format date - only runs on client after mount to avoid hydration mismatch
   const formatDate = (dateString: string) => {
-    if (!mounted) return ''; // Return empty on server
+    if (!mounted) return '—'; // Return consistent placeholder
     try {
       const today = new Date();
       const messageDate = new Date(dateString);
@@ -253,7 +299,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
       });
     } catch {
-      return '';
+      return '—';
     }
   };
 
