@@ -59,7 +59,7 @@ const NOTIFICATION_TEMPLATES = {
   },
   DELIVERED: {
     sms: 'Your prescription {medication} has been delivered. Please check your delivery location.',
-    chat: '✅ Your prescription for {medication} has been delivered successfully! Please check your delivery location. If you have any issues, let us know.',
+    chat: 'Your prescription for {medication} has been delivered successfully! Please check your delivery location. If you have any issues, let us know.',
     email: {
       subject: 'Your Prescription Has Been Delivered',
       body: 'Your prescription for {medication} has been delivered to your address.'
@@ -83,7 +83,7 @@ const NOTIFICATION_TEMPLATES = {
   },
   FAILED: {
     sms: 'There was an issue with your prescription {medication}. Please contact us at {supportPhone}.',
-    chat: '⚠️ There was an issue processing your prescription for {medication}. Please contact our support team at {supportPhone} for assistance.',
+    chat: 'There was an issue processing your prescription for {medication}. Please contact our support team at {supportPhone} for assistance.',
     email: {
       subject: 'Issue with Your Prescription',
       body: 'There was an issue processing your prescription for {medication}. Please contact us for assistance.'

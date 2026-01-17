@@ -465,7 +465,7 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
     id: 'security',
     name: 'Security',
     description: 'Security and compliance settings',
-    icon: '🔒',
+    icon: 'security',
     requiredPermission: 'system:config',
     subcategories: [
       {
@@ -557,7 +557,7 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
     id: 'users',
     name: 'User Management',
     description: 'User and role configuration',
-    icon: '👥',
+    icon: 'users',
     requiredPermission: 'user:read',
     subcategories: [
       {

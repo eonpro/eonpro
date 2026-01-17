@@ -246,14 +246,14 @@ export default function PatientPaymentMethods({
     }
   };
 
-  // Get card brand icon
+  // Get card brand icon (SVG)
   const getCardIcon = (brand: string) => {
-    const brandLower = brand.toLowerCase();
-    if (brandLower.includes('visa')) return '💳';
-    if (brandLower.includes('master')) return '💳';
-    if (brandLower.includes('amex')) return '💳';
-    if (brandLower.includes('discover')) return '💳';
-    return '💳';
+    return (
+      <svg className="w-8 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" strokeWidth="2" />
+        <line x1="1" y1="10" x2="23" y2="10" strokeWidth="2" />
+      </svg>
+    );
   };
 
   // Check if card is expired

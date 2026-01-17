@@ -80,19 +80,19 @@ export default function SendIntakeFormModal({ patient }: SendIntakeFormModalProp
 
       if (res.ok) {
         const data = await res.json();
-        setMessage('✅ Form sent successfully!');
+        setMessage('SUCCESS: Form sent successfully!');
         setTimeout(() => {
           closeModal();
         }, 2000);
       } else {
         const error = await res.json();
-        setMessage(`❌ ${error.error || 'Failed to send form'}`);
+        setMessage(`ERROR: ${error.error || 'Failed to send form'}`);
       }
     } catch (error: any) {
     // @ts-ignore
    
       logger.error('Failed to send form', error);
-      setMessage('❌ Failed to send form');
+      setMessage('ERROR: Failed to send form');
     } finally {
       setLoading(false);
     }
@@ -211,8 +211,17 @@ export default function SendIntakeFormModal({ patient }: SendIntakeFormModalProp
 
             {/* Message */}
             {message && (
-              <div className={`p-3 rounded ${message.includes('✅') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                {message}
+              <div className={`p-3 rounded flex items-center gap-2 ${message.includes('SUCCESS') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {message.includes('SUCCESS') ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+                {message.replace('SUCCESS: ', '').replace('ERROR: ', '')}
               </div>
             )}
 

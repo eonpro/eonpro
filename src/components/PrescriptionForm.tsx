@@ -465,8 +465,8 @@ export default function PrescriptionForm({
               </div>
               <div>
                 <span className="text-gray-600">Signature:</span>{" "}
-                <span className="font-medium text-green-600">
-                  {selectedProvider?.signatureDataUrl || form.signatureDataUrl ? '✓ Captured' : '⚠️ Missing'}
+                <span className={`font-medium ${selectedProvider?.signatureDataUrl || form.signatureDataUrl ? 'text-green-600' : 'text-amber-600'}`}>
+                  {selectedProvider?.signatureDataUrl || form.signatureDataUrl ? 'Captured' : 'Missing'}
                 </span>
               </div>
             </div>
@@ -949,8 +949,11 @@ export default function PrescriptionForm({
             </div>
           ) : (
             <div>
-              <p className="text-sm text-red-600 mb-2">
-                ⚠️ No signature on file for this provider. Please sign below (this will be saved for future use).
+              <p className="text-sm text-red-600 mb-2 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                No signature on file for this provider. Please sign below (this will be saved for future use).
               </p>
               <SignaturePadCanvas onChange={onSignatureChange} />
             </div>

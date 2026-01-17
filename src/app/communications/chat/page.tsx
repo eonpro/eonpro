@@ -121,7 +121,7 @@ export default function ChatManagementPage() {
                 
                 <div className="grid md:grid-cols-3 gap-6 text-left max-w-3xl mx-auto mt-8">
                   <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">💬 Instant Messaging</h3>
+                    <h3 className="font-semibold mb-2">Instant Messaging</h3>
                     <p className="text-sm text-gray-600">
                       Real-time chat with typing indicators and read receipts
                     </p>

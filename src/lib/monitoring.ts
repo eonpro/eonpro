@@ -401,7 +401,7 @@ export function initializeMonitoring() {
       Sentry.metrics.gauge('web.vitals.fid', 0);
       Sentry.metrics.gauge('web.vitals.lcp', 0);
       
-      logger.debug('✅ Monitoring initialized');
+      logger.debug('[MONITORING] Initialized successfully');
     }, 0);
   }
 }

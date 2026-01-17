@@ -113,6 +113,73 @@ function formatDateTime(dateString: string): string {
 }
 
 // Stat Card Component
+// SVG Icon component for StatCard
+function StatIcon({ type }: { type: string }) {
+  const icons: Record<string, JSX.Element> = {
+    users: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+    dollar: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    refresh: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+    ),
+    check: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      </svg>
+    ),
+    star: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+      </svg>
+    ),
+    target: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    chart: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+    pause: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    x: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    ),
+    trendDown: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+      </svg>
+    ),
+    card: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+      </svg>
+    ),
+    active: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+  };
+  return icons[type] || icons.chart;
+}
+
 function StatCard({ 
   title, 
   value, 
@@ -139,7 +206,7 @@ function StatCard({
   return (
     <div className={`rounded-xl border p-6 ${colorClasses[color]}`}>
       <div className="flex items-center justify-between mb-4">
-        <span className="text-2xl">{icon}</span>
+        <StatIcon type={icon} />
         {trend !== undefined && (
           <span className={`text-sm font-medium ${trend >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
             {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
@@ -251,7 +318,7 @@ export default function ReportsPage() {
         <div className="max-w-7xl mx-auto px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">📊 Reports & Analytics</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Reports &amp; Analytics</h1>
               <p className="text-gray-500 mt-1">Comprehensive clinic performance metrics</p>
             </div>
             
@@ -312,10 +379,10 @@ export default function ReportsPage() {
           <div className="flex gap-1 mt-6 -mb-px">
             {[
               { id: 'overview', label: '📈 Overview' },
-              { id: 'patients', label: '👥 Patients' },
-              { id: 'revenue', label: '💰 Revenue' },
-              { id: 'subscriptions', label: '🔄 Subscriptions' },
-              { id: 'payments', label: '💳 Payments' },
+              { id: 'patients', label: 'Patients' },
+              { id: 'revenue', label: 'Revenue' },
+              { id: 'subscriptions', label: 'Subscriptions' },
+              { id: 'payments', label: 'Payments' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -378,7 +445,7 @@ function OverviewTab({ report }: { report: Report }) {
           value={patients?.totalPatients || 0}
           subValue={`${patients?.newPatients || 0} new this period`}
           trend={patients?.patientGrowthRate}
-          icon="👥"
+          icon="users"
           color="blue"
         />
         <StatCard
@@ -386,21 +453,21 @@ function OverviewTab({ report }: { report: Report }) {
           value={formatCurrency(revenue?.totalRevenue || 0)}
           subValue={`${formatCurrency(revenue?.recurringRevenue || 0)} recurring`}
           trend={revenue?.revenueGrowthRate}
-          icon="💰"
+          icon="dollar"
           color="green"
         />
         <StatCard
           title="Monthly Recurring Revenue"
           value={formatCurrency(subscriptions?.monthlyRecurringRevenue || 0)}
           subValue={`${subscriptions?.totalActiveSubscriptions || 0} active subscriptions`}
-          icon="🔄"
+          icon="refresh"
           color="purple"
         />
         <StatCard
           title="Payment Success Rate"
           value={`${payments?.paymentSuccessRate || 0}%`}
           subValue={`${payments?.successfulPayments || 0} of ${payments?.totalPayments || 0} payments`}
-          icon="✅"
+          icon="check"
           color="orange"
         />
       </div>
@@ -454,7 +521,7 @@ function OverviewTab({ report }: { report: Report }) {
       <div className="grid grid-cols-2 gap-6">
         {/* Yesterday's Payments */}
         <div className="bg-white rounded-xl border p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">💳 Yesterday&apos;s Payments</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">Yesterday&apos;s Payments</h3>
           {payments?.yesterdayPayments?.length ? (
             <div className="space-y-3">
               {payments.yesterdayPayments.slice(0, 5).map((p, i) => (
@@ -477,7 +544,7 @@ function OverviewTab({ report }: { report: Report }) {
 
         {/* Recent Cancellations */}
         <div className="bg-white rounded-xl border p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">⚠️ Recent Cancellations</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">Recent Cancellations</h3>
           {subscriptions?.recentCancellations?.length ? (
             <div className="space-y-3">
               {subscriptions.recentCancellations.slice(0, 5).map((c, i) => (
@@ -491,7 +558,7 @@ function OverviewTab({ report }: { report: Report }) {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">No recent cancellations 🎉</p>
+            <p className="text-gray-500 text-center py-8">No recent cancellations</p>
           )}
         </div>
       </div>
@@ -504,10 +571,10 @@ function PatientsTab({ metrics }: { metrics: PatientMetrics }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-6">
-        <StatCard title="Total Patients" value={metrics.totalPatients} icon="👥" color="blue" />
-        <StatCard title="New Patients" value={metrics.newPatients} trend={metrics.patientGrowthRate} icon="✨" color="green" />
-        <StatCard title="Active Patients" value={metrics.activePatients} icon="💪" color="purple" />
-        <StatCard title="Retention Rate" value={`${metrics.patientRetentionRate}%`} icon="🎯" color="orange" />
+        <StatCard title="Total Patients" value={metrics.totalPatients} icon="users" color="blue" />
+        <StatCard title="New Patients" value={metrics.newPatients} trend={metrics.patientGrowthRate} icon="star" color="green" />
+        <StatCard title="Active Patients" value={metrics.activePatients} icon="active" color="purple" />
+        <StatCard title="Retention Rate" value={`${metrics.patientRetentionRate}%`} icon="target" color="orange" />
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -556,10 +623,10 @@ function RevenueTab({ metrics }: { metrics: RevenueMetrics }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-6">
-        <StatCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} trend={metrics.revenueGrowthRate} icon="💰" color="green" />
-        <StatCard title="Recurring Revenue" value={formatCurrency(metrics.recurringRevenue)} icon="🔄" color="blue" />
-        <StatCard title="One-Time Revenue" value={formatCurrency(metrics.oneTimeRevenue)} icon="💵" color="purple" />
-        <StatCard title="Avg Order Value" value={formatCurrency(metrics.averageOrderValue)} icon="📊" color="orange" />
+        <StatCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} trend={metrics.revenueGrowthRate} icon="dollar" color="green" />
+        <StatCard title="Recurring Revenue" value={formatCurrency(metrics.recurringRevenue)} icon="refresh" color="blue" />
+        <StatCard title="One-Time Revenue" value={formatCurrency(metrics.oneTimeRevenue)} icon="dollar" color="purple" />
+        <StatCard title="Avg Order Value" value={formatCurrency(metrics.averageOrderValue)} icon="chart" color="orange" />
       </div>
 
       <div className="bg-white rounded-xl border p-6">
@@ -584,10 +651,10 @@ function SubscriptionsTab({ metrics }: { metrics: SubscriptionMetrics }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-6">
-        <StatCard title="Active Subscriptions" value={metrics.totalActiveSubscriptions} icon="✅" color="green" />
-        <StatCard title="Paused" value={metrics.totalPausedSubscriptions} icon="⏸️" color="orange" />
-        <StatCard title="Cancelled" value={metrics.totalCancelledSubscriptions} icon="❌" color="red" />
-        <StatCard title="Churn Rate" value={`${metrics.churnRate}%`} icon="📉" color="purple" />
+        <StatCard title="Active Subscriptions" value={metrics.totalActiveSubscriptions} icon="check" color="green" />
+        <StatCard title="Paused" value={metrics.totalPausedSubscriptions} icon="pause" color="orange" />
+        <StatCard title="Cancelled" value={metrics.totalCancelledSubscriptions} icon="x" color="red" />
+        <StatCard title="Churn Rate" value={`${metrics.churnRate}%`} icon="trendDown" color="purple" />
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -625,7 +692,7 @@ function SubscriptionsTab({ metrics }: { metrics: SubscriptionMetrics }) {
       {/* Paused Subscriptions */}
       {metrics.recentPauses.length > 0 && (
         <div className="bg-white rounded-xl border p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">⏸️ Paused Subscriptions</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">Paused Subscriptions</h3>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -655,10 +722,10 @@ function PaymentsTab({ metrics }: { metrics: PaymentMetrics }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-6">
-        <StatCard title="Total Payments" value={metrics.totalPayments} icon="💳" color="blue" />
-        <StatCard title="Successful" value={metrics.successfulPayments} icon="✅" color="green" />
-        <StatCard title="Failed" value={metrics.failedPayments} icon="❌" color="red" />
-        <StatCard title="Success Rate" value={`${metrics.paymentSuccessRate}%`} icon="📊" color="purple" />
+        <StatCard title="Total Payments" value={metrics.totalPayments} icon="card" color="blue" />
+        <StatCard title="Successful" value={metrics.successfulPayments} icon="check" color="green" />
+        <StatCard title="Failed" value={metrics.failedPayments} icon="x" color="red" />
+        <StatCard title="Success Rate" value={`${metrics.paymentSuccessRate}%`} icon="chart" color="purple" />
       </div>
 
       <div className="bg-white rounded-xl border p-6">

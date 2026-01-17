@@ -70,7 +70,7 @@ if (!isBuildTime) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(errorMsg);
     } else {
-      logger.warn('⚠️  Using weak JWT_SECRET in development - change before production!');
+      logger.warn('[AUTH] Using weak JWT_SECRET in development - change before production!');
     }
   }
 }

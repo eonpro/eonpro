@@ -109,7 +109,7 @@ export async function setupDefaultClinic() {
 
     // Update other models as needed...
     
-    logger.info('✅ Successfully migrated all data to default clinic');
+    logger.info('[CLINIC] Successfully migrated all data to default clinic');
     
     return defaultClinic;
   } catch (error) {

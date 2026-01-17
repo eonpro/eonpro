@@ -71,7 +71,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         id: 'users',
         title: 'User Management',
         description: 'Manage users, roles, and permissions',
-        icon: '👥',
+        icon: 'users',
         path: '/settings/users',
         badge: userCount > 0 ? userCount : undefined,
         requiredPermission: PERMISSIONS.USER_READ,
