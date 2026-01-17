@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
         data: {
           filename: stored.filename,
           externalUrl: stored.publicPath,
-          pdfData: pdfContent,
+          data: pdfContent,
           updatedAt: new Date(),
         },
       });
@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
           mimeType: "application/pdf",
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           externalUrl: stored.publicPath,
-          pdfData: pdfContent,
+          data: pdfContent,
           source: "weightlossintake",
           sourceSubmissionId: normalized.submissionId,
           intakeData: {
