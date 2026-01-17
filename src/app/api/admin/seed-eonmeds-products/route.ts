@@ -418,40 +418,32 @@ export async function POST(req: NextRequest) {
 
     logger.info(`[SEED PRODUCTS] Seeding products for EONMEDS clinic ID: ${eonmeds.id}`);
 
-    // Delete existing products for EONMEDS (to avoid duplicates)
-    let deleted = { count: 0 };
-    try {
-      deleted = await prisma.product.deleteMany({
-        where: { clinicId: eonmeds.id },
-      });
-    } catch (e) {
-      // Table might not have data yet
-    }
-    
-    logger.info(`[SEED PRODUCTS] Deleted ${deleted.count} existing products`);
+    // Delete existing products for EONMEDS (to avoid duplicates) using raw SQL
+    await prisma.$executeRaw`DELETE FROM "Product" WHERE "clinicId" = ${eonmeds.id}`;
+    logger.info(`[SEED PRODUCTS] Deleted existing products for clinic ${eonmeds.id}`);
 
-    // Create all products
+    // Create all products using raw SQL
     const createdProducts = [];
     
     for (const product of EONMEDS_PRODUCTS) {
-      const created = await prisma.product.create({
-        data: {
-          clinicId: eonmeds.id,
-          name: product.name,
-          shortDescription: product.shortDescription,
-          category: product.category as any,
-          price: product.price,
-          currency: 'usd',
-          billingType: product.billingType as any,
-          billingInterval: product.billingInterval as any || null,
-          billingIntervalCount: product.billingIntervalCount || 1,
-          stripePriceId: product.stripePriceId,
-          isActive: true,
-          isVisible: true,
-          metadata: product.metadata,
-        },
+      const result = await prisma.$executeRaw`
+        INSERT INTO "Product" (
+          "clinicId", "name", "shortDescription", "category", "price", "currency",
+          "billingType", "billingInterval", "billingIntervalCount", "stripePriceId",
+          "isActive", "isVisible", "metadata", "createdAt", "updatedAt"
+        ) VALUES (
+          ${eonmeds.id}, ${product.name}, ${product.shortDescription}, ${product.category},
+          ${product.price}, 'usd', ${product.billingType}, ${product.billingInterval || null},
+          ${product.billingIntervalCount || 1}, ${product.stripePriceId},
+          true, true, ${JSON.stringify(product.metadata)}::jsonb, NOW(), NOW()
+        )
+      `;
+      createdProducts.push({
+        name: product.name,
+        price: product.price / 100,
+        stripePriceId: product.stripePriceId,
+        billingType: product.billingType,
       });
-      createdProducts.push(created);
     }
 
     logger.info(`[SEED PRODUCTS] Created ${createdProducts.length} products for EONMEDS`);
@@ -463,15 +455,8 @@ export async function POST(req: NextRequest) {
         name: eonmeds.name,
       },
       products: {
-        deleted: deleted.count,
         created: createdProducts.length,
-        items: createdProducts.map(p => ({
-          id: p.id,
-          name: p.name,
-          price: p.price / 100,
-          stripePriceId: p.stripePriceId,
-          billingType: p.billingType,
-        })),
+        items: createdProducts,
       },
     });
   } catch (error: any) {
