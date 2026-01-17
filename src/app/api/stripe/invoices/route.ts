@@ -11,11 +11,14 @@ const createInvoiceSchema = z.object({
     amount: z.number().min(0),
     quantity: z.number().min(1).optional(),
     metadata: z.record(z.string()).optional(),
+    productId: z.number().optional(), // Link to product catalog
   })),
   dueInDays: z.number().min(0).optional(),
   autoSend: z.boolean().optional(),
   metadata: z.record(z.string()).optional(),
   orderId: z.number().optional(),
+  createSubscription: z.boolean().optional(), // Auto-create subscription on payment
+  productIds: z.array(z.number()).optional(), // Shortcut: just provide product IDs
 });
 
 export async function POST(request: NextRequest) {
@@ -25,6 +28,41 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const validatedData = createInvoiceSchema.parse(body);
     
+    const { prisma } = await import('@/lib/db');
+    
+    // If productIds provided, fetch products and build line items
+    let lineItems = validatedData.lineItems || [];
+    let hasRecurringProducts = false;
+    let productRecords: any[] = [];
+    
+    if (validatedData.productIds && validatedData.productIds.length > 0) {
+      productRecords = await prisma.product.findMany({
+        where: { id: { in: validatedData.productIds }, isActive: true },
+      });
+      
+      lineItems = productRecords.map(product => ({
+        description: product.shortDescription || product.name,
+        amount: product.price,
+        quantity: 1,
+        productId: product.id,
+        metadata: { productId: product.id.toString() },
+      }));
+      
+      hasRecurringProducts = productRecords.some(p => p.billingType === 'RECURRING');
+    } else {
+      // Check existing lineItems for product references
+      for (const item of lineItems) {
+        if (item.productId) {
+          const product = await prisma.product.findUnique({ where: { id: item.productId } });
+          if (product?.billingType === 'RECURRING') {
+            hasRecurringProducts = true;
+          }
+        }
+      }
+    }
+    
+    const createSubscription = validatedData.createSubscription ?? hasRecurringProducts;
+    
     // Check if Stripe is configured
     const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
     
@@ -32,10 +70,8 @@ export async function POST(request: NextRequest) {
       // Development/Demo mode - create invoice without Stripe
       logger.warn('[API] Stripe not configured - creating demo invoice');
       
-      const { prisma } = await import('@/lib/db');
-      
       // Calculate total (amount is the total for each line item, not per-unit)
-      const total = validatedData.lineItems.reduce((sum, item) => {
+      const total = lineItems.reduce((sum, item) => {
         return sum + item.amount;
       }, 0);
       
@@ -49,16 +85,33 @@ export async function POST(request: NextRequest) {
           dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
           description: validatedData.description || 'Medical Services',
           metadata: validatedData.metadata || {},
-          lineItems: validatedData.lineItems,
+          lineItems: lineItems,
           orderId: validatedData.orderId,
+          createSubscription,
         },
       });
+      
+      // Create invoice items records
+      for (const item of lineItems) {
+        await prisma.invoiceItem.create({
+          data: {
+            invoiceId: invoice.id,
+            productId: item.productId || null,
+            description: item.description,
+            quantity: item.quantity || 1,
+            unitPrice: item.amount,
+            amount: item.amount * (item.quantity || 1),
+            metadata: item.metadata || {},
+          },
+        });
+      }
       
       return NextResponse.json({
         success: true,
         invoice,
         stripeInvoiceUrl: null,
         demoMode: true,
+        willCreateSubscription: createSubscription,
         message: 'Invoice created in demo mode (Stripe not configured)',
       });
     }
@@ -67,13 +120,38 @@ export async function POST(request: NextRequest) {
     try {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
       
-      // Create invoice
-      const result = await StripeInvoiceService.createInvoice(validatedData as any);
+      // Create invoice with subscription flag
+      const result = await StripeInvoiceService.createInvoice({
+        ...validatedData,
+        lineItems,
+      } as any);
+      
+      // Update invoice with subscription flag and create invoice items
+      await prisma.invoice.update({
+        where: { id: result.invoice.id },
+        data: { createSubscription },
+      });
+      
+      // Create invoice items records
+      for (const item of lineItems) {
+        await prisma.invoiceItem.create({
+          data: {
+            invoiceId: result.invoice.id,
+            productId: item.productId || null,
+            description: item.description,
+            quantity: item.quantity || 1,
+            unitPrice: item.amount,
+            amount: item.amount * (item.quantity || 1),
+            metadata: item.metadata || {},
+          },
+        });
+      }
       
       return NextResponse.json({
         success: true,
         invoice: result.invoice,
         stripeInvoiceUrl: result.stripeInvoice.hosted_invoice_url,
+        willCreateSubscription: createSubscription,
       });
     } catch (stripeError: any) {
       logger.error('[API] Stripe service error:', { 
@@ -85,8 +163,7 @@ export async function POST(request: NextRequest) {
       // If Stripe fails, try demo mode
       logger.warn('[API] Falling back to demo mode due to Stripe error');
       
-      const { prisma } = await import('@/lib/db');
-      const total = validatedData.lineItems.reduce((sum, item) => sum + item.amount, 0);
+      const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
       
       const invoice = await prisma.invoice.create({
         data: {
@@ -97,7 +174,8 @@ export async function POST(request: NextRequest) {
           dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
           description: validatedData.description || 'Medical Services',
           metadata: validatedData.metadata || {},
-          lineItems: validatedData.lineItems,
+          lineItems: lineItems,
+          createSubscription,
           orderId: validatedData.orderId,
         },
       });

@@ -193,12 +193,23 @@ export class StripeInvoiceService {
     // Find invoice in database
     const invoice = await prisma.invoice.findUnique({
       where: { stripeInvoiceId: stripeInvoice.id },
+      include: {
+        patient: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
     });
     
     if (!invoice) {
       logger.warn(`[STRIPE] Invoice ${stripeInvoice.id} not found in database`);
       return;
     }
+    
+    const wasPaid = stripeInvoice.status === 'paid';
+    const wasNotPaidBefore = invoice.status !== 'PAID';
     
     // Update invoice
     await prisma.invoice.update({
@@ -216,6 +227,96 @@ export class StripeInvoiceService {
     });
     
     logger.debug(`[STRIPE] Updated invoice ${stripeInvoice.id} from webhook`);
+    
+    // If invoice just became paid, check if we need to create subscriptions
+    if (wasPaid && wasNotPaidBefore && invoice.createSubscription && !invoice.subscriptionCreated) {
+      await this.createSubscriptionsFromInvoice(invoice);
+    }
+  }
+  
+  /**
+   * Create subscriptions from paid invoice items that have recurring products
+   */
+  static async createSubscriptionsFromInvoice(invoice: any): Promise<void> {
+    try {
+      const stripeClient = getStripe();
+      const { patient } = invoice;
+      
+      if (!patient?.stripeCustomerId) {
+        logger.warn(`[STRIPE] Cannot create subscription - patient has no Stripe customer ID`);
+        return;
+      }
+      
+      // Find recurring products in invoice items
+      const recurringItems = invoice.items?.filter((item: any) => 
+        item.product?.billingType === 'RECURRING' && item.product?.stripePriceId
+      ) || [];
+      
+      // Also check legacy lineItems JSON for product references
+      const lineItems = invoice.lineItems || [];
+      
+      for (const item of recurringItems) {
+        const product = item.product;
+        
+        try {
+          // Create Stripe subscription
+          const subscription = await stripeClient.subscriptions.create({
+            customer: patient.stripeCustomerId,
+            items: [{ price: product.stripePriceId }],
+            trial_period_days: product.trialDays || undefined,
+            metadata: {
+              patientId: patient.id.toString(),
+              productId: product.id.toString(),
+              invoiceId: invoice.id.toString(),
+              clinicId: invoice.clinicId?.toString() || '',
+            },
+          });
+          
+          // Create subscription record in database
+          const intervalMap: Record<string, string> = {
+            'WEEKLY': 'week',
+            'MONTHLY': 'month',
+            'QUARTERLY': 'month',
+            'SEMI_ANNUAL': 'month',
+            'ANNUAL': 'year',
+          };
+          
+          await prisma.subscription.create({
+            data: {
+              clinicId: invoice.clinicId,
+              patientId: patient.id,
+              planId: product.id.toString(),
+              planName: product.name,
+              planDescription: product.description || product.shortDescription || '',
+              status: 'ACTIVE',
+              amount: product.price,
+              currency: product.currency || 'usd',
+              interval: intervalMap[product.billingInterval || 'MONTHLY'] || 'month',
+              intervalCount: product.billingIntervalCount || 1,
+              startDate: new Date(),
+              currentPeriodStart: new Date(),
+              currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+              nextBillingDate: new Date(subscription.current_period_end * 1000),
+              stripeSubscriptionId: subscription.id,
+              metadata: { productId: product.id, invoiceId: invoice.id },
+            },
+          });
+          
+          logger.info(`[STRIPE] Created subscription ${subscription.id} for patient ${patient.id}, product ${product.name}`);
+        } catch (subError: any) {
+          logger.error(`[STRIPE] Failed to create subscription for product ${product.id}:`, subError.message);
+        }
+      }
+      
+      // Mark invoice as having created subscriptions
+      await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { subscriptionCreated: true },
+      });
+      
+    } catch (error: any) {
+      logger.error(`[STRIPE] Error creating subscriptions from invoice:`, error.message);
+    }
   }
   
   /**

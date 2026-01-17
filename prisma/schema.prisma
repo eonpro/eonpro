@@ -186,31 +186,34 @@ model PatientAudit {
 }
 
 model Invoice {
-  id                  Int           @id @default(autoincrement())
-  createdAt           DateTime      @default(now())
-  clinicId            Int? // Multi-clinic support
-  clinic              Clinic?       @relation(fields: [clinicId], references: [id])
-  updatedAt           DateTime      @updatedAt
-  stripeInvoiceId     String?       @unique // Optional for demo mode
-  stripeInvoiceNumber String?
-  stripeInvoiceUrl    String?
-  stripePdfUrl        String?
-  patientId           Int
-  description         String?
-  amount              Int?          // Total amount for demo mode
-  amountDue           Int?
-  amountPaid          Int           @default(0)
-  currency            String        @default("usd")
-  status              InvoiceStatus @default(DRAFT)
-  dueDate             DateTime?
-  paidAt              DateTime?
-  lineItems           Json?
-  metadata            Json?
-  orderId             Int?
-  commissionGenerated Boolean       @default(false)
-  patient             Patient       @relation(fields: [patientId], references: [id])
-  commission          Commission?
-  payments            Payment[]
+  id                   Int           @id @default(autoincrement())
+  createdAt            DateTime      @default(now())
+  clinicId             Int? // Multi-clinic support
+  clinic               Clinic?       @relation(fields: [clinicId], references: [id])
+  updatedAt            DateTime      @updatedAt
+  stripeInvoiceId      String?       @unique // Optional for demo mode
+  stripeInvoiceNumber  String?
+  stripeInvoiceUrl     String?
+  stripePdfUrl         String?
+  patientId            Int
+  description          String?
+  amount               Int?          // Total amount for demo mode
+  amountDue            Int?
+  amountPaid           Int           @default(0)
+  currency             String        @default("usd")
+  status               InvoiceStatus @default(DRAFT)
+  dueDate              DateTime?
+  paidAt               DateTime?
+  lineItems            Json?
+  metadata             Json?
+  orderId              Int?
+  commissionGenerated  Boolean       @default(false)
+  createSubscription   Boolean       @default(false) // If true, creates subscription on payment
+  subscriptionCreated  Boolean       @default(false) // Was subscription created?
+  patient              Patient       @relation(fields: [patientId], references: [id])
+  commission           Commission?
+  payments             Payment[]
+  items                InvoiceItem[] // Structured line items
 }
 
 model Payment {
@@ -1468,6 +1471,9 @@ model Clinic {
   carePlans            CarePlan[]
   carePlanTemplates    CarePlanTemplate[]
   smsLogs              SmsLog[]
+  
+  // Product Catalog
+  products             Product[]
 
   @@index([subdomain])
   @@index([status])
@@ -1899,4 +1905,103 @@ model SmsLog {
   @@index([fromPhone])
   @@index([toPhone])
   @@index([clinicId])
+}
+
+// ===== PRODUCT CATALOG =====
+
+model Product {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  
+  // Basic Information
+  name               String            // e.g., "Semaglutide 0-1.25mg Monthly"
+  description        String?           // Detailed description
+  shortDescription   String?           // For invoices/receipts
+  category           ProductCategory   @default(SERVICE)
+  
+  // Pricing
+  price              Int               // Price in cents
+  currency           String            @default("usd")
+  
+  // Billing Type
+  billingType        BillingType       @default(ONE_TIME)
+  billingInterval    BillingInterval?  // For recurring: MONTHLY, QUARTERLY, etc.
+  billingIntervalCount Int             @default(1) // e.g., 3 for quarterly (3 months)
+  
+  // Trial Period (for subscriptions)
+  trialDays          Int?              // Optional trial period
+  
+  // Stripe Integration
+  stripeProductId    String?           @unique // Stripe Product ID
+  stripePriceId      String?           @unique // Stripe Price ID
+  
+  // Status & Visibility
+  isActive           Boolean           @default(true)
+  isVisible          Boolean           @default(true) // Show in patient-facing catalog
+  displayOrder       Int               @default(0)   // For sorting
+  
+  // Inventory (optional)
+  trackInventory     Boolean           @default(false)
+  inventoryCount     Int?
+  lowStockThreshold  Int?
+  
+  // Tax
+  taxable            Boolean           @default(false)
+  taxRate            Float?            // e.g., 0.07 for 7%
+  
+  // Metadata
+  metadata           Json?             // Additional custom data
+  tags               Json?             // Array of tags for filtering
+  
+  // Relations
+  invoiceItems       InvoiceItem[]
+  
+  @@index([clinicId, isActive])
+  @@index([clinicId, category])
+  @@index([stripeProductId])
+}
+
+model InvoiceItem {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  invoiceId   Int
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   Int?
+  product     Product?  @relation(fields: [productId], references: [id])
+  description String    // Line item description
+  quantity    Int       @default(1)
+  unitPrice   Int       // Price per unit in cents
+  amount      Int       // Total amount (quantity * unitPrice)
+  metadata    Json?
+  
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+enum ProductCategory {
+  SERVICE        // Medical services, consultations
+  MEDICATION     // Prescription medications
+  SUPPLEMENT     // OTC supplements
+  LAB_TEST       // Lab work, tests
+  PROCEDURE      // Medical procedures
+  PACKAGE        // Bundled services
+  MEMBERSHIP     // Membership/subscription plans
+  OTHER
+}
+
+enum BillingType {
+  ONE_TIME       // Single payment
+  RECURRING      // Subscription
+}
+
+enum BillingInterval {
+  WEEKLY
+  MONTHLY
+  QUARTERLY      // Every 3 months
+  SEMI_ANNUAL    // Every 6 months
+  ANNUAL         // Yearly
+  CUSTOM         // Custom interval using billingIntervalCount
 }
