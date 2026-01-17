@@ -525,22 +525,20 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         />
             </div>
         ) : currentTab === "billing" ? (
-            <div className="space-y-6">
-              {/* Billing section with Payment Methods included */}
-              <div className="bg-gray-50 rounded-lg p-6">
-          <PatientBillingView 
-            patientId={patientWithDecryptedPHI.id} 
-            patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
-          />
-              </div>
+            <div className="space-y-6 w-full overflow-hidden">
+              {/* Billing section */}
+              <PatientBillingView 
+                patientId={patientWithDecryptedPHI.id} 
+                patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
+              />
               
               {/* Payment Methods as a subsection of Billing */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold mb-4 pb-3 border-b">Payment Methods</h3>
-          <PatientPaymentMethods
-            patientId={patientWithDecryptedPHI.id}
-            patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
-          />
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold mb-4 pb-3 border-b border-gray-200">Payment Methods</h3>
+                <PatientPaymentMethods
+                  patientId={patientWithDecryptedPHI.id}
+                  patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
+                />
               </div>
             </div>
         ) : currentTab === "documents" ? (

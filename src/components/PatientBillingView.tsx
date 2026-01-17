@@ -262,20 +262,20 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full">
       {/* Header with actions */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Billing & Payments</h2>
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900">Billing & Payments</h2>
+        <div className="flex gap-2 flex-shrink-0">
           <button
             onClick={handleOpenCustomerPortal}
-            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap"
           >
             Customer Portal
           </button>
           <button
             onClick={() => setShowCreateInvoice(!showCreateInvoice)}
-            className="px-4 py-2 text-sm bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660]"
+            className="px-4 py-2 text-sm bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors whitespace-nowrap"
           >
             Create Invoice
           </button>
@@ -295,11 +295,11 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex flex-wrap gap-1">
           <button
             onClick={() => setActiveTab('invoices')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2.5 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
               activeTab === 'invoices'
                 ? 'border-[#4fa77e] text-[#4fa77e]'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -309,7 +309,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
           </button>
           <button
             onClick={() => setActiveTab('payments')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2.5 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
               activeTab === 'payments'
                 ? 'border-[#4fa77e] text-[#4fa77e]'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -319,7 +319,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
           </button>
           <button
             onClick={() => setActiveTab('process-payment')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2.5 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
               activeTab === 'process-payment'
                 ? 'border-[#4fa77e] text-[#4fa77e]'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -329,7 +329,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
           </button>
           <button
             onClick={() => setActiveTab('subscriptions')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2.5 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
               activeTab === 'subscriptions'
                 ? 'border-[#4fa77e] text-[#4fa77e]'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -348,202 +348,210 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
       )}
 
       {activeTab === 'invoices' && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {invoices.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
+            <div className="p-8 text-center text-gray-500">
+              <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
               No invoices found
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invoice #
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {invoices.map((invoice: any) => (
-                  <tr key={invoice.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {invoice.stripeInvoiceNumber || `INV-${invoice.id}`}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {invoice.description || 'Medical Services'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div>
-                        <div>{formatCurrency(invoice.amountDue)}</div>
-                        {invoice.amountPaid > 0 && (
-                          <div className="text-xs text-green-600">
-                            Paid: {formatCurrency(invoice.amountPaid)}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(invoice.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(invoice.dueDate)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleViewInvoice(invoice)}
-                          className="text-[#4fa77e] hover:text-[#3f8660]"
-                        >
-                          View
-                        </button>
-                        {invoice.stripePdfUrl && (
-                          <a
-                            href={invoice.stripePdfUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#4fa77e] hover:text-[#3f8660]"
-                          >
-                            PDF
-                          </a>
-                        )}
-                        {invoice.status === 'DRAFT' && (
-                          <button
-                            onClick={() => handleSendInvoice(invoice.id)}
-                            className="text-green-600 hover:text-green-800"
-                          >
-                            Send
-                          </button>
-                        )}
-                        {invoice.status === 'OPEN' && (
-                          <button
-                            onClick={() => handleVoidInvoice(invoice.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            Void
-                          </button>
-                        )}
-                        {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
-                          <button
-                            onClick={() => {
-                              // Find payment for this invoice
-                              const invoicePayment = payments.find(
-                                (p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED'
-                              );
-                              if (invoicePayment) {
-                                setRefundModal({ 
-                                  invoiceId: invoice.id,
-                                  paymentId: invoicePayment.id,
-                                  maxAmount: invoice.amountPaid 
-                                });
-                              } else {
-                                // No payment found - try invoice-based refund
-                                setRefundModal({ 
-                                  invoiceId: invoice.id,
-                                  stripeInvoiceId: invoice.stripeInvoiceId,
-                                  maxAmount: invoice.amountPaid 
-                                });
-                              }
-                            }}
-                            className="text-purple-600 hover:text-purple-800"
-                          >
-                            Refund
-                          </button>
-                        )}
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Description
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Due Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {invoices.map((invoice: any) => (
+                    <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {invoice.stripeInvoiceNumber || `INV-${invoice.id}`}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-600 max-w-[200px] truncate">
+                        {invoice.description || 'Medical Services'}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div>
+                          <div className="font-medium">{formatCurrency(invoice.amountDue)}</div>
+                          {invoice.amountPaid > 0 && (
+                            <div className="text-xs text-green-600">
+                              Paid: {formatCurrency(invoice.amountPaid)}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {getStatusBadge(invoice.status)}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(invoice.dueDate)}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleViewInvoice(invoice)}
+                            className="text-[#4fa77e] hover:text-[#3f8660] font-medium transition-colors"
+                          >
+                            View
+                          </button>
+                          {invoice.stripePdfUrl && (
+                            <a
+                              href={invoice.stripePdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#4fa77e] hover:text-[#3f8660] font-medium transition-colors"
+                            >
+                              PDF
+                            </a>
+                          )}
+                          {invoice.status === 'DRAFT' && (
+                            <button
+                              onClick={() => handleSendInvoice(invoice.id)}
+                              className="text-green-600 hover:text-green-800 font-medium transition-colors"
+                            >
+                              Send
+                            </button>
+                          )}
+                          {invoice.status === 'OPEN' && (
+                            <button
+                              onClick={() => handleVoidInvoice(invoice.id)}
+                              className="text-red-600 hover:text-red-800 font-medium transition-colors"
+                            >
+                              Void
+                            </button>
+                          )}
+                          {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
+                            <button
+                              onClick={() => {
+                                const invoicePayment = payments.find(
+                                  (p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED'
+                                );
+                                if (invoicePayment) {
+                                  setRefundModal({ 
+                                    invoiceId: invoice.id,
+                                    paymentId: invoicePayment.id,
+                                    maxAmount: invoice.amountPaid 
+                                  });
+                                } else {
+                                  setRefundModal({ 
+                                    invoiceId: invoice.id,
+                                    stripeInvoiceId: invoice.stripeInvoiceId,
+                                    maxAmount: invoice.amountPaid 
+                                  });
+                                }
+                              }}
+                              className="text-purple-600 hover:text-purple-800 font-medium transition-colors"
+                            >
+                              Refund
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
 
       {activeTab === 'payments' && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {payments.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
+            <div className="p-8 text-center text-gray-500">
+              <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
               No payments found
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Method
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invoice
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {payments.map((payment: any) => (
-                  <tr key={payment.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDateTime(payment.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {formatCurrency(payment.amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(payment.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {payment.paymentMethod || '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {payment.invoice
-                        ? `#${payment.invoice.stripeInvoiceNumber || payment.invoice.id}`
-                        : '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {payment.status === 'SUCCEEDED' && (
-                        <button
-                          onClick={() => setRefundModal({ 
-                            invoiceId: payment.invoice?.id || 0,
-                            paymentId: payment.id, 
-                            maxAmount: payment.amount 
-                          })}
-                          className="text-purple-600 hover:text-purple-800"
-                        >
-                          Refund
-                        </button>
-                      )}
-                      {payment.status === 'REFUNDED' && (
-                        <span className="text-gray-400">Refunded</span>
-                      )}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Method
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Invoice
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {payments.map((payment: any) => (
+                    <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {formatDateTime(payment.createdAt)}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {formatCurrency(payment.amount)}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {getStatusBadge(payment.status)}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {payment.paymentMethod || '—'}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {payment.invoice
+                          ? `#${payment.invoice.stripeInvoiceNumber || payment.invoice.id}`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                        {payment.status === 'SUCCEEDED' && (
+                          <button
+                            onClick={() => setRefundModal({ 
+                              invoiceId: payment.invoice?.id || 0,
+                              paymentId: payment.id, 
+                              maxAmount: payment.amount 
+                            })}
+                            className="text-purple-600 hover:text-purple-800 font-medium transition-colors"
+                          >
+                            Refund
+                          </button>
+                        )}
+                        {payment.status === 'REFUNDED' && (
+                          <span className="text-gray-400 italic">Refunded</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
@@ -831,8 +839,8 @@ function CreateInvoiceForm({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-medium mb-4">Create Invoice</h3>
+    <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+      <h3 className="text-lg font-semibold mb-4">Create Invoice</h3>
       
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Billing Plans Dropdown */}
