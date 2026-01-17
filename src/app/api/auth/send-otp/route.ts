@@ -166,13 +166,23 @@ export async function POST(req: NextRequest): Promise<Response> {
       if (!smsResult.success) {
         logger.error('Failed to send OTP SMS', { 
           error: smsResult.error, 
+          details: smsResult.details,
           phone: formattedPhone,
           twilioConfigured,
           twilioFeatureEnabled,
           useMock,
         });
         return NextResponse.json(
-          { error: 'Failed to send verification code. Please try again.', debug: { twilioConfigured, twilioFeatureEnabled, useMock } },
+          { 
+            error: 'Failed to send verification code. Please try again.', 
+            debug: { 
+              twilioConfigured, 
+              twilioFeatureEnabled, 
+              useMock,
+              twilioError: smsResult.error,
+              twilioDetails: smsResult.details?.message || smsResult.details,
+            } 
+          },
           { status: 500 }
         );
       }
