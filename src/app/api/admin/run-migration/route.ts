@@ -11,6 +11,34 @@ import { basePrisma as prisma } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
+// GET endpoint for easy browser access
+export async function GET(req: NextRequest) {
+  try {
+    const auth = await verifyAuth(req);
+    if (!auth || !['SUPER_ADMIN', 'super_admin'].includes(auth.role || '')) {
+      return NextResponse.json({ error: 'Unauthorized - Super Admin only' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const migration = searchParams.get('migration');
+
+    if (!migration) {
+      return NextResponse.json({
+        message: 'Available migrations',
+        migrations: ['phone_otp', 'sms_log'],
+        usage: 'Add ?migration=sms_log to URL'
+      });
+    }
+
+    // Run the migration (reuse POST logic)
+    const body = { migration };
+    return runMigration(body, auth);
+  } catch (error: any) {
+    logger.error('Migration error', { error: error.message });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Verify admin or super_admin
@@ -19,7 +47,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { migration } = await req.json();
+    const body = await req.json();
+    return runMigration(body, auth);
+  } catch (error: any) {
+    logger.error('Migration error', { error: error.message });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+async function runMigration(body: any, auth: any) {
+  try {
+    const { migration } = body;
 
     // Only allow specific migrations
     if (migration === 'phone_otp') {
