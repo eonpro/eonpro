@@ -2431,13 +2431,6 @@ enum ReferralStatus {
   CHURNED       // Cancelled/inactive
 }
 
-enum CommissionStatus {
-  PENDING       // Awaiting payment
-  APPROVED      // Approved for payout
-  PAID          // Paid out
-  CANCELLED     // Cancelled (refund, chargeback)
-}
-
 // ===== SUBSCRIPTION MANAGEMENT =====
 
 model SubscriptionAction {
