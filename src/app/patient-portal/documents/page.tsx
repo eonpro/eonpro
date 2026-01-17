@@ -173,10 +173,33 @@ export default function PatientPortalDocuments() {
     }
   };
 
-  const handleView = (doc: Document) => {
-    // Open document in new tab
-    if (doc.url) {
-      window.open(doc.url, "_blank");
+  const handleView = async (doc: Document) => {
+    if (!patientId) return;
+    
+    try {
+      // Get the auth token from localStorage
+      const token = localStorage.getItem('auth-token') || '';
+      
+      // Fetch the document with authentication
+      const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}`, {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+      
+      if (response.ok) {
+        // Create a blob URL and open in new tab
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      } else {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        alert(`Failed to view document: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      logger.error("View error:", error);
+      alert("Failed to view document. Please try again.");
     }
   };
 

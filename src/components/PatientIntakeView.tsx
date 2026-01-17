@@ -529,14 +529,29 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
                 )}
               </div>
               {intakeDoc && (
-                <a
-                  href={`/api/patients/${patient.id}/documents/${intakeDoc.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('auth-token') || '';
+                      const response = await fetch(`/api/patients/${patient.id}/documents/${intakeDoc.id}`, {
+                        credentials: 'include',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                      if (response.ok) {
+                        const blob = await response.blob();
+                        window.open(URL.createObjectURL(blob), "_blank");
+                      } else {
+                        alert('Failed to view document');
+                      }
+                    } catch (err) {
+                      logger.error('View PDF error:', err);
+                      alert('Failed to view document');
+                    }
+                  }}
                   className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition text-sm font-medium"
                 >
                   View PDF
-                </a>
+                </button>
               )}
             </div>
           </div>

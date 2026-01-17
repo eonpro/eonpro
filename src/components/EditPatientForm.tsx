@@ -5,6 +5,7 @@ import { formatDobInput } from "@/lib/format";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import { ChangeEvent, useState } from "react";
 import { Patient, Provider, Order } from '@/types/models';
+import { logger } from '@/lib/logger';
 
 const GENDER_OPTIONS = [
   { value: "m", label: "Male" },
@@ -306,14 +307,29 @@ export default function EditPatientForm({ patient, documents }: Props) {
                     {doc.sourceSubmissionId ? ` • ${doc.sourceSubmissionId}` : ""}
                   </p>
                 </div>
-                <a
-                  href={`/api/patients/${patient.id}/documents/${doc.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-[#4fa77e] underline"
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('auth-token') || '';
+                      const response = await fetch(`/api/patients/${patient.id}/documents/${doc.id}`, {
+                        credentials: 'include',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                      if (response.ok) {
+                        const blob = await response.blob();
+                        window.open(URL.createObjectURL(blob), "_blank");
+                      } else {
+                        alert('Failed to view document');
+                      }
+                    } catch (err) {
+                      logger.error('View document error:', err);
+                      alert('Failed to view document');
+                    }
+                  }}
+                  className="text-sm text-[#4fa77e] underline hover:text-[#3f8660]"
                 >
                   View
-                </a>
+                </button>
               </li>
             ))}
           </ul>
