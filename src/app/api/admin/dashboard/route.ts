@@ -48,20 +48,26 @@ export async function GET(req: NextRequest) {
     const isSuperAdmin = role.toLowerCase() === 'super_admin';
     const clinicFilter = isSuperAdmin || !clinicId ? {} : { clinicId };
 
-    // Get total patients (current month)
-    const totalPatients = await prisma.patient.count({
-      where: clinicFilter,
-    });
+    // Get total patients (current month) - with error handling
+    let totalPatients = 0;
+    let lastMonthPatients = 0;
+    try {
+      totalPatients = await prisma.patient.count({
+        where: clinicFilter,
+      });
 
-    // Get patients from last month for comparison
-    const lastMonthPatients = await prisma.patient.count({
-      where: {
-        ...clinicFilter,
-        createdAt: {
-          lt: startOfMonth,
+      // Get patients from last month for comparison
+      lastMonthPatients = await prisma.patient.count({
+        where: {
+          ...clinicFilter,
+          createdAt: {
+            lt: startOfMonth,
+          },
         },
-      },
-    });
+      });
+    } catch (patientError) {
+      logger.warn('[Dashboard] Patient count failed', { error: patientError });
+    }
 
     // Calculate patient change percentage
     const patientsChange = lastMonthPatients > 0 
@@ -69,12 +75,30 @@ export async function GET(req: NextRequest) {
       : totalPatients > 0 ? 100 : 0;
 
     // Get active providers
-    const activeProviders = await prisma.provider.count({
-      where: {
-        ...clinicFilter,
-        status: { in: ['ACTIVE', 'active', undefined] },
-      },
-    });
+    let activeProviders = 0;
+    try {
+      activeProviders = await prisma.provider.count({
+        where: {
+          ...clinicFilter,
+          OR: [
+            { status: 'ACTIVE' },
+            { status: 'active' },
+            { status: null },
+            { status: { isSet: false } },
+          ],
+        },
+      });
+    } catch (providerError) {
+      // Fallback: try without status filter
+      logger.warn('[Dashboard] Provider count with status filter failed, trying without', { error: providerError });
+      try {
+        activeProviders = await prisma.provider.count({
+          where: clinicFilter,
+        });
+      } catch {
+        activeProviders = 0;
+      }
+    }
 
     // Get provider count from last month
     const lastMonthProviders = await prisma.provider.count({
@@ -90,60 +114,88 @@ export async function GET(req: NextRequest) {
       ? (((activeProviders - lastMonthProviders) / lastMonthProviders) * 100).toFixed(1)
       : activeProviders > 0 ? 100 : 0;
 
-    // Get pending orders (this week)
-    const pendingOrders = await prisma.order.count({
-      where: {
-        ...clinicFilter,
-        status: { in: ['PENDING', 'pending', 'PROCESSING', 'processing'] },
-      },
-    });
-
-    // Get orders from last week
-    const lastWeekOrders = await prisma.order.count({
-      where: {
-        ...clinicFilter,
-        status: { in: ['PENDING', 'pending', 'PROCESSING', 'processing'] },
-        createdAt: {
-          gte: startOfLastWeek,
-          lt: startOfWeek,
+    // Get pending orders (this week) - with error handling
+    let pendingOrders = 0;
+    let lastWeekOrders = 0;
+    try {
+      pendingOrders = await prisma.order.count({
+        where: {
+          ...clinicFilter,
+          OR: [
+            { status: 'PENDING' },
+            { status: 'pending' },
+            { status: 'PROCESSING' },
+            { status: 'processing' },
+          ],
         },
-      },
-    });
+      });
+
+      // Get orders from last week
+      lastWeekOrders = await prisma.order.count({
+        where: {
+          ...clinicFilter,
+          OR: [
+            { status: 'PENDING' },
+            { status: 'pending' },
+            { status: 'PROCESSING' },
+            { status: 'processing' },
+          ],
+          createdAt: {
+            gte: startOfLastWeek,
+            lt: startOfWeek,
+          },
+        },
+      });
+    } catch (orderError) {
+      logger.warn('[Dashboard] Order count failed', { error: orderError });
+    }
 
     const ordersChange = lastWeekOrders > 0
       ? (((pendingOrders - lastWeekOrders) / lastWeekOrders) * 100).toFixed(1)
       : pendingOrders > 0 ? 100 : 0;
 
-    // Get monthly revenue from invoices
-    const monthlyInvoices = await prisma.invoice.aggregate({
-      where: {
-        ...clinicFilter,
-        status: { in: ['PAID', 'paid'] },
-        paidAt: {
-          gte: startOfMonth,
+    // Get monthly revenue from invoices - with error handling
+    let totalRevenue = 0;
+    let lastMonthRevenue = 0;
+    try {
+      const monthlyInvoices = await prisma.invoice.aggregate({
+        where: {
+          ...clinicFilter,
+          OR: [
+            { status: 'PAID' },
+            { status: 'paid' },
+          ],
+          paidAt: {
+            gte: startOfMonth,
+          },
         },
-      },
-      _sum: {
-        amountPaid: true,
-      },
-    });
-
-    const lastMonthInvoices = await prisma.invoice.aggregate({
-      where: {
-        ...clinicFilter,
-        status: { in: ['PAID', 'paid'] },
-        paidAt: {
-          gte: startOfLastMonth,
-          lt: startOfMonth,
+        _sum: {
+          amountPaid: true,
         },
-      },
-      _sum: {
-        amountPaid: true,
-      },
-    });
+      });
 
-    const totalRevenue = (monthlyInvoices._sum.amountPaid || 0) / 100; // Convert from cents
-    const lastMonthRevenue = (lastMonthInvoices._sum.amountPaid || 0) / 100;
+      const lastMonthInvoices = await prisma.invoice.aggregate({
+        where: {
+          ...clinicFilter,
+          OR: [
+            { status: 'PAID' },
+            { status: 'paid' },
+          ],
+          paidAt: {
+            gte: startOfLastMonth,
+            lt: startOfMonth,
+          },
+        },
+        _sum: {
+          amountPaid: true,
+        },
+      });
+
+      totalRevenue = (monthlyInvoices._sum.amountPaid || 0) / 100; // Convert from cents
+      lastMonthRevenue = (lastMonthInvoices._sum.amountPaid || 0) / 100;
+    } catch (invoiceError) {
+      logger.warn('[Dashboard] Invoice aggregate failed', { error: invoiceError });
+    }
 
     const revenueChange = lastMonthRevenue > 0
       ? (((totalRevenue - lastMonthRevenue) / lastMonthRevenue) * 100).toFixed(1)
