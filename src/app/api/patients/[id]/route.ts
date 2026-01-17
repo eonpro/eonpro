@@ -1,11 +1,8 @@
 import { prisma } from "@/lib/db";
 import { patientSchema } from "@/lib/validate";
 import { logger } from '@/lib/logger';
-import { AppError, ApiResponse } from '@/types/common';
-import { Patient, Provider, Order } from '@/types/models';
 import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
-import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -63,8 +60,8 @@ const getPatientHandler = withAuthParams(async (_request, user, { params }: Para
   }
 }, { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff'] });
 
-// Apply rate limiting to GET
-export const GET = relaxedRateLimit(getPatientHandler);
+// Export directly - rate limiting breaks context passing for dynamic routes
+export const GET = getPatientHandler;
 
 const updatePatientHandler = withAuthParams(async (request, user, { params }: Params) => {
   const resolvedParams = await params;
@@ -143,5 +140,5 @@ const updatePatientHandler = withAuthParams(async (request, user, { params }: Pa
   }
 }, { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff'] });
 
-// Apply rate limiting to PATCH
-export const PATCH = standardRateLimit(updatePatientHandler);
+// Export directly - rate limiting breaks context passing for dynamic routes
+export const PATCH = updatePatientHandler;
