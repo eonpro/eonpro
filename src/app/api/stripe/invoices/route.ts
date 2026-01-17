@@ -247,18 +247,31 @@ export async function GET(request: NextRequest) {
     // Query invoices directly from database (doesn't require Stripe)
     const { prisma } = await import('@/lib/db');
     
-    const invoices = await prisma.invoice.findMany({
-      where: { patientId: parsedPatientId },
-      include: {
-        payments: true,
-        items: {
-          include: {
-            product: true,
+    let invoices;
+    try {
+      invoices = await prisma.invoice.findMany({
+        where: { patientId: parsedPatientId },
+        include: {
+          payments: true,
+          items: {
+            include: {
+              product: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (dbError: any) {
+      logger.error('[API] Database error fetching invoices:', { 
+        message: dbError.message,
+        patientId: parsedPatientId 
+      });
+      // Fallback: try simpler query without relations
+      invoices = await prisma.invoice.findMany({
+        where: { patientId: parsedPatientId },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
     
     return NextResponse.json({
       success: true,
