@@ -104,10 +104,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Payload received`, {
+  // Enhanced logging - capture full payload structure for debugging
+  logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Payload received`, {
     keys: Object.keys(payload),
     source: payload.source || "weightlossintake",
-    submissionId: payload.submissionId || payload.submission_id,
+    submissionId: payload.submissionId || payload.submission_id || payload.responseId || payload.id,
+    hasData: !!payload.data,
+    hasAnswers: !!payload.answers,
+    hasSections: !!payload.sections,
+    dataKeys: payload.data ? Object.keys(payload.data as object).slice(0, 10) : [],
   });
 
   // === STEP 4: NORMALIZE DATA ===
