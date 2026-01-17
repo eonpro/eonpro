@@ -59,6 +59,15 @@ export default function PatientSOAPNotesView({
     medicalNecessity: '',
   });
 
+  // Helper to get auth headers for API calls
+  const getAuthHeaders = (): HeadersInit => {
+    const token = localStorage.getItem('auth-token') ||
+                  localStorage.getItem('super_admin-token') ||
+                  localStorage.getItem('admin-token') ||
+                  localStorage.getItem('provider-token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
   // Fetch SOAP notes
   useEffect(() => {
     fetchSOAPNotes();
@@ -67,7 +76,11 @@ export default function PatientSOAPNotesView({
   const fetchSOAPNotes = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/soap-notes?patientId=${patientId}&includeRevisions=false`);
+      const headers = getAuthHeaders();
+      const response = await fetch(`/api/soap-notes?patientId=${patientId}&includeRevisions=false`, {
+        credentials: 'include',
+        headers,
+      });
       const data = await response.json();
       
       if (data.ok) {
@@ -76,8 +89,6 @@ export default function PatientSOAPNotesView({
         setError(data.error);
       }
     } catch (err: any) {
-    // @ts-ignore
-   
       setError('Failed to load SOAP notes');
       logger.error('Error fetching SOAP notes:', err);
     } finally {
@@ -91,9 +102,11 @@ export default function PatientSOAPNotesView({
     setError(null);
     
     try {
+      const headers = getAuthHeaders();
       const response = await fetch('/api/soap-notes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           generateFromIntake: true,
@@ -125,9 +138,11 @@ export default function PatientSOAPNotesView({
     if (!selectedNote || !currentProviderId) return;
     
     try {
+      const headers = getAuthHeaders();
       const response = await fetch(`/api/soap-notes/${selectedNote.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'approve',
           providerId: currentProviderId,
@@ -157,9 +172,11 @@ export default function PatientSOAPNotesView({
     if (!selectedNote) return;
     
     try {
+      const headers = getAuthHeaders();
       const response = await fetch(`/api/soap-notes/${selectedNote.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'edit',
           password: editPassword,
@@ -190,7 +207,11 @@ export default function PatientSOAPNotesView({
   // Export SOAP note as text
   const handleExport = async (noteId: number) => {
     try {
-      const response = await fetch(`/api/soap-notes/${noteId}?format=text`);
+      const headers = getAuthHeaders();
+      const response = await fetch(`/api/soap-notes/${noteId}?format=text`, {
+        credentials: 'include',
+        headers,
+      });
       const text = await response.text();
       
       // Create download

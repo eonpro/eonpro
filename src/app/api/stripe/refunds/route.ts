@@ -198,12 +198,48 @@ export async function POST(request: NextRequest) {
           },
         });
       } else if (validated.stripeInvoiceId) {
-        // Try invoice-based refund via charge lookup
-        const stripeInvoice = await stripe.invoices.retrieve(validated.stripeInvoiceId);
+        // Try invoice-based refund via charge or payment_intent lookup
+        const stripeInvoice = await stripe.invoices.retrieve(validated.stripeInvoiceId, {
+          expand: ['payment_intent', 'charge'],
+        });
+        
+        logger.info('[Refunds] Invoice retrieved:', {
+          invoiceId: validated.stripeInvoiceId,
+          status: stripeInvoice.status,
+          paymentIntent: stripeInvoice.payment_intent,
+          charge: stripeInvoice.charge,
+        });
+        
+        // Try different payment methods in order:
+        // 1. Direct charge on invoice
+        // 2. Payment Intent on invoice
+        // 3. Look up charge from payment intent
         
         if (stripeInvoice.charge) {
+          // Invoice has a direct charge
+          const chargeId = typeof stripeInvoice.charge === 'string' 
+            ? stripeInvoice.charge 
+            : stripeInvoice.charge.id;
+          
           refund = await stripe.refunds.create({
-            charge: stripeInvoice.charge as string,
+            charge: chargeId,
+            amount: refundAmount,
+            reason: validated.reason === 'fraudulent' ? 'fraudulent' 
+                  : validated.reason === 'duplicate' ? 'duplicate'
+                  : 'requested_by_customer',
+            metadata: {
+              invoiceId: validated.stripeInvoiceId,
+              reason: validated.reason || 'requested_by_customer',
+            },
+          });
+        } else if (stripeInvoice.payment_intent) {
+          // Invoice was paid via PaymentIntent (newer method)
+          const paymentIntentId = typeof stripeInvoice.payment_intent === 'string'
+            ? stripeInvoice.payment_intent
+            : stripeInvoice.payment_intent.id;
+          
+          refund = await stripe.refunds.create({
+            payment_intent: paymentIntentId,
             amount: refundAmount,
             reason: validated.reason === 'fraudulent' ? 'fraudulent' 
                   : validated.reason === 'duplicate' ? 'duplicate'
@@ -214,8 +250,19 @@ export async function POST(request: NextRequest) {
             },
           });
         } else {
+          // No charge or payment intent - check if invoice is actually paid
+          logger.error('[Refunds] Invoice has no charge or payment_intent', {
+            invoiceId: validated.stripeInvoiceId,
+            status: stripeInvoice.status,
+            amountPaid: stripeInvoice.amount_paid,
+          });
+          
           return NextResponse.json(
-            { error: 'No charge found for this invoice' },
+            { 
+              error: 'No charge found for this invoice. Invoice may not be paid yet.',
+              invoiceStatus: stripeInvoice.status,
+              amountPaid: stripeInvoice.amount_paid,
+            },
             { status: 400 }
           );
         }
