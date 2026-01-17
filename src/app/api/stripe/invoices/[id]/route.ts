@@ -107,7 +107,8 @@ export async function POST(request: NextRequest, { params }: Params) {
         // Send invoice via Stripe or email
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
-            const stripe = (await import('@/lib/stripe')).default;
+            const { getStripe } = await import('@/lib/stripe');
+            const stripe = getStripe();
             await stripe.invoices.sendInvoice(invoice.stripeInvoiceId);
             
             await prisma.invoice.update({
@@ -151,7 +152,8 @@ export async function POST(request: NextRequest, { params }: Params) {
         
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
-            const stripe = (await import('@/lib/stripe')).default;
+            const { getStripe } = await import('@/lib/stripe');
+            const stripe = getStripe();
             await stripe.invoices.voidInvoice(invoice.stripeInvoiceId);
           } catch (stripeError: any) {
             logger.warn('[API] Stripe void invoice error:', stripeError);

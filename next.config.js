@@ -1,11 +1,20 @@
 const { withSentryConfig } = require("@sentry/nextjs");
 
+// Bundle analyzer (only when ANALYZE=true)
+const withBundleAnalyzer = process.env.ANALYZE === 'true'
+  ? require('@next/bundle-analyzer')({ enabled: true })
+  : (config) => config;
+
 /** @type {import("next").NextConfig} */
 const nextConfig = {
-  // Skip TypeScript errors during build (temporary fix for role case mismatch)
+  // TypeScript configuration
   typescript: {
+    // TODO: Set to false once all TypeScript errors are fixed
+    // Currently ~80 implicit any errors need type annotations
     ignoreBuildErrors: true,
   },
+  
+  // Image optimization
   images: {
     remotePatterns: [
       {
@@ -16,11 +25,19 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'lottie.host',
       },
+      {
+        protocol: 'https',
+        hostname: '*.amazonaws.com',
+      },
     ],
+    // Optimize images
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days
   },
   
   // Compiler optimizations
   compiler: {
+    // Remove console logs in production (keep errors and warnings)
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error', 'warn'],
     } : false,
@@ -28,11 +45,41 @@ const nextConfig = {
   
   // Experimental features compatible with Turbopack
   experimental: {
-    optimizePackageImports: ['lucide-react', '@stripe/stripe-js'],
+    // Optimize specific package imports (reduces bundle size)
+    optimizePackageImports: [
+      'lucide-react',
+      '@stripe/stripe-js',
+      '@stripe/react-stripe-js',
+      'date-fns',
+      'chart.js',
+      'react-chartjs-2',
+    ],
   },
 
   // Turbopack configuration (Next.js 16+ default bundler)
   turbopack: {},
+  
+  // Headers for security and caching
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-DNS-Prefetch-Control', value: 'on' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+        ],
+      },
+    ];
+  },
   
   // Webpack configuration (when not using Turbopack)
   webpack: (config, { isServer }) => {
@@ -40,7 +87,31 @@ const nextConfig = {
     if (isServer && config.externals) {
       config.externals.push('@prisma/client');
     }
+    
+    // Bundle analyzer requires webpack config
+    if (process.env.ANALYZE === 'true') {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'static',
+          reportFilename: isServer
+            ? '../analyze/server.html'
+            : './analyze/client.html',
+        })
+      );
+    }
+    
     return config;
+  },
+
+  // Production optimizations
+  productionBrowserSourceMaps: false, // Disable source maps in production
+  
+  // Logging
+  logging: {
+    fetches: {
+      fullUrl: process.env.NODE_ENV === 'development',
+    },
   },
 };
 

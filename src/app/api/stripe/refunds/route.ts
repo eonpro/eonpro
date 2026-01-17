@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import Stripe from 'stripe';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -201,7 +202,10 @@ export async function POST(request: NextRequest) {
         // Try invoice-based refund via charge or payment_intent lookup
         const stripeInvoice = await stripe.invoices.retrieve(validated.stripeInvoiceId, {
           expand: ['payment_intent', 'charge'],
-        });
+        }) as Stripe.Invoice & { 
+          charge?: string | Stripe.Charge | null;
+          payment_intent?: string | Stripe.PaymentIntent | null;
+        };
         
         logger.info('[Refunds] Invoice retrieved:', {
           invoiceId: validated.stripeInvoiceId,

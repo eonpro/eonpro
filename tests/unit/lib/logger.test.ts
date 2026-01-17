@@ -14,6 +14,11 @@ vi.mock('@sentry/nextjs', () => ({
 
 import * as Sentry from '@sentry/nextjs';
 
+// Global helper to set NODE_ENV using vitest's stubEnv
+const setNodeEnv = (env: string) => {
+  vi.stubEnv('NODE_ENV', env);
+};
+
 describe('Logger Service', () => {
   const originalEnv = { ...process.env };
   const originalConsole = {
@@ -22,11 +27,6 @@ describe('Logger Service', () => {
     warn: console.warn,
     error: console.error,
     log: console.log,
-  };
-
-  // Helper to set NODE_ENV without TypeScript errors
-  const setNodeEnv = (env: string) => {
-    Object.defineProperty(process.env, 'NODE_ENV', { value: env, writable: true, configurable: true });
   };
 
   beforeEach(() => {
