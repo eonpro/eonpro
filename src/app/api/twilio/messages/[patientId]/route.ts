@@ -194,40 +194,36 @@ export async function GET(req: NextRequest, context: RouteParams) {
         }
       }
 
-      // Return demo messages if Twilio not configured
-      const demoMessages = [
-        {
-          id: 'demo-1',
-          body: 'Hi, I received the intake form link. Thank you!',
-          direction: 'inbound',
-          status: 'delivered',
-          dateCreated: new Date(Date.now() - 3600000), // 1 hour ago
-          from: patientPhone,
-          to: 'clinic'
-        },
-        {
-          id: 'demo-2',
-          body: 'You\'re welcome! Please complete it at your earliest convenience.',
-          direction: 'outbound',
-          status: 'delivered',
-          dateCreated: new Date(Date.now() - 3000000), // 50 minutes ago
-          from: 'clinic',
-          to: patientPhone
-        },
-        {
-          id: 'demo-3',
-          body: 'Just completed the form. When is my appointment?',
-          direction: 'inbound',
-          status: 'delivered',
-          dateCreated: new Date(Date.now() - 1800000), // 30 minutes ago
-          from: patientPhone,
-          to: 'clinic'
-        }
-      ];
+      // Twilio not configured - read from local database (smsLog)
+      // This ensures sent messages persist even in demo mode
+      const localMessages = await prisma.smsLog.findMany({
+        where: { patientId },
+        orderBy: { createdAt: 'asc' },
+        take: 100,
+      });
 
+      if (localMessages.length > 0) {
+        return NextResponse.json({
+          messages: localMessages.map(m => ({
+            sid: m.messageSid || `local-${m.id}`,
+            body: m.body,
+            direction: m.direction === 'inbound' ? 'inbound' : 'outbound-api',
+            status: m.status || 'delivered',
+            dateCreated: m.createdAt,
+            from: m.fromPhone,
+            to: m.toPhone
+          })),
+          source: 'local',
+          demo: true
+        });
+      }
+
+      // Return empty if no messages in database (new patient)
       return NextResponse.json({
-        messages: demoMessages,
-        demo: true
+        messages: [],
+        source: 'local',
+        demo: true,
+        message: 'No messages yet'
       });
 
   } catch (error: any) {

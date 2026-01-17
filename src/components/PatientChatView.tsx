@@ -84,7 +84,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       if (res.ok) {
         const data = await res.json();
         const apiMessages: Message[] = (data.messages || []).map((msg: any) => ({
-          id: msg.sid || msg.id,
+          id: msg.sid || msg.id || `msg-${Date.now()}-${Math.random()}`,
           text: msg.body || msg.text,
           // Twilio uses 'inbound' for patient messages, 'outbound-api' or 'outbound' for provider
           sender: msg.direction === 'inbound' ? 'patient' : 'provider',
@@ -93,52 +93,34 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           status: msg.status === 'delivered' ? 'delivered' : (msg.status === 'sent' ? 'sent' : msg.status)
         }));
         
-        // Merge with existing messages to preserve locally-added messages
-        // that haven't appeared in the API yet (e.g., just-sent messages)
-        setMessages(prev => {
-          // If first load, just use API messages
-          if (showLoading || prev.length === 0) {
-            return apiMessages;
-          }
+        // Simple replacement strategy - API is the source of truth
+        // The API now properly returns all messages including ones we just sent
+        setMessages(prevMessages => {
+          // Build a map of API messages by ID for quick lookup
+          const apiMessageMap = new Map(apiMessages.map(m => [m.id, m]));
           
-          // Get IDs of messages from API
-          const apiMessageIds = new Set(apiMessages.map(m => m.id));
-          
-          // Keep local temp messages (id starts with 'temp-') that aren't in API yet
-          // and any messages from the last 30 seconds not in API (recently sent)
-          const thirtySecondsAgo = Date.now() - 30000;
-          const localMessagesToKeep = prev.filter(localMsg => {
-            // Keep temp messages
-            if (localMsg.id.startsWith('temp-')) {
-              return true;
+          // Keep only temp messages that haven't been confirmed by API yet
+          // (messages that start with 'temp-' and aren't in API response)
+          const pendingTempMessages = prevMessages.filter(localMsg => {
+            if (!localMsg.id.startsWith('temp-')) {
+              return false; // Non-temp messages come from API
             }
-            // Keep recent messages not in API (might be in transit)
-            const msgTime = new Date(localMsg.timestamp).getTime();
-            if (msgTime > thirtySecondsAgo && !apiMessageIds.has(localMsg.id)) {
-              return true;
-            }
-            return false;
+            // Check if this temp message has a matching message in API (by text)
+            const hasMatchInApi = apiMessages.some(
+              apiMsg => apiMsg.text === localMsg.text && apiMsg.sender === localMsg.sender
+            );
+            return !hasMatchInApi; // Keep if NOT yet in API
           });
           
-          // Combine API messages with local messages to keep
-          const combined = [...apiMessages, ...localMessagesToKeep];
+          // Combine: API messages + any pending temp messages
+          const allMessages = [...apiMessages, ...pendingTempMessages];
           
-          // Sort by timestamp and dedupe
-          const sorted = combined.sort((a, b) => 
+          // Sort by timestamp
+          allMessages.sort((a, b) => 
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
           
-          // Remove duplicates (prefer API version)
-          const seen = new Set<string>();
-          const deduped = sorted.filter(msg => {
-            // For temp messages, use text as additional key
-            const key = msg.id.startsWith('temp-') ? `${msg.text}-${msg.timestamp}` : msg.id;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-          
-          return deduped;
+          return allMessages;
         });
       } else {
         // Only clear messages on first load, not during polling
@@ -363,70 +345,67 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           </div>
         ) : (
           <>
-            {/* Group messages by date */}
-            {messages.reduce((groups: any[], message, index) => {
-              const messageDate = formatDate(message.timestamp);
+            {/* Render messages - only show dates after client mount to avoid hydration mismatch */}
+            {messages.map((message, index) => {
               const prevMessage = messages[index - 1];
-              const prevDate = prevMessage  ? formatDate(prevMessage.timestamp)  : undefined;
+              const showDateHeader = mounted && (
+                !prevMessage || formatDate(message.timestamp) !== formatDate(prevMessage.timestamp)
+              );
               
-              if (messageDate !== prevDate) {
-                groups.push(
-                  <div key={`date-${messageDate}`} className="text-center my-4">
-                    <span className="text-xs text-gray-500 bg-white px-3 py-1 rounded-full">
-                      {messageDate}
-                    </span>
-                  </div>
-                );
-              }
-              
-              groups.push(
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender === 'provider' ? 'justify-end' : 'justify-start'} mb-2`}
-                >
+              return (
+                <React.Fragment key={message.id}>
+                  {showDateHeader && (
+                    <div className="text-center my-4">
+                      <span className="text-xs text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">
+                        {formatDate(message.timestamp)}
+                      </span>
+                    </div>
+                  )}
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.sender === 'provider'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white border'
-                    }`}
+                    className={`flex ${message.sender === 'provider' ? 'justify-end' : 'justify-start'} mb-2`}
                   >
-                    <p className="text-sm">{message.text}</p>
-                    <div className={`flex items-center gap-1 mt-1 ${
-                      message.sender === 'provider' ? 'text-blue-200' : 'text-gray-400'
-                    }`}>
-                      <span className="text-xs">{formatTime(message.timestamp)}</span>
-                      {message.sender === 'provider' && message.status && (
-                        <>
-                          {message.status === 'sent' && (
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                          {message.status === 'delivered' && (
-                            <>
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        message.sender === 'provider'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white border shadow-sm'
+                      }`}
+                    >
+                      <p className="text-sm">{message.text}</p>
+                      <div className={`flex items-center gap-1 mt-1 ${
+                        message.sender === 'provider' ? 'text-blue-200' : 'text-gray-400'
+                      }`}>
+                        <span className="text-xs">{formatTime(message.timestamp)}</span>
+                        {message.sender === 'provider' && message.status && (
+                          <>
+                            {message.status === 'sent' && (
                               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
-                              <svg className="w-3 h-3 -ml-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            )}
+                            {message.status === 'delivered' && (
+                              <>
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                                <svg className="w-3 h-3 -ml-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </>
+                            )}
+                            {message.status === 'failed' && (
+                              <svg className="w-3 h-3 text-red-300" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                               </svg>
-                            </>
-                          )}
-                          {message.status === 'failed' && (
-                            <svg className="w-3 h-3 text-red-300" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </>
-                      )}
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                </React.Fragment>
               );
-              
-              return groups;
-            }, [])}
+            })}
           </>
         )}
         <div ref={messagesEndRef} />
