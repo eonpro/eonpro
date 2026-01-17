@@ -431,4 +431,335 @@ export class PricingEngine {
 
     logger.info('[PricingEngine] Recorded discount usage', { discountCodeId, patientId, amountSaved });
   }
+
+  /**
+   * Validate a discount code
+   */
+  static async validateDiscountCode(
+    code: string,
+    clinicId: number,
+    patientId?: number,
+    orderAmount?: number
+  ): Promise<{
+    valid: boolean;
+    discountCode?: any;
+    error?: string;
+  }> {
+    const discountCode = await prisma.discountCode.findFirst({
+      where: {
+        clinicId,
+        code: code.toUpperCase(),
+        isActive: true,
+      },
+    });
+
+    if (!discountCode) {
+      return { valid: false, error: 'Discount code not found or inactive' };
+    }
+
+    const now = new Date();
+
+    // Check if not started yet
+    if (discountCode.startsAt && discountCode.startsAt > now) {
+      return { valid: false, error: 'Discount code not yet active' };
+    }
+
+    // Check expiration
+    if (discountCode.expiresAt && discountCode.expiresAt < now) {
+      return { valid: false, error: 'Discount code has expired' };
+    }
+
+    // Check max uses
+    if (discountCode.maxUses && discountCode.currentUses >= discountCode.maxUses) {
+      return { valid: false, error: 'Discount code has reached its usage limit' };
+    }
+
+    // Check patient-specific limits
+    if (patientId && discountCode.maxUsesPerPatient) {
+      const patientUsage = await prisma.discountUsage.count({
+        where: {
+          discountCodeId: discountCode.id,
+          patientId,
+        },
+      });
+
+      if (patientUsage >= discountCode.maxUsesPerPatient) {
+        return { valid: false, error: 'You have already used this discount code' };
+      }
+    }
+
+    // Check first-time only
+    if (discountCode.firstTimeOnly && patientId) {
+      const patient = await prisma.patient.findUnique({
+        where: { id: patientId },
+        select: { createdAt: true },
+      });
+
+      // Check if patient has any previous orders
+      const orderCount = await prisma.invoice.count({
+        where: {
+          patientId,
+          status: 'PAID',
+        },
+      });
+
+      if (orderCount > 0) {
+        return { valid: false, error: 'This discount code is for first-time customers only' };
+      }
+    }
+
+    // Check minimum order amount
+    if (discountCode.minOrderAmount && orderAmount !== undefined) {
+      if (orderAmount < discountCode.minOrderAmount) {
+        return {
+          valid: false,
+          error: `Minimum order of $${(discountCode.minOrderAmount / 100).toFixed(2)} required`,
+        };
+      }
+    }
+
+    return { valid: true, discountCode };
+  }
+
+  /**
+   * Calculate discount amount
+   */
+  static calculateDiscount(
+    amount: number,
+    discountType: 'PERCENTAGE' | 'FIXED_AMOUNT',
+    discountValue: number
+  ): number {
+    if (discountType === 'PERCENTAGE') {
+      return Math.round(amount * (discountValue / 100));
+    } else {
+      return Math.min(discountValue, amount);
+    }
+  }
+
+  /**
+   * Get all active promotions for a clinic
+   */
+  static async getActivePromotionsForClinic(clinicId: number) {
+    const now = new Date();
+
+    return await prisma.promotion.findMany({
+      where: {
+        clinicId,
+        isActive: true,
+        startsAt: { lte: now },
+        OR: [
+          { endsAt: null },
+          { endsAt: { gte: now } },
+        ],
+      },
+      orderBy: { priority: 'desc' },
+    });
+  }
+
+  /**
+   * Get a bundle with its items
+   */
+  static async getBundle(bundleId: number, clinicId: number) {
+    return await prisma.productBundle.findFirst({
+      where: {
+        id: bundleId,
+        clinicId,
+        isActive: true,
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get pricing rules for a clinic
+   */
+  static async getPricingRulesForClinic(clinicId: number) {
+    const now = new Date();
+
+    return await prisma.pricingRule.findMany({
+      where: {
+        clinicId,
+        isActive: true,
+        OR: [
+          { startsAt: null },
+          { startsAt: { lte: now } },
+        ],
+        AND: [
+          {
+            OR: [
+              { endsAt: null },
+              { endsAt: { gte: now } },
+            ],
+          },
+        ],
+      },
+      orderBy: { priority: 'desc' },
+    });
+  }
+
+  /**
+   * Check if a discount is applicable to specific context
+   */
+  static isDiscountApplicable(
+    discountCode: any,
+    context: { productCategory?: string; productId?: number }
+  ): boolean {
+    if (discountCode.applyTo === 'ALL_PRODUCTS') {
+      return true;
+    }
+
+    if (discountCode.applyTo === 'CATEGORY' && discountCode.productCategory) {
+      return context.productCategory === discountCode.productCategory;
+    }
+
+    if (discountCode.applyTo === 'LIMITED_PRODUCTS' && discountCode.productIds) {
+      const productIds = discountCode.productIds as number[];
+      return context.productId !== undefined && productIds.includes(context.productId);
+    }
+
+    return true;
+  }
+
+  /**
+   * Calculate affiliate commission
+   */
+  static calculateAffiliateCommission(params: {
+    orderTotal: number;
+    commissionRate: number;
+    tier?: string;
+    tierMultiplier?: number;
+  }): { commission: number; tier?: string } {
+    const multiplier = params.tierMultiplier || 1.0;
+    const commission = Math.round(params.orderTotal * (params.commissionRate / 100) * multiplier);
+
+    return {
+      commission,
+      tier: params.tier,
+    };
+  }
+
+  /**
+   * Calculate final price with all applicable discounts
+   */
+  static async calculateFinalPrice(params: {
+    clinicId: number;
+    subtotal: number;
+    discountCode?: string;
+    patientId?: number;
+    applyPromotions?: boolean;
+    quantity?: number;
+  }): Promise<{
+    subtotal: number;
+    discountAmount: number;
+    discountCodeDiscount: number;
+    promotionDiscount: number;
+    rulesDiscount: number;
+    finalTotal: number;
+    appliedDiscounts: Array<{ name: string; amount: number; type: string }>;
+  }> {
+    let discountCodeDiscount = 0;
+    let promotionDiscount = 0;
+    let rulesDiscount = 0;
+    const appliedDiscounts: Array<{ name: string; amount: number; type: string }> = [];
+
+    let runningTotal = params.subtotal;
+
+    // 1. Apply discount code first
+    if (params.discountCode) {
+      const validation = await this.validateDiscountCode(
+        params.discountCode,
+        params.clinicId,
+        params.patientId,
+        params.subtotal
+      );
+
+      if (validation.valid && validation.discountCode) {
+        discountCodeDiscount = this.calculateDiscount(
+          runningTotal,
+          validation.discountCode.discountType,
+          validation.discountCode.discountValue
+        );
+        runningTotal -= discountCodeDiscount;
+        appliedDiscounts.push({
+          name: validation.discountCode.code,
+          amount: discountCodeDiscount,
+          type: 'discount_code',
+        });
+      }
+    }
+
+    // 2. Apply auto-apply promotions
+    if (params.applyPromotions !== false) {
+      const promotions = await this.getActivePromotionsForClinic(params.clinicId);
+
+      for (const promo of promotions) {
+        if (promo.autoApply && (promo.stackable || appliedDiscounts.length === 0)) {
+          const promoDiscount = this.calculateDiscount(
+            runningTotal,
+            promo.discountType as 'PERCENTAGE' | 'FIXED_AMOUNT',
+            promo.discountValue
+          );
+          promotionDiscount += promoDiscount;
+          runningTotal -= promoDiscount;
+          appliedDiscounts.push({
+            name: promo.name,
+            amount: promoDiscount,
+            type: 'promotion',
+          });
+        }
+      }
+    }
+
+    // 3. Apply pricing rules
+    const rules = await this.getPricingRulesForClinic(params.clinicId);
+
+    for (const rule of rules) {
+      // Check quantity-based rules
+      const conditions = rule.conditions as any[];
+      let conditionsMet = true;
+
+      for (const condition of conditions || []) {
+        if (condition.type === 'quantity' && params.quantity) {
+          conditionsMet = this.compareValues(
+            params.quantity,
+            condition.operator,
+            condition.value
+          );
+        }
+      }
+
+      if (conditionsMet) {
+        const ruleDiscount = this.calculateDiscount(
+          runningTotal,
+          rule.discountType as 'PERCENTAGE' | 'FIXED_AMOUNT',
+          rule.discountValue
+        );
+        rulesDiscount += ruleDiscount;
+        runningTotal -= ruleDiscount;
+        appliedDiscounts.push({
+          name: rule.name,
+          amount: ruleDiscount,
+          type: 'pricing_rule',
+        });
+      }
+    }
+
+    const totalDiscount = discountCodeDiscount + promotionDiscount + rulesDiscount;
+
+    return {
+      subtotal: params.subtotal,
+      discountAmount: totalDiscount,
+      discountCodeDiscount,
+      promotionDiscount,
+      rulesDiscount,
+      finalTotal: Math.max(0, params.subtotal - totalDiscount),
+      appliedDiscounts,
+    };
+  }
 }
