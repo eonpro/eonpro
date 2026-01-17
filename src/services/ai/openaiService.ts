@@ -9,7 +9,9 @@ import { anonymizeObject, anonymizeName, logAnonymization } from '@/lib/security
 const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_ORG_ID: z.string().optional(),
-  OPENAI_MODEL: z.string().default('gpt-4-turbo-preview'),
+  // Use gpt-4o-mini for better rate limits and lower cost
+  // Can be overridden with OPENAI_MODEL env var for higher quality
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   OPENAI_TEMPERATURE: z.coerce.number().default(0.7),
   OPENAI_MAX_TOKENS: z.coerce.number().default(4000),
 });
@@ -49,19 +51,21 @@ interface UsageMetrics {
   estimatedCost: number;
 }
 
+// Simple rate limiter - more permissive for serverless
+// Note: On Vercel, each invocation may be a new instance, so this is best-effort
 class RateLimiter {
   private requests: number[] = [];
   private readonly windowMs = 60000; // 1 minute
-  private readonly maxRequests = 50; // 50 requests per minute
+  private readonly maxRequests = 100; // Increased to 100 requests per minute
 
   async checkLimit(): Promise<void> {
     const now = Date.now();
-    this.requests = this.requests.filter((time: any) => now - time < this.windowMs);
+    this.requests = this.requests.filter((time: number) => now - time < this.windowMs);
     
     if (this.requests.length >= this.maxRequests) {
       const oldestRequest = this.requests[0];
       const waitTime = this.windowMs - (now - oldestRequest);
-      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
+      throw new Error(`Internal rate limit. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
     }
     
     this.requests.push(now);
@@ -69,6 +73,39 @@ class RateLimiter {
 }
 
 const rateLimiter = new RateLimiter();
+
+/**
+ * Retry helper with exponential backoff for OpenAI calls
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Only retry on rate limits (429) or server errors (5xx)
+      const isRetryable = error.status === 429 || (error.status >= 500 && error.status < 600);
+      
+      if (!isRetryable || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      logger.warn(`[OpenAI] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
 
 /**
  * Calculate estimated cost based on token usage
@@ -198,16 +235,19 @@ Analyze the actual data provided and create clinically relevant recommendations.
   try {
     logger.debug('[OpenAI] Generating SOAP note for patient:', { value: input.patientName });
     
-    const completion = await client.chat.completions.create({
-      model: env.OPENAI_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: env.OPENAI_TEMPERATURE,
-      max_tokens: env.OPENAI_MAX_TOKENS,
-      response_format: { type: 'json_object' },
-    });
+    // Use retry wrapper for resilience against rate limits
+    const completion = await withRetry(async () => {
+      return client.chat.completions.create({
+        model: env.OPENAI_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: env.OPENAI_TEMPERATURE,
+        max_tokens: env.OPENAI_MAX_TOKENS,
+        response_format: { type: 'json_object' },
+      });
+    }, 3, 2000); // 3 retries, starting at 2 second delay
 
     const usage = completion.usage;
     const usageMetrics: UsageMetrics = {
@@ -254,18 +294,25 @@ Analyze the actual data provided and create clinically relevant recommendations.
     };
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // @ts-ignore
-   
-    logger.error('[OpenAI] Error generating SOAP note:', error);
+    logger.error('[OpenAI] Error generating SOAP note:', { error: errorMessage, status: error.status });
     
+    // Handle specific OpenAI error codes
     if (error.status === 429) {
-      throw new Error('OpenAI rate limit exceeded. Please try again later.');
+      throw new Error('OpenAI API is busy. Please wait 30 seconds and try again.');
     }
     if (error.status === 401) {
-      throw new Error('Invalid OpenAI API key. Please check configuration.');
+      throw new Error('Invalid OpenAI API key. Please contact support.');
     }
-    if (error.status === 500) {
-      throw new Error('OpenAI service temporarily unavailable. Please try again.');
+    if (error.status === 500 || error.status === 502 || error.status === 503) {
+      throw new Error('OpenAI service is temporarily unavailable. Please try again in a few minutes.');
+    }
+    if (error.code === 'insufficient_quota') {
+      throw new Error('OpenAI quota exceeded. Please contact support to upgrade the plan.');
+    }
+    
+    // Check if it's our internal rate limiter
+    if (errorMessage.includes('Internal rate limit')) {
+      throw new Error(errorMessage);
     }
     
     throw new Error(`Failed to generate SOAP note: ${errorMessage}`);
