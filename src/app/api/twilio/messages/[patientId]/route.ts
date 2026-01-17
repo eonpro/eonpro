@@ -7,8 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 import twilio from 'twilio';
+
+// Note: PHI decryption removed - phone numbers are stored unencrypted for Twilio integration
 
 interface RouteParams {
   params: Promise<{
@@ -58,22 +59,9 @@ export async function GET(req: NextRequest, context: RouteParams) {
       );
     }
 
-    // Get phone - don't try to decrypt, just use raw value
-    // PHI encryption may not be configured in all environments
-    let patientPhone = patient.phone;
+    // Use phone directly - no encryption for this field
+    const patientPhone = patient.phone;
     logger.info('[Messages] Phone from DB:', { phone: patientPhone, patientId });
-    
-    // Only try decryption if phone looks encrypted (starts with certain patterns)
-    if (patientPhone && (patientPhone.startsWith('enc:') || patientPhone.length > 20)) {
-      try {
-        const decrypted = decryptPatientPHI(patient, ['phone']);
-        patientPhone = decrypted.phone || patient.phone;
-        logger.info('[Messages] After decryption:', { decryptedPhone: patientPhone });
-      } catch (e: any) {
-        // Decryption failed - phone is probably not encrypted, use as-is
-        logger.info('[Messages] Decryption skipped/failed, using raw value');
-      }
-    }
     
     if (!patientPhone) {
       logger.warn('[Messages] No phone number found for patient', { patientId });
