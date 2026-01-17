@@ -39,6 +39,7 @@ export default function PatientDocumentsView({
         const token = localStorage.getItem('auth-token') || '';
         
         const response = await fetch(`/api/patients/${patientId}/documents`, {
+          credentials: 'include',
           headers: {
             'Authorization': `Bearer ${token}`,
           }
@@ -128,6 +129,7 @@ export default function PatientDocumentsView({
       
       const response = await fetch(`/api/patients/${patientId}/documents`, {
         method: "POST",
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -170,6 +172,7 @@ export default function PatientDocumentsView({
       
       const response = await fetch(`/api/patients/${patientId}/documents/${documentId}`, {
         method: "DELETE",
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -201,6 +204,7 @@ export default function PatientDocumentsView({
       const token = localStorage.getItem('auth-token') || '';
       
       const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}/download`, {
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
         }

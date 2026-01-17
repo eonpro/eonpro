@@ -20,11 +20,15 @@ export default function AdminAnalyticsPage() {
 
   const loadAnalytics = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') || 
+                    localStorage.getItem('super_admin-token') || 
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('token');
       const response = await fetch('/api/admin/dashboard', {
-        headers: {
+        credentials: 'include',
+        headers: token ? {
           'Authorization': `Bearer ${token}`,
-        },
+        } : {},
       });
 
       if (response.ok) {

@@ -89,9 +89,17 @@ export default function EditPatientForm({ patient, documents }: Props) {
         notes: form.notes?.trim() || undefined,
         tags: parseTags(tagsInput),
       };
+      // Get auth token
+      const token = localStorage.getItem('auth-token') ||
+                    localStorage.getItem('super_admin-token') ||
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('provider-token');
+      const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
       const res = await fetch(`/api/patients/${patient.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
@@ -116,8 +124,17 @@ export default function EditPatientForm({ patient, documents }: Props) {
       setUploading(true);
       const formData = new FormData();
       formData.append("file", file);
+      // Get auth token
+      const token = localStorage.getItem('auth-token') ||
+                    localStorage.getItem('super_admin-token') ||
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('provider-token');
+      const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
       const res = await fetch(`/api/patients/${patient.id}/documents`, {
         method: "POST",
+        credentials: 'include',
+        headers: authHeaders,
         body: formData,
       });
       const data = await res.json();

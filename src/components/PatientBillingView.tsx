@@ -79,26 +79,40 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
     fetchBillingData();
   }, [patientId]);
 
+  // Helper to get auth headers for API calls
+  const getAuthHeaders = (): HeadersInit => {
+    const token = localStorage.getItem('auth-token') ||
+                  localStorage.getItem('super_admin-token') ||
+                  localStorage.getItem('admin-token') ||
+                  localStorage.getItem('provider-token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
   const fetchBillingData = async () => {
     try {
       setLoading(true);
+      const headers = getAuthHeaders();
       
       // Fetch invoices
-      const invoicesRes = await fetch(`/api/stripe/invoices?patientId=${patientId}`);
+      const invoicesRes = await fetch(`/api/stripe/invoices?patientId=${patientId}`, {
+        credentials: 'include',
+        headers,
+      });
       if (invoicesRes.ok) {
         const data = await invoicesRes.json();
         setInvoices(data.invoices || []);
       }
       
       // Fetch payments
-      const paymentsRes = await fetch(`/api/stripe/payments?patientId=${patientId}`);
+      const paymentsRes = await fetch(`/api/stripe/payments?patientId=${patientId}`, {
+        credentials: 'include',
+        headers,
+      });
       if (paymentsRes.ok) {
         const data = await paymentsRes.json();
         setPayments(data.payments || []);
       }
     } catch (err: any) {
-    // @ts-ignore
-   
       logger.error('Error fetching billing data:', err);
       setError('Failed to load billing information');
     } finally {
@@ -108,9 +122,11 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
 
   const handleSendInvoice = async (invoiceId: number) => {
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'send' }),
       });
       
@@ -121,8 +137,6 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         alert('Failed to send invoice');
       }
     } catch (err: any) {
-    // @ts-ignore
-   
       logger.error('Error sending invoice:', err);
       alert('Failed to send invoice');
     }
@@ -132,9 +146,11 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
     if (!confirm('Are you sure you want to void this invoice?')) return;
     
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'void' }),
       });
       
@@ -152,9 +168,11 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
 
   const handleRefund = async (paymentId: number | undefined, amount: number, reason: string, stripeInvoiceId?: string | null) => {
     try {
+      const headers = getAuthHeaders();
       const res = await fetch('/api/stripe/refunds', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paymentId,
           stripeInvoiceId, // For invoice-based refunds
@@ -190,9 +208,11 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
 
   const handleOpenCustomerPortal = async () => {
     try {
+      const headers = getAuthHeaders();
       const res = await fetch('/api/stripe/customer-portal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           returnUrl: window.location.href,
@@ -206,8 +226,6 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         alert('Failed to open customer portal');
       }
     } catch (err: any) {
-    // @ts-ignore
-   
       logger.error('Error opening customer portal:', err);
       alert('Failed to open customer portal');
     }
@@ -771,10 +789,18 @@ function CreateInvoiceForm({
     
     setSubmitting(true);
     
+    // Get auth token for API calls
+    const token = localStorage.getItem('auth-token') ||
+                  localStorage.getItem('super_admin-token') ||
+                  localStorage.getItem('admin-token') ||
+                  localStorage.getItem('provider-token');
+    const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
     try {
       const res = await fetch('/api/stripe/invoices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           lineItems: validItems,
@@ -797,8 +823,6 @@ function CreateInvoiceForm({
         alert(errorMsg);
       }
     } catch (err: any) {
-    // @ts-ignore
-   
       logger.error('Error creating invoice:', err);
       alert('Failed to create invoice');
     } finally {

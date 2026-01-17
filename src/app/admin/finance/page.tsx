@@ -30,11 +30,15 @@ export default function AdminFinancePage() {
 
   const loadFinanceData = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') || 
+                    localStorage.getItem('super_admin-token') || 
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('token');
 
       // Fetch dashboard stats
       const dashResponse = await fetch('/api/admin/dashboard', {
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
 
       if (dashResponse.ok) {
@@ -49,7 +53,8 @@ export default function AdminFinancePage() {
 
       // Fetch recent invoices
       const invoicesResponse = await fetch('/api/invoices?limit=5', {
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
 
       if (invoicesResponse.ok) {

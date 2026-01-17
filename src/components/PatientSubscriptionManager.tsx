@@ -31,17 +31,28 @@ export function PatientSubscriptionManager({ patientId, patientName }: PatientSu
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
 
+  // Helper to get auth headers for API calls
+  const getAuthHeaders = (): HeadersInit => {
+    const token = localStorage.getItem('auth-token') ||
+                  localStorage.getItem('super_admin-token') ||
+                  localStorage.getItem('admin-token') ||
+                  localStorage.getItem('provider-token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
   const fetchSubscriptions = async () => {
     try {
-      const res = await fetch(`/api/patients/${patientId}/subscriptions`);
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/patients/${patientId}/subscriptions`, {
+        credentials: 'include',
+        headers,
+      });
       if (!res.ok) throw new Error('Failed to fetch subscriptions');
       const data = await res.json();
       setSubscriptions(data);
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    setError(errorMessage);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -54,9 +65,11 @@ export function PatientSubscriptionManager({ patientId, patientName }: PatientSu
   const handlePause = async (subscriptionId: number) => {
     setProcessingId(subscriptionId);
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`/api/subscriptions/${subscriptionId}/pause`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' }
       });
       
       if (!res.ok) throw new Error('Failed to pause subscription');
@@ -64,10 +77,8 @@ export function PatientSubscriptionManager({ patientId, patientName }: PatientSu
       await fetchSubscriptions();
       alert('Subscription paused successfully');
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    alert(`Error: ${errorMessage}`);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setProcessingId(null);
     }
@@ -76,9 +87,11 @@ export function PatientSubscriptionManager({ patientId, patientName }: PatientSu
   const handleResume = async (subscriptionId: number) => {
     setProcessingId(subscriptionId);
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`/api/subscriptions/${subscriptionId}/resume`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' }
       });
       
       if (!res.ok) throw new Error('Failed to resume subscription');
@@ -86,10 +99,8 @@ export function PatientSubscriptionManager({ patientId, patientName }: PatientSu
       await fetchSubscriptions();
       alert('Subscription resumed successfully');
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    alert(`Error: ${errorMessage}`);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setProcessingId(null);
     }
@@ -102,9 +113,11 @@ export function PatientSubscriptionManager({ patientId, patientName }: PatientSu
     
     setProcessingId(subscriptionId);
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`/api/subscriptions/${subscriptionId}/cancel`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' }
       });
       
       if (!res.ok) throw new Error('Failed to cancel subscription');
@@ -112,10 +125,8 @@ export function PatientSubscriptionManager({ patientId, patientName }: PatientSu
       await fetchSubscriptions();
       alert('Subscription canceled successfully');
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    alert(`Error: ${errorMessage}`);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setProcessingId(null);
     }

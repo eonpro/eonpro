@@ -70,13 +70,16 @@ export default function MonitoringDashboard() {
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') || 
+                    localStorage.getItem('super_admin-token') || 
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('token');
       
       const response = await fetch('/api/admin/dashboard', {
+        credentials: 'include',
         headers: {
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        credentials: 'include',
       });
 
       if (response.ok) {
