@@ -226,9 +226,6 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Dynamic import to avoid build-time errors
-    const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-    
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patientId');
     
@@ -239,22 +236,46 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Get patient invoices
-    const invoices = await StripeInvoiceService.getPatientInvoices(
-      parseInt(patientId, 10)
-    );
+    const parsedPatientId = parseInt(patientId, 10);
+    if (isNaN(parsedPatientId)) {
+      return NextResponse.json(
+        { error: 'Invalid patient ID' },
+        { status: 400 }
+      );
+    }
+    
+    // Query invoices directly from database (doesn't require Stripe)
+    const { prisma } = await import('@/lib/db');
+    
+    const invoices = await prisma.invoice.findMany({
+      where: { patientId: parsedPatientId },
+      include: {
+        payments: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
     
     return NextResponse.json({
       success: true,
       invoices,
     });
   } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[API] Error fetching invoices:', error);
+    logger.error('[API] Error fetching invoices:', { 
+      message: error.message, 
+      stack: error.stack,
+      name: error.name 
+    });
     
     return NextResponse.json(
-      { error: 'Failed to fetch invoices' },
+      { 
+        error: 'Failed to fetch invoices',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

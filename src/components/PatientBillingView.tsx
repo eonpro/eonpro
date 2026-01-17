@@ -7,6 +7,19 @@ import { ProcessPaymentForm } from './ProcessPaymentForm';
 import { PatientSubscriptionManager } from './PatientSubscriptionManager';
 import { logger } from '@/lib/logger';
 
+// Helper to format dates only on client to avoid hydration mismatch
+function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return '—';
+  if (typeof window === 'undefined') return ''; // Server: return empty
+  return new Date(dateString).toLocaleDateString();
+}
+
+function formatDateTime(dateString: string | null | undefined): string {
+  if (!dateString) return '—';
+  if (typeof window === 'undefined') return ''; // Server: return empty
+  return new Date(dateString).toLocaleString();
+}
+
 interface Invoice {
   id: number;
   stripeInvoiceNumber: string | null;
@@ -46,6 +59,12 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
   const [error, setError] = useState<string | null>(null);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showProcessPayment, setShowProcessPayment] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Track client mount for hydration-safe rendering
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch invoices and payments
   useEffect(() => {
@@ -319,9 +338,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                       {getStatusBadge(invoice.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {invoice.dueDate
-                        ? new Date(invoice.dueDate).toLocaleDateString()
-                        : '—'}
+                      {mounted ? formatDate(invoice.dueDate) : ''}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex gap-2">
@@ -402,7 +419,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                 {payments.map((payment: any) => (
                   <tr key={payment.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(payment.createdAt).toLocaleString()}
+                      {mounted ? formatDateTime(payment.createdAt) : ''}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {formatCurrency(payment.amount)}
