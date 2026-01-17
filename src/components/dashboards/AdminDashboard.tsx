@@ -55,10 +55,32 @@ interface RecentActivity {
   user?: string;
 }
 
-export default function AdminDashboard() {
+interface AdminDashboardProps {
+  userName?: string;
+}
+
+export default function AdminDashboard({ userName }: AdminDashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revenueData, setRevenueData] = useState<Array<{ month: string; revenue: number }>>([]);
+  const [patientData, setPatientData] = useState<Array<{ day: string; newPatients: number; returningPatients: number }>>([]);
+  const [displayName, setDisplayName] = useState(userName || 'Admin');
+
+  // Get user name from localStorage if not provided
+  useEffect(() => {
+    if (!userName) {
+      try {
+        const user = localStorage.getItem('user');
+        if (user) {
+          const userData = JSON.parse(user);
+          setDisplayName(userData.firstName || userData.email?.split('@')[0] || 'Admin');
+        }
+      } catch {
+        // Keep default name
+      }
+    }
+  }, [userName]);
 
   useEffect(() => {
     loadDashboardData();
@@ -67,42 +89,66 @@ export default function AdminDashboard() {
   const loadDashboardData = async () => {
     try {
       // Load real data from API
-      // const response = await fetch('/api/admin/dashboard');
-      // const data = await response.json();
-      
-      // Mock data for demo
-      setStats({
-        totalPatients: 1234,
-        patientsChange: 12.5,
-        totalRevenue: 45678,
-        revenueChange: 8.2,
-        activeProviders: 23,
-        providersChange: -2.1,
-        pendingOrders: 47,
-        ordersChange: 15.3
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/admin/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
-      setRecentActivities([
-        { id: '1', type: 'patient', message: 'New patient registered', time: '5 minutes ago', user: 'John Smith' },
-        { id: '2', type: 'order', message: 'Order #1234 completed', time: '15 minutes ago' },
-        { id: '3', type: 'payment', message: 'Payment received $450', time: '1 hour ago', user: 'Jane Doe' },
-        { id: '4', type: 'staff', message: 'Dr. Wilson joined as provider', time: '2 hours ago' },
-        { id: '5', type: 'patient', message: 'Patient intake completed', time: '3 hours ago', user: 'Robert Johnson' },
-      ]);
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats);
+        setRecentActivities(data.recentActivities || []);
+
+        // Update chart data if available
+        if (data.charts?.monthlyRevenue) {
+          setRevenueData(data.charts.monthlyRevenue);
+        }
+        if (data.charts?.dailyPatients) {
+          setPatientData(data.charts.dailyPatients);
+        }
+      } else {
+        // Set default empty state
+        setStats({
+          totalPatients: 0,
+          patientsChange: 0,
+          totalRevenue: 0,
+          revenueChange: 0,
+          activeProviders: 0,
+          providersChange: 0,
+          pendingOrders: 0,
+          ordersChange: 0
+        });
+        setRecentActivities([]);
+      }
 
       setLoading(false);
     } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      // Set default empty state on error
+      setStats({
+        totalPatients: 0,
+        patientsChange: 0,
+        totalRevenue: 0,
+        revenueChange: 0,
+        activeProviders: 0,
+        providersChange: 0,
+        pendingOrders: 0,
+        ordersChange: 0
+      });
+      setRecentActivities([]);
       setLoading(false);
     }
   };
 
-  // Chart configurations
+  // Chart configurations - using real data from API
   const revenueChartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    labels: revenueData.length > 0 ? revenueData.map(d => d.month) : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [
       {
         label: 'Revenue',
-        data: [30000, 35000, 32000, 40000, 42000, 45678],
+        data: revenueData.length > 0 ? revenueData.map(d => d.revenue) : [0, 0, 0, 0, 0, 0],
         borderColor: 'rgb(147, 51, 234)',
         backgroundColor: 'rgba(147, 51, 234, 0.1)',
         tension: 0.4,
@@ -112,16 +158,16 @@ export default function AdminDashboard() {
   };
 
   const patientChartData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    labels: patientData.length > 0 ? patientData.map(d => d.day) : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
         label: 'New Patients',
-        data: [12, 19, 15, 25, 22, 30, 28],
+        data: patientData.length > 0 ? patientData.map(d => d.newPatients) : [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: 'rgba(59, 130, 246, 0.8)',
       },
       {
         label: 'Returning Patients',
-        data: [8, 12, 10, 18, 15, 22, 20],
+        data: patientData.length > 0 ? patientData.map(d => d.returningPatients) : [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: 'rgba(16, 185, 129, 0.8)',
       }
     ]
@@ -175,7 +221,7 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Welcome back, Admin!</h1>
+        <h1 className="text-2xl font-bold mb-2">Welcome back, {displayName}!</h1>
         <p className="text-purple-100">Here's what's happening in your clinic today</p>
       </div>
 
@@ -338,28 +384,36 @@ export default function AdminDashboard() {
             </button>
           </div>
           <div className="space-y-4">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-start">
-                <div className={`p-2 rounded-lg ${
-                  activity.type === 'patient' ? 'bg-blue-100' :
-                  activity.type === 'order' ? 'bg-green-100' :
-                  activity.type === 'payment' ? 'bg-yellow-100' :
-                  'bg-purple-100'
-                }`}>
-                  {activity.type === 'patient' && <UserPlus className="h-4 w-4 text-blue-600" />}
-                  {activity.type === 'order' && <Package className="h-4 w-4 text-green-600" />}
-                  {activity.type === 'payment' && <CreditCard className="h-4 w-4 text-yellow-600" />}
-                  {activity.type === 'staff' && <Users className="h-4 w-4 text-purple-600" />}
-                </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                  {activity.user && (
-                    <p className="text-sm text-gray-500">{activity.user}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
-                </div>
+            {recentActivities.length === 0 ? (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No recent activity</p>
+                <p className="text-sm text-gray-400">Activity will appear here as you use the platform</p>
               </div>
-            ))}
+            ) : (
+              recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start">
+                  <div className={`p-2 rounded-lg ${
+                    activity.type === 'patient' ? 'bg-blue-100' :
+                    activity.type === 'order' ? 'bg-green-100' :
+                    activity.type === 'payment' ? 'bg-yellow-100' :
+                    'bg-purple-100'
+                  }`}>
+                    {activity.type === 'patient' && <UserPlus className="h-4 w-4 text-blue-600" />}
+                    {activity.type === 'order' && <Package className="h-4 w-4 text-green-600" />}
+                    {activity.type === 'payment' && <CreditCard className="h-4 w-4 text-yellow-600" />}
+                    {activity.type === 'staff' && <Users className="h-4 w-4 text-purple-600" />}
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                    {activity.user && (
+                      <p className="text-sm text-gray-500">{activity.user}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

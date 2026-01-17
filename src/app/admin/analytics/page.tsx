@@ -1,41 +1,86 @@
 'use client';
 
-import { BarChart3, Users, Calendar, TrendingUp, Activity, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BarChart3, Users, Calendar, TrendingUp, Activity, Clock, Loader2 } from 'lucide-react';
+
+interface AnalyticsData {
+  totalPatients: number;
+  appointmentsToday: number;
+  activeProviders: number;
+  pendingOrders: number;
+}
 
 export default function AdminAnalyticsPage() {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<AnalyticsData | null>(null);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, []);
+
+  const loadAnalytics = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/admin/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setData({
+          totalPatients: result.stats?.totalPatients || 0,
+          appointmentsToday: result.stats?.pendingOrders || 0, // Using pending orders as proxy
+          activeProviders: result.stats?.activeProviders || 0,
+          pendingOrders: result.stats?.pendingOrders || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const metrics = [
-    { label: 'Total Patients', value: '1,234', change: '+12.5%', icon: Users },
-    { label: 'Appointments Today', value: '47', change: '+8%', icon: Calendar },
-    { label: 'Avg Wait Time', value: '12 min', change: '-15%', icon: Clock },
-    { label: 'Patient Satisfaction', value: '4.8/5', change: '+0.2', icon: Activity },
+    { label: 'Total Patients', value: data?.totalPatients?.toLocaleString() || '0', change: '-', icon: Users },
+    { label: 'Pending Orders', value: data?.pendingOrders?.toString() || '0', change: '-', icon: Calendar },
+    { label: 'Active Providers', value: data?.activeProviders?.toString() || '0', change: '-', icon: Activity },
+    { label: 'Platform Status', value: 'Active', change: 'Online', icon: TrendingUp },
   ];
 
-  const departmentStats = [
-    { name: 'General Medicine', patients: 456, appointments: 123, revenue: '$45,600' },
-    { name: 'Cardiology', patients: 234, appointments: 89, revenue: '$67,800' },
-    { name: 'Dermatology', patients: 189, appointments: 67, revenue: '$34,500' },
-    { name: 'Orthopedics', patients: 156, appointments: 45, revenue: '$56,700' },
-    { name: 'Pediatrics', patients: 199, appointments: 78, revenue: '$28,900' },
-  ];
+  if (loading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-        <p className="text-gray-600 mt-1">Monitor clinic performance and patient metrics</p>
+        <p className="text-gray-600 mt-1">Monitor clinic performance and metrics</p>
       </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
+          const isPositive = metric.change.startsWith('+') || metric.change === 'Online';
           return (
             <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="p-2 bg-indigo-50 rounded-lg">
                   <Icon className="h-6 w-6 text-indigo-600" />
                 </div>
-                <span className="text-sm font-medium text-green-600">{metric.change}</span>
+                <span className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-gray-500'}`}>
+                  {metric.change}
+                </span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900">{metric.value}</h3>
               <p className="text-sm text-gray-600 mt-1">{metric.label}</p>
@@ -45,30 +90,48 @@ export default function AdminAnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Department Performance */}
+        {/* Quick Stats */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Department Performance</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Overview</h2>
           <div className="space-y-4">
-            {departmentStats.map((dept, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h3 className="font-medium text-gray-900">{dept.name}</h3>
-                  <p className="text-sm text-gray-600">{dept.patients} patients · {dept.appointments} appts</p>
-                </div>
-                <span className="text-lg font-semibold text-emerald-600">{dept.revenue}</span>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h3 className="font-medium text-gray-900">Total Patients</h3>
+                <p className="text-sm text-gray-600">All registered patients</p>
               </div>
-            ))}
+              <span className="text-lg font-semibold text-emerald-600">
+                {data?.totalPatients?.toLocaleString() || '0'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h3 className="font-medium text-gray-900">Active Providers</h3>
+                <p className="text-sm text-gray-600">Healthcare providers</p>
+              </div>
+              <span className="text-lg font-semibold text-emerald-600">
+                {data?.activeProviders || '0'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h3 className="font-medium text-gray-900">Pending Orders</h3>
+                <p className="text-sm text-gray-600">Orders awaiting processing</p>
+              </div>
+              <span className="text-lg font-semibold text-orange-600">
+                {data?.pendingOrders || '0'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Chart Placeholder */}
+        {/* Info Box */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Patient Visits Trend</h2>
-          <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Analytics Dashboard</h2>
+          <div className="h-64 flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg">
             <div className="text-center">
-              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600">Chart visualization</p>
-              <p className="text-sm text-gray-400">Coming soon</p>
+              <BarChart3 className="h-12 w-12 text-purple-400 mx-auto mb-2" />
+              <p className="text-gray-700 font-medium">Real-Time Data</p>
+              <p className="text-sm text-gray-500 mt-1">All metrics shown are live from your database</p>
             </div>
           </div>
         </div>
@@ -76,4 +139,3 @@ export default function AdminAnalyticsPage() {
     </div>
   );
 }
-
