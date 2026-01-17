@@ -106,7 +106,7 @@ export async function PATCH(
     
     // If password is provided, hash it
     if (updates.password) {
-      updateData.passwordHash = await bcrypt.hash(updates.password, 10);
+      updateData.passwordHash = await bcrypt.hash(updates.password, 12);
     }
 
     // Update the influencer

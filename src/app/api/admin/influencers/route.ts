@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Hash the password
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     // Create the influencer
     const influencer = await prisma.influencer.create({

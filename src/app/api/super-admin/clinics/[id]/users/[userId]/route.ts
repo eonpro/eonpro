@@ -117,7 +117,7 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
           { status: 400 }
         );
       }
-      updateData.passwordHash = await bcrypt.hash(password, 10);
+      updateData.passwordHash = await bcrypt.hash(password, 12);
       updateData.lastPasswordChange = new Date();
     }
 

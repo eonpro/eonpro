@@ -21,8 +21,11 @@ const verifyOtpSchema = z.object({
   code: z.string().length(6, 'OTP must be exactly 6 digits'),
 });
 
-// Get JWT secret
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// Get JWT secret - MUST be configured
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('CRITICAL: JWT_SECRET environment variable must be configured');
+}
 
 export async function POST(req: NextRequest): Promise<Response> {
   try {

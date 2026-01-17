@@ -96,7 +96,7 @@ async function loginHandler(req: NextRequest) {
               role: "admin",
               status: 'ACTIVE',
             } as any;
-            passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD!, 10);
+            passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD!, 12);
           }
           break;
         

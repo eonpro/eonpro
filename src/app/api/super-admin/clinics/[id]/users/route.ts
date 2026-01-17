@@ -166,7 +166,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     // Convert role to uppercase for Prisma enum
     const prismaRole = role.toUpperCase();

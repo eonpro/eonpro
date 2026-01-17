@@ -42,7 +42,7 @@ export async function POST(
     }
     
     // Hash the password
-    const passwordHash = await bcrypt.hash(validated.password, 10);
+    const passwordHash = await bcrypt.hash(validated.password, 12);
     
     // Update provider with password
     const updatedProvider = await prisma.provider.update({ where: { id: provider.id }, data: {

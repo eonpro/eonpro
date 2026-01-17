@@ -153,7 +153,7 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
     }
 
     // Hash the new password
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(newPassword, 12);
 
     // Update password based on role
     let updated = false;
