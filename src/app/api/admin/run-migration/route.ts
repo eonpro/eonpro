@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
