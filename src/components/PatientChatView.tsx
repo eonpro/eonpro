@@ -74,6 +74,8 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       // Get auth token
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       
+      console.log('[Chat] Fetching messages for patient:', patient.id, 'phone:', patientPhone);
+      
       const res = await fetch(`/api/twilio/messages/${patient.id}`, {
         credentials: 'include',
         headers: {
@@ -81,8 +83,24 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         },
       });
 
+      console.log('[Chat] Response status:', res.status);
+      
       if (res.ok) {
         const data = await res.json();
+        console.log('[Chat] API Response:', {
+          messageCount: data.messages?.length || 0,
+          source: data.source,
+          debug: data.debug,
+          error: data.error
+        });
+        
+        if (data.error) {
+          console.warn('[Chat] API returned error:', data.error);
+          setError(`Messages may be incomplete: ${data.error}`);
+        } else {
+          setError(null);
+        }
+        
         const apiMessages: Message[] = (data.messages || []).map((msg: any) => ({
           id: msg.sid || msg.id || `msg-${Date.now()}-${Math.random()}`,
           text: msg.body || msg.text,
@@ -93,12 +111,11 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           status: msg.status === 'delivered' ? 'delivered' : (msg.status === 'sent' ? 'sent' : msg.status)
         }));
         
+        console.log('[Chat] Processed messages:', apiMessages.length);
+        
         // Simple replacement strategy - API is the source of truth
         // The API now properly returns all messages including ones we just sent
         setMessages(prevMessages => {
-          // Build a map of API messages by ID for quick lookup
-          const apiMessageMap = new Map(apiMessages.map(m => [m.id, m]));
-          
           // Keep only temp messages that haven't been confirmed by API yet
           // (messages that start with 'temp-' and aren't in API response)
           const pendingTempMessages = prevMessages.filter(localMsg => {
@@ -120,23 +137,31 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
           
+          console.log('[Chat] Final message count:', allMessages.length, 'pending temp:', pendingTempMessages.length);
+          
           return allMessages;
         });
       } else {
+        const errorText = await res.text().catch(() => 'Unknown error');
+        console.error('[Chat] Failed to load messages:', res.status, errorText);
+        
         // Only clear messages on first load, not during polling
         if (showLoading) {
           logger.warn('Failed to load message history, starting fresh');
           setMessages([]);
+          setError(`Failed to load messages (${res.status})`);
         } else {
           // During polling, keep existing messages
           logger.warn('Failed to refresh messages, keeping existing');
         }
       }
     } catch (error: any) {
+      console.error('[Chat] Exception loading messages:', error);
       logger.error('Failed to load message history', error);
       // Only clear on first load, keep existing on polling failures
       if (showLoading) {
         setMessages([]);
+        setError('Failed to connect to message service');
       }
     } finally {
       setLoading(false);
@@ -189,19 +214,26 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
   const sendMessage = async () => {
     if (!newMessage.trim() || !patientPhone) return;
 
+    const tempId = `temp-${Date.now()}`;
+    const messageText = newMessage;
+    
     const tempMessage: Message = {
-      id: `temp-${Date.now()}`,
-      text: newMessage,
+      id: tempId,
+      text: messageText,
       sender: 'provider',
-      timestamp: new Date().toISOString(), // Store as ISO string
+      timestamp: new Date().toISOString(),
       status: 'sent'
     };
 
-    setMessages(prev => [...prev, tempMessage]);
+    console.log('[Chat] Sending message:', { tempId, text: messageText, to: patientPhone });
+    
+    setMessages(prev => {
+      console.log('[Chat] Adding temp message, prev count:', prev.length);
+      return [...prev, tempMessage];
+    });
     setNewMessage('');
 
     try {
-      // Get auth token from localStorage (stored as 'auth-token' by login)
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       
       const res = await fetch('/api/twilio/send', {
@@ -210,36 +242,45 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` }),
         },
-        credentials: 'include', // Include cookies as fallback
+        credentials: 'include',
         body: JSON.stringify({
           to: patientPhone,
-          message: newMessage,
+          message: messageText,
           patientId: patient.id
         })
       });
 
+      const data = await res.json();
+      console.log('[Chat] Send response:', { status: res.status, data });
+
       if (res.ok) {
-        const data = await res.json();
         // Update message with actual ID and status
-        setMessages(prev => prev.map((msg: any) => 
-          msg.id === tempMessage.id 
-            ? { ...msg, id: data.messageSid, status: 'delivered' }
-            : msg
-        ));
+        setMessages(prev => {
+          const updated = prev.map((msg: Message) => 
+            msg.id === tempId 
+              ? { ...msg, id: data.messageSid || tempId, status: 'delivered' as const }
+              : msg
+          );
+          console.log('[Chat] Updated message ID from', tempId, 'to', data.messageSid);
+          return updated;
+        });
+        setError(null);
+        
+        // Immediately reload messages to sync with server
+        setTimeout(() => loadMessageHistory(false), 1000);
       } else {
-        throw new Error('Failed to send message');
+        throw new Error(data.error || 'Failed to send message');
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      console.error('[Chat] Send failed:', error);
       logger.error('Failed to send message', error);
       // Mark message as failed
-      setMessages(prev => prev.map((msg: any) => 
-        msg.id === tempMessage.id 
-          ? { ...msg, status: "FAILED" as any }
+      setMessages(prev => prev.map((msg: Message) => 
+        msg.id === tempId 
+          ? { ...msg, status: 'failed' as const }
           : msg
       ));
-      setError('Failed to send message');
+      setError(`Failed to send: ${error.message}`);
     }
   };
 
@@ -414,8 +455,16 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       {/* Input Area */}
       <div className="border-t px-6 py-4">
         {error && (
-          <div className="bg-red-50 text-red-600 text-sm p-2 rounded mb-3">
-            {error}
+          <div className="bg-red-50 text-red-600 text-sm p-2 rounded mb-3 flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">✕</button>
+          </div>
+        )}
+        
+        {/* Debug info - shows message count and source */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="text-xs text-gray-400 mb-2">
+            Messages loaded: {messages.length} | Phone: {patientPhone}
           </div>
         )}
         <div className="flex gap-3">
