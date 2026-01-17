@@ -12,7 +12,6 @@ import { z } from 'zod';
 import { basePrisma as prisma } from '@/lib/db';
 import { formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import { logger } from '@/lib/logger';
-import { strictRateLimit } from '@/lib/rateLimit';
 import { sign } from 'jsonwebtoken';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 
@@ -25,7 +24,7 @@ const verifyOtpSchema = z.object({
 // Get JWT secret
 const JWT_SECRET = process.env.JWT_SECRET || AUTH_CONFIG.jwtSecret;
 
-async function handleVerifyOtp(req: NextRequest): Promise<Response> {
+export async function POST(req: NextRequest): Promise<Response> {
   try {
     const body = await req.json();
     const validated = verifyOtpSchema.safeParse(body);
@@ -71,7 +70,7 @@ async function handleVerifyOtp(req: NextRequest): Promise<Response> {
     // Mark OTP as used
     await prisma.phoneOtp.update({
       where: { id: otpRecord.id },
-      data: { used: true },
+      data: { used: true, usedAt: new Date() },
     }).catch(() => {});
     
     // Find the user
@@ -248,6 +247,3 @@ async function handleVerifyOtp(req: NextRequest): Promise<Response> {
     );
   }
 }
-
-// Apply strict rate limiting (10 attempts per minute per IP)
-export const POST = strictRateLimit(handleVerifyOtp);
