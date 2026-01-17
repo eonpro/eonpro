@@ -162,6 +162,11 @@ async function handleSendOtp(req: NextRequest): Promise<Response> {
   }
 }
 
+// Debug: Add GET to verify route is working
+export async function GET(): Promise<Response> {
+  return NextResponse.json({ ok: true, route: 'send-otp', time: new Date().toISOString() });
+}
+
 // Temporarily bypass rate limiting for debugging
 export async function POST(req: NextRequest): Promise<Response> {
   return handleSendOtp(req);
