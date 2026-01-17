@@ -155,4 +155,4 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
   }
 }
 
-export const POST = withAuth(handlePost, { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'STAFF'] });
+export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin', 'provider', 'staff'] });

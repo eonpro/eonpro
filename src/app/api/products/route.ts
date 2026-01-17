@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16',
+  apiVersion: '2025-11-17.clover',
 });
 
 // Validation schema for creating/updating products
@@ -45,7 +45,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const where: any = {};
 
     // Clinic filter based on role
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'super_admin') {
       const clinicId = url.searchParams.get('clinicId');
       if (clinicId) {
         where.clinicId = parseInt(clinicId);
@@ -93,7 +93,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     // Determine clinic ID
     let clinicId = user.clinicId;
-    if (user.role === 'SUPER_ADMIN' && body.clinicId) {
+    if (user.role === 'super_admin' && body.clinicId) {
       clinicId = body.clinicId;
     }
 
@@ -213,5 +213,5 @@ async function handlePost(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const GET = withAuth(handleGet, { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'PROVIDER'] });
-export const POST = withAuth(handlePost, { requiredRoles: ['SUPER_ADMIN', 'ADMIN'] });
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'provider'] });
+export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin'] });

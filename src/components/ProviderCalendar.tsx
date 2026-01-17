@@ -52,7 +52,7 @@ export default function ProviderCalendar({
   const renderMonthView = () => {
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
-    const days = [];
+    const days: React.ReactNode[] = [];
 
     // Empty cells for days before month starts
     for (let i = 0; i < firstDay; i++) {
@@ -125,8 +125,8 @@ export default function ProviderCalendar({
     const startOfWeek = new Date(currentDate);
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
     
-    const weekDays = [];
-    const timeSlots = [];
+    const weekDays: Date[] = [];
+    const timeSlots: React.ReactNode[] = [];
     
     // Generate week days
     for (let i = 0; i < 7; i++) {

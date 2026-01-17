@@ -104,7 +104,7 @@ export const POST = withProviderAuth(
       };
 
       // Check for red flags first if requested
-      let redFlagsResult = null;
+      let redFlagsResult: { hasRedFlags: boolean; flags: any[]; recommendation: string } | null = null;
       if (checkRedFlags) {
         redFlagsResult = await checkForRedFlags(transcript);
       }
@@ -128,7 +128,7 @@ export const POST = withProviderAuth(
       ]);
 
       // Save to database if requested
-      let savedNote = null;
+      let savedNote: { id: number } | null = null;
       if (saveNote) {
         savedNote = await saveScribeSOAPNote(
           patientId,

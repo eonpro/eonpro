@@ -91,7 +91,8 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
     const recentInvoices: any[] = [];
     
     for (const inv of invoices) {
-      totalInvoiced += inv.amount;
+      const invAmount = inv.amount ?? 0;
+      totalInvoiced += invAmount;
       totalPaid += inv.amountPaid || 0;
       
       // Count by status
@@ -102,7 +103,7 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
       if (!byMonth[monthKey]) {
         byMonth[monthKey] = { invoiced: 0, collected: 0 };
       }
-      byMonth[monthKey].invoiced += inv.amount;
+      byMonth[monthKey].invoiced += invAmount;
       byMonth[monthKey].collected += inv.amountPaid || 0;
       
       // Status counts
@@ -110,10 +111,10 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
         case 'DRAFT': draftCount++; break;
         case 'OPEN':
           openCount++;
-          totalOutstanding += inv.amountDue || inv.amount;
+          totalOutstanding += inv.amountDue ?? invAmount;
           if (inv.dueDate && inv.dueDate < now) {
             overdueCount++;
-            overdueAmount += inv.amountDue || inv.amount;
+            overdueAmount += inv.amountDue ?? invAmount;
           }
           break;
         case 'PAID': paidCount++; break;

@@ -35,7 +35,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     const where: any = {};
 
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'super_admin') {
       const clinicId = url.searchParams.get('clinicId');
       if (clinicId) where.clinicId = parseInt(clinicId);
     } else if (user.clinicId) {
@@ -75,7 +75,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     const validated = promotionSchema.parse(body);
 
     let clinicId = user.clinicId;
-    if (user.role === 'SUPER_ADMIN' && body.clinicId) {
+    if (user.role === 'super_admin' && body.clinicId) {
       clinicId = body.clinicId;
     }
 
@@ -119,5 +119,5 @@ async function handlePost(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const GET = withAuth(handleGet, { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'PROVIDER'] });
-export const POST = withAuth(handlePost, { requiredRoles: ['SUPER_ADMIN', 'ADMIN'] });
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'provider'] });
+export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin'] });

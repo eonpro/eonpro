@@ -27,7 +27,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
 
     // Build clinics array from user's clinic
-    const clinics = [];
+    const clinics: Array<{ id: number; name: string; subdomain: string | null; customDomain: string | null; logoUrl: string | null; primaryColor: string | null; status: string | null; role: string; isPrimary: boolean }> = [];
     if (userData?.clinic) {
       clinics.push({
         ...userData.clinic,

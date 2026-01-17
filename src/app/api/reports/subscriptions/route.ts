@@ -231,7 +231,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
 
       case 'churn':
         // Churn analysis over time
-        const periods = [];
+        const periods: { period: string; periodLabel: string; activeAtStart: number; newSubscriptions: number; cancelled: number; churnRate: string; netGrowth: number }[] = [];
         const periodStart = new Date(start);
         
         while (periodStart < end) {

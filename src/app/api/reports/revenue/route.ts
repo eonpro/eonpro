@@ -168,7 +168,7 @@ async function getRevenueReportsHandler(req: NextRequest, user: AuthUser): Promi
         }, 0);
 
         // Project next 12 months
-        const forecast = [];
+        const forecast: { month: string; monthName: string; projectedMRR: number; formatted: string }[] = [];
         for (let i = 1; i <= 12; i++) {
           const month = new Date();
           month.setMonth(month.getMonth() + i);

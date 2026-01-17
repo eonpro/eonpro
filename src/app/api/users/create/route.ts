@@ -231,4 +231,4 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-}, { roles: ['SUPER_ADMIN', 'super_admin', 'ADMIN', 'admin'] });
+}, { roles: ['super_admin', 'admin'] });

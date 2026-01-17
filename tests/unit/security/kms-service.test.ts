@@ -27,22 +27,31 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 describe('KMS Service', () => {
-  const originalEnv = process.env;
+  const originalEnv = { ...process.env };
+
+  // Helper to set NODE_ENV without TypeScript errors
+  const setNodeEnv = (env: string) => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: env, writable: true, configurable: true });
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    process.env = { ...originalEnv };
+    Object.keys(originalEnv).forEach(key => {
+      (process.env as Record<string, string | undefined>)[key] = originalEnv[key];
+    });
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    Object.keys(originalEnv).forEach(key => {
+      (process.env as Record<string, string | undefined>)[key] = originalEnv[key];
+    });
   });
 
   describe('isKMSEnabled', () => {
     it('should return true when KMS is configured in production', async () => {
       process.env.AWS_KMS_KEY_ID = 'test-key-id';
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
 
       const { isKMSEnabled } = await import('@/lib/security/kms');
       expect(isKMSEnabled()).toBe(true);
@@ -50,7 +59,7 @@ describe('KMS Service', () => {
 
     it('should return false when KMS key is not configured', async () => {
       delete process.env.AWS_KMS_KEY_ID;
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
 
       const { isKMSEnabled } = await import('@/lib/security/kms');
       expect(isKMSEnabled()).toBe(false);
@@ -58,7 +67,7 @@ describe('KMS Service', () => {
 
     it('should return false in development', async () => {
       process.env.AWS_KMS_KEY_ID = 'test-key-id';
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
 
       const { isKMSEnabled } = await import('@/lib/security/kms');
       expect(isKMSEnabled()).toBe(false);
@@ -67,7 +76,7 @@ describe('KMS Service', () => {
 
   describe('getEncryptionKey', () => {
     it('should return key from env var in development', async () => {
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       process.env.ENCRYPTION_KEY = 'a'.repeat(64); // 64 hex chars = 32 bytes
 
       const { getEncryptionKey } = await import('@/lib/security/kms');
@@ -78,7 +87,7 @@ describe('KMS Service', () => {
     });
 
     it('should throw if ENCRYPTION_KEY is invalid length', async () => {
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       process.env.ENCRYPTION_KEY = 'short-key';
 
       const { getEncryptionKey } = await import('@/lib/security/kms');
@@ -87,7 +96,7 @@ describe('KMS Service', () => {
     });
 
     it('should throw if ENCRYPTION_KEY is missing', async () => {
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       delete process.env.ENCRYPTION_KEY;
 
       const { getEncryptionKey } = await import('@/lib/security/kms');
@@ -302,7 +311,7 @@ describe('Data Key Operations', () => {
 describe('Key Rotation', () => {
   describe('rotateEncryptionKey', () => {
     it('should require KMS to be enabled', async () => {
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       delete process.env.AWS_KMS_KEY_ID;
 
       vi.resetModules();
@@ -316,7 +325,7 @@ describe('Key Rotation', () => {
 describe('KMS Health Check', () => {
   describe('verifyKMSAccess', () => {
     it('should return true in development (KMS not required)', async () => {
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       delete process.env.AWS_KMS_KEY_ID;
 
       vi.resetModules();

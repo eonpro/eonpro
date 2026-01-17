@@ -22,7 +22,7 @@ const verifyOtpSchema = z.object({
 });
 
 // Get JWT secret
-const JWT_SECRET = process.env.JWT_SECRET || AUTH_CONFIG.jwtSecret;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function POST(req: NextRequest): Promise<Response> {
   try {
@@ -74,8 +74,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     }).catch(() => {});
     
     // Find the account
-    let user = null;
-    let patient = null;
+    type UserData = { id: number; email: string; firstName: string; lastName: string; role: string; clinicId: number | null; status?: string };
+    type PatientData = { id: number; email: string | null; firstName: string; lastName: string; clinicId: number | null };
+    let user: UserData | null = null;
+    let patient: PatientData | null = null;
     let isPatientLogin = false;
     
     // If OTP has userId, get the user

@@ -256,8 +256,8 @@ async function deleteUserHandler(
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
 
-    // Only SUPER_ADMIN can delete users
-    const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'super_admin';
+    // Only super_admin can delete users
+    const isSuperAdmin = user.role === 'super_admin';
     if (!isSuperAdmin) {
       return NextResponse.json(
         { error: 'Only Super Admins can delete users' },
@@ -333,7 +333,7 @@ const wrappedPutHandler = (req: NextRequest, context: { params: Promise<{ id: st
 const wrappedDeleteHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
   return withAuth((r: NextRequest, u: AuthUser) =>
     deleteUserHandler(r, u, context),
-    { roles: ['SUPER_ADMIN', 'super_admin'] }
+    { roles: ['super_admin'] }
   )(req);
 };
 

@@ -123,7 +123,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-}, { roles: ['SUPER_ADMIN', 'super_admin', 'ADMIN', 'admin', 'STAFF', 'staff', 'SUPPORT', 'support'] });
+}, { roles: ['super_admin', 'admin', 'staff', 'support'] });
 
 // Update user schema
 const updateUserSchema = z.object({
@@ -270,7 +270,7 @@ export const PUT = withAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-}, { roles: ['SUPER_ADMIN', 'super_admin', 'ADMIN', 'admin'] });
+}, { roles: ['super_admin', 'admin'] });
 
 /**
  * DELETE /api/users
@@ -397,4 +397,4 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-}, { roles: ['SUPER_ADMIN', 'super_admin'] });
+}, { roles: ['super_admin'] });

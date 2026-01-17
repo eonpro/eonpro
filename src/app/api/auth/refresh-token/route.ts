@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user based on ID and role from the token
-    let user = null;
+    let user: { id: number; email: string; firstName?: string; lastName?: string; name?: string } | null = null;
     const userId = payload.id as number;
     
     // Since we don't store the role in refresh token, we need to check multiple tables

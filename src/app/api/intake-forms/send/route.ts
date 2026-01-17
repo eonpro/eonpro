@@ -106,7 +106,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
 
     let emailSent = false;
     let smsSent = false;
-    const errors = [];
+    const errors: string[] = [];
 
     // Send email
     if (sendVia === 'email' || sendVia === 'both') {

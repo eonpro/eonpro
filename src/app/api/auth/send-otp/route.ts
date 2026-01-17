@@ -78,7 +78,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
     
     // Also check Patient table if no provider found
-    let patient = null;
+    let patient: { id: number; email: string | null; firstName: string; phone: string | null } | null = null;
     if (!provider) {
       patient = await prisma.patient.findFirst({
         where: {

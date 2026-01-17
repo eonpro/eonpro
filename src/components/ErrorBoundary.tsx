@@ -17,7 +17,7 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
+  public override state: State = {
     hasError: false,
     error: null,
     errorId: null,
@@ -28,11 +28,11 @@ class ErrorBoundary extends Component<Props, State> {
     return {
       hasError: true,
       error,
-      errorId: typeof errorId === 'string'  ? errorId  : undefined,
+      errorId: typeof errorId === 'string' ? errorId : null,
     };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
       logger.error('ErrorBoundary caught an error:', error, errorInfo);
@@ -62,7 +62,7 @@ class ErrorBoundary extends Component<Props, State> {
     });
   };
 
-  public render() {
+  public override render() {
     if (this.state.hasError) {
       // Custom fallback UI if provided
       if (this.props.fallback) {

@@ -158,7 +158,7 @@ export const POST = withAuthParams(async (
       );
     }
 
-    const uploadedDocuments = [];
+    const uploadedDocuments: { id: number; filename: string; category: string; mimeType: string; uploadedAt: string; size: number; url: string }[] = [];
 
     for (const file of files) {
       // Validate file type

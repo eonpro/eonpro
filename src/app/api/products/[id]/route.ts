@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAuthParams, AuthUser } from '@/lib/auth';
+import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import { AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16',
+  apiVersion: '2025-11-17.clover',
 });
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -47,7 +48,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context: RouteContext
     const where: any = { id: productId };
     
     // Clinic access control
-    if (user.role !== 'SUPER_ADMIN' && user.clinicId) {
+    if (user.role !== 'super_admin' && user.clinicId) {
       where.clinicId = user.clinicId;
     }
 
@@ -85,12 +86,12 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
     const validated = updateSchema.parse(body);
 
     // Check product exists and user has access
-    const where: any = { id: productId };
-    if (user.role !== 'SUPER_ADMIN' && user.clinicId) {
-      where.clinicId = user.clinicId;
+    const updateWhere: any = { id: productId };
+    if (user.role !== 'super_admin' && user.clinicId) {
+      updateWhere.clinicId = user.clinicId;
     }
 
-    const existingProduct = await prisma.product.findFirst({ where });
+    const existingProduct = await prisma.product.findFirst({ where: updateWhere });
     if (!existingProduct) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
@@ -191,12 +192,12 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
     }
 
     // Check product exists and user has access
-    const where: any = { id: productId };
-    if (user.role !== 'SUPER_ADMIN' && user.clinicId) {
-      where.clinicId = user.clinicId;
+    const deleteWhere: any = { id: productId };
+    if (user.role !== 'super_admin' && user.clinicId) {
+      deleteWhere.clinicId = user.clinicId;
     }
 
-    const existingProduct = await prisma.product.findFirst({ where });
+    const existingProduct = await prisma.product.findFirst({ where: deleteWhere });
     if (!existingProduct) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
@@ -228,6 +229,6 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
   }
 }
 
-export const GET = withAuthParams(handleGet, { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'PROVIDER'] });
-export const PUT = withAuthParams(handlePut, { requiredRoles: ['SUPER_ADMIN', 'ADMIN'] });
-export const DELETE = withAuthParams(handleDelete, { requiredRoles: ['SUPER_ADMIN', 'ADMIN'] });
+export const GET = withAuthParams(handleGet, { roles: ['super_admin', 'admin', 'provider'] });
+export const PUT = withAuthParams(handlePut, { roles: ['super_admin', 'admin'] });
+export const DELETE = withAuthParams(handleDelete, { roles: ['super_admin', 'admin'] });

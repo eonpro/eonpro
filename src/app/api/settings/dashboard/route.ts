@@ -147,7 +147,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     };
     
     // Quick actions based on permissions
-    const quickActions = [];
+    const quickActions: { id: string; title: string; icon: string; path: string }[] = [];
     
     if (hasPermission(user.role as any, PERMISSIONS.USER_CREATE)) {
       quickActions.push({

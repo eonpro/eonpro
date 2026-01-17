@@ -159,7 +159,7 @@ export const POST = withProviderAuth(
           );
 
           // Optionally import external events
-          let importResult = null;
+          let importResult: { imported: number; errors: string[] } | null = null;
           if (syncParsed.success && syncParsed.data.importExternal) {
             const startDate = new Date();
             const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);

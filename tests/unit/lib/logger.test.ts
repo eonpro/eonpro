@@ -15,7 +15,7 @@ vi.mock('@sentry/nextjs', () => ({
 import * as Sentry from '@sentry/nextjs';
 
 describe('Logger Service', () => {
-  const originalEnv = process.env;
+  const originalEnv = { ...process.env };
   const originalConsole = {
     debug: console.debug,
     info: console.info,
@@ -24,9 +24,16 @@ describe('Logger Service', () => {
     log: console.log,
   };
 
+  // Helper to set NODE_ENV without TypeScript errors
+  const setNodeEnv = (env: string) => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: env, writable: true, configurable: true });
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env = { ...originalEnv };
+    Object.keys(originalEnv).forEach(key => {
+      (process.env as Record<string, string | undefined>)[key] = originalEnv[key];
+    });
     console.debug = vi.fn();
     console.info = vi.fn();
     console.warn = vi.fn();
@@ -57,7 +64,7 @@ describe('Logger Service', () => {
 
   describe('debug method', () => {
     it('should log debug in development', async () => {
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       vi.resetModules();
       
       const { Logger } = await import('@/lib/logger');
@@ -71,7 +78,7 @@ describe('Logger Service', () => {
     });
 
     it('should not log debug in production', async () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       vi.resetModules();
       
       const { Logger } = await import('@/lib/logger');
@@ -86,7 +93,7 @@ describe('Logger Service', () => {
 
   describe('info method', () => {
     it('should send breadcrumb to Sentry in production', async () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       vi.resetModules();
       
       const { Logger } = await import('@/lib/logger');
@@ -144,7 +151,7 @@ describe('Logger Service', () => {
 
   describe('api method', () => {
     it('should log API requests with method and path', async () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       vi.resetModules();
       
       const { Logger } = await import('@/lib/logger');
@@ -163,7 +170,7 @@ describe('Logger Service', () => {
 
   describe('db method', () => {
     it('should log database operations', async () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       vi.resetModules();
       
       const { Logger } = await import('@/lib/logger');
@@ -336,19 +343,19 @@ describe('Environment Detection', () => {
   });
 
   it('should detect development environment', () => {
-    process.env.NODE_ENV = 'development';
+    setNodeEnv('development');
     const isDevelopment = process.env.NODE_ENV === 'development';
     expect(isDevelopment).toBe(true);
   });
 
   it('should detect test environment', () => {
-    process.env.NODE_ENV = 'test';
+    setNodeEnv('test');
     const isTest = process.env.NODE_ENV === 'test';
     expect(isTest).toBe(true);
   });
 
   it('should detect production environment', () => {
-    process.env.NODE_ENV = 'production';
+    setNodeEnv('production');
     const isProduction = process.env.NODE_ENV === 'production';
     expect(isProduction).toBe(true);
   });

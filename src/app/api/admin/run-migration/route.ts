@@ -14,10 +14,10 @@ import { logger } from '@/lib/logger';
 // GET endpoint for easy browser access
 export async function GET(req: NextRequest) {
   try {
-    const auth = await verifyAuth(req);
-    const allowedRoles = ['SUPER_ADMIN', 'super_admin', 'ADMIN', 'admin'];
-    if (!auth || !allowedRoles.includes(auth.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required', yourRole: auth?.role }, { status: 401 });
+    const authResult = await verifyAuth(req);
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!authResult.success || !authResult.user || !allowedRoles.includes(authResult.user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - Admin access required', yourRole: authResult.user?.role }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     // Run the migration (reuse POST logic)
     const body = { migration };
-    return runMigration(body, auth);
+    return runMigration(body, authResult.user);
   } catch (error: any) {
     logger.error('Migration error', { error: error.message });
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -43,14 +43,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Verify admin or super_admin
-    const auth = await verifyAuth(req);
-    const allowedRoles = ['SUPER_ADMIN', 'super_admin', 'ADMIN', 'admin'];
-    if (!auth || !allowedRoles.includes(auth.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required', yourRole: auth?.role }, { status: 401 });
+    const authResult = await verifyAuth(req);
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!authResult.success || !authResult.user || !allowedRoles.includes(authResult.user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - Admin access required', yourRole: authResult.user?.role }, { status: 401 });
     }
 
     const body = await req.json();
-    return runMigration(body, auth);
+    return runMigration(body, authResult.user);
   } catch (error: any) {
     logger.error('Migration error', { error: error.message });
     return NextResponse.json({ error: error.message }, { status: 500 });
