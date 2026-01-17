@@ -259,6 +259,12 @@ class PrismaWithClinicFilter {
   get affiliateInfluencer() { return this.client.affiliateInfluencer; }
   get affiliateReferral() { return this.client.affiliateReferral; }
   get affiliatePayout() { return this.client.affiliatePayout; }
+  get product() { return this.createModelProxy('product'); }
+  get productBundle() { return this.client.productBundle; }
+  get productBundleItem() { return this.client.productBundleItem; }
+  get pricingRule() { return this.client.pricingRule; }
+  get invoice() { return this.createModelProxy('invoice'); }
+  get invoiceItem() { return this.client.invoiceItem; }
   
   // Expose transaction support
   async $transaction(fn: (tx: any) => Promise<any>) {
