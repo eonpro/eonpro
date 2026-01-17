@@ -55,6 +55,23 @@ export function getTwilioClient() {
   return twilioClient;
 }
 
+/**
+ * Get Twilio client directly - bypasses feature flag check
+ * Use for critical authentication flows like OTP that should always work
+ * when credentials are configured, regardless of feature flag
+ */
+export function getTwilioClientDirect() {
+  if (!isTwilioConfigured()) {
+    throw new Error('Twilio is not properly configured. Please check your environment variables.');
+  }
+
+  if (!twilioClient) {
+    twilioClient = twilio(twilioConfig.accountSid, twilioConfig.authToken);
+  }
+
+  return twilioClient;
+}
+
 // SMS Templates
 export const SMS_TEMPLATES = {
   APPOINTMENT_REMINDER: (patientName: string, appointmentDate: string, doctorName: string) =>

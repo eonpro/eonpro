@@ -4,7 +4,7 @@
  * Handles sending SMS notifications and managing SMS conversations
  */
 
-import { getTwilioClient, SMS_TEMPLATES, SMS_KEYWORDS, TWILIO_ERRORS, isTwilioConfigured } from './config';
+import { getTwilioClientDirect, SMS_TEMPLATES, SMS_KEYWORDS, TWILIO_ERRORS, isTwilioConfigured, twilioConfig } from './config';
 import { prisma } from '@/lib/db';
 import { mockSendSMS, mockProcessIncomingSMS } from './mockService';
 import { logger } from '@/lib/logger';
@@ -68,7 +68,7 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
       return await mockSendSMS(message);
     }
     
-    const client = getTwilioClient();
+    const client = getTwilioClientDirect();
     
     // Validate phone number
     if (!validatePhoneNumber(message.to)) {
@@ -400,7 +400,7 @@ async function handleAppointmentCancellation(
 // Get SMS status
 export async function getSMSStatus(messageId: string): Promise<any> {
   try {
-    const client = getTwilioClient();
+    const client = getTwilioClientDirect();
     const message = await client.messages(messageId).fetch();
     
     return {
