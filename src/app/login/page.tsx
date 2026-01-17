@@ -593,7 +593,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="p-6 text-center">
           <p className="text-xs text-gray-500">
-            HIPAA Compliant Healthcare Platform • © 2024 EONPRO
+            HIPAA Compliant Healthcare Platform • © 2026 EONPRO
           </p>
         </div>
       </div>
