@@ -255,7 +255,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     { id: 'appointments', label: 'Appointments', icon: 'Ap', color: 'bg-indigo-500' },
     { id: 'progress', label: 'Progress', icon: 'Ps', color: 'bg-pink-500' },
     { id: 'billing', label: 'Billing', icon: '$', color: 'bg-emerald-500' },
-    { id: 'chat', label: 'Chat', icon: '💬', color: 'bg-red-500' },
+    { id: 'chat', label: 'Chat', icon: 'Ch', color: 'bg-red-500' },
     { id: 'documents', label: 'Documents', icon: 'Dc', color: 'bg-amber-500' },
   ];
 
@@ -344,8 +344,11 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       </div>
 
       {submittedFlag && (currentTab === "profile" || currentTab === "prescriptions") && (
-        <div className="mx-6 mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          ✅ Prescription submitted successfully.
+        <div className="mx-6 mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-center gap-2">
+          <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Prescription submitted successfully.
         </div>
       )}
 

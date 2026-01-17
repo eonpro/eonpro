@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         ...mockResponse,
-        message: '⚠️ Using mock S3 service (feature not enabled)',
+        message: 'Using mock S3 service (feature not enabled)',
       });
     }
 

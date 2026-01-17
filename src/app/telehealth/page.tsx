@@ -270,7 +270,7 @@ export default function TelehealthPage() {
                     </p>
                   </div>
                   <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">🔒 HIPAA Compliant</h3>
+                    <h3 className="font-semibold mb-2">HIPAA Compliant</h3>
                     <p className="text-sm text-gray-600">
                       Secure, encrypted video calls with recording options
                     </p>

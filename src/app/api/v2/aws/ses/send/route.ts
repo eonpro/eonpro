@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         
         return NextResponse.json({
           ...result,
-          message: '⚠️ Using mock SES service (feature not enabled)',
+          message: 'Using mock SES service (feature not enabled)',
         });
       }
       
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         
         return NextResponse.json({
           results: mockResults,
-          message: '⚠️ Using mock SES service (feature not enabled)',
+          message: 'Using mock SES service (feature not enabled)',
         });
       }
       

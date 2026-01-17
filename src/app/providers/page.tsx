@@ -337,7 +337,7 @@ export default function ProvidersPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create provider");
       
-      setSuccess("🎉 Provider added successfully!");
+      setSuccess("Provider added successfully!");
       resetForm();
       fetchProviders();
     } catch (err: any) {
@@ -546,7 +546,7 @@ export default function ProvidersPage() {
                     {/* Debug: Show if no clinics loaded */}
                     {clinics.length === 0 && (
                       <div className="p-4 bg-red-50 rounded-2xl border border-red-200">
-                        <p className="text-sm text-red-700">⚠️ No clinics loaded. User role: {userRole || 'unknown'}</p>
+                        <p className="text-sm text-red-700">No clinics loaded. User role: {userRole || 'unknown'}</p>
                       </div>
                     )}
 

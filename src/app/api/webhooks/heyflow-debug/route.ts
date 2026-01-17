@@ -24,13 +24,13 @@ export async function POST(request: NextRequest) {
     
     // Check for different MedLink formats
     if (json.responseId) {
-      logger.debug('\n✓ Found responseId (v2 format)');
+      logger.debug('\nFound responseId (v2 format)');
     }
     if (json.response?.responseId) {
-      logger.debug('\n✓ Found response.responseId (v1 format)');
+      logger.debug('\nFound response.responseId (v1 format)');
     }
     if (json.submissionId) {
-      logger.debug('\n✓ Found submissionId (alternative format)');
+      logger.debug('\nFound submissionId (alternative format)');
     }
   } catch (e: any) {
     // @ts-ignore

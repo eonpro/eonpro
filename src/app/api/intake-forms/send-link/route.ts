@@ -99,7 +99,7 @@ async function sendEmailWithLink(
     }
   } else {
     // Development mode - log to console
-    logger.info('\n📧 EMAIL WOULD BE SENT:', {
+    logger.info('[EMAIL] Would be sent:', {
       to,
       subject: `Please complete your ${formName} form`,
       link
@@ -119,7 +119,7 @@ async function sendSMSWithLink(
 
   if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
     logger.warn('Twilio not configured - SMS not sent');
-    logger.info('\n📱 SMS WOULD BE SENT:', {
+    logger.info('[SMS] Would be sent:', {
       to: phone,
       message: `Please complete your ${formName} intake form: ${link}`
     });

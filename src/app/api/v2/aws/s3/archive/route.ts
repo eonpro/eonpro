@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         success: true,
         originalKey: key,
         archiveKey,
-        message: '⚠️ Using mock S3 service (feature not enabled)',
+        message: 'Using mock S3 service (feature not enabled)',
       });
     }
 

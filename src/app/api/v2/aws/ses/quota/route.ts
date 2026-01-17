@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       const mockQuota = await mockSESService.getSendQuota();
       return NextResponse.json({
         ...mockQuota,
-        message: '⚠️ Using mock SES service (feature not enabled)',
+        message: 'Using mock SES service (feature not enabled)',
       });
     }
 

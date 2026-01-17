@@ -917,7 +917,7 @@ export default function ClinicDetailPage() {
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">
                       {lifefileSettings.lifefileEnabled && lifefileSettings.hasCredentials
-                        ? '✓ Pharmacy Integration Active'
+                        ? 'Pharmacy Integration Active'
                         : 'Pharmacy Integration Not Configured'}
                     </h2>
                     <p className="text-gray-600">

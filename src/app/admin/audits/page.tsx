@@ -56,7 +56,7 @@ export default async function AdminAuditsPage() {
       {/* Security Notice */}
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
         <div className="flex items-center">
-          <span className="text-red-600 font-semibold">⚠️ Restricted Access</span>
+          <span className="text-red-600 font-semibold">Restricted Access</span>
           <span className="ml-2 text-sm text-red-700">
             This page contains sensitive audit information and should only be accessible to super administrators.
           </span>

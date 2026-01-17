@@ -27,7 +27,7 @@ export async function DELETE(request: NextRequest) {
       const success = await mockS3Service.deleteFromS3(key);
       return NextResponse.json({
         success,
-        message: '⚠️ Using mock S3 service (feature not enabled)',
+        message: 'Using mock S3 service (feature not enabled)',
       });
     }
 

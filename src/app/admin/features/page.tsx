@@ -97,13 +97,13 @@ export default function FeatureFlagsPage() {
     setFeatures(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Category icons
+  // Category icons (using text abbreviations for clean design)
   const categoryIcons: Record<string, string> = {
-    Payment: "💳",
-    Communication: "💬",
-    Telehealth: "🎥",
-    Infrastructure: "☁️",
-    Advanced: "🚀",
+    Payment: "Pay",
+    Communication: "Com",
+    Telehealth: "Tel",
+    Infrastructure: "Inf",
+    Advanced: "Adv",
   };
 
   return (
@@ -258,25 +258,25 @@ export default function FeatureFlagsPage() {
               href="/billing/subscriptions"
               className="text-blue-600 hover:underline flex items-center gap-1"
             >
-              💳 Subscription Billing
+              Subscription Billing
             </a>
             <a
               href="/communications/sms"
               className="text-blue-600 hover:underline flex items-center gap-1"
             >
-              💬 SMS Communications
+              SMS Communications
             </a>
             <a
               href="/test/twilio"
               className="text-blue-600 hover:underline flex items-center gap-1"
             >
-              🧪 Test Twilio
+              Test Twilio
             </a>
             <a
               href="/admin"
               className="text-blue-600 hover:underline flex items-center gap-1"
             >
-              🏠 Admin Console
+              Admin Console
             </a>
           </div>
         </div>

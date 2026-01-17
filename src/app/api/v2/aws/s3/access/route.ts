@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         success: true,
         key,
         accessLevel,
-        message: '⚠️ Using mock S3 service (feature not enabled)',
+        message: 'Using mock S3 service (feature not enabled)',
       });
     }
 

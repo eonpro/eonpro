@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     if (!isFeatureEnabled('AWS_S3_STORAGE')) {
       return NextResponse.json({
         healthy: true,
-        message: '⚠️ Using mock S3 service (feature not enabled)',
+        message: 'Using mock S3 service (feature not enabled)',
         mock: true,
       });
     }
