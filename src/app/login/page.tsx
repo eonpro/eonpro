@@ -233,8 +233,9 @@ export default function LoginPage() {
 
   // Handle successful login
   const handleLoginSuccess = (data: any) => {
-    // Store tokens and user data
+    // Store tokens and user data (both keys for compatibility)
     localStorage.setItem('auth-token', data.token);
+    localStorage.setItem('token', data.token); // Legacy key for compatibility
     localStorage.setItem('user', JSON.stringify(data.user));
     
     // Store role-specific tokens

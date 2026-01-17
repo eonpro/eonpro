@@ -86,8 +86,8 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
   const loadDashboardData = async () => {
     try {
-      // Load real data from API
-      const token = localStorage.getItem('token');
+      // Load real data from API (token stored as 'auth-token' by login)
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const response = await fetch('/api/admin/dashboard', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -391,26 +391,26 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
               </div>
             ) : (
               recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start">
-                  <div className={`p-2 rounded-lg ${
-                    activity.type === 'patient' ? 'bg-blue-100' :
-                    activity.type === 'order' ? 'bg-green-100' :
-                    activity.type === 'payment' ? 'bg-yellow-100' :
-                    'bg-purple-100'
-                  }`}>
-                    {activity.type === 'patient' && <UserPlus className="h-4 w-4 text-blue-600" />}
-                    {activity.type === 'order' && <Package className="h-4 w-4 text-green-600" />}
-                    {activity.type === 'payment' && <CreditCard className="h-4 w-4 text-yellow-600" />}
-                    {activity.type === 'staff' && <Users className="h-4 w-4 text-purple-600" />}
-                  </div>
-                  <div className="ml-3 flex-1">
-                    <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                    {activity.user && (
-                      <p className="text-sm text-gray-500">{activity.user}</p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
-                  </div>
+              <div key={activity.id} className="flex items-start">
+                <div className={`p-2 rounded-lg ${
+                  activity.type === 'patient' ? 'bg-blue-100' :
+                  activity.type === 'order' ? 'bg-green-100' :
+                  activity.type === 'payment' ? 'bg-yellow-100' :
+                  'bg-purple-100'
+                }`}>
+                  {activity.type === 'patient' && <UserPlus className="h-4 w-4 text-blue-600" />}
+                  {activity.type === 'order' && <Package className="h-4 w-4 text-green-600" />}
+                  {activity.type === 'payment' && <CreditCard className="h-4 w-4 text-yellow-600" />}
+                  {activity.type === 'staff' && <Users className="h-4 w-4 text-purple-600" />}
                 </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                  {activity.user && (
+                    <p className="text-sm text-gray-500">{activity.user}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                </div>
+              </div>
               ))
             )}
           </div>

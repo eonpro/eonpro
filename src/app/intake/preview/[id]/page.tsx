@@ -46,7 +46,7 @@ export default function PreviewIntakeFormPage({
   const fetchTemplate = async (id: number) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       
       if (!token) {
         setError('Please log in to preview forms');

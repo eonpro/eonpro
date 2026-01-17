@@ -30,7 +30,7 @@ export default function AdminFinancePage() {
 
   const loadFinanceData = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
 
       // Fetch dashboard stats
       const dashResponse = await fetch('/api/admin/dashboard', {

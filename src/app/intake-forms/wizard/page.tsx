@@ -88,7 +88,7 @@ export default function IntakeFormWizard() {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       
       const res = await fetch('/api/intake-forms/templates', {
         method: 'POST',

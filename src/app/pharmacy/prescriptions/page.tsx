@@ -27,7 +27,7 @@ export default function PrescriptionsPage() {
   const fetchPrescriptions = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const params = filter !== 'all' ? `?status=${filter}` : '';
       
       const res = await fetch(`/api/pharmacy/prescriptions${params}`, {

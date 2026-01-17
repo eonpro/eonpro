@@ -144,8 +144,8 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     setNewMessage('');
 
     try {
-      // Get auth token from localStorage
-      const token = localStorage.getItem('token');
+      // Get auth token from localStorage (stored as 'auth-token' by login)
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       
       const res = await fetch('/api/twilio/send', {
         method: 'POST',
