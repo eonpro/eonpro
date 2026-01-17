@@ -74,8 +74,41 @@ export const GET = withAuthParams(async (
       );
     }
 
-    // Retrieve file from secure storage
-    if (document.externalUrl) {
+    // For documents stored in database (indicated by database:// URL or data field exists)
+    // Check data first since it's the primary storage for Vercel deployments
+    if (document.data) {
+      let buffer: Buffer;
+      
+      // Handle different data formats from Prisma
+      if (Buffer.isBuffer(document.data)) {
+        buffer = document.data;
+      } else if (typeof document.data === 'object' && 'type' in document.data && document.data.type === 'Buffer') {
+        // Handle Prisma's JSON representation of Buffer
+        buffer = Buffer.from((document.data as { type: string; data: number[] }).data);
+      } else if (ArrayBuffer.isView(document.data)) {
+        // Handle Uint8Array or similar
+        buffer = Buffer.from(document.data as Uint8Array);
+      } else {
+        // Last resort - try to convert whatever it is
+        buffer = Buffer.from(document.data as any);
+      }
+      
+      logger.debug(`Serving document ${documentId} from database, size: ${buffer.length} bytes`);
+      
+      return new NextResponse(new Uint8Array(buffer), {
+        headers: {
+          'Content-Type': document.mimeType || 'application/pdf',
+          'Content-Disposition': `inline; filename="${document.filename || 'document.pdf'}"`,
+          'Content-Length': buffer.length.toString(),
+          // Security headers
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'private, max-age=3600',
+        },
+      });
+    }
+
+    // Retrieve file from secure/external storage (non-database URLs)
+    if (document.externalUrl && !document.externalUrl.startsWith('database://')) {
       try {
         const file = await retrieveFile(document.externalUrl, patientId);
         
@@ -97,17 +130,6 @@ export const GET = withAuthParams(async (
           { status: 404 }
         );
       }
-    }
-
-    // For legacy documents or those stored differently
-    if (document.data) {
-      // If we have data stored in the database, generate PDF on the fly
-      // This would require parsing the data and regenerating the PDF
-      // For now, return an error
-      return NextResponse.json(
-        { error: 'PDF generation from stored data not yet implemented' },
-        { status: 501 }
-      );
     }
 
     return NextResponse.json(

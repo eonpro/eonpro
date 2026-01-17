@@ -74,13 +74,16 @@ export const GET = withAuthParams(async (
     });
 
     // Transform the documents to match the frontend interface
+    // Always use the API route for viewing documents to ensure proper authentication
     const formattedDocuments = documents.map((doc: any) => ({
       id: doc.id,
       filename: doc.filename || 'Untitled Document',
       category: doc.category || 'other',
       mimeType: doc.mimeType || 'application/octet-stream',
       uploadedAt: doc.createdAt.toISOString(),
-      url: doc.externalUrl,
+      // Use the API route URL for proper authentication and serving from database
+      url: `/api/patients/${patientId}/documents/${doc.id}`,
+      downloadUrl: `/api/patients/${patientId}/documents/${doc.id}/download`,
     }));
 
     return NextResponse.json(formattedDocuments);
