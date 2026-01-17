@@ -221,26 +221,6 @@ export async function POST(req: NextRequest) {
           sourceSubmissionId: normalized.submissionId,
         },
       });
-      
-      // Store intake form data separately
-      await prisma.intakeForm.create({
-        data: {
-          patientId: patient.id,
-          clinicId: clinicId,
-          source: "weightlossintake",
-          rawPayload: {
-            submissionId: normalized.submissionId,
-            sections: normalized.sections,
-            source: "weightlossintake",
-            clinicId: clinicId,
-            receivedAt: new Date().toISOString(),
-          },
-          status: "COMPLETED",
-        },
-      }).catch((err) => {
-        // IntakeForm creation is optional - don't fail if it errors
-        logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] IntakeForm creation failed (non-critical): ${err}`);
-      });
       logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Created document: ${patientDocument.id}`);
     }
 
