@@ -216,7 +216,7 @@ export async function generateFulfillmentReport(
     }
 
     // Calculate weighted averages
-    const totalOrders = analytics.reduce((sum, a) => sum + a.totalOrders, 0);
+    const totalOrders = analytics.reduce((sum: number, a: { totalOrders: number }) => sum + a.totalOrders, 0);
     
     const metrics: FulfillmentMetrics = {
       averageTimeToProcess: weightedAverage(

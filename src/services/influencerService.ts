@@ -317,7 +317,7 @@ export async function createPayout(
       throw new Error('No approved commissions found for payout');
     }
 
-    const totalAmount = commissions.reduce((sum, c) => sum + c.commissionAmount, 0);
+    const totalAmount = commissions.reduce((sum: number, c: { commissionAmount: number }) => sum + c.commissionAmount, 0);
 
     // Create payout record
     const payout = await prisma.commissionPayout.create({

@@ -229,7 +229,7 @@ export class ChatClientManager {
   }
 
   // Send typing indicator
-  async sendTyping(conversation): Promise<void> {
+  async sendTyping(conversation: { typing: () => Promise<void> } | null): Promise<void> {
     if (!conversation || !CHAT_CONFIG.ENABLE_TYPING_INDICATORS) return;
 
     try {
@@ -257,7 +257,7 @@ export class ChatClientManager {
   }
 
   // Get online participants
-  async getOnlineParticipants(conversation): Promise<any[]> {
+  async getOnlineParticipants(conversation: { getParticipants: () => Promise<unknown[]> } | null): Promise<unknown[]> {
     if (!conversation) return [];
 
     try {
@@ -272,7 +272,7 @@ export class ChatClientManager {
   }
 
   // Leave conversation
-  async leaveConversation(conversation): Promise<void> {
+  async leaveConversation(conversation: { leave: () => Promise<void> } | null): Promise<void> {
     if (!conversation) return;
 
     try {

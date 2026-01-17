@@ -376,7 +376,7 @@ export async function getScribeStats(
   
   // Rough estimate: 10 seconds per message
   const totalDuration = conversations.reduce(
-    (sum, conv) => sum + (conv._count.messages * 10),
+    (sum: number, conv: { _count: { messages: number } }) => sum + (conv._count.messages * 10),
     0
   );
   

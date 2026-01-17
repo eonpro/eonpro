@@ -126,7 +126,7 @@ export function normalizeMedLinkPayload(payload: Record<string, unknown>): Norma
   };
 }
 
-function buildSections(payload): IntakeSection[] {
+function buildSections(payload: Record<string, unknown>): IntakeSection[] {
   // Check for data object structure (webhook format)
   if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
     const answers: RawAnswer[] = [];
@@ -260,7 +260,7 @@ function normalizeAnswers(rawAnswers: RawAnswer[]): IntakeSection["entries"] {
     .filter((entry: any) => entry.value !== "");
 }
 
-function formatValue(value): string {
+function formatValue(value: unknown): string {
   if (Array.isArray(value)) {
     return value.map(formatValue).join(", ");
   }
@@ -367,7 +367,7 @@ function getEntryJson(index: Map<string, EntryIndexRecord>, ...keys: string[]) {
   return undefined;
 }
 
-function parseMaybeJson(value) {
+function parseMaybeJson(value: unknown): unknown {
   if (!value) return undefined;
   if (typeof value === "object") return value;
   if (typeof value !== "string") return undefined;

@@ -398,7 +398,7 @@ export async function completeGoal(goalId: number): Promise<{
       where: { carePlanId: goal.carePlanId },
     });
 
-    const allCompleted = carePlanGoals.every(g => g.status === GoalStatus.COMPLETED);
+    const allCompleted = carePlanGoals.every((g: { status: string }) => g.status === GoalStatus.COMPLETED);
 
     if (allCompleted) {
       await prisma.carePlan.update({
@@ -471,8 +471,8 @@ export async function getCarePlanWithProgress(carePlanId: number): Promise<any> 
 
   // Calculate progress statistics
   const totalGoals = carePlan.goals.length;
-  const completedGoals = carePlan.goals.filter(g => g.status === GoalStatus.COMPLETED).length;
-  const inProgressGoals = carePlan.goals.filter(g => g.status === GoalStatus.IN_PROGRESS).length;
+  const completedGoals = carePlan.goals.filter((g: { status: string }) => g.status === GoalStatus.COMPLETED).length;
+  const inProgressGoals = carePlan.goals.filter((g: { status: string }) => g.status === GoalStatus.IN_PROGRESS).length;
 
   const progressPercentage = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
 
@@ -480,7 +480,7 @@ export async function getCarePlanWithProgress(carePlanId: number): Promise<any> 
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
   const recentProgressCount = carePlan.progress.filter(
-    p => new Date(p.recordedAt) >= weekAgo
+    (p: { recordedAt: Date }) => new Date(p.recordedAt) >= weekAgo
   ).length;
 
   return {

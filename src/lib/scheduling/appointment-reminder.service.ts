@@ -451,7 +451,7 @@ export async function getReminderStats(clinicId?: number, days: number = 30): Pr
     totalSent: sent,
     totalFailed: failed,
     pendingCount: pending,
-    byType: byType.reduce((acc, item) => {
+    byType: byType.reduce((acc: Record<string, number>, item: { type: string; _count: number }) => {
       acc[item.type] = item._count;
       return acc;
     }, {} as Record<string, number>),

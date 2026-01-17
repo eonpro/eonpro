@@ -133,7 +133,7 @@ export async function getAvailableSlots(
       const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
 
       // Check if slot conflicts with existing appointments
-      const isAvailable = !existingAppointments.some(apt => {
+      const isAvailable = !existingAppointments.some((apt: { startTime: Date; endTime: Date }) => {
         const aptStart = new Date(apt.startTime);
         const aptEnd = new Date(apt.endTime);
         return (
@@ -785,12 +785,12 @@ export async function getAppointmentStats(
     }),
   ]);
 
-  const statusCounts = byStatus.reduce((acc, item) => {
+  const statusCounts = byStatus.reduce((acc: Record<string, number>, item: { status: string; _count: number }) => {
     acc[item.status] = item._count;
     return acc;
   }, {} as Record<string, number>);
 
-  const typeCounts = byType.reduce((acc, item) => {
+  const typeCounts = byType.reduce((acc: Record<string, number>, item: { type: string; _count: number }) => {
     acc[item.type] = item._count;
     return acc;
   }, {} as Record<string, number>);

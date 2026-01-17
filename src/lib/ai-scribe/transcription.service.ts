@@ -302,8 +302,8 @@ export async function completeSession(sessionId: string): Promise<{
 
   // Build segments from messages
   const segments: TranscriptionSegment[] = conversation.messages
-    .filter(m => m.queryType === 'transcription')
-    .map((m, idx) => {
+    .filter((m: { queryType: string }) => m.queryType === 'transcription')
+    .map((m: { queryType: string; citations: unknown; role: string; content: string; createdAt: Date }, idx: number) => {
       const citations = m.citations as any || {};
       return {
         id: `seg-${idx}`,

@@ -225,7 +225,7 @@ Analyze the actual data provided and create clinically relevant recommendations.
     logger.debug('[OpenAI] SOAP note generated successfully. Tokens used:', { value: usageMetrics.totalTokens });
 
     // Helper function to ensure fields are strings
-    const ensureString = (field): string => {
+    const ensureString = (field: unknown): string => {
       if (typeof field === 'string') return field;
       if (typeof field === 'object' && field !== null) {
         // If field is an object, convert it to a formatted string

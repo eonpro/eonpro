@@ -84,7 +84,7 @@ export async function getCalendarIntegrationStatus(
   const result: CalendarIntegrationStatus[] = [];
 
   // Google status
-  const googleIntegration = integrations.find(i => i.provider === 'google');
+  const googleIntegration = integrations.find((i: { provider: string }) => i.provider === 'google');
   result.push({
     provider: 'google',
     isConnected: googleConnected,
@@ -94,7 +94,7 @@ export async function getCalendarIntegrationStatus(
   });
 
   // Outlook status
-  const outlookIntegration = integrations.find(i => i.provider === 'outlook');
+  const outlookIntegration = integrations.find((i: { provider: string }) => i.provider === 'outlook');
   result.push({
     provider: 'outlook',
     isConnected: outlookConnected,
@@ -177,7 +177,7 @@ export async function syncAllCalendars(
   });
 
   // Sync to Google
-  const googleIntegration = integrations.find(i => i.provider === 'google');
+  const googleIntegration = integrations.find((i: { provider: string }) => i.provider === 'google');
   if (googleIntegration && ['to_external', 'both'].includes(googleIntegration.syncDirection)) {
     const googleResult = await syncAppointmentsToGoogle(providerId, clinicId);
     result.google = googleResult;
@@ -188,7 +188,7 @@ export async function syncAllCalendars(
   }
 
   // Sync to Outlook
-  const outlookIntegration = integrations.find(i => i.provider === 'outlook');
+  const outlookIntegration = integrations.find((i: { provider: string }) => i.provider === 'outlook');
   if (outlookIntegration && ['to_external', 'both'].includes(outlookIntegration.syncDirection)) {
     const outlookResult = await syncAppointmentsToOutlook(providerId, clinicId);
     result.outlook = outlookResult;
@@ -288,7 +288,7 @@ export async function importExternalEventsAsBlockedTime(
     // Filter out events that are already in our system
     const newEvents = externalEvents.filter(event => {
       // Check if this event already exists
-      const exists = existingAppointments.some(appt => {
+      const exists = existingAppointments.some((appt) => {
         if (event.externalId) {
           return (
             appt.googleCalendarEventId === event.externalId ||
@@ -374,13 +374,13 @@ export async function getCalendarSyncStats(
   });
 
   const lastSyncDates = integrations
-    .filter(i => i.lastSyncAt)
-    .map(i => i.lastSyncAt!);
+    .filter((i: { lastSyncAt: Date | null }) => i.lastSyncAt)
+    .map((i: { lastSyncAt: Date | null }) => i.lastSyncAt!);
 
   return {
-    totalSyncs: integrations.filter(i => i.lastSyncAt).length,
+    totalSyncs: integrations.filter((i: { lastSyncAt: Date | null }) => i.lastSyncAt).length,
     lastSyncAt: lastSyncDates.length > 0
-      ? new Date(Math.max(...lastSyncDates.map(d => d.getTime())))
+      ? new Date(Math.max(...lastSyncDates.map((d: Date) => d.getTime())))
       : null,
     eventsCreated: syncedAppointments,
     eventsUpdated: 0, // Would need to track this separately
