@@ -132,9 +132,9 @@ export async function POST(req: NextRequest): Promise<Response> {
         patient = await prisma.patient.findFirst({
           where: {
             OR: [
-              { phoneNumber: formattedPhone },
-              { phoneNumber: phone },
-              { phoneNumber: phone.replace(/\D/g, '') },
+              { phone: formattedPhone },
+              { phone: phone },
+              { phone: phone.replace(/\D/g, '') },
             ],
           },
           select: {
