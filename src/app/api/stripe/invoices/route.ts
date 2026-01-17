@@ -64,16 +64,53 @@ export async function POST(request: NextRequest) {
     }
     
     // Production mode - use Stripe
-    const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-    
-    // Create invoice
-    const result = await StripeInvoiceService.createInvoice(validatedData as any);
-    
-    return NextResponse.json({
-      success: true,
-      invoice: result.invoice,
-      stripeInvoiceUrl: result.stripeInvoice.hosted_invoice_url,
-    });
+    try {
+      const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
+      
+      // Create invoice
+      const result = await StripeInvoiceService.createInvoice(validatedData as any);
+      
+      return NextResponse.json({
+        success: true,
+        invoice: result.invoice,
+        stripeInvoiceUrl: result.stripeInvoice.hosted_invoice_url,
+      });
+    } catch (stripeError: any) {
+      logger.error('[API] Stripe service error:', { 
+        message: stripeError.message, 
+        code: stripeError.code,
+        type: stripeError.type 
+      });
+      
+      // If Stripe fails, try demo mode
+      logger.warn('[API] Falling back to demo mode due to Stripe error');
+      
+      const { prisma } = await import('@/lib/db');
+      const total = validatedData.lineItems.reduce((sum, item) => sum + item.amount, 0);
+      
+      const invoice = await prisma.invoice.create({
+        data: {
+          patientId: validatedData.patientId,
+          amount: total,
+          amountDue: total,
+          status: 'DRAFT',
+          dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
+          description: validatedData.description || 'Medical Services',
+          metadata: validatedData.metadata || {},
+          lineItems: validatedData.lineItems,
+          orderId: validatedData.orderId,
+        },
+      });
+      
+      return NextResponse.json({
+        success: true,
+        invoice,
+        stripeInvoiceUrl: null,
+        demoMode: true,
+        stripeError: stripeError.message,
+        message: 'Invoice created in database (Stripe error - using fallback)',
+      });
+    }
   } catch (error: any) {
     // @ts-ignore
    
@@ -99,7 +136,11 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json(
-      { error: error.message || 'Failed to create invoice' },
+      { 
+        error: error.message || 'Failed to create invoice',
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        type: error.constructor?.name 
+      },
       { status: 500 }
     );
   }
