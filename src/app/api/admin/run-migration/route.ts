@@ -57,8 +57,55 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (migration === 'sms_log') {
+      // Create SmsLog table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "SmsLog" (
+          "id" SERIAL PRIMARY KEY,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "clinicId" INTEGER,
+          "patientId" INTEGER,
+          "messageSid" TEXT UNIQUE,
+          "fromPhone" TEXT NOT NULL,
+          "toPhone" TEXT NOT NULL,
+          "body" TEXT NOT NULL,
+          "direction" TEXT NOT NULL,
+          "status" TEXT NOT NULL DEFAULT 'sent',
+          "error" TEXT,
+          "metadata" JSONB
+        )
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "SmsLog_patientId_createdAt_idx" 
+        ON "SmsLog"("patientId", "createdAt")
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "SmsLog_fromPhone_idx" 
+        ON "SmsLog"("fromPhone")
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "SmsLog_toPhone_idx" 
+        ON "SmsLog"("toPhone")
+      `;
+
+      await prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "SmsLog_clinicId_idx" 
+        ON "SmsLog"("clinicId")
+      `;
+
+      logger.info('SmsLog migration completed');
+
+      return NextResponse.json({
+        success: true,
+        message: 'SmsLog table created successfully',
+      });
+    }
+
     return NextResponse.json(
-      { error: 'Unknown migration' },
+      { error: 'Unknown migration. Available: phone_otp, sms_log' },
       { status: 400 }
     );
 
