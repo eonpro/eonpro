@@ -438,29 +438,11 @@ export async function getPatientSOAPNotes(
   patientId: number,
   includeRevisions = false
 ): Promise<any[]> {
-  // Get all SOAP notes that are either approved or from real intake forms
+  // Get all SOAP notes for the patient
+  // Simplified filter - show all notes, let the UI handle display
   const allSoapNotes = await prisma.sOAPNote.findMany({
     where: { 
       patientId,
-      // Only show SOAP notes that meet quality criteria
-      OR: [
-        // Show approved notes regardless of source
-        { approvedBy: { not: null } },
-        // OR show notes from real MedLink intake with proper data
-        {
-          AND: [
-            { sourceType: 'MEDLINK_INTAKE' },
-            { generatedByAI: true },
-            { intakeDocumentId: { not: null } },
-            // Ensure the intake document has actual data
-            {
-              intakeDocument: {
-                data: { not: null }
-              }
-            }
-          ]
-        }
-      ]
     },
     include: {
       approvedByProvider: true,
@@ -470,31 +452,18 @@ export async function getPatientSOAPNotes(
     orderBy: { createdAt: 'desc' },
   });
 
-  // Additional filtering for quality control
+  // Light filtering - only exclude obvious test/placeholder notes
   const filteredNotes = allSoapNotes.filter((note: any) => {
-    // Exclude test patient names
     const subjective = note.subjective?.toLowerCase() || '';
-    const objective = note.objective?.toLowerCase() || '';
     
-    // Check for dummy/test content indicators
-    const hasTestContent = 
-      subjective.includes('test patient') ||
-      subjective.includes('demo patient') ||
-      subjective.includes('sample patient') ||
-      objective.includes('test data') ||
-      objective.includes('sample data');
-    
-    // Exclude if it has test content and is not approved
-    if (hasTestContent && !note.approvedBy) {
+    // Only exclude if subjective is completely empty or placeholder
+    if (!note.subjective || note.subjective.trim().length < 10) {
       return false;
     }
     
-    // For intake-based notes, ensure we only show the most recent per intake document
-    if (note.intakeDocumentId) {
-      // Check if intake document has valid data
-      if (note.intakeDocument && (!note.intakeDocument.data || note.intakeDocument.data.length === 0)) {
-        return false;
-      }
+    // Exclude obvious placeholder content
+    if (subjective === 'test' || subjective === 'placeholder') {
+      return false;
     }
     
     return true;
