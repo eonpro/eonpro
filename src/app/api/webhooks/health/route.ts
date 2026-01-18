@@ -61,6 +61,27 @@ export async function GET(req: NextRequest) {
               subdomain: true,
             },
           },
+          documents: {
+            select: {
+              id: true,
+              filename: true,
+              category: true,
+              externalUrl: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+          },
+          soapNotes: {
+            select: {
+              id: true,
+              status: true,
+              createdAt: true,
+              sourceType: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+          },
         },
         take: 10,
         orderBy: { createdAt: 'desc' },
@@ -78,6 +99,8 @@ export async function GET(req: NextRequest) {
           clinicSubdomain: p.clinic?.subdomain || null,
           tags: p.tags,
           createdAt: p.createdAt,
+          documents: p.documents,
+          soapNotes: p.soapNotes,
           isolationStatus: p.clinic?.subdomain === 'eonmeds' || p.clinic?.name?.includes('EONMEDS') 
             ? '✅ Correctly isolated to EONMEDS' 
             : '⚠️ NOT in EONMEDS clinic',
