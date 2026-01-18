@@ -76,7 +76,16 @@ export default function TransactionsPage() {
       setLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('token');
+      // Try multiple token storage locations (same pattern as other settings pages)
+      const token = localStorage.getItem('auth-token') || 
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('super_admin-token') ||
+                    localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+      
       const params = new URLSearchParams({
         limit: '50',
         type: filterType,
