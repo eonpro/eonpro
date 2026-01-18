@@ -6,6 +6,7 @@ import { generateIntakePdf } from "@/services/intakePdfService";
 import { storeIntakePdf } from "@/services/storage/intakeStorage";
 import { trackReferral } from "@/services/influencerService";
 import { logger } from '@/lib/logger';
+import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
 
 /**
  * WEIGHTLOSSINTAKE Webhook - EONMEDS CLINIC ONLY (BULLETPROOF VERSION)
@@ -88,6 +89,8 @@ export async function POST(req: NextRequest) {
 
   if (providedSecret !== configuredSecret) {
     logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Authentication FAILED`);
+    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    recordAuthFailure("weightlossintake", ipAddress, providedSecret || undefined);
     return Response.json(
       { error: "Unauthorized", code: "INVALID_SECRET", requestId },
       { status: 401 }
@@ -112,6 +115,7 @@ export async function POST(req: NextRequest) {
 
     if (!eonmedsClinic) {
       logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: EONMEDS clinic not found!`);
+      recordError("weightlossintake", "EONMEDS clinic not found in database", { requestId });
       return Response.json(
         { error: "Clinic not found", code: "CLINIC_NOT_FOUND", requestId },
         { status: 500 }
@@ -121,6 +125,7 @@ export async function POST(req: NextRequest) {
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Clinic ID: ${clinicId}`);
   } catch (err) {
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Database error finding clinic:`, err);
+    recordError("weightlossintake", `Database error: ${err instanceof Error ? err.message : 'Unknown'}`, { requestId });
     return Response.json(
       { error: "Database error", code: "DB_ERROR", requestId },
       { status: 500 }
@@ -281,11 +286,13 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, err);
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    recordError("weightlossintake", `Patient creation failed: ${errorMsg}`, { requestId });
     return Response.json({
       error: "Failed to create patient",
       code: "PATIENT_ERROR",
       requestId,
-      message: err instanceof Error ? err.message : "Unknown error",
+      message: errorMsg,
       partialSuccess: false,
     }, { status: 500 });
   }
@@ -423,6 +430,10 @@ export async function POST(req: NextRequest) {
   // SUCCESS RESPONSE
   // ═══════════════════════════════════════════════════════════════════
   const duration = Date.now() - startTime;
+  
+  // Record success for monitoring
+  recordSuccess("weightlossintake", duration);
+  
   logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`);
 
   return Response.json({
