@@ -1,296 +1,334 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Shield, Users, Activity, Heart, LogIn, 
-  Stethoscope, Pill, Calendar, MessageSquare,
-  Lock, Database, CheckCircle, Sparkles
+import {
+  Home, Users, Building2, ShoppingCart, Store, TrendingUp,
+  DollarSign, Settings, LogOut, Search, Clock
 } from 'lucide-react';
+
+interface PatientIntake {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  gender: string;
+  address: string;
+  tags: string[];
+  createdAt: string;
+}
+
+const navItems = [
+  { icon: Home, path: '/', label: 'Home', active: true },
+  { icon: Users, path: '/admin/patients', label: 'Patients' },
+  { icon: Building2, path: '/admin/clinics', label: 'Clinics' },
+  { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
+  { icon: Store, path: '/admin/products', label: 'Products' },
+  { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
+  { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
+  { icon: Settings, path: '/admin/settings', label: 'Settings' },
+];
 
 export default function HomePage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [systemStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [recentIntakes, setRecentIntakes] = useState<PatientIntake[]>([]);
+  const [intakesLoading, setIntakesLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     const user = localStorage.getItem('user');
-    if (user) {
-      try {
-        const userData = JSON.parse(user);
-        // Redirect based on role
-        switch(userData.role?.toLowerCase()) {
-          case 'super_admin':
-            router.push('/super-admin');
-            break;
-          case 'admin':
-            router.push('/admin');
-            break;
-          case 'provider':
-            router.push('/provider');
-            break;
-          case 'staff':
-            router.push('/staff');
-            break;
-          case 'support':
-            router.push('/support');
-            break;
-          case 'patient':
-            router.push('/patient-portal');
-            break;
-          case 'influencer':
-            router.push('/influencer/dashboard');
-            break;
-          default:
-            break;
-        }
-      } catch {
-        // Invalid user data, clear it
-        localStorage.removeItem('user');
-      }
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(user);
+      setUserData(parsedUser);
+      setLoading(false);
+      loadDashboardData();
+    } catch {
+      localStorage.removeItem('user');
+      router.push('/login');
     }
   }, [router]);
 
+  const loadDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('auth-token') ||
+                    localStorage.getItem('super_admin-token') ||
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('token');
+
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const intakesResponse = await fetch('/api/patients?limit=20&recent=24h', {
+        credentials: 'include',
+        headers,
+      });
+
+      if (intakesResponse.ok) {
+        const intakesData = await intakesResponse.json();
+        setRecentIntakes(intakesData.patients || []);
+      }
+      setIntakesLoading(false);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      setIntakesLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('auth-token');
+    router.push('/login');
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+  };
+
+  const filteredIntakes = recentIntakes.filter(patient => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      patient.firstName?.toLowerCase().includes(query) ||
+      patient.lastName?.toLowerCase().includes(query) ||
+      patient.email?.toLowerCase().includes(query) ||
+      patient.phone?.includes(query) ||
+      patient.id?.toString().includes(query) ||
+      patient.tags?.some(tag => tag.toLowerCase().includes(query)) ||
+      patient.address?.toLowerCase().includes(query)
+    );
+  });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#f5f5f0]">
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-[#4fa77e] border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  const displayName = userData?.firstName || userData?.email?.split('@')[0] || 'there';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-100">
-      {/* Hero Section */}
-      <div className="pt-16 pb-12 px-8">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="inline-flex items-center justify-center p-4 bg-white rounded-2xl shadow-xl mb-8">
-            <img 
-              src="https://static.wixstatic.com/media/c49a9b_2e6625f0f27d44068998ab51675c6d7b~mv2.png"
-              alt="EONPRO"
-              className="h-16 w-16"
-            />
-          </div>
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-4">
-            EONPRO
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-600 mb-4 max-w-3xl mx-auto">
-            Enterprise Healthcare Management Platform
-          </p>
-          <p className="text-lg text-emerald-600 font-medium mb-8">
-            HIPAA Compliant • Multi-Clinic • AI-Powered
-          </p>
-          
-          <div className="flex items-center justify-center space-x-4">
-            <Link
-              href="/login"
-              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-700 transition-all shadow-lg hover:shadow-xl flex items-center transform hover:-translate-y-0.5"
-            >
-              <LogIn className="h-5 w-5 mr-2" />
-              Sign In
-            </Link>
-            <Link
-              href="#features"
-              className="px-8 py-4 bg-white text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors border border-gray-200 shadow-md flex items-center"
-            >
-              Learn More
-            </Link>
-          </div>
+    <div className="min-h-screen bg-[#f5f5f0] flex">
+      {/* Minimal Sidebar - Always Collapsed */}
+      <aside className="fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-200 flex flex-col items-center py-4 z-50">
+        {/* Logo */}
+        <div className="mb-6">
+          <img
+            src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
+            alt="EONPRO"
+            className="h-10 w-10 object-contain"
+          />
         </div>
-      </div>
 
-      {/* Stats Bar */}
-      <div className="bg-white/80 backdrop-blur-sm border-y border-gray-200 py-8">
-        <div className="max-w-6xl mx-auto px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+        {/* Navigation Icons */}
+        <nav className="flex-1 flex flex-col items-center space-y-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.path}
+                href={item.path}
+                title={item.label}
+                className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all ${
+                  item.active
+                    ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          title="Logout"
+          className="w-12 h-12 flex items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all"
+        >
+          <LogOut className="h-5 w-5" />
+        </button>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 ml-20">
+        <div className="p-8">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-8">
+            {/* Left: Status & Time */}
             <div>
-              <div className="text-3xl font-bold text-emerald-600">99.9%</div>
-              <div className="text-sm text-gray-600">Uptime SLA</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-emerald-600">HIPAA</div>
-              <div className="text-sm text-gray-600">Compliant</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-emerald-600">256-bit</div>
-              <div className="text-sm text-gray-600">PHI Encryption</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-emerald-600">24/7</div>
-              <div className="text-sm text-gray-600">Support</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Features Section */}
-      <div id="features" className="py-16 px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Complete Healthcare Solution
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Everything you need to manage your practice, from patient intake to prescription fulfillment
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* AI-Powered */}
-            <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center mb-4">
-                <Sparkles className="h-6 w-6 text-white" />
+              <div className="flex items-center gap-2 mb-1">
+                <div className={`w-2 h-2 rounded-full ${
+                  systemStatus === 'healthy' ? 'bg-[#4fa77e]' :
+                  systemStatus === 'warning' ? 'bg-amber-500' : 'bg-red-500'
+                }`} />
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  SYSTEM: {systemStatus.toUpperCase()}
+                </span>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Becca AI Assistant
-              </h3>
-              <p className="text-gray-600 text-sm">
-                AI-powered SOAP note generation, patient queries, and clinical decision support
+              <p className="text-sm text-gray-800">
+                {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </p>
+              <p className="text-sm text-gray-600">
+                {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
               </p>
             </div>
 
-            {/* E-Prescribing */}
-            <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center mb-4">
-                <Pill className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Lifefile Integration
-              </h3>
-              <p className="text-gray-600 text-sm">
-                Direct pharmacy connectivity for e-prescriptions, tracking, and order management
-              </p>
-            </div>
-
-            {/* Security */}
-            <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4">
-                <Lock className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                HIPAA Security
-              </h3>
-              <p className="text-gray-600 text-sm">
-                PHI encryption, audit logging, role-based access, and comprehensive compliance controls
-              </p>
-            </div>
-
-            {/* Multi-Clinic */}
-            <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mb-4">
-                <Database className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Multi-Clinic Support
-              </h3>
-              <p className="text-gray-600 text-sm">
-                Row-level security, automatic data isolation, and clinic-specific branding
-              </p>
-            </div>
-
-            {/* Clinical Tools */}
-            <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center mb-4">
-                <Stethoscope className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Clinical Workflow
-              </h3>
-              <p className="text-gray-600 text-sm">
-                SOAP notes, intake forms, care plans, superbills, and comprehensive patient management
-              </p>
-            </div>
-
-            {/* Telehealth */}
-            <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl flex items-center justify-center mb-4">
-                <MessageSquare className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Telehealth Ready
-              </h3>
-              <p className="text-gray-600 text-sm">
-                Integrated video consultations, secure messaging, and remote patient monitoring
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Role Access Section */}
-      <div className="bg-white py-16 px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Role-Based Access Control
-            </h2>
-            <p className="text-lg text-gray-600">
-              Secure, permission-based access for every team member
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            {[
-              { name: 'Super Admin', color: 'red', icon: Shield },
-              { name: 'Admin', color: 'purple', icon: Users },
-              { name: 'Provider', color: 'emerald', icon: Stethoscope },
-              { name: 'Staff', color: 'cyan', icon: Calendar },
-              { name: 'Support', color: 'amber', icon: MessageSquare },
-              { name: 'Patient', color: 'blue', icon: Heart },
-              { name: 'Influencer', color: 'pink', icon: Activity },
-            ].map((role) => (
-              <div key={role.name} className="text-center p-4 bg-gray-50 rounded-xl">
-                <div className={`w-10 h-10 mx-auto bg-${role.color}-100 rounded-lg flex items-center justify-center mb-2`}>
-                  <role.icon className={`h-5 w-5 text-${role.color}-600`} />
-                </div>
-                <div className="text-sm font-medium text-gray-900">{role.name}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="py-16 px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-12 text-white shadow-2xl">
-            <h2 className="text-3xl font-bold mb-4">
-              Ready to Transform Your Practice?
-            </h2>
-            <p className="text-lg text-emerald-100 mb-8">
-              Join healthcare providers already using EONPRO for streamlined operations
-            </p>
-            <Link
-              href="/login"
-              className="inline-flex items-center px-8 py-4 bg-white text-emerald-600 rounded-xl font-semibold hover:bg-gray-50 transition-colors shadow-lg"
-            >
-              <LogIn className="h-5 w-5 mr-2" />
-              Get Started Now
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center mb-4 md:mb-0">
-              <img 
-                src="https://static.wixstatic.com/media/c49a9b_2e6625f0f27d44068998ab51675c6d7b~mv2.png"
-                alt="EONPRO"
-                className="h-8 w-8 mr-3"
+            {/* Right: Search */}
+            <div className="relative w-96">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search patients"
+                className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e] transition-all text-sm"
               />
-              <span className="text-xl font-bold">EONPRO</span>
-            </div>
-            <div className="text-center md:text-right">
-              <p className="text-sm text-gray-400">
-                Enterprise Healthcare Management Platform
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                HIPAA Compliant • SOC 2 Ready • Multi-Clinic Support
-              </p>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center">
-            <p className="text-xs text-gray-500">
-              © {new Date().getFullYear()} EONPRO. All rights reserved.
-            </p>
+
+          {/* Welcome */}
+          <h1 className="text-3xl font-semibold text-gray-900 mb-8">
+            Welcome, <span className="text-gray-900">{displayName}</span>
+          </h1>
+
+          {/* Patient Intakes Card */}
+          <div className="bg-white rounded-2xl border border-gray-200">
+            {/* Header */}
+            <div className="px-6 py-5">
+              <h2 className="text-lg font-semibold text-gray-900">New Patient Intakes</h2>
+            </div>
+
+            {/* Search */}
+            <div className="px-6 pb-4">
+              <input
+                type="text"
+                placeholder="Search patients by name, email, phone, ID, tags, or address..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e]"
+              />
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              {intakesLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#4fa77e] border-t-transparent"></div>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-t border-gray-100">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredIntakes.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-16 text-center">
+                          <Clock className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500 font-medium">No patient intakes in the last 24 hours</p>
+                          <p className="text-sm text-gray-400 mt-1">New intakes will appear here automatically</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredIntakes.map((patient) => (
+                        <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                new Date(patient.createdAt).getTime() > Date.now() - 3600000
+                                  ? 'bg-[#4fa77e]'
+                                  : 'bg-amber-400'
+                              }`} />
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  {patient.firstName} {patient.lastName}
+                                </p>
+                                <p className="text-xs text-gray-400">#{String(patient.id).padStart(6, '0')}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-600">{formatDate(patient.dateOfBirth)}</p>
+                            <p className="text-xs text-gray-400 capitalize">({patient.gender})</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-600">{patient.phone}</p>
+                            <p className="text-xs text-gray-400 truncate max-w-[180px]">{patient.email}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-600 truncate max-w-[200px]">{patient.address || '-'}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {patient.tags?.slice(0, 4).map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                              {patient.tags?.length > 4 && (
+                                <span className="text-xs text-gray-400">+{patient.tags.length - 4}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Link
+                              href={`/patients/${patient.id}`}
+                              className="text-sm text-[#4fa77e] hover:text-[#3d8a66] font-medium"
+                            >
+                              View profile
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {filteredIntakes.length > 0 && (
+              <div className="px-6 py-4 border-t border-gray-100 text-right">
+                <Link
+                  href="/admin/patients"
+                  className="text-sm text-gray-500 hover:text-[#4fa77e] font-medium"
+                >
+                  Load More
+                </Link>
+              </div>
+            )}
           </div>
         </div>
-      </footer>
+      </main>
     </div>
   );
 }
