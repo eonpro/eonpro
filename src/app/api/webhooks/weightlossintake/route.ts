@@ -4,16 +4,17 @@ import { prisma } from "@/lib/db";
 import { normalizeMedLinkPayload } from "@/lib/medlink/intakeNormalizer";
 import { generateIntakePdf } from "@/services/intakePdfService";
 import { storeIntakePdf } from "@/services/storage/intakeStorage";
+import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
 import { trackReferral } from "@/services/influencerService";
 import { logger } from '@/lib/logger';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
 
 /**
  * WEIGHTLOSSINTAKE Webhook - EONMEDS CLINIC ONLY (BULLETPROOF VERSION)
- * 
+ *
  * This webhook receives patient intake form submissions from the weightlossintake platform.
  * ALL data is isolated to the EONMEDS clinic - no other clinic can access these patients.
- * 
+ *
  * RELIABILITY FEATURES:
  *   - Every step wrapped in try-catch
  *   - Graceful fallbacks for non-critical failures
@@ -21,12 +22,12 @@ import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/mo
  *   - PDF generation failure doesn't block patient creation
  *   - Detailed error logging for debugging
  *   - Idempotent - same submission won't create duplicates
- * 
+ *
  * Endpoint: POST /api/webhooks/weightlossintake
- * 
+ *
  * Authentication:
  *   - Header: x-webhook-secret, x-api-key, or Authorization: Bearer
- * 
+ *
  * Last Updated: 2026-01-18
  */
 
@@ -66,14 +67,14 @@ export async function POST(req: NextRequest) {
   const requestId = crypto.randomUUID();
   const startTime = Date.now();
   const errors: string[] = [];
-  
+
   logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Webhook received`);
 
   // ═══════════════════════════════════════════════════════════════════
   // STEP 1: AUTHENTICATE (CRITICAL - fail fast)
   // ═══════════════════════════════════════════════════════════════════
   const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
-  
+
   if (!configuredSecret) {
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: No webhook secret configured!`);
     return Response.json(
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const providedSecret = 
+  const providedSecret =
     req.headers.get("x-webhook-secret") ||
     req.headers.get("x-api-key") ||
     req.headers.get("authorization")?.replace("Bearer ", "");
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
   try {
     const text = await req.text();
     payload = safeParseJSON(text) || {};
-    
+
     // Log payload structure
     logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Payload:`, {
       keys: Object.keys(payload).slice(0, 15),
@@ -191,7 +192,7 @@ export async function POST(req: NextRequest) {
   const isPartialSubmission = submissionType === "partial";
   const qualifiedStatus = String(payload.qualified || (payload.data as any)?.qualified || (isPartialSubmission ? "Pending" : "Yes"));
   const intakeNotes = String(payload.intakeNotes || (payload.data as any)?.intakeNotes || (payload.data as any)?.notes || "");
-  
+
   logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Type: ${submissionType}, Qualified: ${qualifiedStatus}`);
 
   // ═══════════════════════════════════════════════════════════════════
@@ -199,12 +200,12 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   let patient: any;
   let isNewPatient = false;
-  
+
   const patientData = normalizePatientData(normalized.patient);
-  
+
   // Build tags
   const baseTags = ["weightlossintake", "eonmeds", "glp1"];
-  const submissionTags = isPartialSubmission 
+  const submissionTags = isPartialSubmission
     ? [...baseTags, "partial-lead", "needs-followup"]
     : [...baseTags, "complete-intake"];
 
@@ -242,13 +243,13 @@ export async function POST(req: NextRequest) {
       const existingTags = Array.isArray(existingPatient.tags) ? existingPatient.tags as string[] : [];
       const wasPartial = existingTags.includes("partial-lead");
       const upgradedFromPartial = wasPartial && !isPartialSubmission;
-      
+
       let updatedTags = mergeTags(existingPatient.tags, submissionTags);
       if (upgradedFromPartial) {
         updatedTags = updatedTags.filter((t: string) => t !== "partial-lead" && t !== "needs-followup");
         logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
       }
-      
+
       patient = await withRetry(() => prisma.patient.update({
         where: { id: existingPatient.id },
         data: {
@@ -369,7 +370,28 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 10: TRACK PROMO CODE (non-critical)
+  // STEP 10: GENERATE SOAP NOTE (non-critical for partial, important for complete)
+  // ═══════════════════════════════════════════════════════════════════
+  let soapNoteId: number | null = null;
+
+  // Only generate SOAP for complete submissions with a document
+  if (!isPartialSubmission && patientDocument) {
+    try {
+      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Generating SOAP note...`);
+      const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
+      soapNoteId = soapNote.id;
+      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SOAP Note generated: ID ${soapNoteId}`);
+    } catch (err: any) {
+      // SOAP generation can fail (OpenAI rate limits, etc.) - don't block the webhook
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] SOAP generation failed (non-fatal):`, err.message);
+      errors.push(`SOAP generation failed: ${err.message}`);
+    }
+  } else if (isPartialSubmission) {
+    logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Skipping SOAP for partial submission`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 11: TRACK PROMO CODE (non-critical)
   // ═══════════════════════════════════════════════════════════════════
   const promoCodeEntry = normalized.answers?.find(
     (entry: any) =>
@@ -398,7 +420,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 11: AUDIT LOG (non-critical)
+  // STEP 12: AUDIT LOG (non-critical)
   // ═══════════════════════════════════════════════════════════════════
   try {
     await prisma.auditLog.create({
@@ -417,6 +439,7 @@ export async function POST(req: NextRequest) {
           isPartialSubmission,
           patientEmail: patient.email,
           documentId: patientDocument?.id,
+          soapNoteId: soapNoteId,
           errors: errors.length > 0 ? errors : undefined,
         }),
         ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "webhook",
@@ -430,10 +453,10 @@ export async function POST(req: NextRequest) {
   // SUCCESS RESPONSE
   // ═══════════════════════════════════════════════════════════════════
   const duration = Date.now() - startTime;
-  
+
   // Record success for monitoring
   recordSuccess("weightlossintake", duration);
-  
+
   logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`);
 
   return Response.json({
@@ -455,6 +478,10 @@ export async function POST(req: NextRequest) {
       id: patientDocument.id,
       filename: stored?.filename,
       url: stored?.publicPath,
+    } : null,
+    soapNote: soapNoteId ? {
+      id: soapNoteId,
+      status: "DRAFT",
     } : null,
     clinic: {
       id: clinicId,
@@ -519,21 +546,21 @@ function normalizeDate(value?: string) {
   if (!value) return "1900-01-01";
   const str = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  
+
   // Try MM/DD/YYYY format
   const slashParts = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (slashParts) {
     const [, mm, dd, yyyy] = slashParts;
     return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
   }
-  
+
   // Try MMDDYYYY format
   const parts = str.replace(/[^0-9]/g, "").match(/(\d{2})(\d{2})(\d{4})/);
   if (parts) {
     const [, mm, dd, yyyy] = parts;
     return `${yyyy}-${mm}-${dd}`;
   }
-  
+
   return "1900-01-01";
 }
 
