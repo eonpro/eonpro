@@ -229,11 +229,12 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       }
     }
 
-    // Fetch payouts (money transferred to bank)
-    if (type === 'all' || type === 'payouts') {
+    // Payouts are internal bank transfers - only fetch if explicitly requested
+    // Not useful for sales reporting, excluded from "all" by default
+    if (type === 'payouts') {
       try {
         const payoutsParams: Stripe.PayoutListParams = {
-          limit: type === 'payouts' ? limit : Math.min(limit, 10),
+          limit,
           ...(createdFilter && { created: createdFilter }),
         };
 

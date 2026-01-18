@@ -85,8 +85,8 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Filters
-  const [filterType, setFilterType] = useState('all');
+  // Filters - Default to charges only (sales data)
+  const [filterType, setFilterType] = useState('charges');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -396,10 +396,9 @@ export default function TransactionsPage() {
             onChange={(e) => setFilterType(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           >
-            <option value="all">All Types</option>
-            <option value="charges">Charges</option>
-            <option value="refunds">Refunds</option>
-            <option value="payouts">Payouts</option>
+            <option value="charges">Sales (Charges)</option>
+            <option value="all">All Transactions</option>
+            <option value="refunds">Refunds Only</option>
           </select>
           
           {/* Status Filter */}
