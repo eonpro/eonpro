@@ -172,7 +172,7 @@ export async function generateSOAPFromIntake(
         sourceType: 'MEDLINK_INTAKE',
         intakeDocumentId: intakeDocument.id,
         generatedByAI: true,
-        aiModelVersion: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+        aiModelVersion: process.env.OPENAI_MODEL || 'gpt-5-mini',
         status: 'DRAFT',
         promptTokens: generatedSOAP.metadata.usage?.promptTokens,
         completionTokens: generatedSOAP.metadata.usage?.completionTokens,
