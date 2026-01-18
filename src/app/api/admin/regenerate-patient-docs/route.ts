@@ -155,7 +155,6 @@ export async function POST(req: NextRequest) {
             data: {
               filename: stored.filename,
               externalUrl: stored.publicPath,
-              updatedAt: new Date(),
             },
           });
           results.actions.push({
@@ -251,11 +250,13 @@ export async function POST(req: NextRequest) {
     await prisma.auditLog.create({
       data: {
         action: 'PATIENT_DOCS_REGENERATED',
-        entityType: 'Patient',
-        entityId: patient.id,
+        resource: 'Patient',
+        resourceId: patient.id,
         userId: 1, // System
-        details: `Regenerated documents for ${patient.firstName} ${patient.lastName}`,
-        diff: results,
+        details: {
+          message: `Regenerated documents for ${patient.firstName} ${patient.lastName}`,
+          ...results,
+        },
         ipAddress: req.headers.get('x-forwarded-for') || 'admin-api',
       },
     });
