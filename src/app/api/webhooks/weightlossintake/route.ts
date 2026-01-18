@@ -127,7 +127,16 @@ export async function POST(req: NextRequest) {
       patientName: `${normalized.patient.firstName} ${normalized.patient.lastName}`,
     });
 
-    // === STEP 5: UPSERT PATIENT (EONMEDS ONLY) ===
+    // === STEP 5: EXTRACT SUBMISSION TYPE & QUALIFIED STATUS ===
+    // Handle partial vs complete submissions from weightlossintake
+    const submissionType = (payload.submissionType || payload.data?.submissionType || "complete").toString().toLowerCase();
+    const isPartialSubmission = submissionType === "partial";
+    const qualifiedStatus = payload.qualified || payload.data?.qualified || (isPartialSubmission ? "Pending" : "Yes");
+    const intakeNotes = payload.intakeNotes || payload.data?.intakeNotes || payload.data?.notes || "";
+    
+    logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Submission type: ${submissionType}, qualified: ${qualifiedStatus}`);
+
+    // === STEP 6: UPSERT PATIENT (EONMEDS ONLY) ===
     const patientData = normalizePatientData(normalized.patient);
     
     // Look for existing patient ONLY within EONMEDS clinic
@@ -149,17 +158,50 @@ export async function POST(req: NextRequest) {
     let patient;
     let isNewPatient = false;
 
+    // Build tags based on submission type
+    const baseTags = ["weightlossintake", "eonmeds", "glp1"];
+    const submissionTags = isPartialSubmission 
+      ? [...baseTags, "partial-lead", "needs-followup"]
+      : [...baseTags, "complete-intake"];
+    
+    // Build notes with intake context
+    const buildNotes = (existing: string | null | undefined) => {
+      const parts: string[] = [];
+      if (existing && !existing.includes(normalized.submissionId)) {
+        parts.push(existing);
+      }
+      parts.push(`[${new Date().toISOString()}] ${isPartialSubmission ? "PARTIAL" : "COMPLETE"} intake: ${normalized.submissionId}`);
+      if (intakeNotes) {
+        parts.push(`Intake Notes: ${intakeNotes}`);
+      }
+      if (qualifiedStatus && qualifiedStatus !== "Yes") {
+        parts.push(`Qualified: ${qualifiedStatus}`);
+      }
+      return parts.join("\n");
+    };
+
     if (existingPatient) {
-      // Update existing patient
+      // Update existing patient - upgrade from partial to complete if applicable
+      const existingTags = Array.isArray(existingPatient.tags) ? existingPatient.tags as string[] : [];
+      const wasPartial = existingTags.includes("partial-lead");
+      const upgradedFromPartial = wasPartial && !isPartialSubmission;
+      
+      // Remove partial tags if upgrading to complete
+      let updatedTags = mergeTags(existingPatient.tags, submissionTags);
+      if (upgradedFromPartial) {
+        updatedTags = updatedTags.filter((t: string) => t !== "partial-lead" && t !== "needs-followup");
+        logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Upgrading patient from partial to complete`);
+      }
+      
       patient = await prisma.patient.update({
         where: { id: existingPatient.id },
         data: {
           ...patientData,
-          tags: mergeTags(existingPatient.tags, ["weightlossintake", "eonmeds"]),
-          notes: appendNotes(existingPatient.notes, normalized.submissionId),
+          tags: updatedTags,
+          notes: buildNotes(existingPatient.notes),
         },
       });
-      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Updated existing patient: ${patient.id}`);
+      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Updated existing patient: ${patient.id}${upgradedFromPartial ? " (upgraded from partial)" : ""}`);
     } else {
       // Create new patient with EONMEDS clinic
       const patientNumber = await getNextPatientId();
@@ -168,12 +210,15 @@ export async function POST(req: NextRequest) {
           ...patientData,
           patientId: patientNumber,
           clinicId: clinicId, // CRITICAL: Assign to EONMEDS only
-          tags: ["weightlossintake", "eonmeds", "glp1"],
-          notes: `Created via weightlossintake ${normalized.submissionId}`,
+          tags: submissionTags,
+          notes: buildNotes(null),
           source: "webhook",
           sourceMetadata: {
             type: "weightlossintake",
             submissionId: normalized.submissionId,
+            submissionType: submissionType,
+            qualified: qualifiedStatus,
+            intakeNotes: intakeNotes,
             timestamp: new Date().toISOString(),
             clinicId: clinicId,
             clinicName: "EONMEDS",
@@ -181,14 +226,14 @@ export async function POST(req: NextRequest) {
         },
       });
       isNewPatient = true;
-      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Created new patient: ${patient.id} (${patientNumber})`);
+      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Created new ${isPartialSubmission ? "PARTIAL" : "COMPLETE"} patient: ${patient.id} (${patientNumber})`);
     }
 
-    // === STEP 6: GENERATE PDF ===
+    // === STEP 7: GENERATE PDF ===
     const pdfContent = await generateIntakePdf(normalized, patient);
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] PDF generated: ${pdfContent.byteLength} bytes`);
 
-    // === STEP 7: STORE PDF ===
+    // === STEP 8: STORE PDF ===
     const stored = await storeIntakePdf({
       patientId: patient.id,
       submissionId: normalized.submissionId,
@@ -196,7 +241,7 @@ export async function POST(req: NextRequest) {
     });
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] PDF stored: ${stored.publicPath}`);
 
-    // === STEP 8: CREATE DOCUMENT RECORD ===
+    // === STEP 9: CREATE DOCUMENT RECORD ===
     const existingDocument = await prisma.patientDocument.findUnique({
       where: { sourceSubmissionId: normalized.submissionId },
     });
@@ -229,7 +274,7 @@ export async function POST(req: NextRequest) {
       logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Created document: ${patientDocument.id}`);
     }
 
-    // === STEP 9: TRACK REFERRAL/PROMO CODE ===
+    // === STEP 10: TRACK REFERRAL/PROMO CODE ===
     const promoCodeEntry = normalized.answers?.find(
       (entry) =>
         entry.label?.toLowerCase().includes("promo") ||
@@ -262,21 +307,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // === STEP 10: CREATE AUDIT LOG ===
+    // === STEP 11: CREATE AUDIT LOG ===
     await prisma.auditLog.create({
       data: {
-        action: "PATIENT_INTAKE_RECEIVED",
+        action: isPartialSubmission ? "PARTIAL_INTAKE_RECEIVED" : "PATIENT_INTAKE_RECEIVED",
         tableName: "Patient",
         recordId: patient.id,
         userId: 0, // System action
         diff: JSON.stringify({
           source: "weightlossintake",
           submissionId: normalized.submissionId,
+          submissionType: submissionType,
+          qualified: qualifiedStatus,
           clinicId: clinicId,
           clinicName: "EONMEDS",
           isNewPatient,
+          isPartialSubmission,
           patientEmail: patient.email,
           documentId: patientDocument.id,
+          intakeNotes: intakeNotes || null,
         }),
         ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "webhook",
       },
@@ -291,6 +340,7 @@ export async function POST(req: NextRequest) {
       patientNumber: patient.patientId,
       documentId: patientDocument.id,
       isNewPatient,
+      isPartialSubmission,
       clinicId,
     });
 
@@ -303,6 +353,11 @@ export async function POST(req: NextRequest) {
         name: `${patient.firstName} ${patient.lastName}`,
         email: patient.email,
         isNew: isNewPatient,
+      },
+      submission: {
+        type: submissionType,
+        qualified: qualifiedStatus,
+        isPartial: isPartialSubmission,
       },
       document: {
         id: patientDocument.id,
