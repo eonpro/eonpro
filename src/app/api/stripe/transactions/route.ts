@@ -72,9 +72,12 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     // Fetch charges (most comprehensive for payment history)
     if (type === 'all' || type === 'charges') {
+      // Only use starting_after if it's a charge ID (starts with 'ch_')
+      const isChargeId = startingAfter?.startsWith('ch_');
+      
       const chargesParams: Stripe.ChargeListParams = {
         limit,
-        ...(startingAfter && { starting_after: startingAfter }),
+        ...(isChargeId && startingAfter && { starting_after: startingAfter }),
         ...(createdFilter && { created: createdFilter }),
         expand: ['data.customer', 'data.invoice'],
       };
@@ -209,6 +212,11 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       totalRevenue: formatCurrency(summary.totalRevenue),
     });
 
+    // For pagination, only use charge IDs (other types don't support cross-type pagination)
+    const lastChargeId = transactions
+      .filter(t => t.type === 'charge')
+      .slice(-1)[0]?.id;
+    
     return NextResponse.json({
       transactions,
       summary: {
@@ -220,7 +228,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       pagination: {
         hasMore,
         limit,
-        ...(transactions.length > 0 && { lastId: transactions[transactions.length - 1].id }),
+        ...(lastChargeId && { lastId: lastChargeId }),
       },
     });
 
