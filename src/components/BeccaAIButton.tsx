@@ -33,7 +33,7 @@ export default function BeccaAIButton({
   return (
     <div
       onClick={onClick}
-      className={`relative cursor-pointer hover:scale-110 transition-transform ${sizeClasses[size]} ${className} flex items-center justify-center`}
+      className={`relative cursor-pointer hover:scale-110 transition-transform ${sizeClasses[size]} ${className} flex items-center justify-center bg-white rounded-full shadow-xl`}
       title="Becca AI Assistant"
     >
       {!loadError ? (
@@ -46,9 +46,9 @@ export default function BeccaAIButton({
         />
       ) : (
         // Fallback icon if Lottie fails to load
-        <div className="bg-white rounded-full shadow-lg border-2 border-green-500 p-3 flex items-center justify-center">
+        <div className="bg-white rounded-full p-3 flex items-center justify-center">
           <svg 
-            className={`${iconSizes[size]} text-green-600`}
+            className={`${iconSizes[size]} text-[#4fa77e]`}
             fill="none" 
             stroke="currentColor" 
             viewBox="0 0 24 24"
@@ -63,7 +63,7 @@ export default function BeccaAIButton({
         </div>
       )}
       {showPulse && (
-        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse z-10"></span>
+        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse z-10 border-2 border-white"></span>
       )}
     </div>
   );

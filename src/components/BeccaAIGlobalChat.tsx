@@ -150,12 +150,12 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
           onClick={() => setShowChat(true)}
           size="medium"
           showPulse={true}
-          className="fixed bottom-6 left-24 z-[60] drop-shadow-xl"
+          className="fixed bottom-6 left-[88px] z-[9999] drop-shadow-xl"
         />
       )}
       
       {showChat && (
-        <div className="fixed bottom-4 left-24 w-[400px] h-[560px] z-[60] shadow-2xl rounded-[32px] overflow-hidden">
+        <div className="fixed bottom-4 left-[88px] w-[400px] h-[560px] z-[9999] shadow-2xl rounded-[32px] overflow-hidden">
           <div className="relative w-full h-full bg-[#efece7] overflow-hidden">
             {/* Main Content Area */}
             <div className="relative h-full flex flex-col">
