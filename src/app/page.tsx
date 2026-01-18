@@ -131,8 +131,8 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#efece7] flex">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
-          sidebarExpanded ? 'w-56' : 'w-20'
+        className={`fixed left-0 top-0 bottom-0 flex flex-col py-4 z-50 transition-all duration-300 ${
+          sidebarExpanded ? 'w-56 bg-[#efece7]' : 'w-20 bg-white border-r border-gray-200'
         }`}
       >
         {/* Logo */}
