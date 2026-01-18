@@ -72,27 +72,41 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Log the fix
-    await prisma.auditLog.create({
-      data: {
-        action: 'PATIENTS_MIGRATED_TO_CLINIC',
-        entityType: 'Patient',
-        entityId: 0,
-        details: `Fixed ${result.count} orphaned patients`,
-        diff: {
-          patients: orphanedPatients.map(p => ({
-            id: p.id,
-            name: `${p.firstName} ${p.lastName}`,
-            email: p.email,
-          })),
-          assignedTo: {
-            clinicId: eonmedsClinic.id,
-            clinicName: eonmedsClinic.name,
-          },
-        },
-        ipAddress: req.headers.get('x-forwarded-for') || 'unknown',
-      },
+    // Log the fix (find or create system user for audit)
+    let systemUser = await prisma.user.findFirst({
+      where: { email: 'system@eonpro.io' },
     });
+    
+    if (!systemUser) {
+      // Use first admin user if no system user exists
+      systemUser = await prisma.user.findFirst({
+        where: { role: 'super_admin' },
+      });
+    }
+    
+    if (systemUser) {
+      await prisma.auditLog.create({
+        data: {
+          action: 'PATIENTS_MIGRATED_TO_CLINIC',
+          entityType: 'Patient',
+          entityId: 0,
+          userId: systemUser.id,
+          details: `Fixed ${result.count} orphaned patients`,
+          diff: {
+            patients: orphanedPatients.map(p => ({
+              id: p.id,
+              name: `${p.firstName} ${p.lastName}`,
+              email: p.email,
+            })),
+            assignedTo: {
+              clinicId: eonmedsClinic.id,
+              clinicName: eonmedsClinic.name,
+            },
+          },
+          ipAddress: req.headers.get('x-forwarded-for') || 'unknown',
+        },
+      });
+    }
 
     logger.info('[FIX ORPHANED] Fixed orphaned patients', {
       count: result.count,

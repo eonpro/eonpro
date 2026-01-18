@@ -9,9 +9,10 @@ import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
 import { logger } from '@/lib/logger';
 
 /**
- * EONPRO Intake Webhook
+ * EONPRO Intake Webhook - EONMEDS CLINIC ONLY
  * 
  * This webhook receives patient intake form submissions from external platforms.
+ * ALL patients are automatically assigned to the EONMEDS clinic.
  * 
  * Endpoint: POST /api/webhooks/eonpro-intake
  * 
@@ -126,6 +127,27 @@ export async function POST(req: NextRequest) {
   });
 
   try {
+    // Get EONMEDS clinic (all patients go here)
+    const eonmedsClinic = await prisma.clinic.findFirst({
+      where: {
+        OR: [
+          { subdomain: 'eonmeds' },
+          { name: { contains: 'EONMEDS', mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    if (!eonmedsClinic) {
+      logger.error(`[EONPRO INTAKE ${requestId}] CRITICAL: EONMEDS clinic not found!`);
+      return Response.json(
+        { error: "Configuration error", message: "EONMEDS clinic not configured" },
+        { status: 500 }
+      );
+    }
+
+    const clinicId = eonmedsClinic.id;
+    logger.debug(`[EONPRO INTAKE ${requestId}] Using clinic: ${eonmedsClinic.name} (ID: ${clinicId})`);
+
     // Normalize the intake payload
     const normalized = normalizeMedLinkPayload(payload);
     
@@ -142,11 +164,16 @@ export async function POST(req: NextRequest) {
       submissionId: normalized.submissionId,
       sections: normalized.sections,
       source: "eonpro-intake",
+      clinicId: clinicId,
+      clinicName: eonmedsClinic.name,
       receivedAt: new Date().toISOString(),
     };
 
-    // Upsert patient (creates or updates based on email)
-    const patient = await upsertPatientFromIntake(normalized);
+    // Upsert patient (creates or updates based on email) - ALWAYS to EONMEDS clinic
+    const patient = await upsertPatientFromIntake(normalized, { 
+      clinicId, 
+      tags: ['eonpro-intake', 'eonmeds'] 
+    });
     logger.debug(`[EONPRO INTAKE ${requestId}] Patient upserted`, {
       patientId: patient.id,
       isNew: !patient.createdAt || patient.createdAt === patient.updatedAt
@@ -185,6 +212,7 @@ export async function POST(req: NextRequest) {
       patientDocument = await prisma.patientDocument.create({
         data: {
           patientId: patient.id,
+          clinicId: clinicId,
           filename: stored.filename,
           mimeType: "application/pdf",
           source: "eonpro-intake",
@@ -218,6 +246,10 @@ export async function POST(req: NextRequest) {
         submissionId: normalized.submissionId,
         pdfUrl: stored.publicPath,
         patientCreated: !existingDocument,
+      },
+      clinic: {
+        id: clinicId,
+        name: eonmedsClinic.name,
       },
       message: "Intake processed successfully"
     };

@@ -16,11 +16,24 @@ type NormalizedPatientForCreate = {
   zip: string;
 };
 
-export async function upsertPatientFromIntake(intake: NormalizedIntake): Promise<Patient> {
+export async function upsertPatientFromIntake(
+  intake: NormalizedIntake, 
+  options?: { clinicId?: number; tags?: string[] }
+): Promise<Patient> {
   const normalized = normalizePatient(intake.patient);
   const hashtags = collectHashtags(intake);
+  const additionalTags = options?.tags || [];
+  const allTags = [...new Set([...hashtags, ...additionalTags])];
 
   const matchFilters = buildMatchFilters(normalized);
+  
+  // If clinicId is provided, scope the search to that clinic
+  if (options?.clinicId) {
+    matchFilters.forEach(filter => {
+      (filter as any).clinicId = options.clinicId;
+    });
+  }
+  
   let existing: Patient | null = null;
 
   if (matchFilters.length > 0) {
@@ -35,7 +48,9 @@ export async function upsertPatientFromIntake(intake: NormalizedIntake): Promise
       where: { id: existing.id },
       data: {
         ...normalized,
-        tags: mergeTags(existing.tags, hashtags),
+        // Update clinicId if patient was orphaned
+        ...(options?.clinicId && !existing.clinicId ? { clinicId: options.clinicId } : {}),
+        tags: mergeTags(existing.tags, allTags),
         notes: appendNotes(existing.notes, intake.submissionId),
       },
     });
@@ -48,7 +63,8 @@ export async function upsertPatientFromIntake(intake: NormalizedIntake): Promise
       data: {
         ...normalized,
         patientId,
-        tags: hashtags,
+        clinicId: options?.clinicId || null,
+        tags: allTags,
         notes: `Created via MedLink submission ${intake.submissionId}`,
         source: "webhook",
         sourceMetadata: {
