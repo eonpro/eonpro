@@ -236,6 +236,7 @@ Analyze the actual data provided and create clinically relevant recommendations.
     logger.debug('[OpenAI] Generating SOAP note for patient:', { value: input.patientName });
     
     // Use retry wrapper for resilience against rate limits
+    // 4 retries with exponential backoff: 3s, 6s, 12s, 24s (total ~45s max wait)
     const completion = await withRetry(async () => {
       return client.chat.completions.create({
         model: env.OPENAI_MODEL,
@@ -247,7 +248,7 @@ Analyze the actual data provided and create clinically relevant recommendations.
         max_tokens: env.OPENAI_MAX_TOKENS,
         response_format: { type: 'json_object' },
       });
-    }, 3, 2000); // 3 retries, starting at 2 second delay
+    }, 4, 3000); // 4 retries, starting at 3 second delay
 
     const usage = completion.usage;
     const usageMetrics: UsageMetrics = {

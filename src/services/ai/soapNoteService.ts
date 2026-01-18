@@ -184,11 +184,20 @@ export async function generateSOAPFromIntake(
     
     return soapNote;
   } catch (error: any) {
-    // @ts-ignore
-   
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[SOAP Service] Error generating SOAP note:', { error });
-    throw new Error(`Failed to generate SOAP note: ${errorMessage}`);
+    logger.error('[SOAP Service] Error generating SOAP note:', { 
+      error: errorMessage,
+      status: error.status,
+      code: error.code,
+    });
+    
+    // Preserve the original error status for proper handling upstream
+    const newError = new Error(`Failed to generate SOAP note: ${errorMessage}`);
+    // @ts-ignore - Preserve status code for rate limit detection
+    newError.status = error.status;
+    // @ts-ignore
+    newError.code = error.code;
+    throw newError;
   }
 }
 

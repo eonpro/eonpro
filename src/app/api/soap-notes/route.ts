@@ -265,14 +265,67 @@ export const POST = async (request: NextRequest) => {
     });
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // @ts-ignore
-   
-    logger.error('[API] Error creating SOAP note:', error);
     
+    logger.error('[API] Error creating SOAP note:', {
+      message: errorMessage,
+      status: error.status,
+      code: error.code,
+    });
+    
+    // Handle Zod validation errors
     if (error.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },
         { status: 400 }
+      );
+    }
+    
+    // Handle OpenAI rate limit errors (429)
+    if (error.status === 429 || 
+        errorMessage.toLowerCase().includes('rate limit') || 
+        errorMessage.toLowerCase().includes('ratelimit') ||
+        errorMessage.toLowerCase().includes('too many requests') ||
+        errorMessage.includes('429')) {
+      return NextResponse.json(
+        { 
+          error: 'OpenAI API is busy. Please wait 30 seconds and try again.',
+          code: 'RATE_LIMIT',
+          retryAfter: 30,
+        },
+        { status: 429 }
+      );
+    }
+    
+    // Handle OpenAI API busy/overloaded errors
+    if (error.status === 503 || errorMessage.includes('overloaded') || errorMessage.includes('busy')) {
+      return NextResponse.json(
+        { 
+          error: 'AI service is temporarily unavailable. Please try again in a moment.',
+          code: 'SERVICE_UNAVAILABLE',
+          retryAfter: 15,
+        },
+        { status: 503 }
+      );
+    }
+    
+    // Handle OpenAI API key/auth errors
+    if (error.status === 401 || errorMessage.includes('API key')) {
+      logger.error('[SOAP Notes] OpenAI API key issue - check configuration');
+      return NextResponse.json(
+        { error: 'AI service configuration error. Please contact support.' },
+        { status: 500 }
+      );
+    }
+    
+    // Handle internal rate limit
+    if (errorMessage.includes('Internal rate limit')) {
+      return NextResponse.json(
+        { 
+          error: errorMessage,
+          code: 'INTERNAL_RATE_LIMIT',
+          retryAfter: 30,
+        },
+        { status: 429 }
       );
     }
     
