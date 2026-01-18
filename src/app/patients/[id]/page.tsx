@@ -260,7 +260,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#efece7]">
       {/* Header - Mobile Optimized */}
       <div className="bg-white border-b px-4 sm:px-6 py-4">
         <Breadcrumb 
@@ -321,7 +321,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                   relative px-2 sm:px-3 transition-all duration-200 flex-shrink-0 sm:flex-1
                   ${currentTab === tab.id 
                     ? 'bg-white z-20' 
-                    : 'bg-gray-100 hover:bg-gray-50 z-10'
+                    : 'bg-[#efece7] hover:bg-[#e5e2dc] z-10'
                   }
                 `}
                 style={{
@@ -383,7 +383,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           </div>
 
           {/* Mobile Timeline - Collapsed version for mobile */}
-          <details className="lg:hidden bg-gray-50 rounded-xl border border-gray-200 mb-2">
+          <details className="lg:hidden bg-[#efece7] rounded-xl border border-gray-200 mb-2">
             <summary className="flex items-center justify-between p-4 cursor-pointer font-medium text-gray-700">
               <span className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -409,7 +409,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           {currentTab === "profile" ? (
             <div className="space-y-6">
               {/* Overview Card */}
-              <section className="bg-gray-50 rounded-lg p-6">
+              <section className="bg-white rounded-lg border p-6">
                 <h2 className="text-lg font-semibold mb-4">Overview</h2>
                 <div className="space-y-2 text-sm">
                   <p>Total prescriptions: {patientWithDecryptedPHI.orders.length}</p>
@@ -423,7 +423,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
               </section>
 
               {/* Patient Information Card */}
-              <section className="bg-gray-50 rounded-lg p-6">
+              <section className="bg-white rounded-lg border p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Patient Information</h2>
                   <button className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660] transition-colors">
@@ -505,7 +505,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
 
           {/* Patient Audit Log - Only visible to super admins */}
           {resolvedSearchParams?.admin === "true" && (
-                <section className="bg-gray-50 rounded-lg p-6">
+                <section className="bg-white rounded-lg border p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Patient Audit Log</h2>
                 <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Admin Only</span>
@@ -515,7 +515,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
               ) : (
                 <div className="space-y-3 text-sm">
                   {patientWithDecryptedPHI.auditEntries.map((entry: any) => (
-                    <div key={entry.id} className="border rounded-lg p-3 bg-gray-50">
+                    <div key={entry.id} className="border rounded-lg p-3 bg-[#efece7]">
                       <div className="flex justify-between text-xs text-gray-500 mb-2">
                         <span>{entry.actorEmail ?? "Unknown actor"}</span>
                         <span>{new Date(entry.createdAt).toLocaleString()}</span>
@@ -574,7 +574,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
               />
               
               {/* Payment Methods as a subsection of Billing */}
-              <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold mb-4 pb-3 border-b border-gray-200">Payment Methods</h3>
                 <PatientPaymentMethods
                   patientId={patientWithDecryptedPHI.id}

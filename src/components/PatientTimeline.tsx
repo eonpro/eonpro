@@ -83,7 +83,7 @@ export default function PatientTimeline({ events, patientCreatedAt, patientSourc
   };
 
   return (
-    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+    <div className="bg-white rounded-lg p-4 border border-gray-200">
       <h3 className="font-semibold text-gray-900 mb-4">Timeline</h3>
       
       <div className="space-y-3 max-h-96 overflow-y-auto">
