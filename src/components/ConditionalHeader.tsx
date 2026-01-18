@@ -90,6 +90,8 @@ export default function ConditionalHeader() {
     '/pay/',
     '/admin',
     '/super-admin',
+    '/patients',
+    '/intake-forms',
   ];
   
   const isNoHeaderPage = noHeaderPages.some(page => pathname?.startsWith(page));
