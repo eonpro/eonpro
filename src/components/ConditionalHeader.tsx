@@ -75,6 +75,7 @@ export default function ConditionalHeader() {
   const visibleLinks = navLinks.filter(link => link.roles.includes(userRole));
   
   const noHeaderPages = [
+    '/',
     '/login',
     '/register',
     '/forgot-password',
@@ -87,6 +88,8 @@ export default function ConditionalHeader() {
     '/support',
     '/demo',
     '/pay/',
+    '/admin',
+    '/super-admin',
   ];
   
   const isNoHeaderPage = noHeaderPages.some(page => pathname?.startsWith(page));

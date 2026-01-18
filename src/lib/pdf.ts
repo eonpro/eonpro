@@ -241,23 +241,25 @@ export async function generatePrescriptionPDF(data: PrescriptionPdfData) {
 
     // Only show full header info on first page
     if (currentPageNumber === 1 && rxIndex === 0) {
-      // Header Section
+      // Header Section - Practice name on its own line
       drawText(currentPage, PRACTICE_NAME.toUpperCase(), margin, cursor, { size: 16, bold: true });
+      cursor -= 18;
       
-      // Right side header info
-      const rightX = 350;
+      // Right side header info - moved to separate rows to avoid overlap
+      const rightX = 380;
+      drawText(currentPage, PRACTICE_ADDRESS, margin, cursor, { size: 10 });
       drawText(currentPage, `State Lic.: ${data.provider.licenseNumber ?? "ME117105"}`, rightX, cursor, { size: 10 });
       cursor -= 14;
       
-      drawText(currentPage, PRACTICE_ADDRESS, margin, cursor, { size: 10 });
+      drawText(currentPage, `Phone: ${PRACTICE_PHONE}`, margin, cursor, { size: 10 });
       drawText(currentPage, `NPI: ${data.provider.npi}`, rightX, cursor, { size: 10 });
       cursor -= 14;
       
-      drawText(currentPage, `Phone: ${PRACTICE_PHONE}`, margin, cursor, { size: 10 });
+      drawText(currentPage, `Fax: ${PRACTICE_FAX}`, margin, cursor, { size: 10 });
       drawText(currentPage, `DEA: ${data.provider.dea ?? "FC4080127"}`, rightX, cursor, { size: 10 });
       cursor -= 14;
       
-      drawText(currentPage, `Fax: ${PRACTICE_FAX}`, margin, cursor, { size: 10 });
+      drawText(currentPage, "", margin, cursor, { size: 10 });
       drawText(currentPage, `Date: ${data.date}`, rightX, cursor, { size: 10 });
       
       cursor -= 30;

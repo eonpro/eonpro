@@ -170,11 +170,11 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
             </span>
           </div>
 
-          {/* Date and Time */}
-          <p className="text-sm text-gray-600">
+          {/* Date and Time - Same font size */}
+          <p className="text-sm text-gray-800">
             {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
-          <p className="text-lg font-medium text-gray-800">
+          <p className="text-sm text-gray-600">
             {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
           </p>
         </div>
