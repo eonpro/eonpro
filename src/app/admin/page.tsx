@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import {
   Search, Clock, UserPlus, CreditCard, RefreshCw, FileText
 } from 'lucide-react';
@@ -33,6 +34,7 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [recentIntakes, setRecentIntakes] = useState<PatientIntake[]>([]);
   const [intakesLoading, setIntakesLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     newIntakes: 0,
     newRevenue: 0,
@@ -121,9 +123,11 @@ export default function AdminPage() {
       } catch (e) { /* ignore */ }
 
       setIntakesLoading(false);
+      setPageLoading(false);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       setIntakesLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -162,6 +166,22 @@ export default function AdminPage() {
   }).slice(0, 8);
 
   const displayName = userData?.firstName || userData?.email?.split('@')[0] || 'there';
+
+  // Full-page loader
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen bg-[#efece7] flex flex-col items-center justify-center">
+        <div className="w-24 h-24 mb-4">
+          <DotLottieReact
+            src="https://lottie.host/9c7564a3-b6ee-4e8b-8b5e-14a59b28c515/3Htnjbp08p.lottie"
+            loop
+            autoplay
+          />
+        </div>
+        <p className="text-gray-500 text-sm animate-pulse">Loading dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
