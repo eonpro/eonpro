@@ -68,6 +68,8 @@ export async function GET(req: NextRequest) {
               category: true,
               externalUrl: true,
               createdAt: true,
+              clinicId: true,
+              data: true, // Check if PDF data exists
             },
             orderBy: { createdAt: 'desc' },
             take: 5,
@@ -99,7 +101,16 @@ export async function GET(req: NextRequest) {
           clinicSubdomain: p.clinic?.subdomain || null,
           tags: p.tags,
           createdAt: p.createdAt,
-          documents: p.documents,
+          documents: p.documents.map((d: any) => ({
+            id: d.id,
+            filename: d.filename,
+            category: d.category,
+            externalUrl: d.externalUrl,
+            clinicId: d.clinicId,
+            hasData: !!(d.data && (Buffer.isBuffer(d.data) ? d.data.length > 0 : d.data)),
+            dataSize: d.data ? (Buffer.isBuffer(d.data) ? d.data.length : JSON.stringify(d.data).length) : 0,
+            createdAt: d.createdAt,
+          })),
           soapNotes: p.soapNotes,
           isolationStatus: p.clinic?.subdomain === 'eonmeds' || p.clinic?.name?.includes('EONMEDS') 
             ? '✅ Correctly isolated to EONMEDS' 
