@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, Search, Clock, ChevronRight, ClipboardList
+  DollarSign, Settings, LogOut, Search, Clock, ChevronRight, ClipboardList,
+  UserPlus, CreditCard, RefreshCw, FileText
 } from 'lucide-react';
 
 interface PatientIntake {
@@ -19,6 +20,13 @@ interface PatientIntake {
   address: string;
   tags: string[];
   createdAt: string;
+}
+
+interface DashboardStats {
+  newIntakes: number;
+  newRevenue: number;
+  recurringRevenue: number;
+  newPrescriptions: number;
 }
 
 const navItems = [
@@ -43,6 +51,12 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [recentIntakes, setRecentIntakes] = useState<PatientIntake[]>([]);
   const [intakesLoading, setIntakesLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    newIntakes: 0,
+    newRevenue: 0,
+    recurringRevenue: 0,
+    newPrescriptions: 0,
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -76,6 +90,7 @@ export default function HomePage() {
 
       const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
 
+      // Fetch recent patient intakes
       const intakesResponse = await fetch('/api/patients?limit=20&recent=24h', {
         credentials: 'include',
         headers,
@@ -83,8 +98,58 @@ export default function HomePage() {
 
       if (intakesResponse.ok) {
         const intakesData = await intakesResponse.json();
-        setRecentIntakes(intakesData.patients || []);
+        const patients = intakesData.patients || [];
+        setRecentIntakes(patients);
+        setStats(prev => ({ ...prev, newIntakes: patients.length }));
       }
+
+      // Fetch revenue stats
+      try {
+        const revenueResponse = await fetch('/api/stripe/transactions?limit=100&type=charges&status=succeeded', {
+          credentials: 'include',
+          headers,
+        });
+        if (revenueResponse.ok) {
+          const revenueData = await revenueResponse.json();
+          const transactions = revenueData.transactions || [];
+          const newRevenue = transactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0) / 100;
+          setStats(prev => ({ ...prev, newRevenue }));
+        }
+      } catch (e) {
+        // Revenue fetch failed, use placeholder
+      }
+
+      // Fetch subscription/recurring revenue
+      try {
+        const subsResponse = await fetch('/api/stripe/subscriptions?status=active', {
+          credentials: 'include',
+          headers,
+        });
+        if (subsResponse.ok) {
+          const subsData = await subsResponse.json();
+          const subs = subsData.subscriptions || [];
+          const recurringRevenue = subs.reduce((sum: number, s: any) => sum + (s.plan?.amount || 0), 0) / 100;
+          setStats(prev => ({ ...prev, recurringRevenue }));
+        }
+      } catch (e) {
+        // Subscriptions fetch failed, use placeholder
+      }
+
+      // Fetch prescriptions count
+      try {
+        const ordersResponse = await fetch('/api/orders?limit=100&recent=24h', {
+          credentials: 'include',
+          headers,
+        });
+        if (ordersResponse.ok) {
+          const ordersData = await ordersResponse.json();
+          const orders = ordersData.orders || [];
+          setStats(prev => ({ ...prev, newPrescriptions: orders.length }));
+        }
+      } catch (e) {
+        // Orders fetch failed
+      }
+
       setIntakesLoading(false);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -103,6 +168,23 @@ export default function HomePage() {
     return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
   };
 
+  const formatGender = (gender: string) => {
+    if (!gender) return '';
+    const g = gender.toLowerCase();
+    if (g === 'female' || g === 'f') return 'Female';
+    if (g === 'male' || g === 'm') return 'Male';
+    return gender;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   const filteredIntakes = recentIntakes.filter(patient => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -111,15 +193,13 @@ export default function HomePage() {
       patient.lastName?.toLowerCase().includes(query) ||
       patient.email?.toLowerCase().includes(query) ||
       patient.phone?.includes(query) ||
-      patient.id?.toString().includes(query) ||
-      patient.tags?.some(tag => tag.toLowerCase().includes(query)) ||
-      patient.address?.toLowerCase().includes(query)
+      patient.id?.toString().includes(query)
     );
-  });
+  }).slice(0, 8); // Limit to 8 items
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#f5f5f0]">
+      <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
         <div className="animate-spin rounded-full h-12 w-12 border-2 border-[#4fa77e] border-t-transparent"></div>
       </div>
     );
@@ -207,7 +287,7 @@ export default function HomePage() {
       <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
         <div className="p-8">
           {/* Header */}
-          <div className="flex items-start justify-between mb-8">
+          <div className="flex items-start justify-between mb-6">
             {/* Left: Status & Time */}
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -219,7 +299,6 @@ export default function HomePage() {
                   SYSTEM: {systemStatus.toUpperCase()}
                 </span>
               </div>
-              {/* Date and Time - Same font size */}
               <p className="text-sm text-gray-800">
                 {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </p>
@@ -242,22 +321,75 @@ export default function HomePage() {
           </div>
 
           {/* Welcome */}
-          <h1 className="text-3xl font-semibold text-gray-900 mb-8">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-6">
             Welcome, <span className="text-gray-900">{displayName}</span>
           </h1>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {/* New Intakes */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-[#4fa77e]/10 flex items-center justify-center">
+                <UserPlus className="h-6 w-6 text-[#4fa77e]" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">{stats.newIntakes}</p>
+                <p className="text-sm text-gray-500">New Intakes</p>
+              </div>
+            </div>
+
+            {/* New Revenue */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-[#4fa77e]/10 flex items-center justify-center">
+                <CreditCard className="h-6 w-6 text-[#4fa77e]" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.newRevenue)}</p>
+                <p className="text-sm text-gray-500">New Revenue</p>
+              </div>
+            </div>
+
+            {/* Recurring Revenue */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <RefreshCw className="h-6 w-6 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.recurringRevenue)}</p>
+                <p className="text-sm text-gray-500">Recurring</p>
+              </div>
+            </div>
+
+            {/* New Prescriptions */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-rose-500" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">{stats.newPrescriptions}</p>
+                <p className="text-sm text-gray-500">New Scripts</p>
+              </div>
+            </div>
+          </div>
 
           {/* Patient Intakes Card */}
           <div className="bg-white rounded-2xl border border-gray-200">
             {/* Header */}
-            <div className="px-6 py-5">
+            <div className="px-6 py-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">New Patient Intakes</h2>
+              <Link
+                href="/admin/patients"
+                className="text-sm text-gray-500 hover:text-[#4fa77e] font-medium"
+              >
+                Load More
+              </Link>
             </div>
 
             {/* Search */}
             <div className="px-6 pb-4">
               <input
                 type="text"
-                placeholder="Search patients by name, email, phone, ID, tags, or address..."
+                placeholder="Search patients by name, email, phone, ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e]"
@@ -277,15 +409,13 @@ export default function HomePage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredIntakes.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-16 text-center">
+                        <td colSpan={4} className="px-6 py-16 text-center">
                           <Clock className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                           <p className="text-gray-500 font-medium">No patient intakes in the last 24 hours</p>
                           <p className="text-sm text-gray-400 mt-1">New intakes will appear here automatically</p>
@@ -293,7 +423,7 @@ export default function HomePage() {
                       </tr>
                     ) : (
                       filteredIntakes.map((patient) => (
-                        <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors">
+                        <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => router.push(`/patients/${patient.id}`)}>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -302,43 +432,26 @@ export default function HomePage() {
                                   : 'bg-amber-400'
                               }`} />
                               <div>
-                                <p className="font-medium text-gray-900">
+                                <Link href={`/patients/${patient.id}`} className="font-medium text-gray-900 hover:text-[#4fa77e]" onClick={(e) => e.stopPropagation()}>
                                   {patient.firstName} {patient.lastName}
-                                </p>
+                                </Link>
                                 <p className="text-xs text-gray-400">#{String(patient.id).padStart(6, '0')}</p>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <p className="text-sm text-gray-600">{formatDate(patient.dateOfBirth)}</p>
-                            <p className="text-xs text-gray-400 capitalize">({patient.gender})</p>
+                            <p className="text-xs text-gray-400">({formatGender(patient.gender)})</p>
                           </td>
                           <td className="px-6 py-4">
                             <p className="text-sm text-gray-600">{patient.phone}</p>
                             <p className="text-xs text-gray-400 truncate max-w-[180px]">{patient.email}</p>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-600 truncate max-w-[200px]">{patient.address || '-'}</p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-1">
-                              {patient.tags?.slice(0, 4).map((tag, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded"
-                                >
-                                  #{tag}
-                                </span>
-                              ))}
-                              {patient.tags?.length > 4 && (
-                                <span className="text-xs text-gray-400">+{patient.tags.length - 4}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
                             <Link
                               href={`/patients/${patient.id}`}
                               className="text-sm text-[#4fa77e] hover:text-[#3d8a66] font-medium"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               View profile
                             </Link>
@@ -350,17 +463,6 @@ export default function HomePage() {
                 </table>
               )}
             </div>
-
-            {filteredIntakes.length > 0 && (
-              <div className="px-6 py-4 border-t border-gray-100 text-right">
-                <Link
-                  href="/admin/patients"
-                  className="text-sm text-gray-500 hover:text-[#4fa77e] font-medium"
-                >
-                  Load More
-                </Link>
-              </div>
-            )}
           </div>
         </div>
       </main>
