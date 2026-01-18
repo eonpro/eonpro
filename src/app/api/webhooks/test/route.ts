@@ -52,6 +52,17 @@ export async function POST(req: NextRequest) {
 
   if (!authResult.valid) {
     // Debug info to diagnose mismatch
+    // Find first difference
+    let firstDiffIndex = -1;
+    const p = providedSecret || "";
+    const c = configuredSecret;
+    for (let i = 0; i < Math.max(p.length, c.length); i++) {
+      if (p[i] !== c[i]) {
+        firstDiffIndex = i;
+        break;
+      }
+    }
+    
     const debugInfo = {
       providedLength: providedSecret?.length || 0,
       configuredLength: configuredSecret.length,
@@ -63,6 +74,11 @@ export async function POST(req: NextRequest) {
       configuredLast5: configuredSecret.slice(-5),
       exactMatch: providedSecret === configuredSecret,
       trimmedMatch: trimmedProvided === trimmedConfigured,
+      firstDifferenceAt: firstDiffIndex,
+      providedCharAtDiff: firstDiffIndex >= 0 ? `'${p[firstDiffIndex]}' (code: ${p.charCodeAt(firstDiffIndex)})` : "N/A",
+      configuredCharAtDiff: firstDiffIndex >= 0 ? `'${c[firstDiffIndex]}' (code: ${c.charCodeAt(firstDiffIndex)})` : "N/A",
+      providedAround: firstDiffIndex >= 0 ? p.substring(Math.max(0, firstDiffIndex - 3), firstDiffIndex + 4) : "N/A",
+      configuredAround: firstDiffIndex >= 0 ? c.substring(Math.max(0, firstDiffIndex - 3), firstDiffIndex + 4) : "N/A",
     };
     
     return NextResponse.json({
