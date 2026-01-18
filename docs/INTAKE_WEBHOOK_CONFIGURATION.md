@@ -1,10 +1,18 @@
-# Intake Webhook Configuration - DO NOT MODIFY
+# Intake Webhook Configuration - General Guide
 
-> ⚠️ **CRITICAL**: This configuration is WORKING as of 2026-01-18. Do not change these settings without thorough testing.
+> ⚠️ **NOTE**: For clinic-specific configurations, see the `/docs/clinics/` directory.
+
+## Clinic Configurations
+
+| Clinic | Documentation |
+|--------|---------------|
+| **EONMEDS** | [docs/clinics/EONMEDS.md](./clinics/EONMEDS.md) |
+
+---
 
 ## Overview
 
-The intake form at `intake.eonmeds.com` sends patient data to EONPRO at `app.eonpro.io`. This connection is essential for patient onboarding.
+This document provides general information about intake webhook configuration. Each clinic has its own configuration file in `/docs/clinics/`.
 
 ---
 
