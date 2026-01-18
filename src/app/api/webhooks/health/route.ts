@@ -28,8 +28,62 @@ interface WebhookHealth {
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
+  const { searchParams } = new URL(req.url);
+  
+  // Optional: Search for specific patient (requires auth)
+  const patientSearch = searchParams.get('patient');
+  const authSecret = req.headers.get('x-webhook-secret');
+  const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
   
   try {
+    // If patient search requested, require authentication
+    if (patientSearch && authSecret === configuredSecret) {
+      const patients = await prisma.patient.findMany({
+        where: {
+          OR: [
+            { firstName: { contains: patientSearch, mode: 'insensitive' } },
+            { lastName: { contains: patientSearch, mode: 'insensitive' } },
+            { email: { contains: patientSearch, mode: 'insensitive' } },
+          ],
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          clinicId: true,
+          tags: true,
+          createdAt: true,
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+            },
+          },
+        },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+      });
+      
+      return NextResponse.json({
+        search: patientSearch,
+        found: patients.length,
+        patients: patients.map(p => ({
+          id: p.id,
+          name: `${p.firstName} ${p.lastName}`,
+          email: p.email,
+          clinicId: p.clinicId,
+          clinicName: p.clinic?.name || 'Unknown',
+          clinicSubdomain: p.clinic?.subdomain || null,
+          tags: p.tags,
+          createdAt: p.createdAt,
+          isolationStatus: p.clinic?.subdomain === 'eonmeds' || p.clinic?.name?.includes('EONMEDS') 
+            ? '✅ Correctly isolated to EONMEDS' 
+            : '⚠️ NOT in EONMEDS clinic',
+        })),
+      });
+    }
     // Get webhook statistics from audit logs
     const now = new Date();
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
