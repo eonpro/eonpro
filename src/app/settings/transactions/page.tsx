@@ -17,12 +17,27 @@ import {
   Clock,
   XCircle,
   Search,
-  Calendar
+  Calendar,
+  Tag,
+  PieChart
 } from 'lucide-react';
+
+type TransactionCategory = 
+  | 'new_patient'
+  | 'subscription'
+  | 'semaglutide'
+  | 'tirzepatide'
+  | 'consultation'
+  | 'lab_work'
+  | 'refill'
+  | 'one_time'
+  | 'other';
 
 interface Transaction {
   id: string;
   type: 'charge' | 'payment' | 'refund' | 'payout' | 'transfer';
+  category: TransactionCategory;
+  categoryLabel: string;
   amount: number;
   amountFormatted: string;
   currency: string;
@@ -39,6 +54,16 @@ interface Transaction {
   invoiceId: string | null;
   refundedAmount?: number;
   failureMessage?: string | null;
+  productName?: string;
+}
+
+interface CategoryBreakdown {
+  category: string;
+  label: string;
+  count: number;
+  revenue: number;
+  revenueFormatted: string;
+  percentage: string;
 }
 
 interface Summary {
@@ -51,6 +76,7 @@ interface Summary {
   totalRevenueFormatted: string;
   totalRefundedFormatted: string;
   netRevenueFormatted: string;
+  byCategory?: CategoryBreakdown[];
 }
 
 export default function TransactionsPage() {
@@ -62,10 +88,12 @@ export default function TransactionsPage() {
   // Filters
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showCategoryBreakdown, setShowCategoryBreakdown] = useState(true);
   
   // Pagination
   const [hasMore, setHasMore] = useState(false);
@@ -130,27 +158,40 @@ export default function TransactionsPage() {
   }, [filterType, filterStatus, startDate, endDate]);
 
   const filteredTransactions = transactions.filter(tx => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      tx.id.toLowerCase().includes(search) ||
-      tx.customerEmail?.toLowerCase().includes(search) ||
-      tx.customerName?.toLowerCase().includes(search) ||
-      tx.description?.toLowerCase().includes(search)
-    );
+    // Filter by category
+    if (filterCategory !== 'all' && tx.category !== filterCategory) {
+      return false;
+    }
+    
+    // Filter by search term
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      return (
+        tx.id.toLowerCase().includes(search) ||
+        tx.customerEmail?.toLowerCase().includes(search) ||
+        tx.customerName?.toLowerCase().includes(search) ||
+        tx.description?.toLowerCase().includes(search) ||
+        tx.categoryLabel?.toLowerCase().includes(search) ||
+        tx.productName?.toLowerCase().includes(search)
+      );
+    }
+    
+    return true;
   });
 
   const exportCSV = () => {
-    const headers = ['Date', 'ID', 'Type', 'Customer', 'Email', 'Amount', 'Status', 'Description'];
+    const headers = ['Date', 'ID', 'Type', 'Category', 'Customer', 'Email', 'Amount', 'Status', 'Description', 'Product'];
     const rows = filteredTransactions.map(tx => [
       new Date(tx.createdAt).toLocaleDateString(),
       tx.id,
       tx.type,
+      tx.categoryLabel || '',
       tx.customerName || '',
       tx.customerEmail || '',
       tx.amountFormatted,
       tx.status,
       tx.description || '',
+      tx.productName || '',
     ]);
     
     const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -193,6 +234,21 @@ export default function TransactionsPage() {
       canceled: 'bg-gray-100 text-gray-800',
     };
     return styles[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      semaglutide: 'bg-blue-100 text-blue-800',
+      tirzepatide: 'bg-purple-100 text-purple-800',
+      subscription: 'bg-emerald-100 text-emerald-800',
+      new_patient: 'bg-amber-100 text-amber-800',
+      consultation: 'bg-cyan-100 text-cyan-800',
+      lab_work: 'bg-pink-100 text-pink-800',
+      refill: 'bg-indigo-100 text-indigo-800',
+      one_time: 'bg-orange-100 text-orange-800',
+      other: 'bg-gray-100 text-gray-800',
+    };
+    return colors[category] || 'bg-gray-100 text-gray-800';
   };
 
   return (
@@ -274,6 +330,51 @@ export default function TransactionsPage() {
         </div>
       )}
 
+      {/* Category Breakdown */}
+      {summary?.byCategory && summary.byCategory.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <button
+            onClick={() => setShowCategoryBreakdown(!showCategoryBreakdown)}
+            className="w-full flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <PieChart className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-semibold text-gray-900">Sales by Category</h3>
+            </div>
+            {showCategoryBreakdown ? (
+              <ChevronUp className="w-5 h-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            )}
+          </button>
+          
+          {showCategoryBreakdown && (
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {summary.byCategory.map((cat) => (
+                <button
+                  key={cat.category}
+                  onClick={() => setFilterCategory(filterCategory === cat.category ? 'all' : cat.category)}
+                  className={`p-3 rounded-lg border transition-all text-left ${
+                    filterCategory === cat.category 
+                      ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' 
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getCategoryColor(cat.category)}`}>
+                      {cat.label}
+                    </span>
+                    <span className="text-xs text-gray-500">{cat.percentage}%</span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">{cat.revenueFormatted}</p>
+                  <p className="text-xs text-gray-500">{cat.count} transaction{cat.count !== 1 ? 's' : ''}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-wrap items-center gap-4">
@@ -311,6 +412,24 @@ export default function TransactionsPage() {
             <option value="succeeded">Succeeded</option>
             <option value="pending">Pending</option>
             <option value="failed">Failed</option>
+          </select>
+          
+          {/* Category Filter */}
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          >
+            <option value="all">All Categories</option>
+            <option value="semaglutide">Semaglutide</option>
+            <option value="tirzepatide">Tirzepatide</option>
+            <option value="subscription">Subscription</option>
+            <option value="new_patient">New Patient</option>
+            <option value="consultation">Consultation</option>
+            <option value="lab_work">Lab Work</option>
+            <option value="refill">Refill</option>
+            <option value="one_time">One-Time Purchase</option>
+            <option value="other">Other</option>
           </select>
           
           {/* Date Filter Toggle */}
@@ -379,6 +498,9 @@ export default function TransactionsPage() {
                   Type
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -398,14 +520,14 @@ export default function TransactionsPage() {
             <tbody className="divide-y divide-gray-200">
               {loading && transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
                     Loading transactions...
                   </td>
                 </tr>
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                     <CreditCard className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                     No transactions found
                   </td>
@@ -428,6 +550,12 @@ export default function TransactionsPage() {
                           {tx.type}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(tx.category)}`}>
+                        <Tag className="w-3 h-3" />
+                        {tx.categoryLabel}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm text-gray-900">{tx.customerName || '—'}</div>

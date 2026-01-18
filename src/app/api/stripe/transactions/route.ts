@@ -19,9 +19,23 @@ import Stripe from 'stripe';
  *   - endDate: ISO date string (filter to date)
  */
 
+// Transaction categories for sales reporting
+type TransactionCategory = 
+  | 'new_patient'
+  | 'subscription'
+  | 'semaglutide'
+  | 'tirzepatide'
+  | 'consultation'
+  | 'lab_work'
+  | 'refill'
+  | 'one_time'
+  | 'other';
+
 interface TransactionItem {
   id: string;
   type: 'charge' | 'payment' | 'refund' | 'payout' | 'transfer';
+  category: TransactionCategory;
+  categoryLabel: string;
   amount: number;
   amountFormatted: string;
   currency: string;
@@ -38,6 +52,61 @@ interface TransactionItem {
   invoiceId: string | null;
   refundedAmount?: number;
   failureMessage?: string | null;
+  productName?: string;
+}
+
+// Detect transaction category from description and metadata
+function detectCategory(description: string | null, metadata: Record<string, string>): { category: TransactionCategory; label: string; productName?: string } {
+  const desc = (description || '').toLowerCase();
+  const productName = metadata?.product_name || metadata?.productName || '';
+  const productLower = productName.toLowerCase();
+  
+  // Check for specific medications
+  if (desc.includes('semaglutide') || productLower.includes('semaglutide') || 
+      desc.includes('ozempic') || desc.includes('wegovy') || desc.includes('rybelsus')) {
+    return { category: 'semaglutide', label: 'Semaglutide', productName: productName || 'Semaglutide' };
+  }
+  
+  if (desc.includes('tirzepatide') || productLower.includes('tirzepatide') ||
+      desc.includes('mounjaro') || desc.includes('zepbound')) {
+    return { category: 'tirzepatide', label: 'Tirzepatide', productName: productName || 'Tirzepatide' };
+  }
+  
+  // Check for subscription
+  if (desc.includes('subscription') || desc.includes('monthly') || desc.includes('membership') ||
+      metadata?.subscription_id || metadata?.recurring === 'true') {
+    return { category: 'subscription', label: 'Subscription', productName };
+  }
+  
+  // Check for new patient
+  if (desc.includes('new patient') || desc.includes('initial') || desc.includes('intake') ||
+      desc.includes('first visit') || metadata?.new_patient === 'true') {
+    return { category: 'new_patient', label: 'New Patient', productName };
+  }
+  
+  // Check for consultation
+  if (desc.includes('consult') || desc.includes('visit') || desc.includes('appointment') ||
+      desc.includes('telehealth')) {
+    return { category: 'consultation', label: 'Consultation', productName };
+  }
+  
+  // Check for lab work
+  if (desc.includes('lab') || desc.includes('blood') || desc.includes('test') ||
+      desc.includes('panel') || desc.includes('a1c')) {
+    return { category: 'lab_work', label: 'Lab Work', productName };
+  }
+  
+  // Check for refill
+  if (desc.includes('refill') || desc.includes('renewal') || desc.includes('continue')) {
+    return { category: 'refill', label: 'Refill', productName };
+  }
+  
+  // Check for one-time purchase
+  if (desc.includes('one-time') || desc.includes('one time') || desc.includes('single')) {
+    return { category: 'one_time', label: 'One-Time Purchase', productName };
+  }
+  
+  return { category: 'other', label: 'Other', productName };
 }
 
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
@@ -94,10 +163,13 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         }
 
         const customer = charge.customer as Stripe.Customer | null;
+        const { category, label, productName } = detectCategory(charge.description, charge.metadata || {});
         
         transactions.push({
           id: charge.id,
           type: 'charge',
+          category,
+          categoryLabel: label,
           amount: charge.amount,
           amountFormatted: formatCurrency(charge.amount),
           currency: charge.currency.toUpperCase(),
@@ -114,6 +186,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
           invoiceId: typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id || null,
           refundedAmount: charge.amount_refunded > 0 ? charge.amount_refunded : undefined,
           failureMessage: charge.failure_message,
+          productName,
         });
       }
     }
@@ -130,10 +203,13 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       
       for (const refund of refunds.data) {
         const charge = refund.charge as Stripe.Charge | null;
+        const { category, label, productName } = detectCategory(charge?.description || refund.reason || null, refund.metadata || {});
         
         transactions.push({
           id: refund.id,
           type: 'refund',
+          category,
+          categoryLabel: label,
           amount: -refund.amount, // Negative to show it's a refund
           amountFormatted: `-${formatCurrency(refund.amount)}`,
           currency: refund.currency.toUpperCase(),
@@ -148,6 +224,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
           paymentMethod: null,
           receiptUrl: charge?.receipt_url || null,
           invoiceId: null,
+          productName,
         });
       }
     }
@@ -166,6 +243,8 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
           transactions.push({
             id: payout.id,
             type: 'payout',
+            category: 'other',
+            categoryLabel: 'Payout',
             amount: -payout.amount, // Negative - money leaving Stripe
             amountFormatted: `-${formatCurrency(payout.amount)}`,
             currency: payout.currency.toUpperCase(),
@@ -193,19 +272,29 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     transactions.sort((a, b) => b.created - a.created);
 
     // Calculate summary statistics
+    const successfulCharges = transactions.filter(t => t.type === 'charge' && t.status === 'succeeded');
+    
     const summary = {
       totalTransactions: transactions.length,
-      totalCharges: transactions.filter(t => t.type === 'charge' && t.status === 'succeeded').length,
-      totalRefunds: transactions.filter(t => t.type === 'refunds').length,
-      totalRevenue: transactions
-        .filter(t => t.type === 'charge' && t.status === 'succeeded')
-        .reduce((sum, t) => sum + t.amount, 0),
+      totalCharges: successfulCharges.length,
+      totalRefunds: transactions.filter(t => t.type === 'refund').length,
+      totalRevenue: successfulCharges.reduce((sum, t) => sum + t.amount, 0),
       totalRefunded: transactions
         .filter(t => t.type === 'refund')
         .reduce((sum, t) => sum + Math.abs(t.amount), 0),
       netRevenue: 0,
     };
     summary.netRevenue = summary.totalRevenue - summary.totalRefunded;
+    
+    // Calculate revenue by category
+    const categoryBreakdown: Record<string, { count: number; revenue: number; label: string }> = {};
+    for (const tx of successfulCharges) {
+      if (!categoryBreakdown[tx.category]) {
+        categoryBreakdown[tx.category] = { count: 0, revenue: 0, label: tx.categoryLabel };
+      }
+      categoryBreakdown[tx.category].count++;
+      categoryBreakdown[tx.category].revenue += tx.amount;
+    }
 
     logger.info('[STRIPE TRANSACTIONS] Fetched transactions', {
       count: transactions.length,
@@ -217,6 +306,18 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       .filter(t => t.type === 'charge')
       .slice(-1)[0]?.id;
     
+    // Format category breakdown for response
+    const formattedCategoryBreakdown = Object.entries(categoryBreakdown).map(([key, value]) => ({
+      category: key,
+      label: value.label,
+      count: value.count,
+      revenue: value.revenue,
+      revenueFormatted: formatCurrency(value.revenue),
+      percentage: summary.totalRevenue > 0 
+        ? ((value.revenue / summary.totalRevenue) * 100).toFixed(1) 
+        : '0',
+    })).sort((a, b) => b.revenue - a.revenue);
+    
     return NextResponse.json({
       transactions,
       summary: {
@@ -224,6 +325,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         totalRevenueFormatted: formatCurrency(summary.totalRevenue),
         totalRefundedFormatted: formatCurrency(summary.totalRefunded),
         netRevenueFormatted: formatCurrency(summary.netRevenue),
+        byCategory: formattedCategoryBreakdown,
       },
       pagination: {
         hasMore,
