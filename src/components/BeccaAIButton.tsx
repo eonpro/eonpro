@@ -33,7 +33,7 @@ export default function BeccaAIButton({
   return (
     <div
       onClick={onClick}
-      className={`relative cursor-pointer hover:scale-110 transition-transform ${sizeClasses[size]} ${className} flex items-center justify-center bg-white rounded-full shadow-xl`}
+      className={`relative cursor-pointer hover:scale-110 transition-transform ${sizeClasses[size]} ${className} flex items-center justify-center`}
       title="Becca AI Assistant"
     >
       {!loadError ? (
