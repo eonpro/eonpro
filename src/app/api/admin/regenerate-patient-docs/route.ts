@@ -155,6 +155,7 @@ export async function POST(req: NextRequest) {
             data: {
               filename: stored.filename,
               externalUrl: stored.publicPath,
+              clinicId: patient.clinicId, // Ensure clinicId is set
             },
           });
           results.actions.push({
