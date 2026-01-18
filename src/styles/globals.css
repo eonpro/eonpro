@@ -6,7 +6,7 @@
 :root {
   font-family: var(--font-sofia-pro), -apple-system, BlinkMacSystemFont, "Segoe UI",
     Helvetica, Arial, sans-serif;
-  --brand-bg: rgba(246, 244, 241, 0.7);
+  --brand-bg: #efece7;
   --brand-text: #1f2933;
   --brand-button: #4fa77e;
   
