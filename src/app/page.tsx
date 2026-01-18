@@ -131,8 +131,8 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#efece7] flex">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 flex flex-col py-4 z-50 transition-all duration-300 ${
-          sidebarExpanded ? 'w-56 bg-[#efece7]' : 'w-20 bg-white border-r border-gray-200'
+        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
+          sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
         {/* Logo */}
@@ -157,11 +157,11 @@ export default function HomePage() {
         {/* Expand Button */}
         <button
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 transition-all ${
+          className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 focus:outline-none transition-all ${
             sidebarExpanded ? 'rotate-180' : ''
           }`}
         >
-          <ChevronRight className="h-3 w-3 text-gray-500" />
+          <ChevronRight className="h-3 w-3 text-gray-400" />
         </button>
 
         {/* Navigation Icons */}
