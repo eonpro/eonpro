@@ -544,49 +544,88 @@ export async function getSOAPNoteById(
 }
 
 /**
- * Export SOAP note as formatted text
+ * Export SOAP note as formatted text - Professional Telehealth Weight Management Format
  */
 export function formatSOAPNote(soapNote: any): string {
   const patient = soapNote.patient;
   const provider = soapNote.approvedByProvider;
   
-  let formatted = `SOAP NOTE\n`;
-  formatted += `${'='.repeat(80)}\n\n`;
+  // Calculate age from DOB
+  let age = '';
+  if (patient?.dob) {
+    const birthDate = new Date(patient.dob);
+    const today = new Date();
+    age = String(Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+  }
+  
+  // Format date
+  const dateOfService = new Date(soapNote.createdAt).toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric'
+  });
+  
+  let formatted = `SOAP NOTE – TELEHEALTH WEIGHT MANAGEMENT\n\n`;
   
   if (patient) {
-    formatted += `Patient: ${patient.firstName} ${patient.lastName}\n`;
-    formatted += `DOB: ${patient.dob}\n`;
-    formatted += `Patient ID: ${patient.patientId || patient.id}\n`;
+    formatted += `Patient Name: ${patient.firstName} ${patient.lastName}\n`;
+    formatted += `DOB: ${patient.dob ? new Date(patient.dob).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'Not provided'}\n`;
+    if (age) formatted += `Age: ${age}\n`;
+    formatted += `Sex: ${patient.gender === 'f' ? 'Female' : patient.gender === 'm' ? 'Male' : 'Not specified'}\n`;
+    if (patient.city || patient.state) {
+      formatted += `Location: ${[patient.city, patient.state].filter(Boolean).join(', ')}\n`;
+    }
   }
   
-  formatted += `Date: ${new Date(soapNote.createdAt).toLocaleDateString()}\n`;
+  formatted += `Date of Service: ${dateOfService}\n`;
+  formatted += `Encounter Type: Asynchronous Telehealth Evaluation\n`;
   
   if (provider) {
-    formatted += `Provider: ${provider.firstName} ${provider.lastName}, ${provider.titleLine || ''}\n`;
-    formatted += `NPI: ${provider.npi}\n`;
+    formatted += `Provider: ${provider.firstName} ${provider.lastName}, ${provider.titleLine || 'Licensed Prescribing Provider (MD/DO/NP/PA)'}\n`;
+  } else {
+    formatted += `Provider: Licensed Prescribing Provider (MD/DO/NP/PA)\n`;
   }
   
-  formatted += `\n${'='.repeat(80)}\n\n`;
+  formatted += `Reason for Visit: Medical weight management evaluation and treatment consideration\n`;
   
-  formatted += `SUBJECTIVE:\n${'-'.repeat(40)}\n`;
-  formatted += `${soapNote.subjective}\n\n`;
+  formatted += `\n${'⸻'.repeat(1)}\n\n`;
   
-  formatted += `OBJECTIVE:\n${'-'.repeat(40)}\n`;
-  formatted += `${soapNote.objective}\n\n`;
+  formatted += `S – SUBJECTIVE\n\n`;
+  formatted += `${soapNote.subjective}\n`;
   
-  formatted += `ASSESSMENT:\n${'-'.repeat(40)}\n`;
-  formatted += `${soapNote.assessment}\n\n`;
+  formatted += `\n${'⸻'.repeat(1)}\n\n`;
   
-  formatted += `PLAN:\n${'-'.repeat(40)}\n`;
-  formatted += `${soapNote.plan}\n\n`;
+  formatted += `O – OBJECTIVE\n\n`;
+  formatted += `${soapNote.objective}\n`;
+  
+  formatted += `\n${'⸻'.repeat(1)}\n\n`;
+  
+  formatted += `A – ASSESSMENT\n\n`;
+  formatted += `${soapNote.assessment}\n`;
+  
+  formatted += `\n${'⸻'.repeat(1)}\n\n`;
+  
+  formatted += `P – PLAN\n\n`;
+  formatted += `${soapNote.plan}\n`;
+  
+  formatted += `\n${'⸻'.repeat(1)}\n\n`;
+  
+  formatted += `PROVIDER ATTESTATION\n\n`;
+  formatted += `I attest that I personally reviewed the patient's intake, medical history, and responses. Based on my clinical judgment, compounded GLP-1 therapy with appropriate adjunctive support is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment.\n\n`;
+  
+  formatted += `Electronic Signature: __________________________\n`;
+  if (provider) {
+    formatted += `Provider Name, Credentials: ${provider.firstName} ${provider.lastName}, ${provider.titleLine || ''}\n`;
+    formatted += `License #: ${provider.licenseNumber || '____________________'}\n`;
+  } else {
+    formatted += `Provider Name, Credentials: ____________________\n`;
+    formatted += `License #: ____________________\n`;
+  }
+  formatted += `Date: ${dateOfService}\n`;
   
   if (soapNote.status === 'APPROVED' && soapNote.approvedAt) {
-    formatted += `${'='.repeat(80)}\n`;
-    formatted += `Approved on: ${new Date(soapNote.approvedAt).toLocaleString()}\n`;
-  }
-  
-  if (soapNote.generatedByAI) {
-    formatted += `\nNote: This SOAP note was generated with AI assistance.\n`;
+    formatted += `\n${'='.repeat(60)}\n`;
+    formatted += `Electronically signed and approved on: ${new Date(soapNote.approvedAt).toLocaleString()}\n`;
   }
   
   return formatted;

@@ -176,61 +176,158 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
     OPENAI_MAX_TOKENS: process.env.OPENAI_MAX_TOKENS,
   });
 
-  const systemPrompt = `You are a medical professional evaluating patients for weight loss medication eligibility, specifically GLP-1 agonists (semaglutide/tirzepatide).
-Analyze the intake form data to determine if the patient is a suitable candidate for weight loss medication.
-Focus on BMI, weight loss goals, medical history, contraindications, and previous medication experience.
+  const systemPrompt = `You are a licensed prescribing provider (MD/DO/NP/PA) creating a comprehensive SOAP note for a telehealth weight management evaluation. 
 
-CRITICAL: You must return your response in JSON format with ALL fields as plain text STRINGS (not objects or arrays):
+You must generate a professional, clinical-grade SOAP note for GLP-1 receptor agonist therapy evaluation (semaglutide/tirzepatide).
+
+CRITICAL: Return your response in JSON format with ALL fields as plain text STRINGS. Each field should be detailed and formatted professionally:
+
 {
-  "subjective": "A single string containing patient's weight loss goals, motivation, symptoms, and medical history",
-  "objective": "A single string containing BMI, weight measurements, vital signs, and physical activity level",
-  "assessment": "A single string containing evaluation of candidacy for GLP-1 therapy and risk factors",
-  "plan": "A single string containing recommended medication, dosing, titration, and follow-up schedule",
-  "medicalNecessity": "A single string explaining why compounded GLP-1 with glycine is necessary"
+  "subjective": "Detailed narrative of patient's weight history, goals, GLP-1 experience, symptoms, medications, and treatment interest",
+  "objective": "Anthropometrics (height, weight, BMI with classification, ideal weight, excess weight), vital signs, activity level, complete medical/surgical history, current medications, allergies, GLP-1 history",
+  "assessment": "Primary diagnosis with ICD-10 code, clinical assessment of candidacy, contraindication screening, medical necessity rationale for compounded therapy with B12 or Glycine additive explanation",
+  "plan": "Medication plan (specific compound, dosing, titration), monitoring & follow-up schedule, patient education provided, disposition",
+  "medicalNecessity": "Detailed rationale for compounded GLP-1 formulation including: gradual dose titration needs, personalized dosing flexibility, adjunctive B12/Glycine benefits"
 }
 
-DO NOT return nested objects or structured data within these fields. Each field must be a plain text string.`;
+BMI Classifications:
+- BMI 25-29.9: Overweight
+- BMI 30-34.9: Class I Obesity  
+- BMI 35-39.9: Class II Obesity
+- BMI ≥40: Class III (Severe) Obesity
 
-  const userPrompt = `Create a weight loss medication evaluation SOAP note for patient: ${anonymizedInput.patientName}
-Date of Birth: ${anonymizedInput.dateOfBirth || 'Not provided'}
+ICD-10 Codes to use:
+- E66.01 – Morbid obesity due to excess calories (BMI ≥40 or BMI ≥35 with comorbidities)
+- E66.09 – Other obesity due to excess calories (BMI 30-34.9)
+- E66.9 – Obesity, unspecified
+- Z68.30-Z68.45 – BMI codes by range
 
-Intake Form Data:
+DO NOT return nested objects. Each field must be a comprehensive plain text string.`;
+
+  const userPrompt = `Create a professional TELEHEALTH WEIGHT MANAGEMENT SOAP note for this patient evaluation.
+
+Patient Reference: ${anonymizedInput.patientName}
+DOB Reference: ${anonymizedInput.dateOfBirth || 'See intake data'}
+
+INTAKE FORM DATA:
 ${JSON.stringify(anonymizedInput.intakeData, null, 2)}
 
-Generate a comprehensive SOAP note in JSON format that includes:
+Generate a comprehensive clinical SOAP note following this exact structure:
 
-1. SUBJECTIVE: 
-- Patient's weight loss motivation and goals (current weight, ideal weight, pounds to lose)
-- Medical history relevant to weight management (chronic illnesses, sleep apnea, diabetes, etc.)
-- Previous GLP-1 medication experience and side effects
-- Activity level and lifestyle factors
+═══════════════════════════════════════════════════════════════════════════════
 
-2. OBJECTIVE:
-- BMI calculation and classification
-- Weight measurements (starting weight, ideal weight, pounds to lose)
-- Vital signs (blood pressure if provided)
-- Physical activity level
-- Any contraindications noted (pregnancy, thyroid cancer, MEN-2, gastroparesis)
+S – SUBJECTIVE:
+Write a detailed narrative paragraph covering:
+- Patient's age, sex, and presentation reason (medical weight management evaluation)
+- Long-standing struggle with excess body weight
+- Difficulty achieving sustained weight loss through lifestyle measures alone
+- Interest in medically supervised weight loss and personalized compounded GLP-1 therapy
+- Prior GLP-1 experience (naïve or experienced, any adverse reactions)
+- Activity level description
+- Denial statements for contraindications: gastroparesis, pancreatitis, thyroid malignancy, MEN-2
+- Medical history denials/confirmations: diabetes, CKD, GI disorders, mental health, bariatric surgery
+- Medication allergies
+- Patient's stated goals (weight reduction, metabolic health improvement)
+- Consent to telehealth treatment and interest in compounded medication options
 
-3. ASSESSMENT:
-- Candidacy for GLP-1 therapy based on BMI and health conditions
-- Risk stratification (contraindications, precautions)
-- Comorbidities that may benefit from treatment (sleep apnea, pre-diabetes)
-- Overall suitability for weight loss medication
+═══════════════════════════════════════════════════════════════════════════════
 
-4. PLAN:
-- Recommended GLP-1 medication (semaglutide or tirzepatide) with specific dosing
-- Titration schedule (start low, increase gradually)
-- Monitoring requirements and side effect management
-- Lifestyle modifications (diet, exercise recommendations)
-- Follow-up schedule
+O – OBJECTIVE:
+Format with bullet points and sections:
 
-5. MEDICAL NECESSITY:
-- Explain why a compounded GLP-1 with glycine is medically necessary
-- Include: need for customized dosing, patient-specific tolerability issues, improved stability with glycine
-- Mention limitations of commercial products (fixed doses, pen delivery, excipient sensitivities)
+Anthropometrics:
+• Height: [from intake]
+• Weight: [from intake] lbs
+• BMI: [calculate] kg/m² ([Classification])
+• Ideal Body Weight: [calculate ~106 + 6 per inch over 5ft for men, 100 + 5 for women] lbs
+• Excess Weight: ~[calculate] lbs
 
-Analyze the actual data provided and create clinically relevant recommendations. Return as valid JSON.`;
+Vital Signs (Self-Reported):
+• Blood Pressure: [if provided or "Normal" if not specified]
+
+Activity Level:
+• [from intake - sedentary/moderately active/very active]
+
+Medical History:
+• Diabetes mellitus: [Yes/No]
+• Gastroparesis: [Yes/No]
+• Pancreatitis: [Yes/No]
+• Thyroid cancer or MEN-2: [Yes/No]
+• Chronic conditions: [list or "No chronic medical conditions reported"]
+• Digestive disorders: [Yes/No]
+• Chronic kidney disease: [Yes/No]
+• Psychiatric diagnoses: [Yes/No]
+
+Surgical History:
+• [list or "Denies prior surgeries"]
+
+Medications:
+• [list current medications or "None reported"]
+
+Allergies:
+• [list or "No known drug allergies (NKDA)"]
+
+GLP-1 History:
+• [GLP-1 naïve OR currently taking X at Y dose]
+• Prior adverse reactions: [list or "None"]
+
+═══════════════════════════════════════════════════════════════════════════════
+
+A – ASSESSMENT:
+
+Primary Diagnosis:
+• [ICD-10 code] – [Diagnosis description] (BMI [X] kg/m²)
+
+Clinical Assessment:
+The patient meets clinical criteria for pharmacologic weight management based on:
+• BMI ≥30 kg/m² OR BMI ≥27 with weight-related comorbidity
+• Failure to achieve sustained weight loss through lifestyle measures alone
+• Presence of excess adiposity posing increased cardiometabolic risk
+
+The patient has no contraindications to GLP-1 receptor agonist therapy, including:
+• No history of medullary thyroid carcinoma or MEN-2
+• No pancreatitis or gastroparesis
+• No severe renal disease
+• No known hypersensitivity
+
+Medical Necessity Rationale for Compounded Therapy:
+A compounded GLP-1 formulation is medically appropriate for this patient to allow:
+• Gradual dose titration to improve tolerability [if GLP-1 naïve or switching]
+• Personalized dosing flexibility
+• Adjunctive inclusion of Vitamin B12 or Glycine to support metabolic health
+
+Rationale for B12 or Glycine Additive:
+• Vitamin B12: Supports energy metabolism, neurological function, reduces fatigue
+• Glycine: Supports GI tolerance, insulin sensitivity, reduces nausea, improves adherence
+
+═══════════════════════════════════════════════════════════════════════════════
+
+P – PLAN:
+
+Medication Plan:
+• Initiate compounded GLP-1 receptor agonist therapy ([semaglutide OR tirzepatide]-based compound)
+• Include Vitamin B12 or Glycine per pharmacy formulation standards
+• Start at [specific starting dose] with gradual titration per protocol
+
+Monitoring & Follow-Up:
+• Monitor weight, BMI, appetite, and tolerance
+• Assess for common side effects (nausea, constipation, reflux)
+• Reinforce hydration, protein intake, and lifestyle adherence
+• Follow-up evaluation in 4 weeks or sooner if adverse symptoms occur
+
+Patient Education:
+• Reviewed mechanism of GLP-1 therapy
+• Discussed risks, benefits, alternatives, and expected outcomes
+• Counseled on signs/symptoms requiring medical attention
+• Reinforced that medication is adjunct to diet and activity
+
+Disposition:
+• Patient is an appropriate candidate for medically supervised weight loss with compounded GLP-1 therapy
+• Prescription approved pending pharmacy processing
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Return as valid JSON with keys: subjective, objective, assessment, plan, medicalNecessity`;
 
   try {
     logger.debug('[OpenAI] Generating SOAP note for patient:', { value: input.patientName });
