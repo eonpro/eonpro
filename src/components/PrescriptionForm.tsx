@@ -201,15 +201,24 @@ export default function PrescriptionForm({
   useEffect(() => {
     async function loadProviders() {
       try {
-        const res = await fetch("/api/providers");
+        // Get auth token from localStorage
+        const token = localStorage.getItem('token') || 
+                      localStorage.getItem('auth-token') || 
+                      localStorage.getItem('admin-token') ||
+                      localStorage.getItem('super_admin-token');
+        
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const res = await fetch("/api/providers", { headers });
         const data = await res.json();
         setProviders(data.providers ?? []);
         if (!form.providerId && data.providers?.length) {
           setForm((f: any) => ({ ...f, providerId: data.providers[0].id }));
         }
       } catch (err: any) {
-    // @ts-ignore
-   
         logger.error("Failed to load providers", err);
       }
     }
@@ -220,12 +229,21 @@ export default function PrescriptionForm({
     if (patientContext) return;
     async function loadPatients() {
       try {
-        const res = await fetch("/api/patients");
+        // Get auth token from localStorage
+        const token = localStorage.getItem('token') || 
+                      localStorage.getItem('auth-token') || 
+                      localStorage.getItem('admin-token') ||
+                      localStorage.getItem('super_admin-token');
+        
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const res = await fetch("/api/patients", { headers });
         const data = await res.json();
         setPatients(data.patients ?? []);
       } catch (err: any) {
-    // @ts-ignore
-   
         logger.error("Failed to load patients", err);
       }
     }

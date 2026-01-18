@@ -217,7 +217,18 @@ export default function ProvidersPage() {
   const fetchProviders = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/providers");
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token') || 
+                    localStorage.getItem('auth-token') || 
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('super_admin-token');
+      
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const res = await fetch("/api/providers", { headers });
       const data = await res.json();
       setProviders(data.providers ?? []);
     } catch (err: any) {
