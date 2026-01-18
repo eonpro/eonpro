@@ -454,20 +454,37 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                   </div>
               <div>
                     <label className="text-xs text-gray-500 uppercase font-medium">Address</label>
-                    <p className="mt-1 text-sm font-medium text-[#4fa77e]">
-                      {(() => {
-                        const hasFullAddress = patientWithDecryptedPHI.address1 && 
-                          (patientWithDecryptedPHI.address1.includes(patientWithDecryptedPHI.city) || 
-                           patientWithDecryptedPHI.address1.includes(patientWithDecryptedPHI.state) ||
-                           patientWithDecryptedPHI.address1.includes(patientWithDecryptedPHI.zip));
-                        
-                        if (hasFullAddress) {
-                          return patientWithDecryptedPHI.address1 + (patientWithDecryptedPHI.address2 ? `, ${patientWithDecryptedPHI.address2}` : "");
-                        }
-                        
-                        return `${patientWithDecryptedPHI.address1}${patientWithDecryptedPHI.address2 ? `, ${patientWithDecryptedPHI.address2}` : ""}, ${patientWithDecryptedPHI.city}, ${patientWithDecryptedPHI.state} ${patientWithDecryptedPHI.zip}`;
-                      })()}
-                    </p>
+                    {(() => {
+                      // Build complete address
+                      const addressParts = [];
+                      if (patientWithDecryptedPHI.address1) addressParts.push(patientWithDecryptedPHI.address1);
+                      if (patientWithDecryptedPHI.address2) addressParts.push(patientWithDecryptedPHI.address2);
+                      
+                      const streetAddress = addressParts.join(', ');
+                      const cityStateZip = [
+                        patientWithDecryptedPHI.city,
+                        patientWithDecryptedPHI.state,
+                        patientWithDecryptedPHI.zip
+                      ].filter(Boolean).join(', ').replace(/, ([A-Z]{2}),/, ', $1');
+                      
+                      const fullAddress = [streetAddress, cityStateZip].filter(Boolean).join(', ');
+                      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
+                      
+                      return (
+                        <a 
+                          href={googleMapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 text-sm font-medium text-[#4fa77e] hover:underline flex items-start gap-1"
+                        >
+                          <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span>{fullAddress || 'No address'}</span>
+                        </a>
+                      );
+                    })()}
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 uppercase font-medium">Gender</label>
