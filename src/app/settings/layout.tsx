@@ -15,7 +15,8 @@ import {
   SecurityIcon,
   BillingIcon,
   NotificationsIcon,
-  AuditIcon
+  AuditIcon,
+  TransactionsIcon
 } from '@/components/icons/SettingsIcons';
 
 interface SettingsSection {
@@ -72,6 +73,13 @@ const settingsSections: SettingsSection[] = [
     title: 'Billing',
     icon: <BillingIcon className="w-5 h-5" />,
     href: '/settings/billing',
+    requiredPermission: PERMISSIONS.BILLING_VIEW,
+  },
+  {
+    id: 'transactions',
+    title: 'Transactions',
+    icon: <TransactionsIcon className="w-5 h-5" />,
+    href: '/settings/transactions',
     requiredPermission: PERMISSIONS.BILLING_VIEW,
   },
   {
