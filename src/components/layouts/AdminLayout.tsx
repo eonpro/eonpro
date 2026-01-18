@@ -44,7 +44,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f0] flex">
+    <div className="min-h-screen bg-[#efece7] flex">
       {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
@@ -53,17 +53,18 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
       >
         {/* Logo */}
         <div className="flex items-center justify-center mb-6 px-4">
-          <Link href="/" className="flex items-center gap-3">
-            <img
-              src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
-              alt="EONPRO"
-              className="h-10 w-10 object-contain flex-shrink-0"
-            />
-            {sidebarExpanded && (
+          <Link href="/">
+            {sidebarExpanded ? (
               <img
                 src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
                 alt="EONPRO"
-                className="h-8 w-auto"
+                className="h-10 w-auto"
+              />
+            ) : (
+              <img
+                src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
+                alt="EONPRO"
+                className="h-10 w-10 object-contain"
               />
             )}
           </Link>
