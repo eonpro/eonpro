@@ -39,15 +39,32 @@ export async function POST(req: NextRequest) {
     req.headers.get("authorization")?.replace("Bearer ", "");
 
   // Check authentication
+  const trimmedProvided = providedSecret?.trim();
+  const trimmedConfigured = configuredSecret.trim();
+  
   const authResult = {
     provided: !!providedSecret,
-    valid: providedSecret === configuredSecret,
+    valid: trimmedProvided === trimmedConfigured,
     headerUsed: req.headers.get("x-webhook-secret") ? "x-webhook-secret" :
                 req.headers.get("x-api-key") ? "x-api-key" :
                 req.headers.get("authorization") ? "Authorization" : "none",
   };
 
   if (!authResult.valid) {
+    // Debug info to diagnose mismatch
+    const debugInfo = {
+      providedLength: providedSecret?.length || 0,
+      configuredLength: configuredSecret.length,
+      trimmedProvidedLength: trimmedProvided?.length || 0,
+      trimmedConfiguredLength: trimmedConfigured.length,
+      providedFirst5: providedSecret?.substring(0, 5) || "",
+      configuredFirst5: configuredSecret.substring(0, 5),
+      providedLast5: providedSecret?.slice(-5) || "",
+      configuredLast5: configuredSecret.slice(-5),
+      exactMatch: providedSecret === configuredSecret,
+      trimmedMatch: trimmedProvided === trimmedConfigured,
+    };
+    
     return NextResponse.json({
       success: false,
       test: true,
@@ -60,6 +77,7 @@ export async function POST(req: NextRequest) {
           secretProvided: authResult.provided,
           headerUsed: authResult.headerUsed,
           hint: "Check that your webhook secret matches exactly (case-sensitive)",
+          debug: debugInfo,
         },
       },
     }, { status: 401 });
