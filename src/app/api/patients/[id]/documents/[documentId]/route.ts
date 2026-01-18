@@ -58,12 +58,15 @@ export const GET = withAuthParams(async (
       documentId
     });
 
-    // Fetch the document
+    // Fetch the document - allow documents with matching clinicId OR null clinicId
     const document: any = await prisma.patientDocument.findFirst({
       where: {
         id: documentId,
         patientId: patientId,
-        clinicId: patient.clinicId
+        OR: [
+          { clinicId: patient.clinicId },
+          { clinicId: null },
+        ],
       },
     });
 
@@ -144,7 +147,7 @@ export const GET = withAuthParams(async (
       { status: 500 }
     );
   }
-}, { roles: ['admin', 'provider', 'patient'] });
+}, { roles: ['super_admin', 'admin', 'provider', 'patient'] });
 
 export const DELETE = withAuthParams(async (
   request: NextRequest,
@@ -199,12 +202,15 @@ export const DELETE = withAuthParams(async (
       documentId
     });
 
-    // Fetch the document to get the file path
+    // Fetch the document to get the file path - allow documents with matching clinicId OR null clinicId
     const document: any = await prisma.patientDocument.findFirst({
       where: {
         id: documentId,
         patientId: patientId,
-        clinicId: patient.clinicId
+        OR: [
+          { clinicId: patient.clinicId },
+          { clinicId: null },
+        ],
       },
     });
 
@@ -239,4 +245,4 @@ export const DELETE = withAuthParams(async (
       { status: 500 }
     );
   }
-}, { roles: ['admin', 'provider'] });
+}, { roles: ['super_admin', 'admin', 'provider'] });
