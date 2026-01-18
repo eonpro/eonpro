@@ -130,7 +130,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search patients, orders, staff..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/30 focus:border-[#4fa77e]"
                 />
               </div>
             </form>
@@ -152,8 +152,8 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
 
               {/* User Menu */}
               <div className="relative">
-                <button className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
-                  <div className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-semibold">
+                <button className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4fa77e]">
+                  <div className="h-8 w-8 rounded-full bg-[#4fa77e] flex items-center justify-center text-white font-semibold">
                     {userData?.firstName?.[0] || 'A'}
                   </div>
                   <span className="ml-2 text-gray-700 font-medium hidden md:block">
@@ -205,7 +205,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
                         className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
                           ${action.color === 'green' ? 'text-green-700 bg-green-50 hover:bg-green-100' : ''}
                           ${action.color === 'blue' ? 'text-blue-700 bg-blue-50 hover:bg-blue-100' : ''}
-                          ${action.color === 'purple' ? 'text-purple-700 bg-purple-50 hover:bg-purple-100' : ''}
+                          ${action.color === 'purple' ? 'text-[#4fa77e] bg-[#4fa77e]/10 hover:bg-[#4fa77e]/20' : ''}
                         `}
                       >
                         <Icon className="h-4 w-4 mr-2" />
@@ -233,7 +233,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
                           onClick={() => toggleSubmenu(item.label)}
                           className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                             isActive
-                              ? 'bg-purple-50 text-purple-700'
+                              ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
                               : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
                           }`}
                         >
@@ -257,7 +257,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
                                   href={subItem.path}
                                   className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-colors ${
                                     pathname === subItem.path
-                                      ? 'text-purple-700 bg-purple-50'
+                                      ? 'text-[#4fa77e] bg-[#4fa77e]/10'
                                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                   }`}
                                 >
@@ -274,7 +274,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
                         href={item.path}
                         className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                           isActive
-                            ? 'bg-purple-50 text-purple-700'
+                            ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
                             : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
                         }`}
                         title={!sidebarOpen ? item.label : undefined}
@@ -282,7 +282,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
                         <Icon className={`${sidebarOpen ? 'mr-3' : ''} h-5 w-5`} />
                         {sidebarOpen && <span>{item.label}</span>}
                         {item.badge === 'count' && notifications > 0 && sidebarOpen && (
-                          <span className="ml-auto bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                          <span className="ml-auto bg-[#4fa77e] text-white text-xs px-2 py-0.5 rounded-full">
                             {notifications}
                           </span>
                         )}
@@ -318,31 +318,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
         sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'
       } mt-16`}>
         <div className="p-4 sm:p-6 lg:p-8">
-          {/* Page Title Area */}
-          <div className="mb-8">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {pathname.split('/').pop()?.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard'}
-                  </h1>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {new Date().toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-4">
-                  {/* Breadcrumb or additional actions can go here */}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Page Content */}
+          {/* Page Content - No title header for cleaner look */}
           {children}
         </div>
       </main>

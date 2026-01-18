@@ -1,56 +1,36 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Users, TrendingUp, DollarSign, ShoppingCart, 
-  AlertCircle, Clock, Activity, Calendar,
-  FileText, UserPlus, Package, CreditCard,
-  ArrowUp, ArrowDown, MoreVertical, ChevronRight
-} from 'lucide-react';
-import { Line, Bar } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js';
+  Search, Clock, CheckCircle, AlertCircle,
+  User, Mail, Phone, MapPin, Calendar, CreditCard,
+  ChevronRight, Eye
+} from 'lucide-react';
+import Link from 'next/link';
 
-// Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
-
-interface DashboardStats {
-  totalPatients: number;
-  patientsChange: number;
-  totalRevenue: number;
-  revenueChange: number;
-  activeProviders: number;
-  providersChange: number;
-  pendingOrders: number;
-  ordersChange: number;
+interface PatientIntake {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  gender: string;
+  address: string;
+  tags: string[];
+  createdAt: string;
 }
 
-interface RecentActivity {
+interface RecentPayment {
   id: string;
-  type: 'patient' | 'order' | 'payment' | 'staff';
-  message: string;
-  time: string;
-  user?: string;
+  amount: number;
+  amountFormatted: string;
+  customerName: string | null;
+  customerEmail: string | null;
+  description: string | null;
+  status: string;
+  createdAt: string;
+  paymentMethod: string | null;
 }
 
 interface AdminDashboardProps {
@@ -58,12 +38,19 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ userName }: AdminDashboardProps) {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [recentIntakes, setRecentIntakes] = useState<PatientIntake[]>([]);
+  const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [revenueData, setRevenueData] = useState<Array<{ month: string; revenue: number }>>([]);
-  const [patientData, setPatientData] = useState<Array<{ day: string; newPatients: number; returningPatients: number }>>([]);
-  const [displayName, setDisplayName] = useState(userName || 'Admin');
+  const [displayName, setDisplayName] = useState(userName || 'there');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [systemStatus, setSystemStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
+
+  // Update time every minute
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Get user name from localStorage if not provided
   useEffect(() => {
@@ -72,7 +59,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
         const user = localStorage.getItem('user');
         if (user) {
           const userData = JSON.parse(user);
-          setDisplayName(userData.firstName || userData.email?.split('@')[0] || 'Admin');
+          setDisplayName(userData.firstName || userData.email?.split('@')[0] || 'there');
         }
       } catch {
         // Keep default name
@@ -86,361 +73,288 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
   const loadDashboardData = async () => {
     try {
-      // Load real data from API (token stored as 'auth-token' by login)
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('super_admin-token') || 
+      const token = localStorage.getItem('auth-token') ||
+                    localStorage.getItem('super_admin-token') ||
                     localStorage.getItem('admin-token') ||
                     localStorage.getItem('token');
-      const response = await fetch('/api/admin/dashboard', {
+
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      // Fetch recent patient intakes (last 24 hours)
+      const intakesResponse = await fetch('/api/patients?limit=20&recent=24h', {
         credentials: 'include',
-        headers: token ? {
-          'Authorization': `Bearer ${token}`,
-        } : {},
+        headers,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
-        setRecentActivities(data.recentActivities || []);
+      if (intakesResponse.ok) {
+        const intakesData = await intakesResponse.json();
+        setRecentIntakes(intakesData.patients || []);
+      }
 
-        // Update chart data if available
-        if (data.charts?.monthlyRevenue) {
-          setRevenueData(data.charts.monthlyRevenue);
-        }
-        if (data.charts?.dailyPatients) {
-          setPatientData(data.charts.dailyPatients);
-        }
-      } else {
-        // Set default empty state
-        setStats({
-          totalPatients: 0,
-          patientsChange: 0,
-          totalRevenue: 0,
-          revenueChange: 0,
-          activeProviders: 0,
-          providersChange: 0,
-          pendingOrders: 0,
-          ordersChange: 0
-        });
-        setRecentActivities([]);
+      // Fetch recent Stripe payments
+      const paymentsResponse = await fetch('/api/stripe/transactions?limit=10&type=charges&status=succeeded', {
+        credentials: 'include',
+        headers,
+      });
+
+      if (paymentsResponse.ok) {
+        const paymentsData = await paymentsResponse.json();
+        setRecentPayments(paymentsData.transactions || []);
       }
 
       setLoading(false);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
-      // Set default empty state on error
-      setStats({
-        totalPatients: 0,
-        patientsChange: 0,
-        totalRevenue: 0,
-        revenueChange: 0,
-        activeProviders: 0,
-        providersChange: 0,
-        pendingOrders: 0,
-        ordersChange: 0
-      });
-      setRecentActivities([]);
       setLoading(false);
     }
   };
 
-  // Chart configurations - using real data from API
-  const revenueChartData = {
-    labels: revenueData.length > 0 ? revenueData.map(d => d.month) : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Revenue',
-        data: revenueData.length > 0 ? revenueData.map(d => d.revenue) : [0, 0, 0, 0, 0, 0],
-        borderColor: 'rgb(147, 51, 234)',
-        backgroundColor: 'rgba(147, 51, 234, 0.1)',
-        tension: 0.4,
-        fill: true
-      }
-    ]
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
   };
 
-  const patientChartData = {
-    labels: patientData.length > 0 ? patientData.map(d => d.day) : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'New Patients',
-        data: patientData.length > 0 ? patientData.map(d => d.newPatients) : [0, 0, 0, 0, 0, 0, 0],
-        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-      },
-      {
-        label: 'Returning Patients',
-        data: patientData.length > 0 ? patientData.map(d => d.returningPatients) : [0, 0, 0, 0, 0, 0, 0],
-        backgroundColor: 'rgba(16, 185, 129, 0.8)',
-      }
-    ]
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
-  // Department data will be added in future when departments feature is implemented
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
-      }
-    },
-    scales: {
-      x: {
-        grid: {
-          display: false
-        }
-      },
-      y: {
-        beginAtZero: true
-      }
-    }
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return formatDate(dateString);
   };
+
+  const filteredIntakes = recentIntakes.filter(patient => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      patient.firstName?.toLowerCase().includes(query) ||
+      patient.lastName?.toLowerCase().includes(query) ||
+      patient.email?.toLowerCase().includes(query) ||
+      patient.phone?.includes(query) ||
+      patient.id?.toString().includes(query) ||
+      patient.tags?.some(tag => tag.toLowerCase().includes(query)) ||
+      patient.address?.toLowerCase().includes(query)
+    );
+  });
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#4fa77e] border-t-transparent"></div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Welcome back, {displayName}!</h1>
-        <p className="text-purple-100">Here's what's happening in your clinic today</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Patients */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Patients</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{stats?.totalPatients.toLocaleString()}</p>
-              <div className="flex items-center mt-2">
-                {stats?.patientsChange && stats.patientsChange > 0 ? (
-                  <>
-                    <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
-                    <span className="text-sm text-green-600">+{stats.patientsChange}%</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowDown className="h-4 w-4 text-red-500 mr-1" />
-                    <span className="text-sm text-red-600">{stats?.patientsChange}%</span>
-                  </>
-                )}
-                <span className="text-sm text-gray-500 ml-2">vs last month</span>
-              </div>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Users className="h-6 w-6 text-purple-600" />
-            </div>
+      {/* Header Section */}
+      <div className="flex items-center justify-between">
+        <div>
+          {/* System Status */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`w-2 h-2 rounded-full ${
+              systemStatus === 'healthy' ? 'bg-[#4fa77e]' :
+              systemStatus === 'warning' ? 'bg-amber-500' : 'bg-red-500'
+            }`} />
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              SYSTEM: {systemStatus.toUpperCase()}
+            </span>
           </div>
+
+          {/* Date and Time */}
+          <p className="text-sm text-gray-600">
+            {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+          <p className="text-lg font-medium text-gray-800">
+            {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
+          </p>
         </div>
 
-        {/* Revenue */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Monthly Revenue</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">${stats?.totalRevenue.toLocaleString()}</p>
-              <div className="flex items-center mt-2">
-                {stats?.revenueChange && stats.revenueChange > 0 ? (
-                  <>
-                    <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
-                    <span className="text-sm text-green-600">+{stats.revenueChange}%</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowDown className="h-4 w-4 text-red-500 mr-1" />
-                    <span className="text-sm text-red-600">{stats?.revenueChange}%</span>
-                  </>
-                )}
-                <span className="text-sm text-gray-500 ml-2">vs last month</span>
-              </div>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Active Providers */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Active Providers</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{stats?.activeProviders}</p>
-              <div className="flex items-center mt-2">
-                {stats?.providersChange && stats.providersChange > 0 ? (
-                  <>
-                    <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
-                    <span className="text-sm text-green-600">+{stats.providersChange}%</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowDown className="h-4 w-4 text-red-500 mr-1" />
-                    <span className="text-sm text-red-600">{stats?.providersChange}%</span>
-                  </>
-                )}
-                <span className="text-sm text-gray-500 ml-2">vs last month</span>
-              </div>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Activity className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Pending Orders */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Pending Orders</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{stats?.pendingOrders}</p>
-              <div className="flex items-center mt-2">
-                {stats?.ordersChange && stats.ordersChange > 0 ? (
-                  <>
-                    <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
-                    <span className="text-sm text-green-600">+{stats.ordersChange}%</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowDown className="h-4 w-4 text-red-500 mr-1" />
-                    <span className="text-sm text-red-600">{stats?.ordersChange}%</span>
-                  </>
-                )}
-                <span className="text-sm text-gray-500 ml-2">vs last week</span>
-              </div>
-            </div>
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <ShoppingCart className="h-6 w-6 text-orange-600" />
-            </div>
-          </div>
+        {/* Search */}
+        <div className="relative w-96">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search patients"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e] transition-all"
+          />
         </div>
       </div>
 
-      {/* Charts and Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue Chart */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Revenue Overview</h2>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
-              <MoreVertical className="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-          <div className="h-64">
-            <Line data={revenueChartData} options={chartOptions} />
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Quick Stats</h2>
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-              <span className="text-sm text-gray-600">Total Patients</span>
-              <span className="font-semibold text-purple-700">{stats?.totalPatients || 0}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <span className="text-sm text-gray-600">Active Providers</span>
-              <span className="font-semibold text-green-700">{stats?.activeProviders || 0}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-              <span className="text-sm text-gray-600">Monthly Revenue</span>
-              <span className="font-semibold text-blue-700">${stats?.totalRevenue?.toLocaleString() || 0}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-              <span className="text-sm text-gray-600">Pending Orders</span>
-              <span className="font-semibold text-orange-700">{stats?.pendingOrders || 0}</span>
-            </div>
-          </div>
-        </div>
+      {/* Welcome Message */}
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          Welcome, <span className="text-gray-900">{displayName}</span>
+        </h1>
       </div>
 
-      {/* Patient Activity and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Patient Activity */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Patient Activity</h2>
-            <span className="text-sm text-gray-500">This Week</span>
-          </div>
-          <div className="h-64">
-            <Bar data={patientChartData} options={chartOptions} />
-          </div>
+      {/* Patient Intakes Section */}
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">New Patient Intakes</h2>
+          <p className="text-sm text-gray-500">Received in the last 24 hours</p>
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-            <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
-              View All
-            </button>
+        {/* Search within intakes */}
+        <div className="px-6 py-3 border-b border-gray-100">
+          <input
+            type="text"
+            placeholder="Search patients by name, email, phone, ID, tags, or address..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e]"
+          />
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredIntakes.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <Clock className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 font-medium">No patient intakes in the last 24 hours</p>
+                    <p className="text-sm text-gray-400 mt-1">New intakes will appear here automatically</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredIntakes.map((patient) => (
+                  <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          new Date(patient.createdAt).getTime() > Date.now() - 3600000
+                            ? 'bg-[#4fa77e]'
+                            : 'bg-amber-400'
+                        }`} />
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {patient.firstName} {patient.lastName}
+                          </p>
+                          <p className="text-xs text-gray-400">#{String(patient.id).padStart(6, '0')}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-600">{formatDate(patient.dateOfBirth)}</p>
+                      <p className="text-xs text-gray-400 capitalize">({patient.gender})</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-600">{patient.phone}</p>
+                      <p className="text-xs text-gray-400 truncate max-w-[180px]">{patient.email}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-600 truncate max-w-[200px]">{patient.address || '-'}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {patient.tags?.slice(0, 4).map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-full"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                        {patient.tags?.length > 4 && (
+                          <span className="text-xs text-gray-400">+{patient.tags.length - 4}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/admin/patients/${patient.id}`}
+                        className="text-sm text-[#4fa77e] hover:text-[#3d8a66] font-medium flex items-center gap-1"
+                      >
+                        View profile
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {filteredIntakes.length > 0 && (
+          <div className="px-6 py-3 border-t border-gray-100 text-center">
+            <Link
+              href="/admin/patients"
+              className="text-sm text-gray-500 hover:text-[#4fa77e] font-medium"
+            >
+              Load More
+            </Link>
           </div>
-          <div className="space-y-4">
-            {recentActivities.length === 0 ? (
-              <div className="text-center py-8">
-                <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No recent activity</p>
-                <p className="text-sm text-gray-400">Activity will appear here as you use the platform</p>
-              </div>
-            ) : (
-              recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-start">
-                <div className={`p-2 rounded-lg ${
-                  activity.type === 'patient' ? 'bg-blue-100' :
-                  activity.type === 'order' ? 'bg-green-100' :
-                  activity.type === 'payment' ? 'bg-yellow-100' :
-                  'bg-purple-100'
-                }`}>
-                  {activity.type === 'patient' && <UserPlus className="h-4 w-4 text-blue-600" />}
-                  {activity.type === 'order' && <Package className="h-4 w-4 text-green-600" />}
-                  {activity.type === 'payment' && <CreditCard className="h-4 w-4 text-yellow-600" />}
-                  {activity.type === 'staff' && <Users className="h-4 w-4 text-purple-600" />}
+        )}
+      </div>
+
+      {/* Recent Payments Section */}
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Recent Payments</h2>
+            <p className="text-sm text-gray-500">Latest transactions from Stripe</p>
+          </div>
+          <Link
+            href="/admin/finance"
+            className="text-sm text-[#4fa77e] hover:text-[#3d8a66] font-medium flex items-center gap-1"
+          >
+            View all <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="divide-y divide-gray-100">
+          {recentPayments.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <CreditCard className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">No recent payments</p>
+              <p className="text-sm text-gray-400 mt-1">Payments will appear here as they are processed</p>
+            </div>
+          ) : (
+            recentPayments.map((payment) => (
+              <div key={payment.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-[#4fa77e]/10 flex items-center justify-center">
+                    <CreditCard className="h-5 w-5 text-[#4fa77e]" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {payment.customerName || payment.customerEmail || 'Unknown Customer'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {payment.description || 'Payment received'}
+                    </p>
+                  </div>
                 </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                  {activity.user && (
-                    <p className="text-sm text-gray-500">{activity.user}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                <div className="text-right">
+                  <p className="font-semibold text-gray-900">{payment.amountFormatted}</p>
+                  <p className="text-xs text-gray-400">{formatRelativeTime(payment.createdAt)}</p>
                 </div>
               </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button className="flex items-center justify-center px-4 py-3 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors">
-            <UserPlus className="h-5 w-5 mr-2" />
-            Add Patient
-          </button>
-          <button className="flex items-center justify-center px-4 py-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors">
-            <ShoppingCart className="h-5 w-5 mr-2" />
-            Create Order
-          </button>
-          <button className="flex items-center justify-center px-4 py-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
-            <FileText className="h-5 w-5 mr-2" />
-            View Reports
-          </button>
-          <button className="flex items-center justify-center px-4 py-3 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors">
-            <Calendar className="h-5 w-5 mr-2" />
-            Schedule
-          </button>
+            ))
+          )}
         </div>
       </div>
     </div>

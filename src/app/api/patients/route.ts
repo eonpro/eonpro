@@ -13,6 +13,28 @@ import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
  * Rate limit: 200 requests per minute (relaxed for list endpoints)
  */
 const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
+  // Parse query parameters
+  const { searchParams } = new URL(req.url);
+  const limit = parseInt(searchParams.get('limit') || '100');
+  const recent = searchParams.get('recent'); // e.g., '24h', '7d', '30d'
+
+  // Build date filter for recent intakes
+  let createdAtFilter = {};
+  if (recent) {
+    const now = new Date();
+    let fromDate = now;
+
+    if (recent.endsWith('h')) {
+      const hours = parseInt(recent);
+      fromDate = new Date(now.getTime() - hours * 60 * 60 * 1000);
+    } else if (recent.endsWith('d')) {
+      const days = parseInt(recent);
+      fromDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    }
+
+    createdAtFilter = { createdAt: { gte: fromDate } };
+  }
+
   // For super admin, get all patients across all clinics
   // For other roles, the Prisma proxy in db.ts applies clinic filtering
   let patients;
@@ -20,6 +42,7 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
   if (user.role === 'super_admin') {
     // Super admin sees all patients with clinic info
     patients = await prisma.patient.findMany({
+      where: createdAtFilter,
       select: {
         id: true,
         patientId: true,
@@ -46,9 +69,11 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         }
       },
       orderBy: { createdAt: "desc" },
+      take: limit,
     });
   } else {
     patients = await prisma.patient.findMany({
+      where: createdAtFilter,
       select: {
         id: true,
         patientId: true,
@@ -69,14 +94,37 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         clinicId: true,
       },
       orderBy: { createdAt: "desc" },
+      take: limit,
     });
   }
 
-  // Decrypt PHI fields for authorized users and add clinic name
+  // Decrypt PHI fields for authorized users and transform to dashboard-friendly format
   const decryptedPatients = patients.map((patient: any) => {
     const decrypted = decryptPatientPHI(patient, ['email', 'phone', 'dob']);
+
+    // Build full address string
+    const addressParts = [
+      decrypted.address1,
+      decrypted.address2,
+      decrypted.city,
+      decrypted.state,
+      decrypted.zip
+    ].filter(Boolean);
+
     return {
-      ...decrypted,
+      id: decrypted.id,
+      patientId: decrypted.patientId,
+      firstName: decrypted.firstName,
+      lastName: decrypted.lastName,
+      email: decrypted.email,
+      phone: decrypted.phone,
+      dateOfBirth: decrypted.dob,
+      gender: decrypted.gender,
+      address: addressParts.join(', '),
+      tags: decrypted.tags || [],
+      source: decrypted.source,
+      createdAt: decrypted.createdAt,
+      clinicId: decrypted.clinicId,
       clinicName: patient.clinic?.name || null,
     };
   });
@@ -87,6 +135,7 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
       count: patients.length,
       accessedBy: user.email,
       role: user.role,
+      filters: { limit, recent },
     }
   });
 });
