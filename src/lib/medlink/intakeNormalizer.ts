@@ -12,106 +12,139 @@ const STATE_NAME_TO_CODE = US_STATE_OPTIONS.reduce<Record<string, string>>((acc,
   return acc;
 }, {});
 
+/**
+ * Patient field matchers - comprehensive mapping for all intake sources
+ * 
+ * Supports:
+ * - WeightLossIntake platform (camelCase fields)
+ * - Heyflow forms (id-xxxxx fields)
+ * - MedLink platform
+ * - Generic intake forms
+ * 
+ * Priority: Label matching > ID matching (labels are more stable)
+ */
 const PATIENT_FIELD_MATCHERS: Record<keyof NormalizedPatient, FieldMatcher[]> = {
   firstName: [
-    { id: "id-b1679347" },
-    { id: "idb1679347" },
+    // Label-based (most reliable)
+    { labelIncludes: "first name" },
+    { labelIncludes: "firstname" },
+    { labelIncludes: "given name" },
+    // WeightLossIntake / standard
     { id: "firstName" },
     { id: "first_name" },
     { id: "fname" },
-    { labelIncludes: "first name" },
-    { labelIncludes: "firstname" },
+    // Heyflow
+    { id: "id-b1679347" },
+    { id: "idb1679347" },
   ],
   lastName: [
-    { id: "id-30d7dea8" },
-    { id: "id30d7dea8" },
+    { labelIncludes: "last name" },
+    { labelIncludes: "lastname" },
+    { labelIncludes: "surname" },
+    { labelIncludes: "family name" },
     { id: "lastName" },
     { id: "last_name" },
     { id: "lname" },
-    { labelIncludes: "last name" },
-    { labelIncludes: "lastname" },
+    { id: "id-30d7dea8" },
+    { id: "id30d7dea8" },
   ],
   email: [
-    { id: "id-62de7872" },
+    { labelIncludes: "email" },
+    { labelIncludes: "e-mail" },
     { id: "email" },
     { id: "email_address" },
     { id: "emailAddress" },
-    { labelIncludes: "email" },
+    { id: "id-62de7872" },
   ],
   phone: [
-    { id: "phone-input-id-cc54007b" },
-    { id: "id-cc54007b" },
+    { labelIncludes: "phone" },
+    { labelIncludes: "mobile" },
+    { labelIncludes: "cell" },
+    { labelIncludes: "telephone" },
     { id: "phone" },
     { id: "phone_number" },
     { id: "phoneNumber" },
     { id: "mobile" },
     { id: "cell" },
-    { labelIncludes: "phone" },
-    { labelIncludes: "mobile" },
-    { labelIncludes: "cell" },
+    { id: "phone-input-id-cc54007b" },
+    { id: "id-cc54007b" },
   ],
   dob: [
-    { id: "id-01a47886" },
+    { labelIncludes: "date of birth" },
+    { labelIncludes: "birth date" },
+    { labelIncludes: "birthdate" },
+    { labelIncludes: "dob" },
+    { labelIncludes: "birthday" },
+    // WeightLossIntake uses dateOfBirth
     { id: "dateOfBirth" },
     { id: "date_of_birth" },
     { id: "dob" },
     { id: "birthDate" },
     { id: "birth_date" },
     { id: "birthday" },
-    { labelIncludes: "dob" },
-    { labelIncludes: "date of birth" },
-    { labelIncludes: "birth date" },
-    { labelIncludes: "birthday" },
+    { id: "id-01a47886" },
   ],
   gender: [
-    { id: "id-19e348ba" },
-    { id: "gender" },
-    { id: "sex" },
     { labelIncludes: "gender" },
     { labelIncludes: "sex" },
+    { id: "gender" },
+    { id: "sex" },
+    { id: "id-19e348ba" },
   ],
   address1: [
-    { id: "id-38a5bae0-street" },
-    { id: "id-38a5bae0" },
+    { labelIncludes: "street address" },
+    { labelIncludes: "address line 1" },
+    { labelIncludes: "address" },
+    // WeightLossIntake uses streetAddress
     { id: "streetAddress" },
     { id: "street_address" },
     { id: "address" },
     { id: "address1" },
-    { labelIncludes: "street address" },
-    { labelIncludes: "address" },
+    { id: "street" },
+    { id: "id-38a5bae0-street" },
+    { id: "id-38a5bae0" },
   ],
   address2: [
-    { id: "id-0d142f9e" },
-    { id: "address2" },
-    { id: "apt" },
-    { id: "unit" },
     { labelIncludes: "apartment" },
     { labelIncludes: "suite" },
     { labelIncludes: "unit" },
+    { labelIncludes: "apt" },
+    { labelIncludes: "address line 2" },
+    { id: "apartment" },
+    { id: "address2" },
+    { id: "apt" },
+    { id: "unit" },
+    { id: "suite" },
+    { id: "id-0d142f9e" },
   ],
   city: [
-    { id: "id-38a5bae0-city" },
-    { id: "city" },
     { labelIncludes: "city" },
+    { labelIncludes: "town" },
+    { id: "city" },
+    { id: "id-38a5bae0-city" },
   ],
   state: [
-    { id: "id-38a5bae0-state_code" },
-    { id: "id-38a5bae0-state" },
+    { labelIncludes: "state" },
+    { labelIncludes: "province" },
+    { labelIncludes: "region" },
     { id: "state" },
     { id: "stateCode" },
     { id: "state_code" },
     { id: "province" },
-    { labelIncludes: "state" },
+    { id: "id-38a5bae0-state_code" },
+    { id: "id-38a5bae0-state" },
   ],
   zip: [
-    { id: "id-38a5bae0-zip" },
+    { labelIncludes: "zip" },
+    { labelIncludes: "postal code" },
+    { labelIncludes: "postcode" },
+    // WeightLossIntake uses zipCode
     { id: "zipCode" },
     { id: "zip_code" },
     { id: "zip" },
     { id: "postalCode" },
     { id: "postal_code" },
-    { labelIncludes: "postal code" },
-    { labelIncludes: "zip" },
+    { id: "id-38a5bae0-zip" },
   ],
 };
 
@@ -172,12 +205,72 @@ export function normalizeMedLinkPayload(payload: Record<string, unknown>): Norma
 }
 
 function buildSections(payload: Record<string, unknown>): IntakeSection[] {
-  // Check for data object structure (webhook format)
+  // Check for data object structure (WeightLossIntake webhook format)
   if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
     const answers: RawAnswer[] = [];
     
-    // Map common field names to proper labels for better display
+    // Comprehensive field label mapping for WeightLossIntake and other sources
+    // Keys are the field names sent by the intake platform
     const commonFieldMappings: Record<string, string> = {
+      // Patient Identity (WeightLossIntake format)
+      'firstName': 'First Name',
+      'lastName': 'Last Name',
+      'email': 'Email',
+      'phone': 'Phone Number',
+      'dateOfBirth': 'Date of Birth',
+      'gender': 'Gender',
+      'sex': 'Gender',
+      
+      // Address (WeightLossIntake format)
+      'streetAddress': 'Street Address',
+      'apartment': 'Apartment/Suite',
+      'city': 'City',
+      'state': 'State',
+      'zipCode': 'ZIP Code',
+      
+      // Vitals (WeightLossIntake format)
+      'weight': 'Starting Weight',
+      'idealWeight': 'Ideal Weight',
+      'height': 'Height',
+      'bmi': 'BMI',
+      'bloodPressure': 'Blood Pressure',
+      
+      // Medical History
+      'currentMedications': 'Current Medications',
+      'medications': 'Current Medications',
+      'allergies': 'Allergies',
+      'medicalConditions': 'Medical Conditions',
+      'chronicConditions': 'Chronic Conditions',
+      'mentalHealthHistory': 'Mental Health History',
+      'familyHistory': 'Family Medical History',
+      'surgicalHistory': 'Surgical History',
+      
+      // GLP-1 Specific
+      'glp1History': 'GLP-1 Medication History',
+      'glp1Type': 'Current GLP-1 Medication',
+      'medicationPreference': 'Medication Preference',
+      'semaglutideDosage': 'Semaglutide Dose',
+      'tirzepatideDosage': 'Tirzepatide Dose',
+      'previousSideEffects': 'Previous Side Effects',
+      'currentGLP1Dose': 'Current GLP-1 Dose',
+      
+      // Lifestyle
+      'activityLevel': 'Daily Physical Activity',
+      'alcoholUse': 'Alcohol Intake',
+      'recreationalDrugs': 'Recreational Drug Use',
+      'weightLossHistory': 'Weight Loss History',
+      
+      // Visit Info
+      'reasonForVisit': 'Reason for Visit',
+      'chiefComplaint': 'Chief Complaint',
+      'healthGoals': 'Health Goals',
+      
+      // Metadata
+      'qualified': 'Qualified Status',
+      'language': 'Preferred Language',
+      'intakeSource': 'Intake Source',
+      
+      // Legacy field names
       'First Name': 'First Name',
       'Last Name': 'Last Name',
       'Email': 'Email',
@@ -191,41 +284,20 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       'Current Medications': 'Current Medications',
       'Allergies': 'Allergies',
       'Medical Conditions': 'Medical Conditions',
-      'Chronic Conditions': 'Chronic Conditions',
-      'Reason for Visit': 'Reason for Visit',
-      'Chief Complaint': 'Chief Complaint',
-      'Medical History': 'Medical History',
-      'Family History': 'Family Medical History',
-      'Surgical History': 'Surgical History',
-      'Current Symptoms': 'Current Symptoms',
-      'Pain Level': 'Pain Level',
-      'Blood Pressure': 'Blood Pressure',
-      'Heart Rate': 'Heart Rate',
-      'Temperature': 'Temperature',
-      'Weight': 'Current Weight',
+      'Weight': 'Starting Weight',
       'Height': 'Height',
       'BMI': 'BMI',
-      'Medications List': 'Current Medications List',
-      'Medication Allergies': 'Medication Allergies',
-      'Previous Treatments': 'Previous Treatments',
-      'Mental Health History': 'Mental Health History',
-      'Substance Use': 'Substance Use History',
-      'Tobacco Use': 'Tobacco Use',
-      'Alcohol Use': 'Alcohol Use',
-      'Exercise Frequency': 'Exercise Frequency',
-      'Diet Type': 'Diet Type',
-      'Sleep Patterns': 'Sleep Patterns',
-      'Stress Level': 'Stress Level',
+      'Blood Pressure': 'Blood Pressure',
     };
     
     // Extract all fields from the data object
     Object.entries(payload.data).forEach(([key, value]) => {
-      // Skip metadata fields
-      if (key === 'tags' || key === 'timestamp' || key === 'submissionId') {
+      // Skip metadata fields that shouldn't be displayed
+      if (['tags', 'timestamp', 'submissionId', 'airtableRecordId'].includes(key)) {
         return;
       }
       
-      // Use mapped label if available, otherwise use the key with better formatting
+      // Use mapped label if available, otherwise format the key nicely
       const label = commonFieldMappings[key] || 
                    key.replace(/_/g, ' ')
                       .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -238,9 +310,9 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       });
     });
     
-    logger.debug('[Normalizer] Extracted answers from data object:', { value: answers.length });
+    logger.debug('[Normalizer] Extracted answers from data object:', { count: answers.length });
     if (answers.length > 0) {
-      logger.debug('[Normalizer] Sample fields:', answers.slice(0, 5).map((a: any) => `${a.label}: ${a.value}`));
+      logger.debug('[Normalizer] Sample fields:', { samples: answers.slice(0, 5).map((a: any) => `${a.id}=${a.label}: ${String(a.value).slice(0, 50)}`) });
     }
     
     if (answers.length > 0) {

@@ -470,9 +470,16 @@ export async function POST(req: NextRequest) {
 
   logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`);
 
+  // Response format matching WeightLossIntake EMR Integration expectations
   return Response.json({
     success: true,
     requestId,
+    // Primary fields for bi-directional sync (store in Airtable)
+    patientId: patient.id,  // EONPRO Patient ID - store this in Airtable!
+    eonproPatientId: patient.patientId,  // Formatted ID like "000057"
+    submissionId: normalized.submissionId,
+    
+    // Detailed patient info
     patient: {
       id: patient.id,
       patientId: patient.patientId,
@@ -480,25 +487,31 @@ export async function POST(req: NextRequest) {
       email: patient.email,
       isNew: isNewPatient,
     },
+    // Submission details
     submission: {
       type: submissionType,
       qualified: qualifiedStatus,
       isPartial: isPartialSubmission,
     },
+    // Document info
     document: patientDocument ? {
       id: patientDocument.id,
       filename: stored?.filename,
-      url: stored?.publicPath,
     } : null,
+    // SOAP note (if generated)
     soapNote: soapNoteId ? {
       id: soapNoteId,
       status: "DRAFT",
     } : null,
+    // Clinic info
     clinic: {
       id: clinicId,
       name: "EONMEDS",
     },
+    // Metadata
+    processingTimeMs: duration,
     processingTime: `${duration}ms`,
+    message: isNewPatient ? "Patient created successfully" : "Patient updated successfully",
     warnings: errors.length > 0 ? errors : undefined,
   });
 }
