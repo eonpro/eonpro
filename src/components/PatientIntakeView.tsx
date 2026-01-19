@@ -634,7 +634,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
       {/* Submission Info */}
       {intakeData.submissionId && !isEditing && (
-        <div className="bg-[#4fa77e]/10 border border-[#4fa77e]/30 rounded-lg p-4">
+        <div className="bg-[#f6f2a2] border border-[#13a97b]/30 rounded-lg p-4">
           <div className="flex flex-wrap gap-4 text-sm text-gray-700">
             <span><strong>Submission ID:</strong> {intakeData.submissionId}</span>
             {intakeData.source && <span><strong>Source:</strong> {intakeData.source}</span>}
