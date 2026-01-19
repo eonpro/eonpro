@@ -368,55 +368,56 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 9: CREATE DOCUMENT RECORD (non-critical)
+  // STEP 9: CREATE DOCUMENT RECORD WITH INTAKE DATA (CRITICAL FOR DISPLAY)
   // ═══════════════════════════════════════════════════════════════════
+  // IMPORTANT: Always store intake data, even if PDF generation failed.
+  // The intake tab needs this data to display patient responses.
   let patientDocument: any = null;
-  if (pdfContent && stored) {
-    try {
-      const existingDoc = await prisma.patientDocument.findUnique({
-        where: { sourceSubmissionId: normalized.submissionId },
-      });
+  try {
+    const existingDoc = await prisma.patientDocument.findUnique({
+      where: { sourceSubmissionId: normalized.submissionId },
+    });
 
-      // Store intake data as JSON for vitals extraction
-      const intakeDataToStore = {
-        submissionId: normalized.submissionId,
-        sections: normalized.sections,
-        answers: normalized.answers,
-        source: "weightlossintake",
-        clinicId: clinicId,
-        receivedAt: new Date().toISOString(),
-      };
-      
-      if (existingDoc) {
-        patientDocument = await prisma.patientDocument.update({
-          where: { id: existingDoc.id },
-          data: {
-            filename: stored.filename,
-            // Store intake JSON data for display on Intake tab
-            // PDF bytes will be added once DB migration for intakeData field runs
-            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
-          },
-        });
-      } else {
-        patientDocument = await prisma.patientDocument.create({
-          data: {
-            patientId: patient.id,
-            clinicId: clinicId,
-            filename: stored.filename,
-            mimeType: "application/pdf",
-            category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            // Store intake JSON data for display on Intake tab
-            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
-            source: "weightlossintake",
-            sourceSubmissionId: normalized.submissionId,
-          },
-        });
-      }
-      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Document: ${patientDocument.id}`);
-    } catch (err) {
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Document record failed (continuing):`, err);
-      errors.push("Document record creation failed");
+    // Store intake data as JSON for display on Intake tab
+    const intakeDataToStore = {
+      submissionId: normalized.submissionId,
+      sections: normalized.sections,
+      answers: normalized.answers,
+      source: "weightlossintake",
+      clinicId: clinicId,
+      receivedAt: new Date().toISOString(),
+      pdfGenerated: !!pdfContent,
+    };
+    
+    if (existingDoc) {
+      patientDocument = await prisma.patientDocument.update({
+        where: { id: existingDoc.id },
+        data: {
+          filename: stored?.filename || `intake-${normalized.submissionId}.json`,
+          // Store intake JSON data - this is what the Intake tab displays
+          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+        },
+      });
+      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Updated document: ${patientDocument.id}`);
+    } else {
+      patientDocument = await prisma.patientDocument.create({
+        data: {
+          patientId: patient.id,
+          clinicId: clinicId,
+          filename: stored?.filename || `intake-${normalized.submissionId}.json`,
+          mimeType: pdfContent ? "application/pdf" : "application/json",
+          category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+          // Store intake JSON data - this is what the Intake tab displays
+          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          source: "weightlossintake",
+          sourceSubmissionId: normalized.submissionId,
+        },
+      });
+      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Created document: ${patientDocument.id}`);
     }
+  } catch (err) {
+    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Document record failed:`, err);
+    errors.push("Document record creation failed");
   }
 
   // ═══════════════════════════════════════════════════════════════════
