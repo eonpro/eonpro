@@ -28,11 +28,34 @@ const stateSchema = z.string().transform((val, ctx) => {
   return z.NEVER;
 });
 
+// Custom gender transformer that accepts various formats and normalizes to 'm' or 'f'
+const genderSchema = z.string().transform((val, ctx) => {
+  if (!val) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Gender is required" });
+    return z.NEVER;
+  }
+  const normalized = val.trim().toLowerCase();
+  // Accept male/m/man variants
+  if (['m', 'male', 'man'].includes(normalized)) {
+    return 'm';
+  }
+  // Accept female/f/woman variants
+  if (['f', 'female', 'woman'].includes(normalized)) {
+    return 'f';
+  }
+  // Accept other/non-binary
+  if (['other', 'o', 'non-binary', 'nonbinary', 'nb'].includes(normalized)) {
+    return 'other';
+  }
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Invalid gender: ${val}` });
+  return z.NEVER;
+});
+
 export const patientSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
   dob: z.string(),
-  gender: z.enum(["m", "f"]),
+  gender: genderSchema,
   phone: z.string(),
   email: z.string(),
   address1: z.string(),
