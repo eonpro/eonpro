@@ -243,12 +243,20 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
   let intakeData: IntakeData = {};
 
+  // Debug logging
+  console.log('[Intake Debug] Documents count:', documents.length);
+  console.log('[Intake Debug] Found intakeDoc:', !!intakeDoc, intakeDoc?.id);
+
   if (intakeDoc) {
+    console.log('[Intake Debug] intakeDoc.intakeData:', !!intakeDoc.intakeData);
+    console.log('[Intake Debug] intakeDoc.data type:', typeof intakeDoc.data);
+    
     if (intakeDoc.intakeData) {
       try {
         intakeData = typeof intakeDoc.intakeData === 'string' 
           ? JSON.parse(intakeDoc.intakeData) 
           : intakeDoc.intakeData;
+        console.log('[Intake Debug] Parsed from intakeData field');
       } catch (error: any) {
         logger.error('Error parsing intakeData field:', error);
       }
@@ -256,21 +264,31 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       try {
         let rawData = intakeDoc.data;
         
+        console.log('[Intake Debug] rawData type before conversion:', typeof rawData);
+        
         if (Buffer.isBuffer(rawData)) {
           rawData = rawData.toString('utf8');
+          console.log('[Intake Debug] Converted from Buffer');
         } else if (typeof rawData === 'object' && rawData.type === 'Buffer' && Array.isArray(rawData.data)) {
           rawData = Buffer.from(rawData.data).toString('utf8');
+          console.log('[Intake Debug] Converted from Buffer-like object');
         }
         
         if (typeof rawData === 'string') {
           const trimmed = rawData.trim();
+          console.log('[Intake Debug] String starts with:', trimmed.substring(0, 50));
           if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
             intakeData = JSON.parse(trimmed);
+            console.log('[Intake Debug] Parsed JSON from string');
           }
         } else if (typeof rawData === 'object' && !Buffer.isBuffer(rawData)) {
           intakeData = rawData as IntakeData;
+          console.log('[Intake Debug] Using object directly');
         }
+        
+        console.log('[Intake Debug] Final intakeData has answers:', !!intakeData.answers, 'count:', intakeData.answers?.length);
       } catch (error: any) {
+        console.log('[Intake Debug] Parse error:', error.message);
         logger.debug('Data field does not contain JSON');
       }
     }

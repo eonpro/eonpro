@@ -11,6 +11,9 @@ import { SHIPPING_METHODS } from "@/lib/shipping";
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
+// Force dynamic rendering to ensure fresh data after intake edits
+export const dynamic = 'force-dynamic';
+
 type Params = {
   params: { id: string };
 };
