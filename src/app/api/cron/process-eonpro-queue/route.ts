@@ -8,7 +8,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { logger } from '@/lib/integrations/logging';
+import { logger } from '@/lib/logger';
 import {
   isDLQConfigured,
   getReadySubmissions,
