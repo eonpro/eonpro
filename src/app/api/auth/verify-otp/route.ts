@@ -12,20 +12,14 @@ import { z } from 'zod';
 import { basePrisma as prisma } from '@/lib/db';
 import { formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import { logger } from '@/lib/logger';
-import { sign } from 'jsonwebtoken';
-import { AUTH_CONFIG } from '@/lib/auth/config';
+import { SignJWT } from 'jose';
+import { AUTH_CONFIG, JWT_SECRET } from '@/lib/auth/config';
 
 // Schema for OTP verification
 const verifyOtpSchema = z.object({
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   code: z.string().length(6, 'OTP must be exactly 6 digits'),
 });
-
-// Get JWT secret - MUST be configured
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('CRITICAL: JWT_SECRET environment variable must be configured');
-}
 
 export async function POST(req: NextRequest): Promise<Response> {
   try {
@@ -205,17 +199,11 @@ export async function POST(req: NextRequest): Promise<Response> {
           clinicId: user!.clinicId,
         };
     
-    if (!JWT_SECRET) {
-      logger.error('JWT_SECRET is not configured');
-      return NextResponse.json(
-        { success: false, error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-    
-    const token = sign(tokenPayload, JWT_SECRET, {
-      expiresIn: AUTH_CONFIG.tokenExpiry.access,
-    });
+    const token = await new SignJWT(tokenPayload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
+      .sign(JWT_SECRET);
     
     // Log successful login
     logger.info('Successful OTP login', {
@@ -260,13 +248,31 @@ export async function POST(req: NextRequest): Promise<Response> {
           role: user!.role,
           clinicId: user!.clinicId,
         };
-    
-    return NextResponse.json({
+
+    const response = NextResponse.json({
       success: true,
       token,
       user: userData,
       message: 'Login successful',
     });
+
+    // Set auth cookies (same as main login endpoint)
+    const userRole = userData.role?.toLowerCase() || 'patient';
+    response.cookies.set({
+      name: `${userRole}-token`,
+      value: token,
+      ...AUTH_CONFIG.cookie,
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    response.cookies.set({
+      name: 'auth-token',
+      value: token,
+      ...AUTH_CONFIG.cookie,
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    return response;
     
   } catch (error: any) {
     logger.error('Error in verify-otp endpoint', { error: error.message });
