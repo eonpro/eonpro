@@ -46,7 +46,6 @@ export async function GET(
         source: true,
         sourceSubmissionId: true,
         createdAt: true,
-        updatedAt: true,
         data: true,
       },
       orderBy: { createdAt: "desc" },
@@ -61,7 +60,6 @@ export async function GET(
         source: doc.source,
         sourceSubmissionId: doc.sourceSubmissionId,
         createdAt: doc.createdAt,
-        updatedAt: doc.updatedAt,
         dataAnalysis: {
           hasData: !!doc.data,
           dataType: "none",
