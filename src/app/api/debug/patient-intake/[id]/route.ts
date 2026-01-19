@@ -76,15 +76,32 @@ export async function GET(
         try {
           let rawData: any = doc.data;
           
-          // Get size
+          // Debug: what type is the data?
+          result.dataAnalysis.rawType = typeof rawData;
+          result.dataAnalysis.isBuffer = Buffer.isBuffer(rawData);
+          result.dataAnalysis.constructorName = rawData?.constructor?.name;
+          
+          // Get size and convert
           if (Buffer.isBuffer(rawData)) {
             result.dataAnalysis.dataSize = rawData.length;
             result.dataAnalysis.dataType = "buffer";
             rawData = rawData.toString("utf8");
-          } else if (typeof rawData === "object" && rawData.type === "Buffer") {
+          } else if (typeof rawData === "object" && rawData?.type === "Buffer" && Array.isArray(rawData.data)) {
             result.dataAnalysis.dataSize = rawData.data?.length || 0;
             result.dataAnalysis.dataType = "prisma-buffer";
             rawData = Buffer.from(rawData.data).toString("utf8");
+          } else if (rawData instanceof Uint8Array) {
+            result.dataAnalysis.dataSize = rawData.length;
+            result.dataAnalysis.dataType = "uint8array";
+            rawData = Buffer.from(rawData).toString("utf8");
+          } else if (typeof rawData === "string") {
+            result.dataAnalysis.dataSize = rawData.length;
+            result.dataAnalysis.dataType = "string-already";
+          } else if (rawData === null || rawData === undefined) {
+            result.dataAnalysis.dataType = "null-or-undefined";
+          } else {
+            result.dataAnalysis.dataType = "unknown";
+            result.dataAnalysis.dataKeys = typeof rawData === "object" ? Object.keys(rawData).slice(0, 10) : [];
           }
 
           // Check what we have
