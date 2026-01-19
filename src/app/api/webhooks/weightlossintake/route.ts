@@ -9,6 +9,8 @@ import { trackReferral } from "@/services/influencerService";
 import { logger } from '@/lib/logger';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
+import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
+import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 
 /**
  * WEIGHTLOSSINTAKE Webhook - EONMEDS CLINIC ONLY (BULLETPROOF VERSION)
@@ -368,10 +370,41 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 9: CREATE DOCUMENT RECORD WITH INTAKE DATA (CRITICAL FOR DISPLAY)
+  // STEP 9: UPLOAD PDF TO S3 (if available and S3 is configured)
+  // ═══════════════════════════════════════════════════════════════════
+  let pdfExternalUrl: string | null = null;
+  if (pdfContent && stored) {
+    try {
+      if (isS3Enabled()) {
+        const s3Result = await uploadToS3({
+          file: pdfContent,
+          fileName: stored.filename,
+          category: FileCategory.INTAKE_FORMS,
+          patientId: patient.id,
+          contentType: 'application/pdf',
+          metadata: {
+            submissionId: normalized.submissionId,
+            patientEmail: normalized.patient.email,
+            source: 'weightlossintake',
+          },
+        });
+        pdfExternalUrl = s3Result.url;
+        logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF uploaded to S3: ${s3Result.key}`);
+      } else {
+        logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] S3 not configured, PDF stored in database only`);
+      }
+    } catch (err) {
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] S3 upload failed (continuing):`, err);
+      errors.push("S3 PDF upload failed");
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 10: CREATE DOCUMENT RECORD WITH INTAKE DATA (CRITICAL FOR DISPLAY)
   // ═══════════════════════════════════════════════════════════════════
   // IMPORTANT: Always store intake data, even if PDF generation failed.
   // The intake tab needs this data to display patient responses.
+  // PDF is stored separately in S3 (externalUrl) - data field is for intake JSON only.
   let patientDocument: any = null;
   try {
     const existingDoc = await prisma.patientDocument.findUnique({
@@ -387,6 +420,7 @@ export async function POST(req: NextRequest) {
       clinicId: clinicId,
       receivedAt: new Date().toISOString(),
       pdfGenerated: !!pdfContent,
+      pdfUrl: pdfExternalUrl,
     };
     
     if (existingDoc) {
@@ -396,6 +430,8 @@ export async function POST(req: NextRequest) {
           filename: stored?.filename || `intake-${normalized.submissionId}.json`,
           // Store intake JSON data - this is what the Intake tab displays
           data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          // Store S3 URL for PDF download
+          externalUrl: pdfExternalUrl || existingDoc.externalUrl,
         },
       });
       logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Updated document: ${patientDocument.id}`);
@@ -405,10 +441,12 @@ export async function POST(req: NextRequest) {
           patientId: patient.id,
           clinicId: clinicId,
           filename: stored?.filename || `intake-${normalized.submissionId}.json`,
-          mimeType: pdfContent ? "application/pdf" : "application/json",
+          mimeType: "application/json", // Data field is now always JSON
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           // Store intake JSON data - this is what the Intake tab displays
           data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          // Store S3 URL for PDF download
+          externalUrl: pdfExternalUrl,
           source: "weightlossintake",
           sourceSubmissionId: normalized.submissionId,
         },
@@ -421,7 +459,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 10: GENERATE SOAP NOTE (non-critical for partial, important for complete)
+  // STEP 11: GENERATE SOAP NOTE (non-critical for partial, important for complete)
   // ═══════════════════════════════════════════════════════════════════
   let soapNoteId: number | null = null;
 
@@ -442,7 +480,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 11: TRACK PROMO CODE (non-critical)
+  // STEP 12: TRACK PROMO CODE (non-critical)
   // ═══════════════════════════════════════════════════════════════════
   const promoCodeEntry = normalized.answers?.find(
     (entry: any) =>
@@ -471,7 +509,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 12: AUDIT LOG (non-critical)
+  // STEP 13: AUDIT LOG (non-critical)
   // ═══════════════════════════════════════════════════════════════════
   try {
     await prisma.auditLog.create({
