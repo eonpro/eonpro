@@ -8,6 +8,7 @@ import {
   DollarSign, Settings, LogOut, Search, Clock, ChevronRight, ClipboardList,
   UserPlus, CreditCard, RefreshCw, FileText
 } from 'lucide-react';
+import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
 
 interface PatientIntake {
   id: number;
@@ -83,18 +84,8 @@ export default function HomePage() {
 
   const loadDashboardData = async () => {
     try {
-      const token = localStorage.getItem('auth-token') ||
-                    localStorage.getItem('super_admin-token') ||
-                    localStorage.getItem('admin-token') ||
-                    localStorage.getItem('token');
-
-      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
-
       // Fetch recent patient intakes
-      const intakesResponse = await fetch('/api/patients?limit=20&recent=24h', {
-        credentials: 'include',
-        headers,
-      });
+      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h');
 
       if (intakesResponse.ok) {
         const intakesData = await intakesResponse.json();
@@ -105,53 +96,57 @@ export default function HomePage() {
 
       // Fetch revenue stats
       try {
-        const revenueResponse = await fetch('/api/stripe/transactions?limit=100&type=charges&status=succeeded', {
-          credentials: 'include',
-          headers,
-        });
+        const revenueResponse = await apiFetch('/api/stripe/transactions?limit=100&type=charges&status=succeeded');
         if (revenueResponse.ok) {
           const revenueData = await revenueResponse.json();
           const transactions = revenueData.transactions || [];
           const newRevenue = transactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0) / 100;
           setStats(prev => ({ ...prev, newRevenue }));
         }
-      } catch (e) {
-        // Revenue fetch failed, use placeholder
+      } catch (e: any) {
+        // Skip if auth error (already handled by apiFetch)
+        if (!e.isAuthError) {
+          // Revenue fetch failed, use placeholder
+        }
       }
 
       // Fetch subscription/recurring revenue
       try {
-        const subsResponse = await fetch('/api/stripe/subscriptions?status=active', {
-          credentials: 'include',
-          headers,
-        });
+        const subsResponse = await apiFetch('/api/stripe/subscriptions?status=active');
         if (subsResponse.ok) {
           const subsData = await subsResponse.json();
           const subs = subsData.subscriptions || [];
           const recurringRevenue = subs.reduce((sum: number, s: any) => sum + (s.plan?.amount || 0), 0) / 100;
           setStats(prev => ({ ...prev, recurringRevenue }));
         }
-      } catch (e) {
-        // Subscriptions fetch failed, use placeholder
+      } catch (e: any) {
+        // Skip if auth error (already handled by apiFetch)
+        if (!e.isAuthError) {
+          // Subscriptions fetch failed, use placeholder
+        }
       }
 
       // Fetch prescriptions count
       try {
-        const ordersResponse = await fetch('/api/orders?limit=100&recent=24h', {
-          credentials: 'include',
-          headers,
-        });
+        const ordersResponse = await apiFetch('/api/orders?limit=100&recent=24h');
         if (ordersResponse.ok) {
           const ordersData = await ordersResponse.json();
           const orders = ordersData.orders || [];
           setStats(prev => ({ ...prev, newPrescriptions: orders.length }));
         }
-      } catch (e) {
-        // Orders fetch failed
+      } catch (e: any) {
+        // Skip if auth error (already handled by apiFetch)
+        if (!e.isAuthError) {
+          // Orders fetch failed
+        }
       }
 
       setIntakesLoading(false);
-    } catch (error) {
+    } catch (error: any) {
+      // If auth error, the SessionExpirationHandler will show the modal
+      if (error.isAuthError) {
+        return;
+      }
       console.error('Failed to load dashboard data:', error);
       setIntakesLoading(false);
     }

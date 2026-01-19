@@ -5,6 +5,7 @@ import ConditionalHeader from "@/components/ConditionalHeader";
 import BeccaAIGlobalChat from "@/components/BeccaAIGlobalChat";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ConditionalLayout from "@/components/ConditionalLayout";
+import SessionExpirationHandler from "@/components/SessionExpirationHandler";
 // DevAuth removed for production
 import { ClientProviders } from "@/components/providers/ClientProviders";
 // Using Outfit as fallback until Sofia Pro files are added
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className={sofiaPro.className}>
         <ErrorBoundary>
         <ClientProviders>
+          <SessionExpirationHandler />
           <ConditionalHeader />
           <ConditionalLayout>{children}</ConditionalLayout>
           {/* Becca AI Assistant - Only shown for authenticated users with proper roles */}
