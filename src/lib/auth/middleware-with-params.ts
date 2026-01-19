@@ -74,9 +74,12 @@ function extractToken(req: NextRequest): string | null {
     return authHeader.slice(7);
   }
 
-  // Check cookies for various token types
+  // Check cookies for various token types (check all possible token storage names)
   const cookieTokens = [
     'auth-token',
+    'token',
+    'super_admin-token',
+    'SUPER_ADMIN-token',
     'influencer-token',
     'provider-token',
     'admin-token'

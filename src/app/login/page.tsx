@@ -246,6 +246,8 @@ export default function LoginPage() {
       localStorage.setItem('admin-token', data.token);
     } else if (userRole === 'provider') {
       localStorage.setItem('provider-token', data.token);
+    } else if (userRole === 'staff') {
+      localStorage.setItem('staff-token', data.token);
     }
 
     // Check for redirect parameter first

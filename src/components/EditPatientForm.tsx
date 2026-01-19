@@ -90,11 +90,14 @@ export default function EditPatientForm({ patient, documents }: Props) {
         notes: form.notes?.trim() || undefined,
         tags: parseTags(tagsInput),
       };
-      // Get auth token
+      // Get auth token (check all possible storage keys)
       const token = localStorage.getItem('auth-token') ||
+                    localStorage.getItem('token') ||
                     localStorage.getItem('super_admin-token') ||
+                    localStorage.getItem('SUPER_ADMIN-token') ||
                     localStorage.getItem('admin-token') ||
-                    localStorage.getItem('provider-token');
+                    localStorage.getItem('provider-token') ||
+                    localStorage.getItem('staff-token');
       const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
       
       const res = await fetch(`/api/patients/${patient.id}`, {
@@ -125,11 +128,14 @@ export default function EditPatientForm({ patient, documents }: Props) {
       setUploading(true);
       const formData = new FormData();
       formData.append("file", file);
-      // Get auth token
+      // Get auth token (check all possible storage keys)
       const token = localStorage.getItem('auth-token') ||
+                    localStorage.getItem('token') ||
                     localStorage.getItem('super_admin-token') ||
+                    localStorage.getItem('SUPER_ADMIN-token') ||
                     localStorage.getItem('admin-token') ||
-                    localStorage.getItem('provider-token');
+                    localStorage.getItem('provider-token') ||
+                    localStorage.getItem('staff-token');
       const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
       
       const res = await fetch(`/api/patients/${patient.id}/documents`, {
