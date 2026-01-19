@@ -41,7 +41,10 @@ export const GET = withAuthParams(async (
     if (intakeDoc.data) {
       try {
         let rawData: any = intakeDoc.data;
-        if (Buffer.isBuffer(rawData)) {
+        // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
+        if (rawData instanceof Uint8Array) {
+          rawData = Buffer.from(rawData).toString("utf8");
+        } else if (Buffer.isBuffer(rawData)) {
           rawData = rawData.toString("utf8");
         } else if (typeof rawData === "object" && rawData.type === "Buffer") {
           rawData = Buffer.from(rawData.data).toString("utf8");
@@ -133,7 +136,10 @@ export const PUT = withAuthParams(async (
       try {
         let existingData: any = {};
         let rawData: any = intakeDoc.data;
-        if (Buffer.isBuffer(rawData)) {
+        // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
+        if (rawData instanceof Uint8Array) {
+          rawData = Buffer.from(rawData).toString("utf8");
+        } else if (Buffer.isBuffer(rawData)) {
           rawData = rawData.toString("utf8");
         } else if (typeof rawData === "object" && rawData.type === "Buffer") {
           rawData = Buffer.from(rawData.data).toString("utf8");

@@ -101,16 +101,25 @@ export async function GET(req: NextRequest) {
           clinicSubdomain: p.clinic?.subdomain || null,
           tags: p.tags,
           createdAt: p.createdAt,
-          documents: p.documents.map((d: any) => ({
-            id: d.id,
-            filename: d.filename,
-            category: d.category,
-            externalUrl: d.externalUrl,
-            clinicId: d.clinicId,
-            hasData: !!(d.data && (Buffer.isBuffer(d.data) ? d.data.length > 0 : d.data)),
-            dataSize: d.data ? (Buffer.isBuffer(d.data) ? d.data.length : JSON.stringify(d.data).length) : 0,
-            createdAt: d.createdAt,
-          })),
+          documents: p.documents.map((d: any) => {
+            // Handle Uint8Array (Prisma 6.x) and Buffer
+            const getDataSize = (data: any): number => {
+              if (!data) return 0;
+              if (data instanceof Uint8Array || Buffer.isBuffer(data)) return data.length;
+              if (typeof data === 'object' && data.type === 'Buffer') return data.data?.length || 0;
+              return JSON.stringify(data).length;
+            };
+            return {
+              id: d.id,
+              filename: d.filename,
+              category: d.category,
+              externalUrl: d.externalUrl,
+              clinicId: d.clinicId,
+              hasData: !!(d.data && getDataSize(d.data) > 0),
+              dataSize: getDataSize(d.data),
+              createdAt: d.createdAt,
+            };
+          }),
           soapNotes: p.soapNotes,
           isolationStatus: p.clinic?.subdomain === 'eonmeds' || p.clinic?.name?.includes('EONMEDS') 
             ? '✅ Correctly isolated to EONMEDS' 

@@ -80,8 +80,22 @@ export async function GET(
         try {
           let rawData = doc.data;
           
-          // Handle Buffer types
-          if (Buffer.isBuffer(rawData)) {
+          // Handle Buffer types (Prisma 6.x returns Uint8Array)
+          if (rawData instanceof Uint8Array) {
+            const str = Buffer.from(rawData).toString('utf8');
+            dataType = 'Uint8Array';
+            
+            // Check if it starts with JSON
+            const trimmed = str.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+              intakeData = JSON.parse(trimmed);
+              dataType = 'Uint8Array→JSON';
+            } else if (trimmed.startsWith('%PDF')) {
+              dataType = 'Uint8Array→PDF';
+            } else {
+              dataType = `Uint8Array→Unknown (starts with: ${trimmed.slice(0, 20)}...)`;
+            }
+          } else if (Buffer.isBuffer(rawData)) {
             const str = rawData.toString('utf8');
             dataType = 'Buffer';
             

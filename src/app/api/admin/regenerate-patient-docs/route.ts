@@ -77,7 +77,10 @@ export async function POST(req: NextRequest) {
         const existingDoc = patient.documents[0];
         let dataStr = '';
         
-        if (Buffer.isBuffer(existingDoc.data)) {
+        // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
+        if (existingDoc.data instanceof Uint8Array) {
+          dataStr = Buffer.from(existingDoc.data).toString('utf8');
+        } else if (Buffer.isBuffer(existingDoc.data)) {
           dataStr = existingDoc.data.toString('utf8');
         } else if (typeof existingDoc.data === 'string') {
           dataStr = existingDoc.data;

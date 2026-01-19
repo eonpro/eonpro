@@ -98,8 +98,11 @@ export async function generateSOAPFromIntake(
       let dataStr = '';
       
       // Check if data is stored as comma-separated bytes or as a proper Buffer
+      // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
       const rawDataStr = typeof intakeDocument.data === 'string' 
         ? intakeDocument.data 
+        : intakeDocument.data instanceof Uint8Array
+        ? Buffer.from(intakeDocument.data).toString('utf8')
         : Buffer.isBuffer(intakeDocument.data) 
         ? intakeDocument.data.toString('utf8')
         : JSON.stringify(intakeDocument.data);

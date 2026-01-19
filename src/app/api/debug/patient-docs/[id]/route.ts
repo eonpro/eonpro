@@ -66,10 +66,14 @@ export async function GET(
       if (doc.data) {
         try {
           let rawData: any = doc.data;
-          dataSize = Buffer.isBuffer(rawData) ? rawData.length : 0;
-
-          // Convert to string
-          if (Buffer.isBuffer(rawData)) {
+          
+          // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
+          if (rawData instanceof Uint8Array) {
+            dataSize = rawData.length;
+            rawData = Buffer.from(rawData).toString("utf8");
+            dataType = "uint8array";
+          } else if (Buffer.isBuffer(rawData)) {
+            dataSize = rawData.length;
             rawData = rawData.toString("utf8");
             dataType = "buffer";
           } else if (typeof rawData === "object" && rawData.type === "Buffer") {

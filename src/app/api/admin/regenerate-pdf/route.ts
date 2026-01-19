@@ -88,9 +88,15 @@ export const POST = withAuthParams(async (
         
         if (doc.data) {
           try {
-            const buffer = Buffer.isBuffer(doc.data) 
-              ? doc.data 
-              : Buffer.from((doc.data as any).data || doc.data);
+            // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
+            let buffer: Buffer;
+            if (doc.data instanceof Uint8Array) {
+              buffer = Buffer.from(doc.data);
+            } else if (Buffer.isBuffer(doc.data)) {
+              buffer = doc.data;
+            } else {
+              buffer = Buffer.from((doc.data as any).data || doc.data);
+            }
             const str = buffer.toString('utf8').trim();
             // Only parse if it looks like JSON (not PDF binary)
             if (str.startsWith('{') || str.startsWith('[')) {
