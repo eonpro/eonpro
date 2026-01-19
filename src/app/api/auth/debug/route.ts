@@ -14,7 +14,7 @@ import { jwtVerify } from 'jose';
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || '');
 
 // Version marker to verify deployment
-const API_VERSION = '2026-01-19-v2';
+const API_VERSION = '2026-01-19-v3-state-fix';
 
 export async function GET(req: NextRequest) {
   const result: any = {

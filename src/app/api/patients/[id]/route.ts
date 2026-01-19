@@ -73,7 +73,14 @@ const updatePatientHandler = withAuthParams(async (request, user, { params }: Pa
   const body = await request.json();
   const parsed = patientSchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json(parsed.error, { status: 400 });
+    // Extract friendly error messages from Zod errors
+    const errors = parsed.error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`);
+    logger.warn('[PATIENTS/PATCH] Validation failed:', { errors, body: JSON.stringify(body).substring(0, 500) });
+    return Response.json({ 
+      error: "Validation failed", 
+      details: errors,
+      message: errors.join('; ')
+    }, { status: 400 });
   }
 
   try {
