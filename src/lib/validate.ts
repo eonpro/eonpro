@@ -1,5 +1,32 @@
-import { US_STATE_CODE_LIST } from "@/lib/usStates";
+import { US_STATE_CODE_LIST, US_STATE_OPTIONS } from "@/lib/usStates";
 import { z } from "zod";
+
+// Create a map of state names to codes for normalization
+const stateNameToCode: Record<string, string> = {};
+US_STATE_OPTIONS.forEach(s => {
+  stateNameToCode[s.label.toLowerCase()] = s.value;
+  stateNameToCode[s.value.toLowerCase()] = s.value;
+});
+
+// Custom state transformer that accepts both codes and full names
+const stateSchema = z.string().transform((val, ctx) => {
+  if (!val) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "State is required" });
+    return z.NEVER;
+  }
+  const normalized = val.trim();
+  // Check if it's already a valid code
+  if (US_STATE_CODE_LIST.includes(normalized.toUpperCase() as any)) {
+    return normalized.toUpperCase();
+  }
+  // Try to find by name
+  const code = stateNameToCode[normalized.toLowerCase()];
+  if (code) {
+    return code;
+  }
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Invalid state: ${val}` });
+  return z.NEVER;
+});
 
 export const patientSchema = z.object({
   firstName: z.string(),
@@ -11,7 +38,7 @@ export const patientSchema = z.object({
   address1: z.string(),
   address2: z.string().nullable().optional(),
   city: z.string(),
-  state: z.enum(US_STATE_CODE_LIST),
+  state: stateSchema,
   zip: z.string(),
   notes: z.string().optional().or(z.literal("")).transform((val: any) => val || undefined),
   tags: z.array(z.string()).optional(),
