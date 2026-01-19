@@ -1,24 +1,18 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
-import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList } from 'lucide-react';
+import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2 } from 'lucide-react';
 
 /**
  * Intake display sections - maps fields from WeightLossIntake
- * 
- * FIELD MATCHING PRIORITY:
- * 1. Exact match on field.id (e.g., "weight")
- * 2. Exact match on field.label (e.g., "Starting Weight")
- * 3. Match on any alias (e.g., "startingweight", "currentweight")
- * 
- * All comparisons are case-insensitive with special chars removed.
  */
 const INTAKE_SECTIONS = [
   {
     title: "Patient Profile",
     icon: User,
+    editable: false, // Patient profile is edited on the Profile tab
     fields: [
       { id: "patient-name", label: "Full Name" },
       { id: "patient-dob", label: "Date of Birth" },
@@ -31,84 +25,92 @@ const INTAKE_SECTIONS = [
   {
     title: "Physical Measurements",
     icon: Activity,
+    editable: true,
     fields: [
-      { id: "weight", label: "Starting Weight", aliases: ["startingweight", "currentweight"] },
-      { id: "idealWeight", label: "Ideal Weight", aliases: ["idealweight", "goalweight", "targetweight"] },
-      { id: "height", label: "Height", aliases: [] },
-      { id: "bmi", label: "BMI", aliases: ["bodymassindex"] },
-      { id: "bloodPressure", label: "Blood Pressure", aliases: ["bloodpressure", "bp"] },
+      { id: "weight", label: "Starting Weight", aliases: ["startingweight", "currentweight"], inputType: "text", placeholder: "e.g., 180 lbs" },
+      { id: "idealWeight", label: "Ideal Weight", aliases: ["idealweight", "goalweight", "targetweight"], inputType: "text", placeholder: "e.g., 150 lbs" },
+      { id: "height", label: "Height", aliases: [], inputType: "text", placeholder: "e.g., 5'8\"" },
+      { id: "bmi", label: "BMI", aliases: ["bodymassindex"], inputType: "text", placeholder: "e.g., 27.4" },
+      { id: "bloodPressure", label: "Blood Pressure", aliases: ["bloodpressure", "bp"], inputType: "text", placeholder: "e.g., 120/80" },
     ],
   },
   {
     title: "Medical History",
     icon: Heart,
+    editable: true,
     fields: [
-      { id: "medicalConditions", label: "Medical Conditions", aliases: ["medicalconditions", "conditions"] },
-      { id: "currentMedications", label: "Current Medications", aliases: ["currentmedications", "medications"] },
-      { id: "allergies", label: "Allergies", aliases: ["allergy"] },
-      { id: "familyHistory", label: "Family Medical History", aliases: ["familyhistory", "familymedicalhistory"] },
-      { id: "surgicalHistory", label: "Surgical History", aliases: ["surgicalhistory", "surgeries"] },
+      { id: "medicalConditions", label: "Medical Conditions", aliases: ["medicalconditions", "conditions"], inputType: "textarea", placeholder: "List any medical conditions..." },
+      { id: "currentMedications", label: "Current Medications", aliases: ["currentmedications", "medications"], inputType: "textarea", placeholder: "List current medications..." },
+      { id: "allergies", label: "Allergies", aliases: ["allergy"], inputType: "textarea", placeholder: "List any allergies..." },
+      { id: "familyHistory", label: "Family Medical History", aliases: ["familyhistory", "familymedicalhistory"], inputType: "textarea", placeholder: "Family medical history..." },
+      { id: "surgicalHistory", label: "Surgical History", aliases: ["surgicalhistory", "surgeries"], inputType: "textarea", placeholder: "List any surgeries..." },
     ],
   },
   {
     title: "Medical Flags",
     icon: Heart,
+    editable: true,
     fields: [
-      { id: "pregnancyStatus", label: "Pregnancy Status", aliases: ["pregnancystatus", "pregnant"] },
-      { id: "hasDiabetes", label: "Has Diabetes", aliases: ["hasdiabetes", "diabetes", "type2diabetes"] },
-      { id: "hasGastroparesis", label: "Has Gastroparesis", aliases: ["hasgastroparesis", "gastroparesis"] },
-      { id: "hasPancreatitis", label: "Has Pancreatitis", aliases: ["haspancreatitis", "pancreatitis"] },
-      { id: "hasThyroidCancer", label: "Has Thyroid Cancer", aliases: ["hasthyroidcancer", "thyroidcancer", "medularythyroid"] },
+      { id: "pregnancyStatus", label: "Pregnancy Status", aliases: ["pregnancystatus", "pregnant"], inputType: "select", options: ["Not Pregnant", "Pregnant", "Trying to Conceive", "N/A"] },
+      { id: "hasDiabetes", label: "Has Diabetes", aliases: ["hasdiabetes", "diabetes", "type2diabetes"], inputType: "select", options: ["No", "Yes - Type 1", "Yes - Type 2", "Pre-diabetic"] },
+      { id: "hasGastroparesis", label: "Has Gastroparesis", aliases: ["hasgastroparesis", "gastroparesis"], inputType: "select", options: ["No", "Yes"] },
+      { id: "hasPancreatitis", label: "Has Pancreatitis", aliases: ["haspancreatitis", "pancreatitis"], inputType: "select", options: ["No", "Yes", "History of"] },
+      { id: "hasThyroidCancer", label: "Has Thyroid Cancer", aliases: ["hasthyroidcancer", "thyroidcancer", "medularythyroid"], inputType: "select", options: ["No", "Yes", "Family History"] },
     ],
   },
   {
     title: "Mental Health",
     icon: Brain,
+    editable: true,
     fields: [
-      { id: "mentalHealthHistory", label: "Mental Health History", aliases: ["mentalhealthhistory", "mentalhealth"] },
+      { id: "mentalHealthHistory", label: "Mental Health History", aliases: ["mentalhealthhistory", "mentalhealth"], inputType: "textarea", placeholder: "Mental health history..." },
     ],
   },
   {
     title: "Lifestyle",
     icon: Activity,
+    editable: true,
     fields: [
-      { id: "activityLevel", label: "Daily Physical Activity", aliases: ["activitylevel", "physicalactivity", "dailyphysicalactivity"] },
-      { id: "alcoholUse", label: "Alcohol Intake", aliases: ["alcoholuse", "alcoholintake", "alcohol"] },
-      { id: "recreationalDrugs", label: "Recreational Drug Use", aliases: ["recreationaldrugs", "recreationaldruguse", "druguse"] },
-      { id: "weightLossHistory", label: "Weight Loss History", aliases: ["weightlosshistory"] },
+      { id: "activityLevel", label: "Daily Physical Activity", aliases: ["activitylevel", "physicalactivity", "dailyphysicalactivity"], inputType: "select", options: ["Sedentary", "Lightly Active", "Moderately Active", "Very Active", "Extremely Active"] },
+      { id: "alcoholUse", label: "Alcohol Intake", aliases: ["alcoholuse", "alcoholintake", "alcohol"], inputType: "select", options: ["None", "Occasional", "Moderate", "Heavy"] },
+      { id: "recreationalDrugs", label: "Recreational Drug Use", aliases: ["recreationaldrugs", "recreationaldruguse", "druguse"], inputType: "select", options: ["None", "Occasional", "Regular"] },
+      { id: "weightLossHistory", label: "Weight Loss History", aliases: ["weightlosshistory"], inputType: "textarea", placeholder: "Previous weight loss attempts..." },
     ],
   },
   {
     title: "GLP-1 Medications",
     icon: Pill,
+    editable: true,
     fields: [
-      { id: "glp1History", label: "GLP-1 Medication History", aliases: ["glp1history", "glp1medicationhistory"] },
-      { id: "glp1Type", label: "Current GLP-1 Medication", aliases: ["glp1type", "currentglp1medication", "currentglp1"] },
-      { id: "medicationPreference", label: "Medication Preference", aliases: ["medicationpreference"] },
-      { id: "semaglutideDosage", label: "Semaglutide Dose", aliases: ["semaglutidedosage", "semaglutidedose"] },
-      { id: "tirzepatideDosage", label: "Tirzepatide Dose", aliases: ["tirzepatidedosage", "tirzepatidedose"] },
-      { id: "previousSideEffects", label: "Previous Side Effects", aliases: ["previoussideeffects", "sideeffects"] },
+      { id: "glp1History", label: "GLP-1 Medication History", aliases: ["glp1history", "glp1medicationhistory"], inputType: "select", options: ["Never Used", "Currently Using", "Previously Used"] },
+      { id: "glp1Type", label: "Current GLP-1 Medication", aliases: ["glp1type", "currentglp1medication", "currentglp1"], inputType: "select", options: ["None", "Semaglutide (Ozempic/Wegovy)", "Tirzepatide (Mounjaro/Zepbound)", "Liraglutide (Saxenda)", "Other"] },
+      { id: "medicationPreference", label: "Medication Preference", aliases: ["medicationpreference"], inputType: "select", options: ["No Preference", "Semaglutide", "Tirzepatide", "Other"] },
+      { id: "semaglutideDosage", label: "Semaglutide Dose", aliases: ["semaglutidedosage", "semaglutidedose"], inputType: "text", placeholder: "e.g., 0.5mg weekly" },
+      { id: "tirzepatideDosage", label: "Tirzepatide Dose", aliases: ["tirzepatidedosage", "tirzepatidedose"], inputType: "text", placeholder: "e.g., 2.5mg weekly" },
+      { id: "previousSideEffects", label: "Previous Side Effects", aliases: ["previoussideeffects", "sideeffects"], inputType: "textarea", placeholder: "Any side effects experienced..." },
     ],
   },
   {
     title: "Visit Information",
     icon: ClipboardList,
+    editable: true,
     fields: [
-      { id: "reasonForVisit", label: "Reason for Visit", aliases: ["reasonforvisit"] },
-      { id: "chiefComplaint", label: "Chief Complaint", aliases: ["chiefcomplaint"] },
-      { id: "healthGoals", label: "Health Goals", aliases: ["healthgoals", "goals"] },
+      { id: "reasonForVisit", label: "Reason for Visit", aliases: ["reasonforvisit"], inputType: "textarea", placeholder: "Reason for visit..." },
+      { id: "chiefComplaint", label: "Chief Complaint", aliases: ["chiefcomplaint"], inputType: "textarea", placeholder: "Chief complaint..." },
+      { id: "healthGoals", label: "Health Goals", aliases: ["healthgoals", "goals"], inputType: "textarea", placeholder: "Health goals..." },
     ],
   },
   {
     title: "Referral & Metadata",
     icon: ClipboardList,
+    editable: true,
     fields: [
-      { id: "referralSource", label: "Referral Source", aliases: ["referralsource", "howdidyouhearaboutus"] },
-      { id: "referredBy", label: "Referred By", aliases: ["referredby"] },
-      { id: "qualified", label: "Qualified Status", aliases: ["qualifiedstatus"] },
-      { id: "language", label: "Preferred Language", aliases: ["preferredlanguage"] },
-      { id: "intakeSource", label: "Intake Source", aliases: ["intakesource"] },
-      { id: "intakeNotes", label: "Intake Notes", aliases: ["intakenotes", "notes"] },
+      { id: "referralSource", label: "Referral Source", aliases: ["referralsource", "howdidyouhearaboutus"], inputType: "text", placeholder: "How did they hear about us?" },
+      { id: "referredBy", label: "Referred By", aliases: ["referredby"], inputType: "text", placeholder: "Referred by..." },
+      { id: "qualified", label: "Qualified Status", aliases: ["qualifiedstatus"], inputType: "select", options: ["Pending", "Qualified", "Not Qualified"] },
+      { id: "language", label: "Preferred Language", aliases: ["preferredlanguage"], inputType: "select", options: ["English", "Spanish", "French", "Other"] },
+      { id: "intakeSource", label: "Intake Source", aliases: ["intakesource"], inputType: "text", placeholder: "Source of intake..." },
+      { id: "intakeNotes", label: "Intake Notes", aliases: ["intakenotes", "notes"], inputType: "textarea", placeholder: "Additional notes..." },
     ],
   },
 ];
@@ -150,8 +152,8 @@ type Props = {
     sourceSubmissionId: string | null;
     category: string;
     externalUrl: string | null;
-    data?: any;  // PDF bytes or JSON (legacy documents)
-    intakeData?: any;  // Structured intake form answers (after DB migration)
+    data?: any;
+    intakeData?: any;
   }>;
   intakeFormSubmissions?: Array<{
     id: number;
@@ -186,7 +188,7 @@ const normalizeKey = (value?: string) => {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 };
 
-// Helper to format answer values
+// Helper to format answer values for display
 const formatAnswerValue = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "—";
 
@@ -217,13 +219,21 @@ const formatAnswerValue = (value: unknown): string => {
   return cleanValue.replace(/\s+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
 };
 
+// Helper to get raw value for editing
+const getRawValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === "" || value === "—") return "";
+  return String(value).trim();
+};
+
 export default function PatientIntakeView({ patient, documents, intakeFormSubmissions = [] }: Props) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(INTAKE_SECTIONS.map(s => s.title)));
   const [showSendModal, setShowSendModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Find and parse the latest intake document
-  // Priority 1: Look for documents with intakeData field (new format)
-  // Priority 2: Fall back to parsing data field (legacy format)
   const intakeDoc = documents.find(
     (doc: any) => doc.category === "MEDICAL_INTAKE_FORM" && (doc.intakeData || doc.data)
   );
@@ -231,53 +241,42 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   let intakeData: IntakeData = {};
 
   if (intakeDoc) {
-    // New format: intakeData is already JSON
     if (intakeDoc.intakeData) {
       try {
         intakeData = typeof intakeDoc.intakeData === 'string' 
           ? JSON.parse(intakeDoc.intakeData) 
           : intakeDoc.intakeData;
-        logger.debug('Loaded intake data from intakeData field');
       } catch (error: any) {
         logger.error('Error parsing intakeData field:', error);
       }
-    }
-    // Legacy format: data field contains JSON (before PDF storage fix)
-    else if (intakeDoc.data) {
+    } else if (intakeDoc.data) {
       try {
         let rawData = intakeDoc.data;
         
-        // Handle Buffer types
         if (Buffer.isBuffer(rawData)) {
           rawData = rawData.toString('utf8');
         } else if (typeof rawData === 'object' && rawData.type === 'Buffer' && Array.isArray(rawData.data)) {
           rawData = Buffer.from(rawData.data).toString('utf8');
         }
         
-        // Try to parse as JSON (only works for legacy documents)
         if (typeof rawData === 'string') {
-          // Check if it's JSON (starts with { or [)
           const trimmed = rawData.trim();
           if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
             intakeData = JSON.parse(trimmed);
-            logger.debug('Loaded intake data from legacy data field (JSON)');
           }
         } else if (typeof rawData === 'object' && !Buffer.isBuffer(rawData)) {
           intakeData = rawData as IntakeData;
-          logger.debug('Loaded intake data from legacy data field (object)');
         }
       } catch (error: any) {
-        // This is expected for new documents where data contains PDF bytes
-        logger.debug('Data field does not contain JSON (likely PDF bytes)');
+        logger.debug('Data field does not contain JSON');
       }
     }
   }
 
   // Build a map of all answers from various sources
-  const buildAnswerMap = () => {
+  const buildAnswerMap = useCallback(() => {
     const answerMap = new Map<string, string>();
 
-    // Source 1: Sections from document data
     if (intakeData.sections && Array.isArray(intakeData.sections)) {
       for (const section of intakeData.sections) {
         if (section.entries && Array.isArray(section.entries)) {
@@ -289,7 +288,6 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       }
     }
 
-    // Source 2: Answers array from document data
     if (intakeData.answers && Array.isArray(intakeData.answers)) {
       for (const answer of intakeData.answers) {
         if (answer.id) answerMap.set(normalizeKey(answer.id), formatAnswerValue(answer.value));
@@ -297,7 +295,6 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       }
     }
 
-    // Source 3: IntakeFormSubmissions responses
     for (const submission of intakeFormSubmissions) {
       if (submission.responses && Array.isArray(submission.responses)) {
         for (const response of submission.responses) {
@@ -310,21 +307,18 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     }
 
     return answerMap;
-  };
+  }, [intakeData, intakeFormSubmissions]);
 
   const answerMap = buildAnswerMap();
 
   // Find answer for a field
   const findAnswer = (field: { id: string; label: string; aliases?: string[] }): string => {
-    // Check by ID first
     const byId = answerMap.get(normalizeKey(field.id));
     if (byId && byId !== "—") return byId;
 
-    // Check by label
     const byLabel = answerMap.get(normalizeKey(field.label));
     if (byLabel && byLabel !== "—") return byLabel;
 
-    // Check aliases
     if (field.aliases) {
       for (const alias of field.aliases) {
         const byAlias = answerMap.get(normalizeKey(alias));
@@ -386,11 +380,73 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     setExpandedSections(newExpanded);
   };
 
+  // Get edited value or original
+  const getFieldValue = (field: { id: string; label: string; aliases?: string[] }): string => {
+    if (isEditing && field.id in editedValues) {
+      return editedValues[field.id];
+    }
+    const answer = findAnswer(field);
+    return getRawValue(answer);
+  };
+
+  // Handle field change
+  const handleFieldChange = (fieldId: string, value: string) => {
+    setEditedValues(prev => ({ ...prev, [fieldId]: value }));
+  };
+
+  // Start editing
+  const startEditing = () => {
+    // Pre-populate edited values with current values
+    const currentValues: Record<string, string> = {};
+    for (const section of INTAKE_SECTIONS) {
+      if (section.editable) {
+        for (const field of section.fields) {
+          const value = findAnswer(field);
+          currentValues[field.id] = getRawValue(value);
+        }
+      }
+    }
+    setEditedValues(currentValues);
+    setIsEditing(true);
+    setSaveError(null);
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditedValues({});
+    setSaveError(null);
+  };
+
+  // Save changes
+  const saveChanges = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const response = await fetch(`/api/patients/${patient.id}/intake`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: editedValues }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save');
+      }
+
+      // Refresh page to show updated data
+      window.location.reload();
+    } catch (error: any) {
+      setSaveError(error.message || 'Failed to save intake data');
+      setIsSaving(false);
+    }
+  };
+
   // Collect any additional answers not in our predefined sections
   const getAdditionalAnswers = () => {
     const usedKeys = new Set<string>();
 
-    // Mark all predefined field keys as used
     for (const section of INTAKE_SECTIONS) {
       for (const field of section.fields) {
         usedKeys.add(normalizeKey(field.id));
@@ -403,10 +459,8 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       }
     }
 
-    // Find unused answers
     const additional: Array<{ label: string; value: string }> = [];
 
-    // From sections
     if (intakeData.sections) {
       for (const section of intakeData.sections) {
         if (section.entries) {
@@ -424,7 +478,6 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       }
     }
 
-    // From answers array
     if (intakeData.answers) {
       for (const answer of intakeData.answers) {
         const key = normalizeKey(answer.id || answer.label);
@@ -442,17 +495,49 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   };
 
   const additionalAnswers = getAdditionalAnswers();
+  const hasIntakeData = intakeDoc || intakeFormSubmissions.length > 0;
 
-  // Check if we have actual parseable intake data, not just a document
-  const hasParsedIntakeData = (
-    (intakeData.sections && intakeData.sections.length > 0) ||
-    (intakeData.answers && intakeData.answers.length > 0) ||
-    intakeFormSubmissions.length > 0
-  );
+  // Render field input based on type
+  const renderFieldInput = (field: any, value: string) => {
+    const inputType = field.inputType || 'text';
 
-  // Show intake sections if we have a document OR have form submissions
-  // (The Patient Profile section will always show patient data from the patient record)
-  const hasIntakeData = intakeDoc || intakeFormSubmissions.length > 0 || hasParsedIntakeData;
+    if (inputType === 'select' && field.options) {
+      return (
+        <select
+          value={value}
+          onChange={(e) => handleFieldChange(field.id, e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+        >
+          <option value="">Select...</option>
+          {field.options.map((opt: string) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      );
+    }
+
+    if (inputType === 'textarea') {
+      return (
+        <textarea
+          value={value}
+          onChange={(e) => handleFieldChange(field.id, e.target.value)}
+          placeholder={field.placeholder}
+          rows={2}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent resize-none"
+        />
+      );
+    }
+
+    return (
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => handleFieldChange(field.id, e.target.value)}
+        placeholder={field.placeholder}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+      />
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -460,29 +545,70 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Medical Intake</h1>
         <div className="flex gap-2">
-          {intakeDoc?.externalUrl && (
-            <a
-              href={intakeDoc.externalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <Download className="w-4 h-4" />
-              Download PDF
-            </a>
+          {isEditing ? (
+            <>
+              <button
+                onClick={cancelEditing}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+              <button
+                onClick={saveChanges}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660] disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </>
+          ) : (
+            <>
+              {intakeDoc?.externalUrl && (
+                <a
+                  href={intakeDoc.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </a>
+              )}
+              <button
+                onClick={startEditing}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit Intake
+              </button>
+              <button
+                onClick={() => setShowSendModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660]"
+              >
+                <FileText className="w-4 h-4" />
+                Send New Intake
+              </button>
+            </>
           )}
-          <button
-            onClick={() => setShowSendModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660]"
-          >
-            <FileText className="w-4 h-4" />
-            Send New Intake
-          </button>
         </div>
       </div>
 
+      {/* Save Error */}
+      {saveError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+          <strong>Error:</strong> {saveError}
+        </div>
+      )}
+
       {/* Submission Info */}
-      {intakeData.submissionId && (
+      {intakeData.submissionId && !isEditing && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex flex-wrap gap-4 text-sm">
             <span><strong>Submission ID:</strong> {intakeData.submissionId}</span>
@@ -494,17 +620,33 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         </div>
       )}
 
-      {!hasIntakeData ? (
+      {/* Edit Mode Notice */}
+      {isEditing && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+          <strong>Edit Mode:</strong> Make changes to intake fields below. Patient Profile is edited on the Profile tab.
+        </div>
+      )}
+
+      {!hasIntakeData && !isEditing ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
           <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Intake Form Submitted</h3>
           <p className="text-gray-500 mb-4">This patient has not completed an intake form yet.</p>
-          <button
-            onClick={() => setShowSendModal(true)}
-            className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660]"
-          >
-            Send Intake Form
-          </button>
+          <div className="flex justify-center gap-2">
+            <button
+              onClick={startEditing}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+            >
+              <Pencil className="w-4 h-4 inline mr-2" />
+              Enter Manually
+            </button>
+            <button
+              onClick={() => setShowSendModal(true)}
+              className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660]"
+            >
+              Send Intake Form
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -513,6 +655,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
             const Icon = section.icon;
             const isExpanded = expandedSections.has(section.title);
             const isPatientProfile = section.title === "Patient Profile";
+            const isSectionEditable = section.editable && isEditing;
 
             return (
               <div key={section.title} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -521,10 +664,15 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#4fa77e]/10 flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-[#4fa77e]" />
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      isSectionEditable ? 'bg-amber-100' : 'bg-[#4fa77e]/10'
+                    }`}>
+                      <Icon className={`w-5 h-5 ${isSectionEditable ? 'text-amber-600' : 'text-[#4fa77e]'}`} />
                     </div>
                     <h2 className="text-lg font-semibold text-gray-900">{section.title}</h2>
+                    {isSectionEditable && (
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Editing</span>
+                    )}
                   </div>
                   {isExpanded ? (
                     <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -536,17 +684,24 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
                 {isExpanded && (
                   <div className="border-t border-gray-100">
                     <div className="divide-y divide-gray-100">
-                      {section.fields.map((field) => {
-                        const value = isPatientProfile
+                      {section.fields.map((field: any) => {
+                        const displayValue = isPatientProfile
                           ? getPatientValue(field.id)
                           : findAnswer(field);
-                        const hasValue = value !== "—";
+                        const editValue = getFieldValue(field);
+                        const hasValue = displayValue !== "—";
 
                         return (
-                          <div key={field.id} className="flex px-6 py-3">
-                            <div className="w-1/3 text-sm text-gray-500">{field.label}</div>
-                            <div className={`w-2/3 text-sm ${hasValue ? 'text-gray-900' : 'text-gray-400'}`}>
-                              {value}
+                          <div key={field.id} className="flex px-6 py-3 items-start">
+                            <div className="w-1/3 text-sm text-gray-500 pt-2">{field.label}</div>
+                            <div className="w-2/3">
+                              {isSectionEditable ? (
+                                renderFieldInput(field, editValue)
+                              ) : (
+                                <div className={`text-sm pt-2 ${hasValue ? 'text-gray-900' : 'text-gray-400'}`}>
+                                  {displayValue}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -559,7 +714,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
           })}
 
           {/* Additional Responses (not in predefined sections) */}
-          {additionalAnswers.length > 0 && (
+          {additionalAnswers.length > 0 && !isEditing && (
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <button
                 onClick={() => toggleSection("Additional Responses")}
