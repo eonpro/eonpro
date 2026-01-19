@@ -566,8 +566,13 @@ function capitalizeWords(value: string) {
 
 function normalizeGenderInput(value?: string) {
   if (!value) return "";
-  const upper = value.trim().toUpperCase();
-  if (upper.startsWith("F")) return "F";
-  if (upper.startsWith("M")) return "M";
-  return upper || value;
+  const lower = value.trim().toLowerCase();
+  // Check for female/woman variations
+  if (lower === 'f' || lower === 'female' || lower === 'woman') return "Female";
+  // Check for male/man variations
+  if (lower === 'm' || lower === 'male' || lower === 'man') return "Male";
+  // Fallback: if starts with 'f' or 'w' (woman), treat as female
+  if (lower.startsWith("f") || lower.startsWith("w")) return "Female";
+  if (lower.startsWith("m")) return "Male";
+  return value;
 }

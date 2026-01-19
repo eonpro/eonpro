@@ -114,8 +114,13 @@ function sanitizePhone(value?: string) {
 
 function normalizeGender(value?: string) {
   if (!value) return "m";
-  const lower = value.toLowerCase();
-  if (lower.startsWith("f")) return "f";
+  const lower = value.toLowerCase().trim();
+  // Check for female/woman variations
+  if (lower === 'f' || lower === 'female' || lower === 'woman') return "f";
+  // Check for male/man variations
+  if (lower === 'm' || lower === 'male' || lower === 'man') return "m";
+  // Fallback: if starts with 'f' or 'w' (woman), treat as female
+  if (lower.startsWith("f") || lower.startsWith("w")) return "f";
   return "m";
 }
 
