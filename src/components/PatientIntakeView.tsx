@@ -187,14 +187,14 @@ const normalizeKey = (value?: string) => {
 // Helper to format answer values
 const formatAnswerValue = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "—";
-  
+
   let cleanValue = String(value)
     .replace(/\u00e2\u0080\u0099/g, "'")
     .replace(/\u00e2\u0080\u009c/g, '"')
     .replace(/\u00e2\u0080\u009d/g, '"')
     .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
     .trim();
-  
+
   // Try to parse JSON values
   try {
     const parsed = JSON.parse(cleanValue);
@@ -208,10 +208,10 @@ const formatAnswerValue = (value: unknown): string => {
   } catch {
     // Not JSON
   }
-  
+
   if (cleanValue === "true" || cleanValue === "True") return "Yes";
   if (cleanValue === "false" || cleanValue === "False") return "No";
-  
+
   return cleanValue.replace(/\s+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
 };
 
@@ -225,7 +225,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   );
 
   let intakeData: IntakeData = {};
-  
+
   if (intakeDoc?.data) {
     try {
       if (typeof intakeDoc.data === 'string') {
@@ -248,7 +248,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   // Build a map of all answers from various sources
   const buildAnswerMap = () => {
     const answerMap = new Map<string, string>();
-    
+
     // Source 1: Sections from document data
     if (intakeData.sections && Array.isArray(intakeData.sections)) {
       for (const section of intakeData.sections) {
@@ -260,7 +260,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         }
       }
     }
-    
+
     // Source 2: Answers array from document data
     if (intakeData.answers && Array.isArray(intakeData.answers)) {
       for (const answer of intakeData.answers) {
@@ -268,7 +268,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         if (answer.label) answerMap.set(normalizeKey(answer.label), formatAnswerValue(answer.value));
       }
     }
-    
+
     // Source 3: IntakeFormSubmissions responses
     for (const submission of intakeFormSubmissions) {
       if (submission.responses && Array.isArray(submission.responses)) {
@@ -280,7 +280,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         }
       }
     }
-    
+
     return answerMap;
   };
 
@@ -291,11 +291,11 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     // Check by ID first
     const byId = answerMap.get(normalizeKey(field.id));
     if (byId && byId !== "—") return byId;
-    
+
     // Check by label
     const byLabel = answerMap.get(normalizeKey(field.label));
     if (byLabel && byLabel !== "—") return byLabel;
-    
+
     // Check aliases
     if (field.aliases) {
       for (const alias of field.aliases) {
@@ -303,7 +303,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         if (byAlias && byAlias !== "—") return byAlias;
       }
     }
-    
+
     return "—";
   };
 
@@ -361,7 +361,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   // Collect any additional answers not in our predefined sections
   const getAdditionalAnswers = () => {
     const usedKeys = new Set<string>();
-    
+
     // Mark all predefined field keys as used
     for (const section of INTAKE_SECTIONS) {
       for (const field of section.fields) {
@@ -374,10 +374,10 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         }
       }
     }
-    
+
     // Find unused answers
     const additional: Array<{ label: string; value: string }> = [];
-    
+
     // From sections
     if (intakeData.sections) {
       for (const section of intakeData.sections) {
@@ -395,7 +395,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         }
       }
     }
-    
+
     // From answers array
     if (intakeData.answers) {
       for (const answer of intakeData.answers) {
@@ -409,12 +409,22 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         }
       }
     }
-    
+
     return additional;
   };
 
   const additionalAnswers = getAdditionalAnswers();
-  const hasIntakeData = intakeDoc || intakeFormSubmissions.length > 0;
+
+  // Check if we have actual parseable intake data, not just a document
+  const hasParsedIntakeData = (
+    (intakeData.sections && intakeData.sections.length > 0) ||
+    (intakeData.answers && intakeData.answers.length > 0) ||
+    intakeFormSubmissions.length > 0
+  );
+
+  // Show intake sections if we have a document OR have form submissions
+  // (The Patient Profile section will always show patient data from the patient record)
+  const hasIntakeData = intakeDoc || intakeFormSubmissions.length > 0 || hasParsedIntakeData;
 
   return (
     <div className="space-y-6">
@@ -470,12 +480,23 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         </div>
       ) : (
         <>
+        {/* Show notice if intake exists but answers couldn't be parsed */}
+        {intakeDoc && !hasParsedIntakeData && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+            <p className="font-medium">Detailed intake responses not available</p>
+            <p className="text-amber-700 mt-1">
+              This patient&apos;s intake was processed before the detailed data system was implemented.
+              Basic patient information is shown from their profile. To capture detailed responses,
+              send a new intake form.
+            </p>
+          </div>
+        )}
           {/* Predefined Sections */}
           {INTAKE_SECTIONS.map((section) => {
             const Icon = section.icon;
             const isExpanded = expandedSections.has(section.title);
             const isPatientProfile = section.title === "Patient Profile";
-            
+
             return (
               <div key={section.title} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 <button
@@ -494,16 +515,16 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
                     <ChevronDown className="w-5 h-5 text-gray-400" />
                   )}
                 </button>
-                
+
                 {isExpanded && (
                   <div className="border-t border-gray-100">
                     <div className="divide-y divide-gray-100">
                       {section.fields.map((field) => {
-                        const value = isPatientProfile 
+                        const value = isPatientProfile
                           ? getPatientValue(field.id)
                           : findAnswer(field);
                         const hasValue = value !== "—";
-                        
+
                         return (
                           <div key={field.id} className="flex px-6 py-3">
                             <div className="w-1/3 text-sm text-gray-500">{field.label}</div>
@@ -540,7 +561,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
                   <ChevronDown className="w-5 h-5 text-gray-400" />
                 )}
               </button>
-              
+
               {expandedSections.has("Additional Responses") && (
                 <div className="border-t border-gray-100">
                   <div className="divide-y divide-gray-100">

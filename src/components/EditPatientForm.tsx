@@ -90,32 +90,70 @@ export default function EditPatientForm({ patient, documents }: Props) {
         notes: form.notes?.trim() || undefined,
         tags: parseTags(tagsInput),
       };
+
       // Get auth token (check all possible storage keys)
-      const token = localStorage.getItem('auth-token') ||
-                    localStorage.getItem('token') ||
-                    localStorage.getItem('super_admin-token') ||
-                    localStorage.getItem('SUPER_ADMIN-token') ||
-                    localStorage.getItem('admin-token') ||
-                    localStorage.getItem('provider-token') ||
-                    localStorage.getItem('staff-token');
-      const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
-      
+      const tokenSources = [
+        'auth-token',
+        'token',
+        'super_admin-token',
+        'SUPER_ADMIN-token',
+        'admin-token',
+        'provider-token',
+        'staff-token',
+        'influencer-token',
+      ];
+
+      let token: string | null = null;
+      for (const key of tokenSources) {
+        const val = localStorage.getItem(key);
+        if (val) {
+          token = val;
+          break;
+        }
+      }
+
+      // Also try sessionStorage as fallback
+      if (!token) {
+        token = sessionStorage.getItem('auth-token') || sessionStorage.getItem('token');
+      }
+
+      if (!token) {
+        setMessage("Session expired. Please log in again.");
+        // Redirect to login after a brief delay
+        setTimeout(() => {
+          window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+        }, 1500);
+        return;
+      }
+
       const res = await fetch(`/api/patients/${patient.id}`, {
         method: "PATCH",
         credentials: 'include',
-        headers: { ...authHeaders, "Content-Type": "application/json" },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload),
       });
+
       if (!res.ok) {
         const data = await res.json();
+        // If 401, the token is likely expired
+        if (res.status === 401) {
+          setMessage("Session expired. Please log in again.");
+          setTimeout(() => {
+            window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+          }, 1500);
+          return;
+        }
         throw new Error(data.error ?? "Failed to update patient");
       }
-      setMessage("Patient updated.");
+      setMessage("Patient updated successfully!");
+      // Refresh the page to show updated data
+      setTimeout(() => window.location.reload(), 1000);
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    setMessage(errorMessage ?? "Failed to update patient");
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setMessage(errorMessage ?? "Failed to update patient");
     } finally {
       setSaving(false);
     }
@@ -137,7 +175,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
                     localStorage.getItem('provider-token') ||
                     localStorage.getItem('staff-token');
       const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
-      
+
       const res = await fetch(`/api/patients/${patient.id}/documents`, {
         method: "POST",
         credentials: 'include',
@@ -152,7 +190,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
       event.target.value = "";
     } catch (err: any) {
     // @ts-ignore
-   
+
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     setMessage(errorMessage ?? "Failed to upload document");
     } finally {
