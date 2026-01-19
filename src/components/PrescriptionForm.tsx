@@ -445,7 +445,12 @@ export default function PrescriptionForm({
               </div>
               <div>
                 <span className="text-gray-600">Gender:</span>{" "}
-                <span className="font-medium">{form.patient.gender === 'm' ? 'Male' : 'Female'}</span>
+                <span className="font-medium">{(() => {
+                  const g = form.patient.gender?.toLowerCase().trim();
+                  if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+                  if (g === 'm' || g === 'male' || g === 'man') return 'Male';
+                  return form.patient.gender || '—';
+                })()}</span>
               </div>
               <div>
                 <span className="text-gray-600">Phone:</span>{" "}

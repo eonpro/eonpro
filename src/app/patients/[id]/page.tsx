@@ -151,12 +151,15 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     return doc;
   });
 
-  const genderLabel =
-    patientWithDecryptedPHI.gender === "m"
-      ? "Male"
-      : patientWithDecryptedPHI.gender === "f"
-      ? "Female"
-      : "Not set";
+  // Format gender - handles "m", "f", "male", "female", "man", "woman"
+  const formatGenderValue = (gender: string | null | undefined): string => {
+    if (!gender) return "Not set";
+    const g = gender.toLowerCase().trim();
+    if (g === 'm' || g === 'male' || g === 'man') return 'Male';
+    if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+    return gender;
+  };
+  const genderLabel = formatGenderValue(patientWithDecryptedPHI.gender);
   const patientTags = Array.isArray(patientWithDecryptedPHI.tags)
     ? (patientWithDecryptedPHI.tags as string[]).map((tag: any) => tag.replace(/^#/, ""))
     : [];

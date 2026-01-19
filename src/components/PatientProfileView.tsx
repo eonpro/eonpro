@@ -72,7 +72,15 @@ export default function PatientProfileView({ patient, documents }: Props) {
     return dob;
   };
 
-  const genderLabel = patient.gender === "m" ? "Male" : patient.gender === "f" ? "Female" : "—";
+  // Format gender - handles "m", "f", "male", "female", "man", "woman"
+  const formatGenderValue = (g: string | null | undefined) => {
+    if (!g) return "—";
+    const gl = g.toLowerCase().trim();
+    if (gl === 'f' || gl === 'female' || gl === 'woman') return 'Female';
+    if (gl === 'm' || gl === 'male' || gl === 'man') return 'Male';
+    return g;
+  };
+  const genderLabel = formatGenderValue(patient.gender);
 
   if (isEditing) {
     return (

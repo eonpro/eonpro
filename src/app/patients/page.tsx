@@ -35,8 +35,13 @@ const GENDER_OPTIONS = [
   { value: "f", label: "Female" },
 ];
 
-const getGenderLabel = (value: string) =>
-  GENDER_OPTIONS.find((opt: any) => opt.value === value)?.label ?? "Not set";
+const getGenderLabel = (value: string) => {
+  if (!value) return "Not set";
+  const g = value.toLowerCase().trim();
+  if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+  if (g === 'm' || g === 'male' || g === 'man') return 'Male';
+  return GENDER_OPTIONS.find((opt: any) => opt.value === value)?.label ?? "Not set";
+};
 
 const initialForm = {
   firstName: "",

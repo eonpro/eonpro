@@ -60,9 +60,9 @@ export default function PatientProfileSidebar({ patient, onEditClick }: PatientP
 
   const formatGender = (gender: string) => {
     if (!gender) return '';
-    const g = gender.toLowerCase();
-    if (g === 'female' || g === 'f') return 'Female';
-    if (g === 'male' || g === 'm') return 'Male';
+    const g = gender.toLowerCase().trim();
+    if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+    if (g === 'm' || g === 'male' || g === 'man') return 'Male';
     return gender;
   };
 

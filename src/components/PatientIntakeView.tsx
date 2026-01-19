@@ -276,9 +276,9 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
   const formatGender = (gender?: string | null) => {
     if (!gender) return "—";
-    const normalized = gender.trim().toUpperCase();
-    if (normalized.startsWith("F")) return "Female";
-    if (normalized.startsWith("M")) return "Male";
+    const g = gender.toLowerCase().trim();
+    if (g === 'f' || g === 'female' || g === 'woman') return "Female";
+    if (g === 'm' || g === 'male' || g === 'man') return "Male";
     return gender;
   };
 

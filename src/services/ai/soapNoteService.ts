@@ -540,7 +540,15 @@ export function formatSOAPNote(soapNote: any): string {
     formatted += `Patient Name: ${patient.firstName} ${patient.lastName}\n`;
     formatted += `DOB: ${patient.dob ? new Date(patient.dob).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'Not provided'}\n`;
     if (age) formatted += `Age: ${age}\n`;
-    formatted += `Sex: ${patient.gender === 'f' ? 'Female' : patient.gender === 'm' ? 'Male' : 'Not specified'}\n`;
+    // Format gender - handles "m", "f", "male", "female", "man", "woman"
+    const formatSex = (g: string | null | undefined) => {
+      if (!g) return 'Not specified';
+      const gl = g.toLowerCase().trim();
+      if (gl === 'f' || gl === 'female' || gl === 'woman') return 'Female';
+      if (gl === 'm' || gl === 'male' || gl === 'man') return 'Male';
+      return 'Not specified';
+    };
+    formatted += `Sex: ${formatSex(patient.gender)}\n`;
     if (patient.city || patient.state) {
       formatted += `Location: ${[patient.city, patient.state].filter(Boolean).join(', ')}\n`;
     }
