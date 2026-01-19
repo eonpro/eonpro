@@ -469,7 +469,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Overview</h3>
                   <p className="text-sm text-gray-600">Total prescriptions: {patientWithDecryptedPHI.orders.length}</p>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-500 mt-1" suppressHydrationWarning>
                     Last updated: {new Date(patientWithDecryptedPHI.createdAt).toLocaleString()}
                   </p>
                 </div>
@@ -501,7 +501,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                         <div key={entry.id} className="border rounded-lg p-3 bg-[#efece7]">
                           <div className="flex justify-between text-xs text-gray-500 mb-2">
                             <span>{entry.actorEmail ?? "Unknown actor"}</span>
-                            <span>{new Date(entry.createdAt).toLocaleString()}</span>
+                            <span suppressHydrationWarning>{new Date(entry.createdAt).toLocaleString()}</span>
                           </div>
                           <pre className="text-xs whitespace-pre-wrap bg-white rounded p-2 border">
                             {JSON.stringify(entry.diff, null, 2)}

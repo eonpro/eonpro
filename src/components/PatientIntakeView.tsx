@@ -639,7 +639,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
             <span><strong>Submission ID:</strong> {intakeData.submissionId}</span>
             {intakeData.source && <span><strong>Source:</strong> {intakeData.source}</span>}
             {intakeData.receivedAt && (
-              <span><strong>Received:</strong> {new Date(intakeData.receivedAt).toLocaleString()}</span>
+              <span suppressHydrationWarning><strong>Received:</strong> {new Date(intakeData.receivedAt).toLocaleString()}</span>
             )}
           </div>
         </div>
