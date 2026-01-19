@@ -209,10 +209,12 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
   if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
     const answers: RawAnswer[] = [];
     
-    // Comprehensive field label mapping for WeightLossIntake and other sources
-    // Keys are the field names sent by the intake platform
+    // Comprehensive field label mapping for WeightLossIntake
+    // Keys are EXACT field names from the intake platform payload
     const commonFieldMappings: Record<string, string> = {
-      // Patient Identity (WeightLossIntake format)
+      // ═══════════════════════════════════════════════════════════════
+      // PATIENT IDENTIFIERS
+      // ═══════════════════════════════════════════════════════════════
       'firstName': 'First Name',
       'lastName': 'Last Name',
       'email': 'Email',
@@ -221,21 +223,27 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       'gender': 'Gender',
       'sex': 'Gender',
       
-      // Address (WeightLossIntake format)
+      // ═══════════════════════════════════════════════════════════════
+      // ADDRESS
+      // ═══════════════════════════════════════════════════════════════
       'streetAddress': 'Street Address',
       'apartment': 'Apartment/Suite',
       'city': 'City',
       'state': 'State',
       'zipCode': 'ZIP Code',
       
-      // Vitals (WeightLossIntake format)
+      // ═══════════════════════════════════════════════════════════════
+      // PHYSICAL MEASUREMENTS
+      // ═══════════════════════════════════════════════════════════════
       'weight': 'Starting Weight',
       'idealWeight': 'Ideal Weight',
       'height': 'Height',
       'bmi': 'BMI',
       'bloodPressure': 'Blood Pressure',
       
-      // Medical History
+      // ═══════════════════════════════════════════════════════════════
+      // MEDICAL HISTORY
+      // ═══════════════════════════════════════════════════════════════
       'currentMedications': 'Current Medications',
       'medications': 'Current Medications',
       'allergies': 'Allergies',
@@ -245,7 +253,9 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       'familyHistory': 'Family Medical History',
       'surgicalHistory': 'Surgical History',
       
-      // GLP-1 Specific
+      // ═══════════════════════════════════════════════════════════════
+      // GLP-1 SPECIFIC
+      // ═══════════════════════════════════════════════════════════════
       'glp1History': 'GLP-1 Medication History',
       'glp1Type': 'Current GLP-1 Medication',
       'medicationPreference': 'Medication Preference',
@@ -254,40 +264,48 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       'previousSideEffects': 'Previous Side Effects',
       'currentGLP1Dose': 'Current GLP-1 Dose',
       
-      // Lifestyle
+      // ═══════════════════════════════════════════════════════════════
+      // LIFESTYLE
+      // ═══════════════════════════════════════════════════════════════
       'activityLevel': 'Daily Physical Activity',
       'alcoholUse': 'Alcohol Intake',
       'recreationalDrugs': 'Recreational Drug Use',
       'weightLossHistory': 'Weight Loss History',
       
-      // Visit Info
+      // ═══════════════════════════════════════════════════════════════
+      // VISIT INFO
+      // ═══════════════════════════════════════════════════════════════
       'reasonForVisit': 'Reason for Visit',
       'chiefComplaint': 'Chief Complaint',
       'healthGoals': 'Health Goals',
       
-      // Metadata
+      // ═══════════════════════════════════════════════════════════════
+      // PREGNANCY STATUS
+      // ═══════════════════════════════════════════════════════════════
+      'pregnancyStatus': 'Pregnancy Status',
+      
+      // ═══════════════════════════════════════════════════════════════
+      // PERSONAL MEDICAL FLAGS
+      // ═══════════════════════════════════════════════════════════════
+      'hasDiabetes': 'Has Diabetes',
+      'hasGastroparesis': 'Has Gastroparesis',
+      'hasPancreatitis': 'Has Pancreatitis',
+      'hasThyroidCancer': 'Has Thyroid Cancer',
+      
+      // ═══════════════════════════════════════════════════════════════
+      // REFERRAL INFO
+      // ═══════════════════════════════════════════════════════════════
+      'referralSource': 'Referral Source',
+      'referredBy': 'Referred By',
+      
+      // ═══════════════════════════════════════════════════════════════
+      // METADATA
+      // ═══════════════════════════════════════════════════════════════
       'qualified': 'Qualified Status',
+      'submissionType': 'Submission Type',
+      'intakeNotes': 'Intake Notes',
       'language': 'Preferred Language',
       'intakeSource': 'Intake Source',
-      
-      // Legacy field names
-      'First Name': 'First Name',
-      'Last Name': 'Last Name',
-      'Email': 'Email',
-      'Phone': 'Phone Number',
-      'Date of Birth': 'Date of Birth',
-      'Gender': 'Gender',
-      'Street Address': 'Street Address',
-      'City': 'City',
-      'State': 'State',
-      'ZIP Code': 'ZIP Code',
-      'Current Medications': 'Current Medications',
-      'Allergies': 'Allergies',
-      'Medical Conditions': 'Medical Conditions',
-      'Weight': 'Starting Weight',
-      'Height': 'Height',
-      'BMI': 'BMI',
-      'Blood Pressure': 'Blood Pressure',
     };
     
     // Extract all fields from the data object

@@ -6,16 +6,14 @@ import SendIntakeFormModal from './SendIntakeFormModal';
 import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList } from 'lucide-react';
 
 /**
- * Intake display sections - maps fields from WeightLossIntake and Heyflow
+ * Intake display sections - maps fields from WeightLossIntake
  * 
- * Each field has:
- * - id: Primary field identifier
- * - label: Display label
- * - aliases: Alternative field names/IDs to match
+ * FIELD MATCHING PRIORITY:
+ * 1. Exact match on field.id (e.g., "weight")
+ * 2. Exact match on field.label (e.g., "Starting Weight")
+ * 3. Match on any alias (e.g., "startingweight", "currentweight")
  * 
- * The aliases support both:
- * - WeightLossIntake format (camelCase like 'firstName', 'dateOfBirth')
- * - Heyflow format (IDs like 'id-703227a8')
+ * All comparisons are case-insensitive with special chars removed.
  */
 const INTAKE_SECTIONS = [
   {
@@ -31,83 +29,86 @@ const INTAKE_SECTIONS = [
     ],
   },
   {
-    title: "Vitals & Goals",
+    title: "Physical Measurements",
     icon: Activity,
     fields: [
-      // Support both WeightLossIntake (weight) and Heyflow (id-703227a8) formats
-      { id: "weight", label: "Starting Weight", aliases: ["weight", "currentweight", "startingweight", "id703227a8", "current weight", "starting weight"] },
-      { id: "idealWeight", label: "Ideal Weight", aliases: ["idealweight", "goalweight", "targetweight", "idcf20e7c9", "ideal weight", "goal weight", "target weight"] },
-      { id: "height", label: "Height", aliases: ["height", "id3a7e6f11", "id4a4a1f48", "heightfeet", "heightinches"] },
-      { id: "bmi", label: "BMI", aliases: ["bmi", "bodymassindex", "body mass index"] },
-      { id: "bloodPressure", label: "Blood Pressure", aliases: ["bloodpressure", "mc819b3225", "blood pressure", "bp"] },
+      { id: "weight", label: "Starting Weight", aliases: ["startingweight", "currentweight"] },
+      { id: "idealWeight", label: "Ideal Weight", aliases: ["idealweight", "goalweight", "targetweight"] },
+      { id: "height", label: "Height", aliases: [] },
+      { id: "bmi", label: "BMI", aliases: ["bodymassindex"] },
+      { id: "bloodPressure", label: "Blood Pressure", aliases: ["bloodpressure", "bp"] },
     ],
   },
   {
     title: "Medical History",
     icon: Heart,
     fields: [
-      { id: "medicalConditions", label: "Medical Conditions", aliases: ["medicalconditions", "conditions", "chronicconditions", "idaa863a43", "current conditions", "medical conditions"] },
-      { id: "chronicConditions", label: "Chronic Conditions", aliases: ["chronicconditions", "chronicillness", "idc6194df4", "id2ce042cd", "chronic diseases", "chronic illness"] },
-      { id: "familyHistory", label: "Family History", aliases: ["familyhistory", "id49e5286f", "family history", "family medical history"] },
-      { id: "surgicalHistory", label: "Surgical History", aliases: ["surgicalhistory", "surgeries", "idddff6d53", "surgeries or procedures"] },
-      { id: "allergies", label: "Allergies", aliases: ["allergies", "allergy", "id3e6b8a5b", "id04e1c88e", "list of allergies"] },
-      { id: "diabetesHistory", label: "Diabetes History", aliases: ["type2diabetes", "diabetes", "id22f7904b"] },
-      { id: "thyroidHistory", label: "Thyroid Cancer History", aliases: ["medularythyroid", "id88c19c78", "thyroid cancer"] },
-      { id: "gastroparesis", label: "Gastroparesis History", aliases: ["gastroparesis", "ideee84ce3"] },
-      { id: "pregnancy", label: "Pregnant or Breastfeeding", aliases: ["pregnant", "breastfeeding", "id4dce53c7", "pregnancy"] },
+      { id: "medicalConditions", label: "Medical Conditions", aliases: ["medicalconditions", "conditions"] },
+      { id: "currentMedications", label: "Current Medications", aliases: ["currentmedications", "medications"] },
+      { id: "allergies", label: "Allergies", aliases: ["allergy"] },
+      { id: "familyHistory", label: "Family Medical History", aliases: ["familyhistory", "familymedicalhistory"] },
+      { id: "surgicalHistory", label: "Surgical History", aliases: ["surgicalhistory", "surgeries"] },
+    ],
+  },
+  {
+    title: "Medical Flags",
+    icon: Heart,
+    fields: [
+      { id: "pregnancyStatus", label: "Pregnancy Status", aliases: ["pregnancystatus", "pregnant"] },
+      { id: "hasDiabetes", label: "Has Diabetes", aliases: ["hasdiabetes", "diabetes", "type2diabetes"] },
+      { id: "hasGastroparesis", label: "Has Gastroparesis", aliases: ["hasgastroparesis", "gastroparesis"] },
+      { id: "hasPancreatitis", label: "Has Pancreatitis", aliases: ["haspancreatitis", "pancreatitis"] },
+      { id: "hasThyroidCancer", label: "Has Thyroid Cancer", aliases: ["hasthyroidcancer", "thyroidcancer", "medularythyroid"] },
     ],
   },
   {
     title: "Mental Health",
     icon: Brain,
     fields: [
-      { id: "mentalHealthHistory", label: "Mental Health History", aliases: ["mentalhealthhistory", "mentalhealth", "idd79f4058", "id2835be1b", "mental health diagnosis", "mental health details"] },
+      { id: "mentalHealthHistory", label: "Mental Health History", aliases: ["mentalhealthhistory", "mentalhealth"] },
     ],
   },
   {
-    title: "Lifestyle & Activity",
+    title: "Lifestyle",
     icon: Activity,
     fields: [
-      { id: "activityLevel", label: "Daily Physical Activity", aliases: ["activitylevel", "physicalactivity", "exercise", "id74efb442", "physical activity", "activity level"] },
-      { id: "alcoholUse", label: "Alcohol Intake", aliases: ["alcoholuse", "alcohol", "idd560c374", "alcohol intake", "drinking"] },
-      { id: "recreationalDrugs", label: "Recreational Drug Use", aliases: ["recreationaldrugs", "druguse"] },
-      { id: "weightLossHistory", label: "Weight Loss History", aliases: ["weightlosshistory", "idc4320836", "weight loss procedures"] },
+      { id: "activityLevel", label: "Daily Physical Activity", aliases: ["activitylevel", "physicalactivity", "dailyphysicalactivity"] },
+      { id: "alcoholUse", label: "Alcohol Intake", aliases: ["alcoholuse", "alcoholintake", "alcohol"] },
+      { id: "recreationalDrugs", label: "Recreational Drug Use", aliases: ["recreationaldrugs", "recreationaldruguse", "druguse"] },
+      { id: "weightLossHistory", label: "Weight Loss History", aliases: ["weightlosshistory"] },
     ],
   },
   {
-    title: "Medications & GLP-1 History",
+    title: "GLP-1 Medications",
     icon: Pill,
     fields: [
-      { id: "glp1History", label: "GLP-1 Medication History", aliases: ["glp1history", "glphistory", "idd2f1eaa4", "glp-1 history", "medication history"] },
-      { id: "glp1Type", label: "Current GLP-1 Medication", aliases: ["glp1type", "currentglp1", "idc5f1c21a", "current glp-1", "current medication"] },
-      { id: "medicationPreference", label: "Medication Preference", aliases: ["medicationpreference", "preference"] },
-      { id: "semaglutideDosage", label: "Semaglutide Dose", aliases: ["semaglutidedosage", "semaglutidedose", "id5001f3ff", "semaglutide dose"] },
-      { id: "semaglutideSideEffects", label: "Semaglutide Side Effects", aliases: ["semaglutideside", "id9d592571", "semaglutide side effects"] },
-      { id: "tirzepatideDosage", label: "Tirzepatide Dose", aliases: ["tirzepatidedosage", "tirzepatidedose", "id57f65753", "tirzepatide dose"] },
-      { id: "tirzepatideSideEffects", label: "Tirzepatide Side Effects", aliases: ["tirzepatideside", "id709d58cb", "tirzepatide side effects"] },
-      { id: "previousSideEffects", label: "Previous Side Effects", aliases: ["previoussideeffects", "id6a9fff95", "side effects starting"] },
-      { id: "currentMedications", label: "Current Medications/Supplements", aliases: ["currentmedications", "medications", "supplements", "idd95d25bd", "idbc8ed703"] },
+      { id: "glp1History", label: "GLP-1 Medication History", aliases: ["glp1history", "glp1medicationhistory"] },
+      { id: "glp1Type", label: "Current GLP-1 Medication", aliases: ["glp1type", "currentglp1medication", "currentglp1"] },
+      { id: "medicationPreference", label: "Medication Preference", aliases: ["medicationpreference"] },
+      { id: "semaglutideDosage", label: "Semaglutide Dose", aliases: ["semaglutidedosage", "semaglutidedose"] },
+      { id: "tirzepatideDosage", label: "Tirzepatide Dose", aliases: ["tirzepatidedosage", "tirzepatidedose"] },
+      { id: "previousSideEffects", label: "Previous Side Effects", aliases: ["previoussideeffects", "sideeffects"] },
     ],
   },
   {
     title: "Visit Information",
     icon: ClipboardList,
     fields: [
-      { id: "reasonForVisit", label: "Reason for Visit", aliases: ["reasonforvisit", "visitreason", "reason for visit"] },
-      { id: "chiefComplaint", label: "Chief Complaint", aliases: ["chiefcomplaint", "complaint", "chief complaint"] },
-      { id: "healthGoals", label: "Health Goals", aliases: ["healthgoals", "goals", "id3fa4d158", "life change", "motivation"] },
-      { id: "qualified", label: "Qualified Status", aliases: ["qualified", "qualifiedstatus"] },
+      { id: "reasonForVisit", label: "Reason for Visit", aliases: ["reasonforvisit"] },
+      { id: "chiefComplaint", label: "Chief Complaint", aliases: ["chiefcomplaint"] },
+      { id: "healthGoals", label: "Health Goals", aliases: ["healthgoals", "goals"] },
     ],
   },
   {
-    title: "Referral Source",
+    title: "Referral & Metadata",
     icon: ClipboardList,
     fields: [
-      { id: "referralSource", label: "How did you hear about us?", aliases: ["referralsource", "howdidyouhear", "id345ac6b2", "hear about us"] },
-      { id: "intakeSource", label: "Intake Source", aliases: ["intakesource", "source"] },
-      { id: "utm_source", label: "UTM Source", aliases: ["utmsource", "utm source"] },
-      { id: "utm_medium", label: "UTM Medium", aliases: ["utmmedium", "utm medium"] },
-      { id: "utm_campaign", label: "UTM Campaign", aliases: ["utmcampaign", "utm campaign"] },
+      { id: "referralSource", label: "Referral Source", aliases: ["referralsource", "howdidyouhearaboutus"] },
+      { id: "referredBy", label: "Referred By", aliases: ["referredby"] },
+      { id: "qualified", label: "Qualified Status", aliases: ["qualifiedstatus"] },
+      { id: "language", label: "Preferred Language", aliases: ["preferredlanguage"] },
+      { id: "intakeSource", label: "Intake Source", aliases: ["intakesource"] },
+      { id: "intakeNotes", label: "Intake Notes", aliases: ["intakenotes", "notes"] },
     ],
   },
 ];
