@@ -77,40 +77,7 @@ export const GET = withAuthParams(async (
       );
     }
 
-    // For documents stored in database (indicated by database:// URL or data field exists)
-    // Check data first since it's the primary storage for Vercel deployments
-    if (document.data) {
-      let buffer: Buffer;
-      
-      // Handle different data formats from Prisma
-      if (Buffer.isBuffer(document.data)) {
-        buffer = document.data;
-      } else if (typeof document.data === 'object' && 'type' in document.data && document.data.type === 'Buffer') {
-        // Handle Prisma's JSON representation of Buffer
-        buffer = Buffer.from((document.data as { type: string; data: number[] }).data);
-      } else if (ArrayBuffer.isView(document.data)) {
-        // Handle Uint8Array or similar
-        buffer = Buffer.from(document.data as Uint8Array);
-      } else {
-        // Last resort - try to convert whatever it is
-        buffer = Buffer.from(document.data as any);
-      }
-      
-      logger.debug(`Serving document ${documentId} from database, size: ${buffer.length} bytes`);
-      
-      return new NextResponse(new Uint8Array(buffer), {
-        headers: {
-          'Content-Type': document.mimeType || 'application/pdf',
-          'Content-Disposition': `inline; filename="${document.filename || 'document.pdf'}"`,
-          'Content-Length': buffer.length.toString(),
-          // Security headers
-          'X-Content-Type-Options': 'nosniff',
-          'Cache-Control': 'private, max-age=3600',
-        },
-      });
-    }
-
-    // Retrieve file from secure/external storage (non-database URLs)
+    // PRIORITY 1: Check for external URL first (S3, etc.) - this is the preferred source for PDFs
     if (document.externalUrl && !document.externalUrl.startsWith('database://')) {
       try {
         const file = await retrieveFile(document.externalUrl, patientId);
@@ -127,16 +94,55 @@ export const GET = withAuthParams(async (
           },
         });
       } catch (error: any) {
-        logger.error('Error retrieving secure file:', error);
-        return NextResponse.json(
-          { error: 'Document file not found' },
-          { status: 404 }
-        );
+        logger.error('Error retrieving secure file, trying database fallback:', error);
+        // Fall through to database storage check
+      }
+    }
+
+    // PRIORITY 2: For documents stored in database (PDF bytes)
+    // Only serve as PDF if the data looks like binary (starts with %PDF or has PDF magic bytes)
+    if (document.data) {
+      let buffer: Buffer;
+      
+      // Handle different data formats from Prisma
+      if (Buffer.isBuffer(document.data)) {
+        buffer = document.data;
+      } else if (typeof document.data === 'object' && 'type' in document.data && document.data.type === 'Buffer') {
+        buffer = Buffer.from((document.data as { type: string; data: number[] }).data);
+      } else if (ArrayBuffer.isView(document.data)) {
+        buffer = Buffer.from(document.data as Uint8Array);
+      } else {
+        buffer = Buffer.from(document.data as any);
+      }
+      
+      // Check if this looks like a PDF (starts with %PDF or has PDF magic bytes)
+      const isPdf = buffer.length > 4 && 
+        (buffer.toString('utf8', 0, 4) === '%PDF' || 
+         (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46));
+      
+      // Don't serve JSON data as PDF - that would fail
+      const looksLikeJson = buffer.length > 0 && 
+        (buffer[0] === 0x7B || buffer.toString('utf8', 0, 1) === '{');
+      
+      if (isPdf && !looksLikeJson) {
+        logger.debug(`Serving document ${documentId} from database, size: ${buffer.length} bytes`);
+        
+        return new NextResponse(new Uint8Array(buffer), {
+          headers: {
+            'Content-Type': document.mimeType || 'application/pdf',
+            'Content-Disposition': `inline; filename="${document.filename || 'document.pdf'}"`,
+            'Content-Length': buffer.length.toString(),
+            'X-Content-Type-Options': 'nosniff',
+            'Cache-Control': 'private, max-age=3600',
+          },
+        });
+      } else if (looksLikeJson) {
+        logger.warn(`Document ${documentId} contains JSON data, not PDF - cannot serve as file`);
       }
     }
 
     return NextResponse.json(
-      { error: 'Document has no associated file' },
+      { error: 'Document file not available. PDF may need to be regenerated.' },
       { status: 404 }
     );
   } catch (error: any) {
