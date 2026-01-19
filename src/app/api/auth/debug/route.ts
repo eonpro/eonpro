@@ -9,12 +9,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import { isDLQConfigured } from '@/lib/queue/deadLetterQueue';
 
 // Get JWT secret
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || '');
 
 // Version marker to verify deployment
-const API_VERSION = '2026-01-19-v12-weightlossintake-schema';
+const API_VERSION = '2026-01-19-v13-dead-letter-queue';
 
 export async function GET(req: NextRequest) {
   const result: any = {
@@ -91,6 +92,9 @@ export async function GET(req: NextRequest) {
   // Check if JWT_SECRET is configured
   result.jwtSecretConfigured = !!process.env.JWT_SECRET;
   result.jwtSecretLength = process.env.JWT_SECRET?.length || 0;
+  
+  // DLQ status
+  result.dlqConfigured = isDLQConfigured();
 
   return NextResponse.json(result, {
     headers: {

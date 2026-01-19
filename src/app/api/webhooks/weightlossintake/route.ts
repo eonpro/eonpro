@@ -8,6 +8,7 @@ import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
 import { trackReferral } from "@/services/influencerService";
 import { logger } from '@/lib/logger';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
+import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 
 /**
  * WEIGHTLOSSINTAKE Webhook - EONMEDS CLINIC ONLY (BULLETPROOF VERSION)
@@ -127,8 +128,26 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Database error finding clinic:`, err);
     recordError("weightlossintake", `Database error: ${err instanceof Error ? err.message : 'Unknown'}`, { requestId });
+    
+    // Queue to DLQ for retry - get raw body for requeueing
+    if (isDLQConfigured()) {
+      try {
+        const rawBody = await req.clone().text();
+        const payload = safeParseJSON(rawBody) || {};
+        await queueFailedSubmission(
+          payload,
+          'weightlossintake',
+          `Database error: ${err instanceof Error ? err.message : 'Unknown'}`,
+          { submissionId: requestId }
+        );
+        logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Queued to DLQ for retry`);
+      } catch (dlqErr) {
+        logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
+      }
+    }
+    
     return Response.json(
-      { error: "Database error", code: "DB_ERROR", requestId },
+      { error: "Database error", code: "DB_ERROR", requestId, queued: isDLQConfigured() },
       { status: 500 }
     );
   }
@@ -289,12 +308,32 @@ export async function POST(req: NextRequest) {
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, err);
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
     recordError("weightlossintake", `Patient creation failed: ${errorMsg}`, { requestId });
+    
+    // Queue to DLQ for retry
+    if (isDLQConfigured()) {
+      try {
+        await queueFailedSubmission(
+          payload,
+          'weightlossintake',
+          `Patient creation failed: ${errorMsg}`,
+          {
+            patientEmail: normalized?.patient?.email,
+            submissionId: normalized?.submissionId || requestId,
+          }
+        );
+        logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Queued to DLQ for retry`);
+      } catch (dlqErr) {
+        logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
+      }
+    }
+    
     return Response.json({
       error: "Failed to create patient",
       code: "PATIENT_ERROR",
       requestId,
       message: errorMsg,
       partialSuccess: false,
+      queued: isDLQConfigured(),
     }, { status: 500 });
   }
 
