@@ -552,7 +552,15 @@ function applyDerivedFields(
     patient.city = city;
   }
 
-  const zip = firstNonEmpty(getEntryValue(index, "id-38a5bae0-zip"), addressJson?.zip);
+  const zip = firstNonEmpty(
+    getEntryValue(index, "id-38a5bae0-zip"),
+    getEntryValue(index, "id-38a5bae0-postal_code"),
+    getEntryValue(index, "id-38a5bae0-zipcode"),
+    addressJson?.zip,
+    addressJson?.postal_code,
+    addressJson?.zipcode,
+    addressJson?.postalCode
+  );
   if (zip) {
     patient.zip = zip;
   }
