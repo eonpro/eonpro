@@ -58,24 +58,24 @@ export const GET = withAuthParams(async (
       documentId
     });
 
-    // Fetch the document - allow documents with matching clinicId OR null clinicId
+    // Fetch the document - just check it belongs to the patient
+    // The patient access check above already ensures the user has permission
     const document: any = await prisma.patientDocument.findFirst({
       where: {
         id: documentId,
         patientId: patientId,
-        OR: [
-          { clinicId: patient.clinicId },
-          { clinicId: null },
-        ],
       },
     });
 
     if (!document) {
+      logger.warn(`Document ${documentId} not found for patient ${patientId}`);
       return NextResponse.json(
         { error: 'Document not found' },
         { status: 404 }
       );
     }
+
+    logger.debug(`Found document ${documentId}: externalUrl=${document.externalUrl}, hasData=${!!document.data}, mimeType=${document.mimeType}`);
 
     // PRIORITY 1: Check for external URL first (S3, etc.) - this is the preferred source for PDFs
     if (document.externalUrl && !document.externalUrl.startsWith('database://')) {
@@ -208,15 +208,11 @@ export const DELETE = withAuthParams(async (
       documentId
     });
 
-    // Fetch the document to get the file path - allow documents with matching clinicId OR null clinicId
+    // Fetch the document to get the file path
     const document: any = await prisma.patientDocument.findFirst({
       where: {
         id: documentId,
         patientId: patientId,
-        OR: [
-          { clinicId: patient.clinicId },
-          { clinicId: null },
-        ],
       },
     });
 

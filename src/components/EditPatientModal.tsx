@@ -77,6 +77,16 @@ const US_STATES = [
   { value: 'DC', label: 'District of Columbia' },
 ];
 
+// Normalize gender from database format to dropdown format
+function normalizeGenderForDropdown(gender: string | null | undefined): string {
+  if (!gender) return '';
+  const g = gender.toLowerCase().trim();
+  if (g === 'm' || g === 'male' || g === 'man') return 'Male';
+  if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+  if (g === 'other' || g === 'o' || g === 'non-binary') return 'Other';
+  return '';
+}
+
 export default function EditPatientModal({ patient, onClose, onSave }: EditPatientModalProps) {
   const [formData, setFormData] = useState({
     firstName: patient.firstName || '',
@@ -84,7 +94,7 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
     email: patient.email || '',
     phone: patient.phone || '',
     dob: patient.dob ? formatDateForInput(patient.dob) : '',
-    gender: patient.gender || '',
+    gender: normalizeGenderForDropdown(patient.gender),
     address1: patient.address1 || '',
     address2: patient.address2 || '',
     city: patient.city || '',
@@ -228,10 +238,9 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
                 required
               >
                 <option value="">Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-                <option value="prefer_not_to_say">Prefer not to say</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
               </select>
             </div>
           </div>

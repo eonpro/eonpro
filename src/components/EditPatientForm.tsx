@@ -8,9 +8,20 @@ import { Patient, Provider, Order } from '@/types/models';
 import { logger } from '@/lib/logger';
 
 const GENDER_OPTIONS = [
-  { value: "m", label: "Male" },
-  { value: "f", label: "Female" },
+  { value: "Male", label: "Male" },
+  { value: "Female", label: "Female" },
+  { value: "Other", label: "Other" },
 ];
+
+// Normalize gender from database format to dropdown format
+function normalizeGenderForDropdown(gender: string | null | undefined): string {
+  if (!gender) return '';
+  const g = gender.toLowerCase().trim();
+  if (g === 'm' || g === 'male' || g === 'man') return 'Male';
+  if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+  if (g === 'other' || g === 'o' || g === 'non-binary') return 'Other';
+  return '';
+}
 
 type EditablePatient = {
   id: number;
@@ -58,7 +69,7 @@ const formatTagsInput = (tags?: string[] | null) =>
 export default function EditPatientForm({ patient, documents }: Props) {
   const [form, setForm] = useState({
     ...patient,
-    gender: patient.gender === "m" || patient.gender === "f" ? patient.gender : "",
+    gender: normalizeGenderForDropdown(patient.gender),
     address2: patient.address2 ?? "",
     notes: patient.notes ?? "",
   });
@@ -73,7 +84,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
   };
 
   const save = async () => {
-    if (!["m", "f"].includes(form.gender)) {
+    if (!["Male", "Female", "Other"].includes(form.gender)) {
       setMessage("Select patient gender before saving.");
       return;
     }
