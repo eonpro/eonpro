@@ -451,14 +451,17 @@ export async function submitFormResponses(
       }
     }
 
-    // Create or update patient if info provided
-    let patientId = null;
-    if (patientInfo?.email) {
+    // Use existing patientId from the submission if it exists
+    // (submission is created with patientId when the form link is sent)
+    let patientId = link.submission?.patientId || null;
+
+    // If patientInfo is provided, try to find/create patient
+    if (!patientId && patientInfo?.email) {
       // Find or create patient
       let patient = await prisma.patient.findFirst({
         where: { email: patientInfo.email.toLowerCase() }
       });
-      
+
       if (!patient) {
         patient = await prisma.patient.create({
           data: {
@@ -490,29 +493,41 @@ export async function submitFormResponses(
 
     // Submit the form
     const submission = await prisma.$transaction(async (tx: any) => {
-      // Create or update submission
-      const sub = await tx.intakeFormSubmission.upsert({
-        where: { id: link.id },
-        create: {
-          linkId: link.id,
-          templateId: link.templateId,
-          patientId,
-          status: 'completed',
-          completedAt: new Date(),
-          metadata: {
-            signature,
-            submittedFrom: 'web',
-          } as any,
-        },
-        update: {
-          status: 'completed',
-          completedAt: new Date(),
-          metadata: {
-            signature,
-            submittedFrom: 'web',
-          } as any,
-        },
-      });
+      let sub;
+
+      // Check if there's an existing submission for this link
+      if (link.submission?.id) {
+        // Update existing submission
+        sub = await tx.intakeFormSubmission.update({
+          where: { id: link.submission.id },
+          data: {
+            status: 'completed',
+            completedAt: new Date(),
+            metadata: {
+              signature,
+              submittedFrom: 'web',
+            } as any,
+          },
+        });
+      } else {
+        // Create new submission (requires patientId)
+        if (!patientId) {
+          throw new Error('Unable to determine patient for this submission');
+        }
+        sub = await tx.intakeFormSubmission.create({
+          data: {
+            formLinkId: link.id,
+            templateId: link.templateId,
+            patientId,
+            status: 'completed',
+            completedAt: new Date(),
+            metadata: {
+              signature,
+              submittedFrom: 'web',
+            } as any,
+          },
+        });
+      }
 
       // Delete existing responses if any (for re-submission)
       await tx.intakeFormResponse.deleteMany({

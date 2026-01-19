@@ -4,6 +4,34 @@ import { logger } from '@/lib/logger';
 import fs from 'fs/promises';
 import path from 'path';
 
+// Helper to build sections array from submission (for PatientIntakeView display)
+function buildSectionsFromSubmission(submission: any): Array<{ title: string; entries: Array<{ id: string; label: string; value: any }> }> {
+  const sections: Record<string, Array<{ id: string; label: string; value: any }>> = {};
+
+  for (const response of submission.responses || []) {
+    const section = response.question?.section || 'General';
+    if (!sections[section]) {
+      sections[section] = [];
+    }
+    sections[section].push({
+      id: String(response.questionId),
+      label: response.question?.questionText || 'Unknown Question',
+      value: response.answer || response.value || '',
+    });
+  }
+
+  return Object.entries(sections).map(([title, entries]) => ({ title, entries }));
+}
+
+// Helper to build flat answers array from submission (for PatientIntakeView display)
+function buildAnswersFromSubmission(submission: any): Array<{ id: string; label: string; value: any }> {
+  return (submission.responses || []).map((response: any) => ({
+    id: String(response.questionId),
+    label: response.question?.questionText || 'Unknown Question',
+    value: response.answer || response.value || '',
+  }));
+}
+
 interface PDFGenerationOptions {
   submissionId: number;
   includeLogo?: boolean;
@@ -66,7 +94,24 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
     // Save PDF to patient documents
     const fileName = `intake_form_${submission.template.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     
-    // Create patient document record
+    // Build intake data structure for display in Intake tab (same format as webhook intakes)
+    const intakeDataToStore = {
+      submissionId: String(submissionId),
+      source: 'eonpro-intake-form',
+      receivedAt: new Date().toISOString(),
+      sections: buildSectionsFromSubmission(submission),
+      answers: buildAnswersFromSubmission(submission),
+      patient: {
+        email: patient?.email,
+        firstName: patient?.firstName,
+        lastName: patient?.lastName,
+        phone: patient?.phone,
+        dob: patient?.dob,
+        gender: patient?.gender,
+      },
+    };
+
+    // Create patient document record with intake data
     await prisma.patientDocument.create({
       data: {
         patientId: submission.patientId,
@@ -74,7 +119,9 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
         mimeType: 'application/pdf',
         category: 'MEDICAL_INTAKE_FORM',
         externalUrl: `/documents/intake-forms/${submissionId}.pdf`,
-        source: 'System'
+        source: 'System',
+        sourceSubmissionId: String(submissionId),
+        data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
       }
     });
 
