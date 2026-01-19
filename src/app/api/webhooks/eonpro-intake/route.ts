@@ -159,10 +159,12 @@ export async function POST(req: NextRequest) {
       patientName: `${normalized.patient.firstName} ${normalized.patient.lastName}`
     });
 
-    // Store intake data for later display
+    // Store intake data for later display (including answers for vitals extraction)
     const intakeDataToStore = {
       submissionId: normalized.submissionId,
       sections: normalized.sections,
+      answers: normalized.answers,
+      patient: normalized.patient,
       source: "eonpro-intake",
       clinicId: clinicId,
       clinicName: eonmedsClinic.name,

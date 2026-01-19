@@ -202,11 +202,14 @@ export async function POST(req: NextRequest) {
 
     // === STEP 5: PROCESS INTAKE ===
     try {
-      // Store the normalized intake data
+      // Store the normalized intake data (including answers for vitals)
       const intakeDataToStore = {
         submissionId: normalized.submissionId,
         sections: normalized.sections,
-        rawPayload: payload, // Store raw payload for debugging
+        answers: normalized.answers,
+        patient: normalized.patient,
+        source: "heyflow-intake-v2",
+        receivedAt: new Date().toISOString(),
       };
 
       // Upsert patient

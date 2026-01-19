@@ -1,118 +1,128 @@
 "use client";
 
+import { useState } from 'react';
 import { logger } from '@/lib/logger';
-import { Patient, Provider, Order } from '@/types/models';
 import SendIntakeFormModal from './SendIntakeFormModal';
+import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList } from 'lucide-react';
 
-// PDF Section Configuration matching intakePdfService.ts exactly
-type SectionFieldConfig = {
-  id: string;
-  label: string;
-};
-
-type SectionConfig = {
-  title: string;
-  fields: SectionFieldConfig[];
-};
-
-const PDF_SECTION_CONFIG: SectionConfig[] = [
+// Complete intake field configuration - ALL questions
+const INTAKE_SECTIONS = [
   {
-    title: "Motivation & Consent",
+    title: "Patient Profile",
+    icon: User,
     fields: [
-      { id: "id-3fa4d158", label: "How would your life change by losing weight?" },
-      { id: "id-f69d896b", label: "Terms of Use / Consents" },
-      { id: "select-83c9e357", label: "State of Residence" },
-      { id: "id-e48dcf94", label: "Marketing Consent" },
+      { id: "patient-name", label: "Full Name" },
+      { id: "patient-dob", label: "Date of Birth" },
+      { id: "patient-gender", label: "Gender" },
+      { id: "patient-phone", label: "Phone" },
+      { id: "patient-email", label: "Email" },
+      { id: "patient-address", label: "Address" },
     ],
   },
   {
     title: "Vitals & Goals",
+    icon: Activity,
     fields: [
-      { id: "id-cf20e7c9", label: "Ideal Weight" },
-      { id: "id-703227a8", label: "Starting Weight" },
-      { id: "id-3a7e6f11", label: "Height (feet)" },
-      { id: "id-4a4a1f48", label: "Height (inches)" },
-      { id: "bmi", label: "BMI" },
-      { id: "lbs to lose", label: "Pounds to Lose" },
+      { id: "id-703227a8", label: "Starting Weight", aliases: ["weight", "current weight", "starting weight"] },
+      { id: "id-cf20e7c9", label: "Ideal Weight", aliases: ["ideal weight", "goal weight", "target weight"] },
+      { id: "id-3a7e6f11", label: "Height (feet)", aliases: ["height feet", "heightfeet"] },
+      { id: "id-4a4a1f48", label: "Height (inches)", aliases: ["height inches", "heightinches"] },
+      { id: "bmi", label: "BMI", aliases: ["bmi", "body mass index"] },
+      { id: "lbs to lose", label: "Pounds to Lose", aliases: ["lbs to lose", "pounds to lose", "weight to lose"] },
+    ],
+  },
+  {
+    title: "Medical History",
+    icon: Heart,
+    fields: [
+      { id: "id-c6194df4", label: "Chronic Diseases History", aliases: ["chronic diseases", "chronic illness history"] },
+      { id: "id-2ce042cd", label: "Chronic Illness", aliases: ["chronic illness", "chronic condition"] },
+      { id: "id-481f7d3f", label: "Chronic Illness Details", aliases: ["chronic illness details"] },
+      { id: "id-aa863a43", label: "Current Conditions", aliases: ["current conditions", "medical conditions"] },
+      { id: "id-49e5286f", label: "Family History", aliases: ["family history", "family medical history"] },
+      { id: "id-88c19c78", label: "Medullary Thyroid Cancer History", aliases: ["thyroid cancer", "medullary thyroid"] },
+      { id: "id-4bacb2db", label: "MEN Type-2 History", aliases: ["men type 2", "men type-2"] },
+      { id: "id-eee84ce3", label: "Gastroparesis History", aliases: ["gastroparesis"] },
+      { id: "id-22f7904b", label: "Type 2 Diabetes", aliases: ["type 2 diabetes", "diabetes"] },
+      { id: "id-4dce53c7", label: "Pregnant or Breastfeeding", aliases: ["pregnant", "breastfeeding", "pregnancy"] },
+      { id: "id-ddff6d53", label: "Surgeries or Procedures", aliases: ["surgeries", "procedures", "surgical history"] },
+      { id: "mc-819b3225", label: "Blood Pressure", aliases: ["blood pressure", "bp"] },
+      { id: "id-c4320836", label: "Weight Loss Procedures", aliases: ["weight loss procedures", "bariatric"] },
+      { id: "id-3e6b8a5b", label: "Allergies", aliases: ["allergies", "allergy"] },
+      { id: "id-04e1c88e", label: "List of Allergies", aliases: ["list of allergies", "allergy list"] },
+    ],
+  },
+  {
+    title: "Mental Health",
+    icon: Brain,
+    fields: [
+      { id: "id-d79f4058", label: "Mental Health Diagnosis", aliases: ["mental health diagnosis", "mental health"] },
+      { id: "id-2835be1b", label: "Mental Health Details", aliases: ["mental health details"] },
     ],
   },
   {
     title: "Lifestyle & Activity",
+    icon: Activity,
     fields: [
-      { id: "id-74efb442", label: "Daily Physical Activity" },
-      { id: "id-d560c374", label: "Alcohol Intake" },
-    ],
-  },
-  {
-    title: "Medical & Mental Health History",
-    fields: [
-      { id: "id-d79f4058", label: "Mental Health Diagnosis" },
-      { id: "id-2835be1b", label: "Mental Health Details" },
-      { id: "id-2ce042cd", label: "Chronic Illness" },
-      { id: "id-481f7d3f", label: "Chronic Illness Details" },
-      { id: "id-c6194df4", label: "Chronic Diseases History" },
-      { id: "id-aa863a43", label: "Current Conditions" },
-      { id: "id-49e5286f", label: "Family History" },
-      { id: "id-88c19c78", label: "Medullary Thyroid Cancer History" },
-      { id: "id-4bacb2db", label: "MEN Type-2 History" },
-      { id: "id-eee84ce3", label: "Gastroparesis History" },
-      { id: "id-22f7904b", label: "Type 2 Diabetes" },
-      { id: "id-4dce53c7", label: "Pregnant or Breastfeeding" },
-      { id: "id-ddff6d53", label: "Surgeries or Procedures" },
-      { id: "mc-819b3225", label: "Blood Pressure" },
-      { id: "id-c4320836", label: "Weight Loss Procedures" },
-      { id: "id-3e6b8a5b", label: "Allergies" },
-      { id: "id-04e1c88e", label: "List of Allergies" },
+      { id: "id-74efb442", label: "Daily Physical Activity", aliases: ["physical activity", "exercise", "activity level"] },
+      { id: "id-d560c374", label: "Alcohol Intake", aliases: ["alcohol", "alcohol intake", "drinking"] },
     ],
   },
   {
     title: "Medications & GLP-1 History",
+    icon: Pill,
     fields: [
-      { id: "id-d2f1eaa4", label: "GLP-1 Medication History" },
-      { id: "id-6a9fff95", label: "Side Effects When Starting Medication" },
-      { id: "id-4b98a487", label: "Interested in Personalized Plan for Side Effects" },
-      { id: "id-c5f1c21a", label: "Current GLP-1 Medication" },
-      { id: "id-5001f3ff", label: "Semaglutide Dose" },
-      { id: "id-9d592571", label: "Semaglutide Side Effects" },
-      { id: "id-5e696841", label: "Semaglutide Success" },
-      { id: "id-f38d521b", label: "Satisfied with Current GLP-1 Dose" },
-      { id: "id-d95d25bd", label: "Current Medications/Supplements" },
-      { id: "id-bc8ed703", label: "Medication/Supplement Details" },
-      { id: "id-57f65753", label: "Tirzepatide Dose" },
-      { id: "id-0fdd1b5a", label: "Tirzepatide Success" },
-      { id: "id-709d58cb", label: "Tirzepatide Side Effects" },
+      { id: "id-d2f1eaa4", label: "GLP-1 Medication History", aliases: ["glp-1 history", "glp1 history", "medication history"] },
+      { id: "id-c5f1c21a", label: "Current GLP-1 Medication", aliases: ["current glp-1", "current medication"] },
+      { id: "id-6a9fff95", label: "Side Effects When Starting Medication", aliases: ["side effects starting", "initial side effects"] },
+      { id: "id-4b98a487", label: "Interested in Personalized Plan for Side Effects", aliases: ["personalized plan", "side effects plan"] },
+      { id: "id-5001f3ff", label: "Semaglutide Dose", aliases: ["semaglutide dose", "semaglutide dosage"] },
+      { id: "id-9d592571", label: "Semaglutide Side Effects", aliases: ["semaglutide side effects"] },
+      { id: "id-5e696841", label: "Semaglutide Success", aliases: ["semaglutide success", "semaglutide results"] },
+      { id: "id-57f65753", label: "Tirzepatide Dose", aliases: ["tirzepatide dose", "tirzepatide dosage"] },
+      { id: "id-0fdd1b5a", label: "Tirzepatide Success", aliases: ["tirzepatide success", "tirzepatide results"] },
+      { id: "id-709d58cb", label: "Tirzepatide Side Effects", aliases: ["tirzepatide side effects"] },
+      { id: "id-f38d521b", label: "Satisfied with Current GLP-1 Dose", aliases: ["satisfied dose", "dose satisfaction"] },
+      { id: "id-d95d25bd", label: "Current Medications/Supplements", aliases: ["current medications", "supplements"] },
+      { id: "id-bc8ed703", label: "Medication/Supplement Details", aliases: ["medication details", "supplement details"] },
+    ],
+  },
+  {
+    title: "Motivation & Consent",
+    icon: ClipboardList,
+    fields: [
+      { id: "id-3fa4d158", label: "How would your life change by losing weight?", aliases: ["life change", "motivation"] },
+      { id: "id-f69d896b", label: "Terms of Use / Consents", aliases: ["terms", "consents", "agreement"] },
+      { id: "select-83c9e357", label: "State of Residence", aliases: ["state", "residence"] },
+      { id: "id-e48dcf94", label: "Marketing Consent", aliases: ["marketing consent", "marketing"] },
     ],
   },
   {
     title: "Referral Source",
+    icon: ClipboardList,
     fields: [
-      { id: "id-345ac6b2", label: "How did you hear about us?" },
-      { id: "utm_source", label: "UTM Source" },
-      { id: "utm_medium", label: "UTM Medium" },
-      { id: "utm_campaign", label: "UTM Campaign" },
-      { id: "utm_content", label: "UTM Content" },
-      { id: "utm_term", label: "UTM Term" },
-      { id: "fbclid", label: "FBCLID" },
+      { id: "id-345ac6b2", label: "How did you hear about us?", aliases: ["hear about us", "referral source"] },
+      { id: "utm_source", label: "UTM Source", aliases: ["utm source"] },
+      { id: "utm_medium", label: "UTM Medium", aliases: ["utm medium"] },
+      { id: "utm_campaign", label: "UTM Campaign", aliases: ["utm campaign"] },
+      { id: "utm_content", label: "UTM Content", aliases: ["utm content"] },
+      { id: "utm_term", label: "UTM Term", aliases: ["utm term"] },
+      { id: "fbclid", label: "FBCLID", aliases: ["fbclid", "facebook id"] },
     ],
   },
-];
-
-const LEGAL_TEXT = [
-  "Privacy Policy & HIPAA Compliance: I understand my health data is stored securely in accordance with HIPAA regulations and will be used solely for treatment coordination. I acknowledge that my protected health information (PHI) will be shared only with authorized healthcare providers and pharmacy partners involved in my care.",
-  "Weight-Loss Treatment Consent: I authorize EONMEDS and its affiliated medical professionals to review my intake form, laboratory results, vital signs, and medical history to determine candidacy for GLP-1 receptor agonists and adjunct therapies. I understand that treatment recommendations are based on medical evaluation and may be modified or discontinued based on clinical response.",
-  "Telehealth Services Agreement: I consent to receive healthcare services via telehealth technology and understand that these services are subject to the same standards of care as in-person visits. I acknowledge that technical issues may occasionally affect service delivery and that alternative arrangements will be made when necessary.",
-  "Financial Responsibility & Cancellation Policy: I understand that cancellations or rescheduling within 24 hours of scheduled appointments may incur fees up to the full consultation cost. I acknowledge responsibility for all charges not covered by insurance and agree to the payment terms outlined in the financial agreement.",
-  "Informed Consent & Risk Acknowledgment: I have been informed of the potential risks, benefits, and alternatives to GLP-1 therapy. I understand that individual results may vary and that no specific outcome is guaranteed. I agree to report any adverse effects immediately to my healthcare provider.",
 ];
 
 type IntakeData = {
   submissionId?: string;
   submittedAt?: Date;
-  answers?: Array<{
-    id?: string;
-    label?: string;
-    value?: any;
+  receivedAt?: string;
+  source?: string;
+  sections?: Array<{
+    title: string;
+    entries: Array<{ id?: string; label?: string; value?: any }>;
   }>;
+  answers?: Array<{ id?: string; label?: string; value?: any }>;
+  patient?: any;
 };
 
 type Props = {
@@ -155,7 +165,8 @@ type Props = {
     responses: Array<{
       id: number;
       questionId: number;
-      responseText?: string | null;
+      answer?: string | null;
+      value?: string | null;
       question: {
         id: number;
         questionText: string;
@@ -167,25 +178,20 @@ type Props = {
   }>;
 };
 
-// Helper function to normalize keys for matching
+// Helper to normalize keys for matching
 const normalizeKey = (value?: string) => {
   if (!value) return "";
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 };
 
-// Helper function to format answer values exactly like the PDF
+// Helper to format answer values
 const formatAnswerValue = (value: unknown): string => {
-  if (!value) return "—";
+  if (value === null || value === undefined || value === "") return "—";
   
-  // Clean up any encoding issues and common corruptions
   let cleanValue = String(value)
-    .replace(/Enj8ying/gi, "Enjoying")
-    .replace(/weigh\w*ying/gi, "weight? Enjoying")
     .replace(/\u00e2\u0080\u0099/g, "'")
     .replace(/\u00e2\u0080\u009c/g, '"')
     .replace(/\u00e2\u0080\u009d/g, '"')
-    .replace(/\u00e2\u0080\u0093/g, '-')
-    .replace(/\u00e2\u0080\u0094/g, '--')
     .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
     .trim();
   
@@ -193,35 +199,27 @@ const formatAnswerValue = (value: unknown): string => {
   try {
     const parsed = JSON.parse(cleanValue);
     if (typeof parsed === 'object' && parsed !== null) {
-      // Handle checkbox/boolean values
-      if ('checked' in parsed) {
-        return parsed.checked ? "Yes" : "No";
-      }
-      // Handle arrays
+      if ('checked' in parsed) return parsed.checked ? "Yes" : "No";
       if (Array.isArray(parsed)) {
         return parsed.filter((item: any) => item && item !== "None of the above").join(", ") || "None";
       }
-      // Handle other objects - stringify nicely
-      return Object.entries(parsed)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(", ");
+      return Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(", ");
     }
   } catch {
-    // Not JSON, use as-is
+    // Not JSON
   }
   
-  // Clean up common patterns
-  if (cleanValue === "true" || cleanValue === "True" || cleanValue === "TRUE" || cleanValue === "✔") return "Yes";
-  if (cleanValue === "false" || cleanValue === "False" || cleanValue === "FALSE") return "No";
+  if (cleanValue === "true" || cleanValue === "True") return "Yes";
+  if (cleanValue === "false" || cleanValue === "False") return "No";
   
-  // Final cleanup for display
-  return cleanValue
-    .replace(/\s+/g, ' ')
-    .replace(/([a-z])([A-Z])/g, '$1 $2');
+  return cleanValue.replace(/\s+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
 };
 
 export default function PatientIntakeView({ patient, documents, intakeFormSubmissions = [] }: Props) {
-  // Find the latest intake document
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(INTAKE_SECTIONS.map(s => s.title)));
+  const [showSendModal, setShowSendModal] = useState(false);
+
+  // Find and parse the latest intake document
   const intakeDoc = documents.find(
     (doc: any) => doc.category === "MEDICAL_INTAKE_FORM" && doc.data
   );
@@ -230,48 +228,106 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   
   if (intakeDoc?.data) {
     try {
-      const dataStr = intakeDoc.data.toString('utf8');
-      
-      // Check if data is stored as comma-separated bytes (SQLite format)
-      if (dataStr.includes(',') && dataStr.split(',').every((v: string) => !isNaN(parseInt(v.trim())))) {
-        // Data is stored as comma-separated byte values
-        const bytes = dataStr.split(',').map((b: string) => parseInt(b.trim()));
-        const buffer = Buffer.from(bytes);
-        intakeData = JSON.parse(buffer.toString('utf8'));
-      } else if (typeof intakeDoc.data === 'string') {
+      if (typeof intakeDoc.data === 'string') {
         intakeData = JSON.parse(intakeDoc.data);
       } else if (Buffer.isBuffer(intakeDoc.data)) {
         intakeData = JSON.parse(intakeDoc.data.toString('utf8'));
       } else if (typeof intakeDoc.data === 'object') {
-        // Handle case where data might be a Buffer-like object from Prisma
         if (intakeDoc.data.type === 'Buffer' && Array.isArray(intakeDoc.data.data)) {
           const buffer = Buffer.from(intakeDoc.data.data);
           intakeData = JSON.parse(buffer.toString('utf8'));
-        } else {
+        } else if (!Buffer.isBuffer(intakeDoc.data)) {
           intakeData = intakeDoc.data as IntakeData;
         }
       }
     } catch (error: any) {
-    // @ts-ignore
-   
       logger.error('Error parsing intake data:', error);
-      intakeData = {};
     }
   }
 
-  const formatDob = (dob: string) => {
-    if (!dob) return "—";
-    const trimmed = dob.trim();
-    if (!trimmed) return "—";
-    if (trimmed.includes("/")) return trimmed;
-    const parts = trimmed.split("-");
-    if (parts.length === 3) {
-      const [year, month, day] = parts;
-      if (year && month && day) {
-        return `${month.padStart(2, "0")}/${day.padStart(2, "0")}/${year}`;
+  // Build a map of all answers from various sources
+  const buildAnswerMap = () => {
+    const answerMap = new Map<string, string>();
+    
+    // Source 1: Sections from document data
+    if (intakeData.sections && Array.isArray(intakeData.sections)) {
+      for (const section of intakeData.sections) {
+        if (section.entries && Array.isArray(section.entries)) {
+          for (const entry of section.entries) {
+            if (entry.id) answerMap.set(normalizeKey(entry.id), formatAnswerValue(entry.value));
+            if (entry.label) answerMap.set(normalizeKey(entry.label), formatAnswerValue(entry.value));
+          }
+        }
       }
     }
-    return trimmed;
+    
+    // Source 2: Answers array from document data
+    if (intakeData.answers && Array.isArray(intakeData.answers)) {
+      for (const answer of intakeData.answers) {
+        if (answer.id) answerMap.set(normalizeKey(answer.id), formatAnswerValue(answer.value));
+        if (answer.label) answerMap.set(normalizeKey(answer.label), formatAnswerValue(answer.value));
+      }
+    }
+    
+    // Source 3: IntakeFormSubmissions responses
+    for (const submission of intakeFormSubmissions) {
+      if (submission.responses && Array.isArray(submission.responses)) {
+        for (const response of submission.responses) {
+          const value = response.answer || response.value;
+          if (response.question?.questionText) {
+            answerMap.set(normalizeKey(response.question.questionText), formatAnswerValue(value));
+          }
+        }
+      }
+    }
+    
+    return answerMap;
+  };
+
+  const answerMap = buildAnswerMap();
+
+  // Find answer for a field
+  const findAnswer = (field: { id: string; label: string; aliases?: string[] }): string => {
+    // Check by ID first
+    const byId = answerMap.get(normalizeKey(field.id));
+    if (byId && byId !== "—") return byId;
+    
+    // Check by label
+    const byLabel = answerMap.get(normalizeKey(field.label));
+    if (byLabel && byLabel !== "—") return byLabel;
+    
+    // Check aliases
+    if (field.aliases) {
+      for (const alias of field.aliases) {
+        const byAlias = answerMap.get(normalizeKey(alias));
+        if (byAlias && byAlias !== "—") return byAlias;
+      }
+    }
+    
+    return "—";
+  };
+
+  // Get patient profile data
+  const getPatientValue = (fieldId: string): string => {
+    switch (fieldId) {
+      case "patient-name": return `${patient.firstName} ${patient.lastName}`;
+      case "patient-dob": return formatDob(patient.dob);
+      case "patient-gender": return formatGender(patient.gender);
+      case "patient-phone": return patient.phone || "—";
+      case "patient-email": return patient.email || "—";
+      case "patient-address": return buildAddress();
+      default: return "—";
+    }
+  };
+
+  const formatDob = (dob: string) => {
+    if (!dob) return "—";
+    if (dob.includes("/")) return dob;
+    const parts = dob.split("-");
+    if (parts.length === 3) {
+      return `${parts[1]}/${parts[2]}/${parts[0]}`;
+    }
+    return dob;
   };
 
   const formatGender = (gender?: string | null) => {
@@ -283,418 +339,232 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   };
 
   const buildAddress = () => {
-    const lines: string[] = [];
-    if (patient.address1) {
-      lines.push(patient.address1);
-    }
-    if (patient.address2) {
-      lines.push(patient.address2);
-    }
-    const cityState = [patient.city, patient.state].filter(Boolean).join(", ");
-    const locality = [cityState, patient.zip].filter(Boolean).join(" ").trim();
-    if (locality) {
-      const normalized = lines.join(" ").toLowerCase();
-      if (!normalized.includes(locality.toLowerCase())) {
-        lines.push(locality);
-      }
-    }
-    return lines.join("\n");
+    const parts = [
+      patient.address1,
+      patient.address2,
+      [patient.city, patient.state].filter(Boolean).join(", "),
+      patient.zip
+    ].filter(Boolean);
+    return parts.join(", ") || "—";
   };
 
-  // Build sections exactly like PDF does
-  const buildDisplaySections = () => {
-    const answerMap = new Map<string, any>();
-    const answersList: Array<{ id?: string; label?: string; value?: any }> = [];
-    
-    if (intakeData.answers) {
-      intakeData.answers.forEach((entry: any) => {
-        const normalizedId = normalizeKey(entry.id);
-        if (normalizedId) {
-          answerMap.set(normalizedId, entry);
-        }
-        answersList.push(entry);
-      });
+  const toggleSection = (title: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(title)) {
+      newExpanded.delete(title);
+    } else {
+      newExpanded.add(title);
     }
+    setExpandedSections(newExpanded);
+  };
 
-    const used = new Set<string>();
-    const sections: Array<{ title: string; entries: Array<{ label: string; value: string }> }> = [];
-
-    // Build sections from PDF_SECTION_CONFIG
-    PDF_SECTION_CONFIG.forEach((sectionConfig: any) => {
-      const entries = sectionConfig.fields
-        .map((field: any) => {
-          const normalizedId = normalizeKey(field.id);
-          const directMatch = answerMap.get(normalizedId);
-          if (directMatch && directMatch.value) {
-            used.add(normalizeKey(directMatch.id));
-            return { label: field.label ?? directMatch.label, value: formatAnswerValue(directMatch.value) };
+  // Collect any additional answers not in our predefined sections
+  const getAdditionalAnswers = () => {
+    const usedKeys = new Set<string>();
+    
+    // Mark all predefined field keys as used
+    for (const section of INTAKE_SECTIONS) {
+      for (const field of section.fields) {
+        usedKeys.add(normalizeKey(field.id));
+        usedKeys.add(normalizeKey(field.label));
+        if (field.aliases) {
+          for (const alias of field.aliases) {
+            usedKeys.add(normalizeKey(alias));
           }
-          // Try to match by label
-          const labelKey = normalizeKey(field.label ?? "");
-          if (labelKey) {
-            const labelMatch = answersList.find(
-              (entry: any) =>
-                entry.value &&
-                entry.label &&
-                normalizeKey(entry.label).includes(labelKey) &&
-                !used.has(normalizeKey(entry.id))
-            );
-            if (labelMatch) {
-              used.add(normalizeKey(labelMatch.id));
-              return { label: field.label ?? labelMatch.label, value: formatAnswerValue(labelMatch.value) };
+        }
+      }
+    }
+    
+    // Find unused answers
+    const additional: Array<{ label: string; value: string }> = [];
+    
+    // From sections
+    if (intakeData.sections) {
+      for (const section of intakeData.sections) {
+        if (section.entries) {
+          for (const entry of section.entries) {
+            const key = normalizeKey(entry.id || entry.label);
+            if (!usedKeys.has(key) && entry.value) {
+              additional.push({
+                label: entry.label || entry.id || "Unknown Field",
+                value: formatAnswerValue(entry.value)
+              });
+              usedKeys.add(key);
             }
           }
-          return null;
-        })
-        .filter(Boolean) as Array<{ label: string; value: string }>;
-
-      if (entries.length > 0) {
-        sections.push({
-          title: sectionConfig.title,
-          entries,
-        });
+        }
       }
-    });
-
-    // Fields to exclude from Additional Responses
-    const excludeFromAdditional = [
-      'address [country]',
-      'address [state]', 
-      'address [city]',
-      'address [street]',
-      'address [house]',
-      'address [state_code]',
-      'address [latitude]',
-      'address [longitude]',
-      'firstname',
-      'lastname',
-      'dob',
-      'email',
-      'phone',
-      'address'
-    ];
-    
-    const remainingEntries = answersList
-      .filter((entry: any) => {
-        // Skip if already used
-        if (!entry.value || used.has(normalizeKey(entry.id))) return false;
-        
-        // Skip unwanted address subfields
-        const labelLower = entry.label?.toLowerCase() || '';
-        if (excludeFromAdditional.some((exclude: any) => labelLower.includes(exclude.toLowerCase()))) {
-          return false;
-        }
-        
-        return true;
-      })
-      .map((entry: any) => {
-        // Rename "address [zip]" to "Zip Code"
-        let displayLabel = entry.label || "";
-        if (displayLabel.toLowerCase().includes('address [zip]')) {
-          displayLabel = 'Zip Code';
-        }
-        
-        return {
-          label: displayLabel,
-          value: formatAnswerValue(entry.value),
-        };
-      });
-
-    if (remainingEntries.length > 0) {
-      sections.push({
-        title: "Additional Responses",
-        entries: remainingEntries,
-      });
     }
-
-    return sections;
+    
+    // From answers array
+    if (intakeData.answers) {
+      for (const answer of intakeData.answers) {
+        const key = normalizeKey(answer.id || answer.label);
+        if (!usedKeys.has(key) && answer.value) {
+          additional.push({
+            label: answer.label || answer.id || "Unknown Field",
+            value: formatAnswerValue(answer.value)
+          });
+          usedKeys.add(key);
+        }
+      }
+    }
+    
+    return additional;
   };
 
-  const sections = buildDisplaySections();
+  const additionalAnswers = getAdditionalAnswers();
+  const hasIntakeData = intakeDoc || intakeFormSubmissions.length > 0;
 
   return (
     <div className="space-y-6">
-      {/* Send Intake Form Button */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold text-gray-900">Intake Forms</h2>
-        <button
-          onClick={() => {
-            const modal = document.getElementById('send-intake-modal');
-            if (modal) {
-              modal.classList.remove('hidden');
-            }
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition inline-flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Send New Intake Form
-        </button>
-      </div>
-
-      {/* New Intake Forms - Display at top if any exist */}
-      {intakeFormSubmissions && intakeFormSubmissions.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Completed Forms</h3>
-          {intakeFormSubmissions.map((submission: any) => (
-            <div key={submission.id} className="bg-white rounded-lg border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{submission.template.name}</h3>
-                  {submission.template.description && (
-                    <p className="text-sm text-gray-600 mt-1">{submission.template.description}</p>
-                  )}
-                  <p className="text-sm text-gray-500 mt-2">
-                    Submitted: {new Date(submission.completedAt || submission.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      // Toggle expand/collapse for this submission
-                      const element = document.getElementById(`submission-${submission.id}`);
-                      if (element) {
-                        element.classList.toggle('hidden');
-                      }
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                  >
-                    View Responses
-                  </button>
-                  <a
-                    href={`/documents/intake-forms/${submission.id}.pdf`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition text-sm font-medium"
-                  >
-                    View PDF
-                  </a>
-                </div>
-              </div>
-              
-              {/* Expandable Responses Section */}
-              <div id={`submission-${submission.id}`} className="hidden mt-6 space-y-4 border-t pt-4">
-                {/* Group responses by section */}
-                {(() => {
-                  const responsesBySection: Record<string, typeof submission.responses> = {};
-                  submission.responses.forEach((response: any) => {
-                    const section = response.question.section || 'General Information';
-                    if (!responsesBySection[section]) {
-                      responsesBySection[section] = [];
-                    }
-                    responsesBySection[section].push(response);
-                  });
-                  
-                  return Object.entries(responsesBySection).map(([section, responses]) => (
-                    <div key={section} className="space-y-2">
-                      <h4 className="font-semibold text-gray-800">{section}</h4>
-                      <div className="pl-4 space-y-2">
-                        {responses.map((response: any) => (
-                          <div key={response.id} className="grid grid-cols-3 gap-4 py-2 border-b last:border-0">
-                            <div className="col-span-1">
-                              <p className="text-sm font-medium text-gray-600">
-                                {response.question.questionText}
-                                {response.question.isRequired && <span className="text-red-500 ml-1">*</span>}
-                              </p>
-                            </div>
-                            <div className="col-span-2">
-                              <p className="text-sm text-gray-900">
-                                {response.responseText || '—'}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Legacy HeyFlow Intake Forms */}
-      {intakeDoc && (
-        <>
-          <div className="bg-white rounded-lg border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Legacy Medical Intake Summary</h2>
-                {intakeDoc?.sourceSubmissionId && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Submission ID: {intakeDoc.sourceSubmissionId}
-                  </p>
-                )}
-              </div>
-              {intakeDoc && (
-                <button
-                  onClick={async () => {
-                    try {
-                      const token = localStorage.getItem('auth-token') || '';
-                      const response = await fetch(`/api/patients/${patient.id}/documents/${intakeDoc.id}`, {
-                        credentials: 'include',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                      });
-                      if (response.ok) {
-                        const blob = await response.blob();
-                        window.open(URL.createObjectURL(blob), "_blank");
-                      } else {
-                        alert('Failed to view document');
-                      }
-                    } catch (err) {
-                      logger.error('View PDF error:', err);
-                      alert('Failed to view document');
-                    }
-                  }}
-                  className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition text-sm font-medium"
-                >
-                  View PDF
-                </button>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Patient Profile Section - Always First */}
-      <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="bg-gray-50 px-6 py-3 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">Patient Profile</h3>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            <div className="border-b pb-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">PATIENT</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-sm text-gray-900">{patient.firstName} {patient.lastName}</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-b pb-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">DOB</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-sm text-gray-900">{formatDob(patient.dob)}</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-b pb-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">GENDER</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-sm text-gray-900">{formatGender(patient.gender)}</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-b pb-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">PHONE</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-sm text-gray-900">{patient.phone || "—"}</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-b pb-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">EMAIL</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-sm text-gray-900">{patient.email || "—"}</p>
-                </div>
-              </div>
-            </div>
-            <div className="last:border-0 pb-0">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">ADDRESS</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-sm text-gray-900 whitespace-pre-line">{buildAddress()}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Medical Intake</h1>
+        <div className="flex gap-2">
+          {intakeDoc?.externalUrl && (
+            <a
+              href={intakeDoc.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Download className="w-4 h-4" />
+              Download PDF
+            </a>
+          )}
+          <button
+            onClick={() => setShowSendModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660]"
+          >
+            <FileText className="w-4 h-4" />
+            Send New Intake
+          </button>
         </div>
       </div>
 
-      {/* Dynamic Sections from intake data */}
-      {sections.map((section: any) => (
-        <div key={section.title} className="bg-white rounded-lg border overflow-hidden">
-          <div className="bg-gray-50 px-6 py-3 border-b">
-            <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
-          </div>
-          <div className="p-6">
-            {section.entries.length > 0 ? (
-              <div className="space-y-4">
-                {section.entries.map((entry: { label: string; value: string }, idx: number) => (
-                  <div key={idx} className="border-b last:border-0 pb-4 last:pb-0">
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <div className="md:col-span-1">
-                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                          {entry.label}
-                        </p>
-                      </div>
-                      <div className="md:col-span-2">
-                        <p className="text-sm text-gray-900 whitespace-pre-line">
-                          {entry.value || "—"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 italic">No data available for this section</p>
+      {/* Submission Info */}
+      {intakeData.submissionId && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span><strong>Submission ID:</strong> {intakeData.submissionId}</span>
+            {intakeData.source && <span><strong>Source:</strong> {intakeData.source}</span>}
+            {intakeData.receivedAt && (
+              <span><strong>Received:</strong> {new Date(intakeData.receivedAt).toLocaleString()}</span>
             )}
           </div>
         </div>
-      ))}
-
-      {/* Legal Disclosures - Full Text */}
-      {intakeDoc && (
-        <div className="bg-gray-50 rounded-lg border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Legal Disclosures & Consents</h3>
-          <div className="text-sm text-gray-700 space-y-3">
-            {LEGAL_TEXT.map((text, idx) => (
-              <p key={idx} className="leading-relaxed">• {text}</p>
-            ))}
-          </div>
-          <div className="mt-6 pt-4 border-t">
-            <div className="bg-white rounded-lg p-4 inline-block border border-[#4fa77e]">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Digitally signed by</p>
-              <p className="text-base font-semibold text-gray-900 mt-1">{patient.firstName} {patient.lastName}</p>
-              <p className="text-xs text-gray-600 mt-2">
-                {intakeDoc.createdAt ? new Date(intakeDoc.createdAt).toLocaleString() : ""}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Submission ID: {intakeDoc.sourceSubmissionId}
-              </p>
-            </div>
-          </div>
-        </div>
       )}
 
-      {!intakeDoc && (!intakeFormSubmissions || intakeFormSubmissions.length === 0) && (
-        <div className="bg-gray-50 rounded-lg border p-8 text-center">
-          <p className="text-gray-500">No intake forms have been completed yet.</p>
-          <p className="text-sm text-gray-400 mt-2">Use the button above to send an intake form to the patient.</p>
+      {!hasIntakeData ? (
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+          <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Intake Form Submitted</h3>
+          <p className="text-gray-500 mb-4">This patient has not completed an intake form yet.</p>
+          <button
+            onClick={() => setShowSendModal(true)}
+            className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660]"
+          >
+            Send Intake Form
+          </button>
         </div>
+      ) : (
+        <>
+          {/* Predefined Sections */}
+          {INTAKE_SECTIONS.map((section) => {
+            const Icon = section.icon;
+            const isExpanded = expandedSections.has(section.title);
+            const isPatientProfile = section.title === "Patient Profile";
+            
+            return (
+              <div key={section.title} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => toggleSection(section.title)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#4fa77e]/10 flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-[#4fa77e]" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-gray-900">{section.title}</h2>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronUp className="w-5 h-5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+                
+                {isExpanded && (
+                  <div className="border-t border-gray-100">
+                    <div className="divide-y divide-gray-100">
+                      {section.fields.map((field) => {
+                        const value = isPatientProfile 
+                          ? getPatientValue(field.id)
+                          : findAnswer(field);
+                        const hasValue = value !== "—";
+                        
+                        return (
+                          <div key={field.id} className="flex px-6 py-3">
+                            <div className="w-1/3 text-sm text-gray-500">{field.label}</div>
+                            <div className={`w-2/3 text-sm ${hasValue ? 'text-gray-900' : 'text-gray-400'}`}>
+                              {value}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Additional Responses (not in predefined sections) */}
+          {additionalAnswers.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => toggleSection("Additional Responses")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-gray-900">Additional Responses</h2>
+                  <span className="text-sm text-gray-500">({additionalAnswers.length} items)</span>
+                </div>
+                {expandedSections.has("Additional Responses") ? (
+                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                )}
+              </button>
+              
+              {expandedSections.has("Additional Responses") && (
+                <div className="border-t border-gray-100">
+                  <div className="divide-y divide-gray-100">
+                    {additionalAnswers.map((item, idx) => (
+                      <div key={idx} className="flex px-6 py-3">
+                        <div className="w-1/3 text-sm text-gray-500">{item.label}</div>
+                        <div className="w-2/3 text-sm text-gray-900">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Send Intake Form Modal */}
-      <SendIntakeFormModal patient={patient} />
+      {showSendModal && (
+        <SendIntakeFormModal
+          patient={patient}
+          onClose={() => setShowSendModal(false)}
+        />
+      )}
     </div>
   );
 }

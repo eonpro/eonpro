@@ -69,10 +69,14 @@ export async function POST(req: NextRequest) {
     logger.debug("  - Submission ID:", { value: normalized.submissionId });
     logger.debug("  - Sections:", { count: normalized.sections.length });
 
-    // Store the normalized intake data for later display
+    // Store the normalized intake data for later display (including answers for vitals)
     const intakeDataToStore = {
       submissionId: normalized.submissionId,
       sections: normalized.sections,
+      answers: normalized.answers,
+      patient: normalized.patient,
+      source: "medlink-intake",
+      receivedAt: new Date().toISOString(),
     };
 
     // Upsert patient

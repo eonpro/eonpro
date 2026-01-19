@@ -142,3 +142,115 @@ const updatePatientHandler = withAuthParams(async (request, user, { params }: Pa
 
 // Export directly - rate limiting breaks context passing for dynamic routes
 export const PATCH = updatePatientHandler;
+
+const deletePatientHandler = withAuthParams(async (_request, user, { params }: Params) => {
+  const resolvedParams = await params;
+  const id = Number(resolvedParams.id);
+  if (Number.isNaN(id)) {
+    return Response.json({ error: "Invalid patient id" }, { status: 400 });
+  }
+
+  try {
+    const existing = await prisma.patient.findUnique({ 
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            documents: true,
+            soapNotes: true,
+            appointments: true,
+          }
+        }
+      }
+    });
+    
+    if (!existing) {
+      return Response.json({ error: "Patient not found" }, { status: 404 });
+    }
+    
+    // Only super_admin and admin can delete patients
+    if (!['super_admin', 'admin'].includes(user.role)) {
+      return Response.json({ error: "Only administrators can delete patients" }, { status: 403 });
+    }
+
+    // Log the deletion for audit purposes
+    await prisma.patientAudit.create({
+      data: {
+        patientId: id,
+        actorEmail: user.email,
+        action: "delete",
+        diff: {
+          deleted: true,
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          relatedData: existing._count,
+        },
+      },
+    });
+
+    // Delete related records in order (to respect foreign key constraints)
+    // Delete in batches to handle large datasets
+    
+    // Delete medication reminders
+    await prisma.patientMedicationReminder.deleteMany({ where: { patientId: id } });
+    
+    // Delete weight logs
+    await prisma.patientWeightLog.deleteMany({ where: { patientId: id } });
+    
+    // Delete intake form responses and submissions
+    const submissions = await prisma.intakeFormSubmission.findMany({ where: { patientId: id } });
+    for (const submission of submissions) {
+      await prisma.intakeFormResponse.deleteMany({ where: { submissionId: submission.id } });
+    }
+    await prisma.intakeFormSubmission.deleteMany({ where: { patientId: id } });
+    
+    // Delete SOAP notes
+    await prisma.sOAPNote.deleteMany({ where: { patientId: id } });
+    
+    // Delete appointments
+    await prisma.appointment.deleteMany({ where: { patientId: id } });
+    
+    // Delete documents
+    await prisma.patientDocument.deleteMany({ where: { patientId: id } });
+    
+    // Delete subscriptions
+    await prisma.subscription.deleteMany({ where: { patientId: id } });
+    
+    // Delete payment methods
+    await prisma.paymentMethod.deleteMany({ where: { patientId: id } });
+    
+    // Delete order events and rxs, then orders
+    const orders = await prisma.order.findMany({ where: { patientId: id } });
+    for (const order of orders) {
+      await prisma.orderEvent.deleteMany({ where: { orderId: order.id } });
+      await prisma.rx.deleteMany({ where: { orderId: order.id } });
+    }
+    await prisma.order.deleteMany({ where: { patientId: id } });
+    
+    // Delete audit entries (keep for compliance, but reference will be broken)
+    // await prisma.patientAudit.deleteMany({ where: { patientId: id } });
+    
+    // Delete tickets
+    await prisma.ticket.deleteMany({ where: { patientId: id } });
+    
+    // Delete referral tracking
+    await prisma.referralTracking.deleteMany({ where: { patientId: id } });
+    
+    // Finally, delete the patient
+    await prisma.patient.delete({ where: { id } });
+
+    logger.info(`[DELETE /api/patients/${id}] Patient deleted by ${user.email}`);
+    
+    return Response.json({ success: true, message: "Patient deleted successfully" });
+  } catch (err: any) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    logger.error("[PATIENTS/DELETE] Failed to delete patient", err);
+    return Response.json(
+      { error: errorMessage ?? "Failed to delete patient" },
+      { status: 500 }
+    );
+  }
+}, { roles: ['super_admin', 'admin'] });
+
+export const DELETE = deletePatientHandler;

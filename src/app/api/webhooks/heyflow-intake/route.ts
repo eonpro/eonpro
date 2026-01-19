@@ -104,10 +104,14 @@ export async function POST(req: NextRequest) {
       logger.debug("  - Medical field samples:", { samples: medicalFields.slice(0, 3).map((f: any) => `${f.label}: ${f.value}`) });
     }
 
-    // Store the normalized intake data for later display
+    // Store the normalized intake data for later display (including answers for vitals)
     const intakeDataToStore = {
       submissionId: normalized.submissionId,
       sections: normalized.sections,
+      answers: normalized.answers,
+      patient: normalized.patient,
+      source: "heyflow-intake",
+      receivedAt: new Date().toISOString(),
     };
 
     // Upsert patient
