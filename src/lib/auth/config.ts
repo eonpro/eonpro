@@ -145,7 +145,7 @@ export const AUTH_CONFIG = {
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production', // HTTPS required in production
-    sameSite: 'strict' as const, // Strict for production security
+    sameSite: 'lax' as const, // Lax allows cookies on same-origin requests
     path: '/',
     maxAge: undefined, // Session cookie (expires on browser close)
   },
