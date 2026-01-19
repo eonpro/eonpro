@@ -264,20 +264,39 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     
     // Helper to find value by label in various data sources
     const findValue = (...labels: string[]): string | null => {
-      // Source 1: Document data with sections array
+      // Source 1: Document data with sections array (must be parsed JSON, not Buffer)
       const intakeDoc = documentsWithParsedData.find((d: any) => 
-        d.category === 'MEDICAL_INTAKE_FORM' && d.data && typeof d.data === 'object'
+        d.category === 'MEDICAL_INTAKE_FORM' && 
+        d.data && 
+        typeof d.data === 'object' &&
+        !Buffer.isBuffer(d.data) &&
+        !(d.data.type === 'Buffer') // Prisma serialized buffer format
       );
       
-      if (intakeDoc?.data?.sections && Array.isArray(intakeDoc.data.sections)) {
-        for (const section of intakeDoc.data.sections) {
-          if (section.entries && Array.isArray(section.entries)) {
-            for (const entry of section.entries) {
-              const entryLabel = (entry.label || '').toLowerCase();
-              for (const label of labels) {
-                if (entryLabel.includes(label.toLowerCase()) && entry.value && entry.value !== '') {
-                  return String(entry.value);
+      if (intakeDoc?.data) {
+        // Check sections array
+        if (intakeDoc.data.sections && Array.isArray(intakeDoc.data.sections)) {
+          for (const section of intakeDoc.data.sections) {
+            if (section.entries && Array.isArray(section.entries)) {
+              for (const entry of section.entries) {
+                const entryLabel = (entry.label || '').toLowerCase();
+                for (const label of labels) {
+                  if (entryLabel.includes(label.toLowerCase()) && entry.value && entry.value !== '') {
+                    return String(entry.value);
+                  }
                 }
+              }
+            }
+          }
+        }
+        
+        // Also check answers array directly (some webhooks store this way)
+        if (intakeDoc.data.answers && Array.isArray(intakeDoc.data.answers)) {
+          for (const answer of intakeDoc.data.answers) {
+            const answerLabel = (answer.label || '').toLowerCase();
+            for (const label of labels) {
+              if (answerLabel.includes(label.toLowerCase()) && answer.value && answer.value !== '') {
+                return String(answer.value);
               }
             }
           }
