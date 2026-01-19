@@ -7,7 +7,7 @@
  * Phase 2 of the 5-Phase Integration Plan
  */
 
-import { logger } from '@/lib/integrations/logging';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // CONFIGURATION

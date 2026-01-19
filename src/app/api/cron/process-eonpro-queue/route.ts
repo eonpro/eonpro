@@ -4,13 +4,7 @@
  * Runs every 5 minutes via Vercel Cron or external trigger.
  * Processes failed submissions and retries them.
  * 
- * Configure in vercel.json:
- * {
- *   "crons": [{
- *     "path": "/api/cron/process-eonpro-queue",
- *     "schedule": "*/5 * * * *"
- *   }]
- * }
+ * Configure in vercel.json with schedule: "every 5 minutes"
  */
 
 import { NextRequest } from 'next/server';
