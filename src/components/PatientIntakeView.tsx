@@ -237,22 +237,11 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Find and parse the latest intake document
-  const allIntakeDocs = documents.filter((doc: any) => doc.category === "MEDICAL_INTAKE_FORM");
-  const intakeDoc = allIntakeDocs.find((doc: any) => doc.intakeData || doc.data);
+  const intakeDoc = documents.find(
+    (doc: any) => doc.category === "MEDICAL_INTAKE_FORM" && (doc.intakeData || doc.data)
+  );
 
   let intakeData: IntakeData = {};
-
-  // Debug logging - check what documents exist
-  console.log('[Intake Debug] ═══════════════════════════════════════');
-  console.log('[Intake Debug] Total documents:', documents.length);
-  console.log('[Intake Debug] Intake documents:', allIntakeDocs.length);
-  allIntakeDocs.forEach((doc: any, i: number) => {
-    console.log(`[Intake Debug] Doc ${i}: id=${doc.id}, hasData=${!!doc.data}, dataType=${typeof doc.data}`);
-    if (doc.data && typeof doc.data === 'object' && !Array.isArray(doc.data)) {
-      console.log(`[Intake Debug] Doc ${i} data keys:`, Object.keys(doc.data).slice(0, 10));
-    }
-  });
-  console.log('[Intake Debug] Using intakeDoc:', intakeDoc?.id);
 
   if (intakeDoc) {
     if (intakeDoc.intakeData) {
@@ -260,56 +249,37 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         intakeData = typeof intakeDoc.intakeData === 'string' 
           ? JSON.parse(intakeDoc.intakeData) 
           : intakeDoc.intakeData;
-        console.log('[Intake Debug] Loaded from intakeData field');
       } catch (error: any) {
-        console.error('[Intake Debug] Error parsing intakeData:', error.message);
+        logger.error('Error parsing intakeData field:', error);
       }
     } else if (intakeDoc.data) {
       try {
         let rawData = intakeDoc.data;
         
-        // Handle various buffer/array formats
+        // Handle various buffer/array formats (Prisma 6.x returns Uint8Array)
         if (rawData instanceof Uint8Array) {
           rawData = new TextDecoder().decode(rawData);
-          console.log('[Intake Debug] Converted from Uint8Array');
         } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer(rawData)) {
           rawData = rawData.toString('utf8');
-          console.log('[Intake Debug] Converted from Node Buffer');
         } else if (typeof rawData === 'object' && rawData?.type === 'Buffer' && Array.isArray(rawData.data)) {
           rawData = new TextDecoder().decode(new Uint8Array(rawData.data));
-          console.log('[Intake Debug] Converted from Prisma Buffer object');
         }
         
-        // Now try to parse or use directly
+        // Parse or use directly
         if (typeof rawData === 'string') {
           const trimmed = rawData.trim();
-          console.log('[Intake Debug] String data preview:', trimmed.substring(0, 100));
           if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
             intakeData = JSON.parse(trimmed);
-            console.log('[Intake Debug] Parsed JSON string');
-          } else {
-            console.log('[Intake Debug] String does NOT start with { or [ - might be PDF or binary');
           }
         } else if (typeof rawData === 'object' && rawData !== null) {
-          // Already parsed object (page.tsx already parsed it)
+          // Already parsed by page.tsx
           intakeData = rawData as IntakeData;
-          console.log('[Intake Debug] Using pre-parsed object');
-        }
-        
-        // Log what we got
-        console.log('[Intake Debug] intakeData keys:', Object.keys(intakeData));
-        console.log('[Intake Debug] Has sections:', !!intakeData.sections, 'count:', intakeData.sections?.length);
-        console.log('[Intake Debug] Has answers:', !!intakeData.answers, 'count:', intakeData.answers?.length);
-        
-        if (intakeData.answers?.length) {
-          console.log('[Intake Debug] First 3 answers:', intakeData.answers.slice(0, 3).map((a: any) => ({id: a.id, label: a.label, value: String(a.value).slice(0, 30)})));
         }
       } catch (error: any) {
-        console.error('[Intake Debug] Parse error:', error.message);
+        logger.debug('Data field does not contain valid JSON');
       }
     }
   }
-  console.log('[Intake Debug] ═══════════════════════════════════════');
 
   // Build a map of all answers from various sources
   const buildAnswerMap = useCallback(() => {
@@ -348,13 +318,6 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   }, [intakeData, intakeFormSubmissions]);
 
   const answerMap = buildAnswerMap();
-
-  // Debug: show what's in the answer map
-  console.log('[Intake Debug] Answer map size:', answerMap.size);
-  if (answerMap.size > 0) {
-    const entries = Array.from(answerMap.entries()).slice(0, 10);
-    console.log('[Intake Debug] Answer map sample:', entries);
-  }
 
   // Find answer for a field
   const findAnswer = (field: { id: string; label: string; aliases?: string[] }): string => {
