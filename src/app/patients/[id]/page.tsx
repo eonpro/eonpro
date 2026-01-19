@@ -111,41 +111,52 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     ...decryptedPatient
   };
 
-  // Parse intake document data from Buffer to JSON
+  // Parse intake document data from Buffer/Uint8Array to JSON
   const documentsWithParsedData = patientWithDecryptedPHI.documents.map((doc: any) => {
     if (doc.data && doc.category === 'MEDICAL_INTAKE_FORM') {
       try {
-        // If data is already parsed, use it as is
-        if (typeof doc.data === 'object' && !Buffer.isBuffer(doc.data) && !doc.data.type) {
+        let dataStr: string;
+        
+        // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
+        if (doc.data instanceof Uint8Array) {
+          dataStr = Buffer.from(doc.data).toString('utf8');
+        }
+        // Handle Buffer object serialized as {type: 'Buffer', data: number[]}
+        else if (typeof doc.data === 'object' && doc.data.type === 'Buffer' && Array.isArray(doc.data.data)) {
+          dataStr = Buffer.from(doc.data.data).toString('utf8');
+        }
+        // Handle actual Buffer
+        else if (Buffer.isBuffer(doc.data)) {
+          dataStr = doc.data.toString('utf8');
+        }
+        // Handle string
+        else if (typeof doc.data === 'string') {
+          dataStr = doc.data;
+        }
+        // If it's already a parsed object with answers, use it directly
+        else if (typeof doc.data === 'object' && (doc.data.answers || doc.data.sections)) {
+          return doc; // Already parsed
+        }
+        else {
+          // Unknown format - skip parsing
+          logger.warn('Unknown data format for document:', doc.id, typeof doc.data);
           return doc;
         }
         
-        // If data is a Buffer-like object, convert it to string and parse JSON
-        let dataStr: string;
-        if (typeof doc.data === 'object' && doc.data.type === 'Buffer' && Array.isArray(doc.data.data)) {
-          // Prisma returns Buffer as {type: 'Buffer', data: number[]}
-          dataStr = Buffer.from(doc.data.data).toString('utf8');
-        } else if (Buffer.isBuffer(doc.data)) {
-          dataStr = doc.data.toString('utf8');
-        } else if (typeof doc.data === 'string') {
-          dataStr = doc.data;
+        // Parse the JSON string (skip if it's PDF binary data)
+        const trimmed = dataStr.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          const parsedData = JSON.parse(trimmed);
+          return {
+            ...doc,
+            data: parsedData
+          };
         } else {
-          // If it's some other format, try to handle it
-          dataStr = JSON.stringify(doc.data);
+          // Not JSON (likely PDF bytes) - return as-is
+          return doc;
         }
-        
-        // Parse the JSON string
-        const parsedData = JSON.parse(dataStr);
-        return {
-          ...doc,
-          data: parsedData
-        };
       } catch (err: any) {
-    // @ts-ignore
-   
-        logger.error('Failed to parse document data:', err);
-        logger.error('Data type:', typeof doc.data);
-        logger.error('Data sample:', doc.data ? JSON.stringify(doc.data).substring(0, 100) : 'null');
+        logger.error('Failed to parse document data:', err.message);
         return doc;
       }
     }

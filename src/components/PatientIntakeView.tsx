@@ -268,12 +268,15 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       try {
         let rawData = intakeDoc.data;
         
-        // Handle various buffer formats
-        if (Buffer.isBuffer(rawData)) {
+        // Handle various buffer/array formats
+        if (rawData instanceof Uint8Array) {
+          rawData = new TextDecoder().decode(rawData);
+          console.log('[Intake Debug] Converted from Uint8Array');
+        } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer(rawData)) {
           rawData = rawData.toString('utf8');
           console.log('[Intake Debug] Converted from Node Buffer');
         } else if (typeof rawData === 'object' && rawData?.type === 'Buffer' && Array.isArray(rawData.data)) {
-          rawData = Buffer.from(rawData.data).toString('utf8');
+          rawData = new TextDecoder().decode(new Uint8Array(rawData.data));
           console.log('[Intake Debug] Converted from Prisma Buffer object');
         }
         
