@@ -250,16 +250,73 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   });
 
   // Extract vitals from intake data
+  // The intake data is stored as JSON with a 'sections' array containing entries
+  // Each entry has: { id, label, value }
   const extractVitals = () => {
     const intakeDoc = documentsWithParsedData.find((d: any) => d.category === 'MEDICAL_INTAKE_FORM' && d.data);
     if (!intakeDoc?.data) return {};
     
     const data = intakeDoc.data;
+    
+    // Helper to find a value by label (case-insensitive, partial match)
+    const findByLabel = (...labels: string[]): string | null => {
+      // First, check if data has sections array (normalized intake format)
+      if (data.sections && Array.isArray(data.sections)) {
+        for (const section of data.sections) {
+          if (section.entries && Array.isArray(section.entries)) {
+            for (const entry of section.entries) {
+              const entryLabel = (entry.label || '').toLowerCase();
+              for (const label of labels) {
+                if (entryLabel.includes(label.toLowerCase())) {
+                  if (entry.value && entry.value !== '') {
+                    return entry.value;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // Also check flat key-value format (legacy or direct field mapping)
+      for (const label of labels) {
+        const key = label.toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (const [k, v] of Object.entries(data)) {
+          if (k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(key) && v) {
+            return String(v);
+          }
+        }
+      }
+      
+      return null;
+    };
+    
+    // Extract height
+    const heightFeet = findByLabel('Height (feet)', 'height feet', 'heightFeet');
+    const heightInches = findByLabel('Height (inches)', 'height inches', 'heightInches');
+    let height: string | null = null;
+    if (heightFeet) {
+      height = heightInches ? `${heightFeet}'${heightInches}"` : `${heightFeet}'0"`;
+    }
+    
+    // Extract weight (Starting Weight or Weight from intake)
+    const weight = findByLabel('Starting Weight', 'Weight', 'current weight');
+    
+    // Extract BMI
+    const bmi = findByLabel('BMI');
+    
+    // Extract blood pressure
+    const bloodPressure = findByLabel('Blood Pressure');
+    
+    // Extract ideal weight for reference
+    const idealWeight = findByLabel('Ideal Weight', 'Goal Weight', 'Target Weight');
+    
     return {
-      height: data.height || (data.heightFeet && data.heightInches ? `${data.heightFeet}'${data.heightInches}"` : null),
-      weight: data.weight || data.currentWeight,
-      bmi: data.bmi,
-      bloodPressure: data.bloodPressure || (data.systolic && data.diastolic ? `${data.systolic}/${data.diastolic}` : null),
+      height,
+      weight,
+      bmi,
+      bloodPressure: bloodPressure && bloodPressure.toLowerCase() !== 'unknown' ? bloodPressure : null,
+      idealWeight,
     };
   };
   
