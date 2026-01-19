@@ -143,15 +143,16 @@ model PatientDocument {
   filename           String
   mimeType           String
   source             String?
-  data               Bytes?                  // PDF binary data
-  intakeData         Json?                   // Structured intake form answers (separate from PDF)
-  pdfGeneratedAt     DateTime?               // When the PDF was generated
-  intakeVersion      String?                 // Track intake form version
+  data               Bytes?                  // PDF binary data (or legacy JSON)
   externalUrl        String?
   sourceSubmissionId String?                 @unique
   category           PatientDocumentCategory @default(OTHER)
   patient            Patient                 @relation(fields: [patientId], references: [id])
   soapNotes          SOAPNote[]
+  // Future fields (require DB migration):
+  // intakeData         Json?                   // Structured intake form answers
+  // pdfGeneratedAt     DateTime?               // When the PDF was generated
+  // intakeVersion      String?                 // Track intake form version
 }
 
 model PatientCounter {

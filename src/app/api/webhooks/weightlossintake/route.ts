@@ -354,9 +354,6 @@ export async function POST(req: NextRequest) {
           data: {
             filename: stored.filename,
             data: stored.pdfBuffer,  // Store PDF bytes directly
-            intakeData: intakeDataToStore,  // Store intake JSON separately
-            pdfGeneratedAt: new Date(),
-            intakeVersion: "weightlossintake-v2",
             externalUrl: null,  // Clear legacy external URL
           },
         });
@@ -369,9 +366,6 @@ export async function POST(req: NextRequest) {
             mimeType: "application/pdf",
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
             data: stored.pdfBuffer,  // Store PDF bytes directly
-            intakeData: intakeDataToStore,  // Store intake JSON separately
-            pdfGeneratedAt: new Date(),
-            intakeVersion: "weightlossintake-v2",
             source: "weightlossintake",
             sourceSubmissionId: normalized.submissionId,
           },

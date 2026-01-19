@@ -47,12 +47,11 @@ export const POST = withAuthParams(async (
         },
       });
     } else if (all) {
-      // Regenerate all documents that need it (have intakeData but no valid PDF)
+      // Regenerate all intake documents
       // Limit to 100 at a time to prevent timeout
       documents = await prisma.patientDocument.findMany({
         where: {
           category: 'MEDICAL_INTAKE_FORM',
-          intakeData: { not: null },
         },
         include: {
           patient: true,
@@ -84,31 +83,51 @@ export const POST = withAuthParams(async (
 
     for (const doc of documents) {
       try {
-        // Check if we have intake data to regenerate from
-        let intakeDataSource = doc.intakeData;
+        // Try to get intake data from the data field (legacy JSON format)
+        let intakeDataSource: any = null;
         
-        // If no intakeData, try to parse from legacy data field
-        if (!intakeDataSource && doc.data) {
+        if (doc.data) {
           try {
             const buffer = Buffer.isBuffer(doc.data) 
               ? doc.data 
               : Buffer.from((doc.data as any).data || doc.data);
             const str = buffer.toString('utf8').trim();
+            // Only parse if it looks like JSON (not PDF binary)
             if (str.startsWith('{') || str.startsWith('[')) {
               intakeDataSource = JSON.parse(str);
             }
           } catch {
-            // Not JSON, can't regenerate
+            // Not JSON - might already be PDF bytes, which is fine
           }
         }
 
+        // If data is already PDF or we don't have intake JSON, use patient info
         if (!intakeDataSource) {
-          results.push({
-            documentId: doc.id,
-            success: false,
-            error: 'No intake data available for regeneration',
-          });
-          continue;
+          // Create minimal intake from patient record
+          intakeDataSource = {
+            submissionId: doc.sourceSubmissionId || `regen-${doc.id}`,
+            patient: {
+              firstName: doc.patient.firstName,
+              lastName: doc.patient.lastName,
+              email: doc.patient.email,
+              phone: doc.patient.phone,
+              dob: doc.patient.dob,
+              gender: doc.patient.gender,
+              address1: doc.patient.address1,
+              city: doc.patient.city,
+              state: doc.patient.state,
+              zip: doc.patient.zip,
+            },
+            sections: [{
+              title: 'Patient Information',
+              entries: [
+                { label: 'Name', value: `${doc.patient.firstName} ${doc.patient.lastName}` },
+                { label: 'Email', value: doc.patient.email || '' },
+                { label: 'Phone', value: doc.patient.phone || '' },
+              ],
+            }],
+            answers: [],
+          };
         }
 
         // Build NormalizedIntake from stored data
@@ -137,13 +156,12 @@ export const POST = withAuthParams(async (
         const pdfBuffer = await generateIntakePdf(intake, doc.patient);
         
         // Update document with new PDF
+        // Note: intakeData, pdfGeneratedAt, intakeVersion require DB migration
         await prisma.patientDocument.update({
           where: { id: doc.id },
           data: {
             data: pdfBuffer,
-            intakeData: intakeDataSource, // Ensure intakeData is stored
-            pdfGeneratedAt: new Date(),
-            intakeVersion: `regenerated-${new Date().toISOString().split('T')[0]}`,
+            externalUrl: null,  // Clear any legacy external URL
           },
         });
 
@@ -193,25 +211,6 @@ export const GET = withAuthParams(async (
   user: any
 ) => {
   try {
-    // Count documents that have intakeData but might need PDF regeneration
-    const needsRegeneration = await prisma.patientDocument.count({
-      where: {
-        category: 'MEDICAL_INTAKE_FORM',
-        OR: [
-          // Has intakeData but no pdfGeneratedAt (never had PDF generated properly)
-          {
-            intakeData: { not: null },
-            pdfGeneratedAt: null,
-          },
-          // Has intakeData but data is null/empty
-          {
-            intakeData: { not: null },
-            data: null,
-          },
-        ],
-      },
-    });
-
     // Count total intake documents
     const totalIntake = await prisma.patientDocument.count({
       where: {
@@ -219,19 +218,22 @@ export const GET = withAuthParams(async (
       },
     });
 
-    // Count documents with valid PDFs
-    const withValidPdf = await prisma.patientDocument.count({
+    // Count documents with data (have PDF bytes)
+    const withData = await prisma.patientDocument.count({
       where: {
         category: 'MEDICAL_INTAKE_FORM',
-        pdfGeneratedAt: { not: null },
+        data: { not: null },
       },
     });
 
+    // Count documents without data (missing PDF)
+    const needsRegeneration = totalIntake - withData;
+
     return NextResponse.json({
       totalIntakeDocuments: totalIntake,
-      withValidPdf,
+      withValidPdf: withData,
       needsRegeneration,
-      percentValid: totalIntake > 0 ? Math.round((withValidPdf / totalIntake) * 100) : 100,
+      percentValid: totalIntake > 0 ? Math.round((withData / totalIntake) * 100) : 100,
     });
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

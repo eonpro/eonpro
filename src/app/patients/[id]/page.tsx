@@ -68,7 +68,8 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           category: true,
           sourceSubmissionId: true,
           data: true,  // PDF binary data (or legacy JSON)
-          intakeData: true,  // Structured intake form answers
+          // intakeData field added after migration - uncomment once DB is migrated
+          // intakeData: true,
         },
       },
       intakeSubmissions: {

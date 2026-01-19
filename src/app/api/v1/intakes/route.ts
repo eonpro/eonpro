@@ -137,9 +137,6 @@ export async function POST(req: NextRequest) {
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           mimeType: "application/pdf",
           data: stored.pdfBuffer,  // Store PDF bytes directly
-          intakeData: intakeDataToStore,  // Store intake JSON separately
-          pdfGeneratedAt: new Date(),
-          intakeVersion: "v1-intakes-v2",
           sourceSubmissionId: normalized.submissionId,
         },
       });

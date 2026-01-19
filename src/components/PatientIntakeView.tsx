@@ -149,8 +149,8 @@ type Props = {
     sourceSubmissionId: string | null;
     category: string;
     externalUrl: string | null;
-    data?: any;  // Legacy: PDF bytes or JSON (before migration)
-    intakeData?: any;  // New: Structured intake form answers
+    data?: any;  // PDF bytes or JSON (legacy documents)
+    intakeData?: any;  // Structured intake form answers (after DB migration)
   }>;
   intakeFormSubmissions?: Array<{
     id: number;

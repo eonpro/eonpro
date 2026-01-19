@@ -285,6 +285,8 @@ export class IntakeProcessor {
       where: { sourceSubmissionId: normalized.submissionId },
     });
 
+    // Note: intakeData, pdfGeneratedAt, intakeVersion require DB migration
+    // Once migrated, uncomment those fields
     let document;
     if (existingDocument) {
       document = await prisma.patientDocument.update({
@@ -292,9 +294,6 @@ export class IntakeProcessor {
         data: {
           filename,
           data: pdfBuffer,
-          intakeData: intakeDataToStore,
-          pdfGeneratedAt: new Date(),
-          intakeVersion: `${this.source}-v2`,
           externalUrl: null,
         },
       });
@@ -309,9 +308,6 @@ export class IntakeProcessor {
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: pdfBuffer,
-          intakeData: intakeDataToStore,
-          pdfGeneratedAt: new Date(),
-          intakeVersion: `${this.source}-v2`,
         },
       });
     }
