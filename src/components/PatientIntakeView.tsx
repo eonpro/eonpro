@@ -508,17 +508,6 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         </div>
       ) : (
         <>
-        {/* Show notice if intake exists but answers couldn't be parsed */}
-        {intakeDoc && !hasParsedIntakeData && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-            <p className="font-medium">Detailed intake responses not available</p>
-            <p className="text-amber-700 mt-1">
-              This patient&apos;s intake was processed before the detailed data system was implemented.
-              Basic patient information is shown from their profile. To capture detailed responses,
-              send a new intake form.
-            </p>
-          </div>
-        )}
           {/* Predefined Sections */}
           {INTAKE_SECTIONS.map((section) => {
             const Icon = section.icon;
