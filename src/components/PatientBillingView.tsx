@@ -6,6 +6,7 @@ import { BILLING_PLANS, getGroupedPlans, formatPlanPrice, getPlanById } from '@/
 import { ProcessPaymentForm } from './ProcessPaymentForm';
 import { PatientSubscriptionManager } from './PatientSubscriptionManager';
 import { logger } from '@/lib/logger';
+import { toast } from '@/components/Toast';
 
 interface Invoice {
   id: number;
@@ -131,14 +132,14 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
       });
       
       if (res.ok) {
-        alert('Invoice sent successfully');
+        toast.success('Invoice sent successfully');
         fetchBillingData();
       } else {
-        alert('Failed to send invoice');
+        toast.error('Failed to send invoice');
       }
     } catch (err: any) {
       logger.error('Error sending invoice:', err);
-      alert('Failed to send invoice');
+      toast.error('Failed to send invoice');
     }
   };
 
@@ -155,14 +156,14 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
       });
       
       if (res.ok) {
-        alert('Invoice voided successfully');
+        toast.success('Invoice voided successfully');
         fetchBillingData();
       } else {
-        alert('Failed to void invoice');
+        toast.error('Failed to void invoice');
       }
     } catch (err: any) {
       logger.error('Error voiding invoice:', err);
-      alert('Failed to void invoice');
+      toast.error('Failed to void invoice');
     }
   };
 
@@ -184,15 +185,15 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
       const data = await res.json();
       
       if (res.ok) {
-        alert(`Refund of ${formatCurrency(amount)} processed successfully`);
+        toast.success(`Refund of ${formatCurrency(amount)} processed successfully`);
         setRefundModal(null);
         fetchBillingData();
       } else {
-        alert(data.error || 'Failed to process refund');
+        toast.error(data.error || 'Failed to process refund');
       }
     } catch (err: any) {
       logger.error('Error processing refund:', err);
-      alert('Failed to process refund');
+      toast.error('Failed to process refund');
     }
   };
 
@@ -223,11 +224,11 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         const data = await res.json();
         window.open(data.url, '_blank');
       } else {
-        alert('Failed to open customer portal');
+        toast.error('Failed to open customer portal');
       }
     } catch (err: any) {
       logger.error('Error opening customer portal:', err);
-      alert('Failed to open customer portal');
+      toast.error('Failed to open customer portal');
     }
   };
 
@@ -593,13 +594,13 @@ function RefundModal({
     
     // Need either paymentId or stripeInvoiceId
     if (!paymentId && !stripeInvoiceId) {
-      alert('Unable to process refund - no payment or invoice reference found');
+      toast.error('Unable to process refund - no payment or invoice reference found');
       return;
     }
-    
+
     const amountInCents = Math.round(amount * 100);
     if (amountInCents <= 0 || amountInCents > maxAmount) {
-      alert(`Amount must be between $0.01 and ${formatCurrency(maxAmount)}`);
+      toast.error(`Amount must be between $0.01 and ${formatCurrency(maxAmount)}`);
       return;
     }
     
@@ -766,14 +767,19 @@ function CreateInvoiceForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Prevent double submission
+    if (submitting) {
+      return;
+    }
+
     // Validate line items
     const validItems = lineItems.filter((item: any) => item.description && item.amount > 0);
     if (validItems.length === 0) {
-      alert('Please add at least one line item');
+      toast.error('Please add at least one line item');
       return;
     }
-    
+
     setSubmitting(true);
     
     // Get auth token for API calls
@@ -800,18 +806,20 @@ function CreateInvoiceForm({
       if (res.ok) {
         if (data.demoMode) {
           // Show demo mode message
-          alert('Invoice created successfully (Demo Mode - Stripe not configured)');
+          toast.warning('Invoice created (Demo Mode - Stripe not configured)');
+        } else {
+          toast.success('Invoice created successfully');
         }
         onSuccess();
       } else {
-        const errorMsg = data.demoMode 
-          ? 'Invoice creation is in demo mode. Stripe payment processing is not configured.' 
+        const errorMsg = data.demoMode
+          ? 'Invoice creation is in demo mode. Stripe payment processing is not configured.'
           : (data.error || 'Failed to create invoice');
-        alert(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err: any) {
       logger.error('Error creating invoice:', err);
-      alert('Failed to create invoice');
+      toast.error('Failed to create invoice');
     } finally {
       setSubmitting(false);
     }

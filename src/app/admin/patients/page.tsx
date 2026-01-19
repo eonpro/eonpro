@@ -137,7 +137,11 @@ export default function AdminPatientsPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredPatients.map((patient) => (
-                <tr key={patient.id} className="hover:bg-gray-50">
+                <tr
+                  key={patient.id}
+                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => router.push(`/patients/${patient.id}`)}
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -172,7 +176,7 @@ export default function AdminPatientsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => router.push(`/patients/${patient.id}`)}
