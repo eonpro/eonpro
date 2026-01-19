@@ -204,8 +204,8 @@ export async function POST(req: NextRequest) {
         where: { id: existingDocument.id },
         data: {
           filename: stored.filename,
-          data: stored.pdfBuffer,  // Store PDF bytes directly
-          externalUrl: null,  // Clear legacy external URL
+          // Store intake JSON for display on Intake tab
+          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
         },
       });
       logger.debug(`[EONPRO INTAKE ${requestId}] Document updated`, { documentId: patientDocument.id });
@@ -219,7 +219,8 @@ export async function POST(req: NextRequest) {
           source: "eonpro-intake",
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: stored.pdfBuffer,  // Store PDF bytes directly
+          // Store intake JSON for display on Intake tab
+          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
         },
       });
       logger.debug(`[EONPRO INTAKE ${requestId}] Document created`, { documentId: patientDocument.id });

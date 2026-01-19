@@ -237,8 +237,7 @@ export async function POST(req: NextRequest) {
       });
 
       // Create or update patient document
-      // Store PDF bytes in 'data' field
-      // Note: intakeData, pdfGeneratedAt, intakeVersion require DB migration
+      // Store intake JSON for display (PDF bytes require DB migration for intakeData field)
       let patientDocument;
       if (existingDocument) {
         logger.debug(`[HEYFLOW V2] Updating existing document: ${existingDocument.id}`);
@@ -246,8 +245,7 @@ export async function POST(req: NextRequest) {
           where: { id: existingDocument.id },
           data: {
             filename: stored.filename,
-            data: stored.pdfBuffer,  // PDF binary bytes
-            externalUrl: null,  // Clear any old external URL
+            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
           },
         });
       } else {
@@ -260,7 +258,7 @@ export async function POST(req: NextRequest) {
             source: "heyflow",
             sourceSubmissionId: normalized.submissionId,
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            data: stored.pdfBuffer,  // PDF binary bytes
+            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
           },
         });
       }

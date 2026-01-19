@@ -285,16 +285,16 @@ export class IntakeProcessor {
       where: { sourceSubmissionId: normalized.submissionId },
     });
 
-    // Note: intakeData, pdfGeneratedAt, intakeVersion require DB migration
-    // Once migrated, uncomment those fields
+    // Store intake JSON for display (PDF bytes require DB migration for intakeData field)
+    const intakeDataBuffer = Buffer.from(JSON.stringify(intakeDataToStore), 'utf8');
+    
     let document;
     if (existingDocument) {
       document = await prisma.patientDocument.update({
         where: { id: existingDocument.id },
         data: {
           filename,
-          data: pdfBuffer,
-          externalUrl: null,
+          data: intakeDataBuffer,
         },
       });
     } else {
@@ -307,7 +307,7 @@ export class IntakeProcessor {
           source: this.source,
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: pdfBuffer,
+          data: intakeDataBuffer,
         },
       });
     }

@@ -353,8 +353,9 @@ export async function POST(req: NextRequest) {
           where: { id: existingDoc.id },
           data: {
             filename: stored.filename,
-            data: stored.pdfBuffer,  // Store PDF bytes directly
-            externalUrl: null,  // Clear legacy external URL
+            // Store intake JSON data for display on Intake tab
+            // PDF bytes will be added once DB migration for intakeData field runs
+            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
           },
         });
       } else {
@@ -365,7 +366,8 @@ export async function POST(req: NextRequest) {
             filename: stored.filename,
             mimeType: "application/pdf",
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            data: stored.pdfBuffer,  // Store PDF bytes directly
+            // Store intake JSON data for display on Intake tab
+            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
             source: "weightlossintake",
             sourceSubmissionId: normalized.submissionId,
           },

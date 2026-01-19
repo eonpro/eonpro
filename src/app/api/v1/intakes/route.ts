@@ -136,7 +136,8 @@ export async function POST(req: NextRequest) {
           filename: stored.filename,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           mimeType: "application/pdf",
-          data: stored.pdfBuffer,  // Store PDF bytes directly
+          // Store intake JSON for display on Intake tab
+          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
           sourceSubmissionId: normalized.submissionId,
         },
       });
