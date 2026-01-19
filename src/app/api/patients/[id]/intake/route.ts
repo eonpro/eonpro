@@ -1,4 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { PatientDocumentCategory } from "@prisma/client";
 import { logger } from "@/lib/logger";
@@ -195,6 +196,9 @@ export const PUT = withAuthParams(async (
       });
       logger.info(`Created intake document for patient ${patientId}, doc ${intakeDoc.id}`);
     }
+
+    // Invalidate the patient page cache
+    revalidatePath(`/patients/${patientId}`);
 
     return NextResponse.json({
       success: true,

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
-import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2 } from 'lucide-react';
+import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2, Check } from 'lucide-react';
 
 /**
  * Intake display sections - maps fields from WeightLossIntake
@@ -226,10 +227,12 @@ const getRawValue = (value: unknown): string => {
 };
 
 export default function PatientIntakeView({ patient, documents, intakeFormSubmissions = [] }: Props) {
+  const router = useRouter();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(INTAKE_SECTIONS.map(s => s.title)));
   const [showSendModal, setShowSendModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -409,6 +412,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     setEditedValues(currentValues);
     setIsEditing(true);
     setSaveError(null);
+    setSaveSuccess(false);
   };
 
   // Cancel editing
@@ -422,6 +426,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   const saveChanges = async () => {
     setIsSaving(true);
     setSaveError(null);
+    setSaveSuccess(false);
 
     try {
       const response = await fetch(`/api/patients/${patient.id}/intake`, {
@@ -430,13 +435,20 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         body: JSON.stringify({ answers: editedValues }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const data = await response.json();
         throw new Error(data.error || 'Failed to save');
       }
 
-      // Refresh page to show updated data
-      window.location.reload();
+      // Show success message
+      setSaveSuccess(true);
+      setIsSaving(false);
+
+      // Hard refresh to reload from server (bypass Next.js cache)
+      setTimeout(() => {
+        window.location.href = window.location.href;
+      }, 500);
     } catch (error: any) {
       setSaveError(error.message || 'Failed to save intake data');
       setIsSaving(false);
@@ -599,6 +611,14 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
           )}
         </div>
       </div>
+
+      {/* Save Success */}
+      {saveSuccess && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800 flex items-center gap-2">
+          <Check className="w-4 h-4" />
+          <span>Intake data saved successfully! Refreshing...</span>
+        </div>
+      )}
 
       {/* Save Error */}
       {saveError && (
