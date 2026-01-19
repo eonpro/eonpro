@@ -222,14 +222,14 @@ export async function POST(req: NextRequest) {
       const pdfContent = await generateIntakePdf(normalized, patient);
       logger.debug(`[HEYFLOW V2] PDF generated: ${pdfContent.byteLength} bytes`);
 
-      // Store PDF
-      logger.debug("[HEYFLOW V2] Storing PDF...");
+      // Prepare PDF for database storage
+      logger.debug("[HEYFLOW V2] Preparing PDF for storage...");
       const stored = await storeIntakePdf({
         patientId: patient.id,
         submissionId: normalized.submissionId,
         pdfBuffer: pdfContent,
       });
-      logger.debug(`[HEYFLOW V2] PDF stored at: ${stored.publicPath}`);
+      logger.debug(`[HEYFLOW V2] PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`);
 
       // Check for existing document
       const existingDocument = await prisma.patientDocument.findUnique({
@@ -237,6 +237,7 @@ export async function POST(req: NextRequest) {
       });
 
       // Create or update patient document
+      // IMPORTANT: Store PDF bytes in 'data' field, intake JSON in 'intakeData' field
       let patientDocument;
       if (existingDocument) {
         logger.debug(`[HEYFLOW V2] Updating existing document: ${existingDocument.id}`);
@@ -244,8 +245,11 @@ export async function POST(req: NextRequest) {
           where: { id: existingDocument.id },
           data: {
             filename: stored.filename,
-            externalUrl: stored.publicPath,
-            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+            data: stored.pdfBuffer,  // PDF binary bytes
+            intakeData: intakeDataToStore,  // JSON intake answers
+            pdfGeneratedAt: new Date(),
+            intakeVersion: "heyflow-v2",
+            externalUrl: null,  // Clear any old external URL
           },
         });
       } else {
@@ -258,8 +262,10 @@ export async function POST(req: NextRequest) {
             source: "heyflow",
             sourceSubmissionId: normalized.submissionId,
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            externalUrl: stored.publicPath,
-            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+            data: stored.pdfBuffer,  // PDF binary bytes
+            intakeData: intakeDataToStore,  // JSON intake answers
+            pdfGeneratedAt: new Date(),
+            intakeVersion: "heyflow-v2",
           },
         });
       }
@@ -286,7 +292,7 @@ export async function POST(req: NextRequest) {
         patientId: patient.id,
         documentId: patientDocument.id,
         soapNoteId,
-        publicPath: stored.publicPath,
+        pdfSizeBytes: stored.pdfBuffer.length,
         processingTimeMs,
       };
 

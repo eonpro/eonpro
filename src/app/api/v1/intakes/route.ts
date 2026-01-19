@@ -120,6 +120,15 @@ export async function POST(req: NextRequest) {
         pdfBuffer: pdfContent,
       });
       
+      // Prepare intake data to store
+      const intakeDataToStore = {
+        submissionId: normalized.submissionId,
+        sections: normalized.sections,
+        answers: normalized.answers || [],
+        source: "v1-intakes",
+        receivedAt: new Date().toISOString(),
+      };
+      
       const doc = await prisma.patientDocument.create({
         data: {
           patientId: patient.id,
@@ -127,9 +136,10 @@ export async function POST(req: NextRequest) {
           filename: stored.filename,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           mimeType: "application/pdf",
-          size: pdfContent.byteLength,
-          externalUrl: stored.publicPath,
-          data: pdfContent,
+          data: stored.pdfBuffer,  // Store PDF bytes directly
+          intakeData: intakeDataToStore,  // Store intake JSON separately
+          pdfGeneratedAt: new Date(),
+          intakeVersion: "v1-intakes-v2",
           sourceSubmissionId: normalized.submissionId,
         },
       });

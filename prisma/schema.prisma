@@ -143,7 +143,10 @@ model PatientDocument {
   filename           String
   mimeType           String
   source             String?
-  data               Bytes?
+  data               Bytes?                  // PDF binary data
+  intakeData         Json?                   // Structured intake form answers (separate from PDF)
+  pdfGeneratedAt     DateTime?               // When the PDF was generated
+  intakeVersion      String?                 // Track intake form version
   externalUrl        String?
   sourceSubmissionId String?                 @unique
   category           PatientDocumentCategory @default(OTHER)

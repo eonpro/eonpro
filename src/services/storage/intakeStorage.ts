@@ -1,18 +1,9 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { logger } from "@/lib/logger";
 
-// On Vercel, use /tmp which is writable; locally use public folder
-const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV;
-const DEFAULT_STORAGE_DIR = isVercel
-  ? "/tmp/intake-pdfs"
-  : path.join(process.cwd(), "public", "intake-pdfs");
-
 export type StoredPdf = {
-  filePath: string;
   filename: string;
-  publicPath: string;
-  storedInDatabase: boolean;
+  pdfBuffer: Buffer;
+  storedInDatabase: true;
 };
 
 export type StoreIntakePdfOptions = {
@@ -21,43 +12,28 @@ export type StoreIntakePdfOptions = {
   pdfBuffer: Buffer;
 };
 
+/**
+ * Prepares PDF for database storage.
+ * PDFs are stored directly in the database to ensure persistence on Vercel
+ * (where /tmp is ephemeral and files are lost between function invocations).
+ *
+ * This function returns the buffer to be stored in the PatientDocument.data field.
+ */
 export async function storeIntakePdf(options: StoreIntakePdfOptions): Promise<StoredPdf> {
   const { patientId, submissionId, pdfBuffer } = options;
-  
-  const baseDir = process.env.STORAGE_INTAKE_DIR
-    ? path.resolve(process.env.STORAGE_INTAKE_DIR)
-    : DEFAULT_STORAGE_DIR;
 
-  const filename = `patient_${patientId}_${submissionId}.pdf`;
-  const filePath = path.join(baseDir, filename);
+  // Generate a clean filename
+  const timestamp = Date.now();
+  const cleanSubmissionId = submissionId.replace(/[^a-zA-Z0-9-_]/g, '').slice(0, 30);
+  const filename = `patient_${patientId}_${cleanSubmissionId}-${timestamp}.pdf`;
 
-  try {
-    await mkdir(baseDir, { recursive: true });
-    await writeFile(filePath, pdfBuffer);
-    
-    logger.info(`[INTAKE STORAGE] PDF stored at ${filePath}`);
+  logger.info(`[INTAKE STORAGE] Prepared PDF for database storage: ${filename}, size: ${pdfBuffer.length} bytes`);
 
-    // On Vercel /tmp files are ephemeral - mark as stored in DB primarily
-    // For production, integrate with S3 for persistent storage
-    const publicPath = isVercel
-      ? `database://intake-pdfs/${filename}` // Indicates PDF data is in database
-      : `/intake-pdfs/${filename}`;
-
-    return {
-      filePath,
-      filename,
-      publicPath,
-      storedInDatabase: true,
-    };
-  } catch (error) {
-    // If filesystem write fails (e.g., read-only), store only in database
-    logger.warn(`[INTAKE STORAGE] Filesystem write failed, storing in database only: ${error}`);
-    
-    return {
-      filePath: "database",
-      filename,
-      publicPath: `database://intake-pdfs/${filename}`,
-      storedInDatabase: true,
-    };
-  }
+  // Return the buffer to be stored in the database
+  // The webhook handler will store this in PatientDocument.data
+  return {
+    filename,
+    pdfBuffer,
+    storedInDatabase: true,
+  };
 }

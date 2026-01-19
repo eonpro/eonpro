@@ -185,13 +185,13 @@ export async function POST(req: NextRequest) {
     const pdfContent = await generateIntakePdf(normalized, patient);
     logger.debug(`[EONPRO INTAKE ${requestId}] PDF generated`);
 
-    // Store PDF
+    // Prepare PDF for storage
     const stored = await storeIntakePdf({
       patientId: patient.id,
       submissionId: normalized.submissionId,
       pdfBuffer: pdfContent,
     });
-    logger.debug(`[EONPRO INTAKE ${requestId}] PDF stored`, { path: stored.publicPath });
+    logger.debug(`[EONPRO INTAKE ${requestId}] PDF prepared`, { filename: stored.filename, size: stored.pdfBuffer.length });
 
     // Check for existing document with same submission ID
     const existingDocument = await prisma.patientDocument.findUnique({
@@ -204,9 +204,11 @@ export async function POST(req: NextRequest) {
         where: { id: existingDocument.id },
         data: {
           filename: stored.filename,
-          externalUrl: stored.publicPath,
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
-          updatedAt: new Date(),
+          data: stored.pdfBuffer,  // Store PDF bytes directly
+          intakeData: intakeDataToStore,  // Store intake JSON separately
+          pdfGeneratedAt: new Date(),
+          intakeVersion: "eonpro-v2",
+          externalUrl: null,  // Clear legacy external URL
         },
       });
       logger.debug(`[EONPRO INTAKE ${requestId}] Document updated`, { documentId: patientDocument.id });
@@ -220,8 +222,10 @@ export async function POST(req: NextRequest) {
           source: "eonpro-intake",
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          externalUrl: stored.publicPath,
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: stored.pdfBuffer,  // Store PDF bytes directly
+          intakeData: intakeDataToStore,  // Store intake JSON separately
+          pdfGeneratedAt: new Date(),
+          intakeVersion: "eonpro-v2",
         },
       });
       logger.debug(`[EONPRO INTAKE ${requestId}] Document created`, { documentId: patientDocument.id });
@@ -246,7 +250,7 @@ export async function POST(req: NextRequest) {
         documentId: patientDocument.id,
         soapNoteId,
         submissionId: normalized.submissionId,
-        pdfUrl: stored.publicPath,
+        pdfSizeBytes: stored.pdfBuffer.length,
         patientCreated: !existingDocument,
       },
       clinic: {

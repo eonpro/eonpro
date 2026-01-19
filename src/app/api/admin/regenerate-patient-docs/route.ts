@@ -146,6 +146,14 @@ export async function POST(req: NextRequest) {
           pdfBuffer: pdfContent,
         });
 
+        // Prepare intake data to store
+        const intakeDataToStore = {
+          submissionId: normalizedIntake.submissionId,
+          sections: normalizedIntake.sections,
+          answers: normalizedIntake.answers || [],
+          regeneratedAt: new Date().toISOString(),
+        };
+
         // Create or update document record
         const existingDoc = patient.documents[0];
         
@@ -154,14 +162,19 @@ export async function POST(req: NextRequest) {
             where: { id: existingDoc.id },
             data: {
               filename: stored.filename,
-              externalUrl: stored.publicPath,
-              clinicId: patient.clinicId, // Ensure clinicId is set
+              data: stored.pdfBuffer,  // Store PDF bytes directly
+              intakeData: intakeDataToStore,  // Store intake JSON separately
+              pdfGeneratedAt: new Date(),
+              intakeVersion: 'regenerated-v2',
+              externalUrl: null,  // Clear legacy external URL
+              clinicId: patient.clinicId,
             },
           });
           results.actions.push({
             type: 'pdf_updated',
             documentId: existingDoc.id,
             filename: stored.filename,
+            pdfSizeBytes: stored.pdfBuffer.length,
           });
         } else {
           const newDoc = await prisma.patientDocument.create({
@@ -173,18 +186,17 @@ export async function POST(req: NextRequest) {
               source: 'regenerated',
               sourceSubmissionId: normalizedIntake.submissionId,
               category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-              externalUrl: stored.publicPath,
-              data: Buffer.from(JSON.stringify({
-                submissionId: normalizedIntake.submissionId,
-                sections: normalizedIntake.sections,
-                regeneratedAt: new Date().toISOString(),
-              }), 'utf8'),
+              data: stored.pdfBuffer,  // Store PDF bytes directly
+              intakeData: intakeDataToStore,  // Store intake JSON separately
+              pdfGeneratedAt: new Date(),
+              intakeVersion: 'regenerated-v2',
             },
           });
           results.actions.push({
             type: 'pdf_created',
             documentId: newDoc.id,
             filename: stored.filename,
+            pdfSizeBytes: stored.pdfBuffer.length,
           });
         }
         

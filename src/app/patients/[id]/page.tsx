@@ -67,7 +67,8 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           externalUrl: true,
           category: true,
           sourceSubmissionId: true,
-          data: true,  // Include data field for intake display
+          data: true,  // PDF binary data (or legacy JSON)
+          intakeData: true,  // Structured intake form answers
         },
       },
       intakeSubmissions: {

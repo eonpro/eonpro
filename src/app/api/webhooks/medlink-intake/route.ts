@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     // Generate PDF
     const pdfContent = await generateIntakePdf(normalized, patient);
 
-    // Store PDF
+    // Prepare PDF for storage
     const stored = await storeIntakePdf({
       patientId: patient.id,
       submissionId: normalized.submissionId,
@@ -135,9 +135,11 @@ export async function POST(req: NextRequest) {
         where: { id: existingDocument.id },
         data: {
           filename: stored.filename,
-          externalUrl: stored.publicPath,
-          // Update the intake data - as proper UTF-8 string buffer
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: stored.pdfBuffer,  // Store PDF bytes directly
+          intakeData: intakeDataToStore,  // Store intake JSON separately
+          pdfGeneratedAt: new Date(),
+          intakeVersion: "medlink-v2",
+          externalUrl: null,  // Clear legacy external URL
         },
       });
     } else {
@@ -150,9 +152,10 @@ export async function POST(req: NextRequest) {
           source: "medlink",
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          externalUrl: stored.publicPath,
-          // Store the intake data for display in the Intake tab - as proper UTF-8 string buffer
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: stored.pdfBuffer,  // Store PDF bytes directly
+          intakeData: intakeDataToStore,  // Store intake JSON separately
+          pdfGeneratedAt: new Date(),
+          intakeVersion: "medlink-v2",
         },
       });
     }
@@ -176,7 +179,7 @@ export async function POST(req: NextRequest) {
       patientId: patient.id,
       documentId: patientDocument.id,
       soapNoteId,
-      publicPath: stored.publicPath,
+      pdfSizeBytes: stored.pdfBuffer.length,
     }, { status: 200 });
   } catch (err: any) {
     // @ts-ignore

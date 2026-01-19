@@ -12,61 +12,119 @@ const STATE_NAME_TO_CODE = US_STATE_OPTIONS.reduce<Record<string, string>>((acc,
   return acc;
 }, {});
 
+/**
+ * Patient field matchers - prioritizes fuzzy label matching over hardcoded IDs
+ * 
+ * The matchers are checked in order:
+ * 1. labelIncludes - fuzzy label matching (most reliable, works across form versions)
+ * 2. id - hardcoded field IDs (fallback for known form versions)
+ * 
+ * This approach is more resilient to form changes as label text is more stable than field IDs.
+ */
 const PATIENT_FIELD_MATCHERS: Record<keyof NormalizedPatient, FieldMatcher[]> = {
   firstName: [
-    { id: "id-b1679347" },
-    { id: "idb1679347" },
+    // Fuzzy label matching (prioritized)
     { labelIncludes: "first name" },
     { labelIncludes: "firstname" },
+    { labelIncludes: "given name" },
+    { labelIncludes: "nombre" },  // Spanish
+    // Hardcoded IDs (fallback)
+    { id: "id-b1679347" },
+    { id: "idb1679347" },
+    { id: "firstName" },
   ],
   lastName: [
-    { id: "id-30d7dea8" },
-    { id: "id30d7dea8" },
     { labelIncludes: "last name" },
     { labelIncludes: "lastname" },
+    { labelIncludes: "surname" },
+    { labelIncludes: "family name" },
+    { labelIncludes: "apellido" },  // Spanish
+    { id: "id-30d7dea8" },
+    { id: "id30d7dea8" },
+    { id: "lastName" },
   ],
   email: [
+    { labelIncludes: "email" },
+    { labelIncludes: "e-mail" },
+    { labelIncludes: "correo" },  // Spanish
     { id: "id-62de7872" },
-    { labelIncludes: "EMAIL" },
+    { id: "email" },
   ],
   phone: [
+    { labelIncludes: "phone" },
+    { labelIncludes: "mobile" },
+    { labelIncludes: "cell" },
+    { labelIncludes: "telephone" },
+    { labelIncludes: "tel" },
+    { labelIncludes: "teléfono" },  // Spanish
     { id: "phone-input-id-cc54007b" },
     { id: "id-cc54007b" },
-    { labelIncludes: "PHONE" },
+    { id: "phone" },
   ],
   dob: [
+    { labelIncludes: "date of birth" },
+    { labelIncludes: "birth date" },
+    { labelIncludes: "birthdate" },
+    { labelIncludes: "dob" },
+    { labelIncludes: "birthday" },
+    { labelIncludes: "fecha de nacimiento" },  // Spanish
     { id: "id-01a47886" },
-    { labelIncludes: "DOB" },
-    { labelIncludes: "DATE OF BIRTH" },
+    { id: "dob" },
+    { id: "dateOfBirth" },
   ],
   gender: [
+    { labelIncludes: "gender" },
+    { labelIncludes: "sex" },
+    { labelIncludes: "género" },  // Spanish
     { id: "id-19e348ba" },
-    { labelIncludes: "GENDER" },
+    { id: "gender" },
   ],
   address1: [
+    { labelIncludes: "street address" },
+    { labelIncludes: "address line 1" },
+    { labelIncludes: "address1" },
+    { labelIncludes: "street" },
+    { labelIncludes: "dirección" },  // Spanish
     { id: "id-38a5bae0-street" },
     { id: "id-38a5bae0" },
-    { labelIncludes: "street address" },
-    { labelIncludes: "address" },
+    { id: "address1" },
+    { id: "streetAddress" },
   ],
   address2: [
-    { id: "id-0d142f9e" },
     { labelIncludes: "apartment" },
     { labelIncludes: "suite" },
+    { labelIncludes: "unit" },
+    { labelIncludes: "apt" },
+    { labelIncludes: "address line 2" },
+    { labelIncludes: "address2" },
+    { id: "id-0d142f9e" },
+    { id: "address2" },
   ],
   city: [
-    { id: "id-38a5bae0-city" },
     { labelIncludes: "city" },
+    { labelIncludes: "town" },
+    { labelIncludes: "ciudad" },  // Spanish
+    { id: "id-38a5bae0-city" },
+    { id: "city" },
   ],
   state: [
+    { labelIncludes: "state" },
+    { labelIncludes: "province" },
+    { labelIncludes: "region" },
+    { labelIncludes: "estado" },  // Spanish
     { id: "id-38a5bae0-state_code" },
     { id: "id-38a5bae0-state" },
-    { labelIncludes: "state" },
+    { id: "state" },
   ],
   zip: [
-    { id: "id-38a5bae0-zip" },
-    { labelIncludes: "postal code" },
     { labelIncludes: "zip" },
+    { labelIncludes: "postal code" },
+    { labelIncludes: "postcode" },
+    { labelIncludes: "código postal" },  // Spanish
+    { id: "id-38a5bae0-zip" },
+    { id: "zip" },
+    { id: "zipCode" },
+    { id: "postalCode" },
   ],
 };
 
@@ -320,21 +378,43 @@ function buildPatient(
   return patient;
 }
 
+/**
+ * Finds a value from entries using flexible matching strategies.
+ * 
+ * Strategy priority:
+ * 1. Label-based matching (most reliable across form versions)
+ * 2. ID-based matching (fallback for known form fields)
+ * 
+ * This prioritization ensures resilience when form field IDs change
+ * but labels remain consistent.
+ */
 function findValue(entries: Array<{ id: string; label: string; value: string }>, matchers: FieldMatcher[]) {
+  // First pass: try all label matchers (more reliable)
   for (const matcher of matchers) {
-    if (matcher.id) {
-      const matcherId = normalizeKey(matcher.id);
-      const direct = entries.find((entry: any) => normalizeKey(entry.id) === matcherId);
-      if (direct?.value) return direct.value;
-    }
     if (matcher.labelIncludes) {
       const needle = matcher.labelIncludes.toLowerCase();
       const labelMatch = entries.find((entry: any) =>
         entry.label?.toLowerCase().includes(needle)
       );
-      if (labelMatch?.value) return labelMatch.value;
+      if (labelMatch?.value) {
+        logger.debug(`[Normalizer] Found "${matcher.labelIncludes}" by label match: ${labelMatch.value.slice(0, 50)}`);
+        return labelMatch.value;
+      }
     }
   }
+  
+  // Second pass: try ID matchers (fallback)
+  for (const matcher of matchers) {
+    if (matcher.id) {
+      const matcherId = normalizeKey(matcher.id);
+      const direct = entries.find((entry: any) => normalizeKey(entry.id) === matcherId);
+      if (direct?.value) {
+        logger.debug(`[Normalizer] Found "${matcher.id}" by ID match: ${direct.value.slice(0, 50)}`);
+        return direct.value;
+      }
+    }
+  }
+  
   return undefined;
 }
 

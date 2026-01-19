@@ -149,7 +149,8 @@ type Props = {
     sourceSubmissionId: string | null;
     category: string;
     externalUrl: string | null;
-    data?: any;
+    data?: any;  // Legacy: PDF bytes or JSON (before migration)
+    intakeData?: any;  // New: Structured intake form answers
   }>;
   intakeFormSubmissions?: Array<{
     id: number;
@@ -220,28 +221,54 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   const [showSendModal, setShowSendModal] = useState(false);
 
   // Find and parse the latest intake document
+  // Priority 1: Look for documents with intakeData field (new format)
+  // Priority 2: Fall back to parsing data field (legacy format)
   const intakeDoc = documents.find(
-    (doc: any) => doc.category === "MEDICAL_INTAKE_FORM" && doc.data
+    (doc: any) => doc.category === "MEDICAL_INTAKE_FORM" && (doc.intakeData || doc.data)
   );
 
   let intakeData: IntakeData = {};
 
-  if (intakeDoc?.data) {
-    try {
-      if (typeof intakeDoc.data === 'string') {
-        intakeData = JSON.parse(intakeDoc.data);
-      } else if (Buffer.isBuffer(intakeDoc.data)) {
-        intakeData = JSON.parse(intakeDoc.data.toString('utf8'));
-      } else if (typeof intakeDoc.data === 'object') {
-        if (intakeDoc.data.type === 'Buffer' && Array.isArray(intakeDoc.data.data)) {
-          const buffer = Buffer.from(intakeDoc.data.data);
-          intakeData = JSON.parse(buffer.toString('utf8'));
-        } else if (!Buffer.isBuffer(intakeDoc.data)) {
-          intakeData = intakeDoc.data as IntakeData;
-        }
+  if (intakeDoc) {
+    // New format: intakeData is already JSON
+    if (intakeDoc.intakeData) {
+      try {
+        intakeData = typeof intakeDoc.intakeData === 'string' 
+          ? JSON.parse(intakeDoc.intakeData) 
+          : intakeDoc.intakeData;
+        logger.debug('Loaded intake data from intakeData field');
+      } catch (error: any) {
+        logger.error('Error parsing intakeData field:', error);
       }
-    } catch (error: any) {
-      logger.error('Error parsing intake data:', error);
+    }
+    // Legacy format: data field contains JSON (before PDF storage fix)
+    else if (intakeDoc.data) {
+      try {
+        let rawData = intakeDoc.data;
+        
+        // Handle Buffer types
+        if (Buffer.isBuffer(rawData)) {
+          rawData = rawData.toString('utf8');
+        } else if (typeof rawData === 'object' && rawData.type === 'Buffer' && Array.isArray(rawData.data)) {
+          rawData = Buffer.from(rawData.data).toString('utf8');
+        }
+        
+        // Try to parse as JSON (only works for legacy documents)
+        if (typeof rawData === 'string') {
+          // Check if it's JSON (starts with { or [)
+          const trimmed = rawData.trim();
+          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+            intakeData = JSON.parse(trimmed);
+            logger.debug('Loaded intake data from legacy data field (JSON)');
+          }
+        } else if (typeof rawData === 'object' && !Buffer.isBuffer(rawData)) {
+          intakeData = rawData as IntakeData;
+          logger.debug('Loaded intake data from legacy data field (object)');
+        }
+      } catch (error: any) {
+        // This is expected for new documents where data contains PDF bytes
+        logger.debug('Data field does not contain JSON (likely PDF bytes)');
+      }
     }
   }
 

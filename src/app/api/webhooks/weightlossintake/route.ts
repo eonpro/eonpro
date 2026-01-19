@@ -311,9 +311,9 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 8: STORE PDF (non-critical - continue on failure)
+  // STEP 8: PREPARE PDF FOR STORAGE (non-critical - continue on failure)
   // ═══════════════════════════════════════════════════════════════════
-  let stored: { filename: string; publicPath: string } | null = null;
+  let stored: { filename: string; pdfBuffer: Buffer } | null = null;
   if (pdfContent) {
     try {
       stored = await storeIntakePdf({
@@ -321,10 +321,10 @@ export async function POST(req: NextRequest) {
         submissionId: normalized.submissionId,
         pdfBuffer: pdfContent,
       });
-      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Stored: ${stored.filename}`);
+      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`);
     } catch (err) {
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF storage failed (continuing):`, err);
-      errors.push("PDF storage failed");
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF preparation failed (continuing):`, err);
+      errors.push("PDF preparation failed");
     }
   }
 
@@ -338,7 +338,7 @@ export async function POST(req: NextRequest) {
         where: { sourceSubmissionId: normalized.submissionId },
       });
 
-      // Store intake data as JSON for vitals extraction (not PDF bytes)
+      // Store intake data as JSON for vitals extraction
       const intakeDataToStore = {
         submissionId: normalized.submissionId,
         sections: normalized.sections,
@@ -353,8 +353,11 @@ export async function POST(req: NextRequest) {
           where: { id: existingDoc.id },
           data: {
             filename: stored.filename,
-            externalUrl: stored.publicPath,
-            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+            data: stored.pdfBuffer,  // Store PDF bytes directly
+            intakeData: intakeDataToStore,  // Store intake JSON separately
+            pdfGeneratedAt: new Date(),
+            intakeVersion: "weightlossintake-v2",
+            externalUrl: null,  // Clear legacy external URL
           },
         });
       } else {
@@ -365,8 +368,10 @@ export async function POST(req: NextRequest) {
             filename: stored.filename,
             mimeType: "application/pdf",
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            externalUrl: stored.publicPath,
-            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+            data: stored.pdfBuffer,  // Store PDF bytes directly
+            intakeData: intakeDataToStore,  // Store intake JSON separately
+            pdfGeneratedAt: new Date(),
+            intakeVersion: "weightlossintake-v2",
             source: "weightlossintake",
             sourceSubmissionId: normalized.submissionId,
           },

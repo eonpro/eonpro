@@ -75,74 +75,106 @@ export const GET = withAuthParams(async (
       );
     }
 
-    logger.debug(`Found document ${documentId}: externalUrl=${document.externalUrl}, hasData=${!!document.data}, mimeType=${document.mimeType}`);
+    logger.debug(`Found document ${documentId}: externalUrl=${document.externalUrl}, hasData=${!!document.data}, hasIntakeData=${!!document.intakeData}, mimeType=${document.mimeType}`);
 
-    // PRIORITY 1: Check for external URL first (S3, etc.) - this is the preferred source for PDFs
+    // Helper to convert data field to Buffer
+    const toBuffer = (data: any): Buffer | null => {
+      if (!data) return null;
+      if (Buffer.isBuffer(data)) return data;
+      if (typeof data === 'object' && 'type' in data && data.type === 'Buffer') {
+        return Buffer.from(data.data);
+      }
+      if (ArrayBuffer.isView(data)) return Buffer.from(data as Uint8Array);
+      return Buffer.from(data);
+    };
+
+    // Helper to check if buffer is a PDF
+    const isPdfBuffer = (buffer: Buffer): boolean => {
+      if (buffer.length < 4) return false;
+      // Check for %PDF magic bytes
+      return buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46;
+    };
+
+    // PRIORITY 1: Serve from database 'data' field (preferred for PDFs)
+    if (document.data) {
+      const buffer = toBuffer(document.data);
+      
+      if (buffer && buffer.length > 0) {
+        // Check if it's a PDF
+        if (isPdfBuffer(buffer)) {
+          logger.debug(`Serving PDF from database for document ${documentId}, size: ${buffer.length} bytes`);
+          
+          return new NextResponse(new Uint8Array(buffer), {
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `inline; filename="${document.filename || 'document.pdf'}"`,
+              'Content-Length': buffer.length.toString(),
+              'X-Content-Type-Options': 'nosniff',
+              'Cache-Control': 'private, max-age=3600',
+            },
+          });
+        }
+        
+        // For other binary files (images, etc.)
+        if (document.mimeType && !document.mimeType.includes('json')) {
+          logger.debug(`Serving binary file from database for document ${documentId}, mimeType: ${document.mimeType}`);
+          
+          return new NextResponse(new Uint8Array(buffer), {
+            headers: {
+              'Content-Type': document.mimeType,
+              'Content-Disposition': `inline; filename="${document.filename || 'document'}"`,
+              'Content-Length': buffer.length.toString(),
+              'X-Content-Type-Options': 'nosniff',
+              'Cache-Control': 'private, max-age=3600',
+            },
+          });
+        }
+        
+        // If data looks like JSON, this is a legacy document that needs PDF regeneration
+        const firstChar = buffer.toString('utf8', 0, 1);
+        if (firstChar === '{' || firstChar === '[') {
+          logger.warn(`Document ${documentId} has JSON in data field (legacy). PDF needs regeneration.`);
+          return NextResponse.json(
+            { 
+              error: 'This document was created before PDF storage was implemented. Use the regenerate endpoint to create the PDF.',
+              documentId,
+              needsRegeneration: true
+            },
+            { status: 404 }
+          );
+        }
+      }
+    }
+
+    // PRIORITY 2: Try external URL (S3, secure storage) as fallback
     if (document.externalUrl && !document.externalUrl.startsWith('database://')) {
       try {
+        logger.debug(`Attempting to retrieve from external URL: ${document.externalUrl}`);
         const file = await retrieveFile(document.externalUrl, patientId);
         
-        // Return the file with appropriate headers
         return new NextResponse(new Uint8Array(file.data), {
           headers: {
             'Content-Type': file.mimeType || document.mimeType || 'application/octet-stream',
             'Content-Disposition': `inline; filename="${document.filename || 'document'}"`,
             'Content-Length': file.data.length.toString(),
-            // Security headers
             'X-Content-Type-Options': 'nosniff',
             'X-Frame-Options': 'DENY',
           },
         });
       } catch (error: any) {
-        logger.error('Error retrieving secure file, trying database fallback:', error);
-        // Fall through to database storage check
+        logger.error('Error retrieving from external storage:', error);
       }
     }
 
-    // PRIORITY 2: For documents stored in database (PDF bytes)
-    // Only serve as PDF if the data looks like binary (starts with %PDF or has PDF magic bytes)
-    if (document.data) {
-      let buffer: Buffer;
-      
-      // Handle different data formats from Prisma
-      if (Buffer.isBuffer(document.data)) {
-        buffer = document.data;
-      } else if (typeof document.data === 'object' && 'type' in document.data && document.data.type === 'Buffer') {
-        buffer = Buffer.from((document.data as { type: string; data: number[] }).data);
-      } else if (ArrayBuffer.isView(document.data)) {
-        buffer = Buffer.from(document.data as Uint8Array);
-      } else {
-        buffer = Buffer.from(document.data as any);
-      }
-      
-      // Check if this looks like a PDF (starts with %PDF or has PDF magic bytes)
-      const isPdf = buffer.length > 4 && 
-        (buffer.toString('utf8', 0, 4) === '%PDF' || 
-         (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46));
-      
-      // Don't serve JSON data as PDF - that would fail
-      const looksLikeJson = buffer.length > 0 && 
-        (buffer[0] === 0x7B || buffer.toString('utf8', 0, 1) === '{');
-      
-      if (isPdf && !looksLikeJson) {
-        logger.debug(`Serving document ${documentId} from database, size: ${buffer.length} bytes`);
-        
-        return new NextResponse(new Uint8Array(buffer), {
-          headers: {
-            'Content-Type': document.mimeType || 'application/pdf',
-            'Content-Disposition': `inline; filename="${document.filename || 'document.pdf'}"`,
-            'Content-Length': buffer.length.toString(),
-            'X-Content-Type-Options': 'nosniff',
-            'Cache-Control': 'private, max-age=3600',
-          },
-        });
-      } else if (looksLikeJson) {
-        logger.warn(`Document ${documentId} contains JSON data, not PDF - cannot serve as file`);
-      }
-    }
-
+    // No valid document source found
+    logger.warn(`Document ${documentId} has no servable content. externalUrl: ${document.externalUrl}, dataSize: ${document.data?.length || 0}`);
     return NextResponse.json(
-      { error: 'Document file not available. PDF may need to be regenerated.' },
+      { 
+        error: 'Document file not available. PDF may need to be regenerated.',
+        documentId,
+        hasIntakeData: !!document.intakeData,
+        needsRegeneration: !!document.intakeData
+      },
       { status: 404 }
     );
   } catch (error: any) {

@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     // Generate PDF
     const pdfContent = await generateIntakePdf(normalized, patient);
 
-    // Store PDF
+    // Prepare PDF for storage
     const stored = await storeIntakePdf({
       patientId: patient.id,
       submissionId: normalized.submissionId,
@@ -139,9 +139,11 @@ export async function POST(req: NextRequest) {
         where: { id: existingDocument.id },
         data: {
           filename: stored.filename,
-          externalUrl: stored.publicPath,
-          // Update the intake data - as proper UTF-8 string buffer
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: stored.pdfBuffer,  // Store PDF bytes directly
+          intakeData: intakeDataToStore,  // Store intake JSON separately
+          pdfGeneratedAt: new Date(),
+          intakeVersion: "heyflow-v2",
+          externalUrl: null,  // Clear legacy external URL
         },
       });
     } else {
@@ -151,12 +153,13 @@ export async function POST(req: NextRequest) {
           patientId: patient.id,
           filename: stored.filename,
           mimeType: "application/pdf",
-          source: "medlink",
+          source: "heyflow",
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          externalUrl: stored.publicPath,
-          // Store the intake data for display in the Intake tab - as proper UTF-8 string buffer
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: stored.pdfBuffer,  // Store PDF bytes directly
+          intakeData: intakeDataToStore,  // Store intake JSON separately
+          pdfGeneratedAt: new Date(),
+          intakeVersion: "heyflow-v2",
         },
       });
     }
@@ -164,14 +167,12 @@ export async function POST(req: NextRequest) {
     // Generate SOAP note from the intake asynchronously
     let soapNoteId = null;
     try {
-      logger.debug("[MEDLINK WEBHOOK] Generating SOAP note for patient:", { value: patient.id });
+      logger.debug("[HEYFLOW WEBHOOK] Generating SOAP note for patient:", { value: patient.id });
       const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
       soapNoteId = soapNote.id;
-      logger.debug("[MEDLINK WEBHOOK] SOAP note generated successfully:", { value: soapNoteId });
+      logger.debug("[HEYFLOW WEBHOOK] SOAP note generated successfully:", { value: soapNoteId });
     } catch (error: any) {
-    // @ts-ignore
-   
-      logger.error("[MEDLINK WEBHOOK] Failed to generate SOAP note:", { error });
+      logger.error("[HEYFLOW WEBHOOK] Failed to generate SOAP note:", { error });
       // Don't fail the webhook if SOAP generation fails
     }
 
@@ -180,7 +181,7 @@ export async function POST(req: NextRequest) {
       patientId: patient.id,
       documentId: patientDocument.id,
       soapNoteId,
-      publicPath: stored.publicPath,
+      pdfSizeBytes: stored.pdfBuffer.length,
     }, { status: 200 });
   } catch (err: any) {
     // @ts-ignore
