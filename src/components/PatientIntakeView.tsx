@@ -237,62 +237,76 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Find and parse the latest intake document
-  const intakeDoc = documents.find(
-    (doc: any) => doc.category === "MEDICAL_INTAKE_FORM" && (doc.intakeData || doc.data)
-  );
+  const allIntakeDocs = documents.filter((doc: any) => doc.category === "MEDICAL_INTAKE_FORM");
+  const intakeDoc = allIntakeDocs.find((doc: any) => doc.intakeData || doc.data);
 
   let intakeData: IntakeData = {};
 
-  // Debug logging
-  console.log('[Intake Debug] Documents count:', documents.length);
-  console.log('[Intake Debug] Found intakeDoc:', !!intakeDoc, intakeDoc?.id);
+  // Debug logging - check what documents exist
+  console.log('[Intake Debug] ═══════════════════════════════════════');
+  console.log('[Intake Debug] Total documents:', documents.length);
+  console.log('[Intake Debug] Intake documents:', allIntakeDocs.length);
+  allIntakeDocs.forEach((doc: any, i: number) => {
+    console.log(`[Intake Debug] Doc ${i}: id=${doc.id}, hasData=${!!doc.data}, dataType=${typeof doc.data}`);
+    if (doc.data && typeof doc.data === 'object' && !Array.isArray(doc.data)) {
+      console.log(`[Intake Debug] Doc ${i} data keys:`, Object.keys(doc.data).slice(0, 10));
+    }
+  });
+  console.log('[Intake Debug] Using intakeDoc:', intakeDoc?.id);
 
   if (intakeDoc) {
-    console.log('[Intake Debug] intakeDoc.intakeData:', !!intakeDoc.intakeData);
-    console.log('[Intake Debug] intakeDoc.data type:', typeof intakeDoc.data);
-    
     if (intakeDoc.intakeData) {
       try {
         intakeData = typeof intakeDoc.intakeData === 'string' 
           ? JSON.parse(intakeDoc.intakeData) 
           : intakeDoc.intakeData;
-        console.log('[Intake Debug] Parsed from intakeData field');
+        console.log('[Intake Debug] Loaded from intakeData field');
       } catch (error: any) {
-        logger.error('Error parsing intakeData field:', error);
+        console.error('[Intake Debug] Error parsing intakeData:', error.message);
       }
     } else if (intakeDoc.data) {
       try {
         let rawData = intakeDoc.data;
         
-        console.log('[Intake Debug] rawData type before conversion:', typeof rawData);
-        
+        // Handle various buffer formats
         if (Buffer.isBuffer(rawData)) {
           rawData = rawData.toString('utf8');
-          console.log('[Intake Debug] Converted from Buffer');
-        } else if (typeof rawData === 'object' && rawData.type === 'Buffer' && Array.isArray(rawData.data)) {
+          console.log('[Intake Debug] Converted from Node Buffer');
+        } else if (typeof rawData === 'object' && rawData?.type === 'Buffer' && Array.isArray(rawData.data)) {
           rawData = Buffer.from(rawData.data).toString('utf8');
-          console.log('[Intake Debug] Converted from Buffer-like object');
+          console.log('[Intake Debug] Converted from Prisma Buffer object');
         }
         
+        // Now try to parse or use directly
         if (typeof rawData === 'string') {
           const trimmed = rawData.trim();
-          console.log('[Intake Debug] String starts with:', trimmed.substring(0, 50));
+          console.log('[Intake Debug] String data preview:', trimmed.substring(0, 100));
           if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
             intakeData = JSON.parse(trimmed);
-            console.log('[Intake Debug] Parsed JSON from string');
+            console.log('[Intake Debug] Parsed JSON string');
+          } else {
+            console.log('[Intake Debug] String does NOT start with { or [ - might be PDF or binary');
           }
-        } else if (typeof rawData === 'object' && !Buffer.isBuffer(rawData)) {
+        } else if (typeof rawData === 'object' && rawData !== null) {
+          // Already parsed object (page.tsx already parsed it)
           intakeData = rawData as IntakeData;
-          console.log('[Intake Debug] Using object directly');
+          console.log('[Intake Debug] Using pre-parsed object');
         }
         
-        console.log('[Intake Debug] Final intakeData has answers:', !!intakeData.answers, 'count:', intakeData.answers?.length);
+        // Log what we got
+        console.log('[Intake Debug] intakeData keys:', Object.keys(intakeData));
+        console.log('[Intake Debug] Has sections:', !!intakeData.sections, 'count:', intakeData.sections?.length);
+        console.log('[Intake Debug] Has answers:', !!intakeData.answers, 'count:', intakeData.answers?.length);
+        
+        if (intakeData.answers?.length) {
+          console.log('[Intake Debug] First 3 answers:', intakeData.answers.slice(0, 3).map((a: any) => ({id: a.id, label: a.label, value: String(a.value).slice(0, 30)})));
+        }
       } catch (error: any) {
-        console.log('[Intake Debug] Parse error:', error.message);
-        logger.debug('Data field does not contain JSON');
+        console.error('[Intake Debug] Parse error:', error.message);
       }
     }
   }
+  console.log('[Intake Debug] ═══════════════════════════════════════');
 
   // Build a map of all answers from various sources
   const buildAnswerMap = useCallback(() => {
@@ -331,6 +345,13 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   }, [intakeData, intakeFormSubmissions]);
 
   const answerMap = buildAnswerMap();
+
+  // Debug: show what's in the answer map
+  console.log('[Intake Debug] Answer map size:', answerMap.size);
+  if (answerMap.size > 0) {
+    const entries = Array.from(answerMap.entries()).slice(0, 10);
+    console.log('[Intake Debug] Answer map sample:', entries);
+  }
 
   // Find answer for a field
   const findAnswer = (field: { id: string; label: string; aliases?: string[] }): string => {
