@@ -338,13 +338,23 @@ export async function POST(req: NextRequest) {
         where: { sourceSubmissionId: normalized.submissionId },
       });
 
+      // Store intake data as JSON for vitals extraction (not PDF bytes)
+      const intakeDataToStore = {
+        submissionId: normalized.submissionId,
+        sections: normalized.sections,
+        answers: normalized.answers,
+        source: "weightlossintake",
+        clinicId: clinicId,
+        receivedAt: new Date().toISOString(),
+      };
+      
       if (existingDoc) {
         patientDocument = await prisma.patientDocument.update({
           where: { id: existingDoc.id },
           data: {
             filename: stored.filename,
             externalUrl: stored.publicPath,
-            data: pdfContent,
+            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
           },
         });
       } else {
@@ -356,7 +366,7 @@ export async function POST(req: NextRequest) {
             mimeType: "application/pdf",
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
             externalUrl: stored.publicPath,
-            data: pdfContent,
+            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
             source: "weightlossintake",
             sourceSubmissionId: normalized.submissionId,
           },

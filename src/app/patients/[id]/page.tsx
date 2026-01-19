@@ -249,28 +249,34 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     });
   });
 
-  // Extract vitals from intake data
-  // The intake data is stored as JSON with a 'sections' array containing entries
-  // Each entry has: { id, label, value }
+  // Extract vitals from multiple sources:
+  // 1. Document data (JSON with sections array) - from eonpro-intake, heyflow-intake-v2
+  // 2. IntakeSubmissions responses - from intake form system
+  // 3. Flat key-value in document data
   const extractVitals = () => {
-    const intakeDoc = documentsWithParsedData.find((d: any) => d.category === 'MEDICAL_INTAKE_FORM' && d.data);
-    if (!intakeDoc?.data) return {};
+    const result: {
+      height?: string | null;
+      weight?: string | null;
+      bmi?: string | null;
+      bloodPressure?: string | null;
+      idealWeight?: string | null;
+    } = {};
     
-    const data = intakeDoc.data;
-    
-    // Helper to find a value by label (case-insensitive, partial match)
-    const findByLabel = (...labels: string[]): string | null => {
-      // First, check if data has sections array (normalized intake format)
-      if (data.sections && Array.isArray(data.sections)) {
-        for (const section of data.sections) {
+    // Helper to find value by label in various data sources
+    const findValue = (...labels: string[]): string | null => {
+      // Source 1: Document data with sections array
+      const intakeDoc = documentsWithParsedData.find((d: any) => 
+        d.category === 'MEDICAL_INTAKE_FORM' && d.data && typeof d.data === 'object'
+      );
+      
+      if (intakeDoc?.data?.sections && Array.isArray(intakeDoc.data.sections)) {
+        for (const section of intakeDoc.data.sections) {
           if (section.entries && Array.isArray(section.entries)) {
             for (const entry of section.entries) {
               const entryLabel = (entry.label || '').toLowerCase();
               for (const label of labels) {
-                if (entryLabel.includes(label.toLowerCase())) {
-                  if (entry.value && entry.value !== '') {
-                    return entry.value;
-                  }
+                if (entryLabel.includes(label.toLowerCase()) && entry.value && entry.value !== '') {
+                  return String(entry.value);
                 }
               }
             }
@@ -278,12 +284,31 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         }
       }
       
-      // Also check flat key-value format (legacy or direct field mapping)
-      for (const label of labels) {
-        const key = label.toLowerCase().replace(/[^a-z0-9]/g, '');
-        for (const [k, v] of Object.entries(data)) {
-          if (k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(key) && v) {
-            return String(v);
+      // Source 2: IntakeSubmissions responses
+      if (patientWithDecryptedPHI.intakeSubmissions?.length > 0) {
+        for (const submission of patientWithDecryptedPHI.intakeSubmissions) {
+          if (submission.responses && Array.isArray(submission.responses)) {
+            for (const response of submission.responses) {
+              const questionText = (response.question?.text || response.question?.label || '').toLowerCase();
+              for (const label of labels) {
+                if (questionText.includes(label.toLowerCase()) && response.value && response.value !== '') {
+                  return String(response.value);
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // Source 3: Flat key-value in document data
+      if (intakeDoc?.data && typeof intakeDoc.data === 'object') {
+        for (const label of labels) {
+          const searchKey = label.toLowerCase().replace(/[^a-z0-9]/g, '');
+          for (const [key, value] of Object.entries(intakeDoc.data)) {
+            const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (normalizedKey.includes(searchKey) && value && value !== '') {
+              return String(value);
+            }
           }
         }
       }
@@ -291,33 +316,27 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       return null;
     };
     
-    // Extract height
-    const heightFeet = findByLabel('Height (feet)', 'height feet', 'heightFeet');
-    const heightInches = findByLabel('Height (inches)', 'height inches', 'heightInches');
-    let height: string | null = null;
+    // Extract height from feet/inches
+    const heightFeet = findValue('height (feet)', 'height feet', 'heightfeet');
+    const heightInches = findValue('height (inches)', 'height inches', 'heightinches');
     if (heightFeet) {
-      height = heightInches ? `${heightFeet}'${heightInches}"` : `${heightFeet}'0"`;
+      result.height = heightInches ? `${heightFeet}'${heightInches}"` : `${heightFeet}'0"`;
     }
     
-    // Extract weight (Starting Weight or Weight from intake)
-    const weight = findByLabel('Starting Weight', 'Weight', 'current weight');
+    // Extract weight
+    result.weight = findValue('starting weight', 'current weight', 'weight');
     
     // Extract BMI
-    const bmi = findByLabel('BMI');
+    result.bmi = findValue('bmi');
     
     // Extract blood pressure
-    const bloodPressure = findByLabel('Blood Pressure');
+    const bp = findValue('blood pressure', 'bloodpressure');
+    result.bloodPressure = bp && bp.toLowerCase() !== 'unknown' ? bp : null;
     
-    // Extract ideal weight for reference
-    const idealWeight = findByLabel('Ideal Weight', 'Goal Weight', 'Target Weight');
+    // Extract ideal weight
+    result.idealWeight = findValue('ideal weight', 'goal weight', 'target weight');
     
-    return {
-      height,
-      weight,
-      bmi,
-      bloodPressure: bloodPressure && bloodPressure.toLowerCase() !== 'unknown' ? bloodPressure : null,
-      idealWeight,
-    };
+    return result;
   };
   
   const vitals = extractVitals();
