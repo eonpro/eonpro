@@ -347,11 +347,14 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       return null;
     };
     
-    // Extract height from feet/inches
+    // Extract height - try separate feet/inches first, then combined value
     const heightFeet = findValue('height (feet)', 'height feet', 'heightfeet');
     const heightInches = findValue('height (inches)', 'height inches', 'heightinches');
     if (heightFeet) {
       result.height = heightInches ? `${heightFeet}'${heightInches}"` : `${heightFeet}'0"`;
+    } else {
+      // Fallback: look for combined height value (e.g., "5'2"" or "62 inches")
+      result.height = findValue('height');
     }
     
     // Extract weight
