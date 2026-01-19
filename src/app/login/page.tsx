@@ -233,11 +233,29 @@ export default function LoginPage() {
 
   // Handle successful login
   const handleLoginSuccess = (data: any) => {
+    // Debug: Log what we received
+    console.log('[LOGIN] handleLoginSuccess called with data:', {
+      hasToken: !!data.token,
+      tokenLength: data.token?.length,
+      user: data.user?.email,
+      role: data.user?.role
+    });
+
+    if (!data.token) {
+      console.error('[LOGIN] No token in response data!');
+      setError('Login failed: No authentication token received');
+      return;
+    }
+
     // Store tokens and user data (both keys for compatibility)
     localStorage.setItem('auth-token', data.token);
     localStorage.setItem('token', data.token); // Legacy key for compatibility
     localStorage.setItem('user', JSON.stringify(data.user));
-    
+
+    // Verify tokens were stored
+    const storedToken = localStorage.getItem('auth-token');
+    console.log('[LOGIN] Token stored successfully:', !!storedToken, 'length:', storedToken?.length);
+
     // Store role-specific tokens
     const userRole = data.user.role?.toLowerCase();
     if (userRole === 'super_admin') {

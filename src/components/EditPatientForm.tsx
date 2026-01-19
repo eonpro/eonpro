@@ -103,21 +103,33 @@ export default function EditPatientForm({ patient, documents }: Props) {
         'influencer-token',
       ];
 
+      // Debug: Log all localStorage keys
+      console.log('[EDIT] Checking localStorage for tokens...');
+      console.log('[EDIT] All localStorage keys:', Object.keys(localStorage));
+
       let token: string | null = null;
+      let foundKey: string | null = null;
       for (const key of tokenSources) {
         const val = localStorage.getItem(key);
+        console.log(`[EDIT] Checking '${key}':`, val ? `found (${val.length} chars)` : 'not found');
         if (val) {
           token = val;
+          foundKey = key;
           break;
         }
       }
 
       // Also try sessionStorage as fallback
       if (!token) {
+        console.log('[EDIT] Checking sessionStorage...');
         token = sessionStorage.getItem('auth-token') || sessionStorage.getItem('token');
+        if (token) {
+          console.log('[EDIT] Found token in sessionStorage');
+        }
       }
 
       if (!token) {
+        console.error('[EDIT] No token found in any storage!');
         setMessage("Session expired. Please log in again.");
         // Redirect to login after a brief delay
         setTimeout(() => {
@@ -125,6 +137,8 @@ export default function EditPatientForm({ patient, documents }: Props) {
         }, 1500);
         return;
       }
+
+      console.log(`[EDIT] Using token from '${foundKey}', length: ${token.length}`);
 
       const res = await fetch(`/api/patients/${patient.id}`, {
         method: "PATCH",

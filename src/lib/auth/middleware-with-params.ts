@@ -58,8 +58,10 @@ async function verifyToken(token: string): Promise<AuthUser | null> {
   
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
+    console.log(`[AUTH] Token verified successfully for user ${payload.email}`);
     return payload as unknown as AuthUser;
-  } catch (error) {
+  } catch (error: any) {
+    console.error(`[AUTH] Token verification failed:`, error.message || error);
     return null;
   }
 }
@@ -68,10 +70,14 @@ async function verifyToken(token: string): Promise<AuthUser | null> {
  * Extract token from request
  */
 function extractToken(req: NextRequest): string | null {
+  const url = req.nextUrl.pathname;
+
   // Check Authorization header
   const authHeader = req.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.slice(7);
+    const token = authHeader.slice(7);
+    console.log(`[AUTH] Token found in Authorization header for ${url}`);
+    return token;
   }
 
   // Check cookies for various token types (check all possible token storage names)
@@ -82,16 +88,27 @@ function extractToken(req: NextRequest): string | null {
     'SUPER_ADMIN-token',
     'influencer-token',
     'provider-token',
-    'admin-token'
+    'admin-token',
+    'staff-token'
   ];
+
+  // Log all cookies for debugging
+  const allCookies = req.cookies.getAll();
+  if (allCookies.length > 0) {
+    console.log(`[AUTH] Available cookies for ${url}:`, allCookies.map(c => c.name).join(', '));
+  } else {
+    console.log(`[AUTH] No cookies available for ${url}`);
+  }
 
   for (const cookieName of cookieTokens) {
     const token = req.cookies.get(cookieName)?.value;
     if (token) {
+      console.log(`[AUTH] Token found in cookie '${cookieName}' for ${url}`);
       return token;
     }
   }
 
+  console.log(`[AUTH] No token found for ${url} (checked header and ${cookieTokens.length} cookie names)`);
   return null;
 }
 
