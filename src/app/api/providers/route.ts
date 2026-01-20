@@ -9,7 +9,6 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   // Get all providers from Provider table (these have NPI and credentials)
   // Use basePrisma to bypass clinic filtering - providers may work across clinics
-  // For prescriptions, we need to show available providers regardless of clinic
   let providers;
   
   if (user.role === 'super_admin') {
@@ -27,13 +26,32 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       }
     });
   } else {
-    // For other users, show providers from their clinic OR providers with no clinic (shared)
+    // For provider role: ALWAYS include their own linked provider record
+    // Plus any providers from their clinic or shared providers
+    const userData = await basePrisma.user.findUnique({
+      where: { id: user.id },
+      select: { providerId: true, email: true }
+    });
+    
+    // Build OR conditions
+    const orConditions: any[] = [
+      { clinicId: user.clinicId },
+      { clinicId: null },
+    ];
+    
+    // If user has a linked provider, include it by ID
+    if (userData?.providerId) {
+      orConditions.push({ id: userData.providerId });
+    }
+    
+    // Also include provider matching user's email (in case not linked yet)
+    if (userData?.email) {
+      orConditions.push({ email: userData.email });
+    }
+    
     providers = await basePrisma.provider.findMany({
       where: {
-        OR: [
-          { clinicId: user.clinicId },
-          { clinicId: null },
-        ]
+        OR: orConditions
       },
       orderBy: { createdAt: "desc" },
       include: {
@@ -46,8 +64,17 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         }
       }
     });
+    
+    // Remove duplicates (in case provider matches multiple conditions)
+    const seen = new Set();
+    providers = providers.filter((p: any) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
   }
 
+  logger.info(`[PROVIDERS/GET] Returning ${providers.length} providers for user ${user.id} (${user.role})`);
   return NextResponse.json({ providers });
 }, { roles: ['admin', 'super_admin', 'provider'] });
 
