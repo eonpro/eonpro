@@ -119,18 +119,29 @@ const INTAKE_SECTIONS = [
     icon: Shield,
     editable: false, // Consent records should not be editable
     fields: [
-      { id: "telehealthConsent", label: "Telehealth Consent", aliases: ["telehealthconsent", "telehealth"], inputType: "text" },
-      { id: "privacyPolicyConsent", label: "Privacy Policy", aliases: ["privacypolicyconsent", "privacypolicy", "acceptedprivacy"], inputType: "text" },
-      { id: "termsConsent", label: "Terms & Conditions", aliases: ["termsconsent", "termsandconditions", "acceptedterms"], inputType: "text" },
-      { id: "smsConsent", label: "SMS Communication Consent", aliases: ["smsconsent", "sms", "communicationconsent"], inputType: "text" },
-      { id: "cancellationPolicyConsent", label: "Cancellation Policy", aliases: ["cancellationpolicyconsent", "cancellationpolicy"], inputType: "text" },
-      { id: "medicalWeightConsent", label: "Medical Weight Program Consent", aliases: ["medicalweightconsent", "weightlossconsent"], inputType: "text" },
-      { id: "hipaaConsent", label: "HIPAA Consent", aliases: ["hipaaconsent", "hipaa"], inputType: "text" },
-      { id: "informedConsent", label: "Informed Consent", aliases: ["informedconsent"], inputType: "text" },
-      { id: "patientAcknowledgment", label: "Patient Acknowledgment", aliases: ["patientacknowledgment", "acknowledgment"], inputType: "text" },
-      { id: "electronicSignature", label: "Electronic Signature", aliases: ["electronicsignature", "esignature", "signature"], inputType: "text" },
-      { id: "consentTimestamp", label: "Consent Date/Time", aliases: ["consenttimestamp", "consentdate", "consenttime"], inputType: "text" },
-      { id: "consentIpAddress", label: "IP Address", aliases: ["consentipaddress", "ipaddress", "ip"], inputType: "text" },
+      // Privacy & Terms
+      { id: "privacyPolicyConsent", label: "Privacy Policy", aliases: ["privacypolicyconsent", "privacypolicy", "acceptedprivacy", "privacypolicyaccepted"], inputType: "text" },
+      { id: "termsConsent", label: "Terms of Service", aliases: ["termsconsent", "termsandconditions", "acceptedterms", "termsofuseaccepted"], inputType: "text" },
+      // Telehealth & Communication
+      { id: "telehealthConsent", label: "Telehealth Consent", aliases: ["telehealthconsent", "telehealth", "telehealthconsentaccepted"], inputType: "text" },
+      { id: "smsConsent", label: "SMS Consent", aliases: ["smsconsent", "sms", "communicationconsent", "smsconsentaccepted"], inputType: "text" },
+      { id: "emailConsent", label: "Email Consent", aliases: ["emailconsent", "email", "emailconsentaccepted"], inputType: "text" },
+      // Policy & Medical
+      { id: "cancellationPolicyConsent", label: "Cancellation Policy", aliases: ["cancellationpolicyconsent", "cancellationpolicy", "cancellationpolicyaccepted"], inputType: "text" },
+      { id: "medicalWeightConsent", label: "Weight Loss Treatment", aliases: ["medicalweightconsent", "weightlossconsent", "weightlosstreatmentconsentaccepted"], inputType: "text" },
+      // HIPAA & Legal
+      { id: "hipaaConsent", label: "HIPAA Authorization", aliases: ["hipaaconsent", "hipaa", "hipaaauthorizationaccepted"], inputType: "text" },
+      { id: "floridaBillOfRights", label: "Florida Bill of Rights", aliases: ["floridabillofrights", "floridabillofrightsaccepted"], inputType: "text" },
+      // E-Signature Metadata
+      { id: "consentTimestamp", label: "Consent Date/Time", aliases: ["consenttimestamp", "consentdate", "consenttime", "timestamp"], inputType: "text" },
+      { id: "consentIpAddress", label: "IP Address", aliases: ["consentipaddress", "ipaddress", "ip", "consentip"], inputType: "text" },
+      { id: "consentUserAgent", label: "Device/Browser", aliases: ["consentuseragent", "useragent", "device"], inputType: "text" },
+      // Geolocation
+      { id: "consentCity", label: "City", aliases: ["consentcity", "city"], inputType: "text" },
+      { id: "consentRegion", label: "State/Region", aliases: ["consentregion", "region", "state"], inputType: "text" },
+      { id: "consentCountry", label: "Country", aliases: ["consentcountry", "country"], inputType: "text" },
+      { id: "consentTimezone", label: "Timezone", aliases: ["consenttimezone", "timezone"], inputType: "text" },
+      { id: "consentISP", label: "Internet Provider", aliases: ["consentisp", "isp"], inputType: "text" },
     ],
   },
 ];
@@ -146,20 +157,49 @@ type IntakeData = {
   }>;
   answers?: Array<{ id?: string; label?: string; value?: any }>;
   patient?: any;
-  // Consent and metadata fields
+  // E-Signature and consent metadata fields
   ipAddress?: string;
   userAgent?: string;
   consentTimestamp?: string;
+  geoLocation?: {
+    ip?: string;
+    city?: string;
+    region?: string;
+    regionCode?: string;
+    country?: string;
+    countryCode?: string;
+    timezone?: string;
+    isp?: string;
+  };
   consentData?: {
-    telehealthConsent?: boolean | string;
+    // Privacy & Terms
     privacyPolicyConsent?: boolean | string;
     termsConsent?: boolean | string;
+    // Telehealth & Communication
+    telehealthConsent?: boolean | string;
     smsConsent?: boolean | string;
+    emailConsent?: boolean | string;
+    // Policy & Medical
     cancellationPolicyConsent?: boolean | string;
     medicalWeightConsent?: boolean | string;
+    // HIPAA & Legal
     hipaaConsent?: boolean | string;
+    floridaBillOfRights?: boolean | string;
+    // Metadata
     timestamp?: string;
     ipAddress?: string;
+    userAgent?: string;
+    geoLocation?: {
+      ip?: string;
+      city?: string;
+      region?: string;
+      regionCode?: string;
+      country?: string;
+      countryCode?: string;
+      timezone?: string;
+      isp?: string;
+    };
+    signatures?: string;
   };
 };
 
@@ -370,19 +410,50 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       answerMap.set(normalizeKey('consentIpAddress'), intakeData.ipAddress);
       answerMap.set(normalizeKey('ipAddress'), intakeData.ipAddress);
     }
+    if (intakeData.userAgent) {
+      answerMap.set(normalizeKey('consentUserAgent'), intakeData.userAgent);
+      answerMap.set(normalizeKey('userAgent'), intakeData.userAgent);
+    }
+
+    // Handle geolocation data
+    const geo = intakeData.geoLocation || intakeData.consentData?.geoLocation;
+    if (geo) {
+      if (geo.ip) answerMap.set(normalizeKey('consentIpAddress'), geo.ip);
+      if (geo.city) answerMap.set(normalizeKey('consentCity'), geo.city);
+      if (geo.region) answerMap.set(normalizeKey('consentRegion'), geo.region);
+      if (geo.regionCode) answerMap.set(normalizeKey('consentRegionCode'), geo.regionCode);
+      if (geo.country) answerMap.set(normalizeKey('consentCountry'), geo.country);
+      if (geo.countryCode) answerMap.set(normalizeKey('consentCountryCode'), geo.countryCode);
+      if (geo.timezone) answerMap.set(normalizeKey('consentTimezone'), geo.timezone);
+      if (geo.isp) answerMap.set(normalizeKey('consentISP'), geo.isp);
+    }
 
     // Handle consentData object if present
     if (intakeData.consentData) {
       const cd = intakeData.consentData;
-      if (cd.telehealthConsent) answerMap.set(normalizeKey('telehealthConsent'), formatConsentValue(cd.telehealthConsent, cd.timestamp));
-      if (cd.privacyPolicyConsent) answerMap.set(normalizeKey('privacyPolicyConsent'), formatConsentValue(cd.privacyPolicyConsent, cd.timestamp));
-      if (cd.termsConsent) answerMap.set(normalizeKey('termsConsent'), formatConsentValue(cd.termsConsent, cd.timestamp));
-      if (cd.smsConsent) answerMap.set(normalizeKey('smsConsent'), formatConsentValue(cd.smsConsent, cd.timestamp));
-      if (cd.cancellationPolicyConsent) answerMap.set(normalizeKey('cancellationPolicyConsent'), formatConsentValue(cd.cancellationPolicyConsent, cd.timestamp));
-      if (cd.medicalWeightConsent) answerMap.set(normalizeKey('medicalWeightConsent'), formatConsentValue(cd.medicalWeightConsent, cd.timestamp));
-      if (cd.hipaaConsent) answerMap.set(normalizeKey('hipaaConsent'), formatConsentValue(cd.hipaaConsent, cd.timestamp));
+      const ts = cd.timestamp || intakeData.receivedAt;
+
+      // Privacy & Terms
+      if (cd.privacyPolicyConsent) answerMap.set(normalizeKey('privacyPolicyConsent'), formatConsentValue(cd.privacyPolicyConsent, ts));
+      if (cd.termsConsent) answerMap.set(normalizeKey('termsConsent'), formatConsentValue(cd.termsConsent, ts));
+
+      // Telehealth & Communication
+      if (cd.telehealthConsent) answerMap.set(normalizeKey('telehealthConsent'), formatConsentValue(cd.telehealthConsent, ts));
+      if (cd.smsConsent) answerMap.set(normalizeKey('smsConsent'), formatConsentValue(cd.smsConsent, ts));
+      if (cd.emailConsent) answerMap.set(normalizeKey('emailConsent'), formatConsentValue(cd.emailConsent, ts));
+
+      // Policy & Medical
+      if (cd.cancellationPolicyConsent) answerMap.set(normalizeKey('cancellationPolicyConsent'), formatConsentValue(cd.cancellationPolicyConsent, ts));
+      if (cd.medicalWeightConsent) answerMap.set(normalizeKey('medicalWeightConsent'), formatConsentValue(cd.medicalWeightConsent, ts));
+
+      // HIPAA & Legal
+      if (cd.hipaaConsent) answerMap.set(normalizeKey('hipaaConsent'), formatConsentValue(cd.hipaaConsent, ts));
+      if (cd.floridaBillOfRights) answerMap.set(normalizeKey('floridaBillOfRights'), formatConsentValue(cd.floridaBillOfRights, ts));
+
+      // Metadata
       if (cd.timestamp) answerMap.set(normalizeKey('consentTimestamp'), cd.timestamp);
       if (cd.ipAddress) answerMap.set(normalizeKey('consentIpAddress'), cd.ipAddress);
+      if (cd.userAgent) answerMap.set(normalizeKey('consentUserAgent'), cd.userAgent);
     }
 
     return answerMap;
@@ -406,8 +477,8 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   // Consent fields that should show "Accepted" with timestamp when intake exists
   const CONSENT_FIELDS = new Set([
     'telehealthconsent', 'privacypolicyconsent', 'termsconsent', 'smsconsent',
-    'cancellationpolicyconsent', 'medicalweightconsent', 'hipaaconsent',
-    'informedconsent', 'patientacknowledgment',
+    'emailconsent', 'cancellationpolicyconsent', 'medicalweightconsent',
+    'hipaaconsent', 'floridabillofrights', 'informedconsent', 'patientacknowledgment',
   ]);
 
   // Find answer for a field

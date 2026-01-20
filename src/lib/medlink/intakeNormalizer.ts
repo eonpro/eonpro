@@ -312,17 +312,55 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       'intakeSource': 'Intake Source',
 
       // ═══════════════════════════════════════════════════════════════
-      // CONSENT & LEGAL
+      // CONSENT & LEGAL (E-Signature Data)
       // ═══════════════════════════════════════════════════════════════
+      // Privacy & Terms
+      'privacyPolicyConsent': 'Privacy Policy',
+      'Privacy Policy Accepted': 'Privacy Policy',
+      'termsConsent': 'Terms of Service',
+      'Terms of Use Accepted': 'Terms of Service',
+      // Telehealth & Communication
       'telehealthConsent': 'Telehealth Consent',
-      'privacyPolicyConsent': 'Privacy Policy Consent',
-      'termsConsent': 'Terms & Conditions Consent',
-      'smsConsent': 'SMS Communication Consent',
-      'cancellationPolicyConsent': 'Cancellation Policy Consent',
-      'medicalWeightConsent': 'Medical Weight Program Consent',
+      'Telehealth Consent Accepted': 'Telehealth Consent',
+      'smsConsent': 'SMS Consent',
+      'SMS Consent Accepted': 'SMS Consent',
+      'emailConsent': 'Email Consent',
+      'Email Consent Accepted': 'Email Consent',
+      // Policy & Medical
+      'cancellationPolicyConsent': 'Cancellation Policy',
+      'Cancellation Policy Accepted': 'Cancellation Policy',
+      'medicalWeightConsent': 'Weight Loss Treatment',
+      'Weight Loss Treatment Consent Accepted': 'Weight Loss Treatment',
+      // HIPAA & Legal
+      'hipaaConsent': 'HIPAA Authorization',
+      'HIPAA Authorization Accepted': 'HIPAA Authorization',
+      'floridaBillOfRights': 'Florida Bill of Rights',
+      'Florida Bill of Rights Accepted': 'Florida Bill of Rights',
+      // E-Signature Metadata
       'consentTimestamp': 'Consent Date/Time',
-      'consentIpAddress': 'Consent IP Address',
-      'hipaaConsent': 'HIPAA Consent',
+      'timestamp': 'Consent Date/Time',
+      'consentIpAddress': 'IP Address',
+      'Consent IP': 'IP Address',
+      'consentUserAgent': 'Device/Browser',
+      'Consent User Agent': 'Device/Browser',
+      // Geolocation
+      'consentCity': 'City',
+      'Consent City': 'City',
+      'consentRegion': 'State/Region',
+      'Consent Region': 'State/Region',
+      'consentRegionCode': 'State Code',
+      'Consent Region Code': 'State Code',
+      'consentCountry': 'Country',
+      'Consent Country': 'Country',
+      'consentCountryCode': 'Country Code',
+      'Consent Country Code': 'Country Code',
+      'consentTimezone': 'Timezone',
+      'Consent Timezone': 'Timezone',
+      'consentISP': 'Internet Provider',
+      'Consent ISP': 'Internet Provider',
+      'consentSignatures': 'Consent Signatures',
+      'Consent Signatures': 'Consent Signatures',
+      // Legacy fields
       'informedConsent': 'Informed Consent',
       'acceptedTerms': 'Accepted Terms',
       'acceptedPrivacy': 'Accepted Privacy Policy',

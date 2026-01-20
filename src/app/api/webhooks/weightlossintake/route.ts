@@ -411,23 +411,58 @@ export async function POST(req: NextRequest) {
       where: { sourceSubmissionId: normalized.submissionId },
     });
 
-    // Capture consent and metadata
+    // Capture consent and metadata from request headers
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
     const consentTimestamp = new Date().toISOString();
 
-    // Extract consent data from payload if available
+    // Extract e-signature data from payload (sent by WeightLossIntake platform)
     const payloadData = payload.data as Record<string, unknown> || payload;
+
+    // Geolocation data from the intake platform
+    const geoLocation = {
+      ip: payloadData.consentIP || payloadData.Consent_IP || payloadData['Consent IP'] || ipAddress,
+      city: payloadData.consentCity || payloadData.Consent_City || payloadData['Consent City'] || null,
+      region: payloadData.consentRegion || payloadData.Consent_Region || payloadData['Consent Region'] || null,
+      regionCode: payloadData.consentRegionCode || payloadData.Consent_Region_Code || payloadData['Consent Region Code'] || null,
+      country: payloadData.consentCountry || payloadData.Consent_Country || payloadData['Consent Country'] || null,
+      countryCode: payloadData.consentCountryCode || payloadData.Consent_Country_Code || payloadData['Consent Country Code'] || null,
+      timezone: payloadData.consentTimezone || payloadData.Consent_Timezone || payloadData['Consent Timezone'] || null,
+      isp: payloadData.consentISP || payloadData.Consent_ISP || payloadData['Consent ISP'] || null,
+    };
+
+    // Consent signatures log from the intake platform
+    const consentSignatures = payloadData.consentSignatures || payloadData.Consent_Signatures || payloadData['Consent Signatures'] || null;
+
+    // Extract all consent flags from payload
     const consentData = {
-      telehealthConsent: payloadData.telehealthConsent || payloadData.telehealth_consent || true,
-      privacyPolicyConsent: payloadData.privacyPolicyConsent || payloadData.privacy_consent || true,
-      termsConsent: payloadData.termsConsent || payloadData.terms_consent || true,
-      smsConsent: payloadData.smsConsent || payloadData.sms_consent || payloadData.communicationConsent || true,
-      cancellationPolicyConsent: payloadData.cancellationPolicyConsent || true,
-      medicalWeightConsent: payloadData.medicalWeightConsent || payloadData.weightLossConsent || true,
-      hipaaConsent: payloadData.hipaaConsent || true,
-      timestamp: consentTimestamp,
-      ipAddress: ipAddress,
+      // Privacy & Terms
+      privacyPolicyConsent: payloadData['Privacy Policy Accepted'] || payloadData.privacyPolicyConsent || payloadData.privacy_consent || true,
+      termsConsent: payloadData['Terms of Use Accepted'] || payloadData.termsConsent || payloadData.terms_consent || true,
+
+      // Telehealth & Communication
+      telehealthConsent: payloadData['Telehealth Consent Accepted'] || payloadData.telehealthConsent || payloadData.telehealth_consent || true,
+      smsConsent: payloadData['SMS Consent Accepted'] || payloadData.smsConsent || payloadData.sms_consent || true,
+      emailConsent: payloadData['Email Consent Accepted'] || payloadData.emailConsent || payloadData.email_consent || true,
+
+      // Policy & Medical
+      cancellationPolicyConsent: payloadData['Cancellation Policy Accepted'] || payloadData.cancellationPolicyConsent || true,
+      medicalWeightConsent: payloadData['Weight Loss Treatment Consent Accepted'] || payloadData.medicalWeightConsent || payloadData.weightLossConsent || true,
+
+      // HIPAA & Legal
+      hipaaConsent: payloadData['HIPAA Authorization Accepted'] || payloadData.hipaaConsent || true,
+      floridaBillOfRights: payloadData['Florida Bill of Rights Accepted'] || payloadData.floridaBillOfRights || true,
+
+      // Metadata
+      timestamp: payloadData.timestamp || consentTimestamp,
+      ipAddress: geoLocation.ip,
+      userAgent: payloadData.consentUserAgent || payloadData.Consent_User_Agent || payloadData['Consent User Agent'] || userAgent,
+
+      // Geolocation
+      geoLocation: geoLocation,
+
+      // Full signatures log
+      signatures: consentSignatures,
     };
 
     // Store intake data as JSON for display on Intake tab
@@ -440,11 +475,12 @@ export async function POST(req: NextRequest) {
       receivedAt: consentTimestamp,
       pdfGenerated: !!pdfContent,
       pdfUrl: pdfExternalUrl,
-      // Consent and metadata for legal compliance
-      ipAddress: ipAddress,
-      userAgent: userAgent,
-      consentTimestamp: consentTimestamp,
+      // E-Signature and consent data for legal compliance
+      ipAddress: geoLocation.ip,
+      userAgent: consentData.userAgent,
+      consentTimestamp: consentData.timestamp,
       consentData: consentData,
+      geoLocation: geoLocation,
     };
     
     if (existingDoc) {
