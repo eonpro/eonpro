@@ -163,6 +163,15 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       provider = await prisma.provider.findFirst({
         where: { email: user.email },
       });
+      
+      // If found by email but not linked, link it now
+      if (provider && !userData.providerId) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { providerId: provider.id },
+        });
+        logger.info('Linked existing provider to user', { userId: user.id, providerId: provider.id });
+      }
     }
 
     // Update user record
@@ -313,9 +322,14 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       message: 'Settings updated successfully',
     });
   } catch (error: any) {
-    logger.error('Error updating provider settings', { error: error.message, userId: user.id });
+    logger.error('Error updating provider settings', { 
+      error: error.message, 
+      stack: error.stack,
+      userId: user.id,
+      code: error.code 
+    });
     return NextResponse.json(
-      { error: 'Failed to update settings' },
+      { error: `Failed to update settings: ${error.message}` },
       { status: 500 }
     );
   }
