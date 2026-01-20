@@ -375,6 +375,78 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   
   const vitals = extractVitals();
 
+  // ═══════════════════════════════════════════════════════════════════
+  // HEALTH RISK COLOR HELPERS
+  // ═══════════════════════════════════════════════════════════════════
+
+  // BMI Risk Levels:
+  // - Underweight: < 18.5 (yellow)
+  // - Normal: 18.5 - 24.9 (green)
+  // - Overweight: 25 - 29.9 (yellow)
+  // - Obese: 30+ (red)
+  const getBmiColor = (bmi: string | null | undefined): { bar: string; text: string; width: string } => {
+    if (!bmi) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
+    const bmiNum = parseFloat(bmi);
+    if (isNaN(bmiNum)) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
+    
+    // Calculate width based on BMI (scale: 15-50 range mapped to 0-100%)
+    const width = Math.min(100, Math.max(0, ((bmiNum - 15) / 35) * 100));
+    
+    if (bmiNum < 18.5) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
+    if (bmiNum < 25) return { bar: 'bg-emerald-500', text: 'text-emerald-600', width: `${width}%` };
+    if (bmiNum < 30) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
+    return { bar: 'bg-red-500', text: 'text-red-600', width: `${width}%` };
+  };
+
+  // Blood Pressure Risk Levels:
+  // - Normal: < 120/80 (green)
+  // - Elevated: 120-129 / < 80 (yellow)
+  // - High Stage 1: 130-139 / 80-89 (yellow)
+  // - High Stage 2: 140+ / 90+ (red)
+  const getBloodPressureColor = (bp: string | null | undefined): { bar: string; text: string; width: string } => {
+    if (!bp || bp.toLowerCase() === 'unknown') return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
+    
+    // Parse blood pressure (format: "120/80" or "120 / 80")
+    const parts = bp.replace(/\s/g, '').split('/');
+    if (parts.length !== 2) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '50%' };
+    
+    const systolic = parseInt(parts[0]);
+    const diastolic = parseInt(parts[1]);
+    if (isNaN(systolic) || isNaN(diastolic)) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '50%' };
+    
+    // Calculate width based on systolic (scale: 90-180 range mapped to 0-100%)
+    const width = Math.min(100, Math.max(0, ((systolic - 90) / 90) * 100));
+    
+    if (systolic < 120 && diastolic < 80) return { bar: 'bg-emerald-500', text: 'text-emerald-600', width: `${width}%` };
+    if (systolic < 130 && diastolic < 80) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
+    if (systolic < 140 || diastolic < 90) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
+    return { bar: 'bg-red-500', text: 'text-red-600', width: `${width}%` };
+  };
+
+  // Weight Risk (based on BMI since weight alone is not meaningful)
+  // Uses BMI color if available, otherwise gray
+  const getWeightColor = (weight: string | null | undefined, bmi: string | null | undefined): { bar: string; text: string; width: string } => {
+    if (!weight) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
+    
+    const weightNum = parseFloat(weight.replace(/[^\d.]/g, ''));
+    if (isNaN(weightNum)) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
+    
+    // Calculate width based on weight (scale: 100-400 lbs range mapped to 0-100%)
+    const width = Math.min(100, Math.max(0, ((weightNum - 100) / 300) * 100));
+    
+    // Use BMI color if available
+    if (bmi) {
+      const bmiColor = getBmiColor(bmi);
+      return { ...bmiColor, width: `${width}%` };
+    }
+    
+    return { bar: 'bg-gray-500', text: 'text-gray-600', width: `${width}%` };
+  };
+
+  const bmiColor = getBmiColor(vitals.bmi);
+  const bpColor = getBloodPressureColor(vitals.bloodPressure);
+  const weightColor = getWeightColor(vitals.weight, vitals.bmi);
+
   return (
     <div className="min-h-screen bg-[#efece7] p-6">
       <div className="flex gap-6">
@@ -407,32 +479,45 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Height - No health indicator (neutral) */}
                   <div className="bg-[#efece7] rounded-xl p-4">
                     <p className="text-sm text-gray-500 mb-1">Height</p>
                     <p className="text-2xl font-bold text-gray-900">{vitals.height || '—'}</p>
                     <div className="mt-3 h-2 bg-gray-300 rounded-full overflow-hidden">
-                      <div className="h-full bg-gray-500 rounded-full" style={{ width: '60%' }} />
+                      <div className="h-full bg-gray-500 rounded-full" style={{ width: vitals.height ? '100%' : '0%' }} />
                     </div>
                   </div>
+
+                  {/* Weight - Color based on BMI */}
                   <div className="bg-[#efece7] rounded-xl p-4">
                     <p className="text-sm text-gray-500 mb-1">Weight</p>
-                    <p className="text-2xl font-bold text-gray-900">{vitals.weight ? `${vitals.weight}lbs` : '—'}</p>
+                    <p className={`text-2xl font-bold ${vitals.weight ? weightColor.text : 'text-gray-900'}`}>
+                      {vitals.weight ? `${vitals.weight}lbs` : '—'}
+                    </p>
                     <div className="mt-3 h-2 bg-gray-300 rounded-full overflow-hidden">
-                      <div className="h-full bg-gray-500 rounded-full" style={{ width: '70%' }} />
+                      <div className={`h-full ${weightColor.bar} rounded-full transition-all duration-500`} style={{ width: weightColor.width }} />
                     </div>
                   </div>
+
+                  {/* BMI - Color coded by obesity level */}
                   <div className="bg-[#efece7] rounded-xl p-4">
                     <p className="text-sm text-gray-500 mb-1">BMI</p>
-                    <p className="text-2xl font-bold text-gray-900">{vitals.bmi || '—'}</p>
+                    <p className={`text-2xl font-bold ${vitals.bmi ? bmiColor.text : 'text-gray-900'}`}>
+                      {vitals.bmi || '—'}
+                    </p>
                     <div className="mt-3 h-2 bg-gray-300 rounded-full overflow-hidden">
-                      <div className="h-full bg-gray-500 rounded-full" style={{ width: '55%' }} />
+                      <div className={`h-full ${bmiColor.bar} rounded-full transition-all duration-500`} style={{ width: bmiColor.width }} />
                     </div>
                   </div>
+
+                  {/* Blood Pressure - Color coded by hypertension level */}
                   <div className="bg-[#efece7] rounded-xl p-4">
                     <p className="text-sm text-gray-500 mb-1">Blood pressure</p>
-                    <p className="text-2xl font-bold text-gray-900">{vitals.bloodPressure || '—'}</p>
+                    <p className={`text-2xl font-bold ${vitals.bloodPressure && vitals.bloodPressure !== 'unknown' ? bpColor.text : 'text-gray-900'}`}>
+                      {vitals.bloodPressure && vitals.bloodPressure.toLowerCase() !== 'unknown' ? vitals.bloodPressure : '—'}
+                    </p>
                     <div className="mt-3 h-2 bg-gray-300 rounded-full overflow-hidden">
-                      <div className="h-full bg-gray-500 rounded-full" style={{ width: '45%' }} />
+                      <div className={`h-full ${bpColor.bar} rounded-full transition-all duration-500`} style={{ width: bpColor.width }} />
                     </div>
                   </div>
                 </div>
