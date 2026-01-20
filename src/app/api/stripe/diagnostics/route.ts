@@ -4,7 +4,7 @@
  * Provides detailed information about Stripe configuration status
  * for troubleshooting and monitoring purposes.
  * 
- * GET /api/stripe/diagnostics - Get full diagnostics
+ * GET /api/stripe/diagnostics - Get full diagnostics (basic info public, details require auth)
  * POST /api/stripe/diagnostics - Validate configuration
  */
 
@@ -14,36 +14,46 @@ import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check for admin authorization in production
     const isProduction = process.env.NODE_ENV === 'production';
+    const authHeader = request.headers.get('authorization');
+    const adminSecret = process.env.ADMIN_API_SECRET || process.env.CRON_SECRET;
+    const isAuthorized = !isProduction || (adminSecret && authHeader === `Bearer ${adminSecret}`);
     
-    if (isProduction) {
-      const authHeader = request.headers.get('authorization');
-      const adminSecret = process.env.ADMIN_API_SECRET || process.env.CRON_SECRET;
-      
-      if (!adminSecret || authHeader !== `Bearer ${adminSecret}`) {
-        return NextResponse.json(
-          { 
-            error: 'Unauthorized',
-            message: 'Admin authorization required for diagnostics in production',
-          },
-          { status: 401 }
-        );
-      }
-    }
-    
-    const diagnostics = await getStripeDiagnostics();
+    // Always allow basic status check
+    const basicStatus = {
+      timestamp: new Date().toISOString(),
+      isConfigured: isStripeConfigured(),
+      environment: process.env.NODE_ENV || 'unknown',
+      vercelEnv: process.env.VERCEL_ENV || 'not-vercel',
+      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
+      hasPublishableKey: !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+      featureEnabled: process.env.NEXT_PUBLIC_ENABLE_STRIPE_SUBSCRIPTIONS === 'true',
+    };
     
     // Log the diagnostics request
-    logger.info('[STRIPE DIAGNOSTICS] Retrieved', {
-      isConfigured: diagnostics.config.isConfigured,
-      canConnect: diagnostics.connectivity.canConnect,
-      environment: diagnostics.environment.nodeEnv,
-    });
+    logger.info('[STRIPE DIAGNOSTICS] Status check', basicStatus);
+    
+    // If not authorized, return only basic status
+    if (!isAuthorized) {
+      return NextResponse.json({
+        success: true,
+        ...basicStatus,
+        message: basicStatus.isConfigured 
+          ? 'Stripe is configured' 
+          : 'Stripe is NOT configured - check STRIPE_SECRET_KEY env var',
+        hint: basicStatus.hasSecretKey 
+          ? (basicStatus.featureEnabled ? 'All good!' : 'Enable NEXT_PUBLIC_ENABLE_STRIPE_SUBSCRIPTIONS=true')
+          : 'Set STRIPE_SECRET_KEY in Vercel Environment Variables',
+      });
+    }
+    
+    // Full diagnostics for authorized requests
+    const diagnostics = await getStripeDiagnostics();
     
     return NextResponse.json({
       success: true,
-      timestamp: new Date().toISOString(),
+      ...basicStatus,
       diagnostics,
     });
     
@@ -54,6 +64,7 @@ export async function GET(request: NextRequest) {
       success: false,
       error: error.message,
       timestamp: new Date().toISOString(),
+      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
     }, { status: 500 });
   }
 }

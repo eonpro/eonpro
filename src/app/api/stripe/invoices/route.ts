@@ -67,17 +67,24 @@ export async function POST(request: NextRequest) {
     // Check if Stripe is configured using the config service
     const stripeConfigured = isStripeConfigured();
     
-    // Log configuration status for debugging
-    logger.info('[API] Invoice creation - Stripe status', {
+    // Detailed logging for debugging
+    const configStatus = {
       stripeConfigured,
       hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
+      secretKeyPrefix: process.env.STRIPE_SECRET_KEY?.substring(0, 7) || 'N/A',
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV,
-    });
+    };
+    
+    logger.info('[API] Invoice creation - Stripe configuration', configStatus);
     
     if (!stripeConfigured) {
       // Development/Demo mode - create invoice without Stripe
-      logger.warn('[API] Stripe not configured - creating demo invoice');
+      logger.warn('[API] Stripe not configured - creating demo invoice', {
+        reason: 'STRIPE_SECRET_KEY environment variable is not set',
+        hint: 'Check Vercel Environment Variables',
+        ...configStatus,
+      });
       
       // Calculate total (amount is the total for each line item, not per-unit)
       const total = lineItems.reduce((sum, item) => {
