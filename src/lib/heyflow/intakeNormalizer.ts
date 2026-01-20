@@ -120,11 +120,23 @@ const PATIENT_FIELD_MATCHERS: Record<keyof NormalizedPatient, FieldMatcher[]> = 
     { labelIncludes: "zip" },
     { labelIncludes: "postal code" },
     { labelIncludes: "postcode" },
+    { labelIncludes: "postal" },
     { labelIncludes: "código postal" },  // Spanish
     { id: "id-38a5bae0-zip" },
+    { id: "id-38a5bae0-zip_code" },
+    { id: "id-38a5bae0-postal" },
+    { id: "id-38a5bae0-postalCode" },
+    { id: "id-38a5bae0-postal_code" },
     { id: "zip" },
     { id: "zipCode" },
+    { id: "zip_code" },
     { id: "postalCode" },
+    { id: "postal_code" },
+    { id: "postal" },
+    { id: "address-zip" },
+    { id: "address-zipCode" },
+    { id: "shippingZip" },
+    { id: "shipping_zip" },
   ],
 };
 
@@ -508,17 +520,37 @@ function applyDerivedFields(
     patient.city = city;
   }
 
+  // Extract zip code from multiple possible sources
   const zip = firstNonEmpty(
+    // Heyflow address component sub-fields
     getEntryValue(index, "id-38a5bae0-zip"),
+    getEntryValue(index, "id-38a5bae0-zip_code"),
     getEntryValue(index, "id-38a5bae0-postal_code"),
     getEntryValue(index, "id-38a5bae0-zipcode"),
+    getEntryValue(index, "id-38a5bae0-postal"),
+    getEntryValue(index, "id-38a5bae0-postalCode"),
+    // JSON address object fields
     addressJson?.zip,
+    addressJson?.zip_code,
     addressJson?.postal_code,
     addressJson?.zipcode,
-    addressJson?.postalCode
+    addressJson?.postalCode,
+    addressJson?.postal,
+    // Try to extract from formatted address (last 5 digits at end)
+    (() => {
+      if (addressJson?.formattedAddress) {
+        const zipMatch = addressJson.formattedAddress.match(/\b(\d{5})(?:-\d{4})?\s*(?:,?\s*(?:USA?|United\s*States)?)?\s*$/i);
+        if (zipMatch) return zipMatch[1];
+      }
+      return undefined;
+    })()
   );
   if (zip) {
-    patient.zip = zip;
+    // Clean up zip code - remove any non-numeric except dash
+    const cleanZip = zip.replace(/[^\d-]/g, '').substring(0, 10);
+    if (cleanZip.length >= 5) {
+      patient.zip = cleanZip;
+    }
   }
 
   const stateInput = firstNonEmpty(
