@@ -1,231 +1,396 @@
-// Billing Plans Configuration
+// Billing Plans Configuration for EONMEDS Clinic
+// This file contains clinic-specific pricing data
+
 export interface BillingPlan {
   id: string;
   name: string;
-  category: 'semaglutide_monthly' | 'semaglutide_single' | 'semaglutide_3month' | 
-            'tirzepatide_monthly' | 'tirzepatide_single' | 'tirzepatide_3month' |
-            'bloodwork' | 'additional_treatments';
+  category: 'semaglutide_monthly' | 'semaglutide_single' | 'semaglutide_3month' | 'semaglutide_6month' |
+            'tirzepatide_monthly' | 'tirzepatide_single' | 'tirzepatide_3month' | 'tirzepatide_6month' |
+            'bloodwork' | 'additional_treatments' | 'upsales' | 'shipping';
   price: number; // in cents
   description: string;
   subcategory?: string;
+  dose?: string;
+  months?: number;
+  isRecurring?: boolean;
 }
 
 export const BILLING_PLANS: BillingPlan[] = [
-  // Semaglutide Monthly Plans
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEMAGLUTIDE - Default Dose (2.5mg/1mL or 2.5mg/2mL)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // Semaglutide Monthly (Recurring)
   {
-    id: 'sema_monthly_0_1.25',
-    name: 'Semaglutide 0-1.25mg',
+    id: 'sema_monthly_default',
+    name: 'Semaglutide 2.5mg/2mL',
     category: 'semaglutide_monthly',
     price: 22900,
-    description: 'Monthly subscription - Semaglutide 0-1.25mg',
-    subcategory: 'Monthly Plan'
-  },
-  {
-    id: 'sema_monthly_1.25_1.75',
-    name: 'Semaglutide 1.25mg-1.75mg',
-    category: 'semaglutide_monthly',
-    price: 29900,
-    description: 'Monthly subscription - Semaglutide 1.25mg-1.75mg',
-    subcategory: 'Monthly Plan'
-  },
-  {
-    id: 'sema_monthly_1.75_2.5',
-    name: 'Semaglutide 1.75mg-2.5mg',
-    category: 'semaglutide_monthly',
-    price: 34900,
-    description: 'Monthly subscription - Semaglutide 1.75mg-2.5mg',
-    subcategory: 'Monthly Plan'
+    description: 'Monthly subscription - Semaglutide 2.5mg/1mL or 2.5mg/2mL',
+    subcategory: 'Monthly Subscription',
+    dose: '2.5mg/1mL or 2.5mg/2mL',
+    months: 1,
+    isRecurring: true
   },
   
-  // Semaglutide Single Month Purchase
+  // Semaglutide Single Month
   {
-    id: 'sema_single_0_1.25',
-    name: 'Semaglutide 0-1.25mg',
+    id: 'sema_single_default',
+    name: 'Semaglutide 2.5mg/2mL',
     category: 'semaglutide_single',
     price: 29900,
-    description: 'Single month purchase - Semaglutide 0-1.25mg',
-    subcategory: 'Single Month'
-  },
-  {
-    id: 'sema_single_1.25_1.75',
-    name: 'Semaglutide 1.25mg-1.75mg',
-    category: 'semaglutide_single',
-    price: 34900,
-    description: 'Single month purchase - Semaglutide 1.25mg-1.75mg',
-    subcategory: 'Single Month'
-  },
-  {
-    id: 'sema_single_1.75_2.5',
-    name: 'Semaglutide 1.75mg-2.5mg',
-    category: 'semaglutide_single',
-    price: 39900,
-    description: 'Single month purchase - Semaglutide 1.75mg-2.5mg',
-    subcategory: 'Single Month'
+    description: 'Single month - Semaglutide 2.5mg/1mL or 2.5mg/2mL',
+    subcategory: 'Single Purchase',
+    dose: '2.5mg/1mL or 2.5mg/2mL',
+    months: 1,
+    isRecurring: false
   },
   
-  // Semaglutide 3 Month Promo
+  // Semaglutide 3 Month (Recurring)
   {
-    id: 'sema_3month_0_1.25',
-    name: 'Semaglutide 0-1.25mg',
+    id: 'sema_3month_default',
+    name: 'Semaglutide 2.5mg/2mL',
     category: 'semaglutide_3month',
     price: 54900,
-    description: '3 month promo - Semaglutide 0-1.25mg',
-    subcategory: '3 Month Promo'
+    description: '3 month subscription - Semaglutide 2.5mg/1mL or 2.5mg/2mL',
+    subcategory: '3 Month Package',
+    dose: '2.5mg/1mL or 2.5mg/2mL',
+    months: 3,
+    isRecurring: true
+  },
+  
+  // Semaglutide 6 Month (Recurring)
+  {
+    id: 'sema_6month_default',
+    name: 'Semaglutide 2.5mg/2mL',
+    category: 'semaglutide_6month',
+    price: 99900,
+    description: '6 month subscription - Semaglutide 2.5mg/1mL or 2.5mg/2mL',
+    subcategory: '6 Month Package',
+    dose: '2.5mg/1mL or 2.5mg/2mL',
+    months: 6,
+    isRecurring: true
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEMAGLUTIDE - Higher Dose 1 (2.5mg/3mL) - if dose higher than 1mg/week
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  {
+    id: 'sema_monthly_3ml',
+    name: 'Semaglutide 2.5mg/3mL',
+    category: 'semaglutide_monthly',
+    price: 32900,
+    description: 'Monthly subscription - Semaglutide 2.5mg/3mL (dose >1mg/week)',
+    subcategory: 'Monthly Subscription',
+    dose: '2.5mg/3mL',
+    months: 1,
+    isRecurring: true
   },
   {
-    id: 'sema_3month_1.25_1.75',
-    name: 'Semaglutide 1.25mg-1.75mg',
+    id: 'sema_single_3ml',
+    name: 'Semaglutide 2.5mg/3mL',
+    category: 'semaglutide_single',
+    price: 37900,
+    description: 'Single month - Semaglutide 2.5mg/3mL (dose >1mg/week)',
+    subcategory: 'Single Purchase',
+    dose: '2.5mg/3mL',
+    months: 1,
+    isRecurring: false
+  },
+  {
+    id: 'sema_3month_3ml',
+    name: 'Semaglutide 2.5mg/3mL',
     category: 'semaglutide_3month',
-    price: 74900,
-    description: '3 month promo - Semaglutide 1.25mg-1.75mg',
-    subcategory: '3 Month Promo'
+    price: 77500,
+    description: '3 month subscription - Semaglutide 2.5mg/3mL (dose >1mg/week)',
+    subcategory: '3 Month Package',
+    dose: '2.5mg/3mL',
+    months: 3,
+    isRecurring: true
   },
   {
-    id: 'sema_3month_1.75_2.5',
-    name: 'Semaglutide 1.75mg-2.5mg',
+    id: 'sema_6month_3ml',
+    name: 'Semaglutide 2.5mg/3mL',
+    category: 'semaglutide_6month',
+    price: 134900,
+    description: '6 month subscription - Semaglutide 2.5mg/3mL (dose >1mg/week)',
+    subcategory: '6 Month Package',
+    dose: '2.5mg/3mL',
+    months: 6,
+    isRecurring: true
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEMAGLUTIDE - Higher Dose 2 (2.5mg/4mL) - if dose higher than 1.75mg/week
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  {
+    id: 'sema_monthly_4ml',
+    name: 'Semaglutide 2.5mg/4mL',
+    category: 'semaglutide_monthly',
+    price: 39900,
+    description: 'Monthly subscription - Semaglutide 2.5mg/4mL (dose >1.75mg/week)',
+    subcategory: 'Monthly Subscription',
+    dose: '2.5mg/4mL',
+    months: 1,
+    isRecurring: true
+  },
+  {
+    id: 'sema_single_4ml',
+    name: 'Semaglutide 2.5mg/4mL',
+    category: 'semaglutide_single',
+    price: 44900,
+    description: 'Single month - Semaglutide 2.5mg/4mL (dose >1.75mg/week)',
+    subcategory: 'Single Purchase',
+    dose: '2.5mg/4mL',
+    months: 1,
+    isRecurring: false
+  },
+  {
+    id: 'sema_3month_4ml',
+    name: 'Semaglutide 2.5mg/4mL',
     category: 'semaglutide_3month',
     price: 89900,
-    description: '3 month promo - Semaglutide 1.75mg-2.5mg',
-    subcategory: '3 Month Promo'
+    description: '3 month subscription - Semaglutide 2.5mg/4mL (dose >1.75mg/week)',
+    subcategory: '3 Month Package',
+    dose: '2.5mg/4mL',
+    months: 3,
+    isRecurring: true
   },
-  
-  // Tirzepatide Monthly Plans
   {
-    id: 'tirz_monthly_0_5',
-    name: 'Tirzepatide 0-5mg',
+    id: 'sema_6month_4ml',
+    name: 'Semaglutide 2.5mg/4mL',
+    category: 'semaglutide_6month',
+    price: 149900,
+    description: '6 month subscription - Semaglutide 2.5mg/4mL (dose >1.75mg/week)',
+    subcategory: '6 Month Package',
+    dose: '2.5mg/4mL',
+    months: 6,
+    isRecurring: true
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TIRZEPATIDE - Default Dose (10mg/1mL or 10mg/2mL)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  {
+    id: 'tirz_monthly_default',
+    name: 'Tirzepatide 10mg/2mL',
     category: 'tirzepatide_monthly',
     price: 32900,
-    description: 'Monthly subscription - Tirzepatide 0-5mg',
-    subcategory: 'Monthly Plan'
+    description: 'Monthly subscription - Tirzepatide 10mg/1mL or 10mg/2mL',
+    subcategory: 'Monthly Subscription',
+    dose: '10mg/1mL or 10mg/2mL',
+    months: 1,
+    isRecurring: true
   },
   {
-    id: 'tirz_monthly_5_7.5',
-    name: 'Tirzepatide 5mg-7.5mg',
-    category: 'tirzepatide_monthly',
+    id: 'tirz_single_default',
+    name: 'Tirzepatide 10mg/2mL',
+    category: 'tirzepatide_single',
     price: 39900,
-    description: 'Monthly subscription - Tirzepatide 5mg-7.5mg',
-    subcategory: 'Monthly Plan'
+    description: 'Single month - Tirzepatide 10mg/1mL or 10mg/2mL',
+    subcategory: 'Single Purchase',
+    dose: '10mg/1mL or 10mg/2mL',
+    months: 1,
+    isRecurring: false
   },
   {
-    id: 'tirz_monthly_7.5_10',
-    name: 'Tirzepatide 7.5mg-10mg',
-    category: 'tirzepatide_monthly',
-    price: 44900,
-    description: 'Monthly subscription - Tirzepatide 7.5mg-10mg',
-    subcategory: 'Monthly Plan'
+    id: 'tirz_3month_default',
+    name: 'Tirzepatide 10mg/2mL',
+    category: 'tirzepatide_3month',
+    price: 89900,
+    description: '3 month subscription - Tirzepatide 10mg/1mL or 10mg/2mL',
+    subcategory: '3 Month Package',
+    dose: '10mg/1mL or 10mg/2mL',
+    months: 3,
+    isRecurring: true
   },
   {
-    id: 'tirz_monthly_high',
-    name: 'Tirzepatide High Dose',
-    category: 'tirzepatide_monthly',
-    price: 59900,
-    description: 'Monthly subscription - Tirzepatide High Dose',
-    subcategory: 'Monthly Plan'
+    id: 'tirz_6month_default',
+    name: 'Tirzepatide 10mg/2mL',
+    category: 'tirzepatide_6month',
+    price: 159900,
+    description: '6 month subscription - Tirzepatide 10mg/1mL or 10mg/2mL',
+    subcategory: '6 Month Package',
+    dose: '10mg/1mL or 10mg/2mL',
+    months: 6,
+    isRecurring: true
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TIRZEPATIDE - Higher Dose 1 (10mg/3mL) - if dose higher than 5mg/week
+  // ═══════════════════════════════════════════════════════════════════════════
   
-  // Tirzepatide Single Month Purchase
   {
-    id: 'tirz_single_0_5',
-    name: 'Tirzepatide 0-5mg',
-    category: 'tirzepatide_single',
-    price: 39900,
-    description: 'Single month purchase - Tirzepatide 0-5mg',
-    subcategory: 'Single Month'
+    id: 'tirz_monthly_3ml',
+    name: 'Tirzepatide 10mg/3mL',
+    category: 'tirzepatide_monthly',
+    price: 42900,
+    description: 'Monthly subscription - Tirzepatide 10mg/3mL (dose >5mg/week)',
+    subcategory: 'Monthly Subscription',
+    dose: '10mg/3mL',
+    months: 1,
+    isRecurring: true
   },
   {
-    id: 'tirz_single_5_7.5',
-    name: 'Tirzepatide 5mg-7.5mg',
-    category: 'tirzepatide_single',
-    price: 44900,
-    description: 'Single month purchase - Tirzepatide 5mg-7.5mg',
-    subcategory: 'Single Month'
-  },
-  {
-    id: 'tirz_single_7.5_10',
-    name: 'Tirzepatide 7.5mg-10mg',
+    id: 'tirz_single_3ml',
+    name: 'Tirzepatide 10mg/3mL',
     category: 'tirzepatide_single',
     price: 49900,
-    description: 'Single month purchase - Tirzepatide 7.5mg-10mg',
-    subcategory: 'Single Month'
+    description: 'Single month - Tirzepatide 10mg/3mL (dose >5mg/week)',
+    subcategory: 'Single Purchase',
+    dose: '10mg/3mL',
+    months: 1,
+    isRecurring: false
+  },
+  {
+    id: 'tirz_3month_3ml',
+    name: 'Tirzepatide 10mg/3mL',
+    category: 'tirzepatide_3month',
+    price: 112500,
+    description: '3 month subscription - Tirzepatide 10mg/3mL (dose >5mg/week)',
+    subcategory: '3 Month Package',
+    dose: '10mg/3mL',
+    months: 3,
+    isRecurring: true
+  },
+  {
+    id: 'tirz_6month_3ml',
+    name: 'Tirzepatide 10mg/3mL',
+    category: 'tirzepatide_6month',
+    price: 209900,
+    description: '6 month subscription - Tirzepatide 10mg/3mL (dose >5mg/week)',
+    subcategory: '6 Month Package',
+    dose: '10mg/3mL',
+    months: 6,
+    isRecurring: true
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TIRZEPATIDE - Higher Dose 2 (10mg/4mL) - if dose higher than 7.5mg/week
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  {
+    id: 'tirz_monthly_4ml',
+    name: 'Tirzepatide 10mg/4mL',
+    category: 'tirzepatide_monthly',
+    price: 49900,
+    description: 'Monthly subscription - Tirzepatide 10mg/4mL (dose >7.5mg/week)',
+    subcategory: 'Monthly Subscription',
+    dose: '10mg/4mL',
+    months: 1,
+    isRecurring: true
+  },
+  {
+    id: 'tirz_single_4ml',
+    name: 'Tirzepatide 10mg/4mL',
+    category: 'tirzepatide_single',
+    price: 59900,
+    description: 'Single month - Tirzepatide 10mg/4mL (dose >7.5mg/week)',
+    subcategory: 'Single Purchase',
+    dose: '10mg/4mL',
+    months: 1,
+    isRecurring: false
+  },
+  {
+    id: 'tirz_3month_4ml',
+    name: 'Tirzepatide 10mg/4mL',
+    category: 'tirzepatide_3month',
+    price: 120000,
+    description: '3 month subscription - Tirzepatide 10mg/4mL (dose >7.5mg/week)',
+    subcategory: '3 Month Package',
+    dose: '10mg/4mL',
+    months: 3,
+    isRecurring: true
+  },
+  {
+    id: 'tirz_6month_4ml',
+    name: 'Tirzepatide 10mg/4mL',
+    category: 'tirzepatide_6month',
+    price: 219900,
+    description: '6 month subscription - Tirzepatide 10mg/4mL (dose >7.5mg/week)',
+    subcategory: '6 Month Package',
+    dose: '10mg/4mL',
+    months: 6,
+    isRecurring: true
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TIRZEPATIDE - High Dose (30mg/2mL) - if dose higher than 10mg/week
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  {
+    id: 'tirz_monthly_high',
+    name: 'Tirzepatide 30mg/2mL',
+    category: 'tirzepatide_monthly',
+    price: 59900,
+    description: 'Monthly subscription - Tirzepatide 30mg/2mL (dose >10mg/week)',
+    subcategory: 'Monthly Subscription',
+    dose: '30mg/2mL',
+    months: 1,
+    isRecurring: true
   },
   {
     id: 'tirz_single_high',
-    name: 'Tirzepatide High Dose',
+    name: 'Tirzepatide 30mg/2mL',
     category: 'tirzepatide_single',
-    price: 64900,
-    description: 'Single month purchase - Tirzepatide High Dose',
-    subcategory: 'Single Month'
-  },
-  
-  // Tirzepatide 3 Month (First section)
-  {
-    id: 'tirz_3month_0_5',
-    name: 'Tirzepatide 0-5mg',
-    category: 'tirzepatide_3month',
-    price: 89900,
-    description: '3 month package - Tirzepatide 0-5mg',
-    subcategory: '3 Month Package'
-  },
-  {
-    id: 'tirz_3month_5_7.5',
-    name: 'Tirzepatide 5mg-7.5mg',
-    category: 'tirzepatide_3month',
-    price: 109900,
-    description: '3 month package - Tirzepatide 5mg-7.5mg',
-    subcategory: '3 Month Package'
-  },
-  {
-    id: 'tirz_3month_7.5_10',
-    name: 'Tirzepatide 7.5mg-10mg',
-    category: 'tirzepatide_3month',
-    price: 119900,
-    description: '3 month package - Tirzepatide 7.5mg-10mg',
-    subcategory: '3 Month Package'
+    price: 69900,
+    description: 'Single month - Tirzepatide 30mg/2mL (dose >10mg/week)',
+    subcategory: 'Single Purchase',
+    dose: '30mg/2mL',
+    months: 1,
+    isRecurring: false
   },
   {
     id: 'tirz_3month_high',
-    name: 'Tirzepatide High Dose',
+    name: 'Tirzepatide 30mg/2mL',
     category: 'tirzepatide_3month',
     price: 149900,
-    description: '3 month package - Tirzepatide High Dose',
-    subcategory: '3 Month Package'
-  },
-  
-  // Tirzepatide 3 Month (Second section - higher prices)
-  {
-    id: 'tirz_3month_premium_0_5',
-    name: 'Tirzepatide 0-5mg (Premium)',
-    category: 'tirzepatide_3month',
-    price: 159900,
-    description: '3 month premium package - Tirzepatide 0-5mg',
-    subcategory: '3 Month Premium'
+    description: '3 month subscription - Tirzepatide 30mg/2mL (dose >10mg/week)',
+    subcategory: '3 Month Package',
+    dose: '30mg/2mL',
+    months: 3,
+    isRecurring: true
   },
   {
-    id: 'tirz_3month_premium_5_7.5',
-    name: 'Tirzepatide 5mg-7.5mg (Premium)',
-    category: 'tirzepatide_3month',
-    price: 199900,
-    description: '3 month premium package - Tirzepatide 5mg-7.5mg',
-    subcategory: '3 Month Premium'
-  },
-  {
-    id: 'tirz_3month_premium_7.5_10',
-    name: 'Tirzepatide 7.5mg-10mg (Premium)',
-    category: 'tirzepatide_3month',
-    price: 219900,
-    description: '3 month premium package - Tirzepatide 7.5mg-10mg',
-    subcategory: '3 Month Premium'
-  },
-  {
-    id: 'tirz_3month_premium_high',
-    name: 'Tirzepatide High Dose (Premium)',
-    category: 'tirzepatide_3month',
+    id: 'tirz_6month_high',
+    name: 'Tirzepatide 30mg/2mL',
+    category: 'tirzepatide_6month',
     price: 249900,
-    description: '3 month premium package - Tirzepatide High Dose',
-    subcategory: '3 Month Premium'
+    description: '6 month subscription - Tirzepatide 30mg/2mL (dose >10mg/week)',
+    subcategory: '6 Month Package',
+    dose: '30mg/2mL',
+    months: 6,
+    isRecurring: true
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UPSALES - Add-on Medications
+  // ═══════════════════════════════════════════════════════════════════════════
   
-  // Bloodwork
+  {
+    id: 'upsale_ondansetron',
+    name: 'Ondansetron (Nausea Medication)',
+    category: 'upsales',
+    price: 3999,
+    description: 'Anti-nausea medication',
+    subcategory: 'Nausea Medication'
+  },
+  {
+    id: 'upsale_fat_burner',
+    name: 'L-Carnitine + B-Complex (Fat Burner)',
+    category: 'upsales',
+    price: 9999,
+    description: 'Fat burning supplement injection',
+    subcategory: 'Fat Burner'
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BLOODWORK
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   {
     id: 'bloodwork_partial',
     name: 'Partial Panel',
@@ -240,8 +405,11 @@ export const BILLING_PLANS: BillingPlan[] = [
     price: 19900,
     description: 'Comprehensive blood panel testing'
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADDITIONAL MONTHLY TREATMENTS
+  // ═══════════════════════════════════════════════════════════════════════════
   
-  // Additional Monthly Treatments
   {
     id: 'treatment_nad',
     name: 'NAD+',
@@ -256,29 +424,27 @@ export const BILLING_PLANS: BillingPlan[] = [
     price: 24900,
     description: 'Monthly Sermorelin treatment'
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SHIPPING
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   {
-    id: 'treatment_trt',
-    name: 'TRT',
-    category: 'additional_treatments',
-    price: 22900,
-    description: 'Monthly TRT treatment'
-  },
-  {
-    id: 'treatment_enclomiphene',
-    name: 'Enclomiphene',
-    category: 'additional_treatments',
-    price: 17900,
-    description: 'Monthly Enclomiphene treatment'
+    id: 'shipping_expedited',
+    name: 'Next Day Shipping (FedEx/UPS)',
+    category: 'shipping',
+    price: 1500,
+    description: 'Expedited next-day delivery via FedEx or UPS'
   }
 ];
 
 // Helper functions
 export function getPlanById(id: string): BillingPlan | undefined {
-  return BILLING_PLANS.find((plan: any) => plan.id === id);
+  return BILLING_PLANS.find((plan: BillingPlan) => plan.id === id);
 }
 
 export function getPlansByCategory(category: BillingPlan['category']): BillingPlan[] {
-  return BILLING_PLANS.filter((plan: any) => plan.category === category);
+  return BILLING_PLANS.filter((plan: BillingPlan) => plan.category === category);
 }
 
 export function formatPlanPrice(priceInCents: number): string {
@@ -288,29 +454,41 @@ export function formatPlanPrice(priceInCents: number): string {
 // Group plans by category for display
 export function getGroupedPlans() {
   const groups: Record<string, { label: string; plans: BillingPlan[] }> = {
-    'Semaglutide Monthly Plans': {
+    'Semaglutide Monthly': {
       label: 'Semaglutide Monthly Plans',
       plans: getPlansByCategory('semaglutide_monthly')
     },
-    'Semaglutide Single Month': {
+    'Semaglutide Single': {
       label: 'Semaglutide Single Month Purchase',
       plans: getPlansByCategory('semaglutide_single')
     },
-    'Semaglutide 3 Month Promo': {
-      label: 'Semaglutide 3 Month Promo',
+    'Semaglutide 3 Month': {
+      label: 'Semaglutide 3 Month Packages',
       plans: getPlansByCategory('semaglutide_3month')
     },
-    'Tirzepatide Monthly Plans': {
+    'Semaglutide 6 Month': {
+      label: 'Semaglutide 6 Month Packages',
+      plans: getPlansByCategory('semaglutide_6month')
+    },
+    'Tirzepatide Monthly': {
       label: 'Tirzepatide Monthly Plans',
       plans: getPlansByCategory('tirzepatide_monthly')
     },
-    'Tirzepatide Single Month': {
+    'Tirzepatide Single': {
       label: 'Tirzepatide Single Month Purchase',
       plans: getPlansByCategory('tirzepatide_single')
     },
     'Tirzepatide 3 Month': {
       label: 'Tirzepatide 3 Month Packages',
       plans: getPlansByCategory('tirzepatide_3month')
+    },
+    'Tirzepatide 6 Month': {
+      label: 'Tirzepatide 6 Month Packages',
+      plans: getPlansByCategory('tirzepatide_6month')
+    },
+    'Upsales': {
+      label: 'Upsales',
+      plans: getPlansByCategory('upsales')
     },
     'Bloodwork': {
       label: 'Bloodwork',
@@ -319,7 +497,41 @@ export function getGroupedPlans() {
     'Additional Treatments': {
       label: 'Additional Monthly Treatments',
       plans: getPlansByCategory('additional_treatments')
+    },
+    'Shipping': {
+      label: 'Shipping',
+      plans: getPlansByCategory('shipping')
     }
   };
   return groups;
+}
+
+// Get all medication plans (excluding bloodwork, treatments, shipping)
+export function getMedicationPlans(): BillingPlan[] {
+  return BILLING_PLANS.filter((plan: BillingPlan) => 
+    plan.category.startsWith('semaglutide') || plan.category.startsWith('tirzepatide')
+  );
+}
+
+// Get plans by medication type and months
+export function getPlansByMedicationAndMonths(
+  medication: 'semaglutide' | 'tirzepatide',
+  months: number,
+  isRecurring: boolean
+): BillingPlan[] {
+  const categoryMap: Record<string, string> = {
+    'semaglutide_1_true': 'semaglutide_monthly',
+    'semaglutide_1_false': 'semaglutide_single',
+    'semaglutide_3_true': 'semaglutide_3month',
+    'semaglutide_6_true': 'semaglutide_6month',
+    'tirzepatide_1_true': 'tirzepatide_monthly',
+    'tirzepatide_1_false': 'tirzepatide_single',
+    'tirzepatide_3_true': 'tirzepatide_3month',
+    'tirzepatide_6_true': 'tirzepatide_6month',
+  };
+  
+  const category = categoryMap[`${medication}_${months}_${isRecurring}`];
+  if (!category) return [];
+  
+  return getPlansByCategory(category as BillingPlan['category']);
 }
