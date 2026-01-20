@@ -1,0 +1,821 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  DollarSign, TrendingUp, CreditCard, AlertTriangle, Users,
+  ArrowUpRight, ArrowDownRight, RefreshCw, Download, ExternalLink,
+  Wallet, Receipt, ShieldAlert, Package, Link2, Calendar,
+  ChevronDown, Loader2, CheckCircle, XCircle, Clock, Ban
+} from 'lucide-react';
+
+// Types
+interface BalanceData {
+  totalAvailableFormatted: string;
+  totalPendingFormatted: string;
+  totalAvailable: number;
+  totalPending: number;
+}
+
+interface ReportSummary {
+  revenue: {
+    grossFormatted: string;
+    netFormatted: string;
+    refundsFormatted: string;
+    transactionCount: number;
+    averageTransactionValueFormatted: string;
+  };
+  subscriptions: {
+    mrrFormatted: string;
+    arrFormatted: string;
+    active: number;
+    canceled: number;
+  };
+  invoices: {
+    paid: number;
+    open: number;
+    paidAmountFormatted: string;
+    openAmountFormatted: string;
+  };
+  refunds: {
+    count: number;
+    totalFormatted: string;
+    refundRate: string;
+  };
+}
+
+interface Dispute {
+  id: string;
+  amountFormatted: string;
+  status: string;
+  reason: string;
+  reasonDisplay: string;
+  createdAt: string;
+  evidenceDueBy: string | null;
+  customerEmail: string | null;
+}
+
+interface Payout {
+  id: string;
+  amountFormatted: string;
+  status: string;
+  statusDisplay: string;
+  arrivalDateFormatted: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  active: boolean;
+  defaultPrice: {
+    amountFormatted: string;
+    type: string;
+    recurring: { interval: string } | null;
+  } | null;
+}
+
+interface Customer {
+  id: string;
+  email: string;
+  name: string;
+  analytics: {
+    totalSpentFormatted: string;
+    chargeCount: number;
+  };
+  activeSubscriptionCount: number;
+}
+
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+// Stat Card Component
+function StatCard({
+  title,
+  value,
+  subValue,
+  icon: Icon,
+  color = 'blue',
+  trend,
+  onClick,
+}: {
+  title: string;
+  value: string;
+  subValue?: string;
+  icon: any;
+  color?: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'gray';
+  trend?: 'up' | 'down';
+  onClick?: () => void;
+}) {
+  const colorClasses = {
+    blue: 'bg-blue-50 text-blue-600 border-blue-100',
+    green: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+    purple: 'bg-purple-50 text-purple-600 border-purple-100',
+    orange: 'bg-orange-50 text-orange-600 border-orange-100',
+    red: 'bg-red-50 text-red-600 border-red-100',
+    gray: 'bg-gray-50 text-gray-600 border-gray-100',
+  };
+
+  return (
+    <div
+      className={`rounded-xl border p-5 ${colorClasses[color]} ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      onClick={onClick}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <Icon className="w-5 h-5 opacity-80" />
+        {trend && (
+          <span className={trend === 'up' ? 'text-emerald-500' : 'text-red-500'}>
+            {trend === 'up' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+          </span>
+        )}
+      </div>
+      <p className="text-sm font-medium opacity-80">{title}</p>
+      <p className="text-2xl font-bold mt-1">{value}</p>
+      {subValue && <p className="text-xs opacity-60 mt-1">{subValue}</p>}
+    </div>
+  );
+}
+
+// Status Badge Component
+function StatusBadge({ status }: { status: string }) {
+  const statusConfig: Record<string, { bg: string; text: string; icon: any }> = {
+    paid: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle },
+    succeeded: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle },
+    active: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle },
+    pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
+    in_transit: { bg: 'bg-blue-100', text: 'text-blue-700', icon: Clock },
+    needs_response: { bg: 'bg-red-100', text: 'text-red-700', icon: AlertTriangle },
+    open: { bg: 'bg-blue-100', text: 'text-blue-700', icon: Clock },
+    failed: { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
+    canceled: { bg: 'bg-gray-100', text: 'text-gray-700', icon: Ban },
+    void: { bg: 'bg-gray-100', text: 'text-gray-700', icon: Ban },
+  };
+
+  const config = statusConfig[status.toLowerCase()] || { bg: 'bg-gray-100', text: 'text-gray-700', icon: Clock };
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+      <Icon className="w-3 h-3" />
+      {status.replace(/_/g, ' ')}
+    </span>
+  );
+}
+
+// Main Dashboard Component
+export default function StripeDashboard() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'disputes' | 'payouts' | 'products' | 'customers'>('overview');
+  const [refreshing, setRefreshing] = useState(false);
+  const [dateRange, setDateRange] = useState('this_month');
+
+  // Data states
+  const [balance, setBalance] = useState<BalanceData | null>(null);
+  const [report, setReport] = useState<ReportSummary | null>(null);
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [disputeSummary, setDisputeSummary] = useState<any>(null);
+  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [payoutSummary, setPayoutSummary] = useState<any>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productSummary, setProductSummary] = useState<any>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerSummary, setCustomerSummary] = useState<any>(null);
+
+  // Auth check
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    try {
+      const parsedUser = JSON.parse(user);
+      const role = parsedUser.role?.toLowerCase();
+      if (role !== 'admin' && role !== 'super_admin') {
+        router.push('/login');
+        return;
+      }
+    } catch {
+      router.push('/login');
+    }
+  }, [router]);
+
+  // Fetch all data
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch all data in parallel
+      const [balanceRes, reportRes, disputesRes, payoutsRes, productsRes, customersRes] = await Promise.all([
+        fetch('/api/stripe/balance?includeTransactions=false'),
+        fetch('/api/stripe/reports?type=summary'),
+        fetch('/api/stripe/disputes?limit=10'),
+        fetch('/api/stripe/payouts?limit=10'),
+        fetch('/api/stripe/products?limit=20'),
+        fetch('/api/stripe/customers?limit=10&includeCharges=true&includeSubscriptions=false'),
+      ]);
+
+      // Process balance
+      if (balanceRes.ok) {
+        const data = await balanceRes.json();
+        setBalance(data.balance);
+      }
+
+      // Process report
+      if (reportRes.ok) {
+        const data = await reportRes.json();
+        setReport(data.report?.data);
+      }
+
+      // Process disputes
+      if (disputesRes.ok) {
+        const data = await disputesRes.json();
+        setDisputes(data.disputes || []);
+        setDisputeSummary(data.summary);
+      }
+
+      // Process payouts
+      if (payoutsRes.ok) {
+        const data = await payoutsRes.json();
+        setPayouts(data.payouts || []);
+        setPayoutSummary(data.summary);
+      }
+
+      // Process products
+      if (productsRes.ok) {
+        const data = await productsRes.json();
+        setProducts(data.products || []);
+        setProductSummary(data.summary);
+      }
+
+      // Process customers
+      if (customersRes.ok) {
+        const data = await customersRes.json();
+        setCustomers(data.customers || []);
+        setCustomerSummary(data.summary);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load Stripe data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading Stripe data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <CreditCard className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Stripe Dashboard</h1>
+                <p className="text-sm text-gray-500">Real-time financial data from Stripe</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <a
+                href="https://dashboard.stripe.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Stripe Dashboard
+              </a>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 mt-4 -mb-px">
+            {[
+              { id: 'overview', label: 'Overview', icon: TrendingUp },
+              { id: 'disputes', label: 'Disputes', icon: ShieldAlert, badge: disputeSummary?.pending },
+              { id: 'payouts', label: 'Payouts', icon: Wallet },
+              { id: 'products', label: 'Products', icon: Package },
+              { id: 'customers', label: 'Customers', icon: Users },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition ${
+                  activeTab === tab.id
+                    ? 'bg-gray-50 text-purple-600 border-t border-x border-gray-200'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+                {tab.badge && tab.badge > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs font-bold bg-red-100 text-red-600 rounded-full">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            {error}
+          </div>
+        )}
+
+        {activeTab === 'overview' && (
+          <OverviewTab
+            balance={balance}
+            report={report}
+            disputes={disputes}
+            disputeSummary={disputeSummary}
+          />
+        )}
+
+        {activeTab === 'disputes' && (
+          <DisputesTab disputes={disputes} summary={disputeSummary} />
+        )}
+
+        {activeTab === 'payouts' && (
+          <PayoutsTab payouts={payouts} summary={payoutSummary} />
+        )}
+
+        {activeTab === 'products' && (
+          <ProductsTab products={products} summary={productSummary} />
+        )}
+
+        {activeTab === 'customers' && (
+          <CustomersTab customers={customers} summary={customerSummary} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Overview Tab
+function OverviewTab({
+  balance,
+  report,
+  disputes,
+  disputeSummary,
+}: {
+  balance: BalanceData | null;
+  report: ReportSummary | null;
+  disputes: Dispute[];
+  disputeSummary: any;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Balance Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Available Balance"
+          value={balance?.totalAvailableFormatted || '$0.00'}
+          icon={Wallet}
+          color={(balance?.totalAvailable || 0) >= 0 ? 'green' : 'red'}
+        />
+        <StatCard
+          title="Pending Balance"
+          value={balance?.totalPendingFormatted || '$0.00'}
+          icon={Clock}
+          color="blue"
+          subValue="Processing"
+        />
+        <StatCard
+          title="Gross Revenue"
+          value={report?.revenue?.grossFormatted || '$0.00'}
+          icon={DollarSign}
+          color="purple"
+          subValue={`${report?.revenue?.transactionCount || 0} transactions`}
+        />
+        <StatCard
+          title="Net Revenue"
+          value={report?.revenue?.netFormatted || '$0.00'}
+          icon={TrendingUp}
+          color="green"
+          trend="up"
+        />
+      </div>
+
+      {/* MRR & Refunds */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Monthly Recurring Revenue"
+          value={report?.subscriptions?.mrrFormatted || '$0.00'}
+          icon={RefreshCw}
+          color="purple"
+          subValue={`${report?.subscriptions?.active || 0} active subscriptions`}
+        />
+        <StatCard
+          title="Annual Recurring Revenue"
+          value={report?.subscriptions?.arrFormatted || '$0.00'}
+          icon={Calendar}
+          color="blue"
+        />
+        <StatCard
+          title="Refunds"
+          value={report?.refunds?.totalFormatted || '$0.00'}
+          icon={ArrowDownRight}
+          color="orange"
+          subValue={`${report?.refunds?.count || 0} refunds (${report?.refunds?.refundRate || '0%'})`}
+        />
+        <StatCard
+          title="Open Invoices"
+          value={report?.invoices?.openAmountFormatted || '$0.00'}
+          icon={Receipt}
+          color="gray"
+          subValue={`${report?.invoices?.open || 0} invoices pending`}
+        />
+      </div>
+
+      {/* Disputes Alert */}
+      {disputeSummary?.pending > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <ShieldAlert className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-800">
+                {disputeSummary.pending} Dispute{disputeSummary.pending > 1 ? 's' : ''} Need Response
+              </h3>
+              <p className="text-sm text-red-600">
+                Total disputed: {disputeSummary.totalDisputedFormatted}
+              </p>
+            </div>
+            <a
+              href="https://dashboard.stripe.com/disputes"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition"
+            >
+              View in Stripe
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Disputes */}
+      {disputes.length > 0 && (
+        <div className="bg-white rounded-xl border p-6">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-red-500" />
+            Recent Disputes
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-sm text-gray-500 border-b">
+                  <th className="pb-3 font-medium">Amount</th>
+                  <th className="pb-3 font-medium">Reason</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 font-medium">Evidence Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                {disputes.slice(0, 5).map((dispute) => (
+                  <tr key={dispute.id} className="border-b last:border-0">
+                    <td className="py-3 font-semibold">{dispute.amountFormatted}</td>
+                    <td className="py-3 text-gray-600">{dispute.reasonDisplay}</td>
+                    <td className="py-3">
+                      <StatusBadge status={dispute.status} />
+                    </td>
+                    <td className="py-3 text-gray-500">
+                      {dispute.evidenceDueBy ? formatDate(dispute.evidenceDueBy) : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Disputes Tab
+function DisputesTab({ disputes, summary }: { disputes: Dispute[]; summary: any }) {
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Disputed"
+          value={summary?.totalDisputedFormatted || '$0.00'}
+          icon={ShieldAlert}
+          color="red"
+        />
+        <StatCard
+          title="Pending Response"
+          value={summary?.pending?.toString() || '0'}
+          icon={Clock}
+          color="orange"
+        />
+        <StatCard
+          title="Won"
+          value={summary?.won?.amountFormatted || '$0.00'}
+          icon={CheckCircle}
+          color="green"
+          subValue={`${summary?.won?.count || 0} disputes`}
+        />
+        <StatCard
+          title="Lost"
+          value={summary?.lost?.amountFormatted || '$0.00'}
+          icon={XCircle}
+          color="red"
+          subValue={`${summary?.lost?.count || 0} disputes`}
+        />
+      </div>
+
+      {/* Win Rate */}
+      {summary?.winRate && (
+        <div className="bg-white rounded-xl border p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-900">Dispute Win Rate</h3>
+              <p className="text-sm text-gray-500">Based on resolved disputes</p>
+            </div>
+            <div className="text-3xl font-bold text-emerald-600">{summary.winRate}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Disputes Table */}
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">All Disputes</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-sm text-gray-500 border-b">
+                <th className="pb-3 font-medium">ID</th>
+                <th className="pb-3 font-medium">Amount</th>
+                <th className="pb-3 font-medium">Reason</th>
+                <th className="pb-3 font-medium">Status</th>
+                <th className="pb-3 font-medium">Created</th>
+                <th className="pb-3 font-medium">Evidence Due</th>
+              </tr>
+            </thead>
+            <tbody>
+              {disputes.map((dispute) => (
+                <tr key={dispute.id} className="border-b last:border-0 hover:bg-gray-50">
+                  <td className="py-3 font-mono text-sm text-gray-500">{dispute.id.slice(-8)}</td>
+                  <td className="py-3 font-semibold">{dispute.amountFormatted}</td>
+                  <td className="py-3 text-gray-600">{dispute.reasonDisplay}</td>
+                  <td className="py-3">
+                    <StatusBadge status={dispute.status} />
+                  </td>
+                  <td className="py-3 text-gray-500">{formatDate(dispute.createdAt)}</td>
+                  <td className="py-3 text-gray-500">
+                    {dispute.evidenceDueBy ? formatDate(dispute.evidenceDueBy) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Payouts Tab
+function PayoutsTab({ payouts, summary }: { payouts: Payout[]; summary: any }) {
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Paid Out"
+          value={summary?.totalPaidOutFormatted || '$0.00'}
+          icon={Wallet}
+          color="green"
+        />
+        <StatCard
+          title="Pending"
+          value={summary?.totalPendingFormatted || '$0.00'}
+          icon={Clock}
+          color="blue"
+        />
+        <StatCard
+          title="Total Payouts"
+          value={summary?.totalPayouts?.toString() || '0'}
+          icon={Receipt}
+          color="purple"
+        />
+        <StatCard
+          title="Failed"
+          value={summary?.totalFailedFormatted || '$0.00'}
+          icon={XCircle}
+          color="red"
+        />
+      </div>
+
+      {/* Payouts Table */}
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Recent Payouts</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-sm text-gray-500 border-b">
+                <th className="pb-3 font-medium">ID</th>
+                <th className="pb-3 font-medium">Amount</th>
+                <th className="pb-3 font-medium">Status</th>
+                <th className="pb-3 font-medium">Arrival Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payouts.map((payout) => (
+                <tr key={payout.id} className="border-b last:border-0 hover:bg-gray-50">
+                  <td className="py-3 font-mono text-sm text-gray-500">{payout.id.slice(-8)}</td>
+                  <td className="py-3 font-semibold">{payout.amountFormatted}</td>
+                  <td className="py-3">
+                    <StatusBadge status={payout.status} />
+                  </td>
+                  <td className="py-3 text-gray-500">{formatDate(payout.arrivalDateFormatted)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Products Tab
+function ProductsTab({ products, summary }: { products: Product[]; summary: any }) {
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Products"
+          value={summary?.totalProducts?.toString() || '0'}
+          icon={Package}
+          color="purple"
+        />
+        <StatCard
+          title="Active Products"
+          value={summary?.activeProducts?.toString() || '0'}
+          icon={CheckCircle}
+          color="green"
+        />
+        <StatCard
+          title="One-Time"
+          value={summary?.oneTimeProducts?.toString() || '0'}
+          icon={DollarSign}
+          color="blue"
+        />
+        <StatCard
+          title="Recurring"
+          value={summary?.recurringProducts?.toString() || '0'}
+          icon={RefreshCw}
+          color="orange"
+        />
+      </div>
+
+      {/* Products Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {products.map((product) => (
+          <div
+            key={product.id}
+            className={`bg-white rounded-xl border p-4 ${!product.active ? 'opacity-60' : ''}`}
+          >
+            <div className="flex items-start justify-between mb-2">
+              <h4 className="font-semibold text-gray-900">{product.name}</h4>
+              <StatusBadge status={product.active ? 'active' : 'inactive'} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold text-gray-900">
+                {product.defaultPrice?.amountFormatted || 'N/A'}
+              </span>
+              {product.defaultPrice?.recurring && (
+                <span className="text-sm text-gray-500">
+                  / {product.defaultPrice.recurring.interval}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Customers Tab
+function CustomersTab({ customers, summary }: { customers: Customer[]; summary: any }) {
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Customers"
+          value={summary?.totalCustomers?.toString() || '0'}
+          icon={Users}
+          color="blue"
+        />
+        <StatCard
+          title="Total Lifetime Value"
+          value={summary?.totalLifetimeValueFormatted || '$0.00'}
+          icon={DollarSign}
+          color="green"
+        />
+        <StatCard
+          title="Average LTV"
+          value={summary?.averageLTVFormatted || '$0.00'}
+          icon={TrendingUp}
+          color="purple"
+        />
+        <StatCard
+          title="With Subscriptions"
+          value={summary?.subscriptionRate || '0%'}
+          icon={RefreshCw}
+          color="orange"
+        />
+      </div>
+
+      {/* Customers Table */}
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Recent Customers</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-sm text-gray-500 border-b">
+                <th className="pb-3 font-medium">Customer</th>
+                <th className="pb-3 font-medium">Email</th>
+                <th className="pb-3 font-medium">Total Spent</th>
+                <th className="pb-3 font-medium">Orders</th>
+                <th className="pb-3 font-medium">Subscriptions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((customer) => (
+                <tr key={customer.id} className="border-b last:border-0 hover:bg-gray-50">
+                  <td className="py-3 font-medium">{customer.name || '-'}</td>
+                  <td className="py-3 text-gray-600">{customer.email || '-'}</td>
+                  <td className="py-3 font-semibold text-emerald-600">
+                    {customer.analytics?.totalSpentFormatted || '$0.00'}
+                  </td>
+                  <td className="py-3 text-gray-500">{customer.analytics?.chargeCount || 0}</td>
+                  <td className="py-3">
+                    {customer.activeSubscriptionCount > 0 ? (
+                      <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                        {customer.activeSubscriptionCount} active
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
