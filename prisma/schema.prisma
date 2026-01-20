@@ -1412,6 +1412,16 @@ model Clinic {
   features     Json // Enabled features per clinic
   integrations Json // API keys, webhooks per clinic
 
+  // Stripe Connect Integration
+  stripeAccountId          String?  @unique // Connected account ID (acct_xxx)
+  stripeAccountStatus      String?  // 'pending', 'active', 'restricted', 'rejected'
+  stripeOnboardingComplete Boolean  @default(false) // Has completed Stripe onboarding
+  stripeChargesEnabled     Boolean  @default(false) // Can accept charges
+  stripePayoutsEnabled     Boolean  @default(false) // Can receive payouts
+  stripeDetailsSubmitted   Boolean  @default(false) // Has submitted account details
+  stripePlatformAccount    Boolean  @default(false) // Is this the platform account (EONmeds)?
+  stripeConnectedAt        DateTime? // When they connected their Stripe account
+  
   // Lifefile Integration (per-clinic credentials - encrypted)
   lifefileBaseUrl          String? // API base URL
   lifefileUsername         String? // API username (encrypted)

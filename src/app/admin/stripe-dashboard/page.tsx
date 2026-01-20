@@ -6,10 +6,19 @@ import {
   DollarSign, TrendingUp, CreditCard, AlertTriangle, Users,
   ArrowUpRight, ArrowDownRight, RefreshCw, Download, ExternalLink,
   Wallet, Receipt, ShieldAlert, Package, Link2, Calendar,
-  ChevronDown, Loader2, CheckCircle, XCircle, Clock, Ban
+  ChevronDown, Loader2, CheckCircle, XCircle, Clock, Ban, Building2
 } from 'lucide-react';
 
 // Types
+interface Clinic {
+  id: number;
+  name: string;
+  stripeAccountId: string | null;
+  stripePlatformAccount: boolean;
+  stripeOnboardingComplete: boolean;
+  stripeChargesEnabled: boolean;
+}
+
 interface BalanceData {
   totalAvailableFormatted: string;
   totalPendingFormatted: string;
@@ -171,9 +180,14 @@ export default function StripeDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'disputes' | 'payouts' | 'products' | 'customers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'disputes' | 'payouts' | 'products' | 'customers' | 'connect'>('overview');
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState('this_month');
+  
+  // Clinic selection (for multi-tenant)
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
 
   // Data states
   const [balance, setBalance] = useState<BalanceData | null>(null);
@@ -186,8 +200,9 @@ export default function StripeDashboard() {
   const [productSummary, setProductSummary] = useState<any>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerSummary, setCustomerSummary] = useState<any>(null);
+  const [connectStatus, setConnectStatus] = useState<any>(null);
 
-  // Auth check
+  // Auth check & load clinics
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (!user) {
@@ -201,10 +216,44 @@ export default function StripeDashboard() {
         router.push('/login');
         return;
       }
+      setUserRole(role);
+      
+      // Load clinics for super_admin
+      if (role === 'super_admin') {
+        loadClinics();
+      } else if (parsedUser.clinicId) {
+        // Admin sees only their clinic
+        setSelectedClinicId(parsedUser.clinicId);
+      }
     } catch {
       router.push('/login');
     }
   }, [router]);
+
+  // Load available clinics
+  const loadClinics = async () => {
+    try {
+      const res = await fetch('/api/admin/clinics');
+      if (res.ok) {
+        const data = await res.json();
+        setClinics(data.clinics || []);
+      }
+    } catch (err) {
+      console.error('Failed to load clinics:', err);
+    }
+  };
+
+  // Build API URL with optional clinic filter
+  const buildApiUrl = (baseUrl: string, params: Record<string, string> = {}) => {
+    const url = new URL(baseUrl, window.location.origin);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) url.searchParams.set(key, value);
+    });
+    if (selectedClinicId) {
+      url.searchParams.set('clinicId', selectedClinicId.toString());
+    }
+    return url.toString();
+  };
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -212,15 +261,27 @@ export default function StripeDashboard() {
     setError(null);
 
     try {
+      // Build URLs with clinic filter
+      const clinicParam = selectedClinicId ? `&clinicId=${selectedClinicId}` : '';
+      
       // Fetch all data in parallel
       const [balanceRes, reportRes, disputesRes, payoutsRes, productsRes, customersRes] = await Promise.all([
-        fetch('/api/stripe/balance?includeTransactions=false'),
-        fetch('/api/stripe/reports?type=summary'),
-        fetch('/api/stripe/disputes?limit=10'),
-        fetch('/api/stripe/payouts?limit=10'),
-        fetch('/api/stripe/products?limit=20'),
-        fetch('/api/stripe/customers?limit=10&includeCharges=true&includeSubscriptions=false'),
+        fetch(`/api/stripe/balance?includeTransactions=false${clinicParam}`),
+        fetch(`/api/stripe/reports?type=summary${clinicParam}`),
+        fetch(`/api/stripe/disputes?limit=10${clinicParam}`),
+        fetch(`/api/stripe/payouts?limit=10${clinicParam}`),
+        fetch(`/api/stripe/products?limit=20${clinicParam}`),
+        fetch(`/api/stripe/customers?limit=10&includeCharges=true&includeSubscriptions=false${clinicParam}`),
       ]);
+      
+      // Also fetch connect status if a clinic is selected
+      if (selectedClinicId) {
+        const connectRes = await fetch(`/api/stripe/connect?clinicId=${selectedClinicId}`);
+        if (connectRes.ok) {
+          const connectData = await connectRes.json();
+          setConnectStatus(connectData);
+        }
+      }
 
       // Process balance
       if (balanceRes.ok) {
@@ -270,13 +331,20 @@ export default function StripeDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, selectedClinicId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchData();
     setRefreshing(false);
   };
+
+  const handleClinicChange = (clinicId: number | null) => {
+    setSelectedClinicId(clinicId);
+    setConnectStatus(null);
+  };
+
+  const selectedClinic = clinics.find(c => c.id === selectedClinicId);
 
   if (loading) {
     return (
@@ -301,11 +369,34 @@ export default function StripeDashboard() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Stripe Dashboard</h1>
-                <p className="text-sm text-gray-500">Real-time financial data from Stripe</p>
+                <p className="text-sm text-gray-500">
+                  {selectedClinic ? `${selectedClinic.name}` : 'Platform Account (EONmeds)'} - Real-time financial data
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Clinic Selector (Super Admin only) */}
+              {userRole === 'super_admin' && clinics.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-gray-400" />
+                  <select
+                    value={selectedClinicId || ''}
+                    onChange={(e) => handleClinicChange(e.target.value ? parseInt(e.target.value) : null)}
+                    className="px-3 py-2 text-sm border rounded-lg bg-white focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">Platform Account (All)</option>
+                    {clinics.map((clinic) => (
+                      <option key={clinic.id} value={clinic.id}>
+                        {clinic.name}
+                        {clinic.stripePlatformAccount ? ' (Platform)' : ''}
+                        {clinic.stripeAccountId && !clinic.stripePlatformAccount ? ' (Connected)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -334,6 +425,7 @@ export default function StripeDashboard() {
               { id: 'payouts', label: 'Payouts', icon: Wallet },
               { id: 'products', label: 'Products', icon: Package },
               { id: 'customers', label: 'Customers', icon: Users },
+              ...(selectedClinicId && userRole === 'super_admin' ? [{ id: 'connect', label: 'Connect Settings', icon: Link2 }] : []),
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -389,6 +481,14 @@ export default function StripeDashboard() {
 
         {activeTab === 'customers' && (
           <CustomersTab customers={customers} summary={customerSummary} />
+        )}
+        
+        {activeTab === 'connect' && selectedClinicId && (
+          <ConnectTab 
+            clinicId={selectedClinicId} 
+            status={connectStatus} 
+            onRefresh={fetchData}
+          />
         )}
       </div>
     </div>
@@ -814,6 +914,283 @@ function CustomersTab({ customers, summary }: { customers: Customer[]; summary: 
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Connect Tab - Stripe Connect Management
+function ConnectTab({ 
+  clinicId, 
+  status, 
+  onRefresh 
+}: { 
+  clinicId: number; 
+  status: any; 
+  onRefresh: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCreateAccount = async () => {
+    if (!email) {
+      setError('Email is required');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const res = await fetch('/api/stripe/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicId, email }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create account');
+      }
+      
+      // Redirect to onboarding
+      window.open(data.onboardingUrl, '_blank');
+      onRefresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleContinueOnboarding = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=onboarding`);
+      const data = await res.json();
+      if (data.onboardingUrl) {
+        window.open(data.onboardingUrl, '_blank');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenDashboard = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=dashboard`);
+      const data = await res.json();
+      if (data.dashboardUrl) {
+        window.open(data.dashboardUrl, '_blank');
+      } else if (data.error) {
+        setError(data.error);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncStatus = async () => {
+    setLoading(true);
+    try {
+      await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=sync`);
+      onRefresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stripeStatus = status?.stripe;
+  const hasAccount = stripeStatus?.hasConnectedAccount;
+  const isPlatform = stripeStatus?.isPlatformAccount;
+
+  return (
+    <div className="space-y-6">
+      {/* Current Status */}
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Link2 className="w-5 h-5 text-purple-500" />
+          Stripe Connect Status
+        </h3>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
+        {isPlatform ? (
+          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="w-5 h-5 text-purple-600" />
+              <span className="font-semibold text-purple-900">Platform Account</span>
+            </div>
+            <p className="text-sm text-purple-700">
+              This clinic uses the platform's Stripe account directly (EONmeds). 
+              All transactions are processed through the main account.
+            </p>
+          </div>
+        ) : hasAccount ? (
+          <div className="space-y-4">
+            <div className={`p-4 rounded-lg border ${
+              stripeStatus.onboardingComplete 
+                ? 'bg-emerald-50 border-emerald-200' 
+                : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {stripeStatus.onboardingComplete ? (
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                  ) : (
+                    <Clock className="w-5 h-5 text-yellow-600" />
+                  )}
+                  <span className={`font-semibold ${
+                    stripeStatus.onboardingComplete ? 'text-emerald-900' : 'text-yellow-900'
+                  }`}>
+                    {stripeStatus.onboardingComplete ? 'Connected' : 'Onboarding Incomplete'}
+                  </span>
+                </div>
+                <span className="text-sm font-mono text-gray-500">
+                  {stripeStatus.accountId}
+                </span>
+              </div>
+            </div>
+
+            {/* Status Details */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500 mb-1">Charges</p>
+                <p className={`font-semibold ${stripeStatus.chargesEnabled ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {stripeStatus.chargesEnabled ? 'Enabled' : 'Disabled'}
+                </p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500 mb-1">Payouts</p>
+                <p className={`font-semibold ${stripeStatus.payoutsEnabled ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {stripeStatus.payoutsEnabled ? 'Enabled' : 'Disabled'}
+                </p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500 mb-1">Details Submitted</p>
+                <p className={`font-semibold ${stripeStatus.detailsSubmitted ? 'text-emerald-600' : 'text-yellow-600'}`}>
+                  {stripeStatus.detailsSubmitted ? 'Yes' : 'No'}
+                </p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500 mb-1">Connected</p>
+                <p className="font-semibold text-gray-700">
+                  {stripeStatus.connectedAt ? formatDate(stripeStatus.connectedAt) : '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-4 border-t">
+              {!stripeStatus.onboardingComplete && (
+                <button
+                  onClick={handleContinueOnboarding}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition disabled:opacity-50"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Continue Onboarding
+                </button>
+              )}
+              {stripeStatus.onboardingComplete && (
+                <button
+                  onClick={handleOpenDashboard}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open Stripe Dashboard
+                </button>
+              )}
+              <button
+                onClick={handleSyncStatus}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Sync Status
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-5 h-5 text-gray-500" />
+                <span className="font-semibold text-gray-700">No Stripe Account Connected</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                This clinic doesn't have a connected Stripe account. Create one to enable 
+                direct payments to this clinic.
+              </p>
+            </div>
+
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-medium mb-3">Create Connected Account</h4>
+              <div className="flex gap-3">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="clinic@example.com"
+                  className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  onClick={handleCreateAccount}
+                  disabled={loading || !email}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                  Connect Stripe
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                The clinic owner will receive an email to complete Stripe onboarding.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* How it Works */}
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">How Stripe Connect Works</h3>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold mb-3">1</div>
+            <h4 className="font-medium mb-1">Create Account</h4>
+            <p className="text-sm text-gray-600">
+              Enter the clinic's email to create a connected Stripe account.
+            </p>
+          </div>
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold mb-3">2</div>
+            <h4 className="font-medium mb-1">Complete Onboarding</h4>
+            <p className="text-sm text-gray-600">
+              Clinic owner completes Stripe's identity verification and bank setup.
+            </p>
+          </div>
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold mb-3">3</div>
+            <h4 className="font-medium mb-1">Start Accepting Payments</h4>
+            <p className="text-sm text-gray-600">
+              Payments go directly to the clinic's bank account.
+            </p>
+          </div>
         </div>
       </div>
     </div>
