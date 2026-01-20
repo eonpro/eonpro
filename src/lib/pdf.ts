@@ -1,12 +1,13 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { logger } from '@/lib/logger';
 
-const PRACTICE_NAME = process.env.LIFEFILE_PRACTICE_NAME ?? "APOLLO BASED HEALTH DBA EONMEDS";
-const PRACTICE_ADDRESS =
+// Default values - used as fallback if clinic-specific values not provided
+const DEFAULT_PRACTICE_NAME = process.env.LIFEFILE_PRACTICE_NAME ?? "APOLLO BASED HEALTH DBA EONMEDS";
+const DEFAULT_PRACTICE_ADDRESS =
   process.env.LIFEFILE_PRACTICE_ADDRESS ??
   "401 Jackson St Suite 2340-K23, Tampa, FL 33602";
-const PRACTICE_PHONE = process.env.LIFEFILE_PRACTICE_PHONE ?? "813-696-3459";
-const PRACTICE_FAX = process.env.LIFEFILE_PRACTICE_FAX ?? "813-537-8691";
+const DEFAULT_PRACTICE_PHONE = process.env.LIFEFILE_PRACTICE_PHONE ?? "813-696-3459";
+const DEFAULT_PRACTICE_FAX = process.env.LIFEFILE_PRACTICE_FAX ?? "813-537-8691";
 
 // Medication-specific special instructions
 const MEDICATION_SPECIAL_INSTRUCTIONS: Record<string, string[]> = {
@@ -47,6 +48,13 @@ function getSpecialInstructions(medicationName: string): string[] {
 export type PrescriptionPdfData = {
   referenceId: string;
   date: string;
+  // Clinic/Practice info - used in header and footer
+  clinic?: {
+    name?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    fax?: string | null;
+  };
   provider: {
     name: string;
     npi: string;
@@ -105,6 +113,12 @@ export async function generatePrescriptionPDF(data: PrescriptionPdfData) {
   const doc = await PDFDocument.create();
   const regularFont = await doc.embedFont(StandardFonts.Helvetica);
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  
+  // Use clinic-specific values or fall back to defaults
+  const PRACTICE_NAME = data.clinic?.name || DEFAULT_PRACTICE_NAME;
+  const PRACTICE_ADDRESS = data.clinic?.address || DEFAULT_PRACTICE_ADDRESS;
+  const PRACTICE_PHONE = data.clinic?.phone || DEFAULT_PRACTICE_PHONE;
+  const PRACTICE_FAX = data.clinic?.fax || DEFAULT_PRACTICE_FAX;
   
   // Normalize prescriptions array
   const prescriptions = data.prescriptions || (data.rx ? [data.rx] : []);

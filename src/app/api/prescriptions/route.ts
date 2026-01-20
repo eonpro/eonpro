@@ -147,6 +147,13 @@ export async function POST(req: Request) {
       pdfBase64 = await generatePrescriptionPDF({
         referenceId,
         date: printableDate,
+        // Pass clinic-specific info for PDF header/footer
+        clinic: {
+          name: lifefileCredentials.practiceName || process.env.LIFEFILE_PRACTICE_NAME,
+          address: lifefileCredentials.practiceAddress || process.env.LIFEFILE_PRACTICE_ADDRESS,
+          phone: lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE,
+          fax: lifefileCredentials.practiceFax || process.env.LIFEFILE_PRACTICE_FAX,
+        },
         provider: {
           name: `${provider.firstName} ${provider.lastName}`,
           npi: provider.npi,
