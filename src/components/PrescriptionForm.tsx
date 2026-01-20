@@ -201,9 +201,10 @@ export default function PrescriptionForm({
   useEffect(() => {
     async function loadProviders() {
       try {
-        // Get auth token from localStorage
+        // Get auth token from localStorage - include provider-token
         const token = localStorage.getItem('token') || 
                       localStorage.getItem('auth-token') || 
+                      localStorage.getItem('provider-token') ||
                       localStorage.getItem('admin-token') ||
                       localStorage.getItem('super_admin-token');
         
@@ -229,9 +230,10 @@ export default function PrescriptionForm({
     if (patientContext) return;
     async function loadPatients() {
       try {
-        // Get auth token from localStorage
+        // Get auth token from localStorage - include provider-token
         const token = localStorage.getItem('token') || 
                       localStorage.getItem('auth-token') || 
+                      localStorage.getItem('provider-token') ||
                       localStorage.getItem('admin-token') ||
                       localStorage.getItem('super_admin-token');
         
