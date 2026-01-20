@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma, basePrisma } from "@/lib/db";
 import { lookupNpi } from "@/lib/npi";
 import { providerSchema } from "@/lib/providerSchema";
 import { NextRequest, NextResponse } from "next/server";
@@ -8,19 +8,45 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 // GET - List providers (protected)
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   // Get all providers from Provider table (these have NPI and credentials)
-  // Include clinic info for display
-  const providers = await prisma.provider.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      clinic: {
-        select: {
-          id: true,
-          name: true,
-          subdomain: true,
+  // Use basePrisma to bypass clinic filtering - providers may work across clinics
+  // For prescriptions, we need to show available providers regardless of clinic
+  let providers;
+  
+  if (user.role === 'super_admin') {
+    // Super admin sees all providers
+    providers = await basePrisma.provider.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+            subdomain: true,
+          }
         }
       }
-    }
-  });
+    });
+  } else {
+    // For other users, show providers from their clinic OR providers with no clinic (shared)
+    providers = await basePrisma.provider.findMany({
+      where: {
+        OR: [
+          { clinicId: user.clinicId },
+          { clinicId: null },
+        ]
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+            subdomain: true,
+          }
+        }
+      }
+    });
+  }
 
   return NextResponse.json({ providers });
 }, { roles: ['admin', 'super_admin', 'provider'] });
