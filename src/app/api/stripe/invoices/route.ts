@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { isStripeConfigured, validateStripeConfig } from '@/lib/stripe/config';
 
 // Schema for creating an invoice
 const createInvoiceSchema = z.object({
@@ -63,8 +64,16 @@ export async function POST(request: NextRequest) {
     
     const createSubscription = validatedData.createSubscription ?? hasRecurringProducts;
     
-    // Check if Stripe is configured
-    const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
+    // Check if Stripe is configured using the config service
+    const stripeConfigured = isStripeConfigured();
+    
+    // Log configuration status for debugging
+    logger.info('[API] Invoice creation - Stripe status', {
+      stripeConfigured,
+      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
     
     if (!stripeConfigured) {
       // Development/Demo mode - create invoice without Stripe

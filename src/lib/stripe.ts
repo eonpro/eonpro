@@ -1,20 +1,44 @@
 import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 
-// Initialize Stripe with API key
-const stripeApiKey = process.env.STRIPE_SECRET_KEY;
+// ═══════════════════════════════════════════════════════════════════════════
+// RE-EXPORT FROM CONFIG MODULE
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Only throw error at runtime, not during build
-const checkStripeKey = () => {
-  if (!stripeApiKey && process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test" && typeof window === 'undefined') {
-    logger.warn('STRIPE_SECRET_KEY is not configured - Stripe features will be disabled');
-  }
-};
+export {
+  getStripeClient,
+  requireStripeClient,
+  validateStripeConfig,
+  isStripeConfigured,
+  isStripeTestMode,
+  getStripePriceId,
+  hasPriceMapping,
+  getStripeDiagnostics,
+  StripeConfigError,
+} from '@/lib/stripe/config';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LEGACY COMPATIBILITY
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Get API key with fallbacks for various naming conventions
+function getStripeSecretKey(): string | undefined {
+  return (
+    process.env.STRIPE_SECRET_KEY ||
+    process.env.STRIPE_API_KEY ||
+    process.env.STRIPE_SK ||
+    undefined
+  );
+}
+
+const stripeApiKey = getStripeSecretKey();
+
+// Legacy stripe instance for backward compatibility
 export const stripe = stripeApiKey
   ? new Stripe(stripeApiKey, {
       apiVersion: '2025-11-17.clover',
       typescript: true,
+      maxNetworkRetries: 3,
     })
   : null;
 
@@ -29,7 +53,7 @@ export const STRIPE_CONFIG = {
   collectionMethod: 'send_invoice' as const,
   
   // Webhook endpoints
-  webhookEndpointSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+  webhookEndpointSecret: process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET || '',
   
   // Product/Price IDs (to be configured)
   products: {
@@ -52,10 +76,16 @@ export function formatCurrency(amountInCents: number): string {
   }).format(amountInCents / 100);
 }
 
-// Helper function to get Stripe instance
+// Legacy helper function to get Stripe instance (use requireStripeClient for new code)
 export function getStripe(): Stripe {
-  checkStripeKey();
   if (!stripe) {
+    // Log detailed error for debugging
+    logger.error('[STRIPE] Configuration Error', {
+      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
+      hasApiKey: !!process.env.STRIPE_API_KEY,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
     throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.');
   }
   return stripe;
