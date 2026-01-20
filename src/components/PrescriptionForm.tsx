@@ -791,9 +791,18 @@ export default function PrescriptionForm({
 
       <label className="block text-sm font-medium mt-4 mb-1">Provider</label>
       {providers.length === 0 ? (
-        <p className="text-sm text-red-600">
-          No providers found. Add one via /api/providers before sending prescriptions.
-        </p>
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm text-amber-800 font-medium">Provider Profile Required</p>
+          <p className="text-sm text-amber-700 mt-1">
+            To send prescriptions, you need to complete your provider profile with NPI and DEA credentials.
+          </p>
+          <a
+            href="/provider/settings"
+            className="inline-block mt-2 px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700"
+          >
+            Complete Provider Profile
+          </a>
+        </div>
       ) : (
         <select
           className="border p-2 w-full"

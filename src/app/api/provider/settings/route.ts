@@ -140,6 +140,11 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       signatureDataUrl,
       currentPassword,
       newPassword,
+      // New provider credentials registration
+      npi,
+      dea,
+      licenseNumber,
+      licenseState,
     } = body;
 
     // Get user with provider
@@ -195,6 +200,72 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       });
     }
 
+    // If no provider record exists but NPI provided, create one
+    if (!provider && npi) {
+      // Validate NPI format
+      if (!/^\d{10}$/.test(npi)) {
+        return NextResponse.json(
+          { error: 'Invalid NPI format. Must be 10 digits.' },
+          { status: 400 }
+        );
+      }
+
+      // Check if NPI already exists
+      const existingProvider = await prisma.provider.findFirst({
+        where: { npi },
+      });
+
+      if (existingProvider) {
+        // Link to existing provider if email matches
+        if (existingProvider.email === user.email) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { providerId: existingProvider.id },
+          });
+          provider = existingProvider;
+        } else {
+          return NextResponse.json(
+            { error: 'This NPI is already registered to another provider.' },
+            { status: 400 }
+          );
+        }
+      } else {
+        // Create new provider record
+        provider = await prisma.provider.create({
+          data: {
+            firstName: firstName || userData.firstName,
+            lastName: lastName || userData.lastName,
+            email: user.email,
+            phone: phone || '',
+            npi,
+            dea: dea || '',
+            licenseNumber: licenseNumber || '',
+            licenseState: licenseState || '',
+            titleLine: titleLine || '',
+            clinicId: userData.clinicId,
+          },
+        });
+
+        // Link provider to user
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { providerId: provider.id },
+        });
+
+        // Create audit log
+        await prisma.providerAudit.create({
+          data: {
+            providerId: provider.id,
+            actorEmail: user.email,
+            action: 'credentials_registered',
+            diff: { npi, dea, licenseNumber, licenseState },
+          },
+        });
+
+        logger.info('Provider credentials registered', { userId: user.id, providerId: provider.id, npi });
+      }
+    }
+
     // Update provider record if exists
     if (provider) {
       const providerUpdateData: any = {};
@@ -203,6 +274,10 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       if (phone !== undefined) providerUpdateData.phone = phone;
       if (titleLine !== undefined) providerUpdateData.titleLine = titleLine;
       if (signatureDataUrl !== undefined) providerUpdateData.signatureDataUrl = signatureDataUrl;
+      // Allow updating DEA/license if not already set
+      if (dea && !provider.dea) providerUpdateData.dea = dea;
+      if (licenseNumber && !provider.licenseNumber) providerUpdateData.licenseNumber = licenseNumber;
+      if (licenseState && !provider.licenseState) providerUpdateData.licenseState = licenseState;
 
       if (Object.keys(providerUpdateData).length > 0) {
         await prisma.provider.update({

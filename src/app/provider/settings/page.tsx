@@ -66,6 +66,14 @@ export default function ProviderSettingsPage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
+  // Credentials registration state
+  const [npi, setNpi] = useState('');
+  const [dea, setDea] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [licenseState, setLicenseState] = useState('');
+  const [verifyingNpi, setVerifyingNpi] = useState(false);
+  const [npiVerified, setNpiVerified] = useState(false);
+
   // Signature state
   const [isDrawing, setIsDrawing] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -364,6 +372,101 @@ export default function ProviderSettingsPage() {
     reader.readAsDataURL(file);
   };
 
+  const verifyNpi = async () => {
+    if (!/^\d{10}$/.test(npi)) {
+      setError('Enter a valid 10-digit NPI');
+      return;
+    }
+
+    setVerifyingNpi(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/providers/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ npi }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Unable to verify NPI');
+      }
+
+      // Auto-populate from NPI registry
+      const basic = data.result.basic || {};
+      const address = data.result.addresses?.find(
+        (addr: any) => addr.addressPurpose === 'LOCATION'
+      ) || data.result.addresses?.[0];
+
+      if (basic.firstName || basic.first_name) {
+        setFirstName(basic.firstName || basic.first_name || firstName);
+      }
+      if (basic.lastName || basic.last_name) {
+        setLastName(basic.lastName || basic.last_name || lastName);
+      }
+      if (basic.credential) {
+        setTitleLine(basic.credential);
+      }
+      if (address?.state) {
+        setLicenseState(address.state);
+      }
+
+      setNpiVerified(true);
+      setSuccess('NPI verified successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to verify NPI');
+    } finally {
+      setVerifyingNpi(false);
+    }
+  };
+
+  const handleRegisterCredentials = async () => {
+    if (!npi || !npiVerified) {
+      setError('Please verify your NPI first');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+      const response = await fetch('/api/provider/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          phone,
+          titleLine,
+          npi,
+          dea,
+          licenseNumber,
+          licenseState,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to register credentials');
+      }
+
+      setSuccess('Provider credentials registered successfully!');
+      fetchSettings(); // Refresh data
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -547,59 +650,179 @@ export default function ProviderSettingsPage() {
             {/* Credentials Tab */}
             {activeTab === 'credentials' && (
               <div className="space-y-6">
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-sm text-amber-700">
-                    <AlertCircle className="h-4 w-4 inline mr-1" />
-                    Credential information is read-only. Contact your clinic administrator to update.
-                  </p>
-                </div>
+                {settings?.provider?.npi ? (
+                  <>
+                    {/* Existing credentials - read only */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <p className="text-sm text-green-700">
+                        <Check className="h-4 w-4 inline mr-1" />
+                        Your provider credentials are registered. Contact your clinic administrator to update them.
+                      </p>
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      NPI Number
-                    </label>
-                    <input
-                      type="text"
-                      value={settings?.provider?.npi || 'Not set'}
-                      disabled
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      DEA Number
-                    </label>
-                    <input
-                      type="text"
-                      value={settings?.provider?.dea || 'Not set'}
-                      disabled
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      License Number
-                    </label>
-                    <input
-                      type="text"
-                      value={settings?.provider?.licenseNumber || 'Not set'}
-                      disabled
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      License State
-                    </label>
-                    <input
-                      type="text"
-                      value={settings?.provider?.licenseState || 'Not set'}
-                      disabled
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700"
-                    />
-                  </div>
-                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          NPI Number
+                        </label>
+                        <input
+                          type="text"
+                          value={settings?.provider?.npi || 'Not set'}
+                          disabled
+                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          DEA Number
+                        </label>
+                        <input
+                          type="text"
+                          value={settings?.provider?.dea || 'Not set'}
+                          disabled
+                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          License Number
+                        </label>
+                        <input
+                          type="text"
+                          value={settings?.provider?.licenseNumber || 'Not set'}
+                          disabled
+                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          License State
+                        </label>
+                        <input
+                          type="text"
+                          value={settings?.provider?.licenseState || 'Not set'}
+                          disabled
+                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Register credentials form */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <p className="text-sm text-amber-800 font-medium">
+                        <AlertCircle className="h-4 w-4 inline mr-1" />
+                        Provider Credentials Required
+                      </p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        To write prescriptions, you need to register your NPI and DEA credentials.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* NPI with verification */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          NPI Number *
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={npi}
+                            onChange={(e) => {
+                              setNpi(e.target.value.replace(/\D/g, '').slice(0, 10));
+                              setNpiVerified(false);
+                            }}
+                            placeholder="Enter your 10-digit NPI"
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={verifyNpi}
+                            disabled={verifyingNpi || npi.length !== 10 || npiVerified}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                              npiVerified
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                            }`}
+                          >
+                            {verifyingNpi ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                            ) : npiVerified ? (
+                              <Check className="h-5 w-5" />
+                            ) : (
+                              'Verify'
+                            )}
+                          </button>
+                        </div>
+                        {npiVerified && (
+                          <p className="text-sm text-green-600 mt-1">
+                            <Check className="h-4 w-4 inline mr-1" />
+                            NPI verified successfully
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            DEA Number
+                          </label>
+                          <input
+                            type="text"
+                            value={dea}
+                            onChange={(e) => setDea(e.target.value.toUpperCase())}
+                            placeholder="e.g., AB1234567"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            License Number
+                          </label>
+                          <input
+                            type="text"
+                            value={licenseNumber}
+                            onChange={(e) => setLicenseNumber(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          License State
+                        </label>
+                        <select
+                          value={licenseState}
+                          onChange={(e) => setLicenseState(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                        >
+                          <option value="">Select State</option>
+                          {['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'].map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex justify-end pt-4">
+                        <button
+                          onClick={handleRegisterCredentials}
+                          disabled={saving || !npiVerified}
+                          className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                        >
+                          {saving ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                          ) : (
+                            <Save className="h-4 w-4" />
+                          )}
+                          Register Credentials
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
