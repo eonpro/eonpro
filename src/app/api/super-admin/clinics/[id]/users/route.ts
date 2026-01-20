@@ -134,31 +134,6 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
       }
     }
 
-    // Check if email is already in use
-    const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'A user with this email already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Check if NPI is already in use (for providers)
-    if (normalizedRole === 'provider' && npi) {
-      const existingProvider = await prisma.provider.findFirst({
-        where: { npi },
-      });
-      if (existingProvider) {
-        return NextResponse.json(
-          { error: 'A provider with this NPI already exists' },
-          { status: 400 }
-        );
-      }
-    }
-
     // Validate role (case-insensitive) - normalizedRole already defined above
     const validRoles = ['admin', 'provider', 'staff', 'support'];
     if (!validRoles.includes(normalizedRole)) {
@@ -168,11 +143,121 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
       );
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 12);
-
     // Convert role to uppercase for Prisma enum
     const prismaRole = role.toUpperCase();
+
+    // Check if user with email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      include: { provider: true },
+    });
+
+    // Check if NPI is already in use (for providers)
+    let existingProvider = null;
+    if (normalizedRole === 'provider' && npi) {
+      existingProvider = await prisma.provider.findFirst({
+        where: { npi },
+        include: { user: true },
+      });
+    }
+
+    // CASE 1: Existing user found - add them to this clinic
+    if (existingUser) {
+      // Check if user is already in this clinic
+      const existingClinicLink = await prisma.userClinic.findFirst({
+        where: {
+          userId: existingUser.id,
+          clinicId,
+        },
+      });
+
+      if (existingClinicLink) {
+        return NextResponse.json(
+          { error: 'This user is already a member of this clinic' },
+          { status: 400 }
+        );
+      }
+
+      // Add user to this clinic via UserClinic
+      await prisma.userClinic.create({
+        data: {
+          userId: existingUser.id,
+          clinicId,
+          role: prismaRole,
+          isPrimary: false, // Not primary since they already have a primary clinic
+          isActive: true,
+        },
+      });
+
+      return NextResponse.json({
+        user: {
+          id: existingUser.id,
+          email: existingUser.email,
+          firstName: existingUser.firstName,
+          lastName: existingUser.lastName,
+          role: existingUser.role,
+          status: existingUser.status,
+          createdAt: existingUser.createdAt,
+        },
+        message: 'Existing user added to clinic successfully',
+        isExistingUser: true,
+      });
+    }
+
+    // CASE 2: Existing provider by NPI but different email - link to clinic
+    if (existingProvider && existingProvider.user) {
+      // Check if this provider's user is already in this clinic
+      const existingClinicLink = await prisma.userClinic.findFirst({
+        where: {
+          userId: existingProvider.user.id,
+          clinicId,
+        },
+      });
+
+      if (existingClinicLink) {
+        return NextResponse.json(
+          { error: 'This provider is already a member of this clinic' },
+          { status: 400 }
+        );
+      }
+
+      // Add existing provider's user to this clinic
+      await prisma.userClinic.create({
+        data: {
+          userId: existingProvider.user.id,
+          clinicId,
+          role: prismaRole,
+          isPrimary: false,
+          isActive: true,
+        },
+      });
+
+      return NextResponse.json({
+        user: {
+          id: existingProvider.user.id,
+          email: existingProvider.user.email,
+          firstName: existingProvider.user.firstName,
+          lastName: existingProvider.user.lastName,
+          role: existingProvider.user.role,
+          status: existingProvider.user.status,
+          createdAt: existingProvider.user.createdAt,
+        },
+        message: 'Existing provider added to clinic successfully',
+        isExistingUser: true,
+      });
+    }
+
+    // CASE 3: Provider NPI exists but no linked user - error (orphan provider)
+    if (existingProvider && !existingProvider.user) {
+      return NextResponse.json(
+        { error: 'A provider with this NPI exists but has no user account. Please contact support.' },
+        { status: 400 }
+      );
+    }
+
+    // CASE 4: New user - create everything fresh
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 12);
 
     // Create the user
     const newUser = await prisma.user.create({
@@ -197,22 +282,19 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     });
 
     // Create UserClinic record for multi-clinic support
-    // Check if userClinic model is available (may not be generated yet)
-    if (prisma.userClinic) {
-      try {
-        await prisma.userClinic.create({
-          data: {
-            userId: newUser.id,
-            clinicId,
-            role: prismaRole,
-            isPrimary: true,
-            isActive: true,
-          },
-        });
-      } catch (ucError: any) {
-        console.warn('Could not create UserClinic record:', ucError.message);
-        // Continue anyway - the user was created successfully
-      }
+    try {
+      await prisma.userClinic.create({
+        data: {
+          userId: newUser.id,
+          clinicId,
+          role: prismaRole,
+          isPrimary: true,
+          isActive: true,
+        },
+      });
+    } catch (ucError: any) {
+      console.warn('Could not create UserClinic record:', ucError.message);
+      // Continue anyway - the user was created successfully
     }
 
     // If role is PROVIDER, also create a Provider record with credentials
