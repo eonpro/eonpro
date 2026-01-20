@@ -285,16 +285,27 @@ async function handlePut(req: NextRequest, user: AuthUser) {
           data: providerUpdateData,
         });
 
-        // Create audit log
-        await prisma.providerAudit.create({
-          data: {
-            providerId: provider.id,
-            actorEmail: user.email,
-            action: 'settings_update',
-            diff: providerUpdateData,
-          },
-        });
+        // Create audit log - only if provider has an id
+        try {
+          await prisma.providerAudit.create({
+            data: {
+              providerId: provider.id,
+              actorEmail: user.email,
+              action: 'settings_update',
+              diff: providerUpdateData,
+            },
+          });
+        } catch (auditError) {
+          // Log but don't fail if audit creation fails
+          logger.warn('Failed to create provider audit log', { error: auditError });
+        }
       }
+    } else if (signatureDataUrl) {
+      // User is trying to save a signature but doesn't have a provider profile
+      return NextResponse.json(
+        { error: 'Please register your provider credentials (NPI) in the Credentials tab before saving a signature.' },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({
