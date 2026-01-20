@@ -608,14 +608,23 @@ export async function POST(req: NextRequest) {
 
   logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`);
 
+  // Extract Airtable record ID if provided (for bidirectional sync)
+  const airtableRecordId = payloadData.airtableRecordId || payloadData.airtable_record_id || 
+                           payloadData.recordId || payloadData.record_id || null;
+
   // Response format matching WeightLossIntake EMR Integration expectations
+  // WeightLossIntake should capture these fields and store them in Airtable
   return Response.json({
     success: true,
     requestId,
-    // Primary fields for bi-directional sync (store in Airtable)
-    patientId: patient.id,  // EONPRO Patient ID - store this in Airtable!
-    eonproPatientId: patient.patientId,  // Formatted ID like "000057"
-    submissionId: normalized.submissionId,
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BIDIRECTIONAL SYNC FIELDS - Store these in Airtable!
+    // ═══════════════════════════════════════════════════════════════════
+    eonproPatientId: patient.patientId,  // Formatted ID like "000059" - STORE IN AIRTABLE
+    eonproDatabaseId: patient.id,        // Database ID like 62
+    submissionId: normalized.submissionId, // Link back to original submission
+    airtableRecordId: airtableRecordId,  // Echo back for easy record update
     
     // Detailed patient info
     patient: {
@@ -651,6 +660,9 @@ export async function POST(req: NextRequest) {
     processingTime: `${duration}ms`,
     message: isNewPatient ? "Patient created successfully" : "Patient updated successfully",
     warnings: errors.length > 0 ? errors : undefined,
+
+    // Legacy field names (for backwards compatibility)
+    patientId: patient.id,
   });
 }
 
