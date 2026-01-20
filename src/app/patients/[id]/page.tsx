@@ -6,6 +6,7 @@ import PatientChatView from "@/components/PatientChatView";
 import PatientAppointmentsView from "@/components/PatientAppointmentsView";
 import PatientProgressView from "@/components/PatientProgressView";
 import PatientSidebar from "@/components/PatientSidebar";
+import PatientTags from "@/components/PatientTags";
 import { prisma } from "@/lib/db";
 import { SHIPPING_METHODS } from "@/lib/shipping";
 import { logger } from '@/lib/logger';
@@ -525,31 +526,8 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
 
               {/* Tags and Overview */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                {patientTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    {patientTags.map((tag: string) => {
-                      const tagLower = tag.toLowerCase();
-                      let tagStyle = 'bg-gray-100 text-gray-700 border-gray-200';
-                      if (tagLower.includes('weightloss') || tagLower.includes('weight')) {
-                        tagStyle = 'bg-[#efece7] text-gray-700 border-gray-300';
-                      } else if (tagLower.includes('english') || tagLower.includes('language')) {
-                        tagStyle = 'bg-[#4fa77e] text-white border-[#4fa77e]';
-                      } else if (tagLower.includes('glp')) {
-                        tagStyle = 'bg-rose-100 text-rose-700 border-rose-200';
-                      } else if (tagLower.includes('eonmeds')) {
-                        tagStyle = 'bg-blue-100 text-blue-700 border-blue-200';
-                      }
-                      return (
-                        <span
-                          key={tag}
-                          className={`px-4 py-2 rounded-full text-sm font-medium border ${tagStyle}`}
-                        >
-                          #{tag}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Editable Tags Component */}
+                <PatientTags patientId={patientWithDecryptedPHI.id} initialTags={patientTags} />
 
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Overview</h3>
