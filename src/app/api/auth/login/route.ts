@@ -206,6 +206,13 @@ async function loginHandler(req: NextRequest) {
       clinicId: activeClinicId,
     };
 
+    // Add providerId if user is a provider or has a linked provider
+    if ('providerId' in user && user.providerId) {
+      tokenPayload.providerId = user.providerId;
+    } else if ('provider' in user && user.provider) {
+      tokenPayload.providerId = user.provider.id;
+    }
+
     // Add permissions and features if available
     if ('permissions' in user && user.permissions) {
       tokenPayload.permissions = user.permissions;

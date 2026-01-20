@@ -11,6 +11,8 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   // Use basePrisma to bypass clinic filtering - providers may work across clinics
   let providers;
   
+  logger.info(`[PROVIDERS/GET] Request from user ${user.id}, role: ${user.role}, clinicId: ${user.clinicId}, providerId: ${user.providerId}`);
+  
   if (user.role === 'super_admin') {
     // Super admin sees all providers
     providers = await basePrisma.provider.findMany({
@@ -33,13 +35,12 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       select: { providerId: true, email: true }
     });
     
-    // Build OR conditions
-    const orConditions: any[] = [
-      { clinicId: user.clinicId },
-      { clinicId: null },
-    ];
+    logger.info(`[PROVIDERS/GET] User data: providerId=${userData?.providerId}, email=${userData?.email}`);
     
-    // If user has a linked provider, include it by ID
+    // Build OR conditions
+    const orConditions: any[] = [];
+    
+    // If user has a linked provider, include it by ID (highest priority)
     if (userData?.providerId) {
       orConditions.push({ id: userData.providerId });
     }
@@ -48,6 +49,16 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     if (userData?.email) {
       orConditions.push({ email: userData.email });
     }
+    
+    // Include providers from user's clinic
+    if (user.clinicId) {
+      orConditions.push({ clinicId: user.clinicId });
+    }
+    
+    // Include shared providers (no clinic)
+    orConditions.push({ clinicId: null });
+    
+    logger.info(`[PROVIDERS/GET] Query conditions:`, JSON.stringify(orConditions));
     
     providers = await basePrisma.provider.findMany({
       where: {
@@ -64,6 +75,8 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         }
       }
     });
+    
+    logger.info(`[PROVIDERS/GET] Found ${providers.length} providers before dedup`);
     
     // Remove duplicates (in case provider matches multiple conditions)
     const seen = new Set();
