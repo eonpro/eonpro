@@ -57,7 +57,9 @@ export async function GET(request: NextRequest) {
     // Map promo codes to coupons
     const promoCodesByCoupon: Record<string, Stripe.PromotionCode[]> = {};
     promoCodes.data.forEach(promo => {
-      const couponId = typeof promo.coupon === 'string' ? promo.coupon : promo.coupon.id;
+      if (!promo.coupon) return;
+      const couponId = typeof promo.coupon === 'string' ? promo.coupon : promo.coupon?.id;
+      if (!couponId) return;
       if (!promoCodesByCoupon[couponId]) {
         promoCodesByCoupon[couponId] = [];
       }
