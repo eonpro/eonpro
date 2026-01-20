@@ -20,6 +20,9 @@ const createInvoiceSchema = z.object({
   orderId: z.number().optional(),
   createSubscription: z.boolean().optional(), // Auto-create subscription on payment
   productIds: z.array(z.number()).optional(), // Shortcut: just provide product IDs
+  // Duplicate prevention
+  idempotencyKey: z.string().optional(), // Unique key to prevent duplicates
+  allowDuplicate: z.boolean().optional(), // Explicitly allow duplicate if needed
 });
 
 export async function POST(request: NextRequest) {
@@ -30,6 +33,101 @@ export async function POST(request: NextRequest) {
     const validatedData = createInvoiceSchema.parse(body);
     
     const { prisma } = await import('@/lib/db');
+    
+    // ============================================
+    // DUPLICATE PREVENTION
+    // ============================================
+    if (!validatedData.allowDuplicate) {
+      // Check 1: Idempotency key (strongest check)
+      if (validatedData.idempotencyKey) {
+        const existingByKey = await prisma.invoice.findFirst({
+          where: {
+            metadata: {
+              path: ['idempotencyKey'],
+              equals: validatedData.idempotencyKey,
+            },
+          },
+        });
+        
+        if (existingByKey) {
+          logger.info('[API] Duplicate invoice prevented by idempotency key', {
+            idempotencyKey: validatedData.idempotencyKey,
+            existingInvoiceId: existingByKey.id,
+          });
+          
+          return NextResponse.json({
+            success: true,
+            invoice: existingByKey,
+            stripeInvoiceUrl: existingByKey.stripeInvoiceUrl,
+            duplicate: true,
+            message: 'Invoice already exists (idempotency key match)',
+          });
+        }
+      }
+      
+      // Check 2: Same patient + order within last 5 minutes (prevents accidental double-clicks)
+      if (validatedData.orderId) {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const existingByOrder = await prisma.invoice.findFirst({
+          where: {
+            patientId: validatedData.patientId,
+            orderId: validatedData.orderId,
+            createdAt: { gte: fiveMinutesAgo },
+          },
+        });
+        
+        if (existingByOrder) {
+          logger.info('[API] Duplicate invoice prevented - same order within 5 minutes', {
+            patientId: validatedData.patientId,
+            orderId: validatedData.orderId,
+            existingInvoiceId: existingByOrder.id,
+          });
+          
+          return NextResponse.json({
+            success: true,
+            invoice: existingByOrder,
+            stripeInvoiceUrl: existingByOrder.stripeInvoiceUrl,
+            duplicate: true,
+            message: 'Invoice already exists for this order',
+          });
+        }
+      }
+      
+      // Check 3: Same patient + same amount within last 2 minutes (prevents double-clicks on same form)
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+      const totalAmount = validatedData.lineItems?.reduce((sum, item) => sum + item.amount, 0) || 0;
+      
+      if (totalAmount > 0) {
+        const existingByAmount = await prisma.invoice.findFirst({
+          where: {
+            patientId: validatedData.patientId,
+            amountDue: totalAmount,
+            createdAt: { gte: twoMinutesAgo },
+            status: { in: ['DRAFT', 'OPEN'] },
+          },
+        });
+        
+        if (existingByAmount) {
+          logger.info('[API] Duplicate invoice prevented - same amount within 2 minutes', {
+            patientId: validatedData.patientId,
+            amount: totalAmount,
+            existingInvoiceId: existingByAmount.id,
+          });
+          
+          return NextResponse.json({
+            success: true,
+            invoice: existingByAmount,
+            stripeInvoiceUrl: existingByAmount.stripeInvoiceUrl,
+            duplicate: true,
+            message: 'Recent invoice with same amount exists - returning existing invoice',
+          });
+        }
+      }
+    }
+    
+    // ============================================
+    // END DUPLICATE PREVENTION
+    // ============================================
     
     // If productIds provided, fetch products and build line items
     let lineItems = validatedData.lineItems || [];
@@ -92,6 +190,11 @@ export async function POST(request: NextRequest) {
       }, 0);
       
       // Create invoice in database only (demo mode)
+      const invoiceMetadata = {
+        ...(validatedData.metadata || {}),
+        ...(validatedData.idempotencyKey ? { idempotencyKey: validatedData.idempotencyKey } : {}),
+      };
+      
       const invoice = await prisma.invoice.create({
         data: {
           patientId: validatedData.patientId,
@@ -100,7 +203,7 @@ export async function POST(request: NextRequest) {
           status: 'DRAFT',
           dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
           description: validatedData.description || 'Medical Services',
-          metadata: validatedData.metadata || {},
+          metadata: invoiceMetadata,
           lineItems: lineItems,
           orderId: validatedData.orderId,
           createSubscription,

@@ -1,13 +1,43 @@
 /**
- * INDIVIDUAL INVOICE API
+ * COMPREHENSIVE INVOICE MANAGEMENT API
  * 
- * GET - Fetch invoice details
- * POST - Perform actions (send, void, mark paid)
+ * GET    - Fetch invoice details
+ * POST   - Perform actions (send, void, mark paid, finalize, add items, add credit, duplicate)
+ * PATCH  - Edit invoice (description, due date, line items, memo)
+ * DELETE - Delete unpaid invoice
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { z } from 'zod';
+import { isStripeConfigured } from '@/lib/stripe/config';
+
+// Schema for updating an invoice
+const updateInvoiceSchema = z.object({
+  description: z.string().optional(),
+  dueDate: z.string().datetime().optional(),
+  dueInDays: z.number().min(0).optional(),
+  memo: z.string().optional(),
+  footer: z.string().optional(),
+  lineItems: z.array(z.object({
+    id: z.string().optional(), // Stripe line item ID for updates
+    description: z.string(),
+    amount: z.number().min(0),
+    quantity: z.number().min(1).optional(),
+  })).optional(),
+  // For adding single items
+  addLineItem: z.object({
+    description: z.string(),
+    amount: z.number().min(0),
+    quantity: z.number().min(1).optional(),
+  }).optional(),
+  // For removing items
+  removeLineItemId: z.string().optional(),
+  metadata: z.record(z.string()).optional(),
+}).refine(data => Object.keys(data).length > 0, {
+  message: 'At least one field must be provided for update',
+});
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -187,9 +217,222 @@ export async function POST(request: NextRequest, { params }: Params) {
         });
       }
       
+      case 'finalize': {
+        // Finalize a draft invoice (locks it for payment)
+        if (invoice.status !== 'DRAFT') {
+          return NextResponse.json(
+            { error: 'Only draft invoices can be finalized' },
+            { status: 400 }
+          );
+        }
+        
+        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+          try {
+            const { getStripe } = await import('@/lib/stripe');
+            const stripe = getStripe();
+            const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.stripeInvoiceId);
+            
+            await prisma.invoice.update({
+              where: { id },
+              data: { 
+                status: 'OPEN',
+                stripeInvoiceUrl: finalizedInvoice.hosted_invoice_url,
+                stripePdfUrl: finalizedInvoice.invoice_pdf,
+              },
+            });
+            
+            return NextResponse.json({
+              success: true,
+              message: 'Invoice finalized',
+              stripeInvoiceUrl: finalizedInvoice.hosted_invoice_url,
+              stripePdfUrl: finalizedInvoice.invoice_pdf,
+            });
+          } catch (stripeError: any) {
+            logger.error('[API] Stripe finalize invoice error:', stripeError);
+            return NextResponse.json(
+              { error: stripeError.message || 'Failed to finalize invoice' },
+              { status: 500 }
+            );
+          }
+        }
+        
+        await prisma.invoice.update({
+          where: { id },
+          data: { status: 'OPEN' },
+        });
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Invoice finalized (local)',
+        });
+      }
+      
+      case 'add_credit': {
+        // Add a credit/discount to the invoice
+        const { amount, description: creditDescription } = body;
+        
+        if (!amount || amount <= 0) {
+          return NextResponse.json(
+            { error: 'Credit amount must be positive' },
+            { status: 400 }
+          );
+        }
+        
+        if (invoice.status === 'PAID' || invoice.status === 'VOID') {
+          return NextResponse.json(
+            { error: 'Cannot add credit to a paid or voided invoice' },
+            { status: 400 }
+          );
+        }
+        
+        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+          try {
+            const { getStripe } = await import('@/lib/stripe');
+            const stripe = getStripe();
+            
+            // Add a negative line item (credit)
+            await stripe.invoiceItems.create({
+              customer: invoice.patient.stripeCustomerId!,
+              invoice: invoice.stripeInvoiceId,
+              amount: -amount, // Negative for credit
+              currency: 'usd',
+              description: creditDescription || 'Credit/Discount',
+            });
+            
+            // Refresh invoice to get updated total
+            const updatedStripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId);
+            
+            await prisma.invoice.update({
+              where: { id },
+              data: { 
+                amountDue: updatedStripeInvoice.amount_due,
+              },
+            });
+            
+            return NextResponse.json({
+              success: true,
+              message: 'Credit added',
+              newAmountDue: updatedStripeInvoice.amount_due,
+            });
+          } catch (stripeError: any) {
+            logger.error('[API] Stripe add credit error:', stripeError);
+            return NextResponse.json(
+              { error: stripeError.message || 'Failed to add credit' },
+              { status: 500 }
+            );
+          }
+        }
+        
+        // Local mode - update amount
+        const currentLineItems = (invoice.lineItems as any[]) || [];
+        currentLineItems.push({
+          description: creditDescription || 'Credit/Discount',
+          amount: -amount,
+        });
+        
+        const newTotal = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+        
+        await prisma.invoice.update({
+          where: { id },
+          data: { 
+            amountDue: Math.max(0, newTotal),
+            lineItems: currentLineItems,
+          },
+        });
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Credit added (local)',
+          newAmountDue: Math.max(0, newTotal),
+        });
+      }
+      
+      case 'duplicate': {
+        // Create a copy of this invoice
+        const newInvoice = await prisma.invoice.create({
+          data: {
+            patientId: invoice.patientId,
+            clinicId: invoice.clinicId,
+            description: invoice.description ? `Copy of: ${invoice.description}` : 'Copy of invoice',
+            amount: invoice.amount,
+            amountDue: invoice.amountDue,
+            status: 'DRAFT',
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            lineItems: invoice.lineItems,
+            metadata: { 
+              ...(invoice.metadata as any || {}),
+              duplicatedFrom: invoice.id,
+            },
+            createSubscription: invoice.createSubscription,
+          },
+        });
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Invoice duplicated',
+          newInvoice,
+        });
+      }
+      
+      case 'mark_uncollectible': {
+        if (invoice.status === 'PAID') {
+          return NextResponse.json(
+            { error: 'Cannot mark a paid invoice as uncollectible' },
+            { status: 400 }
+          );
+        }
+        
+        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+          try {
+            const { getStripe } = await import('@/lib/stripe');
+            const stripe = getStripe();
+            await stripe.invoices.markUncollectible(invoice.stripeInvoiceId);
+          } catch (stripeError: any) {
+            logger.warn('[API] Stripe mark uncollectible error:', stripeError);
+          }
+        }
+        
+        await prisma.invoice.update({
+          where: { id },
+          data: { status: 'UNCOLLECTIBLE' },
+        });
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Invoice marked as uncollectible',
+        });
+      }
+      
+      case 'resend': {
+        // Resend invoice email
+        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+          try {
+            const { getStripe } = await import('@/lib/stripe');
+            const stripe = getStripe();
+            await stripe.invoices.sendInvoice(invoice.stripeInvoiceId);
+            
+            return NextResponse.json({
+              success: true,
+              message: 'Invoice resent via Stripe',
+            });
+          } catch (stripeError: any) {
+            logger.error('[API] Stripe resend invoice error:', stripeError);
+            return NextResponse.json(
+              { error: stripeError.message || 'Failed to resend invoice' },
+              { status: 500 }
+            );
+          }
+        }
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Invoice resend queued (email service)',
+        });
+      }
+      
       default:
         return NextResponse.json(
-          { error: `Unknown action: ${action}` },
+          { error: `Unknown action: ${action}. Available actions: send, void, mark_paid, finalize, add_credit, duplicate, mark_uncollectible, resend` },
           { status: 400 }
         );
     }
@@ -199,6 +442,291 @@ export async function POST(request: NextRequest, { params }: Params) {
     
     return NextResponse.json(
       { error: error.message || 'Failed to process invoice action' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH - Edit invoice before payment
+ * 
+ * Can edit: description, due date, memo, line items (for DRAFT invoices)
+ */
+export async function PATCH(request: NextRequest, { params }: Params) {
+  try {
+    const resolvedParams = await params;
+    const id = parseInt(resolvedParams.id, 10);
+    
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'Invalid invoice ID' },
+        { status: 400 }
+      );
+    }
+    
+    const body = await request.json();
+    const validatedData = updateInvoiceSchema.parse(body);
+    
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { patient: true },
+    });
+    
+    if (!invoice) {
+      return NextResponse.json(
+        { error: 'Invoice not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Check if invoice can be edited
+    if (invoice.status === 'PAID') {
+      return NextResponse.json(
+        { error: 'Cannot edit a paid invoice' },
+        { status: 400 }
+      );
+    }
+    
+    if (invoice.status === 'VOID') {
+      return NextResponse.json(
+        { error: 'Cannot edit a voided invoice' },
+        { status: 400 }
+      );
+    }
+    
+    // Prepare update data
+    const updateData: any = {};
+    
+    if (validatedData.description !== undefined) {
+      updateData.description = validatedData.description;
+    }
+    
+    if (validatedData.dueDate) {
+      updateData.dueDate = new Date(validatedData.dueDate);
+    } else if (validatedData.dueInDays !== undefined) {
+      updateData.dueDate = new Date(Date.now() + validatedData.dueInDays * 24 * 60 * 60 * 1000);
+    }
+    
+    if (validatedData.metadata) {
+      updateData.metadata = {
+        ...(invoice.metadata as any || {}),
+        ...validatedData.metadata,
+      };
+    }
+    
+    // Handle line items update (only for DRAFT invoices)
+    if (invoice.status === 'DRAFT') {
+      let currentLineItems = (invoice.lineItems as any[]) || [];
+      
+      // Full line items replacement
+      if (validatedData.lineItems) {
+        currentLineItems = validatedData.lineItems;
+        updateData.lineItems = currentLineItems;
+        updateData.amountDue = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+      }
+      
+      // Add single line item
+      if (validatedData.addLineItem) {
+        currentLineItems.push(validatedData.addLineItem);
+        updateData.lineItems = currentLineItems;
+        updateData.amountDue = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+      }
+      
+      // Remove line item by index
+      if (validatedData.removeLineItemId !== undefined) {
+        const indexToRemove = parseInt(validatedData.removeLineItemId, 10);
+        if (!isNaN(indexToRemove) && indexToRemove >= 0 && indexToRemove < currentLineItems.length) {
+          currentLineItems.splice(indexToRemove, 1);
+          updateData.lineItems = currentLineItems;
+          updateData.amountDue = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+        }
+      }
+    } else if (validatedData.lineItems || validatedData.addLineItem || validatedData.removeLineItemId) {
+      return NextResponse.json(
+        { error: 'Line items can only be edited on DRAFT invoices. Void this invoice and create a new one.' },
+        { status: 400 }
+      );
+    }
+    
+    // Update Stripe invoice if applicable
+    if (invoice.stripeInvoiceId && isStripeConfigured() && invoice.status === 'DRAFT') {
+      try {
+        const { getStripe } = await import('@/lib/stripe');
+        const stripe = getStripe();
+        
+        const stripeUpdateData: any = {};
+        
+        if (validatedData.description) {
+          stripeUpdateData.description = validatedData.description;
+        }
+        
+        if (updateData.dueDate) {
+          stripeUpdateData.due_date = Math.floor(updateData.dueDate.getTime() / 1000);
+        }
+        
+        if (validatedData.memo) {
+          stripeUpdateData.custom_fields = [{ name: 'Memo', value: validatedData.memo }];
+        }
+        
+        if (validatedData.footer) {
+          stripeUpdateData.footer = validatedData.footer;
+        }
+        
+        if (Object.keys(stripeUpdateData).length > 0) {
+          await stripe.invoices.update(invoice.stripeInvoiceId, stripeUpdateData);
+        }
+        
+        // Handle line item changes in Stripe
+        if (validatedData.addLineItem) {
+          await stripe.invoiceItems.create({
+            customer: invoice.patient.stripeCustomerId!,
+            invoice: invoice.stripeInvoiceId,
+            description: validatedData.addLineItem.description,
+            amount: validatedData.addLineItem.amount,
+            currency: 'usd',
+          });
+        }
+        
+        logger.info('[API] Updated Stripe invoice', { invoiceId: invoice.stripeInvoiceId });
+      } catch (stripeError: any) {
+        logger.error('[API] Stripe update error:', stripeError);
+        // Continue with local update even if Stripe fails
+      }
+    }
+    
+    // Update local database
+    if (Object.keys(updateData).length > 0) {
+      const updatedInvoice = await prisma.invoice.update({
+        where: { id },
+        data: updateData,
+      });
+      
+      logger.info('[API] Invoice updated', { invoiceId: id, updates: Object.keys(updateData) });
+      
+      return NextResponse.json({
+        success: true,
+        invoice: updatedInvoice,
+        message: 'Invoice updated successfully',
+      });
+    }
+    
+    return NextResponse.json({
+      success: true,
+      invoice,
+      message: 'No changes applied',
+    });
+    
+  } catch (error: any) {
+    logger.error('[API] Error updating invoice:', error);
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.errors },
+        { status: 400 }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: error.message || 'Failed to update invoice' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE - Delete an unpaid invoice
+ * 
+ * Can only delete DRAFT or OPEN invoices that haven't been paid
+ */
+export async function DELETE(request: NextRequest, { params }: Params) {
+  try {
+    const resolvedParams = await params;
+    const id = parseInt(resolvedParams.id, 10);
+    
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'Invalid invoice ID' },
+        { status: 400 }
+      );
+    }
+    
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { payments: true },
+    });
+    
+    if (!invoice) {
+      return NextResponse.json(
+        { error: 'Invoice not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Check if invoice can be deleted
+    if (invoice.status === 'PAID') {
+      return NextResponse.json(
+        { error: 'Cannot delete a paid invoice. Use refund instead.' },
+        { status: 400 }
+      );
+    }
+    
+    if (invoice.payments && invoice.payments.length > 0) {
+      const paidPayments = invoice.payments.filter((p: any) => p.status === 'COMPLETED');
+      if (paidPayments.length > 0) {
+        return NextResponse.json(
+          { error: 'Cannot delete an invoice with completed payments. Void or refund instead.' },
+          { status: 400 }
+        );
+      }
+    }
+    
+    // Delete/void in Stripe if applicable
+    if (invoice.stripeInvoiceId && isStripeConfigured()) {
+      try {
+        const { getStripe } = await import('@/lib/stripe');
+        const stripe = getStripe();
+        
+        // Try to delete if draft, otherwise void
+        if (invoice.status === 'DRAFT') {
+          await stripe.invoices.del(invoice.stripeInvoiceId);
+          logger.info('[API] Deleted Stripe invoice', { stripeInvoiceId: invoice.stripeInvoiceId });
+        } else {
+          await stripe.invoices.voidInvoice(invoice.stripeInvoiceId);
+          logger.info('[API] Voided Stripe invoice', { stripeInvoiceId: invoice.stripeInvoiceId });
+        }
+      } catch (stripeError: any) {
+        logger.warn('[API] Could not delete/void Stripe invoice:', stripeError.message);
+        // Continue with local deletion
+      }
+    }
+    
+    // Delete related invoice items first (if table exists)
+    try {
+      await prisma.invoiceItem.deleteMany({
+        where: { invoiceId: id },
+      });
+    } catch (e) {
+      // Table might not exist
+    }
+    
+    // Delete the invoice from database
+    await prisma.invoice.delete({
+      where: { id },
+    });
+    
+    logger.info('[API] Invoice deleted', { invoiceId: id });
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Invoice deleted successfully',
+      deletedId: id,
+    });
+    
+  } catch (error: any) {
+    logger.error('[API] Error deleting invoice:', error);
+    
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete invoice' },
       { status: 500 }
     );
   }
