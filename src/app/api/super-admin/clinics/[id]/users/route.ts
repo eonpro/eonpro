@@ -247,12 +247,54 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
       });
     }
 
-    // CASE 3: Provider NPI exists but no linked user - error (orphan provider)
+    // CASE 3: Provider NPI exists but no linked user - create user and link them
     if (existingProvider && !existingProvider.user) {
-      return NextResponse.json(
-        { error: 'A provider with this NPI exists but has no user account. Please contact support.' },
-        { status: 400 }
-      );
+      // Hash password for new user
+      const passwordHash = await bcrypt.hash(password, 12);
+
+      // Create new user linked to existing provider
+      const newUser = await prisma.user.create({
+        data: {
+          email: email.toLowerCase(),
+          firstName: existingProvider.firstName || firstName,
+          lastName: existingProvider.lastName || lastName,
+          role: prismaRole,
+          passwordHash,
+          clinicId,
+          status: 'ACTIVE',
+          providerId: existingProvider.id,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+
+      // Create UserClinic record
+      try {
+        await prisma.userClinic.create({
+          data: {
+            userId: newUser.id,
+            clinicId,
+            role: prismaRole,
+            isPrimary: true,
+            isActive: true,
+          },
+        });
+      } catch (ucError: any) {
+        console.warn('Could not create UserClinic record:', ucError.message);
+      }
+
+      return NextResponse.json({
+        user: newUser,
+        message: 'User account created and linked to existing provider',
+        isExistingProvider: true,
+      });
     }
 
     // CASE 4: New user - create everything fresh
