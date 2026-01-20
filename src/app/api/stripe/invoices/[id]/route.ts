@@ -55,33 +55,56 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
     
-    const invoice = await prisma.invoice.findUnique({
-      where: { id },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
+    // Try full query first, fall back to simpler query if InvoiceItem table doesn't exist
+    let invoice;
+    try {
+      invoice = await prisma.invoice.findUnique({
+        where: { id },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              stripeCustomerId: true,
+            },
           },
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                },
               },
             },
           },
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
         },
-        payments: {
-          orderBy: { createdAt: 'desc' },
+      });
+    } catch (includeError: any) {
+      // Fallback: InvoiceItem table might not exist
+      logger.warn('[API] Invoice items table not available, using simple query');
+      invoice = await prisma.invoice.findUnique({
+        where: { id },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              stripeCustomerId: true,
+            },
+          },
         },
-      },
-    });
+      });
+    }
     
     if (!invoice) {
       return NextResponse.json(
