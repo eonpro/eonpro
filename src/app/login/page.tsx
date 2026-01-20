@@ -2,10 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw } from 'lucide-react';
+import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
 
-type LoginStep = 'identifier' | 'password' | 'otp';
+type LoginStep = 'identifier' | 'password' | 'otp' | 'clinic';
 type LoginMethod = 'email' | 'phone';
+
+interface Clinic {
+  id: number;
+  name: string;
+  subdomain: string | null;
+  logoUrl: string | null;
+  role: string;
+  isPrimary: boolean;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,6 +37,11 @@ export default function LoginPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [canResend, setCanResend] = useState(false);
+  
+  // Multi-clinic state
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
+  const [pendingLoginData, setPendingLoginData] = useState<any>(null);
   
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -204,8 +218,8 @@ export default function LoginPage() {
   };
 
   // Handle email/password login
-  const handlePasswordLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePasswordLogin = async (e: React.FormEvent, clinicId?: number) => {
+    e?.preventDefault?.();
     setError('');
     setLoading(true);
 
@@ -213,7 +227,52 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier, password }),
+        body: JSON.stringify({ 
+          email: identifier, 
+          password,
+          clinicId: clinicId || selectedClinicId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Check if user needs to select a clinic
+      if (data.requiresClinicSelection && data.clinics?.length > 1) {
+        setClinics(data.clinics);
+        setPendingLoginData(data);
+        setStep('clinic');
+        return;
+      }
+
+      handleLoginSuccess(data);
+      
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle clinic selection and complete login
+  const handleClinicSelect = async (clinicId: number) => {
+    setSelectedClinicId(clinicId);
+    setLoading(true);
+    setError('');
+
+    try {
+      // Re-authenticate with selected clinic
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: identifier, 
+          password,
+          clinicId,
+        }),
       });
 
       const data = await response.json();
@@ -238,7 +297,8 @@ export default function LoginPage() {
       hasToken: !!data.token,
       tokenLength: data.token?.length,
       user: data.user?.email,
-      role: data.user?.role
+      role: data.user?.role,
+      clinics: data.clinics?.length,
     });
 
     if (!data.token) {
@@ -251,6 +311,12 @@ export default function LoginPage() {
     localStorage.setItem('auth-token', data.token);
     localStorage.setItem('token', data.token); // Legacy key for compatibility
     localStorage.setItem('user', JSON.stringify(data.user));
+
+    // Store clinic information for multi-clinic support
+    if (data.clinics) {
+      localStorage.setItem('clinics', JSON.stringify(data.clinics));
+      localStorage.setItem('activeClinicId', String(data.activeClinicId || data.clinics[0]?.id));
+    }
 
     // Verify tokens were stored
     const storedToken = localStorage.getItem('auth-token');
@@ -605,6 +671,99 @@ export default function LoginPage() {
                     Use a different number
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* STEP 3: Clinic Selection (for multi-clinic users) */}
+            {step === 'clinic' && (
+              <div className="space-y-6">
+                {/* User Display */}
+                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Logged in as</p>
+                    <p className="text-gray-900 font-medium">{identifier}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                  >
+                    Change
+                  </button>
+                </div>
+
+                {/* Clinic Selection Instructions */}
+                <div className="text-center">
+                  <Building2 className="h-12 w-12 text-emerald-600 mx-auto mb-4" />
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    Select a Clinic
+                  </h2>
+                  <p className="text-gray-600">
+                    You have access to multiple clinics. Choose which one to access now.
+                  </p>
+                </div>
+
+                {/* Clinic List */}
+                <div className="space-y-3">
+                  {clinics.map((clinic) => (
+                    <button
+                      key={clinic.id}
+                      onClick={() => handleClinicSelect(clinic.id)}
+                      disabled={loading}
+                      className={`w-full p-4 text-left rounded-2xl border-2 transition-all ${
+                        selectedClinicId === clinic.id
+                          ? 'border-emerald-500 bg-emerald-50'
+                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                      } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {clinic.logoUrl ? (
+                            <img 
+                              src={clinic.logoUrl} 
+                              alt={clinic.name}
+                              className="h-10 w-10 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                              <Building2 className="h-5 w-5 text-emerald-600" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900">{clinic.name}</p>
+                            <p className="text-sm text-gray-500 capitalize">{clinic.role}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {clinic.isPrimary && (
+                            <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full">
+                              Primary
+                            </span>
+                          )}
+                          {selectedClinicId === clinic.id && (
+                            <Check className="h-5 w-5 text-emerald-600" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="flex justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
+                  </div>
+                )}
+
+                <p className="text-xs text-center text-gray-500">
+                  You can switch clinics anytime from your dashboard
+                </p>
               </div>
             )}
             

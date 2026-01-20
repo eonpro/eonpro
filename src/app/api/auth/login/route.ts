@@ -15,11 +15,12 @@ import { Patient, Provider, Order } from '@/types/models';
 /**
  * POST /api/auth/login
  * Login endpoint with strict rate limiting
+ * Supports multi-clinic users - returns clinics array for selection
  */
 async function loginHandler(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password, role = 'patient' } = body;
+    const { email, password, role = 'patient', clinicId: selectedClinicId } = body;
 
     // Validate input
     if (!email || !password) {
@@ -132,6 +133,69 @@ async function loginHandler(req: NextRequest) {
 
     // Normalize role to lowercase for consistency
     const userRole = (user.role || role).toLowerCase();
+
+    // Fetch user's clinics for multi-clinic support
+    let clinics: Array<{
+      id: number;
+      name: string;
+      subdomain: string | null;
+      logoUrl: string | null;
+      role: string;
+      isPrimary: boolean;
+    }> = [];
+    
+    // Primary clinic from user record
+    if (user.clinicId) {
+      const primaryClinic = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { id: true, name: true, subdomain: true, logoUrl: true },
+      });
+      if (primaryClinic) {
+        clinics.push({
+          ...primaryClinic,
+          role: userRole,
+          isPrimary: true,
+        });
+      }
+    }
+
+    // Fetch additional clinics from UserClinic table
+    try {
+      const userClinics = await prisma.userClinic.findMany({
+        where: {
+          userId: user.id,
+          isActive: true,
+        },
+        include: {
+          clinic: {
+            select: { id: true, name: true, subdomain: true, logoUrl: true },
+          },
+        },
+        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+      });
+
+      for (const uc of userClinics) {
+        if (!clinics.find(c => c.id === uc.clinic.id)) {
+          clinics.push({
+            ...uc.clinic,
+            role: uc.role,
+            isPrimary: uc.isPrimary,
+          });
+        }
+      }
+    } catch {
+      // UserClinic might not exist, continue with primary clinic
+    }
+
+    // Determine active clinic - use selected, primary, or first available
+    let activeClinicId: number | undefined = undefined;
+    if (userRole !== 'super_admin') {
+      if (selectedClinicId && clinics.find(c => c.id === selectedClinicId)) {
+        activeClinicId = selectedClinicId;
+      } else {
+        activeClinicId = user.clinicId || clinics[0]?.id;
+      }
+    }
     
     // Create JWT token
     const tokenPayload: any = {
@@ -139,7 +203,7 @@ async function loginHandler(req: NextRequest) {
       email: user.email,
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
       role: userRole,
-      clinicId: userRole === 'super_admin' ? undefined : user.clinicId, // Use user's actual clinicId
+      clinicId: activeClinicId,
     };
 
     // Add permissions and features if available
@@ -191,7 +255,7 @@ async function loginHandler(req: NextRequest) {
       });
     }
 
-    // Return tokens
+    // Return tokens with clinic information
     const response = NextResponse.json({
       success: true,
       user: {
@@ -199,9 +263,15 @@ async function loginHandler(req: NextRequest) {
         email: user.email,
         name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
         role: userRole,
+        clinicId: activeClinicId,
         permissions: 'permissions' in user ? user.permissions : undefined,
         features: 'features' in user ? user.features : undefined,
       },
+      clinics,
+      activeClinicId,
+      hasMultipleClinics: clinics.length > 1,
+      // If multi-clinic and no clinic selected, client should show selection UI
+      requiresClinicSelection: clinics.length > 1 && !selectedClinicId,
       token,
       refreshToken,
     });

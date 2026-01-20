@@ -1,0 +1,239 @@
+/**
+ * Provider Settings API
+ * Allows providers to view and update their own profile, including signature
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
+import bcrypt from 'bcryptjs';
+
+/**
+ * GET /api/provider/settings
+ * Get the authenticated provider's profile and settings
+ */
+async function handleGet(req: NextRequest, user: AuthUser) {
+  try {
+    // Get user data with provider association
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        provider: true,
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+            subdomain: true,
+          },
+        },
+      },
+    });
+
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // If user is a provider, get provider details
+    let providerData = userData.provider;
+
+    // If no direct provider association, try to find by email
+    if (!providerData && user.role === 'provider') {
+      providerData = await prisma.provider.findFirst({
+        where: { email: user.email },
+      });
+    }
+
+    // Get user's clinics for multi-clinic support
+    let clinics: any[] = [];
+    try {
+      const userClinics = await prisma.userClinic.findMany({
+        where: {
+          userId: user.id,
+          isActive: true,
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              logoUrl: true,
+            },
+          },
+        },
+        orderBy: [
+          { isPrimary: 'desc' },
+          { createdAt: 'asc' },
+        ],
+      });
+
+      clinics = userClinics.map(uc => ({
+        id: uc.clinic.id,
+        name: uc.clinic.name,
+        subdomain: uc.clinic.subdomain,
+        logoUrl: uc.clinic.logoUrl,
+        role: uc.role,
+        isPrimary: uc.isPrimary,
+      }));
+    } catch {
+      // UserClinic might not exist, fallback to user's clinic
+      if (userData.clinic) {
+        clinics = [{
+          id: userData.clinic.id,
+          name: userData.clinic.name,
+          subdomain: userData.clinic.subdomain,
+          role: user.role,
+          isPrimary: true,
+        }];
+      }
+    }
+
+    return NextResponse.json({
+      user: {
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role,
+        clinicId: userData.clinicId,
+      },
+      provider: providerData ? {
+        id: providerData.id,
+        firstName: providerData.firstName,
+        lastName: providerData.lastName,
+        email: providerData.email,
+        phone: providerData.phone,
+        npi: providerData.npi,
+        dea: providerData.dea,
+        licenseNumber: providerData.licenseNumber,
+        licenseState: providerData.licenseState,
+        titleLine: providerData.titleLine,
+        signatureDataUrl: providerData.signatureDataUrl,
+        hasSignature: !!providerData.signatureDataUrl,
+      } : null,
+      clinics,
+      activeClinicId: userData.clinicId,
+      hasMultipleClinics: clinics.length > 1,
+    });
+  } catch (error: any) {
+    logger.error('Error fetching provider settings', { error: error.message, userId: user.id });
+    return NextResponse.json(
+      { error: 'Failed to fetch settings' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/provider/settings
+ * Update the authenticated provider's profile
+ */
+async function handlePut(req: NextRequest, user: AuthUser) {
+  try {
+    const body = await req.json();
+    const {
+      firstName,
+      lastName,
+      phone,
+      titleLine,
+      signatureDataUrl,
+      currentPassword,
+      newPassword,
+    } = body;
+
+    // Get user with provider
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { provider: true },
+    });
+
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get provider record
+    let provider = userData.provider;
+    if (!provider && user.role === 'provider') {
+      provider = await prisma.provider.findFirst({
+        where: { email: user.email },
+      });
+    }
+
+    // Update user record
+    const userUpdateData: any = {};
+    if (firstName) userUpdateData.firstName = firstName;
+    if (lastName) userUpdateData.lastName = lastName;
+
+    // Handle password change
+    if (newPassword) {
+      if (!currentPassword) {
+        return NextResponse.json(
+          { error: 'Current password is required to change password' },
+          { status: 400 }
+        );
+      }
+
+      // Verify current password
+      const isValid = await bcrypt.compare(currentPassword, userData.passwordHash || '');
+      if (!isValid) {
+        return NextResponse.json(
+          { error: 'Current password is incorrect' },
+          { status: 400 }
+        );
+      }
+
+      // Hash new password
+      userUpdateData.passwordHash = await bcrypt.hash(newPassword, 12);
+    }
+
+    // Update user if there are changes
+    if (Object.keys(userUpdateData).length > 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: userUpdateData,
+      });
+    }
+
+    // Update provider record if exists
+    if (provider) {
+      const providerUpdateData: any = {};
+      if (firstName) providerUpdateData.firstName = firstName;
+      if (lastName) providerUpdateData.lastName = lastName;
+      if (phone !== undefined) providerUpdateData.phone = phone;
+      if (titleLine !== undefined) providerUpdateData.titleLine = titleLine;
+      if (signatureDataUrl !== undefined) providerUpdateData.signatureDataUrl = signatureDataUrl;
+
+      if (Object.keys(providerUpdateData).length > 0) {
+        await prisma.provider.update({
+          where: { id: provider.id },
+          data: providerUpdateData,
+        });
+
+        // Create audit log
+        await prisma.providerAudit.create({
+          data: {
+            providerId: provider.id,
+            actorEmail: user.email,
+            action: 'settings_update',
+            diff: providerUpdateData,
+          },
+        });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Settings updated successfully',
+    });
+  } catch (error: any) {
+    logger.error('Error updating provider settings', { error: error.message, userId: user.id });
+    return NextResponse.json(
+      { error: 'Failed to update settings' },
+      { status: 500 }
+    );
+  }
+}
+
+export const GET = withProviderAuth(handleGet);
+export const PUT = withProviderAuth(handlePut);

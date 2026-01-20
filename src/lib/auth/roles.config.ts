@@ -291,6 +291,7 @@ export const PROVIDER_CONFIG: RoleConfig = {
       { label: 'SOAP Notes', path: '/provider/soap-notes', icon: 'FileText' },
       { label: 'Messages', path: '/provider/messages', icon: 'MessageSquare' },
       { label: 'Resources', path: '/provider/resources', icon: 'BookOpen' },
+      { label: 'Settings', path: '/provider/settings', icon: 'Settings' },
     ],
     quick: [
       { label: 'Start Consultation', action: 'start-consultation', icon: 'Video', color: 'green' },

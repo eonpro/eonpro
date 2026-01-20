@@ -117,7 +117,7 @@ export default function ClinicDetailPage() {
     email: '',
     firstName: '',
     lastName: '',
-    role: 'admin',
+    role: 'ADMIN', // Uppercase to match dropdown values
     password: '',
     sendInvite: true,
     // Provider-specific fields
@@ -1374,7 +1374,7 @@ export default function ClinicDetailPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 my-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                {newUser.role === 'provider' ? 'Add New Provider' : 'Add New User'}
+                {newUser.role === 'PROVIDER' ? 'Add New Provider' : 'Add New User'}
               </h3>
               <button
                 onClick={() => setShowAddUserModal(false)}
@@ -1401,7 +1401,7 @@ export default function ClinicDetailPage() {
               </div>
 
               {/* Provider-specific fields */}
-              {newUser.role === 'provider' && (
+              {newUser.role === 'PROVIDER' && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
                   <h4 className="font-medium text-blue-900 flex items-center gap-2">
                     <Shield className="h-4 w-4" />
@@ -1414,7 +1414,7 @@ export default function ClinicDetailPage() {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        required={newUser.role === 'provider'}
+                        required={newUser.role === 'PROVIDER'}
                         value={newUser.npi}
                         onChange={(e) => setNewUser({ ...newUser, npi: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -1456,7 +1456,7 @@ export default function ClinicDetailPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">License Number *</label>
                       <input
                         type="text"
-                        required={newUser.role === 'provider'}
+                        required={newUser.role === 'PROVIDER'}
                         value={newUser.licenseNumber}
                         onChange={(e) => setNewUser({ ...newUser, licenseNumber: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -1466,7 +1466,7 @@ export default function ClinicDetailPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
                       <select
-                        required={newUser.role === 'provider'}
+                        required={newUser.role === 'PROVIDER'}
                         value={newUser.licenseState}
                         onChange={(e) => setNewUser({ ...newUser, licenseState: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"

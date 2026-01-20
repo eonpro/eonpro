@@ -7,14 +7,24 @@ import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
 import { 
   Menu, X, Bell, Search, LogOut, Video, PenTool, Pill,
   Home, Users, Calendar, MessageSquare, FileText, TestTube,
-  BookOpen, Clock, AlertCircle, Activity, User, ChevronRight
+  BookOpen, Clock, AlertCircle, Activity, User, ChevronRight, Settings,
+  Building2, ChevronDown, Check
 } from 'lucide-react';
 
 // Icon mapping
 const iconMap: Record<string, any> = {
   Home, Users, Calendar, Video, Pill, TestTube, FileText, 
-  MessageSquare, BookOpen, PenTool
+  MessageSquare, BookOpen, PenTool, Settings
 };
+
+interface Clinic {
+  id: number;
+  name: string;
+  subdomain: string | null;
+  logoUrl: string | null;
+  role: string;
+  isPrimary: boolean;
+}
 
 interface ProviderLayoutProps {
   children: React.ReactNode;
@@ -40,12 +50,85 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
   const [currentPatientCount, setCurrentPatientCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Multi-clinic state
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
+  const [showClinicDropdown, setShowClinicDropdown] = useState(false);
+  const [switchingClinic, setSwitchingClinic] = useState(false);
+
   const config = getRoleConfig('provider');
   const theme = getRoleTheme('provider');
 
   useEffect(() => {
     loadProviderData();
+    loadClinicData();
   }, []);
+
+  const loadClinicData = () => {
+    // Load clinics from localStorage (set during login)
+    try {
+      const storedClinics = localStorage.getItem('clinics');
+      const activeClinicId = localStorage.getItem('activeClinicId');
+      
+      if (storedClinics) {
+        const parsedClinics = JSON.parse(storedClinics);
+        setClinics(parsedClinics);
+        
+        if (activeClinicId) {
+          const active = parsedClinics.find((c: Clinic) => c.id === parseInt(activeClinicId));
+          setActiveClinic(active || parsedClinics[0]);
+        } else if (parsedClinics.length > 0) {
+          setActiveClinic(parsedClinics[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading clinic data:', error);
+    }
+  };
+
+  const handleClinicSwitch = async (clinic: Clinic) => {
+    if (clinic.id === activeClinic?.id) {
+      setShowClinicDropdown(false);
+      return;
+    }
+
+    setSwitchingClinic(true);
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+      const response = await fetch('/api/auth/switch-clinic', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ clinicId: clinic.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to switch clinic');
+      }
+
+      const data = await response.json();
+
+      // Update localStorage
+      localStorage.setItem('auth-token', data.token);
+      localStorage.setItem('provider-token', data.token);
+      localStorage.setItem('activeClinicId', String(clinic.id));
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // Update state
+      setActiveClinic(clinic);
+      setShowClinicDropdown(false);
+
+      // Reload the page to refresh data for new clinic
+      window.location.reload();
+    } catch (error) {
+      console.error('Error switching clinic:', error);
+      alert('Failed to switch clinic. Please try again.');
+    } finally {
+      setSwitchingClinic(false);
+    }
+  };
 
   const loadProviderData = async () => {
     // Load notifications and patient count
@@ -110,8 +193,24 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
   const handleLogout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('provider-token');
+    localStorage.removeItem('auth-token');
+    localStorage.removeItem('clinics');
+    localStorage.removeItem('activeClinicId');
     router.push('/login');
   };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-clinic-dropdown]')) {
+        setShowClinicDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const getPriorityColor = (priority: string) => {
     switch(priority) {
@@ -252,6 +351,90 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
                   </div>
                 )}
               </div>
+
+              {/* Clinic Switcher (only show if multiple clinics) */}
+              {clinics.length > 1 && (
+                <div className="relative" data-clinic-dropdown>
+                  <button
+                    onClick={() => setShowClinicDropdown(!showClinicDropdown)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    disabled={switchingClinic}
+                  >
+                    {activeClinic?.logoUrl ? (
+                      <img
+                        src={activeClinic.logoUrl}
+                        alt={activeClinic.name}
+                        className="h-6 w-6 rounded object-cover"
+                      />
+                    ) : (
+                      <Building2 className="h-5 w-5 text-gray-500" />
+                    )}
+                    <span className="hidden lg:inline max-w-[120px] truncate font-medium">
+                      {activeClinic?.name || 'Select Clinic'}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showClinicDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Clinic Dropdown */}
+                  {showClinicDropdown && (
+                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                      <div className="p-3 border-b border-gray-200">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Switch Clinic</p>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto py-1">
+                        {clinics.map((clinic) => (
+                          <button
+                            key={clinic.id}
+                            onClick={() => handleClinicSwitch(clinic)}
+                            disabled={switchingClinic}
+                            className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-3 ${
+                              clinic.id === activeClinic?.id ? 'bg-green-50' : ''
+                            } ${switchingClinic ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            {clinic.logoUrl ? (
+                              <img
+                                src={clinic.logoUrl}
+                                alt={clinic.name}
+                                className="h-8 w-8 rounded object-cover"
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded bg-green-100 flex items-center justify-center">
+                                <Building2 className="h-4 w-4 text-green-600" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{clinic.name}</p>
+                              <p className="text-xs text-gray-500 capitalize">{clinic.role}</p>
+                            </div>
+                            {clinic.id === activeClinic?.id && (
+                              <Check className="h-4 w-4 text-green-600" />
+                            )}
+                            {clinic.isPrimary && clinic.id !== activeClinic?.id && (
+                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                Primary
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      {switchingClinic && (
+                        <div className="p-3 border-t border-gray-200 flex items-center justify-center gap-2 text-sm text-gray-500">
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-500 border-t-transparent" />
+                          Switching...
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Single Clinic Display (if only one clinic) */}
+              {clinics.length === 1 && activeClinic && (
+                <div className="hidden lg:flex items-center gap-2 px-3 py-2 text-sm text-gray-600">
+                  <Building2 className="h-4 w-4" />
+                  <span className="max-w-[120px] truncate">{activeClinic.name}</span>
+                </div>
+              )}
 
               {/* User Menu */}
               <div className="flex items-center">
