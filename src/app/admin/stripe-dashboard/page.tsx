@@ -6,8 +6,87 @@ import {
   DollarSign, TrendingUp, CreditCard, AlertTriangle, Users,
   ArrowUpRight, ArrowDownRight, RefreshCw, Download, ExternalLink,
   Wallet, Receipt, ShieldAlert, Package, Link2, Calendar,
-  ChevronDown, Loader2, CheckCircle, XCircle, Clock, Ban, Building2
+  ChevronDown, Loader2, CheckCircle, XCircle, Clock, Ban, Building2,
+  ChevronLeft, ChevronRight, Filter
 } from 'lucide-react';
+
+// Date range options
+const DATE_RANGES = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'last_7_days', label: 'Last 7 Days' },
+  { value: 'last_30_days', label: 'Last 30 Days' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_month', label: 'Last Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'this_year', label: 'This Year' },
+  { value: 'last_year', label: 'Last Year' },
+  { value: 'all_time', label: 'All Time' },
+  { value: 'custom', label: 'Custom Range' },
+];
+
+// Helper to get date range timestamps
+function getDateRange(range: string, customStart?: string, customEnd?: string): { startDate?: string; endDate?: string } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  switch (range) {
+    case 'today':
+      return { startDate: today.toISOString() };
+    case 'yesterday': {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return { startDate: yesterday.toISOString(), endDate: today.toISOString() };
+    }
+    case 'last_7_days': {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 7);
+      return { startDate: start.toISOString() };
+    }
+    case 'last_30_days': {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 30);
+      return { startDate: start.toISOString() };
+    }
+    case 'this_month': {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { startDate: start.toISOString() };
+    }
+    case 'last_month': {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    case 'last_3_months': {
+      const start = new Date(today);
+      start.setMonth(start.getMonth() - 3);
+      return { startDate: start.toISOString() };
+    }
+    case 'last_6_months': {
+      const start = new Date(today);
+      start.setMonth(start.getMonth() - 6);
+      return { startDate: start.toISOString() };
+    }
+    case 'this_year': {
+      const start = new Date(now.getFullYear(), 0, 1);
+      return { startDate: start.toISOString() };
+    }
+    case 'last_year': {
+      const start = new Date(now.getFullYear() - 1, 0, 1);
+      const end = new Date(now.getFullYear(), 0, 1);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    case 'custom':
+      return {
+        startDate: customStart ? new Date(customStart).toISOString() : undefined,
+        endDate: customEnd ? new Date(customEnd).toISOString() : undefined,
+      };
+    case 'all_time':
+    default:
+      return {};
+  }
+}
 
 // Types
 interface Clinic {
@@ -182,7 +261,20 @@ export default function StripeDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'disputes' | 'payouts' | 'products' | 'customers' | 'connect'>('overview');
   const [refreshing, setRefreshing] = useState(false);
-  const [dateRange, setDateRange] = useState('this_month');
+  
+  // Date range filtering
+  const [dateRange, setDateRange] = useState('last_30_days');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  
+  // Pagination
+  const [disputesPage, setDisputesPage] = useState(1);
+  const [payoutsPage, setPayoutsPage] = useState(1);
+  const [customersPage, setCustomersPage] = useState(1);
+  const [pageSize] = useState(25);
+  const [hasMoreDisputes, setHasMoreDisputes] = useState(false);
+  const [hasMorePayouts, setHasMorePayouts] = useState(false);
+  const [hasMoreCustomers, setHasMoreCustomers] = useState(false);
   
   // Clinic selection (for multi-tenant)
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -261,17 +353,24 @@ export default function StripeDashboard() {
     setError(null);
 
     try {
+      // Build date range params
+      const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+      const dateParams = new URLSearchParams();
+      if (startDate) dateParams.set('startDate', startDate);
+      if (endDate) dateParams.set('endDate', endDate);
+      const dateQuery = dateParams.toString() ? `&${dateParams.toString()}` : '';
+      
       // Build URLs with clinic filter
       const clinicParam = selectedClinicId ? `&clinicId=${selectedClinicId}` : '';
       
       // Fetch all data in parallel
       const [balanceRes, reportRes, disputesRes, payoutsRes, productsRes, customersRes] = await Promise.all([
         fetch(`/api/stripe/balance?includeTransactions=false${clinicParam}`),
-        fetch(`/api/stripe/reports?type=summary${clinicParam}`),
-        fetch(`/api/stripe/disputes?limit=10${clinicParam}`),
-        fetch(`/api/stripe/payouts?limit=10${clinicParam}`),
-        fetch(`/api/stripe/products?limit=20${clinicParam}`),
-        fetch(`/api/stripe/customers?limit=10&includeCharges=true&includeSubscriptions=false${clinicParam}`),
+        fetch(`/api/stripe/reports?type=summary${clinicParam}${dateQuery}`),
+        fetch(`/api/stripe/disputes?limit=${pageSize}${clinicParam}${dateQuery}`),
+        fetch(`/api/stripe/payouts?limit=${pageSize}${clinicParam}${dateQuery}`),
+        fetch(`/api/stripe/products?limit=50${clinicParam}`),
+        fetch(`/api/stripe/customers?limit=${pageSize}&includeCharges=true&includeSubscriptions=false${clinicParam}`),
       ]);
       
       // Also fetch connect status if a clinic is selected
@@ -300,6 +399,7 @@ export default function StripeDashboard() {
         const data = await disputesRes.json();
         setDisputes(data.disputes || []);
         setDisputeSummary(data.summary);
+        setHasMoreDisputes(data.pagination?.hasMore || false);
       }
 
       // Process payouts
@@ -307,6 +407,7 @@ export default function StripeDashboard() {
         const data = await payoutsRes.json();
         setPayouts(data.payouts || []);
         setPayoutSummary(data.summary);
+        setHasMorePayouts(data.pagination?.hasMore || false);
       }
 
       // Process products
@@ -321,17 +422,18 @@ export default function StripeDashboard() {
         const data = await customersRes.json();
         setCustomers(data.customers || []);
         setCustomerSummary(data.summary);
+        setHasMoreCustomers(data.pagination?.hasMore || false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load Stripe data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateRange, customStartDate, customEndDate, selectedClinicId, pageSize]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData, selectedClinicId]);
+  }, [fetchData, selectedClinicId, dateRange, customStartDate, customEndDate]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -342,6 +444,64 @@ export default function StripeDashboard() {
   const handleClinicChange = (clinicId: number | null) => {
     setSelectedClinicId(clinicId);
     setConnectStatus(null);
+  };
+
+  const handleDateRangeChange = (range: string) => {
+    setDateRange(range);
+    // Reset pagination when date range changes
+    setDisputesPage(1);
+    setPayoutsPage(1);
+    setCustomersPage(1);
+  };
+
+  // Load more functions for pagination
+  const loadMoreDisputes = async () => {
+    if (!hasMoreDisputes) return;
+    const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+    const params = new URLSearchParams();
+    params.set('limit', pageSize.toString());
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    if (disputes.length > 0) params.set('starting_after', disputes[disputes.length - 1].id);
+    
+    const res = await fetch(`/api/stripe/disputes?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      setDisputes([...disputes, ...(data.disputes || [])]);
+      setHasMoreDisputes(data.pagination?.hasMore || false);
+    }
+  };
+
+  const loadMorePayouts = async () => {
+    if (!hasMorePayouts) return;
+    const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+    const params = new URLSearchParams();
+    params.set('limit', pageSize.toString());
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    if (payouts.length > 0) params.set('starting_after', payouts[payouts.length - 1].id);
+    
+    const res = await fetch(`/api/stripe/payouts?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      setPayouts([...payouts, ...(data.payouts || [])]);
+      setHasMorePayouts(data.pagination?.hasMore || false);
+    }
+  };
+
+  const loadMoreCustomers = async () => {
+    if (!hasMoreCustomers) return;
+    const params = new URLSearchParams();
+    params.set('limit', pageSize.toString());
+    params.set('includeCharges', 'true');
+    if (customers.length > 0) params.set('starting_after', customers[customers.length - 1].id);
+    
+    const res = await fetch(`/api/stripe/customers?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      setCustomers([...customers, ...(data.customers || [])]);
+      setHasMoreCustomers(data.pagination?.hasMore || false);
+    }
   };
 
   const selectedClinic = clinics.find(c => c.id === selectedClinicId);
@@ -375,7 +535,40 @@ export default function StripeDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Date Range Selector */}
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <select
+                  value={dateRange}
+                  onChange={(e) => handleDateRangeChange(e.target.value)}
+                  className="px-3 py-2 text-sm border rounded-lg bg-white focus:ring-2 focus:ring-purple-500"
+                >
+                  {DATE_RANGES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Custom Date Range */}
+              {dateRange === 'custom' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="px-3 py-2 text-sm border rounded-lg"
+                  />
+                  <span className="text-gray-400">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="px-3 py-2 text-sm border rounded-lg"
+                  />
+                </div>
+              )}
+              
               {/* Clinic Selector (Super Admin only) */}
               {userRole === 'super_admin' && clinics.length > 0 && (
                 <div className="flex items-center gap-2">
@@ -468,11 +661,21 @@ export default function StripeDashboard() {
         )}
 
         {activeTab === 'disputes' && (
-          <DisputesTab disputes={disputes} summary={disputeSummary} />
+          <DisputesTab 
+            disputes={disputes} 
+            summary={disputeSummary} 
+            onLoadMore={loadMoreDisputes}
+            hasMore={hasMoreDisputes}
+          />
         )}
 
         {activeTab === 'payouts' && (
-          <PayoutsTab payouts={payouts} summary={payoutSummary} />
+          <PayoutsTab 
+            payouts={payouts} 
+            summary={payoutSummary}
+            onLoadMore={loadMorePayouts}
+            hasMore={hasMorePayouts}
+          />
         )}
 
         {activeTab === 'products' && (
@@ -480,7 +683,12 @@ export default function StripeDashboard() {
         )}
 
         {activeTab === 'customers' && (
-          <CustomersTab customers={customers} summary={customerSummary} />
+          <CustomersTab 
+            customers={customers} 
+            summary={customerSummary}
+            onLoadMore={loadMoreCustomers}
+            hasMore={hasMoreCustomers}
+          />
         )}
         
         {activeTab === 'connect' && selectedClinicId && (
@@ -638,7 +846,25 @@ function OverviewTab({
 }
 
 // Disputes Tab
-function DisputesTab({ disputes, summary }: { disputes: Dispute[]; summary: any }) {
+function DisputesTab({ 
+  disputes, 
+  summary, 
+  onLoadMore, 
+  hasMore 
+}: { 
+  disputes: Dispute[]; 
+  summary: any;
+  onLoadMore: () => void;
+  hasMore: boolean;
+}) {
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await onLoadMore();
+    setLoadingMore(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -686,7 +912,9 @@ function DisputesTab({ disputes, summary }: { disputes: Dispute[]; summary: any 
 
       {/* Disputes Table */}
       <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">All Disputes</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900">All Disputes ({disputes.length})</h3>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -717,13 +945,51 @@ function DisputesTab({ disputes, summary }: { disputes: Dispute[]; summary: any 
             </tbody>
           </table>
         </div>
+        
+        {/* Load More Button */}
+        {hasMore && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                'Load More Disputes'
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // Payouts Tab
-function PayoutsTab({ payouts, summary }: { payouts: Payout[]; summary: any }) {
+function PayoutsTab({ 
+  payouts, 
+  summary,
+  onLoadMore,
+  hasMore
+}: { 
+  payouts: Payout[]; 
+  summary: any;
+  onLoadMore: () => void;
+  hasMore: boolean;
+}) {
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await onLoadMore();
+    setLoadingMore(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -756,7 +1022,7 @@ function PayoutsTab({ payouts, summary }: { payouts: Payout[]; summary: any }) {
 
       {/* Payouts Table */}
       <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Recent Payouts</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">Payouts ({payouts.length})</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -781,6 +1047,26 @@ function PayoutsTab({ payouts, summary }: { payouts: Payout[]; summary: any }) {
             </tbody>
           </table>
         </div>
+        
+        {/* Load More Button */}
+        {hasMore && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                'Load More Payouts'
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -847,7 +1133,25 @@ function ProductsTab({ products, summary }: { products: Product[]; summary: any 
 }
 
 // Customers Tab
-function CustomersTab({ customers, summary }: { customers: Customer[]; summary: any }) {
+function CustomersTab({ 
+  customers, 
+  summary,
+  onLoadMore,
+  hasMore
+}: { 
+  customers: Customer[]; 
+  summary: any;
+  onLoadMore: () => void;
+  hasMore: boolean;
+}) {
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await onLoadMore();
+    setLoadingMore(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -880,7 +1184,7 @@ function CustomersTab({ customers, summary }: { customers: Customer[]; summary: 
 
       {/* Customers Table */}
       <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Recent Customers</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">Customers ({customers.length})</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -915,6 +1219,26 @@ function CustomersTab({ customers, summary }: { customers: Customer[]; summary: 
             </tbody>
           </table>
         </div>
+        
+        {/* Load More Button */}
+        {hasMore && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                'Load More Customers'
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
