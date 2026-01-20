@@ -31,8 +31,13 @@ export default function ProviderPatientsPage() {
     lastName: "",
     email: "",
     phone: "",
-    dateOfBirth: "",
+    dob: "",
     gender: "male",
+    address1: "",
+    address2: "",
+    city: "",
+    state: "",
+    zip: "",
   });
 
   useEffect(() => {
@@ -84,12 +89,23 @@ export default function ProviderPatientsPage() {
           lastName: "",
           email: "",
           phone: "",
-          dateOfBirth: "",
+          dob: "",
           gender: "male",
+          address1: "",
+          address2: "",
+          city: "",
+          state: "",
+          zip: "",
         });
         fetchPatients();
       } else {
-        setError(data.error || "Failed to create patient");
+        // Parse validation errors if present
+        if (data.issues) {
+          const messages = data.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join(', ');
+          setError(messages);
+        } else {
+          setError(data.error || "Failed to create patient");
+        }
       }
     } catch (err: any) {
       setError(err.message || "Failed to create patient");
@@ -284,8 +300,8 @@ export default function ProviderPatientsPage() {
 
       {/* Add Patient Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto py-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 my-auto">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="text-lg font-semibold">Add New Patient</h3>
               <button onClick={() => setShowAddModal(false)}>
@@ -293,13 +309,14 @@ export default function ProviderPatientsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreatePatient} className="p-6 space-y-4">
+            <form onSubmit={handleCreatePatient} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {error}
                 </div>
               )}
 
+              {/* Name */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -327,49 +344,55 @@ export default function ProviderPatientsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={newPatient.email}
-                  onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={newPatient.phone}
-                  onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-
+              {/* Contact */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date of Birth
+                    Email *
                   </label>
                   <input
-                    type="date"
-                    value={newPatient.dateOfBirth}
-                    onChange={(e) => setNewPatient({ ...newPatient, dateOfBirth: e.target.value })}
+                    type="email"
+                    required
+                    value={newPatient.email}
+                    onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender
+                    Phone *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={newPatient.phone}
+                    onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+              </div>
+
+              {/* DOB and Gender */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date of Birth *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={newPatient.dob}
+                    onChange={(e) => setNewPatient({ ...newPatient, dob: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Gender *
                   </label>
                   <select
+                    required
                     value={newPatient.gender}
                     onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
@@ -381,7 +404,126 @@ export default function ProviderPatientsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              {/* Address */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newPatient.address1}
+                  onChange={(e) => setNewPatient({ ...newPatient, address1: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="Street address"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address Line 2
+                </label>
+                <input
+                  type="text"
+                  value={newPatient.address2}
+                  onChange={(e) => setNewPatient({ ...newPatient, address2: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="Apt, suite, etc. (optional)"
+                />
+              </div>
+
+              <div className="grid grid-cols-6 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    City *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newPatient.city}
+                    onChange={(e) => setNewPatient({ ...newPatient, city: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State *
+                  </label>
+                  <select
+                    required
+                    value={newPatient.state}
+                    onChange={(e) => setNewPatient({ ...newPatient, state: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Select</option>
+                    <option value="AL">AL</option>
+                    <option value="AK">AK</option>
+                    <option value="AZ">AZ</option>
+                    <option value="AR">AR</option>
+                    <option value="CA">CA</option>
+                    <option value="CO">CO</option>
+                    <option value="CT">CT</option>
+                    <option value="DE">DE</option>
+                    <option value="FL">FL</option>
+                    <option value="GA">GA</option>
+                    <option value="HI">HI</option>
+                    <option value="ID">ID</option>
+                    <option value="IL">IL</option>
+                    <option value="IN">IN</option>
+                    <option value="IA">IA</option>
+                    <option value="KS">KS</option>
+                    <option value="KY">KY</option>
+                    <option value="LA">LA</option>
+                    <option value="ME">ME</option>
+                    <option value="MD">MD</option>
+                    <option value="MA">MA</option>
+                    <option value="MI">MI</option>
+                    <option value="MN">MN</option>
+                    <option value="MS">MS</option>
+                    <option value="MO">MO</option>
+                    <option value="MT">MT</option>
+                    <option value="NE">NE</option>
+                    <option value="NV">NV</option>
+                    <option value="NH">NH</option>
+                    <option value="NJ">NJ</option>
+                    <option value="NM">NM</option>
+                    <option value="NY">NY</option>
+                    <option value="NC">NC</option>
+                    <option value="ND">ND</option>
+                    <option value="OH">OH</option>
+                    <option value="OK">OK</option>
+                    <option value="OR">OR</option>
+                    <option value="PA">PA</option>
+                    <option value="RI">RI</option>
+                    <option value="SC">SC</option>
+                    <option value="SD">SD</option>
+                    <option value="TN">TN</option>
+                    <option value="TX">TX</option>
+                    <option value="UT">UT</option>
+                    <option value="VT">VT</option>
+                    <option value="VA">VA</option>
+                    <option value="WA">WA</option>
+                    <option value="WV">WV</option>
+                    <option value="WI">WI</option>
+                    <option value="WY">WY</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ZIP *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newPatient.zip}
+                    onChange={(e) => setNewPatient({ ...newPatient, zip: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="12345"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t mt-4">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
