@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
@@ -157,16 +157,16 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get provider record
+    // Get provider record - use basePrisma to bypass clinic filtering
     let provider = userData.provider;
     if (!provider && user.role === 'provider') {
-      provider = await prisma.provider.findFirst({
+      provider = await basePrisma.provider.findFirst({
         where: { email: user.email },
       });
       
       // If found by email but not linked, link it now
       if (provider && !userData.providerId) {
-        await prisma.user.update({
+        await basePrisma.user.update({
           where: { id: user.id },
           data: { providerId: provider.id },
         });
@@ -219,15 +219,15 @@ async function handlePut(req: NextRequest, user: AuthUser) {
         );
       }
 
-      // Check if NPI already exists
-      const existingProvider = await prisma.provider.findFirst({
+      // Check if NPI already exists - use basePrisma to search all clinics
+      const existingProvider = await basePrisma.provider.findFirst({
         where: { npi },
       });
 
       if (existingProvider) {
         // Link to existing provider if email matches
         if (existingProvider.email === user.email) {
-          await prisma.user.update({
+          await basePrisma.user.update({
             where: { id: user.id },
             data: { providerId: existingProvider.id },
           });
@@ -240,7 +240,7 @@ async function handlePut(req: NextRequest, user: AuthUser) {
         }
       } else {
         // Create new provider record
-        provider = await prisma.provider.create({
+        provider = await basePrisma.provider.create({
           data: {
             firstName: firstName || userData.firstName,
             lastName: lastName || userData.lastName,
@@ -256,13 +256,13 @@ async function handlePut(req: NextRequest, user: AuthUser) {
         });
 
         // Link provider to user
-        await prisma.user.update({
+        await basePrisma.user.update({
           where: { id: user.id },
           data: { providerId: provider.id },
         });
 
         // Create audit log
-        await prisma.providerAudit.create({
+        await basePrisma.providerAudit.create({
           data: {
             providerId: provider.id,
             actorEmail: user.email,
@@ -289,14 +289,15 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       if (licenseState && !provider.licenseState) providerUpdateData.licenseState = licenseState;
 
       if (Object.keys(providerUpdateData).length > 0) {
-        await prisma.provider.update({
+        // Use basePrisma to bypass clinic filtering for provider updates
+        await basePrisma.provider.update({
           where: { id: provider.id },
           data: providerUpdateData,
         });
 
         // Create audit log - only if provider has an id
         try {
-          await prisma.providerAudit.create({
+          await basePrisma.providerAudit.create({
             data: {
               providerId: provider.id,
               actorEmail: user.email,
