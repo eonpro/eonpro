@@ -15,6 +15,33 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Get the model from env or default
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+/**
+ * Check if model requires max_completion_tokens instead of max_tokens
+ */
+function useMaxCompletionTokens(model: string): boolean {
+  const modelLower = model.toLowerCase();
+  return (
+    modelLower.startsWith('o1') ||
+    modelLower.startsWith('o3') ||
+    modelLower.includes('o1-') ||
+    modelLower.includes('o3-') ||
+    (modelLower.includes('gpt-4o') && !modelLower.includes('gpt-4o-mini'))
+  );
+}
+
+/**
+ * Get the correct token limit parameter for the model
+ */
+function getTokenLimitParam(model: string, maxTokens: number): { max_tokens?: number; max_completion_tokens?: number } {
+  if (useMaxCompletionTokens(model)) {
+    return { max_completion_tokens: maxTokens };
+  }
+  return { max_tokens: maxTokens };
+}
+
 export interface GenerateSOAPFromTranscriptInput {
   transcript: string;
   segments: TranscriptionSegment[];
@@ -137,8 +164,9 @@ ${input.patientContext.recentVitals ? `- Recent Vitals: Weight ${input.patientCo
 TRANSCRIPT:
 ${input.transcript}`;
 
+    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+      model: modelToUse,
       messages: [
         {
           role: 'system',
@@ -150,7 +178,7 @@ ${input.transcript}`;
         },
       ],
       temperature: 0.3, // Lower temperature for more consistent medical documentation
-      max_tokens: 4000,
+      ...getTokenLimitParam(modelToUse, 4000),
       response_format: { type: 'json_object' },
     });
 
@@ -257,8 +285,9 @@ export async function generateConversationSummary(
   concerns: string[];
 }> {
   try {
+    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+      model: modelToUse,
       messages: [
         {
           role: 'system',
@@ -276,7 +305,7 @@ Return as JSON: { "summary": "string", "keyPoints": ["string"], "actionItems": [
         },
       ],
       temperature: 0.3,
-      max_tokens: 1000,
+      ...getTokenLimitParam(modelToUse, 1000),
       response_format: { type: 'json_object' },
     });
 
@@ -305,8 +334,9 @@ export async function extractMedicationChanges(
   refills: string[];
 }> {
   try {
+    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+      model: modelToUse,
       messages: [
         {
           role: 'system',
@@ -328,7 +358,7 @@ If no medication information is found, return empty arrays.`,
         },
       ],
       temperature: 0.2,
-      max_tokens: 1000,
+      ...getTokenLimitParam(modelToUse, 1000),
       response_format: { type: 'json_object' },
     });
 
@@ -361,8 +391,9 @@ export async function checkForRedFlags(
   recommendation: string;
 }> {
   try {
+    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+      model: modelToUse,
       messages: [
         {
           role: 'system',
@@ -388,7 +419,7 @@ Return as JSON:
         },
       ],
       temperature: 0.1, // Very low temperature for safety-critical analysis
-      max_tokens: 1000,
+      ...getTokenLimitParam(modelToUse, 1000),
       response_format: { type: 'json_object' },
     });
 

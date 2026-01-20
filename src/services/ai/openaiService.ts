@@ -19,6 +19,32 @@ const envSchema = z.object({
 let openaiClient: OpenAI | null = null;
 
 /**
+ * Check if model requires max_completion_tokens instead of max_tokens
+ * Newer models (o1, o1-mini, o1-preview, gpt-4o reasoning models) use max_completion_tokens
+ */
+function useMaxCompletionTokens(model: string): boolean {
+  const modelLower = model.toLowerCase();
+  return (
+    modelLower.startsWith('o1') ||
+    modelLower.startsWith('o3') ||
+    modelLower.includes('o1-') ||
+    modelLower.includes('o3-') ||
+    // Some gpt-4o variants also require this
+    (modelLower.includes('gpt-4o') && !modelLower.includes('gpt-4o-mini'))
+  );
+}
+
+/**
+ * Get the correct token limit parameter for the model
+ */
+function getTokenLimitParam(model: string, maxTokens: number): { max_tokens?: number; max_completion_tokens?: number } {
+  if (useMaxCompletionTokens(model)) {
+    return { max_completion_tokens: maxTokens };
+  }
+  return { max_tokens: maxTokens };
+}
+
+/**
  * Initialize OpenAI client lazily to prevent build-time failures
  */
 function getOpenAIClient(): OpenAI {
@@ -342,7 +368,7 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
           { role: 'user', content: userPrompt }
         ],
         temperature: env.OPENAI_TEMPERATURE,
-        max_tokens: env.OPENAI_MAX_TOKENS,
+        ...getTokenLimitParam(env.OPENAI_MODEL, env.OPENAI_MAX_TOKENS),
         response_format: { type: 'json_object' },
       });
     }, 4, 3000); // 4 retries, starting at 3 second delay
@@ -545,7 +571,7 @@ Please provide a clear, accurate answer based on the available information. If a
       model: env.OPENAI_MODEL,
       messages,
       temperature: env.OPENAI_TEMPERATURE,
-      max_tokens: 1000, // Shorter responses for queries
+      ...getTokenLimitParam(env.OPENAI_MODEL, 1000), // Shorter responses for queries
     });
 
     const usage = completion.usage;

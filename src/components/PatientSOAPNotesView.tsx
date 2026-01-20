@@ -276,14 +276,6 @@ export default function PatientSOAPNotesView({
             />
             <span className="text-gray-700">Show only approved</span>
           </label>
-          
-          <button
-            onClick={handleGenerateFromIntake}
-            disabled={isGenerating}
-            className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] disabled:opacity-50"
-          >
-            {isGenerating ? 'Generating...' : 'Generate from Intake'}
-          </button>
         </div>
       </div>
 
@@ -316,7 +308,7 @@ export default function PatientSOAPNotesView({
               <div className="text-center py-8 text-gray-500">
                 {showOnlyApproved 
                   ? 'No approved SOAP notes available. Provider approval is required.'
-                  : 'No SOAP notes available. Generate one from the intake form.'}
+                  : 'No SOAP notes available. SOAP notes are automatically generated when an intake form is submitted.'}
               </div>
             );
           }
