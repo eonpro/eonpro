@@ -13,7 +13,7 @@
 
 import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/database/client';
+import { prisma } from '@/lib/db';
 
 // Types
 export interface StripeContext {

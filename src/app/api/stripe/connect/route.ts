@@ -16,7 +16,7 @@ import {
   syncConnectedAccountStatus,
   deleteConnectedAccount,
 } from '@/lib/stripe/connect';
-import { prisma } from '@/lib/database/client';
+import { prisma } from '@/lib/db';
 
 /**
  * GET /api/stripe/connect
