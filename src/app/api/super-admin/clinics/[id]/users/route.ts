@@ -252,49 +252,91 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
       // Hash password for new user
       const passwordHash = await bcrypt.hash(password, 12);
 
-      // Create new user linked to existing provider
-      const newUser = await prisma.user.create({
-        data: {
-          email: email.toLowerCase(),
-          firstName: existingProvider.firstName || firstName,
-          lastName: existingProvider.lastName || lastName,
-          role: prismaRole,
-          passwordHash,
-          clinicId,
-          status: 'ACTIVE',
-          providerId: existingProvider.id,
-        },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          status: true,
-          createdAt: true,
-        },
-      });
-
-      // Create UserClinic record
       try {
-        await prisma.userClinic.create({
+        // Create new user linked to existing provider
+        const newUser = await prisma.user.create({
           data: {
-            userId: newUser.id,
-            clinicId,
+            email: email.toLowerCase(),
+            firstName: existingProvider.firstName || firstName,
+            lastName: existingProvider.lastName || lastName,
             role: prismaRole,
-            isPrimary: true,
-            isActive: true,
+            passwordHash,
+            clinicId,
+            status: 'ACTIVE',
+            providerId: existingProvider.id,
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            status: true,
+            createdAt: true,
           },
         });
-      } catch (ucError: any) {
-        console.warn('Could not create UserClinic record:', ucError.message);
-      }
 
-      return NextResponse.json({
-        user: newUser,
-        message: 'User account created and linked to existing provider',
-        isExistingProvider: true,
-      });
+        // Create UserClinic record
+        try {
+          await prisma.userClinic.create({
+            data: {
+              userId: newUser.id,
+              clinicId,
+              role: prismaRole,
+              isPrimary: true,
+              isActive: true,
+            },
+          });
+        } catch (ucError: any) {
+          console.warn('Could not create UserClinic record:', ucError.message);
+        }
+
+        return NextResponse.json({
+          user: newUser,
+          message: 'User account created and linked to existing provider',
+          isExistingProvider: true,
+        });
+      } catch (createError: any) {
+        // If user creation fails due to unique constraint, the email might exist
+        // Try to find and link the existing user
+        if (createError.code === 'P2002') {
+          const existingUserByEmail = await prisma.user.findUnique({
+            where: { email: email.toLowerCase() },
+          });
+          
+          if (existingUserByEmail) {
+            // Link existing user to the orphan provider
+            await prisma.user.update({
+              where: { id: existingUserByEmail.id },
+              data: { providerId: existingProvider.id },
+            });
+
+            // Add to this clinic
+            const existingLink = await prisma.userClinic.findFirst({
+              where: { userId: existingUserByEmail.id, clinicId },
+            });
+
+            if (!existingLink) {
+              await prisma.userClinic.create({
+                data: {
+                  userId: existingUserByEmail.id,
+                  clinicId,
+                  role: prismaRole,
+                  isPrimary: false,
+                  isActive: true,
+                },
+              });
+            }
+
+            return NextResponse.json({
+              user: existingUserByEmail,
+              message: 'Existing user linked to provider and added to clinic',
+              isExistingUser: true,
+            });
+          }
+        }
+        throw createError;
+      }
     }
 
     // CASE 4: New user - create everything fresh
