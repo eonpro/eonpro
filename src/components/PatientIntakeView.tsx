@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
-import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2, Check } from 'lucide-react';
+import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2, Check, Shield } from 'lucide-react';
 
 /**
  * Intake display sections - maps fields from WeightLossIntake
@@ -64,7 +64,7 @@ const INTAKE_SECTIONS = [
     icon: Brain,
     editable: true,
     fields: [
-      { id: "mentalHealthHistory", label: "Mental Health History", aliases: ["mentalhealthhistory", "mentalhealth"], inputType: "textarea", placeholder: "Mental health history..." },
+      { id: "mentalHealthHistory", label: "Mental Health History", aliases: ["mentalhealthhistory", "mentalhealth", "mentalHealthConditions", "psychiatrichistory", "anxietydepression", "mentalhealthdiagnosis"], inputType: "textarea", placeholder: "Mental health history..." },
     ],
   },
   {
@@ -114,6 +114,25 @@ const INTAKE_SECTIONS = [
       { id: "intakeNotes", label: "Intake Notes", aliases: ["intakenotes", "notes"], inputType: "textarea", placeholder: "Additional notes..." },
     ],
   },
+  {
+    title: "Consent & Acknowledgments",
+    icon: Shield,
+    editable: false, // Consent records should not be editable
+    fields: [
+      { id: "telehealthConsent", label: "Telehealth Consent", aliases: ["telehealthconsent", "telehealth"], inputType: "text" },
+      { id: "privacyPolicyConsent", label: "Privacy Policy", aliases: ["privacypolicyconsent", "privacypolicy", "acceptedprivacy"], inputType: "text" },
+      { id: "termsConsent", label: "Terms & Conditions", aliases: ["termsconsent", "termsandconditions", "acceptedterms"], inputType: "text" },
+      { id: "smsConsent", label: "SMS Communication Consent", aliases: ["smsconsent", "sms", "communicationconsent"], inputType: "text" },
+      { id: "cancellationPolicyConsent", label: "Cancellation Policy", aliases: ["cancellationpolicyconsent", "cancellationpolicy"], inputType: "text" },
+      { id: "medicalWeightConsent", label: "Medical Weight Program Consent", aliases: ["medicalweightconsent", "weightlossconsent"], inputType: "text" },
+      { id: "hipaaConsent", label: "HIPAA Consent", aliases: ["hipaaconsent", "hipaa"], inputType: "text" },
+      { id: "informedConsent", label: "Informed Consent", aliases: ["informedconsent"], inputType: "text" },
+      { id: "patientAcknowledgment", label: "Patient Acknowledgment", aliases: ["patientacknowledgment", "acknowledgment"], inputType: "text" },
+      { id: "electronicSignature", label: "Electronic Signature", aliases: ["electronicsignature", "esignature", "signature"], inputType: "text" },
+      { id: "consentTimestamp", label: "Consent Date/Time", aliases: ["consenttimestamp", "consentdate", "consenttime"], inputType: "text" },
+      { id: "consentIpAddress", label: "IP Address", aliases: ["consentipaddress", "ipaddress", "ip"], inputType: "text" },
+    ],
+  },
 ];
 
 type IntakeData = {
@@ -127,6 +146,21 @@ type IntakeData = {
   }>;
   answers?: Array<{ id?: string; label?: string; value?: any }>;
   patient?: any;
+  // Consent and metadata fields
+  ipAddress?: string;
+  userAgent?: string;
+  consentTimestamp?: string;
+  consentData?: {
+    telehealthConsent?: boolean | string;
+    privacyPolicyConsent?: boolean | string;
+    termsConsent?: boolean | string;
+    smsConsent?: boolean | string;
+    cancellationPolicyConsent?: boolean | string;
+    medicalWeightConsent?: boolean | string;
+    hipaaConsent?: boolean | string;
+    timestamp?: string;
+    ipAddress?: string;
+  };
 };
 
 type Props = {
@@ -226,6 +260,15 @@ const getRawValue = (value: unknown): string => {
   return String(value).trim();
 };
 
+// Helper to format consent values with timestamp
+const formatConsentValue = (value: boolean | string, timestamp?: string): string => {
+  const accepted = value === true || value === "true" || value === "Yes" || value === "yes" || value === "Accepted";
+  if (accepted) {
+    return timestamp ? `Accepted on ${timestamp}` : "Accepted";
+  }
+  return String(value);
+};
+
 export default function PatientIntakeView({ patient, documents, intakeFormSubmissions = [] }: Props) {
   const router = useRouter();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(INTAKE_SECTIONS.map(s => s.title)));
@@ -314,10 +357,58 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       }
     }
 
+    // Add consent metadata from intakeData
+    if (intakeData.receivedAt) {
+      answerMap.set(normalizeKey('consentTimestamp'), intakeData.receivedAt);
+      answerMap.set(normalizeKey('consentDateTime'), intakeData.receivedAt);
+    }
+    if (intakeData.submissionId) {
+      answerMap.set(normalizeKey('intakeId'), intakeData.submissionId);
+      answerMap.set(normalizeKey('submissionId'), intakeData.submissionId);
+    }
+    if (intakeData.ipAddress) {
+      answerMap.set(normalizeKey('consentIpAddress'), intakeData.ipAddress);
+      answerMap.set(normalizeKey('ipAddress'), intakeData.ipAddress);
+    }
+
+    // Handle consentData object if present
+    if (intakeData.consentData) {
+      const cd = intakeData.consentData;
+      if (cd.telehealthConsent) answerMap.set(normalizeKey('telehealthConsent'), formatConsentValue(cd.telehealthConsent, cd.timestamp));
+      if (cd.privacyPolicyConsent) answerMap.set(normalizeKey('privacyPolicyConsent'), formatConsentValue(cd.privacyPolicyConsent, cd.timestamp));
+      if (cd.termsConsent) answerMap.set(normalizeKey('termsConsent'), formatConsentValue(cd.termsConsent, cd.timestamp));
+      if (cd.smsConsent) answerMap.set(normalizeKey('smsConsent'), formatConsentValue(cd.smsConsent, cd.timestamp));
+      if (cd.cancellationPolicyConsent) answerMap.set(normalizeKey('cancellationPolicyConsent'), formatConsentValue(cd.cancellationPolicyConsent, cd.timestamp));
+      if (cd.medicalWeightConsent) answerMap.set(normalizeKey('medicalWeightConsent'), formatConsentValue(cd.medicalWeightConsent, cd.timestamp));
+      if (cd.hipaaConsent) answerMap.set(normalizeKey('hipaaConsent'), formatConsentValue(cd.hipaaConsent, cd.timestamp));
+      if (cd.timestamp) answerMap.set(normalizeKey('consentTimestamp'), cd.timestamp);
+      if (cd.ipAddress) answerMap.set(normalizeKey('consentIpAddress'), cd.ipAddress);
+    }
+
     return answerMap;
   }, [intakeData, intakeFormSubmissions]);
 
   const answerMap = buildAnswerMap();
+
+  // Fields that should default to "No" when not present in the intake
+  // (because a previous question filtered them out or they weren't asked)
+  const FIELDS_DEFAULTING_TO_NO = new Set([
+    'hasdiabetes', 'hasgastroparesis', 'haspancreatitis', 'hasthyroidcancer',
+    'diabetes', 'gastroparesis', 'pancreatitis', 'thyroidcancer',
+    'type2diabetes', 'medularythyroid',
+  ]);
+
+  // Fields that should default to "None" when not present
+  const FIELDS_DEFAULTING_TO_NONE = new Set([
+    'currentmedications', 'medications', 'allergies', 'allergy',
+  ]);
+
+  // Consent fields that should show "Accepted" with timestamp when intake exists
+  const CONSENT_FIELDS = new Set([
+    'telehealthconsent', 'privacypolicyconsent', 'termsconsent', 'smsconsent',
+    'cancellationpolicyconsent', 'medicalweightconsent', 'hipaaconsent',
+    'informedconsent', 'patientacknowledgment',
+  ]);
 
   // Find answer for a field
   const findAnswer = (field: { id: string; label: string; aliases?: string[] }): string => {
@@ -332,6 +423,19 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         const byAlias = answerMap.get(normalizeKey(alias));
         if (byAlias && byAlias !== "—") return byAlias;
       }
+    }
+
+    // Apply default values for fields that should have them
+    const normalizedId = normalizeKey(field.id);
+    if (FIELDS_DEFAULTING_TO_NO.has(normalizedId)) {
+      return "No";
+    }
+    if (FIELDS_DEFAULTING_TO_NONE.has(normalizedId)) {
+      return "None";
+    }
+    // For consent fields, show "Accepted" with timestamp if we have intake data
+    if (CONSENT_FIELDS.has(normalizedId) && intakeData.receivedAt) {
+      return `Accepted on ${intakeData.receivedAt}`;
     }
 
     return "—";

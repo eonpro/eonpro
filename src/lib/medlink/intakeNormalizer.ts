@@ -138,13 +138,17 @@ const PATIENT_FIELD_MATCHERS: Record<keyof NormalizedPatient, FieldMatcher[]> = 
     { labelIncludes: "zip" },
     { labelIncludes: "postal code" },
     { labelIncludes: "postcode" },
+    { labelIncludes: "postal" },
     // WeightLossIntake uses zipCode
     { id: "zipCode" },
     { id: "zip_code" },
     { id: "zip" },
     { id: "postalCode" },
     { id: "postal_code" },
+    { id: "postal" },
     { id: "id-38a5bae0-zip" },
+    { id: "id-38a5bae0-postal" },
+    { id: "id-38a5bae0-postalCode" },
   ],
 };
 
@@ -306,6 +310,34 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       'intakeNotes': 'Intake Notes',
       'language': 'Preferred Language',
       'intakeSource': 'Intake Source',
+
+      // ═══════════════════════════════════════════════════════════════
+      // CONSENT & LEGAL
+      // ═══════════════════════════════════════════════════════════════
+      'telehealthConsent': 'Telehealth Consent',
+      'privacyPolicyConsent': 'Privacy Policy Consent',
+      'termsConsent': 'Terms & Conditions Consent',
+      'smsConsent': 'SMS Communication Consent',
+      'cancellationPolicyConsent': 'Cancellation Policy Consent',
+      'medicalWeightConsent': 'Medical Weight Program Consent',
+      'consentTimestamp': 'Consent Date/Time',
+      'consentIpAddress': 'Consent IP Address',
+      'hipaaConsent': 'HIPAA Consent',
+      'informedConsent': 'Informed Consent',
+      'acceptedTerms': 'Accepted Terms',
+      'acceptedPrivacy': 'Accepted Privacy Policy',
+      'patientAcknowledgment': 'Patient Acknowledgment',
+      'electronicSignature': 'Electronic Signature',
+
+      // ═══════════════════════════════════════════════════════════════
+      // MENTAL HEALTH (various field names)
+      // ═══════════════════════════════════════════════════════════════
+      'mentalHealth': 'Mental Health History',
+      'mentalHealthConditions': 'Mental Health Conditions',
+      'mentalHealthDiagnosis': 'Mental Health Diagnosis',
+      'psychiatricHistory': 'Psychiatric History',
+      'anxietyDepression': 'Anxiety/Depression',
+      'eatingDisorder': 'Eating Disorder History',
     };
     
     // Extract all fields from the data object
@@ -646,10 +678,13 @@ function applyDerivedFields(
     getEntryValue(index, "id-38a5bae0-zip"),
     getEntryValue(index, "id-38a5bae0-postal_code"),
     getEntryValue(index, "id-38a5bae0-zipcode"),
+    getEntryValue(index, "id-38a5bae0-postal"),
+    getEntryValue(index, "id-38a5bae0-postalCode"),
     addressJson?.zip,
     addressJson?.postal_code,
     addressJson?.zipcode,
-    addressJson?.postalCode
+    addressJson?.postalCode,
+    addressJson?.postal
   );
   if (zip) {
     patient.zip = zip;

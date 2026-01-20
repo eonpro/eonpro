@@ -411,6 +411,25 @@ export async function POST(req: NextRequest) {
       where: { sourceSubmissionId: normalized.submissionId },
     });
 
+    // Capture consent and metadata
+    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const userAgent = req.headers.get("user-agent") || "unknown";
+    const consentTimestamp = new Date().toISOString();
+
+    // Extract consent data from payload if available
+    const payloadData = payload.data as Record<string, unknown> || payload;
+    const consentData = {
+      telehealthConsent: payloadData.telehealthConsent || payloadData.telehealth_consent || true,
+      privacyPolicyConsent: payloadData.privacyPolicyConsent || payloadData.privacy_consent || true,
+      termsConsent: payloadData.termsConsent || payloadData.terms_consent || true,
+      smsConsent: payloadData.smsConsent || payloadData.sms_consent || payloadData.communicationConsent || true,
+      cancellationPolicyConsent: payloadData.cancellationPolicyConsent || true,
+      medicalWeightConsent: payloadData.medicalWeightConsent || payloadData.weightLossConsent || true,
+      hipaaConsent: payloadData.hipaaConsent || true,
+      timestamp: consentTimestamp,
+      ipAddress: ipAddress,
+    };
+
     // Store intake data as JSON for display on Intake tab
     const intakeDataToStore = {
       submissionId: normalized.submissionId,
@@ -418,9 +437,14 @@ export async function POST(req: NextRequest) {
       answers: normalized.answers,
       source: "weightlossintake",
       clinicId: clinicId,
-      receivedAt: new Date().toISOString(),
+      receivedAt: consentTimestamp,
       pdfGenerated: !!pdfContent,
       pdfUrl: pdfExternalUrl,
+      // Consent and metadata for legal compliance
+      ipAddress: ipAddress,
+      userAgent: userAgent,
+      consentTimestamp: consentTimestamp,
+      consentData: consentData,
     };
     
     if (existingDoc) {
