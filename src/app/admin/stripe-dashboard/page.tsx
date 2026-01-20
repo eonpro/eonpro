@@ -263,7 +263,7 @@ export default function StripeDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   
   // Date range filtering
-  const [dateRange, setDateRange] = useState('last_30_days');
+  const [dateRange, setDateRange] = useState('this_month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   
@@ -657,6 +657,7 @@ export default function StripeDashboard() {
             report={report}
             disputes={disputes}
             disputeSummary={disputeSummary}
+            dateRangeLabel={DATE_RANGES.find(r => r.value === dateRange)?.label || 'Selected Period'}
           />
         )}
 
@@ -709,74 +710,89 @@ function OverviewTab({
   report,
   disputes,
   disputeSummary,
+  dateRangeLabel,
 }: {
   balance: BalanceData | null;
   report: ReportSummary | null;
   disputes: Dispute[];
   disputeSummary: any;
+  dateRangeLabel: string;
 }) {
   return (
     <div className="space-y-6">
-      {/* Balance Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          title="Available Balance"
-          value={balance?.totalAvailableFormatted || '$0.00'}
-          icon={Wallet}
-          color={(balance?.totalAvailable || 0) >= 0 ? 'green' : 'red'}
-        />
-        <StatCard
-          title="Pending Balance"
-          value={balance?.totalPendingFormatted || '$0.00'}
-          icon={Clock}
-          color="blue"
-          subValue="Processing"
-        />
-        <StatCard
-          title="Gross Revenue"
-          value={report?.revenue?.grossFormatted || '$0.00'}
-          icon={DollarSign}
-          color="purple"
-          subValue={`${report?.revenue?.transactionCount || 0} transactions`}
-        />
-        <StatCard
-          title="Net Revenue"
-          value={report?.revenue?.netFormatted || '$0.00'}
-          icon={TrendingUp}
-          color="green"
-          trend="up"
-        />
+      {/* Current Balance Cards - Not Date Filtered */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="text-sm font-medium text-gray-500">Current Balance</h3>
+          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">Real-time</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard
+            title="Available Balance"
+            value={balance?.totalAvailableFormatted || '$0.00'}
+            icon={Wallet}
+            color={(balance?.totalAvailable || 0) >= 0 ? 'green' : 'red'}
+          />
+          <StatCard
+            title="Pending Balance"
+            value={balance?.totalPendingFormatted || '$0.00'}
+            icon={Clock}
+            color="blue"
+            subValue="Processing"
+          />
+          <StatCard
+            title="Gross Revenue"
+            value={report?.revenue?.grossFormatted || '$0.00'}
+            icon={DollarSign}
+            color="purple"
+            subValue={`${report?.revenue?.transactionCount || 0} transactions in ${dateRangeLabel.toLowerCase()}`}
+          />
+          <StatCard
+            title="Net Revenue"
+            value={report?.revenue?.netFormatted || '$0.00'}
+            icon={TrendingUp}
+            color="green"
+            trend="up"
+            subValue={dateRangeLabel}
+          />
+        </div>
       </div>
 
-      {/* MRR & Refunds */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          title="Monthly Recurring Revenue"
-          value={report?.subscriptions?.mrrFormatted || '$0.00'}
-          icon={RefreshCw}
-          color="purple"
-          subValue={`${report?.subscriptions?.active || 0} active subscriptions`}
-        />
-        <StatCard
-          title="Annual Recurring Revenue"
-          value={report?.subscriptions?.arrFormatted || '$0.00'}
-          icon={Calendar}
-          color="blue"
-        />
-        <StatCard
-          title="Refunds"
-          value={report?.refunds?.totalFormatted || '$0.00'}
-          icon={ArrowDownRight}
-          color="orange"
-          subValue={`${report?.refunds?.count || 0} refunds (${report?.refunds?.refundRate || '0%'})`}
-        />
-        <StatCard
-          title="Open Invoices"
-          value={report?.invoices?.openAmountFormatted || '$0.00'}
-          icon={Receipt}
-          color="gray"
-          subValue={`${report?.invoices?.open || 0} invoices pending`}
-        />
+      {/* Subscriptions - Current State */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="text-sm font-medium text-gray-500">Recurring Revenue</h3>
+          <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full">Current subscriptions</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard
+            title="Monthly Recurring Revenue"
+            value={report?.subscriptions?.mrrFormatted || '$0.00'}
+            icon={RefreshCw}
+            color="purple"
+            subValue={`${report?.subscriptions?.active || 0} active subscriptions`}
+          />
+          <StatCard
+            title="Annual Recurring Revenue"
+            value={report?.subscriptions?.arrFormatted || '$0.00'}
+            icon={Calendar}
+            color="blue"
+          />
+          <StatCard
+            title="Refunds"
+            value={report?.refunds?.totalFormatted || '$0.00'}
+            icon={ArrowDownRight}
+            color="orange"
+            subValue={`${report?.refunds?.count || 0} refunds (${report?.refunds?.refundRate || '0%'}) in ${dateRangeLabel.toLowerCase()}`}
+          />
+          <StatCard
+            title="Open Invoices"
+            value={report?.invoices?.openAmountFormatted || '$0.00'}
+            icon={Receipt}
+            color="gray"
+            subValue={`${report?.invoices?.open || 0} invoices pending`}
+          />
+        </div>
       </div>
 
       {/* Disputes Alert */}

@@ -84,24 +84,99 @@ export async function GET(request: NextRequest) {
 }
 
 async function generateSummaryReport(stripe: Stripe, startTimestamp: number, endTimestamp: number) {
-  // Fetch all data in parallel
-  const [charges, refunds, balance, customers, subscriptions, invoices] = await Promise.all([
-    stripe.charges.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }),
-    stripe.refunds.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }),
+  // Helper to fetch all items with pagination (handles >100 items)
+  async function fetchAllCharges(params: Stripe.ChargeListParams): Promise<Stripe.Charge[]> {
+    const allItems: Stripe.Charge[] = [];
+    let hasMore = true;
+    let startingAfter: string | undefined;
+
+    while (hasMore) {
+      const response = await stripe.charges.list({
+        ...params,
+        limit: 100,
+        ...(startingAfter && { starting_after: startingAfter }),
+      });
+      allItems.push(...response.data);
+      hasMore = response.has_more;
+      if (response.data.length > 0) {
+        startingAfter = response.data[response.data.length - 1].id;
+      }
+      // Safety limit to prevent infinite loops
+      if (allItems.length > 1000) break;
+    }
+    return allItems;
+  }
+
+  async function fetchAllRefunds(params: Stripe.RefundListParams): Promise<Stripe.Refund[]> {
+    const allItems: Stripe.Refund[] = [];
+    let hasMore = true;
+    let startingAfter: string | undefined;
+
+    while (hasMore) {
+      const response = await stripe.refunds.list({
+        ...params,
+        limit: 100,
+        ...(startingAfter && { starting_after: startingAfter }),
+      });
+      allItems.push(...response.data);
+      hasMore = response.has_more;
+      if (response.data.length > 0) {
+        startingAfter = response.data[response.data.length - 1].id;
+      }
+      if (allItems.length > 1000) break;
+    }
+    return allItems;
+  }
+
+  async function fetchAllInvoices(params: Stripe.InvoiceListParams): Promise<Stripe.Invoice[]> {
+    const allItems: Stripe.Invoice[] = [];
+    let hasMore = true;
+    let startingAfter: string | undefined;
+
+    while (hasMore) {
+      const response = await stripe.invoices.list({
+        ...params,
+        limit: 100,
+        ...(startingAfter && { starting_after: startingAfter }),
+      });
+      allItems.push(...response.data);
+      hasMore = response.has_more;
+      if (response.data.length > 0) {
+        startingAfter = response.data[response.data.length - 1].id;
+      }
+      if (allItems.length > 1000) break;
+    }
+    return allItems;
+  }
+
+  // Fetch date-filtered data AND current subscriptions (MRR/ARR should always be current)
+  const [charges, refunds, balance, customers, activeSubscriptions, allOpenInvoices, dateFilteredInvoices] = await Promise.all([
+    // Date-filtered charges
+    fetchAllCharges({ created: { gte: startTimestamp, lte: endTimestamp } }),
+    // Date-filtered refunds
+    fetchAllRefunds({ created: { gte: startTimestamp, lte: endTimestamp } }),
+    // Current balance (always current, not date-filtered)
     stripe.balance.retrieve(),
+    // Date-filtered new customers
     stripe.customers.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }),
-    stripe.subscriptions.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }),
-    stripe.invoices.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }),
+    // ALL active subscriptions for MRR calculation (not date-filtered!)
+    stripe.subscriptions.list({ status: 'active', limit: 100 }),
+    // ALL open invoices (not date-filtered - shows current outstanding)
+    stripe.invoices.list({ status: 'open', limit: 100 }),
+    // Date-filtered invoices for period stats
+    fetchAllInvoices({ created: { gte: startTimestamp, lte: endTimestamp } }),
   ]);
-  
-  const successfulCharges = charges.data.filter(c => c.status === 'succeeded');
+
+  const successfulCharges = charges.filter(c => c.status === 'succeeded');
   const totalRevenue = successfulCharges.reduce((sum, c) => sum + c.amount, 0);
-  const totalRefunds = refunds.data.reduce((sum, r) => sum + r.amount, 0);
+  const totalRefunds = refunds.reduce((sum, r) => sum + r.amount, 0);
   const netRevenue = totalRevenue - totalRefunds;
-  
-  const paidInvoices = invoices.data.filter(i => i.status === 'paid');
-  const openInvoices = invoices.data.filter(i => i.status === 'open');
-  
+
+  const paidInvoices = dateFilteredInvoices.filter(i => i.status === 'paid');
+
+  // Calculate MRR from ALL active subscriptions (not date-filtered)
+  const currentMRR = calculateMRR(activeSubscriptions.data);
+
   return {
     revenue: {
       gross: totalRevenue,
@@ -129,27 +204,29 @@ async function generateSummaryReport(stripe: Stripe, startTimestamp: number, end
       total: 'N/A (requires full count)',
     },
     subscriptions: {
-      new: subscriptions.data.length,
-      active: subscriptions.data.filter(s => s.status === 'active').length,
-      canceled: subscriptions.data.filter(s => s.status === 'canceled').length,
-      mrr: calculateMRR(subscriptions.data.filter(s => s.status === 'active')),
-      mrrFormatted: formatCurrency(calculateMRR(subscriptions.data.filter(s => s.status === 'active'))),
+      // MRR/ARR is always current (shows current recurring revenue, not date-filtered)
+      active: activeSubscriptions.data.length,
+      canceled: 0, // Would need separate query to get canceled in period
+      mrr: currentMRR,
+      mrrFormatted: formatCurrency(currentMRR),
+      arr: currentMRR * 12,
+      arrFormatted: formatCurrency(currentMRR * 12),
     },
     invoices: {
-      total: invoices.data.length,
+      total: dateFilteredInvoices.length,
       paid: paidInvoices.length,
-      open: openInvoices.length,
+      open: allOpenInvoices.data.length,
       paidAmount: paidInvoices.reduce((sum, i) => sum + (i.amount_paid || 0), 0),
       paidAmountFormatted: formatCurrency(paidInvoices.reduce((sum, i) => sum + (i.amount_paid || 0), 0)),
-      openAmount: openInvoices.reduce((sum, i) => sum + (i.amount_due || 0), 0),
-      openAmountFormatted: formatCurrency(openInvoices.reduce((sum, i) => sum + (i.amount_due || 0), 0)),
+      openAmount: allOpenInvoices.data.reduce((sum, i) => sum + (i.amount_due || 0), 0),
+      openAmountFormatted: formatCurrency(allOpenInvoices.data.reduce((sum, i) => sum + (i.amount_due || 0), 0)),
     },
     refunds: {
-      count: refunds.data.length,
+      count: refunds.length,
       total: totalRefunds,
       totalFormatted: formatCurrency(totalRefunds),
       refundRate: successfulCharges.length > 0 
-        ? ((refunds.data.length / successfulCharges.length) * 100).toFixed(2) + '%'
+        ? ((refunds.length / successfulCharges.length) * 100).toFixed(2) + '%'
         : '0%',
     },
   };

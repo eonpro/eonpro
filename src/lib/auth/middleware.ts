@@ -271,12 +271,18 @@ function getClientIP(req: NextRequest): string {
  * export const POST = withAuth(async (req, user) => {
  *   // Only admins can access
  * }, { roles: ['admin', 'super_admin'] });
+ *
+ * @example
+ * // With route params (dynamic routes)
+ * export const GET = withAuth(async (req, user, context) => {
+ *   const { id } = await context.params;
+ * }, { roles: ['super_admin'] });
  */
-export function withAuth(
-  handler: (req: NextRequest, user: AuthUser) => Promise<Response>,
+export function withAuth<T = unknown>(
+  handler: (req: NextRequest, user: AuthUser, context?: T) => Promise<Response>,
   options: AuthOptions = {}
-): (req: NextRequest) => Promise<Response> {
-  return async (req: NextRequest): Promise<Response> => {
+): (req: NextRequest, context?: T) => Promise<Response> {
+  return async (req: NextRequest, context?: T): Promise<Response> => {
     const startTime = Date.now();
     const requestId = crypto.randomUUID();
     
@@ -286,7 +292,7 @@ export function withAuth(
 
       if (!token) {
         if (options.optional) {
-          return handler(req, null as unknown as AuthUser);
+          return handler(req, null as unknown as AuthUser, context);
         }
         
         await logAuthFailure(req, requestId, 'NO_TOKEN', 'No authentication token provided');
@@ -306,7 +312,7 @@ export function withAuth(
 
       if (!tokenResult.valid || !tokenResult.user) {
         if (options.optional) {
-          return handler(req, null as unknown as AuthUser);
+          return handler(req, null as unknown as AuthUser, context);
         }
         
         await logAuthFailure(req, requestId, tokenResult.errorCode || 'INVALID', tokenResult.error || 'Token verification failed');
@@ -440,8 +446,8 @@ export function withAuth(
         body: req.body,
       });
       
-      // Execute handler
-      const response = await handler(modifiedReq, user);
+      // Execute handler (pass through route context/params if provided)
+      const response = await handler(modifiedReq, user, context);
       
       // Clear clinic context
       setClinicContext(undefined);
