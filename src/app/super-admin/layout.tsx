@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Shield, Building2, Users, Palette, Settings, LogOut,
-  ChevronRight, Globe, CreditCard, Activity, BarChart3
+  Shield, Building2, Palette, Settings, LogOut, ChevronRight
 } from 'lucide-react';
 
 const navItems = [
@@ -81,12 +80,17 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         <div className="flex items-center justify-center mb-6 px-4">
           <Link href="/super-admin">
             {sidebarExpanded ? (
-              <div className="flex items-center gap-2">
-                <Shield className="h-8 w-8 text-[#4fa77e]" />
-                <span className="font-bold text-gray-800">Super Admin</span>
-              </div>
+              <img
+                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                alt="EONPRO"
+                className="h-10 w-auto"
+              />
             ) : (
-              <Shield className="h-10 w-10 text-[#4fa77e]" />
+              <img
+                src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
+                alt="EONPRO"
+                className="h-10 w-10 object-contain"
+              />
             )}
           </Link>
         </div>
