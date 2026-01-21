@@ -73,7 +73,7 @@ async function getUserHandler(
             npi: true,
             licenseNumber: true,
             licenseState: true,
-            deaNumber: true,
+            // deaNumber field may not exist in schema
           },
         },
       },
@@ -215,7 +215,8 @@ async function updateUserHandler(
       });
     } catch (auditError) {
       // Audit log creation is non-critical
-      logger.warn('Failed to create audit log:', auditError);
+      const errMsg = auditError instanceof Error ? auditError.message : 'Unknown error';
+      logger.warn('Failed to create audit log:', { error: errMsg });
     }
 
     logger.info(`User ${targetUser.email} updated by ${user.email}`);

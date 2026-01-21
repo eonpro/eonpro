@@ -84,20 +84,21 @@ async function loginHandler(req: NextRequest) {
           break;
 
         case 'admin':
-          // Default admin from environment variables
-          if (
-            email === process.env.ADMIN_EMAIL &&
-            password === process.env.ADMIN_PASSWORD
-          ) {
-            user = {
-              id: 0,
-              email: process.env.ADMIN_EMAIL,
-              firstName: 'Admin',
-              lastName: 'User',
-              role: "admin",
-              status: 'ACTIVE',
-            } as any;
-            passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD!, 12);
+        case 'super_admin':
+          // SECURITY: Admin users must exist in the database
+          // No hardcoded credentials - all admins must be created via proper user management
+          const adminUser = await prisma.user.findFirst({
+            where: { 
+              email: email.toLowerCase(),
+              role: { in: ['ADMIN', 'SUPER_ADMIN'] }
+            },
+            include: {
+              provider: true,
+            },
+          });
+          if (adminUser) {
+            user = adminUser;
+            passwordHash = adminUser.passwordHash;
           }
           break;
         
@@ -300,10 +301,9 @@ async function loginHandler(req: NextRequest) {
     });
 
     return response;
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Login error:', error);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Login error:', error instanceof Error ? error : new Error(errorMessage));
     return NextResponse.json(
       { error: 'An error occurred during login' },
       { status: 500 }

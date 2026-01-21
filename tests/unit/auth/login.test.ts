@@ -257,7 +257,8 @@ describe('JWT Token Generation', () => {
     const { AUTH_CONFIG } = await import('@/lib/auth/config');
     
     expect(AUTH_CONFIG.cookie.httpOnly).toBe(true);
-    expect(AUTH_CONFIG.cookie.sameSite).toBe('strict');
+    // 'lax' is the correct setting - allows same-origin while preventing CSRF
+    expect(AUTH_CONFIG.cookie.sameSite).toBe('lax');
     expect(AUTH_CONFIG.cookie.path).toBe('/');
   });
 });

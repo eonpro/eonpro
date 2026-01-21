@@ -369,8 +369,8 @@ export async function getActiveSession(sessionId: string): Promise<{
     return null;
   }
 
-  const segments: TranscriptionSegment[] = conversation.messages.map((m, idx) => {
-    const citations = m.citations as any || {};
+  const segments: TranscriptionSegment[] = conversation.messages.map((m: { role: string; content: string; citations: unknown; createdAt: Date }, idx: number) => {
+    const citations = (m.citations as Record<string, unknown>) || {};
     return {
       id: `seg-${idx}`,
       speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),

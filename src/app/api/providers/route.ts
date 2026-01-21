@@ -1,95 +1,104 @@
-import { prisma, basePrisma } from "@/lib/db";
-import { lookupNpi } from "@/lib/npi";
-import { providerSchema } from "@/lib/providerSchema";
-import { NextRequest, NextResponse } from "next/server";
+import { prisma, basePrisma } from '@/lib/db';
+import { lookupNpi } from '@/lib/npi';
+import { providerSchema } from '@/lib/providerSchema';
+import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 // GET - List providers (protected)
-export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
-  // Get all providers from Provider table (these have NPI and credentials)
-  // Use basePrisma to bypass clinic filtering - providers may work across clinics
-  let providers;
-  
-  logger.info(`[PROVIDERS/GET] Request from user ${user.id}, role: ${user.role}, clinicId: ${user.clinicId}, providerId: ${user.providerId}`);
-  
-  if (user.role === 'super_admin') {
-    // Super admin sees all providers
-    providers = await basePrisma.provider.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-            subdomain: true,
-          }
-        }
-      }
-    });
-  } else {
-    // For provider role: ALWAYS include their own linked provider record
-    // Plus any providers from their clinic or shared providers
-    const userData = await basePrisma.user.findUnique({
-      where: { id: user.id },
-      select: { providerId: true, email: true }
-    });
-    
-    logger.info(`[PROVIDERS/GET] User data: providerId=${userData?.providerId}, email=${userData?.email}`);
-    
-    // Build OR conditions
-    const orConditions: any[] = [];
-    
-    // If user has a linked provider, include it by ID (highest priority)
-    if (userData?.providerId) {
-      orConditions.push({ id: userData.providerId });
-    }
-    
-    // Also include provider matching user's email (in case not linked yet)
-    if (userData?.email) {
-      orConditions.push({ email: userData.email });
-    }
-    
-    // Include providers from user's clinic
-    if (user.clinicId) {
-      orConditions.push({ clinicId: user.clinicId });
-    }
-    
-    // Include shared providers (no clinic)
-    orConditions.push({ clinicId: null });
-    
-    logger.info(`[PROVIDERS/GET] Query conditions:`, JSON.stringify(orConditions));
-    
-    providers = await basePrisma.provider.findMany({
-      where: {
-        OR: orConditions
-      },
-      orderBy: { createdAt: "desc" },
-      include: {
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-            subdomain: true,
-          }
-        }
-      }
-    });
-    
-    logger.info(`[PROVIDERS/GET] Found ${providers.length} providers before dedup`);
-    
-    // Remove duplicates (in case provider matches multiple conditions)
-    const seen = new Set();
-    providers = providers.filter((p: any) => {
-      if (seen.has(p.id)) return false;
-      seen.add(p.id);
-      return true;
-    });
-  }
+export const GET = withAuth(
+  async (req: NextRequest, user: AuthUser) => {
+    // Get all providers from Provider table (these have NPI and credentials)
+    // Use basePrisma to bypass clinic filtering - providers may work across clinics
+    let providers;
 
-  logger.info(`[PROVIDERS/GET] Returning ${providers.length} providers for user ${user.id} (${user.role})`);
-  return NextResponse.json({ providers });
-}, { roles: ['admin', 'super_admin', 'provider'] });
+    logger.info(
+      `[PROVIDERS/GET] Request from user ${user.id}, role: ${user.role}, clinicId: ${user.clinicId}, providerId: ${user.providerId}`
+    );
+
+    if (user.role === 'super_admin') {
+      // Super admin sees all providers
+      providers = await basePrisma.provider.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+            },
+          },
+        },
+      });
+    } else {
+      // For provider role: ALWAYS include their own linked provider record
+      // Plus any providers from their clinic or shared providers
+      const userData = await basePrisma.user.findUnique({
+        where: { id: user.id },
+        select: { providerId: true, email: true },
+      });
+
+      logger.info(
+        `[PROVIDERS/GET] User data: providerId=${userData?.providerId}, email=${userData?.email}`
+      );
+
+      // Build OR conditions
+      const orConditions: any[] = [];
+
+      // If user has a linked provider, include it by ID (highest priority)
+      if (userData?.providerId) {
+        orConditions.push({ id: userData.providerId });
+      }
+
+      // Also include provider matching user's email (in case not linked yet)
+      if (userData?.email) {
+        orConditions.push({ email: userData.email });
+      }
+
+      // Include providers from user's clinic
+      if (user.clinicId) {
+        orConditions.push({ clinicId: user.clinicId });
+      }
+
+      // Include shared providers (no clinic)
+      orConditions.push({ clinicId: null });
+
+      logger.info(`[PROVIDERS/GET] Query conditions:`, { conditions: orConditions });
+
+      providers = await basePrisma.provider.findMany({
+        where: {
+          OR: orConditions,
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+            },
+          },
+        },
+      });
+
+      logger.info(`[PROVIDERS/GET] Found ${providers.length} providers before dedup`);
+
+      // Remove duplicates (in case provider matches multiple conditions)
+      const seen = new Set();
+      providers = providers.filter((p: any) => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+    }
+
+    logger.info(
+      `[PROVIDERS/GET] Returning ${providers.length} providers for user ${user.id} (${user.role})`
+    );
+    return NextResponse.json({ providers });
+  },
+  { roles: ['admin', 'super_admin', 'provider'] }
+);
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -102,7 +111,7 @@ export async function POST(req: NextRequest) {
     const firstIssue = parsed.error.issues[0];
     return Response.json(
       {
-        error: firstIssue?.message ?? "Invalid provider payload",
+        error: firstIssue?.message ?? 'Invalid provider payload',
         issues: parsed.error.issues,
       },
       { status: 400 }
@@ -120,9 +129,7 @@ export async function POST(req: NextRequest) {
         lastName: data.lastName,
         titleLine:
           data.titleLine ??
-          [registry.basic?.credential, registry.basic?.lastName]
-            .filter(Boolean)
-            .join(" "),
+          [registry.basic?.credential, registry.basic?.lastName].filter(Boolean).join(' '),
         npi: data.npi,
         licenseState: data.licenseState,
         licenseNumber: data.licenseNumber,
@@ -140,9 +147,9 @@ export async function POST(req: NextRequest) {
           select: {
             id: true,
             name: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     return Response.json({ provider });
@@ -150,11 +157,7 @@ export async function POST(req: NextRequest) {
     // @ts-ignore
 
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    logger.error("[PROVIDERS/POST] Failed to create provider", err);
-    return Response.json(
-      { error: errorMessage ?? "Failed to create provider" },
-      { status: 400 }
-    );
+    logger.error('[PROVIDERS/POST] Failed to create provider', err);
+    return Response.json({ error: errorMessage ?? 'Failed to create provider' }, { status: 400 });
   }
 }
-

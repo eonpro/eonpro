@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     });
     logger.debug(`[EONPRO INTAKE ${requestId}] Patient upserted`, {
       patientId: patient.id,
-      isNew: !patient.createdAt || patient.createdAt === patient.updatedAt
+      isNew: !patient.createdAt
     });
 
     // Generate PDF from intake data

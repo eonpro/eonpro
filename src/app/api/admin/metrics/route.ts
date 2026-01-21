@@ -1,8 +1,8 @@
 /**
  * Admin Metrics Dashboard API
- * 
+ *
  * Provides detailed metrics for the admin dashboard.
- * 
+ *
  * GET /api/admin/metrics - Get all metrics
  * GET /api/admin/metrics?type=webhook - Get webhook metrics only
  */
@@ -16,12 +16,12 @@ import { getQueueStats } from '@/lib/queue/deadLetterQueue';
 export async function GET(req: NextRequest) {
   // Check authentication
   const auth = await verifyAuth(req);
-  if (!auth.authenticated || !auth.user) {
+  if (!auth.success || !auth.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // Check for admin role
-  if (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN') {
+  if (auth.user.role !== 'admin' && auth.user.role !== 'super_admin') {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
 
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     // Get recent webhook activity from database
     const { prisma } = await import('@/lib/db');
-    
+
     const now = new Date();
     const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
     const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -97,13 +97,15 @@ export async function GET(req: NextRequest) {
         requestsLastHour: health.metrics.requestsLastHour,
         errorsLastHour: health.metrics.errorsLastHour,
       },
-      queue: dlqStats ? {
-        pending: dlqStats.pending,
-        exhausted: dlqStats.exhausted,
-        totalQueued: dlqStats.totalQueued,
-        totalProcessed: dlqStats.totalProcessed,
-        lastProcessedAt: dlqStats.lastProcessedAt,
-      } : null,
+      queue: dlqStats
+        ? {
+            pending: dlqStats.pending,
+            exhausted: dlqStats.exhausted,
+            totalQueued: dlqStats.totalQueued,
+            totalProcessed: dlqStats.totalProcessed,
+            lastProcessedAt: dlqStats.lastProcessedAt,
+          }
+        : null,
       activity: {
         patientsLastHour,
         patientsLastDay,
@@ -111,13 +113,15 @@ export async function GET(req: NextRequest) {
         documentsLastDay,
         webhooksBySource: webhookSources,
       },
-      recentWebhooks: recentAuditLogs.map(log => ({
-        id: log.id,
-        action: log.action,
-        timestamp: log.timestamp,
-        source: ((log.details as Record<string, unknown>)?.source as string) || 'unknown',
-        success: ((log.details as Record<string, unknown>)?.success as boolean) ?? true,
-      })),
+      recentWebhooks: recentAuditLogs.map(
+        (log: { id: number; action: string; timestamp?: Date; details: unknown }) => ({
+          id: log.id,
+          action: log.action,
+          timestamp: log.timestamp,
+          source: ((log.details as Record<string, unknown>)?.source as string) || 'unknown',
+          success: ((log.details as Record<string, unknown>)?.success as boolean) ?? true,
+        })
+      ),
     };
 
     if (type === 'webhook') {
@@ -131,9 +135,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(metrics);
   } catch (err) {
     logger.error('[Metrics] Failed to get metrics:', err);
-    return NextResponse.json({
-      error: 'Failed to retrieve metrics',
-      details: err instanceof Error ? err.message : 'Unknown error',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to retrieve metrics',
+        details: err instanceof Error ? err.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }

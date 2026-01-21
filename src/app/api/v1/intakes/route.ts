@@ -62,28 +62,40 @@ export async function POST(req: NextRequest) {
     
     const clinicId = clinic?.id || 3;
     
+    // Extract patient data from normalized intake
+    const patientData = normalized.patient;
+    
     // Create or update patient
     let patient = await prisma.patient.findFirst({
-      where: { email: normalized.email },
+      where: { 
+        clinicId,
+        email: patientData.email 
+      },
     });
     
     const isNewPatient = !patient;
     
     if (patient) {
+      // Get existing tags safely
+      const existingTags = Array.isArray(patient.tags) ? (patient.tags as string[]) : [];
+      const updatedTags = existingTags.includes("v1-intake") 
+        ? existingTags 
+        : [...existingTags, "v1-intake"];
+      
       patient = await prisma.patient.update({
         where: { id: patient.id },
         data: {
-          firstName: normalized.firstName || patient.firstName,
-          lastName: normalized.lastName || patient.lastName,
-          phone: normalized.phone || patient.phone,
-          dateOfBirth: normalized.dateOfBirth ? new Date(normalized.dateOfBirth) : patient.dateOfBirth,
-          gender: normalized.gender || patient.gender,
-          address: normalized.address || patient.address,
-          city: normalized.city || patient.city,
-          state: normalized.state || patient.state,
-          zipCode: normalized.zipCode || patient.zipCode,
+          firstName: patientData.firstName || patient.firstName,
+          lastName: patientData.lastName || patient.lastName,
+          phone: patientData.phone || patient.phone,
+          dob: patientData.dob || patient.dob,
+          gender: patientData.gender || patient.gender,
+          address1: patientData.address1 || patient.address1,
+          city: patientData.city || patient.city,
+          state: patientData.state || patient.state,
+          zip: patientData.zip || patient.zip,
           clinicId,
-          tags: { push: "v1-intake" },
+          tags: updatedTags,
         },
       });
     } else {
@@ -93,18 +105,18 @@ export async function POST(req: NextRequest) {
       patient = await prisma.patient.create({
         data: {
           patientId,
-          firstName: normalized.firstName || "Unknown",
-          lastName: normalized.lastName || "Patient",
-          email: normalized.email || `unknown-${Date.now()}@intake.local`,
-          phone: normalized.phone,
-          dateOfBirth: normalized.dateOfBirth ? new Date(normalized.dateOfBirth) : undefined,
-          gender: normalized.gender,
-          address: normalized.address,
-          city: normalized.city,
-          state: normalized.state,
-          zipCode: normalized.zipCode,
+          firstName: patientData.firstName || "Unknown",
+          lastName: patientData.lastName || "Patient",
+          email: patientData.email || `unknown-${Date.now()}@intake.local`,
+          phone: patientData.phone || "",
+          dob: patientData.dob || "1900-01-01",
+          gender: patientData.gender || "Unknown",
+          address1: patientData.address1 || "",
+          city: patientData.city || "",
+          state: patientData.state || "",
+          zip: patientData.zip || "",
           clinicId,
-          status: "ACTIVE",
+          source: "api",
           tags: ["v1-intake", "complete-intake"],
         },
       });
@@ -143,7 +155,8 @@ export async function POST(req: NextRequest) {
       });
       documentId = doc.id;
     } catch (err) {
-      logger.warn(`[V1 INTAKES ${requestId}] PDF generation failed:`, err);
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[V1 INTAKES ${requestId}] PDF generation failed:`, { error: errMsg });
     }
     
     // Generate SOAP Note
@@ -153,7 +166,8 @@ export async function POST(req: NextRequest) {
         const soapNote = await generateSOAPFromIntake(patient.id, documentId);
         soapNoteId = soapNote.id;
       } catch (err) {
-        logger.warn(`[V1 INTAKES ${requestId}] SOAP generation failed:`, err);
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[V1 INTAKES ${requestId}] SOAP generation failed:`, { error: errMsg });
       }
     }
     
@@ -174,11 +188,12 @@ export async function POST(req: NextRequest) {
       processingTime: `${duration}ms`,
     });
     
-  } catch (error: any) {
-    logger.error(`[V1 INTAKES ${requestId}] Error:`, error);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`[V1 INTAKES ${requestId}] Error:`, error instanceof Error ? error : new Error(errorMessage));
     return Response.json({
       success: false,
-      error: error.message || "Internal server error",
+      error: errorMessage,
       requestId,
     }, { status: 500 });
   }

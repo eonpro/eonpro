@@ -102,16 +102,16 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
       types = [type];
     }
     
-    // Fetch events
-    const eventParams: Stripe.EventListParams = {
+    // Fetch events - use explicit params object to handle Stripe type changes
+    const eventParams = {
       limit,
       ...(startingAfter && { starting_after: startingAfter }),
-      ...(types && { types: types as Stripe.EventListParams.Type[] }),
+      ...(types && { types }),
       ...(createdFilter && { created: createdFilter }),
       ...(deliverySuccess !== null && { delivery_success: deliverySuccess === 'true' }),
     };
     
-    const events = await stripe.events.list(eventParams);
+    const events = await stripe.events.list(eventParams as Record<string, unknown>);
     
     // Process events
     const typeBreakdown: Record<string, number> = {};

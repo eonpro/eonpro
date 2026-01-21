@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { PatientDocumentCategory } from "@prisma/client";
+import { PatientDocumentCategory, Clinic, Patient, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeMedLinkPayload } from "@/lib/medlink/intakeNormalizer";
 import { generateIntakePdf } from "@/services/intakePdfService";
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   let clinicId: number;
   try {
-    const eonmedsClinic = await withRetry(() => prisma.clinic.findFirst({
+    const eonmedsClinic = await withRetry<Clinic | null>(() => prisma.clinic.findFirst({
       where: {
         OR: [
           { subdomain: EONMEDS_CLINIC_SUBDOMAIN },
@@ -128,7 +128,8 @@ export async function POST(req: NextRequest) {
     clinicId = eonmedsClinic.id;
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Clinic ID: ${clinicId}`);
   } catch (err) {
-    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Database error finding clinic:`, err);
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Database error finding clinic:`, { error: errMsg });
     recordError("weightlossintake", `Database error: ${err instanceof Error ? err.message : 'Unknown'}`, { requestId });
     
     // Queue to DLQ for retry - get raw body for requeueing
@@ -144,7 +145,8 @@ export async function POST(req: NextRequest) {
         );
         logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Queued to DLQ for retry`);
       } catch (dlqErr) {
-        logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
+        const dlqErrMsg = dlqErr instanceof Error ? dlqErr.message : 'Unknown error';
+        logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, { error: dlqErrMsg });
       }
     }
     
@@ -183,7 +185,8 @@ export async function POST(req: NextRequest) {
     normalized = normalizeMedLinkPayload(payload);
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Normalized: ${normalized.patient.firstName} ${normalized.patient.lastName}`);
   } catch (err) {
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Normalization failed, using fallback:`, err);
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Normalization failed, using fallback:`, { error: errMsg });
     errors.push("Normalization failed, using fallback data");
     normalized = {
       submissionId: `fallback-${requestId}`,
@@ -244,7 +247,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Find existing patient (with retry)
-    const existingPatient = await withRetry(() => prisma.patient.findFirst({
+    const existingPatient = await withRetry<Patient | null>(() => prisma.patient.findFirst({
       where: {
         clinicId: clinicId,
         OR: [
@@ -255,7 +258,7 @@ export async function POST(req: NextRequest) {
             lastName: patientData.lastName,
             dob: patientData.dob,
           } : null,
-        ].filter(Boolean) as any[],
+        ].filter(Boolean) as Prisma.PatientWhereInput[],
       },
     }));
 
@@ -307,8 +310,8 @@ export async function POST(req: NextRequest) {
       logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`);
     }
   } catch (err) {
-    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, err);
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, { error: errorMsg });
     recordError("weightlossintake", `Patient creation failed: ${errorMsg}`, { requestId });
     
     // Queue to DLQ for retry
@@ -347,7 +350,8 @@ export async function POST(req: NextRequest) {
     pdfContent = await generateIntakePdf(normalized, patient);
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF: ${pdfContent.byteLength} bytes`);
   } catch (err) {
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF generation failed (continuing):`, err);
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF generation failed (continuing):`, { error: errMsg });
     errors.push("PDF generation failed");
   }
 
@@ -364,7 +368,8 @@ export async function POST(req: NextRequest) {
       });
       logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`);
     } catch (err) {
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF preparation failed (continuing):`, err);
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF preparation failed (continuing):`, { error: errMsg });
       errors.push("PDF preparation failed");
     }
   }
@@ -394,7 +399,8 @@ export async function POST(req: NextRequest) {
         logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] S3 not configured, PDF stored in database only`);
       }
     } catch (err) {
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] S3 upload failed (continuing):`, err);
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] S3 upload failed (continuing):`, { error: errMsg });
       errors.push("S3 PDF upload failed");
     }
   }
@@ -514,7 +520,8 @@ export async function POST(req: NextRequest) {
       logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Created document: ${patientDocument.id}`);
     }
   } catch (err) {
-    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Document record failed:`, err);
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Document record failed:`, { error: errMsg });
     errors.push("Document record creation failed");
   }
 
@@ -530,10 +537,11 @@ export async function POST(req: NextRequest) {
       const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
       soapNoteId = soapNote.id;
       logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SOAP Note generated: ID ${soapNoteId}`);
-    } catch (err: any) {
+    } catch (err) {
       // SOAP generation can fail (OpenAI rate limits, etc.) - don't block the webhook
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] SOAP generation failed (non-fatal):`, err.message);
-      errors.push(`SOAP generation failed: ${err.message}`);
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] SOAP generation failed (non-fatal):`, { error: errMsg });
+      errors.push(`SOAP generation failed: ${errMsg}`);
     }
   } else if (isPartialSubmission) {
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Skipping SOAP for partial submission`);
@@ -563,7 +571,8 @@ export async function POST(req: NextRequest) {
       });
       logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Promo: ${promoCode}`);
     } catch (err) {
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Promo tracking failed:`, err);
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Promo tracking failed:`, { error: errMsg });
       errors.push(`Promo tracking failed: ${promoCode}`);
     }
   }
@@ -595,7 +604,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Audit log failed:`, err);
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Audit log failed:`, { error: errMsg });
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -609,8 +619,9 @@ export async function POST(req: NextRequest) {
   logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`);
 
   // Extract Airtable record ID if provided (for bidirectional sync)
-  const airtableRecordId = payloadData.airtableRecordId || payloadData.airtable_record_id || 
-                           payloadData.recordId || payloadData.record_id || null;
+  const payloadForAirtable = (payload.data as Record<string, unknown>) || payload;
+  const airtableRecordId = payloadForAirtable.airtableRecordId || payloadForAirtable.airtable_record_id || 
+                           payloadForAirtable.recordId || payloadForAirtable.record_id || null;
 
   // Response format matching WeightLossIntake EMR Integration expectations
   // WeightLossIntake should capture these fields and store them in Airtable
@@ -686,14 +697,14 @@ function normalizePatientData(patient: any) {
   };
 }
 
-async function getNextPatientId() {
+async function getNextPatientId(): Promise<string> {
   try {
     const counter = await withRetry(() => prisma.patientCounter.upsert({
       where: { id: 1 },
       create: { id: 1, current: 1 },
       update: { current: { increment: 1 } },
     }));
-    return counter.current.toString().padStart(6, "0");
+    return (counter as { current: number }).current.toString().padStart(6, "0");
   } catch {
     // Fallback: use timestamp-based ID
     return `WLI${Date.now().toString().slice(-8)}`;

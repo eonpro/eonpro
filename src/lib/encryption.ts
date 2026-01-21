@@ -1,14 +1,54 @@
 import crypto from 'crypto';
 
-// In production, these should be stored in secure environment variables or key management service
-const ENCRYPTION_KEY = process.env.CARD_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32);
+// CRITICAL: Encryption key must be set in environment variables
+// Never fall back to random keys - this causes data loss on restart
 const IV_LENGTH = 16;
+const AES_KEY_LENGTH = 32; // AES-256 requires 32 bytes
+
+function getEncryptionKey(): Buffer {
+  const key = process.env.CARD_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY;
+  
+  if (!key) {
+    // In development/test, use a deterministic key for local testing only
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      console.warn('[ENCRYPTION] WARNING: Using development encryption key. Set CARD_ENCRYPTION_KEY in production!');
+      // Return a deterministic 32-byte key for development
+      return Buffer.from('dev_encryption_key_for_testing!!'); // Exactly 32 chars
+    }
+    throw new Error(
+      'CRITICAL: CARD_ENCRYPTION_KEY or ENCRYPTION_KEY environment variable must be set. ' +
+      'Generate with: openssl rand -hex 32'
+    );
+  }
+  
+  // Support multiple key formats:
+  // 1. 64-character hex string (32 bytes) - recommended: openssl rand -hex 32
+  // 2. 32-character string (used directly as bytes)
+  
+  if (key.length === 64 && /^[0-9a-fA-F]+$/.test(key)) {
+    // Hex-encoded 32-byte key
+    return Buffer.from(key, 'hex');
+  }
+  
+  if (key.length === 32) {
+    // Direct string key (legacy format)
+    return Buffer.from(key, 'utf8');
+  }
+  
+  throw new Error(
+    `CRITICAL: Invalid encryption key format. Key length: ${key.length}. ` +
+    'Expected either: 64-character hex string (openssl rand -hex 32) or 32-character string. ' +
+    'Current key is neither format.'
+  );
+}
+
+const ENCRYPTION_KEY = getEncryptionKey();
 
 export function encryptCardData(text: string): string {
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(
     'aes-256-cbc',
-    Buffer.from(ENCRYPTION_KEY),
+    ENCRYPTION_KEY, // Already a Buffer
     iv
   );
   
@@ -24,7 +64,7 @@ export function decryptCardData(text: string): string {
   const encryptedText = Buffer.from(textParts.join(':'), 'hex');
   const decipher = crypto.createDecipheriv(
     'aes-256-cbc',
-    Buffer.from(ENCRYPTION_KEY),
+    ENCRYPTION_KEY, // Already a Buffer
     iv
   );
   

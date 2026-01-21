@@ -30,6 +30,12 @@ type Patient = {
   clinicName?: string | null;
 };
 
+type Clinic = {
+  id: number;
+  name: string;
+  subdomain?: string | null;
+};
+
 const GENDER_OPTIONS = [
   { value: "m", label: "Male" },
   { value: "f", label: "Female" },

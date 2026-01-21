@@ -7,14 +7,25 @@ import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
 import { PatientDocumentCategory } from '@prisma/client';
 
+// Type for patient with clinic select result
+interface PatientWithClinic {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  clinicId: number | null;
+  createdAt: Date;
+  clinic: { name: string } | null;
+}
+
 /**
  * Regenerate Patient Documents
- * 
+ *
  * POST /api/admin/regenerate-patient-docs
- * 
+ *
  * Regenerates PDF intake form and SOAP note for a patient
  * Useful for patients who were created without proper documents
- * 
+ *
  * Body:
  * {
  *   "patientId": 50,           // Patient ID to regenerate docs for
@@ -27,7 +38,7 @@ import { PatientDocumentCategory } from '@prisma/client';
 export async function POST(req: NextRequest) {
   const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
   const providedSecret = req.headers.get('x-webhook-secret');
-  
+
   if (!configuredSecret || providedSecret !== configuredSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -70,13 +81,13 @@ export async function POST(req: NextRequest) {
 
     // Get or create intake data
     let normalizedIntake: any = null;
-    
+
     // Try to get intake data from existing document
     if (patient.documents.length > 0 && patient.documents[0].data) {
       try {
         const existingDoc = patient.documents[0];
         let dataStr = '';
-        
+
         // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
         if (existingDoc.data instanceof Uint8Array) {
           dataStr = Buffer.from(existingDoc.data).toString('utf8');
@@ -85,7 +96,7 @@ export async function POST(req: NextRequest) {
         } else if (typeof existingDoc.data === 'string') {
           dataStr = existingDoc.data;
         }
-        
+
         if (dataStr) {
           const parsedData = JSON.parse(dataStr);
           normalizedIntake = normalizeMedLinkPayload(parsedData);
@@ -95,13 +106,13 @@ export async function POST(req: NextRequest) {
         logger.warn('[REGENERATE] Could not parse existing document data', { error: e });
       }
     }
-    
+
     // Use provided intake data if no existing data
     if (!normalizedIntake && intakeData) {
       normalizedIntake = normalizeMedLinkPayload(intakeData);
       results.intakeSource = 'provided_data';
     }
-    
+
     // Create minimal intake from patient data if nothing else
     if (!normalizedIntake) {
       normalizedIntake = {
@@ -141,7 +152,7 @@ export async function POST(req: NextRequest) {
     if (regeneratePdf) {
       try {
         logger.info('[REGENERATE] Generating PDF for patient', { patientId });
-        
+
         const pdfContent = await generateIntakePdf(normalizedIntake, patient);
         const stored = await storeIntakePdf({
           patientId: patient.id,
@@ -159,14 +170,14 @@ export async function POST(req: NextRequest) {
 
         // Create or update document record
         const existingDoc = patient.documents[0];
-        
+
         if (existingDoc) {
           await prisma.patientDocument.update({
             where: { id: existingDoc.id },
             data: {
               filename: stored.filename,
-              data: stored.pdfBuffer,  // Store PDF bytes directly
-              externalUrl: null,  // Clear legacy external URL
+              data: stored.pdfBuffer, // Store PDF bytes directly
+              externalUrl: null, // Clear legacy external URL
               clinicId: patient.clinicId,
             },
           });
@@ -186,7 +197,7 @@ export async function POST(req: NextRequest) {
               source: 'regenerated',
               sourceSubmissionId: normalizedIntake.submissionId,
               category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-              data: stored.pdfBuffer,  // Store PDF bytes directly
+              data: stored.pdfBuffer, // Store PDF bytes directly
             },
           });
           results.actions.push({
@@ -196,7 +207,7 @@ export async function POST(req: NextRequest) {
             pdfSizeBytes: stored.pdfBuffer.length,
           });
         }
-        
+
         logger.info('[REGENERATE] PDF generated successfully', { patientId });
       } catch (error: any) {
         logger.error('[REGENERATE] PDF generation failed', { error: error.message });
@@ -219,7 +230,7 @@ export async function POST(req: NextRequest) {
           });
         } else {
           logger.info('[REGENERATE] Generating SOAP note for patient', { patientId });
-          
+
           // Need an intake document for SOAP generation
           const intakeDoc = await prisma.patientDocument.findFirst({
             where: {
@@ -241,9 +252,9 @@ export async function POST(req: NextRequest) {
               soapNoteId: soapNote.id,
               status: soapNote.status,
             });
-            logger.info('[REGENERATE] SOAP note generated successfully', { 
-              patientId, 
-              soapNoteId: soapNote.id 
+            logger.info('[REGENERATE] SOAP note generated successfully', {
+              patientId,
+              soapNoteId: soapNote.id,
             });
           }
         }
@@ -275,13 +286,15 @@ export async function POST(req: NextRequest) {
       success: true,
       ...results,
     });
-
   } catch (error: any) {
     logger.error('[REGENERATE] Error:', error);
-    return NextResponse.json({
-      error: 'Failed to regenerate documents',
-      message: error.message,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to regenerate documents',
+        message: error.message,
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -289,7 +302,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
   const providedSecret = req.headers.get('x-webhook-secret');
-  
+
   if (!configuredSecret || providedSecret !== configuredSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -348,14 +361,14 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
-      patientsWithoutIntakePdf: patientsWithoutDocs.map(p => ({
+      patientsWithoutIntakePdf: patientsWithoutDocs.map((p: PatientWithClinic) => ({
         id: p.id,
         name: `${p.firstName} ${p.lastName}`,
         email: p.email,
         clinic: p.clinic?.name || 'Unknown',
         createdAt: p.createdAt,
       })),
-      patientsWithoutSoapNote: patientsWithoutSoap.map(p => ({
+      patientsWithoutSoapNote: patientsWithoutSoap.map((p: PatientWithClinic) => ({
         id: p.id,
         name: `${p.firstName} ${p.lastName}`,
         email: p.email,
@@ -367,12 +380,14 @@ export async function GET(req: NextRequest) {
         missingSoap: patientsWithoutSoap.length,
       },
     });
-
   } catch (error: any) {
     logger.error('[REGENERATE] Error fetching patients:', error);
-    return NextResponse.json({
-      error: 'Failed to fetch patients',
-      message: error.message,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch patients',
+        message: error.message,
+      },
+      { status: 500 }
+    );
   }
 }

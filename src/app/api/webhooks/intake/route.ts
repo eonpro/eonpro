@@ -214,10 +214,10 @@ export async function POST(req: NextRequest) {
     logger.info(`[INTAKE WEBHOOK ${requestId}] SUCCESS in ${processingTimeMs}ms`);
 
     return Response.json({
-      success: true,
       requestId,
       source,
       ...result,
+      success: true, // Place last to ensure it's not overwritten by result
     }, { status: 200 });
 
   } catch (error: any) {

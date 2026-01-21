@@ -20,9 +20,10 @@ interface FormTemplate {
 
 interface SendIntakeFormModalProps {
   patient: Patient;
+  onClose?: () => void;
 }
 
-export default function SendIntakeFormModal({ patient }: SendIntakeFormModalProps) {
+export default function SendIntakeFormModal({ patient, onClose }: SendIntakeFormModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);

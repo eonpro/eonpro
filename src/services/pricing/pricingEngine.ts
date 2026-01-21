@@ -146,7 +146,7 @@ export class PricingEngine {
     });
 
     // Filter to promotions applicable to our products
-    return promotions.filter(promo => {
+    return promotions.filter((promo: typeof promotions[0]) => {
       if (promo.applyTo === 'ALL_PRODUCTS') return true;
       if (promo.applyTo === 'LIMITED_PRODUCTS' && promo.productIds) {
         const allowedIds = promo.productIds as number[];

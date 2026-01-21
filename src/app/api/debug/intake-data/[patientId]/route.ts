@@ -1,11 +1,11 @@
 /**
  * Debug endpoint to inspect intake data for a patient
- * 
+ *
  * Shows:
  * 1. What's stored in the document
  * 2. How it's parsed
  * 3. What fields would display
- * 
+ *
  * GET /api/debug/intake-data/[patientId]
  */
 
@@ -21,7 +21,7 @@ export async function GET(
   { params }: { params: Promise<{ patientId: string }> }
 ) {
   const { patientId } = await params;
-  
+
   // Simple auth check
   const secret = req.headers.get('x-debug-secret') || req.nextUrl.searchParams.get('secret');
   if (DEBUG_SECRET && secret !== DEBUG_SECRET) {
@@ -71,7 +71,8 @@ export async function GET(
     });
 
     // Parse each document's data
-    const parsedDocuments = documents.map(doc => {
+    type DocumentEntry = (typeof documents)[number];
+    const parsedDocuments = documents.map((doc: DocumentEntry) => {
       let intakeData = null;
       let parseError = null;
       let dataType = 'unknown';
@@ -79,12 +80,12 @@ export async function GET(
       if (doc.data) {
         try {
           let rawData = doc.data;
-          
+
           // Handle Buffer types (Prisma 6.x returns Uint8Array)
           if (rawData instanceof Uint8Array) {
             const str = Buffer.from(rawData).toString('utf8');
             dataType = 'Uint8Array';
-            
+
             // Check if it starts with JSON
             const trimmed = str.trim();
             if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -98,7 +99,7 @@ export async function GET(
           } else if (Buffer.isBuffer(rawData)) {
             const str = rawData.toString('utf8');
             dataType = 'Buffer';
-            
+
             // Check if it starts with JSON
             const trimmed = str.trim();
             if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -113,7 +114,7 @@ export async function GET(
             const arr = (rawData as any).data as number[];
             const str = Buffer.from(arr).toString('utf8');
             dataType = 'SerializedBuffer';
-            
+
             const trimmed = str.trim();
             if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
               intakeData = JSON.parse(trimmed);
@@ -140,29 +141,31 @@ export async function GET(
         dataSize: doc.data ? (doc.data as Buffer).length : 0,
         dataType,
         parseError,
-        intakeData: intakeData ? {
-          hasSubmissionId: !!intakeData.submissionId,
-          hasSections: !!intakeData.sections,
-          hasAnswers: !!intakeData.answers,
-          sectionsCount: intakeData.sections?.length || 0,
-          answersCount: intakeData.answers?.length || 0,
-          // Sample of sections
-          sections: intakeData.sections?.map((s: any) => ({
-            title: s.title,
-            entriesCount: s.entries?.length || 0,
-            sampleEntries: s.entries?.slice(0, 5).map((e: any) => ({
-              id: e.id,
-              label: e.label,
-              value: typeof e.value === 'string' ? e.value.slice(0, 100) : e.value,
-            })),
-          })),
-          // Sample of answers
-          sampleAnswers: intakeData.answers?.slice(0, 10).map((a: any) => ({
-            id: a.id,
-            label: a.label,
-            value: typeof a.value === 'string' ? a.value.slice(0, 100) : a.value,
-          })),
-        } : null,
+        intakeData: intakeData
+          ? {
+              hasSubmissionId: !!intakeData.submissionId,
+              hasSections: !!intakeData.sections,
+              hasAnswers: !!intakeData.answers,
+              sectionsCount: intakeData.sections?.length || 0,
+              answersCount: intakeData.answers?.length || 0,
+              // Sample of sections
+              sections: intakeData.sections?.map((s: any) => ({
+                title: s.title,
+                entriesCount: s.entries?.length || 0,
+                sampleEntries: s.entries?.slice(0, 5).map((e: any) => ({
+                  id: e.id,
+                  label: e.label,
+                  value: typeof e.value === 'string' ? e.value.slice(0, 100) : e.value,
+                })),
+              })),
+              // Sample of answers
+              sampleAnswers: intakeData.answers?.slice(0, 10).map((a: any) => ({
+                id: a.id,
+                label: a.label,
+                value: typeof a.value === 'string' ? a.value.slice(0, 100) : a.value,
+              })),
+            }
+          : null,
       };
     });
 
@@ -175,35 +178,48 @@ export async function GET(
       { id: 'bmi', label: 'BMI', aliases: ['bmi'] },
       { id: 'bloodPressure', label: 'Blood Pressure', aliases: ['bloodpressure', 'bp'] },
       // Medical History
-      { id: 'medicalConditions', label: 'Medical Conditions', aliases: ['medicalconditions', 'conditions'] },
+      {
+        id: 'medicalConditions',
+        label: 'Medical Conditions',
+        aliases: ['medicalconditions', 'conditions'],
+      },
       { id: 'allergies', label: 'Allergies', aliases: ['allergies'] },
-      { id: 'currentMedications', label: 'Current Medications', aliases: ['currentmedications', 'medications'] },
+      {
+        id: 'currentMedications',
+        label: 'Current Medications',
+        aliases: ['currentmedications', 'medications'],
+      },
       // GLP-1
       { id: 'glp1History', label: 'GLP-1 History', aliases: ['glp1history'] },
-      { id: 'medicationPreference', label: 'Medication Preference', aliases: ['medicationpreference'] },
+      {
+        id: 'medicationPreference',
+        label: 'Medication Preference',
+        aliases: ['medicationpreference'],
+      },
     ];
 
     // Try to match fields
     const latestDoc = parsedDocuments[0];
     let fieldMatches: any[] = [];
-    
+
     if (latestDoc?.intakeData) {
       const answerMap = new Map<string, any>();
-      
+
       // Build answer map from sections
       if (latestDoc.intakeData.sections) {
         for (const section of latestDoc.intakeData.sections) {
           if (section.sampleEntries) {
             for (const entry of section.sampleEntries) {
               if (entry.id) answerMap.set(entry.id.toLowerCase().replace(/[^a-z0-9]/g, ''), entry);
-              if (entry.label) answerMap.set(entry.label.toLowerCase().replace(/[^a-z0-9]/g, ''), entry);
+              if (entry.label)
+                answerMap.set(entry.label.toLowerCase().replace(/[^a-z0-9]/g, ''), entry);
             }
           }
         }
       }
 
       // Check which display fields have matches
-      fieldMatches = displayFields.map(field => {
+      fieldMatches = displayFields.map((field) => {
         let match = answerMap.get(field.id.toLowerCase().replace(/[^a-z0-9]/g, ''));
         if (!match) {
           for (const alias of field.aliases || []) {
@@ -228,7 +244,8 @@ export async function GET(
         phone: patient.phone,
         dob: patient.dob,
         gender: patient.gender,
-        address: `${patient.address1 || ''} ${patient.address2 || ''}, ${patient.city || ''}, ${patient.state || ''} ${patient.zip || ''}`.trim(),
+        address:
+          `${patient.address1 || ''} ${patient.address2 || ''}, ${patient.city || ''}, ${patient.state || ''} ${patient.zip || ''}`.trim(),
         sourceMetadata: patient.sourceMetadata,
       },
       documentsCount: documents.length,
@@ -240,9 +257,12 @@ export async function GET(
     });
   } catch (err) {
     logger.error('[Debug IntakeData] Error:', err);
-    return NextResponse.json({
-      error: 'Failed to retrieve intake data',
-      details: err instanceof Error ? err.message : 'Unknown error',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to retrieve intake data',
+        details: err instanceof Error ? err.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }

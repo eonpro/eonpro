@@ -232,11 +232,11 @@ export async function POST(
         break;
     }
     
-    // Update patient metadata with credit balance
+    // Update patient sourceMetadata with credit balance
     await basePrisma.patient.update({
       where: { id: patientId },
       data: {
-        metadata: {
+        sourceMetadata: {
           ...currentMetadata,
           creditBalance: newBalance,
           creditHistory: [

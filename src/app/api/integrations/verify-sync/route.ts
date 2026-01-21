@@ -1,11 +1,11 @@
 /**
  * Verify EONPRO Sync Endpoint
- * 
+ *
  * Phase 4: Bi-directional Sync
- * 
+ *
  * Allows WeightLossIntake to verify that a patient was successfully
  * synced to EONPRO and retrieve their EONPRO Patient ID.
- * 
+ *
  * GET /api/integrations/verify-sync?email=patient@example.com
  * GET /api/integrations/verify-sync?submissionId=eonmeds-abc123
  * GET /api/integrations/verify-sync?patientId=130
@@ -20,13 +20,13 @@ const INTEGRATION_SECRET = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
 
 export async function GET(req: NextRequest) {
   const requestId = `verify-${Date.now()}`;
-  
+
   // Verify authentication
-  const providedSecret = 
+  const providedSecret =
     req.headers.get('x-api-key') ||
     req.headers.get('x-webhook-secret') ||
     req.headers.get('authorization')?.replace('Bearer ', '');
-  
+
   if (!INTEGRATION_SECRET || providedSecret !== INTEGRATION_SECRET) {
     logger.warn(`[Verify ${requestId}] Unauthorized access attempt`);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -37,10 +37,13 @@ export async function GET(req: NextRequest) {
   const patientId = req.nextUrl.searchParams.get('patientId');
 
   if (!email && !submissionId && !patientId) {
-    return NextResponse.json({
-      error: 'Missing query parameter',
-      message: 'Provide email, submissionId, or patientId',
-    }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: 'Missing query parameter',
+        message: 'Provide email, submissionId, or patientId',
+      },
+      { status: 400 }
+    );
   }
 
   try {
@@ -50,10 +53,7 @@ export async function GET(req: NextRequest) {
     if (patientId) {
       patient = await prisma.patient.findFirst({
         where: {
-          OR: [
-            { id: parseInt(patientId, 10) || 0 },
-            { patientId: patientId },
-          ],
+          OR: [{ id: parseInt(patientId, 10) || 0 }, { patientId: patientId }],
         },
         select: {
           id: true,
@@ -107,10 +107,12 @@ export async function GET(req: NextRequest) {
       });
 
       // Find patient with matching submissionId
-      patient = patients.find(p => {
-        const meta = p.sourceMetadata as Record<string, unknown> | null;
-        return meta?.submissionId === submissionId;
-      }) || null;
+      type PatientWithMeta = (typeof patients)[number];
+      patient =
+        patients.find((p: PatientWithMeta) => {
+          const meta = p.sourceMetadata as Record<string, unknown> | null;
+          return meta?.submissionId === submissionId;
+        }) || null;
     }
 
     if (!patient) {
@@ -119,7 +121,7 @@ export async function GET(req: NextRequest) {
         submissionId,
         patientId,
       });
-      
+
       return NextResponse.json({
         found: false,
         message: 'Patient not found in EONPRO',
@@ -160,9 +162,12 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     logger.error(`[Verify ${requestId}] Error:`, err);
-    return NextResponse.json({
-      error: 'Verification failed',
-      message: err instanceof Error ? err.message : 'Unknown error',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Verification failed',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }

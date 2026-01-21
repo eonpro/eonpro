@@ -274,11 +274,12 @@ class PrismaWithClinicFilter {
   get superbill() { return this.client.superbill; }
   get carePlan() { return this.client.carePlan; }
   get smsLog() { return this.client.smsLog; }
-  get discount() { return this.client.discount; }
+  get discountCode() { return this.client.discountCode; }
   get discountUsage() { return this.client.discountUsage; }
-  get affiliateInfluencer() { return this.client.affiliateInfluencer; }
   get affiliateReferral() { return this.client.affiliateReferral; }
-  get affiliatePayout() { return this.client.affiliatePayout; }
+  get affiliateCommission() { return this.client.affiliateCommission; }
+  get affiliateProgram() { return this.client.affiliateProgram; }
+  get affiliateTier() { return this.client.affiliateTier; }
   get product() { return this.createModelProxy('product'); }
   get productBundle() { return this.client.productBundle; }
   get productBundleItem() { return this.client.productBundleItem; }

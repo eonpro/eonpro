@@ -64,6 +64,7 @@ export default function LoginPage() {
     } else if (otpSent && otpCountdown === 0) {
       setCanResend(true);
     }
+    return undefined;
   }, [otpCountdown, otpSent]);
 
   // Detect if input is phone number or email

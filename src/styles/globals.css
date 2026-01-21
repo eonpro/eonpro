@@ -4,18 +4,24 @@
 @tailwind utilities;
 
 :root {
-  font-family: var(--font-sofia-pro), -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Helvetica, Arial, sans-serif;
+  font-family:
+    var(--font-sofia-pro),
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Helvetica,
+    Arial,
+    sans-serif;
   --brand-bg: #efece7;
   --brand-text: #1f2933;
   --brand-button: #4fa77e;
-  
+
   /* Additional CSS variables for consistency */
   --success-color: #10b981;
   --error-color: #ef4444;
   --warning-color: #f59e0b;
   --info-color: #3b82f6;
-  
+
   /* Mobile spacing */
   --mobile-safe-top: env(safe-area-inset-top, 0px);
   --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -24,12 +30,15 @@
 }
 
 /* Ensure proper box sizing */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 /* Prevent horizontal overflow on mobile */
-html, body {
+html,
+body {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
@@ -42,21 +51,31 @@ body {
   min-height: 100dvh; /* Dynamic viewport height for mobile */
 }
 
-/* Safe area padding utilities */
+/* Safe area padding utilities for iPhone */
 .safe-top {
-  padding-top: var(--mobile-safe-top);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .safe-bottom {
-  padding-bottom: max(var(--mobile-safe-bottom), 1rem);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .safe-left {
-  padding-left: var(--mobile-safe-left);
+  padding-left: env(safe-area-inset-left, 0px);
 }
 
 .safe-right {
-  padding-right: var(--mobile-safe-right);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Safe area for bottom navigation */
+.safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+}
+
+/* iPhone notch-aware header */
+.safe-area-top {
+  padding-top: max(env(safe-area-inset-top, 0px), 20px);
 }
 
 /* Form elements */
@@ -131,7 +150,9 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   box-shadow: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -154,8 +175,32 @@ textarea:focus {
 @media (max-width: 640px) {
   .btn-primary,
   .btn-ghost {
-    padding: 0.75rem 1.25rem;
-    min-height: 44px; /* Apple's minimum touch target */
+    padding: 0.875rem 1.25rem;
+    min-height: 48px; /* Comfortable touch target */
+    font-size: 16px;
+  }
+}
+
+/* Larger touch targets on mobile */
+@media (max-width: 640px) {
+  button,
+  a[role='button'],
+  [role='button'] {
+    min-height: 44px;
+  }
+
+  /* Larger inputs on mobile */
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='number'],
+  input[type='tel'],
+  input[type='date'],
+  input[type='time'],
+  textarea,
+  select {
+    min-height: 48px;
+    font-size: 16px !important; /* Prevent iOS zoom */
   }
 }
 
@@ -164,22 +209,22 @@ textarea:focus {
   .responsive-table {
     @apply w-full;
   }
-  
+
   @media (max-width: 768px) {
     .responsive-table {
       display: block;
     }
-    
+
     .responsive-table thead {
       display: none;
     }
-    
+
     .responsive-table tbody {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
     }
-    
+
     .responsive-table tr {
       display: block;
       background: white;
@@ -188,7 +233,7 @@ textarea:focus {
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       border: 1px solid rgba(0, 0, 0, 0.05);
     }
-    
+
     .responsive-table td {
       display: flex;
       justify-content: space-between;
@@ -196,7 +241,7 @@ textarea:focus {
       padding: 0.5rem 0;
       border: none !important;
     }
-    
+
     .responsive-table td::before {
       content: attr(data-label);
       font-weight: 600;
@@ -206,7 +251,7 @@ textarea:focus {
       flex-shrink: 0;
       padding-right: 1rem;
     }
-    
+
     .responsive-table td:last-child {
       padding-top: 0.75rem;
       margin-top: 0.5rem;
@@ -244,10 +289,10 @@ textarea:focus {
 /* Touch-friendly spacing */
 @layer utilities {
   .touch-spacing {
-    @apply py-3 px-4;
+    @apply px-4 py-3;
     min-height: 44px;
   }
-  
+
   .touch-target {
     min-width: 44px;
     min-height: 44px;
@@ -256,7 +301,7 @@ textarea:focus {
 
 /* Mobile card styles */
 .mobile-card {
-  @apply bg-white rounded-xl border border-gray-200 p-4;
+  @apply rounded-xl border border-gray-200 bg-white p-4;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
@@ -328,7 +373,12 @@ textarea:focus {
 }
 
 /* Remove tap highlight on all interactive elements */
-button, a, input, select, textarea, [role="button"] {
+button,
+a,
+input,
+select,
+textarea,
+[role='button'] {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -369,12 +419,7 @@ button, a, input, select, textarea, [role="button"] {
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    #f3f4f6 0%,
-    #e5e7eb 50%,
-    #f3f4f6 100%
-  );
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 0.5rem;
@@ -392,19 +437,19 @@ button, a, input, select, textarea, [role="button"] {
 
 /* Empty state styling */
 .empty-state {
-  @apply flex flex-col items-center justify-center py-12 px-4 text-center;
+  @apply flex flex-col items-center justify-center px-4 py-12 text-center;
 }
 
 .empty-state-icon {
-  @apply w-16 h-16 mb-4 text-gray-300;
+  @apply mb-4 h-16 w-16 text-gray-300;
 }
 
 .empty-state-title {
-  @apply text-lg font-semibold text-gray-900 mb-1;
+  @apply mb-1 text-lg font-semibold text-gray-900;
 }
 
 .empty-state-description {
-  @apply text-sm text-gray-500 max-w-sm;
+  @apply max-w-sm text-sm text-gray-500;
 }
 
 /* Floating action button */
@@ -422,7 +467,9 @@ button, a, input, select, textarea, [role="button"] {
   justify-content: center;
   box-shadow: 0 4px 12px rgba(79, 167, 126, 0.4);
   z-index: 30;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .fab:active {
@@ -452,7 +499,7 @@ html {
 
 /* Status badges */
 .status-badge {
-  @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+  @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
 }
 
 .status-badge-success {

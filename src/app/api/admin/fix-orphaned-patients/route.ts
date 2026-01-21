@@ -2,18 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
+// Type for orphaned patient select result
+interface OrphanedPatient {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  tags?: unknown;
+  createdAt?: Date;
+}
+
 /**
  * Fix Orphaned Patients - Assign to EONMEDS clinic
- * 
+ *
  * POST /api/admin/fix-orphaned-patients
- * 
+ *
  * Requires X-Webhook-Secret header for authentication
  */
 
 export async function POST(req: NextRequest) {
   const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
   const providedSecret = req.headers.get('x-webhook-secret');
-  
+
   if (!configuredSecret || providedSecret !== configuredSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -22,10 +32,7 @@ export async function POST(req: NextRequest) {
     // Find EONMEDS clinic
     const eonmedsClinic = await prisma.clinic.findFirst({
       where: {
-        OR: [
-          { subdomain: 'eonmeds' },
-          { name: { contains: 'EONMEDS', mode: 'insensitive' } },
-        ],
+        OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
       },
     });
 
@@ -50,7 +57,7 @@ export async function POST(req: NextRequest) {
     // Update all orphaned patients to EONMEDS
     const result = await prisma.patient.updateMany({
       where: { clinicId: null },
-      data: { 
+      data: {
         clinicId: eonmedsClinic.id,
         // Add eonmeds tag if not present (can't do this in updateMany, so we'll do it separately)
       },
@@ -62,7 +69,7 @@ export async function POST(req: NextRequest) {
         where: { id: patient.id },
         select: { tags: true },
       });
-      
+
       const currentTags = currentPatient?.tags || [];
       if (!currentTags.includes('eonmeds')) {
         await prisma.patient.update({
@@ -76,14 +83,14 @@ export async function POST(req: NextRequest) {
     let systemUser = await prisma.user.findFirst({
       where: { email: 'system@eonpro.io' },
     });
-    
+
     if (!systemUser) {
       // Use first admin user if no system user exists
       systemUser = await prisma.user.findFirst({
         where: { role: 'super_admin' },
       });
     }
-    
+
     if (systemUser) {
       await prisma.auditLog.create({
         data: {
@@ -93,7 +100,7 @@ export async function POST(req: NextRequest) {
           userId: systemUser.id,
           details: `Fixed ${result.count} orphaned patients`,
           diff: {
-            patients: orphanedPatients.map(p => ({
+            patients: orphanedPatients.map((p: OrphanedPatient) => ({
               id: p.id,
               name: `${p.firstName} ${p.lastName}`,
               email: p.email,
@@ -117,7 +124,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: `Fixed ${result.count} orphaned patients`,
       fixed: result.count,
-      patients: orphanedPatients.map(p => ({
+      patients: orphanedPatients.map((p: OrphanedPatient) => ({
         id: p.id,
         name: `${p.firstName} ${p.lastName}`,
         email: p.email,
@@ -127,13 +134,15 @@ export async function POST(req: NextRequest) {
         clinicName: eonmedsClinic.name,
       },
     });
-
   } catch (error) {
     logger.error('[FIX ORPHANED] Error:', error);
-    return NextResponse.json({
-      error: 'Failed to fix orphaned patients',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fix orphaned patients',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -141,7 +150,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
   const providedSecret = req.headers.get('x-webhook-secret');
-  
+
   if (!configuredSecret || providedSecret !== configuredSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -149,10 +158,10 @@ export async function GET(req: NextRequest) {
   try {
     const orphanedPatients = await prisma.patient.findMany({
       where: { clinicId: null },
-      select: { 
-        id: true, 
-        firstName: true, 
-        lastName: true, 
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
         email: true,
         tags: true,
         createdAt: true,
@@ -161,7 +170,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       orphanedCount: orphanedPatients.length,
-      patients: orphanedPatients.map(p => ({
+      patients: orphanedPatients.map((p: OrphanedPatient) => ({
         id: p.id,
         name: `${p.firstName} ${p.lastName}`,
         email: p.email,
@@ -169,11 +178,13 @@ export async function GET(req: NextRequest) {
         createdAt: p.createdAt,
       })),
     });
-
   } catch (error) {
-    return NextResponse.json({
-      error: 'Failed to fetch orphaned patients',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch orphaned patients',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }

@@ -165,6 +165,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         const customer = charge.customer as Stripe.Customer | null;
         const { category, label, productName } = detectCategory(charge.description, charge.metadata || {});
         
+        // Get invoice ID from expanded data if available
+        const chargeInvoice = (charge as unknown as { invoice?: string | { id: string } | null }).invoice;
+        const invoiceId = typeof chargeInvoice === 'string' ? chargeInvoice : chargeInvoice?.id || null;
+        
         transactions.push({
           id: charge.id,
           type: 'charge',
@@ -183,7 +187,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
           metadata: charge.metadata || {},
           paymentMethod: charge.payment_method_details?.type || null,
           receiptUrl: charge.receipt_url,
-          invoiceId: typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id || null,
+          invoiceId,
           refundedAmount: charge.amount_refunded > 0 ? charge.amount_refunded : undefined,
           failureMessage: charge.failure_message,
           productName,
@@ -265,7 +269,8 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         }
       } catch (err) {
         // Payouts might not be available for all account types
-        logger.warn('[STRIPE TRANSACTIONS] Could not fetch payouts:', err);
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn('[STRIPE TRANSACTIONS] Could not fetch payouts:', { error: errorMsg });
       }
     }
 

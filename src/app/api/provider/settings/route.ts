@@ -62,13 +62,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             },
           },
         },
-        orderBy: [
-          { isPrimary: 'desc' },
-          { createdAt: 'asc' },
-        ],
+        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
       });
 
-      clinics = userClinics.map(uc => ({
+      type UserClinicEntry = (typeof userClinics)[number];
+      clinics = userClinics.map((uc: UserClinicEntry) => ({
         id: uc.clinic.id,
         name: uc.clinic.name,
         subdomain: uc.clinic.subdomain,
@@ -79,13 +77,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     } catch {
       // UserClinic might not exist, fallback to user's clinic
       if (userData.clinic) {
-        clinics = [{
-          id: userData.clinic.id,
-          name: userData.clinic.name,
-          subdomain: userData.clinic.subdomain,
-          role: user.role,
-          isPrimary: true,
-        }];
+        clinics = [
+          {
+            id: userData.clinic.id,
+            name: userData.clinic.name,
+            subdomain: userData.clinic.subdomain,
+            role: user.role,
+            isPrimary: true,
+          },
+        ];
       }
     }
 
@@ -98,30 +98,29 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         role: userData.role,
         clinicId: userData.clinicId,
       },
-      provider: providerData ? {
-        id: providerData.id,
-        firstName: providerData.firstName,
-        lastName: providerData.lastName,
-        email: providerData.email,
-        phone: providerData.phone,
-        npi: providerData.npi,
-        dea: providerData.dea,
-        licenseNumber: providerData.licenseNumber,
-        licenseState: providerData.licenseState,
-        titleLine: providerData.titleLine,
-        signatureDataUrl: providerData.signatureDataUrl,
-        hasSignature: !!providerData.signatureDataUrl,
-      } : null,
+      provider: providerData
+        ? {
+            id: providerData.id,
+            firstName: providerData.firstName,
+            lastName: providerData.lastName,
+            email: providerData.email,
+            phone: providerData.phone,
+            npi: providerData.npi,
+            dea: providerData.dea,
+            licenseNumber: providerData.licenseNumber,
+            licenseState: providerData.licenseState,
+            titleLine: providerData.titleLine,
+            signatureDataUrl: providerData.signatureDataUrl,
+            hasSignature: !!providerData.signatureDataUrl,
+          }
+        : null,
       clinics,
       activeClinicId: userData.clinicId,
       hasMultipleClinics: clinics.length > 1,
     });
   } catch (error: any) {
     logger.error('Error fetching provider settings', { error: error.message, userId: user.id });
-    return NextResponse.json(
-      { error: 'Failed to fetch settings' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
   }
 }
 
@@ -163,14 +162,17 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       provider = await basePrisma.provider.findFirst({
         where: { email: user.email },
       });
-      
+
       // If found by email but not linked, link it now
       if (provider && !userData.providerId) {
         await basePrisma.user.update({
           where: { id: user.id },
           data: { providerId: provider.id },
         });
-        logger.info('Linked existing provider to user', { userId: user.id, providerId: provider.id });
+        logger.info('Linked existing provider to user', {
+          userId: user.id,
+          providerId: provider.id,
+        });
       }
     }
 
@@ -191,10 +193,7 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       // Verify current password
       const isValid = await bcrypt.compare(currentPassword, userData.passwordHash || '');
       if (!isValid) {
-        return NextResponse.json(
-          { error: 'Current password is incorrect' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
       }
 
       // Hash new password
@@ -271,7 +270,11 @@ async function handlePut(req: NextRequest, user: AuthUser) {
           },
         });
 
-        logger.info('Provider credentials registered', { userId: user.id, providerId: provider.id, npi });
+        logger.info('Provider credentials registered', {
+          userId: user.id,
+          providerId: provider.id,
+          npi,
+        });
       }
     }
 
@@ -285,7 +288,8 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       if (signatureDataUrl !== undefined) providerUpdateData.signatureDataUrl = signatureDataUrl;
       // Allow updating DEA/license if not already set
       if (dea && !provider.dea) providerUpdateData.dea = dea;
-      if (licenseNumber && !provider.licenseNumber) providerUpdateData.licenseNumber = licenseNumber;
+      if (licenseNumber && !provider.licenseNumber)
+        providerUpdateData.licenseNumber = licenseNumber;
       if (licenseState && !provider.licenseState) providerUpdateData.licenseState = licenseState;
 
       if (Object.keys(providerUpdateData).length > 0) {
@@ -313,7 +317,10 @@ async function handlePut(req: NextRequest, user: AuthUser) {
     } else if (signatureDataUrl) {
       // User is trying to save a signature but doesn't have a provider profile
       return NextResponse.json(
-        { error: 'Please register your provider credentials (NPI) in the Credentials tab before saving a signature.' },
+        {
+          error:
+            'Please register your provider credentials (NPI) in the Credentials tab before saving a signature.',
+        },
         { status: 400 }
       );
     }
@@ -323,11 +330,11 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       message: 'Settings updated successfully',
     });
   } catch (error: any) {
-    logger.error('Error updating provider settings', { 
-      error: error.message, 
+    logger.error('Error updating provider settings', {
+      error: error.message,
       stack: error.stack,
       userId: user.id,
-      code: error.code 
+      code: error.code,
     });
     return NextResponse.json(
       { error: `Failed to update settings: ${error.message}` },

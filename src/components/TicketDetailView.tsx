@@ -557,9 +557,9 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
                   <p>Due: {new Date(sla.resolutionDue).toLocaleString()}</p>
                   <p>Resolved: {sla.resolvedAt ? new Date(sla.resolvedAt).toLocaleString() : 'Pending'}</p>
                   <p className="font-medium">
-                    {sla.status?.timeToResolution > 0 
-                      ? `${formatDuration(sla.status.timeToResolution)} remaining`
-                      : `${formatDuration(Math.abs(sla.status?.timeToResolution || 0))} overdue`}
+                    {(sla.status?.timeToResolution ?? 0) > 0 
+                      ? `${formatDuration(sla.status?.timeToResolution ?? 0)} remaining`
+                      : `${formatDuration(Math.abs(sla.status?.timeToResolution ?? 0))} overdue`}
                   </p>
                 </div>
               </div>

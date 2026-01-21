@@ -486,9 +486,10 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
   } as Record<EmailTemplate, { html: string; text: string }>;
   
   // Provide minimal templates for any missing types
-  Object.values(EmailTemplate).forEach((tmpl: any) => {
-    if (!templates[tmpl]) {
-      templates[tmpl] = {
+  Object.values(EmailTemplate).forEach((tmpl) => {
+    const templateKey = tmpl as EmailTemplate;
+    if (!templates[templateKey]) {
+      templates[templateKey] = {
         html: `<html><body><h2>{{subject}}</h2><div>{{{content}}}</div></body></html>`,
         text: `{{subject}}\n\n{{content}}`,
       };

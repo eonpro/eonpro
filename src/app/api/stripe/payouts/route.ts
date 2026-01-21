@@ -30,7 +30,7 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
     
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const startingAfter = searchParams.get('starting_after') || undefined;
-    const status = searchParams.get('status') as Stripe.Payout.Status | undefined;
+    const status = searchParams.get('status') as 'pending' | 'paid' | 'failed' | 'canceled' | undefined;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     

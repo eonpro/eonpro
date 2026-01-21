@@ -53,18 +53,18 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const validated = createUserSchema.parse(body);
     
     // Role hierarchy check - users can only create roles below their level
-    const roleHierarchy = {
-      SUPER_ADMIN: 7,
-      ADMIN: 6,
-      PROVIDER: 5,
-      STAFF: 4,
-      INFLUENCER: 3,
-      SUPPORT: 2,
-      PATIENT: 1,
+    const roleHierarchy: Record<string, number> = {
+      super_admin: 7,
+      admin: 6,
+      provider: 5,
+      staff: 4,
+      influencer: 3,
+      support: 2,
+      patient: 1,
     };
     
-    const userRoleLevel = roleHierarchy[user.role as keyof typeof roleHierarchy] || 0;
-    const newRoleLevel = roleHierarchy[validated.role] || 0;
+    const userRoleLevel = roleHierarchy[user.role.toLowerCase()] || 0;
+    const newRoleLevel = roleHierarchy[validated.role.toLowerCase()] || 0;
     
     // Only SUPER_ADMIN can create other SUPER_ADMINs
     if ((validated.role as string) === "super_admin" && user.role !== "super_admin") {

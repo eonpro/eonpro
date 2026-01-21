@@ -1,10 +1,15 @@
 /**
  * Rate Limiting Middleware
  * Protects API endpoints from abuse and DOS attacks
+ * 
+ * Uses Redis for distributed rate limiting in production,
+ * with LRU cache fallback for development/testing
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { LRUCache } from 'lru-cache';
+import cache from '@/lib/cache/redis';
+import { logger } from '@/lib/logger';
 
 interface RateLimitConfig {
   windowMs?: number; // Time window in milliseconds
@@ -20,20 +25,61 @@ interface RateLimitEntry {
   resetTime: number;
 }
 
-// Create different caches for different rate limit tiers
-const caches = new Map<string, LRUCache<string, RateLimitEntry>>();
+// Rate limit namespace for Redis
+const RATE_LIMIT_NAMESPACE = 'ratelimit';
+
+// Create different caches for different rate limit tiers (fallback)
+const localCaches = new Map<string, LRUCache<string, RateLimitEntry>>();
 
 /**
- * Get or create a cache for a specific tier
+ * Get or create a local cache for a specific tier (fallback when Redis unavailable)
  */
-function getCache(tier: string): LRUCache<string, RateLimitEntry> {
-  if (!caches.has(tier)) {
-    caches.set(tier, new LRUCache<string, RateLimitEntry>({
+function getLocalCache(tier: string): LRUCache<string, RateLimitEntry> {
+  if (!localCaches.has(tier)) {
+    localCaches.set(tier, new LRUCache<string, RateLimitEntry>({
       max: 10000, // Max number of keys to store
       ttl: 15 * 60 * 1000, // 15 minutes TTL
     }));
   }
-  return caches.get(tier)!;
+  return localCaches.get(tier)!;
+}
+
+/**
+ * Get rate limit entry from Redis or local cache
+ */
+async function getRateLimitEntry(key: string, tier: string): Promise<RateLimitEntry | null> {
+  // Try Redis first
+  if (cache.isReady()) {
+    try {
+      const entry = await cache.get<RateLimitEntry>(key, { namespace: RATE_LIMIT_NAMESPACE });
+      return entry;
+    } catch (err) {
+      logger.warn('Redis rate limit read failed, using local cache');
+    }
+  }
+  
+  // Fallback to local cache
+  const localCache = getLocalCache(tier);
+  return localCache.get(key) || null;
+}
+
+/**
+ * Set rate limit entry in Redis or local cache
+ */
+async function setRateLimitEntry(key: string, entry: RateLimitEntry, tier: string, ttlSeconds: number): Promise<void> {
+  // Try Redis first
+  if (cache.isReady()) {
+    try {
+      await cache.set(key, entry, { namespace: RATE_LIMIT_NAMESPACE, ttl: ttlSeconds });
+      return;
+    } catch (err) {
+      logger.warn('Redis rate limit write failed, using local cache');
+    }
+  }
+  
+  // Fallback to local cache
+  const localCache = getLocalCache(tier);
+  localCache.set(key, entry);
 }
 
 /**
@@ -61,16 +107,18 @@ export function rateLimit(config: RateLimitConfig = {}) {
     skipFailedRequests = false,
   } = config;
 
+  const tier = `default-${max}-${windowMs}`;
+  const ttlSeconds = Math.ceil(windowMs / 1000);
+
   return function rateLimitMiddleware(
     handler: (req: NextRequest) => Promise<Response>
   ) {
     return async (req: NextRequest) => {
       const key = keyGenerator(req);
-      const cache = getCache('default');
       const now = Date.now();
 
-      // Get current rate limit entry
-      let entry = cache.get(key);
+      // Get current rate limit entry (from Redis or local cache)
+      let entry = await getRateLimitEntry(key, tier);
 
       // Initialize or reset if window expired
       if (!entry || now > entry.resetTime) {
@@ -83,6 +131,13 @@ export function rateLimit(config: RateLimitConfig = {}) {
       // Check if limit exceeded
       if (entry.count >= max) {
         const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
+        
+        logger.warn('Rate limit exceeded', { 
+          key, 
+          count: entry.count, 
+          max,
+          retryAfter 
+        });
         
         return NextResponse.json(
           { error: message },
@@ -100,7 +155,7 @@ export function rateLimit(config: RateLimitConfig = {}) {
 
       // Increment counter before processing
       entry.count++;
-      cache.set(key, entry);
+      await setRateLimitEntry(key, entry, tier, ttlSeconds);
 
       // Process request
       const response = await handler(req);
@@ -111,7 +166,7 @@ export function rateLimit(config: RateLimitConfig = {}) {
         (skipFailedRequests && response.status >= 400)
       ) {
         entry.count--;
-        cache.set(key, entry);
+        await setRateLimitEntry(key, entry, tier, ttlSeconds);
       }
 
       // Add rate limit headers to response

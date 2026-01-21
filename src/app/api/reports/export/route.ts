@@ -2,14 +2,19 @@
  * REPORT EXPORT API
  * =================
  * Export reports in various formats (CSV, JSON)
- * 
+ *
  * GET /api/reports/export?format=csv&report=patients
  * GET /api/reports/export?format=json&report=revenue
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
-import { ReportingService, DateRange, DateRangeParams, calculateDateRange } from '@/services/reporting/ReportingService';
+import {
+  ReportingService,
+  DateRange,
+  DateRangeParams,
+  calculateDateRange,
+} from '@/services/reporting/ReportingService';
 import { prisma } from '@/lib/db';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
@@ -44,7 +49,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
         const patients = await prisma.patient.findMany({
           where: {
             ...clinicFilter,
-            createdAt: { gte: start, lte: end }
+            createdAt: { gte: start, lte: end },
           },
           select: {
             id: true,
@@ -61,13 +66,14 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
             createdAt: true,
             subscriptions: {
               where: { status: 'ACTIVE' },
-              select: { planName: true, amount: true, startDate: true }
-            }
+              select: { planName: true, amount: true, startDate: true },
+            },
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
         });
 
-        data = patients.map((p) => ({
+        type PatientExport = (typeof patients)[number];
+        data = patients.map((p: PatientExport) => ({
           ID: p.patientId || p.id,
           'First Name': p.firstName,
           'Last Name': p.lastName,
@@ -80,8 +86,10 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
           Source: p.source,
           'Created At': p.createdAt.toISOString(),
           'Active Subscription': p.subscriptions[0]?.planName || 'None',
-          'Subscription Amount': p.subscriptions[0] ? formatCurrency(p.subscriptions[0].amount) : 'N/A',
-          'Subscription Start': p.subscriptions[0]?.startDate?.toISOString() || 'N/A'
+          'Subscription Amount': p.subscriptions[0]
+            ? formatCurrency(p.subscriptions[0].amount)
+            : 'N/A',
+          'Subscription Start': p.subscriptions[0]?.startDate?.toISOString() || 'N/A',
         }));
         filename = `patients_${label.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}`;
         break;
@@ -90,20 +98,21 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
         const payments = await prisma.payment.findMany({
           where: {
             ...clinicFilter,
-            createdAt: { gte: start, lte: end }
+            createdAt: { gte: start, lte: end },
           },
           include: {
             patient: {
-              select: { firstName: true, lastName: true, email: true }
+              select: { firstName: true, lastName: true, email: true },
             },
             subscription: {
-              select: { planName: true }
-            }
+              select: { planName: true },
+            },
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
         });
 
-        data = payments.map((p) => ({
+        type PaymentExport = (typeof payments)[number];
+        data = payments.map((p: PaymentExport) => ({
           ID: p.id,
           'Patient Name': `${p.patient.firstName} ${p.patient.lastName}`,
           'Patient Email': p.patient.email,
@@ -114,7 +123,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
           'Is Recurring': p.subscriptionId ? 'Yes' : 'No',
           'Subscription Plan': p.subscription?.planName || 'N/A',
           'Failure Reason': p.failureReason || '',
-          'Created At': p.createdAt.toISOString()
+          'Created At': p.createdAt.toISOString(),
         }));
         filename = `payments_${label.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}`;
         break;
@@ -124,17 +133,17 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
           where: clinicFilter,
           include: {
             patient: {
-              select: { firstName: true, lastName: true, email: true, phone: true }
-            }
+              select: { firstName: true, lastName: true, email: true, phone: true },
+            },
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
         });
 
         const now = new Date();
-        data = subscriptions.map((s) => {
-          const monthsActive = Math.floor(
-            (now.getTime() - s.startDate.getTime()) / (30 * 24 * 60 * 60 * 1000)
-          ) + 1;
+        type SubscriptionExport = (typeof subscriptions)[number];
+        data = subscriptions.map((s: SubscriptionExport) => {
+          const monthsActive =
+            Math.floor((now.getTime() - s.startDate.getTime()) / (30 * 24 * 60 * 60 * 1000)) + 1;
 
           return {
             ID: s.id,
@@ -151,7 +160,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
             'Next Billing': s.nextBillingDate?.toISOString() || 'N/A',
             'Cancelled At': s.canceledAt?.toISOString() || '',
             'Paused At': s.pausedAt?.toISOString() || '',
-            'Resume At': s.resumeAt?.toISOString() || ''
+            'Resume At': s.resumeAt?.toISOString() || '',
           };
         });
         filename = `subscriptions_${new Date().toISOString().split('T')[0]}`;
@@ -159,7 +168,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
 
       case 'revenue':
         const revenueMetrics = await reportingService.getRevenueMetrics(dateRangeParams);
-        
+
         data = {
           summary: {
             'Total Revenue': formatCurrency(revenueMetrics.totalRevenue),
@@ -167,33 +176,33 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
             'One-Time Revenue': formatCurrency(revenueMetrics.oneTimeRevenue),
             'Average Order Value': formatCurrency(revenueMetrics.averageOrderValue),
             'Projected Annual Revenue': formatCurrency(revenueMetrics.projectedRevenue),
-            'Growth Rate': `${revenueMetrics.revenueGrowthRate}%`
+            'Growth Rate': `${revenueMetrics.revenueGrowthRate}%`,
           },
-          dailyRevenue: revenueMetrics.revenueByDay.map(d => ({
+          dailyRevenue: revenueMetrics.revenueByDay.map((d) => ({
             Date: d.date,
             Amount: formatCurrency(d.amount),
-            'Amount (cents)': d.amount
+            'Amount (cents)': d.amount,
           })),
-          byTreatment: Object.entries(revenueMetrics.revenueByTreatment).map(([treatment, amount]) => ({
-            Treatment: treatment,
-            Revenue: formatCurrency(amount),
-            'Revenue (cents)': amount
-          }))
+          byTreatment: Object.entries(revenueMetrics.revenueByTreatment).map(
+            ([treatment, amount]) => ({
+              Treatment: treatment,
+              Revenue: formatCurrency(amount),
+              'Revenue (cents)': amount,
+            })
+          ),
         };
         filename = `revenue_${label.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}`;
         break;
 
       case 'comprehensive':
-        const comprehensiveReport = await reportingService.generateComprehensiveReport(dateRangeParams);
+        const comprehensiveReport =
+          await reportingService.generateComprehensiveReport(dateRangeParams);
         data = comprehensiveReport;
         filename = `comprehensive_report_${label.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}`;
         break;
 
       default:
-        return NextResponse.json(
-          { error: 'Invalid report type' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid report type' }, { status: 400 });
     }
 
     // Return in requested format
@@ -202,8 +211,8 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
       return new Response(csv, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="${filename}.csv"`
-        }
+          'Content-Disposition': `attachment; filename="${filename}.csv"`,
+        },
       });
     }
 
@@ -211,51 +220,53 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
     return new Response(JSON.stringify(data, null, 2), {
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="${filename}.json"`
-      }
+        'Content-Disposition': `attachment; filename="${filename}.json"`,
+      },
     });
-
   } catch (error) {
     logger.error('Failed to export report', error as Error);
-    return NextResponse.json(
-      { error: 'Failed to export report' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to export report' }, { status: 500 });
   }
 }
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD'
+    currency: 'USD',
   }).format(cents / 100);
 }
 
 function convertToCSV(data: unknown): string {
   if (Array.isArray(data)) {
     if (data.length === 0) return '';
-    
+
     const headers = Object.keys(data[0] as Record<string, unknown>);
-    const rows = data.map(row => 
-      headers.map(header => {
-        const value = (row as Record<string, unknown>)[header];
-        if (value === null || value === undefined) return '';
-        const stringValue = String(value);
-        // Escape quotes and wrap in quotes if contains comma or quote
-        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-          return `"${stringValue.replace(/"/g, '""')}"`;
-        }
-        return stringValue;
-      }).join(',')
+    const rows = data.map((row) =>
+      headers
+        .map((header) => {
+          const value = (row as Record<string, unknown>)[header];
+          if (value === null || value === undefined) return '';
+          const stringValue = String(value);
+          // Escape quotes and wrap in quotes if contains comma or quote
+          if (
+            stringValue.includes(',') ||
+            stringValue.includes('"') ||
+            stringValue.includes('\n')
+          ) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        })
+        .join(',')
     );
-    
+
     return [headers.join(','), ...rows].join('\n');
   }
 
   // Handle nested objects (like comprehensive report)
   if (typeof data === 'object' && data !== null) {
     const sections: string[] = [];
-    
+
     for (const [key, value] of Object.entries(data)) {
       if (Array.isArray(value)) {
         sections.push(`\n=== ${key.toUpperCase()} ===\n`);
@@ -266,7 +277,7 @@ function convertToCSV(data: unknown): string {
         sections.push(['Metric,Value', ...entries].join('\n'));
       }
     }
-    
+
     return sections.join('\n');
   }
 

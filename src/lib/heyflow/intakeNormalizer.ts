@@ -172,11 +172,11 @@ export function normalizeMedLinkPayload(payload: Record<string, unknown>): Norma
     hasResponseId: !!payload?.responseId 
   });
   
+  const meta = payload?.meta as Record<string, unknown> | undefined;
   const submissionId =
-    payload?.submissionId || payload?.responseId || payload?.id || payload?.submission_id || payload?.meta?.submissionId;
-  const submittedAt = new Date(
-    payload?.submittedAt || payload?.submitted_at || payload?.createdAt || Date.now()
-  );
+    payload?.submissionId || payload?.responseId || payload?.id || payload?.submission_id || meta?.submissionId;
+  const submittedAtValue = payload?.submittedAt || payload?.submitted_at || payload?.createdAt || Date.now();
+  const submittedAt = new Date(submittedAtValue as string | number | Date);
 
   const sections = buildSections(payload);
   const flatEntries = sections.flatMap((section: any) =>
@@ -188,7 +188,7 @@ export function normalizeMedLinkPayload(payload: Record<string, unknown>): Norma
   const patient = buildPatient(flatEntries);
 
   return {
-    submissionId: submissionId ?? `medlink-${Date.now()}`,
+    submissionId: String(submissionId || `medlink-${Date.now()}`),
     submittedAt,
     patient,
     sections,
@@ -360,30 +360,39 @@ function buildPatient(
     zip: "",
   };
 
-  (Object.keys(PATIENT_FIELD_MATCHERS) as Array<keyof NormalizedPatient>).forEach((key: any) => {
+  const patientKeys = Object.keys(PATIENT_FIELD_MATCHERS) as Array<keyof NormalizedPatient>;
+  for (const key of patientKeys) {
     const matchers = PATIENT_FIELD_MATCHERS[key];
     const value = findValue(entries, matchers);
     if (value) {
       if (key === "dob") {
         const normalizedDob = normalizeDateInput(value);
         if (normalizedDob) {
-          patient[key] = normalizedDob;
+          patient.dob = normalizedDob;
         }
       } else if (key === "phone") {
-        patient[key] = sanitizePhone(value);
+        patient.phone = sanitizePhone(value);
       } else if (key === "email") {
-        patient[key] = value.trim().toLowerCase();
+        patient.email = value.trim().toLowerCase();
       } else if (key === "gender") {
-        patient[key] = normalizeGenderInput(value);
+        patient.gender = normalizeGenderInput(value);
       } else if (key === "state") {
-        patient[key] = normalizeStateInput(value);
-      } else if (key === "firstName" || key === "lastName") {
-        patient[key] = capitalizeWords(value);
-      } else {
-        patient[key] = value;
+        patient.state = normalizeStateInput(value);
+      } else if (key === "firstName") {
+        patient.firstName = capitalizeWords(value);
+      } else if (key === "lastName") {
+        patient.lastName = capitalizeWords(value);
+      } else if (key === "address1") {
+        patient.address1 = value;
+      } else if (key === "address2") {
+        patient.address2 = value;
+      } else if (key === "city") {
+        patient.city = value;
+      } else if (key === "zip") {
+        patient.zip = value;
       }
     }
-  });
+  }
 
   applyDerivedFields(entries, patient);
 
@@ -481,13 +490,34 @@ function parseMaybeJson(value: unknown): unknown {
 const firstNonEmpty = (...values: Array<string | undefined | null>) =>
   values.find((value: any) => typeof value === "string" && value.trim().length > 0)?.trim();
 
+// Type for parsed address JSON
+interface AddressJson {
+  street?: string;
+  address1?: string;
+  street_1?: string;
+  address?: string;
+  house?: string;
+  apartment?: string;
+  apt?: string;
+  city?: string;
+  state?: string;
+  state_code?: string;
+  zip?: string;
+  zip_code?: string;
+  postal_code?: string;
+  zipcode?: string;
+  postalCode?: string;
+  postal?: string;
+  formattedAddress?: string;
+}
+
 function applyDerivedFields(
   entries: Array<{ id: string; label: string; value: string; rawValue?: any }>,
   patient: NormalizedPatient
 ) {
   const index = buildEntryIndex(entries);
 
-  const addressJson = getEntryJson(index, "id-38a5bae0");
+  const addressJson = getEntryJson(index, "id-38a5bae0") as AddressJson | undefined;
   const street = firstNonEmpty(
     getEntryValue(index, "id-38a5bae0-street"),
     addressJson?.street,
@@ -592,18 +622,20 @@ function applyDerivedFields(
   }
 
   if (!patient.firstName || patient.firstName === "Unknown") {
+    const firstNameJson = getEntryJson(index, "id-b1679347") as { first?: string; firstname?: string } | undefined;
     const firstName =
       firstNonEmpty(getEntryValue(index, "id-b1679347")) ??
-      (getEntryJson(index, "id-b1679347")?.first ?? getEntryJson(index, "id-b1679347")?.firstname);
+      (firstNameJson?.first ?? firstNameJson?.firstname);
     if (firstName) {
       patient.firstName = firstName;
     }
   }
 
   if (!patient.lastName || patient.lastName === "Unknown") {
+    const lastNameJson = getEntryJson(index, "id-30d7dea8") as { last?: string; lastname?: string } | undefined;
     const lastName =
       firstNonEmpty(getEntryValue(index, "id-30d7dea8")) ??
-      (getEntryJson(index, "id-30d7dea8")?.last ?? getEntryJson(index, "id-30d7dea8")?.lastname);
+      (lastNameJson?.last ?? lastNameJson?.lastname);
     if (lastName) {
       patient.lastName = capitalizeWords(lastName);
     }

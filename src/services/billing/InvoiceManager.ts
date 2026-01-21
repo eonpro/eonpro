@@ -22,7 +22,8 @@ import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/email';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import type Stripe from 'stripe';
-import type { InvoiceStatus, Prisma } from '@prisma/client';
+import type { InvoiceStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -289,7 +290,7 @@ export class InvoiceManager {
         dueDate,
         
         // Store line items and calculations
-        lineItems: options.lineItems as any,
+        lineItems: options.lineItems as unknown as Prisma.InputJsonValue,
         metadata: {
           invoiceNumber,
           memo: options.memo,
@@ -301,7 +302,7 @@ export class InvoiceManager {
           paymentTerms: options.paymentTerms,
           summary,
           ...options.metadata,
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: {
         patient: true,
@@ -343,7 +344,7 @@ export class InvoiceManager {
         status: 'DRAFT',
         description: options.description,
         dueDate,
-        lineItems: options.lineItems as any,
+        lineItems: options.lineItems as unknown as Prisma.InputJsonValue,
         metadata: {
           invoiceNumber,
           memo: options.memo,
@@ -354,7 +355,7 @@ export class InvoiceManager {
           summary,
           isDraft: true,
           ...options.metadata,
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true, clinic: true },
     });
@@ -545,7 +546,7 @@ export class InvoiceManager {
       `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/pay/${invoice.id}`;
     
     const clinicName = invoice.clinic?.name || 'EON Medical';
-    const amount = '$' + (invoice.amount / 100).toFixed(2);
+    const amount = '$' + ((invoice.amount ?? 0) / 100).toFixed(2);
     
     // Send via Stripe if available
     if (this.stripeClient && invoice.stripeInvoiceId && invoice.status === 'OPEN') {
@@ -709,7 +710,7 @@ export class InvoiceManager {
     }
     
     const totalPaid = (invoice.amountPaid || 0) + options.amount;
-    const newAmountDue = Math.max(0, invoice.amount - totalPaid);
+    const newAmountDue = Math.max(0, (invoice.amount ?? 0) - totalPaid);
     const isPaid = newAmountDue === 0;
     
     // Create payment record
@@ -858,7 +859,7 @@ export class InvoiceManager {
       throw new Error('Invoice not found');
     }
     
-    const newAmountDue = Math.max(0, (invoice.amountDue || invoice.amount) - amount);
+    const newAmountDue = Math.max(0, (invoice.amountDue ?? invoice.amount ?? 0) - amount);
     const isPaid = newAmountDue === 0;
     
     return await basePrisma.invoice.update({
@@ -907,7 +908,7 @@ export class InvoiceManager {
     const refundAmount = options.amount || invoice.amountPaid || invoice.amount;
     
     // Process refund in Stripe if applicable
-    if (this.stripeClient && options.refundToPaymentMethod) {
+    if (this.stripeClient && options.refundToPaymentMethod && refundAmount) {
       const stripePayment = invoice.payments.find(p => p.stripePaymentIntentId);
       if (stripePayment?.stripePaymentIntentId) {
         try {
@@ -916,22 +917,24 @@ export class InvoiceManager {
             amount: refundAmount,
             reason: 'requested_by_customer',
           });
-        } catch (stripeError: any) {
-          logger.error('Stripe refund failed', stripeError);
-          throw new Error(`Stripe refund failed: ${stripeError.message}`);
+        } catch (stripeError: unknown) {
+          const errMsg = stripeError instanceof Error ? stripeError.message : 'Unknown error';
+          logger.error('Stripe refund failed', { error: errMsg });
+          throw new Error(`Stripe refund failed: ${errMsg}`);
         }
       }
     }
     
     // Update invoice
-    const newAmountPaid = (invoice.amountPaid || 0) - refundAmount;
+    const newAmountPaid = (invoice.amountPaid || 0) - (refundAmount ?? 0);
     const isFullRefund = newAmountPaid <= 0;
+    const invoiceAmount = invoice.amount ?? 0;
     
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
         amountPaid: Math.max(0, newAmountPaid),
-        amountDue: isFullRefund ? invoice.amount : invoice.amount - newAmountPaid,
+        amountDue: isFullRefund ? invoiceAmount : invoiceAmount - newAmountPaid,
         status: isFullRefund ? 'VOID' : 'OPEN',
         paidAt: isFullRefund ? null : invoice.paidAt,
         metadata: {
@@ -1075,18 +1078,18 @@ export class InvoiceManager {
     let overdueCount = 0;
     
     for (const inv of invoices) {
-      totalInvoiced += inv.amount;
+      totalInvoiced += inv.amount ?? 0;
       totalPaid += inv.amountPaid || 0;
       
       if (inv.status === 'PAID') {
         paidCount++;
       } else if (inv.status === 'OPEN') {
         openCount++;
-        totalOutstanding += inv.amountDue || inv.amount;
+        totalOutstanding += inv.amountDue ?? inv.amount ?? 0;
         
         if (inv.dueDate && inv.dueDate < now) {
           overdueCount++;
-          overdueAmount += inv.amountDue || inv.amount;
+          overdueAmount += inv.amountDue ?? inv.amount ?? 0;
         }
       }
     }

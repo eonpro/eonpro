@@ -92,17 +92,27 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
               limit: 10,
             });
             
-            subscriptions = customerSubs.data.map(sub => ({
-              id: sub.id,
-              status: sub.status,
-              currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
-              cancelAtPeriodEnd: sub.cancel_at_period_end,
-              items: sub.items.data.map(item => ({
-                priceId: item.price.id,
-                productId: typeof item.price.product === 'string' ? item.price.product : item.price.product?.id,
-                quantity: item.quantity,
-              })),
-            }));
+            subscriptions = customerSubs.data.map(sub => {
+              // Access subscription properties safely
+              const subData = sub as unknown as { 
+                id: string; 
+                status: string; 
+                current_period_end: number; 
+                cancel_at_period_end: boolean;
+                items: { data: Array<{ price: { id: string; product: string | { id: string } }; quantity: number | null }> };
+              };
+              return {
+                id: subData.id,
+                status: subData.status,
+                currentPeriodEnd: new Date(subData.current_period_end * 1000).toISOString(),
+                cancelAtPeriodEnd: subData.cancel_at_period_end,
+                items: subData.items.data.map(item => ({
+                  priceId: item.price.id,
+                  productId: typeof item.price.product === 'string' ? item.price.product : item.price.product?.id,
+                  quantity: item.quantity,
+                })),
+              };
+            });
             
             if (subscriptions.some(s => s.status === 'active')) {
               customersWithSubscription++;

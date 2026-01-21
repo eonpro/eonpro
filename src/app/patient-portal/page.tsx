@@ -1,489 +1,399 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { 
-  Scale, 
-  Calendar, 
-  FileText, 
-  Video, 
-  CreditCard, 
-  Upload, 
-  Pill, 
-  MessageCircle,
-  ChevronRight,
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import {
+  Scale,
   TrendingDown,
+  TrendingUp,
+  Package,
+  Pill,
+  Calculator,
+  BookOpen,
+  ChevronRight,
+  Clock,
   Activity,
   Bell,
-  Home,
-  User
-} from "lucide-react";
-import MedicationReminder from "@/components/MedicationReminder";
-import WeightTracker from "@/components/WeightTracker";
+} from 'lucide-react';
+import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 
-export default function PatientPortalPage() {
+interface WeightEntry {
+  dateInput: string;
+  currentWeightInput: number;
+}
+
+export default function PatientPortalDashboard() {
+  const { branding } = useClinicBranding();
+  const features = usePortalFeatures();
+
   const [patient, setPatient] = useState<any>(null);
-  const [hasActiveTreatment, setHasActiveTreatment] = useState(false);
-  const [activeSection, setActiveSection] = useState<'dashboard' | 'progress' | 'reminders' | 'care' | 'billing'>('dashboard');
+  const [weightData, setWeightData] = useState<WeightEntry[]>([]);
+  const [currentWeight, setCurrentWeight] = useState<number | null>(null);
+  const [weightChange, setWeightChange] = useState<number | null>(null);
+  const [recentShipment, setRecentShipment] = useState<any>(null);
+  const [nextReminder, setNextReminder] = useState<any>(null);
+
+  const primaryColor = branding?.primaryColor || '#4fa77e';
+  const accentColor = branding?.accentColor || '#d3f931';
 
   useEffect(() => {
-    // Mock patient data
-    setPatient({
-      id: 1,
-      firstName: "Rebecca",
-      lastName: "Pignano",
-      email: "rebecca@eonmeds.com",
-      hasTrackingNumber: true, // This would come from checking orders
-    });
-    setHasActiveTreatment(true);
+    // Load patient data
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      setPatient(userData);
+      loadPatientData(userData.patientId || userData.id);
+    } else {
+      // Demo patient
+      setPatient({
+        id: 1,
+        firstName: 'Patient',
+        lastName: 'User',
+        patientId: 'P12345',
+      });
+      loadDemoData();
+    }
   }, []);
 
+  const loadPatientData = async (patientId: number) => {
+    try {
+      // Load weight data from database
+      const weightRes = await fetch(`/api/patient-progress/weight?patientId=${patientId}`);
+      if (weightRes.ok) {
+        const logs = await weightRes.json();
+        const formattedData = logs.map((log: any) => ({
+          dateInput: log.recordedAt,
+          currentWeightInput: log.weight,
+        }));
+        setWeightData(formattedData);
+
+        if (formattedData.length > 0) {
+          const sorted = [...formattedData].sort(
+            (a, b) => new Date(b.dateInput).getTime() - new Date(a.dateInput).getTime()
+          );
+          setCurrentWeight(sorted[0].currentWeightInput);
+
+          if (sorted.length > 1) {
+            setWeightChange(
+              sorted[0].currentWeightInput - sorted[sorted.length - 1].currentWeightInput
+            );
+          }
+        }
+      }
+
+      // Load medication reminders from database
+      const remindersRes = await fetch(
+        `/api/patient-progress/medication-reminders?patientId=${patientId}`
+      );
+      if (remindersRes.ok) {
+        const reminders = await remindersRes.json();
+        if (reminders.length > 0) {
+          // Find the next upcoming reminder
+          const dayNames = [
+            'Sunday',
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+            'Saturday',
+          ];
+          const today = new Date().getDay();
+
+          // Sort by next occurrence
+          const sortedReminders = reminders
+            .map((r: any) => ({
+              ...r,
+              daysUntil: (r.dayOfWeek - today + 7) % 7 || 7,
+            }))
+            .sort((a: any, b: any) => a.daysUntil - b.daysUntil);
+
+          const next = sortedReminders[0];
+          setNextReminder({
+            medication: next.medicationName.split(' ')[0], // Just the drug name
+            nextDose: dayNames[next.dayOfWeek],
+            time: next.timeOfDay,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading patient data:', error);
+      loadDemoData();
+    }
+  };
+
+  const loadDemoData = () => {
+    // Demo weight data - only shown when no real data exists
+    const demoWeights = [
+      { dateInput: '2025-07-01', currentWeightInput: 200 },
+      { dateInput: '2025-08-01', currentWeightInput: 185 },
+      { dateInput: '2025-09-01', currentWeightInput: 175 },
+      { dateInput: '2026-01-15', currentWeightInput: 168 },
+    ];
+    // Only set demo data if no real data loaded
+    if (weightData.length === 0) {
+      setWeightData(demoWeights);
+      setCurrentWeight(168);
+      setWeightChange(-32);
+    }
+
+    // Only set demo shipment/reminder if not already set from API
+    if (!recentShipment) {
+      setRecentShipment({
+        status: 'shipped',
+        trackingNumber: '1Z999AA10123456784',
+        estimatedDelivery: 'Jan 22, 2026',
+      });
+    }
+
+    if (!nextReminder) {
+      setNextReminder({
+        medication: 'Semaglutide',
+        nextDose: 'Wednesday',
+        time: '8:00 AM',
+      });
+    }
+  };
+
+  const formatDate = () => {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 pb-20 md:pb-0">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="md:hidden px-5 py-4">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8">
+      {/* Welcome Header */}
+      <div className="mb-6">
+        <p className="text-sm text-gray-500">{formatDate()}</p>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Hello, {patient?.firstName || 'Patient'}
+        </h1>
+      </div>
+
+      {/* Weight Progress Card - Hero */}
+      {features.showWeightTracking && (
+        <Link href="/patient-portal/progress" className="mb-6 block">
+          <div
+            className="rounded-2xl p-6 text-white shadow-lg"
+            style={{ backgroundColor: accentColor }}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium opacity-80" style={{ color: '#333' }}>
+                  Current Weight
+                </p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-5xl font-bold" style={{ color: '#333' }}>
+                    {currentWeight || '---'}
+                  </span>
+                  <span className="text-xl font-medium" style={{ color: '#555' }}>
+                    lbs
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                <Scale className="h-8 w-8" style={{ color: '#333' }} />
+              </div>
+            </div>
+
+            {weightChange !== null && (
+              <div className="flex items-center gap-2">
+                {weightChange < 0 ? (
+                  <>
+                    <TrendingDown className="h-5 w-5" style={{ color: '#166534' }} />
+                    <span className="font-semibold" style={{ color: '#166534' }}>
+                      Down {Math.abs(weightChange)} lbs
+                    </span>
+                  </>
+                ) : weightChange > 0 ? (
+                  <>
+                    <TrendingUp className="h-5 w-5" style={{ color: '#dc2626' }} />
+                    <span className="font-semibold" style={{ color: '#dc2626' }}>
+                      Up {weightChange} lbs
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-semibold" style={{ color: '#333' }}>
+                    No change
+                  </span>
+                )}
+                <span className="text-sm opacity-70" style={{ color: '#555' }}>
+                  since starting
+                </span>
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-sm font-medium" style={{ color: '#555' }}>
+                Tap to log weight & view progress
+              </span>
+              <ChevronRight className="h-5 w-5" style={{ color: '#555' }} />
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Quick Stats Row */}
+      <div className="mb-6 grid grid-cols-2 gap-4">
+        {/* Next Medication */}
+        {features.showMedicationReminders && nextReminder && (
+          <Link
+            href="/patient-portal/medications"
+            className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+          >
+            <div className="mb-2 flex items-center gap-3">
+              <div className="rounded-xl p-2" style={{ backgroundColor: `${primaryColor}15` }}>
+                <Pill className="h-5 w-5" style={{ color: primaryColor }} />
+              </div>
+              <span className="text-xs font-medium text-gray-500">NEXT DOSE</span>
+            </div>
+            <p className="font-semibold text-gray-900">{nextReminder.medication}</p>
+            <p className="text-sm text-gray-500">
+              {nextReminder.nextDose} at {nextReminder.time}
+            </p>
+          </Link>
+        )}
+
+        {/* Shipment Status */}
+        {features.showShipmentTracking && recentShipment && (
+          <Link
+            href="/patient-portal/shipments"
+            className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+          >
+            <div className="mb-2 flex items-center gap-3">
+              <div className="rounded-xl bg-blue-50 p-2">
+                <Package className="h-5 w-5 text-blue-600" />
+              </div>
+              <span className="text-xs font-medium text-gray-500">SHIPMENT</span>
+            </div>
+            <p className="font-semibold capitalize text-gray-900">{recentShipment.status}</p>
+            <p className="text-sm text-gray-500">Est. {recentShipment.estimatedDelivery}</p>
+          </Link>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="mb-6">
+        <h2 className="mb-3 text-lg font-semibold text-gray-900">Quick Actions</h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {features.showWeightTracking && (
+            <Link
+              href="/patient-portal/progress"
+              className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <Scale className="mb-2 h-6 w-6" style={{ color: primaryColor }} />
+              <span className="text-sm font-medium text-gray-700">Log Weight</span>
+            </Link>
+          )}
+
+          {features.showDoseCalculator && (
+            <Link
+              href="/patient-portal/calculators"
+              className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <Calculator className="mb-2 h-6 w-6 text-purple-600" />
+              <span className="text-sm font-medium text-gray-700">Calculators</span>
+            </Link>
+          )}
+
+          {features.showResources && (
+            <Link
+              href="/patient-portal/resources"
+              className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <BookOpen className="mb-2 h-6 w-6 text-amber-600" />
+              <span className="text-sm font-medium text-gray-700">Resources</span>
+            </Link>
+          )}
+
+          {features.showShipmentTracking && (
+            <Link
+              href="/patient-portal/shipments"
+              className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <Package className="mb-2 h-6 w-6 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700">Track Order</span>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Treatment Card */}
+      <div className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="p-4" style={{ backgroundColor: primaryColor }}>
           <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-white">Current Treatment</h2>
+            <Pill className="h-5 w-5 text-white/80" />
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="mb-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500">Welcome back</p>
-              <h1 className="text-xl font-bold">{patient?.firstName}</h1>
+              <p className="text-lg font-bold text-gray-900">Semaglutide</p>
+              <p className="text-sm text-gray-500">0.5mg weekly injection</p>
             </div>
-            <button className="relative p-2">
-              <Bell className="w-6 h-6 text-gray-700" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <span
+              className="rounded-full px-3 py-1.5 text-xs font-bold"
+              style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+            >
+              ACTIVE
+            </span>
           </div>
-        </div>
-        <div className="hidden md:block max-w-6xl mx-auto px-4 py-3">
-          <h1 className="text-lg font-semibold">Hello, {patient?.firstName}</h1>
-        </div>
-      </div>
-
-      {/* Navigation Tabs - Desktop Only */}
-      <div className="hidden md:block bg-white border-b sticky top-[57px] z-[5]">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex space-x-1">
-            <button
-              onClick={() => setActiveSection('dashboard')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
-                activeSection === 'dashboard' 
-                  ? 'text-purple-600 border-b-2 border-purple-600' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveSection('progress')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
-                activeSection === 'progress' 
-                  ? 'text-purple-600 border-b-2 border-purple-600' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Weight Progress
-            </button>
-            <button
-              onClick={() => setActiveSection('reminders')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
-                activeSection === 'reminders' 
-                  ? 'text-purple-600 border-b-2 border-purple-600' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Medication
-            </button>
-            <button
-              onClick={() => setActiveSection('care')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
-                activeSection === 'care' 
-                  ? 'text-purple-600 border-b-2 border-purple-600' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Care Team
-            </button>
-            <button
-              onClick={() => setActiveSection('billing')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
-                activeSection === 'billing' 
-                  ? 'text-purple-600 border-b-2 border-purple-600' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Billing
-            </button>
-          </div>
+          <Link
+            href="/patient-portal/medications"
+            className="block w-full rounded-xl py-2.5 text-center font-medium text-white"
+            style={{ backgroundColor: primaryColor }}
+          >
+            View Details
+          </Link>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-6xl mx-auto md:px-4 md:py-6">
-        {activeSection === 'dashboard' && (
-          <div className="md:grid md:grid-cols-2 md:gap-6">
-            {/* Mobile: Full width cards */}
-            <div className="md:hidden space-y-4 pb-4">
-              {/* Weight Tracker Mobile */}
-              <div className="px-4">
-                <WeightTracker patientId={patient?.id} />
-              </div>
-              
-              {/* Medication Reminders Mobile */}
-              <div className="px-4">
-                <MedicationReminder patientId={patient?.id} />
-              </div>
-            </div>
-            
-            {/* Desktop: Grid layout */}
-            <div className="hidden md:block">
-              <WeightTracker patientId={patient?.id} />
-            </div>
-            <div className="hidden md:block">
-              <MedicationReminder patientId={patient?.id} />
-            </div>
-
-            {/* Quick Actions Mobile */}
-            <div className="md:hidden px-4 space-y-3">
-              <h2 className="text-lg font-bold mb-3">Quick Actions</h2>
-              
-              <Link href="/patient-portal/care-team" className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <User className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Care Team</h3>
-                    <p className="text-xs text-gray-500">Your providers</p>
-                  </div>
+      {/* BMI Calculator Preview */}
+      {features.showBMICalculator && (
+        <Link href="/patient-portal/calculators/bmi" className="mb-6 block">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="rounded-xl bg-purple-50 p-3">
+                  <Activity className="h-6 w-6 text-purple-600" />
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </Link>
-
-              <Link href="/patient-portal/tutorials" className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
-                    <Video className="w-6 h-6 text-pink-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Tutorials</h3>
-                    <p className="text-xs text-gray-500">How-to videos</p>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </Link>
-
-              <Link href="/patient-portal/dietary" className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-yellow-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Dietary Plans</h3>
-                    <p className="text-xs text-gray-500">Meal guides</p>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </Link>
-
-              <Link href="/patient-portal/documents" className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
-                    <Upload className="w-6 h-6 text-teal-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Documents</h3>
-                    <p className="text-xs text-gray-500">Forms & uploads</p>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </Link>
-            </div>
-
-            {/* Quick Actions Desktop */}
-            <div className="hidden md:grid md:col-span-2 grid-cols-4 gap-4">
-              <Link href="/patient-portal/care-team" className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow border border-purple-100">
-                <div className="flex items-center justify-between mb-3">
-                  <User className="w-8 h-8 text-purple-500" />
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </div>
-                <h3 className="font-semibold text-sm">Care Team</h3>
-                <p className="text-xs text-gray-500 mt-1">Your providers</p>
-              </Link>
-
-              <Link href="/patient-portal/tutorials" className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow border border-pink-100">
-                <div className="flex items-center justify-between mb-3">
-                  <Video className="w-8 h-8 text-pink-500" />
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </div>
-                <h3 className="font-semibold text-sm">Tutorials</h3>
-                <p className="text-xs text-gray-500 mt-1">How-to videos</p>
-              </Link>
-
-              <Link href="/patient-portal/dietary" className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow border border-yellow-100">
-                <div className="flex items-center justify-between mb-3">
-                  <FileText className="w-8 h-8 text-yellow-600" />
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </div>
-                <h3 className="font-semibold text-sm">Dietary Plans</h3>
-                <p className="text-xs text-gray-500 mt-1">Meal guides</p>
-              </Link>
-
-              <Link href="/patient-portal/documents" className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow border border-teal-100">
-                <div className="flex items-center justify-between mb-3">
-                  <Upload className="w-8 h-8 text-teal-500" />
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </div>
-                <h3 className="font-semibold text-sm">Documents</h3>
-                <p className="text-xs text-gray-500 mt-1">Forms & uploads</p>
-              </Link>
-            </div>
-
-            {/* Mobile Treatment & Billing Cards */}
-            <div className="md:hidden px-4 space-y-4 mt-6">
-              {/* Treatment Card Mobile */}
-              <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-                <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-white font-bold">Current Treatment</h2>
-                    <Pill className="w-5 h-5 text-white/80" />
-                  </div>
-                </div>
-                <div className="p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <p className="font-bold text-lg">Semaglutide</p>
-                      <p className="text-sm text-gray-500">0.5mg weekly injection</p>
-                    </div>
-                    <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">
-                      ACTIVE
-                    </span>
-                  </div>
-                  <Link href="/patient-portal/prescription" className="block w-full py-3 bg-purple-600 text-white text-center rounded-xl font-medium">
-                    View Details
-                  </Link>
+                <div>
+                  <h3 className="font-semibold text-gray-900">BMI Calculator</h3>
+                  <p className="text-sm text-gray-500">Check your body mass index</p>
                 </div>
               </div>
-
-              {/* Billing Card Mobile */}
-              <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-bold text-lg">Billing</h2>
-                    <CreditCard className="w-5 h-5 text-gray-400" />
-                  </div>
-                  
-                  <div className="bg-gray-50 rounded-xl p-3 mb-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm text-gray-600">Next payment</span>
-                      <span className="text-sm font-bold">$99</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Due date</span>
-                      <span className="text-sm font-medium">Dec 15, 2024</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-6 bg-gradient-to-r from-blue-600 to-blue-400 rounded flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">VISA</span>
-                      </div>
-                      <span className="text-sm">•••• 4242</span>
-                    </div>
-                    <button className="text-purple-600 text-sm font-medium">Change</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Desktop Treatment & Billing Cards */}
-            <div className="hidden md:grid md:col-span-2 md:grid-cols-2 gap-6">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-purple-100">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold">Current Treatment</h2>
-                  <Pill className="w-5 h-5 text-purple-500" />
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <div>
-                      <p className="font-medium">Semaglutide</p>
-                      <p className="text-xs text-gray-500">0.5mg weekly</p>
-                    </div>
-                    <span className="px-3 py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-xs font-medium">
-                      Active
-                    </span>
-                  </div>
-                  
-                  <button className="w-full py-2 text-purple-600 text-sm font-medium hover:text-purple-700">
-                    View Prescription Details →
-                  </button>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-teal-100">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold">Billing</h2>
-                  <CreditCard className="w-5 h-5 text-teal-500" />
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Next billing date</span>
-                    <span className="font-medium">Dec 15, 2024</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Payment method</span>
-                    <span className="font-medium">•••• 4242</span>
-                  </div>
-                </div>
-                
-                <button className="w-full mt-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
-                  Update Billing Info
-                </button>
-              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
             </div>
           </div>
-        )}
+        </Link>
+      )}
 
-        {activeSection === 'progress' && (
-          <div className="md:max-w-2xl md:mx-auto px-4 md:px-0 py-4 md:py-6">
-            <WeightTracker patientId={patient?.id} />
-          </div>
-        )}
-
-        {activeSection === 'reminders' && (
-          <div className="md:max-w-2xl md:mx-auto px-4 md:px-0 py-4 md:py-6">
-            <MedicationReminder patientId={patient?.id} />
-          </div>
-        )}
-
-        {activeSection === 'care' && (
-          <div className="md:max-w-2xl md:mx-auto px-4 md:px-0 py-4 md:py-6">
-            <div className="bg-white md:rounded-2xl p-4 md:p-6 md:shadow-sm">
-              <h2 className="text-xl font-bold mb-4">Your Care Team</h2>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                  <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">DS</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-lg">Dr. Smith</p>
-                    <p className="text-sm text-gray-600">Primary Provider</p>
-                  </div>
-                  <Link href="/patient-portal/chat" className="p-3 bg-purple-600 text-white rounded-full">
-                    <MessageCircle className="w-5 h-5" />
-                  </Link>
-                </div>
-              </div>
+      {/* Notifications / Reminders */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-3">
+          <Bell className="h-5 w-5 text-gray-400" />
+          <h2 className="font-semibold text-gray-900">Reminders</h2>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3">
+            <Clock className="h-5 w-5 text-amber-600" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">Weekly injection due</p>
+              <p className="text-xs text-gray-500">Wednesday at 8:00 AM</p>
             </div>
           </div>
-        )}
-
-        {activeSection === 'billing' && (
-          <div className="md:max-w-2xl md:mx-auto px-4 md:px-0 py-4 md:py-6">
-            <div className="space-y-4">
-              <div className="bg-white md:rounded-2xl overflow-hidden md:shadow-sm">
-                <div className="p-4 md:p-6">
-                  <h2 className="text-xl font-bold mb-4">Billing & Payments</h2>
-                  
-                  <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-4 text-white mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-white/80 text-sm">Next Payment</span>
-                      <span className="font-bold text-2xl">$99</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/80 text-sm">Due Date</span>
-                      <span className="font-medium">Dec 15, 2024</span>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-medium">Payment Method</span>
-                      <button className="text-purple-600 text-sm font-medium">Edit</button>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-8 bg-gradient-to-r from-blue-600 to-blue-400 rounded flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">VISA</span>
-                      </div>
-                      <span className="font-medium">•••• 4242</span>
-                    </div>
-                  </div>
-                  
-                  <button className="w-full py-3 bg-purple-600 text-white rounded-xl font-medium mb-3">
-                    View Payment History
-                  </button>
-                  
-                  <button className="w-full py-3 border border-gray-300 rounded-xl font-medium">
-                    Download Invoices
-                  </button>
-                </div>
-              </div>
+          <div className="flex items-center gap-3 rounded-xl bg-blue-50 p-3">
+            <Package className="h-5 w-5 text-blue-600" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">Shipment arriving soon</p>
+              <p className="text-xs text-gray-500">Expected Jan 22, 2026</p>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* Chat Support Button - Floating */}
-      <Link 
-        href="/patient-portal/chat" 
-        className="fixed bottom-20 md:bottom-8 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all transform hover:scale-110 z-10"
-      >
-        <MessageCircle className="w-6 h-6" />
-      </Link>
-
-      {/* Bottom Navigation (Mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t md:hidden shadow-[0_-4px_6px_-1px_rgb(0_0_0_/_0.1)]">
-        <div className="grid grid-cols-4 px-2">
-          <button 
-            onClick={() => setActiveSection('dashboard')}
-            className="flex flex-col items-center py-2 px-1 relative"
-          >
-            {activeSection === 'dashboard' && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-600"></div>
-            )}
-            <Home className={`w-6 h-6 ${activeSection === 'dashboard' ? 'text-purple-600' : 'text-gray-400'}`} />
-            <span className={`text-[10px] mt-1 font-medium ${activeSection === 'dashboard' ? 'text-purple-600' : 'text-gray-400'}`}>
-              Home
-            </span>
-          </button>
-          <button 
-            onClick={() => setActiveSection('progress')}
-            className="flex flex-col items-center py-2 px-1 relative"
-          >
-            {activeSection === 'progress' && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-600"></div>
-            )}
-            <Scale className={`w-6 h-6 ${activeSection === 'progress' ? 'text-purple-600' : 'text-gray-400'}`} />
-            <span className={`text-[10px] mt-1 font-medium ${activeSection === 'progress' ? 'text-purple-600' : 'text-gray-400'}`}>
-              Progress
-            </span>
-          </button>
-          <button 
-            onClick={() => setActiveSection('reminders')}
-            className="flex flex-col items-center py-2 px-1 relative"
-          >
-            {activeSection === 'reminders' && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-600"></div>
-            )}
-            <Calendar className={`w-6 h-6 ${activeSection === 'reminders' ? 'text-purple-600' : 'text-gray-400'}`} />
-            <span className={`text-[10px] mt-1 font-medium ${activeSection === 'reminders' ? 'text-purple-600' : 'text-gray-400'}`}>
-              Medication
-            </span>
-          </button>
-          <button 
-            onClick={() => setActiveSection('care')}
-            className="flex flex-col items-center py-2 px-1 relative"
-          >
-            {activeSection === 'care' && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-600"></div>
-            )}
-            <User className={`w-6 h-6 ${activeSection === 'care' ? 'text-purple-600' : 'text-gray-400'}`} />
-            <span className={`text-[10px] mt-1 font-medium ${activeSection === 'care' ? 'text-purple-600' : 'text-gray-400'}`}>
-              Care
-            </span>
-          </button>
         </div>
       </div>
     </div>

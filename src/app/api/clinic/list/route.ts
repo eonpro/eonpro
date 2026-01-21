@@ -11,10 +11,10 @@ export async function GET(request: NextRequest) {
   try {
     // TODO: Add user authentication and filter clinics based on user access
     // For now, return all active clinics
-    
+
     const clinics = await prisma.clinic.findMany({
       where: {
-        status: { in: ['ACTIVE', 'TRIAL'] }
+        status: { in: ['ACTIVE', 'TRIAL'] },
       },
       select: {
         id: true,
@@ -26,17 +26,18 @@ export async function GET(request: NextRequest) {
         _count: {
           select: {
             patients: true,
-          }
-        }
+          },
+        },
       },
       orderBy: {
-        name: 'asc'
-      }
+        name: 'asc',
+      },
     });
-    
+
     // Count providers per clinic from both User table (role PROVIDER) and Provider table
+    type ClinicEntry = (typeof clinics)[number];
     const transformedClinics = await Promise.all(
-      clinics.map(async (clinic: { id: number; name: string; subdomain: string | null; logo: string | null; _count: { patients: number; users: number } }) => {
+      clinics.map(async (clinic: ClinicEntry) => {
         const [userProviderCount, providerTableCount] = await Promise.all([
           prisma.user.count({
             where: {
@@ -64,13 +65,10 @@ export async function GET(request: NextRequest) {
         };
       })
     );
-    
+
     return NextResponse.json(transformedClinics);
   } catch (error) {
     logger.error('Error fetching clinics:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch clinics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
   }
 }

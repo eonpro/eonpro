@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         search: patientSearch,
         found: patients.length,
-        patients: patients.map(p => ({
+        patients: patients.map((p: typeof patients[0]) => ({
           id: p.id,
           name: `${p.firstName} ${p.lastName}`,
           email: p.email,

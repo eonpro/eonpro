@@ -259,7 +259,7 @@ export async function generateIntakePdf(intake: NormalizedIntake, patient: Patie
     }
     drawHeader();
 
-    section.entries.forEach((entry, index) => {
+    section.entries.forEach((entry: { label?: string; value?: string }, index: number) => {
       // Format the value to ensure proper display
       const formattedValue = formatAnswerValue(entry.value || "—");
       const measureHeight = () =>

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from 'react';
 import { logger } from '../../../lib/logger';
 
-import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock } from "lucide-react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface Document {
   id: number;
@@ -22,16 +22,16 @@ export default function PatientPortalDocuments() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedCategory, setSelectedCategory] = useState("MEDICAL_RECORDS");
+  const [selectedCategory, setSelectedCategory] = useState('MEDICAL_RECORDS');
   const [dragActive, setDragActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [patientId, setPatientId] = useState<number | null>(null);
 
   // Get patient ID from localStorage
   useEffect(() => {
-    const storedPatientId = localStorage.getItem("patientId");
+    const storedPatientId = localStorage.getItem('patientId');
     if (!storedPatientId) {
-      router.push("/patient-portal");
+      router.push('/patient-portal');
       return;
     }
     setPatientId(parseInt(storedPatientId));
@@ -50,31 +50,31 @@ export default function PatientPortalDocuments() {
           setDocuments(data);
         }
       } catch (error) {
-        logger.error("Error fetching documents:", error);
+        logger.error('Error fetching documents:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     fetchDocuments();
   }, [patientId]);
 
   const documentCategories = [
-    { value: "MEDICAL_RECORDS", label: "Medical Records" },
-    { value: "LAB_RESULTS", label: "Lab Results" },
-    { value: "INSURANCE", label: "Insurance Documents" },
-    { value: "CONSENT_FORMS", label: "Consent Forms" },
-    { value: "PRESCRIPTIONS", label: "Prescriptions" },
-    { value: "IMAGING", label: "Imaging Results" },
-    { value: "OTHER", label: "Other" },
+    { value: 'MEDICAL_RECORDS', label: 'Medical Records' },
+    { value: 'LAB_RESULTS', label: 'Lab Results' },
+    { value: 'INSURANCE', label: 'Insurance Documents' },
+    { value: 'CONSENT_FORMS', label: 'Consent Forms' },
+    { value: 'PRESCRIPTIONS', label: 'Prescriptions' },
+    { value: 'IMAGING', label: 'Imaging Results' },
+    { value: 'OTHER', label: 'Other' },
   ];
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
   }, []);
@@ -104,11 +104,11 @@ export default function PatientPortalDocuments() {
 
     const formData = new FormData();
     Array.from(files).forEach((file) => {
-      formData.append("files", file);
+      formData.append('files', file);
     });
-    formData.append("patientId", patientId.toString());
-    formData.append("category", selectedCategory);
-    formData.append("source", "patient_portal");
+    formData.append('patientId', patientId.toString());
+    formData.append('category', selectedCategory);
+    formData.append('source', 'patient_portal');
 
     try {
       // Simulate upload progress
@@ -123,7 +123,7 @@ export default function PatientPortalDocuments() {
       }, 200);
 
       const response = await fetch(`/api/patients/${patientId}/documents`, {
-        method: "POST",
+        method: 'POST',
         body: formData,
       });
 
@@ -133,85 +133,85 @@ export default function PatientPortalDocuments() {
       if (response.ok) {
         const newDocuments = await response.json();
         setDocuments([...documents, ...newDocuments]);
-        
+
         // Reset after successful upload
         setTimeout(() => {
           setIsUploading(false);
           setUploadProgress(0);
         }, 500);
       } else {
-        throw new Error("Upload failed");
+        throw new Error('Upload failed');
       }
     } catch (error) {
-      logger.error("Upload error:", error);
+      logger.error('Upload error:', error);
       setIsUploading(false);
       setUploadProgress(0);
-      alert("Failed to upload documents. Please try again.");
+      alert('Failed to upload documents. Please try again.');
     }
   };
 
   const handleDelete = async (documentId: number) => {
     if (!patientId) return;
-    
-    if (!confirm("Are you sure you want to delete this document?")) {
+
+    if (!confirm('Are you sure you want to delete this document?')) {
       return;
     }
 
     try {
       const response = await fetch(`/api/patients/${patientId}/documents/${documentId}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
 
       if (response.ok) {
         setDocuments(documents.filter((doc) => doc.id !== documentId));
       } else {
-        throw new Error("Delete failed");
+        throw new Error('Delete failed');
       }
     } catch (error) {
-      logger.error("Delete error:", error);
-      alert("Failed to delete document. Please try again.");
+      logger.error('Delete error:', error);
+      alert('Failed to delete document. Please try again.');
     }
   };
 
   const handleView = async (doc: Document) => {
     if (!patientId) return;
-    
+
     try {
       // Get the auth token from localStorage
       const token = localStorage.getItem('auth-token') || '';
-      
+
       // Fetch the document with authentication
       const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}`, {
         credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-      
+
       if (response.ok) {
         // Create a blob URL and open in new tab
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        window.open(url, "_blank");
+        window.open(url, '_blank');
       } else {
         const error = await response.json().catch(() => ({ error: 'Unknown error' }));
         alert(`Failed to view document: ${error.error || 'Unknown error'}`);
       }
     } catch (error: any) {
-      logger.error("View error:", error);
-      alert("Failed to view document. Please try again.");
+      logger.error('View error:', error);
+      alert('Failed to view document. Please try again.');
     }
   };
 
   const handleDownload = async (doc: Document) => {
     if (!patientId) return;
-    
+
     try {
       const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
+        const a = document.createElement('a');
         a.href = url;
         a.download = doc.filename;
         document.body.appendChild(a);
@@ -220,24 +220,24 @@ export default function PatientPortalDocuments() {
         document.body.removeChild(a);
       }
     } catch (error) {
-      logger.error("Download error:", error);
-      alert("Failed to download document. Please try again.");
+      logger.error('Download error:', error);
+      alert('Failed to download document. Please try again.');
     }
   };
 
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) return "Unknown size";
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    if (bytes === 0) return "0 Byte";
+    if (!bytes) return 'Unknown size';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Byte';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + " " + sizes[i];
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) return "🖼️";
-    if (mimeType === "application/pdf") return "📄";
-    if (mimeType.startsWith("text/")) return "📝";
-    return "📎";
+    if (mimeType.startsWith('image/')) return '🖼️';
+    if (mimeType === 'application/pdf') return '📄';
+    if (mimeType.startsWith('text/')) return '📝';
+    return '📎';
   };
 
   if (!patientId) {
@@ -247,9 +247,9 @@ export default function PatientPortalDocuments() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <div className="sticky top-0 z-10 bg-white shadow-sm">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
             <div className="flex items-center">
               <Link href="/patient-portal" className="mr-4">
                 <ArrowLeft className="h-5 w-5 text-gray-600 hover:text-gray-900" />
@@ -264,31 +264,35 @@ export default function PatientPortalDocuments() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Privacy Notice */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-start">
-            <Lock className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+            <Lock className="mr-3 mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
             <div className="text-sm text-blue-900">
-              <p className="font-semibold mb-1">Your documents are secure</p>
-              <p>All documents you upload are encrypted and only accessible by you and your healthcare provider. We comply with HIPAA regulations to protect your health information.</p>
+              <p className="mb-1 font-semibold">Your documents are secure</p>
+              <p>
+                All documents you upload are encrypted and only accessible by you and your
+                healthcare provider. We comply with HIPAA regulations to protect your health
+                information.
+              </p>
             </div>
           </div>
         </div>
 
         {/* Upload Section */}
-        <div className="bg-white rounded-lg shadow mb-6 p-6">
-          <h2 className="text-lg font-semibold mb-4">Upload New Document</h2>
-          
+        <div className="mb-6 rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-4 text-lg font-semibold">Upload New Document</h2>
+
           <div className="mb-4">
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="category" className="mb-1 block text-sm font-medium text-gray-700">
               Document Type
             </label>
             <select
               id="category"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e]"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] md:w-auto"
             >
               {documentCategories.map((cat) => (
                 <option key={cat.value} value={cat.value}>
@@ -299,10 +303,8 @@ export default function PatientPortalDocuments() {
           </div>
 
           <div
-            className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              dragActive
-                ? "border-[#4fa77e] bg-green-50"
-                : "border-gray-300 hover:border-gray-400"
+            className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+              dragActive ? 'border-[#4fa77e] bg-green-50' : 'border-gray-300 hover:border-gray-400'
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -323,9 +325,9 @@ export default function PatientPortalDocuments() {
                 <div className="animate-pulse">
                   <Upload className="mx-auto h-12 w-12 text-gray-400" />
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5 max-w-md mx-auto">
+                <div className="mx-auto h-2.5 w-full max-w-md rounded-full bg-gray-200">
                   <div
-                    className="bg-[#4fa77e] h-2.5 rounded-full transition-all duration-300"
+                    className="h-2.5 rounded-full bg-[#4fa77e] transition-all duration-300"
                     style={{ width: `${uploadProgress}%` }}
                   ></div>
                 </div>
@@ -335,12 +337,15 @@ export default function PatientPortalDocuments() {
               <>
                 <Upload className="mx-auto h-12 w-12 text-gray-400" />
                 <p className="mt-2 text-sm text-gray-600">
-                  <label htmlFor="file-upload" className="font-semibold text-[#4fa77e] hover:text-[#3f8660] cursor-pointer">
+                  <label
+                    htmlFor="file-upload"
+                    className="cursor-pointer font-semibold text-[#4fa77e] hover:text-[#3f8660]"
+                  >
                     Click to upload
-                  </label>{" "}
+                  </label>{' '}
                   or drag and drop
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   PDF, DOC, DOCX, TXT, JPG, PNG, GIF up to 10MB
                 </p>
               </>
@@ -349,34 +354,38 @@ export default function PatientPortalDocuments() {
         </div>
 
         {/* Documents List */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b">
+        <div className="rounded-lg bg-white shadow">
+          <div className="border-b px-6 py-4">
             <h2 className="text-lg font-semibold">Your Documents</h2>
           </div>
 
           {isLoading ? (
             <div className="p-6 text-center text-gray-500">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4fa77e] mx-auto mb-2"></div>
+              <div className="mx-auto mb-2 h-12 w-12 animate-spin rounded-full border-b-2 border-[#4fa77e]"></div>
               <p>Loading documents...</p>
             </div>
           ) : documents.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
-              <FileText className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+              <FileText className="mx-auto mb-2 h-12 w-12 text-gray-400" />
               <p>No documents uploaded yet</p>
-              <p className="text-sm mt-1">Upload your medical records, lab results, and other health documents to share with your healthcare provider.</p>
+              <p className="mt-1 text-sm">
+                Upload your medical records, lab results, and other health documents to share with
+                your healthcare provider.
+              </p>
             </div>
           ) : (
             <div className="divide-y">
               {documents.map((doc) => (
-                <div key={doc.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div key={doc.id} className="p-4 transition-colors hover:bg-gray-50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">{getFileIcon(doc.mimeType)}</span>
                       <div>
                         <p className="font-medium text-gray-900">{doc.filename}</p>
                         <p className="text-sm text-gray-500">
-                          {documentCategories.find((cat) => cat.value === doc.category)?.label || doc.category} • 
-                          {formatFileSize(doc.size)} • 
+                          {documentCategories.find((cat) => cat.value === doc.category)?.label ||
+                            doc.category}{' '}
+                          •{formatFileSize(doc.size)} •
                           {new Date(doc.createdAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -384,21 +393,21 @@ export default function PatientPortalDocuments() {
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => handleView(doc)}
-                        className="p-2 text-gray-600 hover:text-[#4fa77e] transition-colors"
+                        className="p-2 text-gray-600 transition-colors hover:text-[#4fa77e]"
                         title="View document"
                       >
                         <Eye className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => handleDownload(doc)}
-                        className="p-2 text-gray-600 hover:text-[#4fa77e] transition-colors"
+                        className="p-2 text-gray-600 transition-colors hover:text-[#4fa77e]"
                         title="Download document"
                       >
                         <Download className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => handleDelete(doc.id)}
-                        className="p-2 text-gray-600 hover:text-red-600 transition-colors"
+                        className="p-2 text-gray-600 transition-colors hover:text-red-600"
                         title="Delete document"
                       >
                         <Trash2 className="h-5 w-5" />
@@ -412,9 +421,9 @@ export default function PatientPortalDocuments() {
         </div>
 
         {/* Instructions */}
-        <div className="mt-6 bg-gray-50 rounded-lg p-4">
-          <h3 className="font-semibold text-gray-900 mb-2">Tips for uploading documents:</h3>
-          <ul className="text-sm text-gray-600 space-y-1">
+        <div className="mt-6 rounded-lg bg-gray-50 p-4">
+          <h3 className="mb-2 font-semibold text-gray-900">Tips for uploading documents:</h3>
+          <ul className="space-y-1 text-sm text-gray-600">
             <li>• Make sure documents are clear and legible</li>
             <li>• Remove any sensitive information you don't want to share</li>
             <li>• Label documents with descriptive names for easy identification</li>

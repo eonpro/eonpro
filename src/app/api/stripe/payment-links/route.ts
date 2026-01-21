@@ -55,13 +55,19 @@ export async function GET(request: NextRequest) {
         let lineItems: any[] = [];
         try {
           const items = await stripe.paymentLinks.listLineItems(link.id, { limit: 10 });
-          lineItems = items.data.map(item => ({
-            priceId: item.price?.id,
-            productName: typeof item.price?.product === 'object' ? item.price.product.name : null,
-            quantity: item.quantity,
-            amount: item.amount_total,
-            amountFormatted: formatCurrency(item.amount_total),
-          }));
+          lineItems = items.data.map(item => {
+            const product = item.price?.product;
+            const productName = typeof product === 'object' && product && 'name' in product 
+              ? product.name 
+              : null;
+            return {
+              priceId: item.price?.id,
+              productName,
+              quantity: item.quantity,
+              amount: item.amount_total,
+              amountFormatted: formatCurrency(item.amount_total),
+            };
+          });
         } catch (e) {
           // Line items might not be accessible
         }

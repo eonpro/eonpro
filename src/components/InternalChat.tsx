@@ -90,6 +90,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [isOpen, selectedRecipient]);
 
   const scrollToBottom = () => {

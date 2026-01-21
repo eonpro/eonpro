@@ -370,7 +370,8 @@ export class IntakeProcessor {
         },
       });
     } catch (error) {
-      logger.warn(`[INTAKE ${this.requestId}] Audit log failed:`, error);
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.warn(`[INTAKE ${this.requestId}] Audit log failed:`, { error: errMsg });
     }
   }
 

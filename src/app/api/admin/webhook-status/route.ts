@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
   try {
     // Verify admin secret
     const secret = req.headers.get('x-setup-secret');
-    const configuredSecret = process.env.ADMIN_SETUP_SECRET || process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
+    const configuredSecret =
+      process.env.ADMIN_SETUP_SECRET || process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
 
     if (!configuredSecret || secret !== configuredSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -19,10 +20,7 @@ export async function GET(req: NextRequest) {
     // Find EONMEDS clinic
     const eonmeds = await prisma.clinic.findFirst({
       where: {
-        OR: [
-          { subdomain: 'eonmeds' },
-          { name: { contains: 'EONMEDS', mode: 'insensitive' } },
-        ],
+        OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
       },
     });
 
@@ -44,7 +42,6 @@ export async function GET(req: NextRequest) {
         phone: true,
         source: true,
         createdAt: true,
-        updatedAt: true,
         tags: true,
         notes: true,
       },
@@ -78,8 +75,8 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         action: true,
-        recordId: true,
-        diff: true,
+        resourceId: true,
+        details: true,
         createdAt: true,
         ipAddress: true,
       },
@@ -88,8 +85,12 @@ export async function GET(req: NextRequest) {
     // Calculate stats
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const patientsToday = recentPatients.filter((p: { createdAt: Date }) => p.createdAt >= today).length;
-    const documentsToday = recentDocuments.filter((d: { createdAt: Date }) => d.createdAt >= today).length;
+    const patientsToday = recentPatients.filter(
+      (p: { createdAt: Date }) => p.createdAt >= today
+    ).length;
+    const documentsToday = recentDocuments.filter(
+      (d: { createdAt: Date }) => d.createdAt >= today
+    ).length;
 
     logger.info('[WEBHOOK STATUS] Admin checked webhook status', {
       clinicId: eonmeds.id,
@@ -143,7 +144,7 @@ export async function GET(req: NextRequest) {
 
 function getTimeAgo(date: Date): string {
   const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
-  
+
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;

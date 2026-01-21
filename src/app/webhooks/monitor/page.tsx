@@ -80,6 +80,7 @@ export default function WebhookMonitorPage() {
       const interval = setInterval(fetchStats, 5000);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [selectedEndpoint, autoRefresh]);
 
   const fetchStats = async () => {

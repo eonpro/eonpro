@@ -288,7 +288,7 @@ export async function importExternalEventsAsBlockedTime(
     // Filter out events that are already in our system
     const newEvents = externalEvents.filter(event => {
       // Check if this event already exists
-      const exists = existingAppointments.some((appt) => {
+      const exists = existingAppointments.some((appt: typeof existingAppointments[0]) => {
         if (event.externalId) {
           return (
             appt.googleCalendarEventId === event.externalId ||

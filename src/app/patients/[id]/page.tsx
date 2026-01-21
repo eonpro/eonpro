@@ -1,14 +1,15 @@
-import PatientIntakeView from "@/components/PatientIntakeView";
-import { PatientBillingView } from "@/components/PatientBillingView";
-import PatientPaymentMethods from "@/components/PatientPaymentMethods";
-import PatientSOAPNotesView from "@/components/PatientSOAPNotesView";
-import PatientChatView from "@/components/PatientChatView";
-import PatientAppointmentsView from "@/components/PatientAppointmentsView";
-import PatientProgressView from "@/components/PatientProgressView";
-import PatientSidebar from "@/components/PatientSidebar";
-import PatientTags from "@/components/PatientTags";
-import { prisma } from "@/lib/db";
-import { SHIPPING_METHODS } from "@/lib/shipping";
+import Link from 'next/link';
+import PatientIntakeView from '@/components/PatientIntakeView';
+import { PatientBillingView } from '@/components/PatientBillingView';
+import PatientPaymentMethods from '@/components/PatientPaymentMethods';
+import PatientSOAPNotesView from '@/components/PatientSOAPNotesView';
+import PatientChatView from '@/components/PatientChatView';
+import PatientAppointmentsView from '@/components/PatientAppointmentsView';
+import PatientProgressView from '@/components/PatientProgressView';
+import PatientSidebar from '@/components/PatientSidebar';
+import PatientTags from '@/components/PatientTags';
+import { prisma } from '@/lib/db';
+import { SHIPPING_METHODS } from '@/lib/shipping';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
@@ -19,12 +20,12 @@ type Params = {
   params: { id: string };
 };
 
-const PRACTICE_NAME = process.env.LIFEFILE_PRACTICE_NAME ?? "APOLLO BASED HEALTH LLC";
-const PRACTICE_LOCATION = process.env.LIFEFILE_LOCATION_ID ?? "110396";
-const PRACTICE_VENDOR = process.env.LIFEFILE_VENDOR_ID ?? "11596";
+const PRACTICE_NAME = process.env.LIFEFILE_PRACTICE_NAME ?? 'APOLLO BASED HEALTH LLC';
+const PRACTICE_LOCATION = process.env.LIFEFILE_LOCATION_ID ?? '110396';
+const PRACTICE_VENDOR = process.env.LIFEFILE_VENDOR_ID ?? '11596';
 
-import PatientPrescriptionsTab from "@/components/PatientPrescriptionsTab";
-import PatientDocumentsView from "@/components/PatientDocumentsView";
+import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
+import PatientDocumentsView from '@/components/PatientDocumentsView';
 import { Patient, Provider, Order } from '@/types/models';
 
 type PageProps = {
@@ -35,34 +36,34 @@ type PageProps = {
 export default async function PatientDetailPage({ params, searchParams }: PageProps) {
   const resolvedParams = await params;
   const id = Number(resolvedParams.id);
-  
+
   // Validate the ID
   if (isNaN(id) || id <= 0) {
     return (
       <div className="p-10">
         <p className="text-red-600">Invalid patient ID.</p>
-        <Link href="/patients" className="text-[#4fa77e] underline mt-4 block">
+        <Link href="/patients" className="mt-4 block text-[#4fa77e] underline">
           ← Back to patients
         </Link>
       </div>
     );
   }
-  
+
   const patient = await prisma.patient.findUnique({
     where: { id },
     include: {
       orders: {
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           rxs: true,
           provider: true,
           events: {
-            orderBy: { createdAt: "desc" },
+            orderBy: { createdAt: 'desc' },
           },
         },
       },
       documents: {
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           filename: true,
@@ -71,13 +72,13 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           externalUrl: true,
           category: true,
           sourceSubmissionId: true,
-          data: true,  // PDF binary data (or legacy JSON)
+          data: true, // PDF binary data (or legacy JSON)
           // intakeData field added after migration - uncomment once DB is migrated
           // intakeData: true,
         },
       },
       intakeSubmissions: {
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           template: true,
           responses: {
@@ -88,7 +89,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         },
       },
       auditEntries: {
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         take: 10,
       },
     },
@@ -98,7 +99,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     return (
       <div className="p-10">
         <p className="text-red-600">Patient not found.</p>
-        <Link href="/patients" className="text-[#4fa77e] underline mt-4 block">
+        <Link href="/patients" className="mt-4 block text-[#4fa77e] underline">
           ← Back to patients
         </Link>
       </div>
@@ -109,7 +110,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   const decryptedPatient = decryptPatientPHI(patient, ['email', 'phone', 'dob', 'ssn']);
   const patientWithDecryptedPHI = {
     ...patient,
-    ...decryptedPatient
+    ...decryptedPatient,
   };
 
   // Parse intake document data from Buffer/Uint8Array to JSON
@@ -117,13 +118,17 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     if (doc.data && doc.category === 'MEDICAL_INTAKE_FORM') {
       try {
         let dataStr: string;
-        
+
         // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
         if (doc.data instanceof Uint8Array) {
           dataStr = Buffer.from(doc.data).toString('utf8');
         }
         // Handle Buffer object serialized as {type: 'Buffer', data: number[]}
-        else if (typeof doc.data === 'object' && doc.data.type === 'Buffer' && Array.isArray(doc.data.data)) {
+        else if (
+          typeof doc.data === 'object' &&
+          doc.data.type === 'Buffer' &&
+          Array.isArray(doc.data.data)
+        ) {
           dataStr = Buffer.from(doc.data.data).toString('utf8');
         }
         // Handle actual Buffer
@@ -137,20 +142,19 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         // If it's already a parsed object with answers, use it directly
         else if (typeof doc.data === 'object' && (doc.data.answers || doc.data.sections)) {
           return doc; // Already parsed
-        }
-        else {
+        } else {
           // Unknown format - skip parsing
-          logger.warn('Unknown data format for document:', doc.id, typeof doc.data);
+          logger.warn('Unknown data format for document:', { docId: doc.id, dataType: typeof doc.data });
           return doc;
         }
-        
+
         // Parse the JSON string (skip if it's PDF binary data)
         const trimmed = dataStr.trim();
         if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
           const parsedData = JSON.parse(trimmed);
           return {
             ...doc,
-            data: parsedData
+            data: parsedData,
           };
         } else {
           // Not JSON (likely PDF bytes) - return as-is
@@ -166,7 +170,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
 
   // Format gender - handles "m", "f", "male", "female", "man", "woman"
   const formatGenderValue = (gender: string | null | undefined): string => {
-    if (!gender) return "Not set";
+    if (!gender) return 'Not set';
     const g = gender.toLowerCase().trim();
     if (g === 'm' || g === 'male' || g === 'man') return 'Male';
     if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
@@ -174,9 +178,9 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   };
   const genderLabel = formatGenderValue(patientWithDecryptedPHI.gender);
   const patientTags = Array.isArray(patientWithDecryptedPHI.tags)
-    ? (patientWithDecryptedPHI.tags as string[]).map((tag: any) => tag.replace(/^#/, ""))
+    ? (patientWithDecryptedPHI.tags as string[]).map((tag: any) => tag.replace(/^#/, ''))
     : [];
-  
+
   // Generate consistent colors for hashtags
   const getTagColor = (tag: string) => {
     const colors = [
@@ -190,28 +194,48 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700' },
       { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
     ];
-    
+
     // Generate a consistent hash from the tag string
     let hash = 0;
     for (let i = 0; i < tag.length; i++) {
-      hash = ((hash << 5) - hash) + tag.charCodeAt(i);
+      hash = (hash << 5) - hash + tag.charCodeAt(i);
       hash = hash & hash; // Convert to 32bit integer
     }
-    
+
     return colors[Math.abs(hash) % colors.length];
   };
   const shippingLabelMap = new Map(
     SHIPPING_METHODS.map((method: any) => [method.id, method.label])
   );
   const resolvedSearchParams = await searchParams;
-  const activeTab = resolvedSearchParams?.tab || "profile";
-  const validTabs = ["profile", "intake", "prescriptions", "soap-notes", "appointments", "progress", "billing", "chat", "documents"];
-  const currentTab = validTabs.includes(activeTab) ? activeTab : "profile";
-  const submittedFlag = resolvedSearchParams?.submitted === "1";
+  const activeTab = resolvedSearchParams?.tab || 'profile';
+  const validTabs = [
+    'profile',
+    'intake',
+    'prescriptions',
+    'soap-notes',
+    'appointments',
+    'progress',
+    'billing',
+    'chat',
+    'documents',
+  ];
+  const currentTab = validTabs.includes(activeTab) ? activeTab : 'profile';
+  const submittedFlag = resolvedSearchParams?.submitted === '1';
+
+  // Timeline event type
+  interface TimelineEvent {
+    id: string;
+    date: Date;
+    type: string;
+    title: string;
+    description?: string;
+    data?: unknown;
+  }
 
   // Generate timeline events from patient data
   const timelineEvents: TimelineEvent[] = [];
-  
+
   // Add intake form submissions
   patientWithDecryptedPHI.intakeSubmissions.forEach((submission: any) => {
     timelineEvents.push({
@@ -219,7 +243,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       date: new Date(submission.createdAt),
       type: 'intake',
       title: 'Patient intake',
-      description: submission.template?.name || 'Intake form submitted'
+      description: submission.template?.name || 'Intake form submitted',
     });
   });
 
@@ -230,7 +254,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       date: new Date(order.createdAt),
       type: 'prescription',
       title: 'Patient paid for rx',
-      description: `Order #${order.id} - ${order.rxs?.length || 0} prescriptions`
+      description: `Order #${order.id} - ${order.rxs?.length || 0} prescriptions`,
     });
   });
 
@@ -242,7 +266,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         date: new Date(doc.createdAt),
         type: 'document',
         title: 'Document uploaded',
-        description: doc.filename
+        description: doc.filename,
       });
     }
   });
@@ -256,7 +280,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           date: new Date(event.createdAt),
           type: 'prescription',
           title: 'Pharmacy tracking info',
-          description: event.status
+          description: event.status,
         });
       }
     });
@@ -274,18 +298,19 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       bloodPressure?: string | null;
       idealWeight?: string | null;
     } = {};
-    
+
     // Helper to find value by label in various data sources
     const findValue = (...labels: string[]): string | null => {
       // Source 1: Document data with sections array (must be parsed JSON, not Buffer)
-      const intakeDoc = documentsWithParsedData.find((d: any) => 
-        d.category === 'MEDICAL_INTAKE_FORM' && 
-        d.data && 
-        typeof d.data === 'object' &&
-        !Buffer.isBuffer(d.data) &&
-        !(d.data.type === 'Buffer') // Prisma serialized buffer format
+      const intakeDoc = documentsWithParsedData.find(
+        (d: any) =>
+          d.category === 'MEDICAL_INTAKE_FORM' &&
+          d.data &&
+          typeof d.data === 'object' &&
+          !Buffer.isBuffer(d.data) &&
+          !(d.data.type === 'Buffer') // Prisma serialized buffer format
       );
-      
+
       if (intakeDoc?.data) {
         // Check sections array
         if (intakeDoc.data.sections && Array.isArray(intakeDoc.data.sections)) {
@@ -294,7 +319,11 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
               for (const entry of section.entries) {
                 const entryLabel = (entry.label || '').toLowerCase();
                 for (const label of labels) {
-                  if (entryLabel.includes(label.toLowerCase()) && entry.value && entry.value !== '') {
+                  if (
+                    entryLabel.includes(label.toLowerCase()) &&
+                    entry.value &&
+                    entry.value !== ''
+                  ) {
                     return String(entry.value);
                   }
                 }
@@ -302,28 +331,40 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
             }
           }
         }
-        
+
         // Also check answers array directly (some webhooks store this way)
         if (intakeDoc.data.answers && Array.isArray(intakeDoc.data.answers)) {
           for (const answer of intakeDoc.data.answers) {
             const answerLabel = (answer.label || '').toLowerCase();
             for (const label of labels) {
-              if (answerLabel.includes(label.toLowerCase()) && answer.value && answer.value !== '') {
+              if (
+                answerLabel.includes(label.toLowerCase()) &&
+                answer.value &&
+                answer.value !== ''
+              ) {
                 return String(answer.value);
               }
             }
           }
         }
       }
-      
+
       // Source 2: IntakeSubmissions responses
       if (patientWithDecryptedPHI.intakeSubmissions?.length > 0) {
         for (const submission of patientWithDecryptedPHI.intakeSubmissions) {
           if (submission.responses && Array.isArray(submission.responses)) {
             for (const response of submission.responses) {
-              const questionText = (response.question?.text || response.question?.label || '').toLowerCase();
+              const questionText = (
+                response.question?.text ||
+                response.question?.label ||
+                ''
+              ).toLowerCase();
               for (const label of labels) {
-                if (questionText.includes(label.toLowerCase()) && response.value && response.value !== '') {
+                if (
+                  questionText.includes(label.toLowerCase()) &&
+                  response.value &&
+                  response.value !== ''
+                ) {
                   return String(response.value);
                 }
               }
@@ -331,7 +372,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           }
         }
       }
-      
+
       // Source 3: Flat key-value in document data
       if (intakeDoc?.data && typeof intakeDoc.data === 'object') {
         for (const label of labels) {
@@ -344,10 +385,10 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           }
         }
       }
-      
+
       return null;
     };
-    
+
     // Extract height - try separate feet/inches first, then combined value
     const heightFeet = findValue('height (feet)', 'height feet', 'heightfeet');
     const heightInches = findValue('height (inches)', 'height inches', 'heightinches');
@@ -357,23 +398,23 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       // Fallback: look for combined height value (e.g., "5'2"" or "62 inches")
       result.height = findValue('height');
     }
-    
+
     // Extract weight
     result.weight = findValue('starting weight', 'current weight', 'weight');
-    
+
     // Extract BMI
     result.bmi = findValue('bmi');
-    
+
     // Extract blood pressure
     const bp = findValue('blood pressure', 'bloodpressure');
     result.bloodPressure = bp && bp.toLowerCase() !== 'unknown' ? bp : null;
-    
+
     // Extract ideal weight
     result.idealWeight = findValue('ideal weight', 'goal weight', 'target weight');
-    
+
     return result;
   };
-  
+
   const vitals = extractVitals();
 
   // ═══════════════════════════════════════════════════════════════════
@@ -385,14 +426,16 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   // - Normal: 18.5 - 24.9 (green)
   // - Overweight: 25 - 29.9 (yellow)
   // - Obese: 30+ (red)
-  const getBmiColor = (bmi: string | null | undefined): { bar: string; text: string; width: string } => {
+  const getBmiColor = (
+    bmi: string | null | undefined
+  ): { bar: string; text: string; width: string } => {
     if (!bmi) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
     const bmiNum = parseFloat(bmi);
     if (isNaN(bmiNum)) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-    
+
     // Calculate width based on BMI (scale: 15-50 range mapped to 0-100%)
     const width = Math.min(100, Math.max(0, ((bmiNum - 15) / 35) * 100));
-    
+
     if (bmiNum < 18.5) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
     if (bmiNum < 25) return { bar: 'bg-emerald-500', text: 'text-emerald-600', width: `${width}%` };
     if (bmiNum < 30) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
@@ -404,43 +447,53 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   // - Elevated: 120-129 / < 80 (yellow)
   // - High Stage 1: 130-139 / 80-89 (yellow)
   // - High Stage 2: 140+ / 90+ (red)
-  const getBloodPressureColor = (bp: string | null | undefined): { bar: string; text: string; width: string } => {
-    if (!bp || bp.toLowerCase() === 'unknown') return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-    
+  const getBloodPressureColor = (
+    bp: string | null | undefined
+  ): { bar: string; text: string; width: string } => {
+    if (!bp || bp.toLowerCase() === 'unknown')
+      return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
+
     // Parse blood pressure (format: "120/80" or "120 / 80")
     const parts = bp.replace(/\s/g, '').split('/');
     if (parts.length !== 2) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '50%' };
-    
+
     const systolic = parseInt(parts[0]);
     const diastolic = parseInt(parts[1]);
-    if (isNaN(systolic) || isNaN(diastolic)) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '50%' };
-    
+    if (isNaN(systolic) || isNaN(diastolic))
+      return { bar: 'bg-gray-400', text: 'text-gray-600', width: '50%' };
+
     // Calculate width based on systolic (scale: 90-180 range mapped to 0-100%)
     const width = Math.min(100, Math.max(0, ((systolic - 90) / 90) * 100));
-    
-    if (systolic < 120 && diastolic < 80) return { bar: 'bg-emerald-500', text: 'text-emerald-600', width: `${width}%` };
-    if (systolic < 130 && diastolic < 80) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
-    if (systolic < 140 || diastolic < 90) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
+
+    if (systolic < 120 && diastolic < 80)
+      return { bar: 'bg-emerald-500', text: 'text-emerald-600', width: `${width}%` };
+    if (systolic < 130 && diastolic < 80)
+      return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
+    if (systolic < 140 || diastolic < 90)
+      return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
     return { bar: 'bg-red-500', text: 'text-red-600', width: `${width}%` };
   };
 
   // Weight Risk (based on BMI since weight alone is not meaningful)
   // Uses BMI color if available, otherwise gray
-  const getWeightColor = (weight: string | null | undefined, bmi: string | null | undefined): { bar: string; text: string; width: string } => {
+  const getWeightColor = (
+    weight: string | null | undefined,
+    bmi: string | null | undefined
+  ): { bar: string; text: string; width: string } => {
     if (!weight) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-    
+
     const weightNum = parseFloat(weight.replace(/[^\d.]/g, ''));
     if (isNaN(weightNum)) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-    
+
     // Calculate width based on weight (scale: 100-400 lbs range mapped to 0-100%)
     const width = Math.min(100, Math.max(0, ((weightNum - 100) / 300) * 100));
-    
+
     // Use BMI color if available
     if (bmi) {
       const bmiColor = getBmiColor(bmi);
       return { ...bmiColor, width: `${width}%` };
     }
-    
+
     return { bar: 'bg-gray-500', text: 'text-gray-600', width: `${width}%` };
   };
 
@@ -455,118 +508,177 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         <PatientSidebar patient={patientWithDecryptedPHI} currentTab={currentTab} />
 
         {/* Main Content Area */}
-        <div className="flex-1 min-w-0">
-          {submittedFlag && (currentTab === "profile" || currentTab === "prescriptions") && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-center gap-2">
-              <svg className="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        <div className="min-w-0 flex-1">
+          {submittedFlag && (currentTab === 'profile' || currentTab === 'prescriptions') && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+              <svg
+                className="h-5 w-5 flex-shrink-0 text-emerald-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
               Prescription submitted successfully.
             </div>
           )}
 
-          {currentTab === "profile" ? (
+          {currentTab === 'profile' ? (
             <div className="space-y-6">
               {/* Title */}
               <h1 className="text-2xl font-bold text-gray-900">Patient Overview</h1>
 
               {/* Vitals Section */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <svg
+                    className="h-5 w-5 text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
                   </svg>
                   <h2 className="text-lg font-semibold text-gray-900">Vitals</h2>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                   {/* Height - No health indicator (neutral) */}
-                  <div className="bg-[#efece7] rounded-xl p-4">
-                    <p className="text-sm text-gray-500 mb-1">Height</p>
+                  <div className="rounded-xl bg-[#efece7] p-4">
+                    <p className="mb-1 text-sm text-gray-500">Height</p>
                     <p className="text-2xl font-bold text-gray-900">{vitals.height || '—'}</p>
-                    <div className="mt-3 h-2 bg-gray-300 rounded-full overflow-hidden">
-                      <div className="h-full bg-gray-500 rounded-full" style={{ width: vitals.height ? '100%' : '0%' }} />
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-300">
+                      <div
+                        className="h-full rounded-full bg-gray-500"
+                        style={{ width: vitals.height ? '100%' : '0%' }}
+                      />
                     </div>
                   </div>
 
                   {/* Weight - Color based on BMI */}
-                  <div className="bg-[#efece7] rounded-xl p-4">
-                    <p className="text-sm text-gray-500 mb-1">Weight</p>
-                    <p className={`text-2xl font-bold ${vitals.weight ? weightColor.text : 'text-gray-900'}`}>
+                  <div className="rounded-xl bg-[#efece7] p-4">
+                    <p className="mb-1 text-sm text-gray-500">Weight</p>
+                    <p
+                      className={`text-2xl font-bold ${vitals.weight ? weightColor.text : 'text-gray-900'}`}
+                    >
                       {vitals.weight ? `${vitals.weight}lbs` : '—'}
                     </p>
-                    <div className="mt-3 h-2 bg-gray-300 rounded-full overflow-hidden">
-                      <div className={`h-full ${weightColor.bar} rounded-full transition-all duration-500`} style={{ width: weightColor.width }} />
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-300">
+                      <div
+                        className={`h-full ${weightColor.bar} rounded-full transition-all duration-500`}
+                        style={{ width: weightColor.width }}
+                      />
                     </div>
                   </div>
 
                   {/* BMI - Color coded by obesity level */}
-                  <div className="bg-[#efece7] rounded-xl p-4">
-                    <p className="text-sm text-gray-500 mb-1">BMI</p>
-                    <p className={`text-2xl font-bold ${vitals.bmi ? bmiColor.text : 'text-gray-900'}`}>
+                  <div className="rounded-xl bg-[#efece7] p-4">
+                    <p className="mb-1 text-sm text-gray-500">BMI</p>
+                    <p
+                      className={`text-2xl font-bold ${vitals.bmi ? bmiColor.text : 'text-gray-900'}`}
+                    >
                       {vitals.bmi || '—'}
                     </p>
-                    <div className="mt-3 h-2 bg-gray-300 rounded-full overflow-hidden">
-                      <div className={`h-full ${bmiColor.bar} rounded-full transition-all duration-500`} style={{ width: bmiColor.width }} />
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-300">
+                      <div
+                        className={`h-full ${bmiColor.bar} rounded-full transition-all duration-500`}
+                        style={{ width: bmiColor.width }}
+                      />
                     </div>
                   </div>
 
                   {/* Blood Pressure - Color coded by hypertension level */}
-                  <div className="bg-[#efece7] rounded-xl p-4">
-                    <p className="text-sm text-gray-500 mb-1">Blood pressure</p>
-                    <p className={`text-2xl font-bold ${vitals.bloodPressure && vitals.bloodPressure !== 'unknown' ? bpColor.text : 'text-gray-900'}`}>
-                      {vitals.bloodPressure && vitals.bloodPressure.toLowerCase() !== 'unknown' ? vitals.bloodPressure : '—'}
+                  <div className="rounded-xl bg-[#efece7] p-4">
+                    <p className="mb-1 text-sm text-gray-500">Blood pressure</p>
+                    <p
+                      className={`text-2xl font-bold ${vitals.bloodPressure && vitals.bloodPressure !== 'unknown' ? bpColor.text : 'text-gray-900'}`}
+                    >
+                      {vitals.bloodPressure && vitals.bloodPressure.toLowerCase() !== 'unknown'
+                        ? vitals.bloodPressure
+                        : '—'}
                     </p>
-                    <div className="mt-3 h-2 bg-gray-300 rounded-full overflow-hidden">
-                      <div className={`h-full ${bpColor.bar} rounded-full transition-all duration-500`} style={{ width: bpColor.width }} />
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-300">
+                      <div
+                        className={`h-full ${bpColor.bar} rounded-full transition-all duration-500`}
+                        style={{ width: bpColor.width }}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Tags and Overview */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <div className="rounded-2xl border border-gray-200 bg-white p-6">
                 {/* Editable Tags Component */}
                 <PatientTags patientId={patientWithDecryptedPHI.id} initialTags={patientTags} />
 
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Overview</h3>
-                  <p className="text-sm text-gray-600">Total prescriptions: {patientWithDecryptedPHI.orders.length}</p>
-                  <p className="text-sm text-gray-500 mt-1" suppressHydrationWarning>
+                  <h3 className="mb-2 text-lg font-semibold text-gray-900">Overview</h3>
+                  <p className="text-sm text-gray-600">
+                    Total prescriptions: {patientWithDecryptedPHI.orders.length}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500" suppressHydrationWarning>
                     Last updated: {new Date(patientWithDecryptedPHI.createdAt).toLocaleString()}
                   </p>
                 </div>
 
-                {/* Weight Chart Placeholder */}
-                <div className="mt-6 bg-[#efece7] rounded-xl p-4 h-48 flex items-center justify-center">
-                  <div className="text-center text-gray-500">
-                    <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                {/* Weight Chart - Link to Progress Tab */}
+                <div className="mt-6 flex h-48 items-center justify-center rounded-xl bg-[#efece7] p-4">
+                  <Link
+                    href={`/patients/${patientWithDecryptedPHI.id}?tab=progress`}
+                    className="text-center text-gray-500 transition-colors hover:text-[#4fa77e]"
+                  >
+                    <svg
+                      className="mx-auto mb-2 h-8 w-8 opacity-50"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
                     </svg>
-                    <p className="text-sm">Weight tracking chart</p>
-                    <p className="text-xs">Data will appear as weight is logged</p>
-                  </div>
+                    <p className="text-sm font-medium">Weight Progress Tracking</p>
+                    <p className="text-xs">View full chart in Progress tab →</p>
+                  </Link>
                 </div>
               </div>
 
               {/* Audit Log for admins */}
-              {resolvedSearchParams?.admin === "true" && (
-                <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
+              {resolvedSearchParams?.admin === 'true' && (
+                <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                  <div className="mb-4 flex items-center justify-between">
                     <h2 className="text-lg font-semibold">Patient Audit Log</h2>
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Admin Only</span>
+                    <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-700">
+                      Admin Only
+                    </span>
                   </div>
                   {patientWithDecryptedPHI.auditEntries.length === 0 ? (
                     <p className="text-sm text-gray-500">No edits recorded yet.</p>
                   ) : (
                     <div className="space-y-3 text-sm">
                       {patientWithDecryptedPHI.auditEntries.map((entry: any) => (
-                        <div key={entry.id} className="border rounded-lg p-3 bg-[#efece7]">
-                          <div className="flex justify-between text-xs text-gray-500 mb-2">
-                            <span>{entry.actorEmail ?? "Unknown actor"}</span>
-                            <span suppressHydrationWarning>{new Date(entry.createdAt).toLocaleString()}</span>
+                        <div key={entry.id} className="rounded-lg border bg-[#efece7] p-3">
+                          <div className="mb-2 flex justify-between text-xs text-gray-500">
+                            <span>{entry.actorEmail ?? 'Unknown actor'}</span>
+                            <span suppressHydrationWarning>
+                              {new Date(entry.createdAt).toLocaleString()}
+                            </span>
                           </div>
-                          <pre className="text-xs whitespace-pre-wrap bg-white rounded p-2 border">
+                          <pre className="whitespace-pre-wrap rounded border bg-white p-2 text-xs">
                             {JSON.stringify(entry.diff, null, 2)}
                           </pre>
                         </div>
@@ -576,47 +688,46 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                 </div>
               )}
             </div>
-          ) : currentTab === "intake" ? (
+          ) : currentTab === 'intake' ? (
             <PatientIntakeView
               patient={patientWithDecryptedPHI}
               documents={documentsWithParsedData}
               intakeFormSubmissions={patientWithDecryptedPHI.intakeSubmissions}
             />
-          ) : currentTab === "soap-notes" ? (
-            <PatientSOAPNotesView 
-              patientId={patientWithDecryptedPHI.id}
-              currentProviderId={1}
-            />
-          ) : currentTab === "appointments" ? (
+          ) : currentTab === 'soap-notes' ? (
+            <PatientSOAPNotesView patientId={patientWithDecryptedPHI.id} currentProviderId={1} />
+          ) : currentTab === 'appointments' ? (
             <PatientAppointmentsView patient={patientWithDecryptedPHI} />
-          ) : currentTab === "progress" ? (
+          ) : currentTab === 'progress' ? (
             <PatientProgressView patient={patientWithDecryptedPHI} />
-          ) : currentTab === "prescriptions" ? (
+          ) : currentTab === 'prescriptions' ? (
             <PatientPrescriptionsTab
               patient={patientWithDecryptedPHI}
               orders={patientWithDecryptedPHI.orders}
               shippingLabelMap={shippingLabelMap}
             />
-          ) : currentTab === "billing" ? (
+          ) : currentTab === 'billing' ? (
             <div className="space-y-6">
-              <PatientBillingView 
-                patientId={patientWithDecryptedPHI.id} 
+              <PatientBillingView
+                patientId={patientWithDecryptedPHI.id}
                 patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
               />
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold mb-4 pb-3 border-b border-gray-200">Payment Methods</h3>
+              <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                <h3 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">
+                  Payment Methods
+                </h3>
                 <PatientPaymentMethods
                   patientId={patientWithDecryptedPHI.id}
                   patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
                 />
               </div>
             </div>
-          ) : currentTab === "documents" ? (
+          ) : currentTab === 'documents' ? (
             <PatientDocumentsView
               patientId={patientWithDecryptedPHI.id}
               patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
             />
-          ) : currentTab === "chat" ? (
+          ) : currentTab === 'chat' ? (
             <PatientChatView patient={patientWithDecryptedPHI} />
           ) : null}
         </div>
@@ -626,15 +737,15 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
 }
 
 function formatDob(dob: string | null) {
-  if (!dob) return "—";
+  if (!dob) return '—';
   const clean = dob.trim();
-  if (!clean) return "—";
-  if (clean.includes("/")) return clean;
-  const parts = clean.split("-");
+  if (!clean) return '—';
+  if (clean.includes('/')) return clean;
+  const parts = clean.split('-');
   if (parts.length === 3) {
     const [yyyy, mm, dd] = parts;
     if (yyyy && mm && dd) {
-      return `${mm.padStart(2, "0")}/${dd.padStart(2, "0")}/${yyyy}`;
+      return `${mm.padStart(2, '0')}/${dd.padStart(2, '0')}/${yyyy}`;
     }
   }
   return clean;

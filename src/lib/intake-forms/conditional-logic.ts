@@ -75,7 +75,7 @@ export function evaluateRule(
       return !responseValue || responseValue.trim() === '';
       
     case 'is_not_empty':
-      return responseValue && responseValue.trim() !== '';
+      return !!(responseValue && responseValue.trim() !== '');
       
     case 'in':
       if (Array.isArray(rule.value)) {

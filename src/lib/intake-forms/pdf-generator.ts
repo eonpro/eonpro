@@ -95,6 +95,7 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
     const fileName = `intake_form_${submission.template.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     
     // Build intake data structure for display in Intake tab (same format as webhook intakes)
+    const patientData = submission.patient;
     const intakeDataToStore = {
       submissionId: String(submissionId),
       source: 'eonpro-intake-form',
@@ -102,12 +103,12 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
       sections: buildSectionsFromSubmission(submission),
       answers: buildAnswersFromSubmission(submission),
       patient: {
-        email: patient?.email,
-        firstName: patient?.firstName,
-        lastName: patient?.lastName,
-        phone: patient?.phone,
-        dob: patient?.dob,
-        gender: patient?.gender,
+        email: patientData?.email,
+        firstName: patientData?.firstName,
+        lastName: patientData?.lastName,
+        phone: patientData?.phone,
+        dob: patientData?.dob,
+        gender: patientData?.gender,
       },
     };
 

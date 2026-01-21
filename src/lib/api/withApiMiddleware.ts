@@ -168,7 +168,8 @@ export function createGetHandler<TQuery extends ZodSchema = ZodSchema>(
   config: Omit<ApiConfig<never, TQuery>, 'bodySchema'>,
   handler: ApiHandler<never, z.infer<TQuery>>
 ) {
-  return withApiMiddleware(config, handler);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return withApiMiddleware(config, handler as ApiHandler<any, z.infer<TQuery>>);
 }
 
 /**
@@ -178,7 +179,8 @@ export function createPostHandler<TBody extends ZodSchema = ZodSchema>(
   config: Omit<ApiConfig<TBody, never>, 'querySchema'>,
   handler: ApiHandler<z.infer<TBody>, never>
 ) {
-  return withApiMiddleware(config, handler);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return withApiMiddleware(config, handler as ApiHandler<z.infer<TBody>, any>);
 }
 
 /**

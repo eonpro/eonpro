@@ -9,9 +9,8 @@ const withBundleAnalyzer = process.env.ANALYZE === 'true'
 const nextConfig = {
   // TypeScript configuration
   typescript: {
-    // TODO: Set to false once all TypeScript errors are fixed
-    // Currently ~80 implicit any errors need type annotations
-    ignoreBuildErrors: true,
+    // All TypeScript errors fixed - strict mode enabled
+    ignoreBuildErrors: false,
   },
   
   // Image optimization

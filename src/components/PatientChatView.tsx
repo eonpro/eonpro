@@ -57,6 +57,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       // (the no-phone-number message will be shown instead)
       setConnected(true);
     }
+    return undefined;
   }, [patient.id, patientPhone]);
 
   useEffect(() => {

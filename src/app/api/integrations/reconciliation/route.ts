@@ -1,12 +1,12 @@
 /**
  * Reconciliation Report Endpoint
- * 
+ *
  * Phase 4: Bi-directional Sync
- * 
+ *
  * Compares records between Airtable and EONPRO to find mismatches.
- * 
+ *
  * POST /api/integrations/reconciliation
- * 
+ *
  * Body:
  * {
  *   "airtableRecords": [
@@ -14,7 +14,7 @@
  *     ...
  *   ]
  * }
- * 
+ *
  * Returns which records exist in EONPRO and which are missing.
  */
 
@@ -34,13 +34,13 @@ interface AirtableRecord {
 
 export async function POST(req: NextRequest) {
   const requestId = `reconcile-${Date.now()}`;
-  
+
   // Verify authentication
-  const providedSecret = 
+  const providedSecret =
     req.headers.get('x-api-key') ||
     req.headers.get('x-webhook-secret') ||
     req.headers.get('authorization')?.replace('Bearer ', '');
-  
+
   if (!INTEGRATION_SECRET || providedSecret !== INTEGRATION_SECRET) {
     logger.warn(`[Reconcile ${requestId}] Unauthorized access attempt`);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -51,26 +51,30 @@ export async function POST(req: NextRequest) {
     const airtableRecords: AirtableRecord[] = body.airtableRecords || [];
 
     if (!Array.isArray(airtableRecords) || airtableRecords.length === 0) {
-      return NextResponse.json({
-        error: 'Invalid request',
-        message: 'airtableRecords must be a non-empty array',
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Invalid request',
+          message: 'airtableRecords must be a non-empty array',
+        },
+        { status: 400 }
+      );
     }
 
     // Limit batch size
     if (airtableRecords.length > 500) {
-      return NextResponse.json({
-        error: 'Batch too large',
-        message: 'Maximum 500 records per request',
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Batch too large',
+          message: 'Maximum 500 records per request',
+        },
+        { status: 400 }
+      );
     }
 
     logger.info(`[Reconcile ${requestId}] Processing ${airtableRecords.length} records`);
 
     // Get all emails to check
-    const emails = airtableRecords
-      .map(r => r.email?.toLowerCase())
-      .filter(Boolean);
+    const emails = airtableRecords.map((r) => r.email?.toLowerCase()).filter(Boolean);
 
     // Fetch all matching patients from EONPRO
     const eonproPatients = await prisma.patient.findMany({
@@ -90,9 +94,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create lookup map
-    const eonproByEmail = new Map(
-      eonproPatients.map(p => [p.email?.toLowerCase(), p])
+    // Create lookup map - type from Prisma select
+    type EonproPatient = (typeof eonproPatients)[number];
+    const eonproByEmail = new Map<string | undefined, EonproPatient>(
+      eonproPatients.map((p: EonproPatient) => [p.email?.toLowerCase(), p])
     );
 
     // Process each Airtable record
@@ -120,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     for (const record of airtableRecords) {
       const email = record.email?.toLowerCase();
-      
+
       if (!email) {
         results.missing.push({
           airtableId: record.airtableId,
@@ -178,10 +183,13 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     logger.error(`[Reconcile ${requestId}] Error:`, err);
-    return NextResponse.json({
-      error: 'Reconciliation failed',
-      message: err instanceof Error ? err.message : 'Unknown error',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Reconciliation failed',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -190,13 +198,13 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   const requestId = `reconcile-status-${Date.now()}`;
-  
+
   // Verify authentication
-  const providedSecret = 
+  const providedSecret =
     req.headers.get('x-api-key') ||
     req.headers.get('x-webhook-secret') ||
     req.headers.get('authorization')?.replace('Bearer ', '');
-  
+
   if (!INTEGRATION_SECRET || providedSecret !== INTEGRATION_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -234,7 +242,7 @@ export async function GET(req: NextRequest) {
       stats: {
         totalPatients: recentPatients.length,
       },
-      patients: recentPatients.map(p => ({
+      patients: recentPatients.map((p: (typeof recentPatients)[number]) => ({
         eonproPatientId: p.id,
         eonproPatientNumber: p.patientId,
         email: p.email,
@@ -245,9 +253,12 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     logger.error(`[Reconcile ${requestId}] Error:`, err);
-    return NextResponse.json({
-      error: 'Failed to retrieve sync status',
-      message: err instanceof Error ? err.message : 'Unknown error',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to retrieve sync status',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }

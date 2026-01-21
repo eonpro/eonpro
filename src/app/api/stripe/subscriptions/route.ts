@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { verifyAuth } from '@/lib/auth/middleware';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-11-17.clover',
 });
 
 /**
@@ -48,13 +48,14 @@ export async function GET(request: NextRequest) {
       subscriptions: subscriptions.data,
       hasMore: subscriptions.has_more,
     });
-  } catch (error: any) {
-    console.error('[Stripe Subscriptions] Error:', error);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Stripe Subscriptions] Error:', errorMessage);
     
     // Return empty array instead of error for dashboard compatibility
     return NextResponse.json({ 
       subscriptions: [],
-      error: error.message 
+      error: errorMessage 
     });
   }
 }

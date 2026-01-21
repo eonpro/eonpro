@@ -145,7 +145,8 @@ async function getCalendarClient(providerId: number): Promise<calendar_v3.Calend
     }
   });
 
-  return google.calendar({ version: 'v3', auth: oauth2Client });
+  // Cast oauth2Client to handle googleapis type version differences
+  return google.calendar({ version: 'v3', auth: oauth2Client as unknown as Parameters<typeof google.calendar>[0]['auth'] });
 }
 
 /**

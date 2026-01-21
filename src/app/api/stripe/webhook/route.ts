@@ -82,12 +82,19 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json({ received: true });
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error(`[STRIPE WEBHOOK] Error processing ${event.type}:`, error);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`[STRIPE WEBHOOK] Error processing ${event.type}:`, error instanceof Error ? error : new Error(errorMessage));
     
-    // Return success to avoid Stripe retrying
-    return NextResponse.json({ received: true, error: true });
+    // Return 500 to trigger Stripe retry - payment events are critical
+    // Stripe will retry with exponential backoff for up to 3 days
+    return NextResponse.json(
+      { 
+        received: false, 
+        error: 'Processing failed - will retry',
+        eventType: event.type 
+      },
+      { status: 500 }
+    );
   }
 }

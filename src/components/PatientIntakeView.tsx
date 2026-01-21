@@ -643,7 +643,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       for (const field of section.fields) {
         usedKeys.add(normalizeKey(field.id));
         usedKeys.add(normalizeKey(field.label));
-        if (field.aliases) {
+        if ('aliases' in field && field.aliases) {
           for (const alias of field.aliases) {
             usedKeys.add(normalizeKey(alias));
           }

@@ -266,7 +266,7 @@ export async function getQueueStats(): Promise<DLQStats & { pending: number; exh
       if (key === 'lastProcessedAt') {
         stats[key] = value;
       } else if (key in stats) {
-        (stats as Record<string, unknown>)[key] = parseInt(value, 10) || 0;
+        (stats as unknown as Record<string, unknown>)[key] = parseInt(value, 10) || 0;
       }
     }
   }

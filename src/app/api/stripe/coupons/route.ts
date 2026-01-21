@@ -1,15 +1,15 @@
 /**
  * STRIPE COUPONS & PROMOTIONS API
- * 
+ *
  * GET /api/stripe/coupons - List all coupons and promotion codes
  * POST /api/stripe/coupons - Create a new coupon
- * 
+ *
  * Provides:
  * - Active coupons
  * - Promotion codes
  * - Redemption statistics
  * - Discount analytics
- * 
+ *
  * PROTECTED: Requires admin authentication
  */
 
@@ -41,47 +41,50 @@ async function getCouponsHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
+
     const stripe = getStripe();
     const { searchParams } = new URL(request.url);
-    
+
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const startingAfter = searchParams.get('starting_after') || undefined;
     const includeExpired = searchParams.get('includeExpired') === 'true';
-    
+
     // Fetch coupons
     const coupons = await stripe.coupons.list({
       limit,
       ...(startingAfter && { starting_after: startingAfter }),
     });
-    
+
     // Fetch promotion codes
     const promoCodes = await stripe.promotionCodes.list({
       limit: 100,
       active: true,
       expand: ['data.coupon'],
     });
-    
+
     // Map promo codes to coupons
     const promoCodesByCoupon: Record<string, Stripe.PromotionCode[]> = {};
-    promoCodes.data.forEach(promo => {
-      if (!promo.coupon) return;
-      const couponId = typeof promo.coupon === 'string' ? promo.coupon : promo.coupon?.id;
+    promoCodes.data.forEach((promo) => {
+      // When expanded, coupon is always an object
+      const promoCoupon = (promo as unknown as { coupon?: Stripe.Coupon }).coupon;
+      if (!promoCoupon) return;
+      const couponId = typeof promoCoupon === 'string' ? promoCoupon : promoCoupon?.id;
       if (!couponId) return;
       if (!promoCodesByCoupon[couponId]) {
         promoCodesByCoupon[couponId] = [];
       }
       promoCodesByCoupon[couponId].push(promo);
     });
-    
+
     // Format coupons
     const now = Math.floor(Date.now() / 1000);
     const formattedCoupons = coupons.data
-      .filter(coupon => includeExpired || !coupon.redeem_by || coupon.redeem_by > now)
-      .map(coupon => {
+      .filter((coupon) => includeExpired || !coupon.redeem_by || coupon.redeem_by > now)
+      .map((coupon) => {
         const isExpired = coupon.redeem_by && coupon.redeem_by < now;
-        const isFullyRedeemed = coupon.max_redemptions && coupon.times_redeemed >= coupon.max_redemptions;
-        
+        const isFullyRedeemed =
+          coupon.max_redemptions && coupon.times_redeemed >= coupon.max_redemptions;
+
         return {
           id: coupon.id,
           name: coupon.name,
@@ -101,9 +104,15 @@ async function getCouponsHandler(request: NextRequest, user: AuthUser) {
           metadata: coupon.metadata,
           isExpired,
           isFullyRedeemed,
-          status: isExpired ? 'expired' : isFullyRedeemed ? 'fully_redeemed' : coupon.valid ? 'active' : 'inactive',
+          status: isExpired
+            ? 'expired'
+            : isFullyRedeemed
+              ? 'fully_redeemed'
+              : coupon.valid
+                ? 'active'
+                : 'inactive',
           discountDescription: formatDiscount(coupon),
-          promoCodes: (promoCodesByCoupon[coupon.id] || []).map(promo => ({
+          promoCodes: (promoCodesByCoupon[coupon.id] || []).map((promo) => ({
             id: promo.id,
             code: promo.code,
             active: promo.active,
@@ -113,37 +122,37 @@ async function getCouponsHandler(request: NextRequest, user: AuthUser) {
             restrictions: {
               firstTimeTransaction: promo.restrictions?.first_time_transaction,
               minimumAmount: promo.restrictions?.minimum_amount,
-              minimumAmountFormatted: promo.restrictions?.minimum_amount 
-                ? formatCurrency(promo.restrictions.minimum_amount) 
+              minimumAmountFormatted: promo.restrictions?.minimum_amount
+                ? formatCurrency(promo.restrictions.minimum_amount)
                 : null,
             },
           })),
         };
       });
-    
+
     // Calculate statistics
-    const activeCoupons = formattedCoupons.filter(c => c.status === 'active');
+    const activeCoupons = formattedCoupons.filter((c) => c.status === 'active');
     const totalRedemptions = formattedCoupons.reduce((sum, c) => sum + c.timesRedeemed, 0);
-    
+
     const summary = {
       totalCoupons: formattedCoupons.length,
       activeCoupons: activeCoupons.length,
-      expiredCoupons: formattedCoupons.filter(c => c.status === 'expired').length,
-      fullyRedeemedCoupons: formattedCoupons.filter(c => c.status === 'fully_redeemed').length,
+      expiredCoupons: formattedCoupons.filter((c) => c.status === 'expired').length,
+      fullyRedeemedCoupons: formattedCoupons.filter((c) => c.status === 'fully_redeemed').length,
       totalRedemptions,
       totalPromoCodes: promoCodes.data.length,
       byDuration: {
-        forever: formattedCoupons.filter(c => c.duration === 'forever').length,
-        once: formattedCoupons.filter(c => c.duration === 'once').length,
-        repeating: formattedCoupons.filter(c => c.duration === 'repeating').length,
+        forever: formattedCoupons.filter((c) => c.duration === 'forever').length,
+        once: formattedCoupons.filter((c) => c.duration === 'once').length,
+        repeating: formattedCoupons.filter((c) => c.duration === 'repeating').length,
       },
     };
-    
+
     logger.info('[STRIPE COUPONS] Retrieved coupons', {
       count: formattedCoupons.length,
       active: activeCoupons.length,
     });
-    
+
     return NextResponse.json({
       success: true,
       coupons: formattedCoupons,
@@ -151,14 +160,15 @@ async function getCouponsHandler(request: NextRequest, user: AuthUser) {
       pagination: {
         hasMore: coupons.has_more,
         limit,
-        ...(formattedCoupons.length > 0 && { lastId: formattedCoupons[formattedCoupons.length - 1].id }),
+        ...(formattedCoupons.length > 0 && {
+          lastId: formattedCoupons[formattedCoupons.length - 1].id,
+        }),
       },
       timestamp: new Date().toISOString(),
     });
-    
   } catch (error: any) {
     logger.error('[STRIPE COUPONS] Error:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to fetch coupons' },
       { status: 500 }
@@ -172,11 +182,11 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
+
     const stripe = getStripe();
     const body = await request.json();
     const validated = createCouponSchema.parse(body);
-    
+
     // Validate percent_off or amount_off
     if (!validated.percentOff && !validated.amountOff) {
       return NextResponse.json(
@@ -184,21 +194,21 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
         { status: 400 }
       );
     }
-    
+
     if (validated.percentOff && validated.amountOff) {
       return NextResponse.json(
         { error: 'Cannot specify both percentOff and amountOff' },
         { status: 400 }
       );
     }
-    
+
     if (validated.duration === 'repeating' && !validated.durationInMonths) {
       return NextResponse.json(
         { error: 'durationInMonths is required when duration is repeating' },
         { status: 400 }
       );
     }
-    
+
     // Create coupon
     const couponParams: Stripe.CouponCreateParams = {
       name: validated.name,
@@ -207,27 +217,31 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
       ...(validated.amountOff && { amount_off: validated.amountOff, currency: validated.currency }),
       ...(validated.durationInMonths && { duration_in_months: validated.durationInMonths }),
       ...(validated.maxRedemptions && { max_redemptions: validated.maxRedemptions }),
-      ...(validated.redeemBy && { redeem_by: Math.floor(new Date(validated.redeemBy).getTime() / 1000) }),
+      ...(validated.redeemBy && {
+        redeem_by: Math.floor(new Date(validated.redeemBy).getTime() / 1000),
+      }),
       ...(validated.metadata && { metadata: validated.metadata }),
     };
-    
+
     const coupon = await stripe.coupons.create(couponParams);
-    
+
     let promoCode = null;
-    
+
     // Create promotion code if requested
     if (validated.createPromoCode) {
-      promoCode = await stripe.promotionCodes.create({
+      // Cast to handle Stripe type changes
+      const promoParams = {
         coupon: coupon.id,
         ...(validated.promoCode && { code: validated.promoCode }),
-      });
+      } as unknown as Parameters<typeof stripe.promotionCodes.create>[0];
+      promoCode = await stripe.promotionCodes.create(promoParams);
     }
-    
+
     logger.info('[STRIPE COUPONS] Created coupon', {
       couponId: coupon.id,
       promoCodeId: promoCode?.id,
     });
-    
+
     return NextResponse.json({
       success: true,
       coupon: {
@@ -239,22 +253,23 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
         duration: coupon.duration,
         discountDescription: formatDiscount(coupon),
       },
-      promoCode: promoCode ? {
-        id: promoCode.id,
-        code: promoCode.code,
-      } : null,
+      promoCode: promoCode
+        ? {
+            id: promoCode.id,
+            code: promoCode.code,
+          }
+        : null,
     });
-    
   } catch (error: any) {
     logger.error('[STRIPE COUPONS] Error creating coupon:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
     }
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to create coupon' },
       { status: 500 }

@@ -433,20 +433,22 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
       }
       
       // Simple query succeeded
+      const simpleData = simpleResult.data as unknown[];
       return NextResponse.json({
         success: true,
-        invoices: simpleResult.data || [],
-        count: simpleResult.data?.length || 0,
+        invoices: simpleData || [],
+        count: simpleData?.length || 0,
         timestamp: new Date().toISOString(),
         warning: 'Relations could not be loaded',
       });
     }
     
     // Full query succeeded
+    const fullData = result.data as unknown[];
     return NextResponse.json({
       success: true,
-      invoices: result.data || [],
-      count: result.data?.length || 0,
+      invoices: fullData || [],
+      count: fullData?.length || 0,
       timestamp: new Date().toISOString(),
     });
     
