@@ -72,8 +72,20 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
       take: limit,
     });
   } else {
+    // CRITICAL: Explicitly filter by user's clinicId for multi-tenant isolation
+    // Don't rely solely on the Prisma proxy - add explicit filtering
+    if (!user.clinicId) {
+      return NextResponse.json(
+        { error: 'No clinic associated with your account. Please contact support.' },
+        { status: 403 }
+      );
+    }
+
     patients = await prisma.patient.findMany({
-      where: createdAtFilter,
+      where: {
+        ...createdAtFilter,
+        clinicId: user.clinicId, // EXPLICIT clinic filter for safety
+      },
       select: {
         id: true,
         patientId: true,
@@ -173,8 +185,15 @@ const createPatientHandler = withClinicalAuth(async (req: NextRequest, user) => 
       );
     }
   } else {
-    // For other roles, use their clinic or the provided one (if they have access)
-    clinicIdToUse = parsed.data.clinicId || user.clinicId || 1;
+    // For other roles, MUST use their assigned clinic
+    // NEVER default to clinicId 1 - this was causing cross-tenant data leaks!
+    if (!user.clinicId) {
+      return Response.json(
+        { error: 'No clinic associated with your account. Please contact support.' },
+        { status: 400 }
+      );
+    }
+    clinicIdToUse = user.clinicId;
   }
 
   const patient = await prisma.$transaction(async (tx: any) => {
