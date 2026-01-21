@@ -67,7 +67,8 @@ class PrismaWithClinicFilter {
   private getClinicId(): number | undefined {
     // First try AsyncLocalStorage (preferred - thread-safe)
     const store = clinicContextStorage.getStore();
-    if (store?.clinicId !== undefined) {
+    // If store exists, use its clinicId value (even if undefined - for withoutClinicFilter)
+    if (store !== undefined) {
       return store.clinicId;
     }
     // Fallback to global for backwards compatibility
@@ -336,7 +337,8 @@ export function setClinicContext(clinicId: number | undefined) {
 export function getClinicContext(): number | undefined {
   // First try AsyncLocalStorage (thread-safe)
   const store = clinicContextStorage.getStore();
-  if (store?.clinicId !== undefined) {
+  // If store exists, use its clinicId value (even if undefined - for withoutClinicFilter)
+  if (store !== undefined) {
     return store.clinicId;
   }
   // Fallback to global for backwards compatibility
