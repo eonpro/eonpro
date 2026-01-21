@@ -45,9 +45,21 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       );
     }
 
-    // Get all users for this clinic
+    // Get all users for this clinic (either primary clinicId OR via UserClinic table)
     const users = await prisma.user.findMany({
-      where: { clinicId },
+      where: {
+        OR: [
+          { clinicId }, // Users with this as primary clinic
+          { 
+            userClinics: { 
+              some: { 
+                clinicId,
+                isActive: true 
+              } 
+            } 
+          }, // Users added via UserClinic
+        ]
+      },
       select: {
         id: true,
         email: true,
@@ -57,11 +69,36 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
         status: true,
         createdAt: true,
         lastLogin: true,
+        clinicId: true, // Include to check if this is their primary clinic
+        userClinics: {
+          where: { clinicId },
+          select: {
+            role: true,
+            isPrimary: true,
+            isActive: true,
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ users });
+    // Format response - use UserClinic role if different from User role
+    const formattedUsers = users.map(user => {
+      const clinicAssignment = user.userClinics?.[0];
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: clinicAssignment?.role || user.role, // Use clinic-specific role if exists
+        status: user.status,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin,
+        isPrimary: clinicAssignment?.isPrimary ?? (user.clinicId === clinicId),
+      };
+    });
+
+    return NextResponse.json({ users: formattedUsers });
   } catch (error: any) {
     console.error('Error fetching clinic users:', error);
     return NextResponse.json(
