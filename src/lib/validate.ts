@@ -81,4 +81,5 @@ export const prescriptionSchema = z.object({
   shippingMethod: z.number(),
   signatureDataUrl: z.string().nullable().optional(),
   providerId: z.number().default(1),
+  clinicId: z.number().nullable().optional(), // User's active clinic for multi-tenant support
 });

@@ -167,7 +167,20 @@ export default function PrescriptionForm({
     shippingMethod: 8115,
     signatureDataUrl: null,
     providerId: null,
+    clinicId: null, // Will be set from localStorage on mount
   });
+
+  // Load active clinic ID from localStorage on mount (for multi-tenant support)
+  useEffect(() => {
+    const activeClinicId = localStorage.getItem('activeClinicId');
+    if (activeClinicId) {
+      const clinicIdNum = parseInt(activeClinicId, 10);
+      if (!isNaN(clinicIdNum)) {
+        setForm((f: any) => ({ ...f, clinicId: clinicIdNum }));
+        logger.info(`[PrescriptionForm] Set active clinicId: ${clinicIdNum}`);
+      }
+    }
+  }, []);
 
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [patients, setPatients] = useState<PatientOption[]>([]);

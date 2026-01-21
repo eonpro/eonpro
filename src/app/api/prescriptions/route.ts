@@ -62,19 +62,25 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid providerId" }, { status: 400 });
     }
 
+    // CRITICAL: Use clinicId from the request (user's active clinic) NOT the provider's default clinic
+    // This ensures multi-tenant isolation - prescriptions use the clinic the user is logged into
+    const activeClinicId = p.clinicId || provider.clinicId;
+
+    logger.info(`[PRESCRIPTIONS] Processing prescription: requestClinicId=${p.clinicId}, providerClinicId=${provider.clinicId}, activeClinicId=${activeClinicId}`);
+
     // Get clinic-specific Lifefile credentials or fall back to env vars
     let lifefileClient;
     let lifefileCredentials;
 
-    if (provider.clinicId) {
+    if (activeClinicId) {
       try {
-        lifefileCredentials = await getClinicLifefileCredentials(provider.clinicId);
+        lifefileCredentials = await getClinicLifefileCredentials(activeClinicId);
         if (lifefileCredentials) {
-          lifefileClient = await getClinicLifefileClient(provider.clinicId);
-          logger.info(`[PRESCRIPTIONS] Using clinic ${provider.clinicId} Lifefile credentials`);
+          lifefileClient = await getClinicLifefileClient(activeClinicId);
+          logger.info(`[PRESCRIPTIONS] Using clinic ${activeClinicId} Lifefile credentials (practice: ${lifefileCredentials.practiceName})`);
         }
       } catch (err: unknown) {
-        logger.warn(`[PRESCRIPTIONS] Failed to get clinic credentials, falling back to env vars:`, { error: err instanceof Error ? err.message : String(err) });
+        logger.warn(`[PRESCRIPTIONS] Failed to get clinic ${activeClinicId} credentials, falling back to env vars:`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
 
@@ -82,7 +88,7 @@ export async function POST(req: Request) {
     if (!lifefileClient) {
       lifefileClient = lifefile;
       lifefileCredentials = getEnvCredentials();
-      logger.info(`[PRESCRIPTIONS] Using environment variable Lifefile credentials`);
+      logger.info(`[PRESCRIPTIONS] Using environment variable Lifefile credentials (no clinic credentials found)`);
     }
 
     if (!lifefileCredentials) {
