@@ -1,9 +1,14 @@
 import { PrismaClient, Prisma } from "@prisma/client";
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { logger } from './logger';
+
+// Use AsyncLocalStorage for request-scoped clinic context
+// This prevents race conditions in serverless environments
+const clinicContextStorage = new AsyncLocalStorage<{ clinicId?: number }>();
 
 const globalForPrisma = global as unknown as { 
   prisma?: PrismaClient;
-  currentClinicId?: number;
+  currentClinicId?: number; // DEPRECATED: Use clinicContextStorage instead
 };
 
 // Models that require clinic isolation (lowercase for comparison)
@@ -57,10 +62,24 @@ class PrismaWithClinicFilter {
   }
   
   /**
+   * Get clinic ID from AsyncLocalStorage (thread-safe) or fallback to global
+   */
+  private getClinicId(): number | undefined {
+    // First try AsyncLocalStorage (preferred - thread-safe)
+    const store = clinicContextStorage.getStore();
+    if (store?.clinicId !== undefined) {
+      return store.clinicId;
+    }
+    // Fallback to global for backwards compatibility
+    // DEPRECATED: This will be removed in future versions
+    return globalForPrisma.currentClinicId;
+  }
+
+  /**
    * Apply clinic filter to where clause
    */
   private applyClinicFilter(where: any = {}): any {
-    const clinicId = globalForPrisma.currentClinicId;
+    const clinicId = this.getClinicId();
     
     if (!clinicId || process.env.BYPASS_CLINIC_FILTER === 'true') {
       return where;
@@ -76,7 +95,7 @@ class PrismaWithClinicFilter {
    * Apply clinic ID to data
    */
   private applyClinicToData(data: any): any {
-    const clinicId = globalForPrisma.currentClinicId;
+    const clinicId = this.getClinicId();
     
     if (!clinicId || process.env.BYPASS_CLINIC_FILTER === 'true') {
       return data;
@@ -153,8 +172,9 @@ class PrismaWithClinicFilter {
           const result = await originalMethod.call(target, modifiedArgs);
           
           // Validate results
-          if (result && globalForPrisma.currentClinicId) {
-            const clinicId = globalForPrisma.currentClinicId;
+          const currentClinicId = this.getClinicId();
+          if (result && currentClinicId) {
+            const clinicId = currentClinicId;
             
             if (Array.isArray(result)) {
               const invalidRecords = result.filter((record: any) => 
@@ -263,7 +283,6 @@ class PrismaWithClinicFilter {
   get productBundle() { return this.client.productBundle; }
   get productBundleItem() { return this.client.productBundleItem; }
   get pricingRule() { return this.client.pricingRule; }
-  get invoice() { return this.createModelProxy('invoice'); }
   get invoiceItem() { return this.client.invoiceItem; }
   
   // Expose transaction support
@@ -301,8 +320,12 @@ export { basePrisma };
 /**
  * Set the current clinic context for queries
  * This should be called by auth middleware after authentication
+ *
+ * NOTE: For proper request isolation, use runWithClinicContext instead
+ * This function is maintained for backwards compatibility
  */
 export function setClinicContext(clinicId: number | undefined) {
+  // Also set the global for backwards compatibility
   globalForPrisma.currentClinicId = clinicId;
 }
 
@@ -310,40 +333,53 @@ export function setClinicContext(clinicId: number | undefined) {
  * Get the current clinic context
  */
 export function getClinicContext(): number | undefined {
+  // First try AsyncLocalStorage (thread-safe)
+  const store = clinicContextStorage.getStore();
+  if (store?.clinicId !== undefined) {
+    return store.clinicId;
+  }
+  // Fallback to global for backwards compatibility
   return globalForPrisma.currentClinicId;
 }
 
 /**
- * Execute queries with a specific clinic context
+ * Run a function within a clinic context (thread-safe)
+ * This is the preferred method for setting clinic context in serverless environments
+ *
+ * @param clinicId - The clinic ID to use for all queries within the callback
+ * @param callback - The function to execute within the clinic context
+ * @returns The result of the callback
+ */
+export function runWithClinicContext<T>(
+  clinicId: number | undefined,
+  callback: () => T
+): T {
+  return clinicContextStorage.run({ clinicId }, callback);
+}
+
+/**
+ * Execute async queries with a specific clinic context (thread-safe)
  * Useful for admin operations that need to access specific clinic data
  */
 export async function withClinicContext<T>(
   clinicId: number,
   callback: () => Promise<T>
 ): Promise<T> {
-  const previousClinicId = globalForPrisma.currentClinicId;
-  
-  try {
-    globalForPrisma.currentClinicId = clinicId;
-    return await callback();
-  } finally {
-    globalForPrisma.currentClinicId = previousClinicId;
-  }
+  return clinicContextStorage.run({ clinicId }, callback);
 }
 
 /**
- * Execute queries without clinic filtering
+ * Execute queries without clinic filtering (thread-safe)
  * DANGEROUS: Only use for super admin operations
  */
 export async function withoutClinicFilter<T>(
   callback: () => Promise<T>
 ): Promise<T> {
-  const previousClinicId = globalForPrisma.currentClinicId;
-  
-  try {
-    globalForPrisma.currentClinicId = undefined;
-    return await callback();
-  } finally {
-    globalForPrisma.currentClinicId = previousClinicId;
-  }
+  return clinicContextStorage.run({ clinicId: undefined }, callback);
 }
+
+/**
+ * Export the storage for use in middleware
+ * Use this to wrap request handlers in a clinic context
+ */
+export { clinicContextStorage };

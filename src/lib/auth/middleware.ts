@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, JWTPayload } from 'jose';
 import { JWT_SECRET, AUTH_CONFIG } from './config';
-import { setClinicContext } from '@/lib/db';
+import { setClinicContext, runWithClinicContext } from '@/lib/db';
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
@@ -421,13 +421,14 @@ export function withAuth<T = unknown>(
         }
       }
       
-      // Set clinic context for multi-tenant queries
+      // Determine clinic context for multi-tenant queries
       // Super admins should NOT have clinic context so they can access all data
-      if (user.clinicId && user.role !== 'super_admin') {
-        setClinicContext(user.clinicId);
-      } else {
-        setClinicContext(undefined);
-      }
+      const effectiveClinicId = (user.clinicId && user.role !== 'super_admin')
+        ? user.clinicId
+        : undefined;
+
+      // Also set the legacy global for backwards compatibility
+      setClinicContext(effectiveClinicId);
 
       // Inject user info into request headers
       const headers = new Headers(req.headers);
@@ -446,10 +447,12 @@ export function withAuth<T = unknown>(
         body: req.body,
       });
       
-      // Execute handler (pass through route context/params if provided)
-      const response = await handler(modifiedReq, user, context);
+      // Execute handler within clinic context (thread-safe using AsyncLocalStorage)
+      const response = await runWithClinicContext(effectiveClinicId, async () => {
+        return handler(modifiedReq, user, context);
+      });
       
-      // Clear clinic context
+      // Clear legacy clinic context
       setClinicContext(undefined);
       
       // Add security headers to response
