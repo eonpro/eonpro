@@ -4,9 +4,11 @@ import { prescriptionSchema } from "@/lib/validate";
 import { generatePrescriptionPDF } from "@/lib/pdf";
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
-import { prisma } from "@/lib/db";
+import { prisma, basePrisma } from "@/lib/db";
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { NextRequest, NextResponse } from 'next/server';
+import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
 
 // Medication-specific clinical difference statements for Lifefile
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
@@ -43,30 +45,75 @@ function normalizeDob(input: string): string {
   return input;
 }
 
-export async function POST(req: Request) {
+/**
+ * POST /api/prescriptions
+ * PROTECTED - Requires provider or admin authentication
+ * Creates and submits prescription to Lifefile pharmacy
+ */
+async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
   try {
+    // Verify user has prescribing permissions
+    if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
+      logger.security('Unauthorized prescription attempt', { userId: user.id, role: user.role });
+      return NextResponse.json(
+        { error: 'Not authorized to create prescriptions' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const parsed = prescriptionSchema.safeParse(body);
     if (!parsed.success) {
-      return Response.json(parsed.error, { status: 400 });
+      return NextResponse.json(parsed.error, { status: 400 });
     }
     const p = parsed.data;
 
-    const provider = await prisma.provider.findUnique({
+    // Use basePrisma to bypass clinic filtering for provider lookup
+    const provider = await basePrisma.provider.findUnique({
       where: { id: p.providerId },
       include: {
-        clinic: true, // Include clinic to get Lifefile credentials
+        clinic: true,
       },
     });
     if (!provider) {
-      return Response.json({ error: "Invalid providerId" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid providerId" }, { status: 400 });
     }
 
-    // CRITICAL: Use clinicId from the request (user's active clinic) NOT the provider's default clinic
-    // This ensures multi-tenant isolation - prescriptions use the clinic the user is logged into
-    const activeClinicId = p.clinicId || provider.clinicId;
+    // SECURITY: Verify user can prescribe as this provider
+    // Provider users can only prescribe as themselves or providers they're linked to
+    if (user.role === 'provider') {
+      const userData = await basePrisma.user.findUnique({
+        where: { id: user.id },
+        select: { providerId: true, email: true }
+      });
 
-    logger.info(`[PRESCRIPTIONS] Processing prescription: requestClinicId=${p.clinicId}, providerClinicId=${provider.clinicId}, activeClinicId=${activeClinicId}`);
+      const canPrescribe =
+        userData?.providerId === provider.id ||
+        userData?.email?.toLowerCase() === provider.email?.toLowerCase();
+
+      if (!canPrescribe) {
+        logger.security('Provider attempted to prescribe as different provider', {
+          userId: user.id,
+          userProviderId: userData?.providerId,
+          requestedProviderId: provider.id
+        });
+        return NextResponse.json(
+          { error: 'Not authorized to prescribe as this provider' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // CRITICAL: Use clinicId from user's active clinic for multi-tenant isolation
+    // Priority: request clinicId > user's clinicId > provider's clinicId
+    const activeClinicId = p.clinicId || user.clinicId || provider.clinicId;
+
+    logger.info(`[PRESCRIPTIONS] User ${user.id} (${user.role}) creating prescription`, {
+      requestClinicId: p.clinicId,
+      userClinicId: user.clinicId,
+      providerClinicId: provider.clinicId,
+      activeClinicId
+    });
 
     // Get clinic-specific Lifefile credentials or fall back to env vars
     let lifefileClient;
@@ -92,7 +139,7 @@ export async function POST(req: Request) {
     }
 
     if (!lifefileCredentials) {
-      return Response.json(
+      return NextResponse.json(
         { error: "Lifefile not configured. Please contact your administrator to set up pharmacy integration." },
         { status: 400 }
       );
@@ -120,7 +167,7 @@ export async function POST(req: Request) {
     // @ts-ignore
    
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    return Response.json(
+    return NextResponse.json(
         { error: errorMessage ?? "Invalid medication" },
         { status: 400 }
       );
@@ -210,7 +257,7 @@ export async function POST(req: Request) {
    
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     logger.error("[PRESCRIPTIONS/POST] PDF generation failed:", err);
-      return Response.json(
+      return NextResponse.json(
         { error: "Failed to generate prescription PDF", detail: errorMessage },
         { status: 500 }
       );
@@ -368,7 +415,7 @@ export async function POST(req: Request) {
         },
       });
 
-      return Response.json({
+      return NextResponse.json({
         success: true,
         order: updated,
         lifefile: orderResponse,
@@ -389,19 +436,20 @@ export async function POST(req: Request) {
       } catch (dbErr: any) {
         logger.error("Failed to update order error state:", { value: dbErr });
       }
-      return Response.json(
+      return NextResponse.json(
         { error: "Failed to submit order to Lifefile", detail: errorMessage },
         { status: 502 }
       );
     }
   } catch (err: any) {
-    // @ts-ignore
-   
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     logger.error("[PRESCRIPTIONS/POST] Unexpected error:", err);
-    return Response.json(
+    return NextResponse.json(
       { error: "Unexpected server error", detail: errorMessage ?? "Unknown error" },
       { status: 500 }
     );
   }
 }
+
+// Export with authentication - requires provider, admin, or super_admin role
+export const POST = withClinicalAuth(createPrescriptionHandler);
