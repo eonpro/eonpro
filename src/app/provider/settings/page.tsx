@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import ProviderLayout from '@/components/layouts/ProviderLayout';
 import {
   User, Shield, PenTool, Key, Save, Trash2, Upload,
   Check, AlertCircle, Eye, EyeOff, Building2
@@ -468,11 +467,7 @@ export default function ProviderSettingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
+    return null; // Layout handles the loading state
   }
 
   const tabs = [
@@ -483,10 +478,10 @@ export default function ProviderSettingsPage() {
   ];
 
   return (
-    <ProviderLayout userData={userData}>
+    <div className="p-6 lg:p-8 min-h-screen">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-teal-600 rounded-xl p-6 text-white">
+        <div className="bg-gradient-to-r from-[#4fa77e] to-[#3d9268] rounded-2xl p-6 text-white shadow-sm">
           <h1 className="text-2xl font-bold mb-2">Settings</h1>
           <p className="text-green-100">Manage your profile, credentials, and signature</p>
         </div>
@@ -507,8 +502,8 @@ export default function ProviderSettingsPage() {
         )}
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="border-b border-gray-200">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="border-b border-gray-100">
             <nav className="flex -mb-px">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -518,7 +513,7 @@ export default function ProviderSettingsPage() {
                     onClick={() => setActiveTab(tab.id as any)}
                     className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                       activeTab === tab.id
-                        ? 'border-green-600 text-green-600'
+                        ? 'border-[#4fa77e] text-[#4fa77e]'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
@@ -634,7 +629,7 @@ export default function ProviderSettingsPage() {
                   <button
                     onClick={handleSaveProfile}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 px-6 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] disabled:opacity-50 transition-colors"
                   >
                     {saving ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
@@ -810,7 +805,7 @@ export default function ProviderSettingsPage() {
                         <button
                           onClick={handleRegisterCredentials}
                           disabled={saving || !npiVerified}
-                          className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                          className="flex items-center gap-2 px-6 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] disabled:opacity-50 transition-colors"
                         >
                           {saving ? (
                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
@@ -876,7 +871,7 @@ export default function ProviderSettingsPage() {
                   <button
                     onClick={handleSaveSignature}
                     disabled={saving || !hasDrawnSignature}
-                    className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 px-6 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] disabled:opacity-50 transition-colors"
                   >
                     {saving ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
@@ -965,7 +960,7 @@ export default function ProviderSettingsPage() {
                   <button
                     onClick={handleChangePassword}
                     disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-                    className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 px-6 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] disabled:opacity-50 transition-colors"
                   >
                     {saving ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
@@ -980,6 +975,6 @@ export default function ProviderSettingsPage() {
           </div>
         </div>
       </div>
-    </ProviderLayout>
+    </div>
   );
 }
