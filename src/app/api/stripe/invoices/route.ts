@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { isStripeConfigured, validateStripeConfig } from '@/lib/stripe/config';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 // Schema for creating an invoice
 const createInvoiceSchema = z.object({
@@ -25,8 +26,13 @@ const createInvoiceSchema = z.object({
   allowDuplicate: z.boolean().optional(), // Explicitly allow duplicate if needed
 });
 
-export async function POST(request: NextRequest) {
+async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins and providers can create invoices
+    if (!['admin', 'super_admin', 'provider'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const body = await request.json();
     
     // Validate request body
@@ -352,7 +358,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
+  // Allow admins, providers, and staff to view invoices
+  if (!['admin', 'super_admin', 'provider', 'staff'].includes(user.role)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+  
   const { searchParams } = new URL(request.url);
   const patientId = searchParams.get('patientId');
   
@@ -454,3 +465,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(errorInfo, { status: 500 });
   }
 }
+
+export const POST = withAuth(createInvoiceHandler);
+export const GET = withAuth(getInvoicesHandler);

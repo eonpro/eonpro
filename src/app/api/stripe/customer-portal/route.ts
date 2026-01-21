@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 const portalSchema = z.object({
   patientId: z.number(),
   returnUrl: z.string().url(),
 });
 
-export async function POST(request: NextRequest) {
+async function createPortalHandler(request: NextRequest, user: AuthUser) {
   try {
     // Dynamic import to avoid build-time errors
     const { StripeCustomerService } = await import('@/services/stripe/customerService');
@@ -45,3 +46,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAuth(createPortalHandler);

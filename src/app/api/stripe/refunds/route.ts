@@ -2,6 +2,8 @@
  * STRIPE REFUNDS API
  * 
  * Handles full and partial refunds for payments
+ * 
+ * PROTECTED: Requires admin authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,6 +11,7 @@ import { z } from 'zod';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 const refundSchema = z.object({
   paymentId: z.number().optional(),
@@ -23,8 +26,13 @@ const refundSchema = z.object({
   ]).optional(),
 });
 
-export async function POST(request: NextRequest) {
+async function createRefundHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can process refunds
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+    
     const body = await request.json();
     const validated = refundSchema.parse(body);
     
@@ -472,8 +480,13 @@ export async function POST(request: NextRequest) {
 }
 
 // GET refunds for a patient or payment
-export async function GET(request: NextRequest) {
+async function getRefundsHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can view refunds
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+    
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patientId');
     const paymentId = searchParams.get('paymentId');
@@ -528,3 +541,6 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAuth(createRefundHandler);
+export const GET = withAuth(getRefundsHandler);

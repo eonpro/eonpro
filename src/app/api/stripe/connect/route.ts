@@ -5,6 +5,8 @@
  * - POST: Create connected account for a clinic
  * - GET: Get connected account status
  * - DELETE: Remove connected account
+ * 
+ * PROTECTED: Requires admin authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,13 +19,18 @@ import {
   deleteConnectedAccount,
 } from '@/lib/stripe/connect';
 import { prisma } from '@/lib/db';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 /**
  * GET /api/stripe/connect
  * Get connected account status for a clinic
  */
-export async function GET(request: NextRequest) {
+async function getConnectHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can view Stripe Connect status
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const clinicId = searchParams.get('clinicId');
     const action = searchParams.get('action'); // 'status', 'onboarding', 'dashboard'
@@ -117,8 +124,13 @@ export async function GET(request: NextRequest) {
  * POST /api/stripe/connect
  * Create a new connected account for a clinic
  */
-export async function POST(request: NextRequest) {
+async function createConnectHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only super admins can create Connect accounts
+    if (user.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Unauthorized - super admin access required' }, { status: 403 });
+    }
+    
     const body = await request.json();
     const { clinicId, email, businessType, country } = body;
     
@@ -175,8 +187,13 @@ export async function POST(request: NextRequest) {
  * DELETE /api/stripe/connect
  * Remove a connected account from a clinic
  */
-export async function DELETE(request: NextRequest) {
+async function deleteConnectHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only super admins can delete Connect accounts
+    if (user.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Unauthorized - super admin access required' }, { status: 403 });
+    }
+    
     const { searchParams } = new URL(request.url);
     const clinicId = searchParams.get('clinicId');
     
@@ -204,3 +221,7 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+export const GET = withAuth(getConnectHandler);
+export const POST = withAuth(createConnectHandler);
+export const DELETE = withAuth(deleteConnectHandler);

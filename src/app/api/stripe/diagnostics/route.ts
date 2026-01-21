@@ -6,14 +6,21 @@
  * 
  * GET /api/stripe/diagnostics - Get full diagnostics (basic info public, details require auth)
  * POST /api/stripe/diagnostics - Validate configuration
+ * 
+ * PROTECTED: Requires admin authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripeDiagnostics, validateStripeConfig, isStripeConfigured } from '@/lib/stripe/config';
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-export async function GET(request: NextRequest) {
+async function getDiagnosticsHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can view diagnostics
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
     const isProduction = process.env.NODE_ENV === 'production';
     const authHeader = request.headers.get('authorization');
     const adminSecret = process.env.ADMIN_API_SECRET || process.env.CRON_SECRET;
@@ -69,8 +76,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function validateDiagnosticsHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can validate diagnostics
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+    
     // Force refresh configuration
     const config = await validateStripeConfig(true);
     
@@ -100,3 +112,6 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+export const GET = withAuth(getDiagnosticsHandler);
+export const POST = withAuth(validateDiagnosticsHandler);

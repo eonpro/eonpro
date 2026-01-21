@@ -9,6 +9,8 @@
  * - Pricing tiers
  * - Active/archived products
  * - Revenue by product
+ * 
+ * PROTECTED: Requires admin authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,6 +18,7 @@ import { getStripe, formatCurrency } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import Stripe from 'stripe';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 const createProductSchema = z.object({
   name: z.string().min(1),
@@ -30,8 +33,13 @@ const createProductSchema = z.object({
   active: z.boolean().default(true),
 });
 
-export async function GET(request: NextRequest) {
+async function getProductsHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can view products
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+    
     const stripe = getStripe();
     const { searchParams } = new URL(request.url);
     
@@ -153,8 +161,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function createProductHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can create products
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+    
     const stripe = getStripe();
     const body = await request.json();
     const validated = createProductSchema.parse(body);
@@ -226,3 +239,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withAuth(getProductsHandler);
+export const POST = withAuth(createProductHandler);

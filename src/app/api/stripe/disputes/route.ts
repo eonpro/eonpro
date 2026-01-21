@@ -9,15 +9,23 @@
  * - Dispute history
  * - Evidence submission
  * - Win/loss statistics
+ * 
+ * PROTECTED: Requires admin authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, formatCurrency } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-export async function GET(request: NextRequest) {
+async function getDisputesHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can view disputes
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+    
     const stripe = getStripe();
     const { searchParams } = new URL(request.url);
     
@@ -149,8 +157,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function submitDisputeEvidenceHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can submit dispute evidence
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+    
     const stripe = getStripe();
     const body = await request.json();
     
@@ -205,6 +218,9 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withAuth(getDisputesHandler);
+export const POST = withAuth(submitDisputeEvidenceHandler);
 
 function formatDisputeReason(reason: string): string {
   const reasonMap: Record<string, string> = {
