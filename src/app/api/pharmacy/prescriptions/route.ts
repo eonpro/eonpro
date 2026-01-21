@@ -81,7 +81,7 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
 
   } catch (error: any) {
     return NextResponse.json(
-      { error: 'Failed to fetch prescriptions', details: error.message },
+      { error: 'Failed to fetch prescriptions' },
       { status: 500 }
     );
   }

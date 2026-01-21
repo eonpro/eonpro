@@ -170,43 +170,36 @@ export default function ProvidersPage() {
       for (const endpoint of authenticatedEndpoints) {
         if (!token) continue; // Skip auth endpoints if no token
         try {
-          console.log(`[fetchClinics] Trying endpoint: ${endpoint}`);
           const res = await fetch(endpoint, { headers });
-          console.log(`[fetchClinics] ${endpoint} response status: ${res.status}`);
           
           if (res.ok) {
             const data = await res.json();
-            console.log(`[fetchClinics] ${endpoint} data:`, data);
             const clinicList = data.clinics || (Array.isArray(data) ? data : []);
             if (clinicList.length > 0) {
-              console.log(`[fetchClinics] Found ${clinicList.length} clinics from ${endpoint}`);
               setClinics(clinicList);
               return;
             }
           }
         } catch (e) { 
-          console.log(`[fetchClinics] ${endpoint} failed:`, e);
+          // Silently try next endpoint
         }
       }
       
       // Fallback: Try public clinic list (no auth required)
       try {
-        console.log('[fetchClinics] Trying public endpoint /api/clinics');
         const res = await fetch('/api/clinics');
         if (res.ok) {
           const data = await res.json();
           const clinicList = data.clinics || (Array.isArray(data) ? data : []);
           if (clinicList.length > 0) {
-            console.log(`[fetchClinics] Found ${clinicList.length} clinics from public endpoint`);
             setClinics(clinicList);
             return;
           }
         }
       } catch (e) {
-        console.log('[fetchClinics] Public endpoint failed:', e);
+        // Silently handle error
       }
       
-      console.log('[fetchClinics] No clinics found from any endpoint');
       setClinics([]);
     } catch (err: any) {
       logger.error("Failed to fetch clinics:", err);
@@ -240,7 +233,6 @@ export default function ProvidersPage() {
   };
 
   useEffect(() => {
-    console.log('[ProvidersPage] Initial load, userRole:', userRole);
     fetchProviders();
     fetchClinics();
   }, []);
@@ -248,7 +240,6 @@ export default function ProvidersPage() {
   // Refetch clinics when userRole changes
   useEffect(() => {
     if (userRole) {
-      console.log('[ProvidersPage] userRole changed to:', userRole);
       fetchClinics();
     }
   }, [userRole]);

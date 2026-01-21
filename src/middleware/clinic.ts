@@ -4,9 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
 import { logger } from '../lib/logger';
-
 import { prisma } from '@/lib/db';
+
+// Edge-compatible JWT secret (don't import from config to avoid process.argv)
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  return new TextEncoder().encode(secret);
+};
 
 // Routes that don't require clinic context
 const PUBLIC_ROUTES = [
@@ -181,11 +190,16 @@ function isPublicRoute(pathname: string): boolean {
 
 async function getClinicIdFromToken(token: string): Promise<number | null> {
   try {
-    // TODO: Implement JWT parsing and verification
-    // const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // return decoded.clinicId || null;
+    const { payload } = await jwtVerify(token, getJwtSecret());
+    
+    // Return clinicId from JWT payload
+    if (payload.clinicId && typeof payload.clinicId === 'number') {
+      return payload.clinicId;
+    }
+    
     return null;
-  } catch (error) {
+  } catch {
+    // Token verification failed - invalid or expired
     return null;
   }
 }

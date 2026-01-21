@@ -36,10 +36,8 @@ let globalShowToast: ((type: ToastType, message: string, duration?: number) => v
 export function toast(type: ToastType, message: string, duration?: number) {
   if (globalShowToast) {
     globalShowToast(type, message, duration);
-  } else {
-    // Fallback to console if toast provider not mounted
-    console.log(`[Toast ${type}]: ${message}`);
   }
+  // Silent fallback - toast provider not mounted
 }
 
 toast.success = (message: string, duration?: number) => toast('success', message, duration);

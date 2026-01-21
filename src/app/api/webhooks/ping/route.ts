@@ -32,9 +32,6 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const timestamp = new Date().toISOString();
   
-  // Log the request for debugging
-  console.log(`[PING ${timestamp}] Received POST request`);
-  
   // Get headers
   const hasSecret = !!req.headers.get("x-webhook-secret");
   const hasApiKey = !!req.headers.get("x-api-key");
@@ -42,7 +39,7 @@ export async function POST(req: NextRequest) {
   const contentType = req.headers.get("content-type");
   
   // Try to parse body
-  let body: any = null;
+  let body: Record<string, unknown> | null = null;
   let bodySize = 0;
   try {
     const text = await req.text();
@@ -51,9 +48,6 @@ export async function POST(req: NextRequest) {
   } catch {
     // Body might not be JSON
   }
-  
-  console.log(`[PING ${timestamp}] Headers: secret=${hasSecret}, apiKey=${hasApiKey}, auth=${hasAuth}`);
-  console.log(`[PING ${timestamp}] Body size: ${bodySize} bytes`);
   
   return Response.json({
     success: true,

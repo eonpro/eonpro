@@ -53,7 +53,7 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
 
   } catch (error: any) {
     return NextResponse.json(
-      { error: 'Failed to fetch analytics', details: error.message },
+      { error: 'Failed to fetch analytics' },
       { status: 500 }
     );
   }

@@ -54,9 +54,10 @@ const getPatientHandler = withAuthParams(async (_request, user, { params }: Para
     }
     
     return Response.json({ patient: decryptedPatient });
-  } catch (error: any) {
-    logger.error('[GET /api/patients/:id] Error', { error: error.message, stack: error.stack });
-    return Response.json({ error: 'Failed to fetch patient', details: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[GET /api/patients/:id] Error', { error: errMsg });
+    return Response.json({ error: 'Failed to fetch patient' }, { status: 500 });
   }
 }, { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff'] });
 

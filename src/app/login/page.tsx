@@ -292,18 +292,8 @@ export default function LoginPage() {
   };
 
   // Handle successful login
-  const handleLoginSuccess = (data: any) => {
-    // Debug: Log what we received
-    console.log('[LOGIN] handleLoginSuccess called with data:', {
-      hasToken: !!data.token,
-      tokenLength: data.token?.length,
-      user: data.user?.email,
-      role: data.user?.role,
-      clinics: data.clinics?.length,
-    });
-
+  const handleLoginSuccess = (data: { token?: string; user?: { email?: string; role?: string }; clinics?: Array<{ id: number }>; activeClinicId?: number }) => {
     if (!data.token) {
-      console.error('[LOGIN] No token in response data!');
       setError('Login failed: No authentication token received');
       return;
     }
@@ -319,12 +309,8 @@ export default function LoginPage() {
       localStorage.setItem('activeClinicId', String(data.activeClinicId || data.clinics[0]?.id));
     }
 
-    // Verify tokens were stored
-    const storedToken = localStorage.getItem('auth-token');
-    console.log('[LOGIN] Token stored successfully:', !!storedToken, 'length:', storedToken?.length);
-
     // Store role-specific tokens
-    const userRole = data.user.role?.toLowerCase();
+    const userRole = data.user?.role?.toLowerCase();
     if (userRole === 'super_admin') {
       localStorage.setItem('super_admin-token', data.token);
     } else if (userRole === 'admin') {

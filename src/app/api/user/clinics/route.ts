@@ -86,7 +86,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   } catch (error: any) {
     logger.error('Error fetching user clinics', { error: error.message, userId: user.id });
     return NextResponse.json(
-      { error: 'Failed to fetch clinics', details: error.message },
+      { error: 'Failed to fetch clinics' },
       { status: 500 }
     );
   }

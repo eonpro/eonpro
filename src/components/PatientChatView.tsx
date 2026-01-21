@@ -75,44 +75,31 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       // Get auth token
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       
-      console.log('[Chat] Fetching messages for patient:', patient.id, 'phone:', patientPhone);
-      
       const res = await fetch(`/api/twilio/messages/${patient.id}`, {
         credentials: 'include',
         headers: {
           ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
-
-      console.log('[Chat] Response status:', res.status);
       
       if (res.ok) {
         const data = await res.json();
-        console.log('[Chat] API Response:', {
-          messageCount: data.messages?.length || 0,
-          source: data.source,
-          debug: data.debug,
-          error: data.error
-        });
         
         if (data.error) {
-          console.warn('[Chat] API returned error:', data.error);
           setError(`Messages may be incomplete: ${data.error}`);
         } else {
           setError(null);
         }
         
-        const apiMessages: Message[] = (data.messages || []).map((msg: any) => ({
+        const apiMessages: Message[] = (data.messages || []).map((msg: { sid?: string; id?: string; body?: string; text?: string; direction?: string; dateCreated?: string; timestamp?: string; status?: string }) => ({
           id: msg.sid || msg.id || `msg-${Date.now()}-${Math.random()}`,
           text: msg.body || msg.text,
           // Twilio uses 'inbound' for patient messages, 'outbound-api' or 'outbound' for provider
           sender: msg.direction === 'inbound' ? 'patient' : 'provider',
           // Store as ISO string to avoid hydration mismatch
-          timestamp: new Date(msg.dateCreated || msg.timestamp).toISOString(),
+          timestamp: new Date(msg.dateCreated || msg.timestamp || Date.now()).toISOString(),
           status: msg.status === 'delivered' ? 'delivered' : (msg.status === 'sent' ? 'sent' : msg.status)
         }));
-        
-        console.log('[Chat] Processed messages:', apiMessages.length);
         
         // Simple replacement strategy - API is the source of truth
         // The API now properly returns all messages including ones we just sent
@@ -138,14 +125,9 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
           
-          console.log('[Chat] Final message count:', allMessages.length, 'pending temp:', pendingTempMessages.length);
-          
           return allMessages;
         });
       } else {
-        const errorText = await res.text().catch(() => 'Unknown error');
-        console.error('[Chat] Failed to load messages:', res.status, errorText);
-        
         // Only clear messages on first load, not during polling
         if (showLoading) {
           logger.warn('Failed to load message history, starting fresh');
@@ -156,9 +138,9 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           logger.warn('Failed to refresh messages, keeping existing');
         }
       }
-    } catch (error: any) {
-      console.error('[Chat] Exception loading messages:', error);
-      logger.error('Failed to load message history', error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to load message history', { error: errMsg });
       // Only clear on first load, keep existing on polling failures
       if (showLoading) {
         setMessages([]);
@@ -226,12 +208,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       status: 'sent'
     };
 
-    console.log('[Chat] Sending message:', { tempId, text: messageText, to: patientPhone });
-    
-    setMessages(prev => {
-      console.log('[Chat] Adding temp message, prev count:', prev.length);
-      return [...prev, tempMessage];
-    });
+    setMessages(prev => [...prev, tempMessage]);
     setNewMessage('');
 
     try {
@@ -252,19 +229,14 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       });
 
       const data = await res.json();
-      console.log('[Chat] Send response:', { status: res.status, data });
 
       if (res.ok) {
         // Update message with actual ID and status
-        setMessages(prev => {
-          const updated = prev.map((msg: Message) => 
-            msg.id === tempId 
-              ? { ...msg, id: data.messageSid || tempId, status: 'delivered' as const }
-              : msg
-          );
-          console.log('[Chat] Updated message ID from', tempId, 'to', data.messageSid);
-          return updated;
-        });
+        setMessages(prev => prev.map((msg: Message) => 
+          msg.id === tempId 
+            ? { ...msg, id: data.messageSid || tempId, status: 'delivered' as const }
+            : msg
+        ));
         setError(null);
         
         // Immediately reload messages to sync with server
@@ -272,16 +244,16 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       } else {
         throw new Error(data.error || 'Failed to send message');
       }
-    } catch (error: any) {
-      console.error('[Chat] Send failed:', error);
-      logger.error('Failed to send message', error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to send message', { error: errMsg });
       // Mark message as failed
       setMessages(prev => prev.map((msg: Message) => 
         msg.id === tempId 
           ? { ...msg, status: 'failed' as const }
           : msg
       ));
-      setError(`Failed to send: ${error.message}`);
+      setError(`Failed to send: ${errMsg}`);
     }
   };
 

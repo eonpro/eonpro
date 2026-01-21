@@ -118,13 +118,12 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: false,
         error: 'Database connection failed',
-      troubleshooting: [
-        '1. Check DATABASE_URL is correct in Vercel environment variables',
-        '2. Verify AWS RDS Security Group allows Vercel Static IPs',
-        '3. Ensure RDS instance has "Public access" enabled',
-        '4. Redeploy after updating DATABASE_URL',
-      ],
-        details: error.message
+        troubleshooting: [
+          '1. Check DATABASE_URL is correct in Vercel environment variables',
+          '2. Verify AWS RDS Security Group allows Vercel Static IPs',
+          '3. Ensure RDS instance has "Public access" enabled',
+          '4. Redeploy after updating DATABASE_URL',
+        ],
       }, { status: 500 });
     }
     
