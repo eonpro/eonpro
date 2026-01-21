@@ -2,6 +2,7 @@
  * AWS S3 Upload API Endpoint
  * 
  * Handles secure file uploads to S3 with validation
+ * PROTECTED: Requires authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -20,8 +21,9 @@ import {
   S3_ERRORS,
 } from '@/lib/integrations/aws/s3Config';
 import { isFeatureEnabled } from '@/lib/features';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-export async function POST(request: NextRequest) {
+async function uploadHandler(request: NextRequest, user: AuthUser) {
   try {
     // Parse form data
     const formData = await request.formData();
@@ -120,5 +122,7 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAuth(uploadHandler);
 
 // Note: For large file uploads, configure body size limits in next.config.js

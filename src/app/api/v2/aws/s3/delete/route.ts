@@ -2,6 +2,7 @@
  * AWS S3 Delete API Endpoint
  * 
  * Handles secure file deletion from S3
+ * PROTECTED: Requires authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,9 +10,14 @@ import { deleteFromS3, mockS3Service } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, S3_ERRORS } from '@/lib/integrations/aws/s3Config';
 import { isFeatureEnabled } from '@/lib/features';
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest, user: AuthUser) {
   try {
+    // Only admins can delete files
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
     const { key } = await request.json();
 
     if (!key) {
@@ -58,3 +64,5 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+export const DELETE = withAuth(deleteHandler);
