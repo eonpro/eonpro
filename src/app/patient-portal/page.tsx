@@ -60,7 +60,9 @@ export default function PatientPortalDashboard() {
       // Load weight data from database
       const weightRes = await fetch(`/api/patient-progress/weight?patientId=${patientId}`);
       if (weightRes.ok) {
-        const logs = await weightRes.json();
+        const result = await weightRes.json();
+        // Handle both array format and { data: [...] } format
+        const logs = Array.isArray(result) ? result : (result.data || []);
         const formattedData = logs.map((log: any) => ({
           dateInput: log.recordedAt,
           currentWeightInput: log.weight,
@@ -86,7 +88,9 @@ export default function PatientPortalDashboard() {
         `/api/patient-progress/medication-reminders?patientId=${patientId}`
       );
       if (remindersRes.ok) {
-        const reminders = await remindersRes.json();
+        const result = await remindersRes.json();
+        // Handle both array format and { data: [...] } format
+        const reminders = Array.isArray(result) ? result : (result.data || []);
         if (reminders.length > 0) {
           // Find the next upcoming reminder
           const dayNames = [

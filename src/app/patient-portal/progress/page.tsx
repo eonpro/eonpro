@@ -40,7 +40,9 @@ export default function ProgressPage() {
     try {
       const response = await fetch(`/api/patient-progress/weight?patientId=${patientId}`);
       if (response.ok) {
-        const logs = await response.json();
+        const result = await response.json();
+        // Handle both array format and { data: [...] } format
+        const logs = Array.isArray(result) ? result : (result.data || []);
         setWeightLogs(logs);
       }
     } catch (error) {

@@ -77,7 +77,9 @@ export default function WeightTracker({
         try {
           const response = await fetch(`/api/patient-progress/weight?patientId=${patientId}`);
           if (response.ok) {
-            const logs = await response.json();
+            const result = await response.json();
+            // Handle both array format and { data: [...] } format
+            const logs = Array.isArray(result) ? result : (result.data || []);
             const formattedData = logs.map((log: any) => ({
               dateInput: log.recordedAt,
               currentWeightInput: log.weight,

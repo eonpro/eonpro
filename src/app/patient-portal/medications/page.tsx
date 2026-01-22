@@ -108,7 +108,9 @@ export default function MedicationsPage() {
           `/api/patient-progress/medication-reminders?patientId=${patientId}`
         );
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // Handle both array format and { data: [...] } format
+          const data = Array.isArray(result) ? result : (result.data || []);
           setReminders(data);
         }
       } catch (error) {
