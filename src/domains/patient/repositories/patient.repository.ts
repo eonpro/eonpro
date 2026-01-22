@@ -1,0 +1,607 @@
+/**
+ * Patient Repository
+ * ==================
+ *
+ * Data access layer for patient operations.
+ * Encapsulates all Prisma queries for patients with:
+ * - Type-safe operations
+ * - Multi-tenant isolation (clinicId filtering)
+ * - PHI encryption/decryption handling
+ * - Audit logging
+ *
+ * @module domains/patient/repositories
+ */
+
+import { type PrismaClient, type Prisma } from '@prisma/client';
+
+import { Errors } from '@/domains/shared/errors';
+import { prisma } from '@/lib/db';
+import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
+
+import type {
+  PatientEntity,
+  PatientSummary,
+  PatientSummaryWithClinic,
+  PatientWithCounts,
+  CreatePatientInput,
+  UpdatePatientInput,
+  PatientFilterOptions,
+  PatientPaginationOptions,
+  PaginatedPatients,
+  AuditContext,
+} from '../types/patient.types';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Maximum allowed limit for queries */
+const MAX_LIMIT = 500;
+
+/** Default limit for queries */
+const DEFAULT_LIMIT = 100;
+
+/** Fields to select for patient summary */
+const PATIENT_SUMMARY_SELECT = {
+  id: true,
+  patientId: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  dob: true,
+  gender: true,
+  address1: true,
+  address2: true,
+  city: true,
+  state: true,
+  zip: true,
+  tags: true,
+  source: true,
+  createdAt: true,
+  clinicId: true,
+} as const;
+
+/** PHI fields that need encryption/decryption */
+const PHI_FIELDS = ['email', 'phone', 'dob'] as const;
+
+// ============================================================================
+// Repository Interface
+// ============================================================================
+
+export interface PatientRepository {
+  /**
+   * Find a patient by ID
+   * @throws NotFoundError if patient not found
+   */
+  findById(id: number, clinicId?: number): Promise<PatientEntity>;
+
+  /**
+   * Find a patient by ID or return null
+   */
+  findByIdOrNull(id: number, clinicId?: number): Promise<PatientEntity | null>;
+
+  /**
+   * Find a patient by patientId (the human-readable ID like "000123")
+   */
+  findByPatientId(patientId: string, clinicId: number): Promise<PatientEntity | null>;
+
+  /**
+   * Find a patient by email within a clinic
+   */
+  findByEmail(email: string, clinicId: number): Promise<PatientEntity | null>;
+
+  /**
+   * Find a patient by Stripe customer ID
+   */
+  findByStripeCustomerId(stripeCustomerId: string): Promise<PatientEntity | null>;
+
+  /**
+   * List patients with filtering and pagination
+   */
+  findMany(
+    filter: PatientFilterOptions,
+    pagination?: PatientPaginationOptions
+  ): Promise<PaginatedPatients<PatientSummary>>;
+
+  /**
+   * List patients with clinic info (for super admin)
+   */
+  findManyWithClinic(
+    filter: PatientFilterOptions,
+    pagination?: PatientPaginationOptions
+  ): Promise<PaginatedPatients<PatientSummaryWithClinic>>;
+
+  /**
+   * Find patient with related record counts (for deletion checks)
+   */
+  findWithCounts(id: number, clinicId?: number): Promise<PatientWithCounts | null>;
+
+  /**
+   * Create a new patient
+   */
+  create(input: CreatePatientInput, audit: AuditContext): Promise<PatientEntity>;
+
+  /**
+   * Update an existing patient
+   */
+  update(
+    id: number,
+    input: UpdatePatientInput,
+    audit: AuditContext,
+    clinicId?: number
+  ): Promise<PatientEntity>;
+
+  /**
+   * Delete a patient and all related records
+   */
+  delete(id: number, audit: AuditContext, clinicId?: number): Promise<void>;
+
+  /**
+   * Check if a patient exists
+   */
+  exists(id: number, clinicId?: number): Promise<boolean>;
+
+  /**
+   * Count patients matching filter
+   */
+  count(filter: PatientFilterOptions): Promise<number>;
+}
+
+// ============================================================================
+// Prisma Implementation
+// ============================================================================
+
+/**
+ * Create a patient repository instance
+ */
+export function createPatientRepository(db: PrismaClient = prisma): PatientRepository {
+  return {
+    async findById(id: number, clinicId?: number): Promise<PatientEntity> {
+      const patient = await this.findByIdOrNull(id, clinicId);
+      if (!patient) {
+        throw Errors.patientNotFound(id);
+      }
+      return patient;
+    },
+
+    async findByIdOrNull(id: number, clinicId?: number): Promise<PatientEntity | null> {
+      const where: Prisma.PatientWhereInput = { id };
+      if (clinicId !== undefined) {
+        where.clinicId = clinicId;
+      }
+
+      const patient = await db.patient.findFirst({ where });
+      if (!patient) {
+        return null;
+      }
+
+      return decryptPatient(patient);
+    },
+
+    async findByPatientId(patientId: string, clinicId: number): Promise<PatientEntity | null> {
+      const patient = await db.patient.findFirst({
+        where: { patientId, clinicId },
+      });
+
+      if (!patient) {
+        return null;
+      }
+
+      return decryptPatient(patient);
+    },
+
+    async findByEmail(email: string, clinicId: number): Promise<PatientEntity | null> {
+      // Note: Email is encrypted, so we need to encrypt the search value
+      const encryptedEmail = encryptPatientPHI({ email }, ['email']).email;
+
+      const patient = await db.patient.findFirst({
+        where: { email: encryptedEmail, clinicId },
+      });
+
+      if (!patient) {
+        return null;
+      }
+
+      return decryptPatient(patient);
+    },
+
+    async findByStripeCustomerId(stripeCustomerId: string): Promise<PatientEntity | null> {
+      const patient = await db.patient.findFirst({
+        where: { stripeCustomerId },
+      });
+
+      if (!patient) {
+        return null;
+      }
+
+      return decryptPatient(patient);
+    },
+
+    async findMany(
+      filter: PatientFilterOptions,
+      pagination: PatientPaginationOptions = {}
+    ): Promise<PaginatedPatients<PatientSummary>> {
+      const where = buildWhereClause(filter);
+      const { limit, offset, orderBy, orderDir } = normalizePagination(pagination);
+
+      const [patients, total] = await Promise.all([
+        db.patient.findMany({
+          where,
+          select: PATIENT_SUMMARY_SELECT,
+          orderBy: { [orderBy]: orderDir },
+          take: limit,
+          skip: offset,
+        }),
+        db.patient.count({ where }),
+      ]);
+
+      const decryptedPatients = patients.map((p) => decryptPatientSummary(p));
+
+      return {
+        data: decryptedPatients,
+        total,
+        limit,
+        offset,
+        hasMore: offset + patients.length < total,
+      };
+    },
+
+    async findManyWithClinic(
+      filter: PatientFilterOptions,
+      pagination: PatientPaginationOptions = {}
+    ): Promise<PaginatedPatients<PatientSummaryWithClinic>> {
+      const where = buildWhereClause(filter);
+      const { limit, offset, orderBy, orderDir } = normalizePagination(pagination);
+
+      const [patients, total] = await Promise.all([
+        db.patient.findMany({
+          where,
+          select: {
+            ...PATIENT_SUMMARY_SELECT,
+            clinic: {
+              select: { name: true },
+            },
+          },
+          orderBy: { [orderBy]: orderDir },
+          take: limit,
+          skip: offset,
+        }),
+        db.patient.count({ where }),
+      ]);
+
+      const decryptedPatients = patients.map((p) => ({
+        ...decryptPatientSummary(p),
+        clinicName: p.clinic?.name ?? null,
+      }));
+
+      return {
+        data: decryptedPatients,
+        total,
+        limit,
+        offset,
+        hasMore: offset + patients.length < total,
+      };
+    },
+
+    async findWithCounts(id: number, clinicId?: number): Promise<PatientWithCounts | null> {
+      const where: Prisma.PatientWhereInput = { id };
+      if (clinicId !== undefined) {
+        where.clinicId = clinicId;
+      }
+
+      const patient = await db.patient.findFirst({
+        where,
+        include: {
+          _count: {
+            select: {
+              orders: true,
+              documents: true,
+              soapNotes: true,
+              appointments: true,
+            },
+          },
+        },
+      });
+
+      if (!patient) {
+        return null;
+      }
+
+      return {
+        ...decryptPatient(patient),
+        _count: patient._count,
+      };
+    },
+
+    async create(input: CreatePatientInput, audit: AuditContext): Promise<PatientEntity> {
+      return db.$transaction(async (tx) => {
+        // Generate next patient ID
+        const counter = await tx.patientCounter.upsert({
+          where: { id: 1 },
+          create: { id: 1, current: 1 },
+          update: { current: { increment: 1 } },
+        });
+        const patientId = counter.current.toString().padStart(6, '0');
+
+        // Encrypt PHI fields
+        const encryptedData = encryptPatientPHI(input, [...PHI_FIELDS]);
+
+        // Create patient
+        const patient = await tx.patient.create({
+          data: {
+            ...encryptedData,
+            patientId,
+            clinicId: input.clinicId,
+            notes: input.notes ?? null,
+            tags: input.tags ?? [],
+            source: input.source ?? 'api',
+            sourceMetadata: input.sourceMetadata ?? {
+              createdBy: audit.actorEmail,
+              createdByRole: audit.actorRole,
+              createdById: audit.actorId,
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
+
+        // Create audit log
+        await tx.patientAudit.create({
+          data: {
+            patientId: patient.id,
+            action: 'CREATE',
+            actorEmail: audit.actorEmail,
+            diff: {
+              created: true,
+              by: audit.actorEmail,
+              role: audit.actorRole,
+            },
+          },
+        });
+
+        return decryptPatient(patient);
+      });
+    },
+
+    async update(
+      id: number,
+      input: UpdatePatientInput,
+      audit: AuditContext,
+      clinicId?: number
+    ): Promise<PatientEntity> {
+      // First verify patient exists and belongs to clinic
+      const existing = await this.findByIdOrNull(id, clinicId);
+      if (!existing) {
+        throw Errors.patientNotFound(id);
+      }
+
+      // Encrypt PHI fields in update data
+      const encryptedData = encryptPatientPHI(input, [...PHI_FIELDS]);
+
+      return db.$transaction(async (tx) => {
+        // Update patient
+        const patient = await tx.patient.update({
+          where: { id },
+          data: encryptedData,
+        });
+
+        // Build change diff for audit
+        const changeSet = buildChangeDiff(existing, input);
+
+        if (Object.keys(changeSet).length > 0) {
+          await tx.patientAudit.create({
+            data: {
+              patientId: id,
+              action: 'UPDATE',
+              actorEmail: audit.actorEmail,
+              diff: changeSet,
+            },
+          });
+        }
+
+        return decryptPatient(patient);
+      });
+    },
+
+    async delete(id: number, audit: AuditContext, clinicId?: number): Promise<void> {
+      // Verify patient exists
+      const existing = await this.findWithCounts(id, clinicId);
+      if (!existing) {
+        throw Errors.patientNotFound(id);
+      }
+
+      await db.$transaction(async (tx) => {
+        // Create audit log BEFORE deletion
+        await tx.patientAudit.create({
+          data: {
+            patientId: id,
+            action: 'DELETE',
+            actorEmail: audit.actorEmail,
+            diff: {
+              deleted: true,
+              firstName: existing.firstName,
+              lastName: existing.lastName,
+              relatedData: existing._count,
+              by: audit.actorEmail,
+              role: audit.actorRole,
+            },
+          },
+        });
+
+        // Delete related records in order (respecting foreign key constraints)
+        await tx.patientMedicationReminder.deleteMany({ where: { patientId: id } });
+        await tx.patientWeightLog.deleteMany({ where: { patientId: id } });
+
+        // Delete intake form responses and submissions
+        const submissions = await tx.intakeFormSubmission.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        for (const submission of submissions) {
+          await tx.intakeFormResponse.deleteMany({ where: { submissionId: submission.id } });
+        }
+        await tx.intakeFormSubmission.deleteMany({ where: { patientId: id } });
+
+        // Delete other related records
+        await tx.sOAPNote.deleteMany({ where: { patientId: id } });
+        await tx.appointment.deleteMany({ where: { patientId: id } });
+        await tx.patientDocument.deleteMany({ where: { patientId: id } });
+        await tx.subscription.deleteMany({ where: { patientId: id } });
+        await tx.paymentMethod.deleteMany({ where: { patientId: id } });
+
+        // Delete order events and rxs, then orders
+        const orders = await tx.order.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        for (const order of orders) {
+          await tx.orderEvent.deleteMany({ where: { orderId: order.id } });
+          await tx.rx.deleteMany({ where: { orderId: order.id } });
+        }
+        await tx.order.deleteMany({ where: { patientId: id } });
+
+        // Delete tickets and referrals
+        await tx.ticket.deleteMany({ where: { patientId: id } });
+        await tx.referralTracking.deleteMany({ where: { patientId: id } });
+
+        // Finally delete the patient
+        await tx.patient.delete({ where: { id } });
+      });
+    },
+
+    async exists(id: number, clinicId?: number): Promise<boolean> {
+      const where: Prisma.PatientWhereInput = { id };
+      if (clinicId !== undefined) {
+        where.clinicId = clinicId;
+      }
+
+      const count = await db.patient.count({ where });
+      return count > 0;
+    },
+
+    async count(filter: PatientFilterOptions): Promise<number> {
+      const where = buildWhereClause(filter);
+      return db.patient.count({ where });
+    },
+  };
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Decrypt patient entity PHI fields
+ */
+function decryptPatient<T extends Record<string, unknown>>(patient: T): T {
+  return decryptPatientPHI(patient, [...PHI_FIELDS]);
+}
+
+/**
+ * Decrypt patient summary PHI fields
+ */
+function decryptPatientSummary(patient: Record<string, unknown>): PatientSummary {
+  const decrypted = decryptPatientPHI(patient, [...PHI_FIELDS]);
+  return {
+    id: decrypted.id as number,
+    patientId: decrypted.patientId as string | null,
+    firstName: decrypted.firstName as string,
+    lastName: decrypted.lastName as string,
+    email: decrypted.email as string,
+    phone: decrypted.phone as string,
+    dob: decrypted.dob as string,
+    gender: decrypted.gender as string,
+    address1: decrypted.address1 as string,
+    address2: decrypted.address2 as string | null,
+    city: decrypted.city as string,
+    state: decrypted.state as string,
+    zip: decrypted.zip as string,
+    tags: decrypted.tags as string[] | null,
+    source: decrypted.source as PatientSummary['source'],
+    createdAt: decrypted.createdAt as Date,
+    clinicId: decrypted.clinicId as number,
+  };
+}
+
+/**
+ * Build Prisma where clause from filter options
+ */
+function buildWhereClause(filter: PatientFilterOptions): Prisma.PatientWhereInput {
+  const where: Prisma.PatientWhereInput = {};
+
+  if (filter.clinicId !== undefined) {
+    where.clinicId = filter.clinicId;
+  }
+
+  if (filter.createdAfter || filter.createdBefore) {
+    where.createdAt = {};
+    if (filter.createdAfter) {
+      where.createdAt.gte = filter.createdAfter;
+    }
+    if (filter.createdBefore) {
+      where.createdAt.lte = filter.createdBefore;
+    }
+  }
+
+  if (filter.source) {
+    where.source = filter.source;
+  }
+
+  if (filter.search) {
+    where.OR = [
+      { firstName: { contains: filter.search, mode: 'insensitive' } },
+      { lastName: { contains: filter.search, mode: 'insensitive' } },
+      { patientId: { contains: filter.search, mode: 'insensitive' } },
+    ];
+  }
+
+  if (filter.tags && filter.tags.length > 0) {
+    where.tags = { hasSome: filter.tags };
+  }
+
+  return where;
+}
+
+/**
+ * Normalize pagination options with defaults and limits
+ */
+function normalizePagination(options: PatientPaginationOptions): Required<PatientPaginationOptions> {
+  const rawLimit = options.limit ?? DEFAULT_LIMIT;
+  return {
+    limit: Math.min(Math.max(1, rawLimit), MAX_LIMIT),
+    offset: Math.max(0, options.offset ?? 0),
+    orderBy: options.orderBy ?? 'createdAt',
+    orderDir: options.orderDir ?? 'desc',
+  };
+}
+
+/**
+ * Build change diff between old and new patient data
+ */
+function buildChangeDiff(
+  before: PatientEntity,
+  after: UpdatePatientInput
+): Record<string, { before: unknown; after: unknown }> {
+  const diff: Record<string, { before: unknown; after: unknown }> = {};
+  const fields = Object.keys(after) as (keyof UpdatePatientInput)[];
+
+  for (const field of fields) {
+    const beforeVal = before[field as keyof PatientEntity];
+    const afterVal = after[field];
+
+    if (afterVal !== undefined && beforeVal !== afterVal) {
+      diff[field] = { before: beforeVal, after: afterVal };
+    }
+  }
+
+  return diff;
+}
+
+// ============================================================================
+// Default Instance
+// ============================================================================
+
+/**
+ * Default patient repository instance
+ */
+export const patientRepository = createPatientRepository();

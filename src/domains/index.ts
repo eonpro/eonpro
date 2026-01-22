@@ -10,8 +10,12 @@
  * @example
  * ```typescript
  * import { Errors, handleApiError } from '@/domains';
+ * import { patientRepository } from '@/domains/patient';
  * ```
  */
 
 // Shared utilities
 export * from './shared';
+
+// Domain modules
+export * from './patient';
