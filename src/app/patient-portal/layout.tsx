@@ -24,6 +24,9 @@ import {
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
+// Default EONPRO logo
+const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+
 const mainNavItems = [
   { icon: Home, path: '/patient-portal', label: 'Home', exact: true },
   { icon: Scale, path: '/patient-portal/progress', label: 'Progress' },
@@ -118,24 +121,11 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       >
         <div className="mb-6 flex items-center justify-center px-4">
           <Link href="/patient-portal">
-            {branding?.logoUrl ? (
-              <img
-                src={branding.logoUrl}
-                alt={branding.clinicName}
-                className={`${sidebarExpanded ? 'h-10 w-auto' : 'h-10 w-10 object-contain'}`}
-              />
-            ) : sidebarExpanded ? (
-              <span className="text-xl font-bold" style={{ color: primaryColor }}>
-                {branding?.clinicName || 'EONPRO'}
-              </span>
-            ) : (
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-lg font-bold text-white"
-                style={{ backgroundColor: primaryColor }}
-              >
-                {(branding?.clinicName || 'E')[0]}
-              </div>
-            )}
+            <img
+              src={branding?.logoUrl || EONPRO_LOGO}
+              alt={branding?.clinicName || 'EONPRO'}
+              className={`${sidebarExpanded ? 'h-10 w-auto max-w-[140px]' : 'h-10 w-10'} object-contain`}
+            />
           </Link>
         </div>
 
@@ -194,21 +184,13 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       <header className="fixed left-0 right-0 top-0 z-50 bg-white/95 backdrop-blur-lg lg:hidden">
         <div className="safe-top" />
         <div className="flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            {branding?.logoUrl ? (
-              <img src={branding.logoUrl} alt={branding.clinicName} className="h-8 w-auto" />
-            ) : (
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl font-bold text-white"
-                style={{ backgroundColor: primaryColor }}
-              >
-                {(branding?.clinicName || 'E')[0]}
-              </div>
-            )}
-            <span className="text-base font-bold text-gray-900">
-              {branding?.clinicName || 'EONPRO'}
-            </span>
-          </div>
+          <Link href="/patient-portal" className="flex items-center gap-3">
+            <img 
+              src={branding?.logoUrl || EONPRO_LOGO} 
+              alt={branding?.clinicName || 'EONPRO'} 
+              className="h-8 w-auto max-w-[120px] object-contain" 
+            />
+          </Link>
           <div className="flex items-center gap-1">
             {/* Notification Button - 44x44 touch target */}
             <button className="relative flex h-11 w-11 items-center justify-center rounded-xl text-gray-600 active:bg-gray-100">
