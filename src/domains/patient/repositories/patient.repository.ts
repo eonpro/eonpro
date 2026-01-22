@@ -16,6 +16,7 @@ import { type PrismaClient, type Prisma } from '@prisma/client';
 
 import { Errors } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 import type {
@@ -492,16 +493,39 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
 /**
  * Decrypt patient entity PHI fields
+ * Gracefully handles decryption failures by returning raw data
+ * (matches current route behavior during encryption migration period)
  */
 function decryptPatient<T extends Record<string, unknown>>(patient: T): T {
-  return decryptPatientPHI(patient, [...PHI_FIELDS]);
+  try {
+    return decryptPatientPHI(patient, [...PHI_FIELDS]);
+  } catch (error) {
+    // If decryption fails, return patient data without decryption
+    // This handles cases where data might not be encrypted yet (migration period)
+    logger.warn('Failed to decrypt patient PHI, returning raw data', {
+      patientId: (patient as Record<string, unknown>).id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return patient;
+  }
 }
 
 /**
  * Decrypt patient summary PHI fields
+ * Gracefully handles decryption failures by returning raw data
  */
 function decryptPatientSummary(patient: Record<string, unknown>): PatientSummary {
-  const decrypted = decryptPatientPHI(patient, [...PHI_FIELDS]);
+  let decrypted: Record<string, unknown>;
+  try {
+    decrypted = decryptPatientPHI(patient, [...PHI_FIELDS]);
+  } catch (error) {
+    logger.warn('Failed to decrypt patient summary PHI, returning raw data', {
+      patientId: patient.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    decrypted = patient;
+  }
+
   return {
     id: decrypted.id as number,
     patientId: decrypted.patientId as string | null,

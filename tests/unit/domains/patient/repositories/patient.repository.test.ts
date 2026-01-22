@@ -13,6 +13,16 @@ vi.mock('@/lib/security/phi-encryption', () => ({
   decryptPatientPHI: vi.fn((data: Record<string, unknown>) => data),
 }));
 
+// Mock logger
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 // Mock db - must be before imports
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -528,6 +538,81 @@ describe('PatientRepository', () => {
       expect(mockPrisma.patient.count).toHaveBeenCalledWith({
         where: { clinicId: 10 },
       });
+    });
+  });
+
+  describe('PHI Decryption Handling', () => {
+    it('should gracefully handle decryption failures', async () => {
+      // Import the mock to override it for this test
+      const phiMock = await import('@/lib/security/phi-encryption');
+
+      // Setup: make decryption throw
+      vi.mocked(phiMock.decryptPatientPHI).mockImplementationOnce(() => {
+        throw new Error('Decryption failed');
+      });
+
+      mockPrisma.patient.findFirst.mockResolvedValue(mockPatient);
+
+      // Should not throw, should return raw data
+      const result = await repo.findByIdOrNull(1);
+
+      // Should return patient data even though decryption failed
+      expect(result).toBeDefined();
+      expect(result?.id).toBe(1);
+      expect(result?.firstName).toBe('John');
+    });
+
+    it('should encrypt PHI fields on create', async () => {
+      const phiMock = await import('@/lib/security/phi-encryption');
+
+      mockPrisma.patientCounter.upsert.mockResolvedValue({ id: 1, current: 1 });
+      mockPrisma.patient.create.mockResolvedValue(mockPatient);
+      mockPrisma.patientAudit.create.mockResolvedValue({ id: 1 });
+
+      const input = {
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane@example.com',
+        phone: '5551234567',
+        dob: '1990-01-15',
+        gender: 'f',
+        address1: '123 Main St',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78701',
+        clinicId: 10,
+      };
+
+      await repo.create(input, mockAuditContext);
+
+      // encryptPatientPHI should be called with the input data
+      expect(phiMock.encryptPatientPHI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'jane@example.com',
+          phone: '5551234567',
+          dob: '1990-01-15',
+        }),
+        ['email', 'phone', 'dob']
+      );
+    });
+
+    it('should encrypt PHI fields on update', async () => {
+      const phiMock = await import('@/lib/security/phi-encryption');
+
+      mockPrisma.patient.findFirst.mockResolvedValue(mockPatient);
+      mockPrisma.patient.update.mockResolvedValue({
+        ...mockPatient,
+        email: 'new@example.com',
+      });
+      mockPrisma.patientAudit.create.mockResolvedValue({ id: 1 });
+
+      await repo.update(1, { email: 'new@example.com' }, mockAuditContext);
+
+      // encryptPatientPHI should be called with the update data
+      expect(phiMock.encryptPatientPHI).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'new@example.com' }),
+        ['email', 'phone', 'dob']
+      );
     });
   });
 });
