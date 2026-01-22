@@ -19,6 +19,8 @@ import {
   type ValidationErrorDetail,
 } from '@/domains/shared/errors';
 
+import type { UserContext } from '@/domains/shared/types';
+
 import {
   type PatientRepository,
   patientRepository as defaultRepo,
@@ -221,19 +223,11 @@ export const createPatientSchema = z.object({
 export const updatePatientSchema = createPatientSchema.partial();
 
 // ============================================================================
-// Types
+// Types (re-export from shared)
 // ============================================================================
 
-/**
- * User context for authorization
- */
-export interface UserContext {
-  id: number;
-  email: string;
-  role: 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient';
-  clinicId?: number;
-  patientId?: number;
-}
+// UserContext is imported from @/domains/shared/types
+export type { UserContext } from '@/domains/shared/types';
 
 /**
  * Options for listing patients

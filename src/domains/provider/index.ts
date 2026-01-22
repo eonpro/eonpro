@@ -41,5 +41,5 @@ export {
   setPasswordSchema,
 } from './validation';
 
-// Re-export UserContext for convenience (from patient domain)
-export type { UserContext } from '../patient';
+// Re-export UserContext for convenience (from shared)
+export type { UserContext } from '../shared/types';

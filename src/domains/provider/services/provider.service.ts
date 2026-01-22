@@ -32,7 +32,7 @@ import {
   ForbiddenError,
   ConflictError,
 } from '../../shared/errors';
-import type { UserContext } from '../../patient';
+import type { UserContext } from '../../shared/types';
 
 /**
  * List providers result

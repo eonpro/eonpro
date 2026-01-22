@@ -9,3 +9,6 @@
 
 // Error handling
 export * from './errors';
+
+// Shared types
+export * from './types';
