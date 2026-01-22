@@ -1,12 +1,18 @@
 /**
  * Middleware for multi-clinic support
  * Resolves clinic from subdomain, custom domain, or session
+ * 
+ * NOTE: This middleware runs in Edge Runtime, so it cannot use:
+ * - Prisma (uses Node.js APIs)
+ * - node:async_hooks
+ * - node:crypto
+ * 
+ * Clinic resolution from database is done via API calls from the client,
+ * or from the JWT token which already contains clinicId.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
-import { logger } from '../lib/logger';
-import { prisma } from '@/lib/db';
 
 // Edge-compatible JWT secret (don't import from config to avoid process.argv)
 const getJwtSecret = () => {
@@ -90,74 +96,53 @@ export async function clinicMiddleware(request: NextRequest) {
 }
 
 async function resolveClinic(request: NextRequest): Promise<number | null> {
-  // Priority 1: Check subdomain
-  const hostname = request.headers.get('host') || '';
-  const subdomain = extractSubdomain(hostname);
-  
-  if (subdomain && !['www', 'app', 'api', 'admin'].includes(subdomain)) {
-    try {
-      const clinic = await prisma.clinic.findUnique({
-        where: { subdomain },
-        select: { id: true, status: true }
-      });
-      
-      if (clinic?.status === 'ACTIVE') {
-        return clinic.id;
-      }
-    } catch (error) {
-      logger.error('Error resolving clinic from subdomain:', error);
-    }
-  }
-  
-  // Priority 2: Check custom domain
-  try {
-    const clinic = await prisma.clinic.findFirst({
-      where: { 
-        customDomain: hostname.split(':')[0], // Remove port if present
-        status: 'ACTIVE'
-      },
-      select: { id: true }
-    });
-    
-    if (clinic) {
-      return clinic.id;
-    }
-  } catch (error) {
-    logger.error('Error resolving clinic from custom domain:', error);
-  }
-  
-  // Priority 3: Check session/cookie
+  // Priority 1: Check session/cookie (most common case)
   const clinicCookie = request.cookies.get('selected-clinic');
   if (clinicCookie) {
-    return parseInt(clinicCookie.value);
+    const clinicId = parseInt(clinicCookie.value);
+    if (!isNaN(clinicId)) {
+      return clinicId;
+    }
   }
   
-  // Priority 4: Check authorization header (for API access)
+  // Priority 2: Check authorization header (for API access)
   const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    // Parse JWT and extract clinic ID
-    // This would need to be implemented with your JWT library
-    const token = authHeader.replace('Bearer ', '');
+  const tokenFromCookie = request.cookies.get('auth-token')?.value;
+  const token = authHeader?.replace('Bearer ', '') || tokenFromCookie;
+  
+  if (token) {
     const clinicId = await getClinicIdFromToken(token);
     if (clinicId) {
       return clinicId;
     }
   }
   
-  // Priority 5: Default clinic (for migration period)
-  // Remove this after all users are migrated to multi-clinic
-  if (process.env.USE_DEFAULT_CLINIC === 'true') {
-    try {
-      const defaultClinic = await prisma.clinic.findFirst({
-        where: { subdomain: 'main', status: 'ACTIVE' },
-        select: { id: true }
-      });
-      
-      if (defaultClinic) {
-        return defaultClinic.id;
-      }
-    } catch (error) {
-      logger.error('Error fetching default clinic:', error);
+  // Priority 3: Check x-clinic-id header (for API clients)
+  const clinicIdHeader = request.headers.get('x-clinic-id');
+  if (clinicIdHeader) {
+    const clinicId = parseInt(clinicIdHeader);
+    if (!isNaN(clinicId)) {
+      return clinicId;
+    }
+  }
+  
+  // Priority 4: Check subdomain (handled by client-side redirect if needed)
+  // NOTE: We can't do DB lookups in Edge Runtime, so subdomain->clinicId
+  // mapping must be done by the client calling /api/clinic/resolve
+  const hostname = request.headers.get('host') || '';
+  const subdomain = extractSubdomain(hostname);
+  if (subdomain && !['www', 'app', 'api', 'admin'].includes(subdomain)) {
+    // Set header so API routes can look up the clinic
+    // The actual DB lookup happens in the API route
+    return null; // Will trigger redirect to clinic-select or use default
+  }
+  
+  // Priority 5: Default clinic ID from env (for single-clinic deployments)
+  const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
+  if (defaultClinicId) {
+    const clinicId = parseInt(defaultClinicId);
+    if (!isNaN(clinicId)) {
+      return clinicId;
     }
   }
   
