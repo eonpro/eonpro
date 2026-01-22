@@ -14,7 +14,7 @@ const globalForPrisma = global as unknown as {
 // Models that require clinic isolation (lowercase for comparison)
 const CLINIC_ISOLATED_MODELS = [
   'patient',
-  'provider', 
+  'provider',
   'order',
   'invoice',
   'payment',
@@ -26,7 +26,12 @@ const CLINIC_ISOLATED_MODELS = [
   'prescription',
   'appointment',
   'intakeformtemplate',
-  'internalmessage'
+  'internalmessage',
+  'patientchatmessage', // Two-way patient chat
+  'patientwaterlog',    // Health tracking
+  'patientexerciselog',
+  'patientsleeplog',
+  'patientnutritionlog',
 ];
 
 /**
@@ -230,7 +235,12 @@ class PrismaWithClinicFilter {
   get appointment() { return this.createModelProxy('appointment'); }
   get intakeFormTemplate() { return this.createModelProxy('intakeFormTemplate'); }
   get internalMessage() { return this.createModelProxy('internalMessage'); }
-  
+  get patientChatMessage() { return this.createModelProxy('patientChatMessage'); }
+  get patientWaterLog() { return this.createModelProxy('patientWaterLog'); }
+  get patientExerciseLog() { return this.createModelProxy('patientExerciseLog'); }
+  get patientSleepLog() { return this.createModelProxy('patientSleepLog'); }
+  get patientNutritionLog() { return this.createModelProxy('patientNutritionLog'); }
+
   // Models that don't need clinic filtering - pass through directly
   get user() { return this.client.user; }
   get clinic() { return this.client.clinic; }

@@ -134,15 +134,16 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const todayLogs = nutritionLogs.filter(log => {
+    type NutritionLog = typeof nutritionLogs[number];
+    const todayLogs = nutritionLogs.filter((log: NutritionLog) => {
       const logDate = new Date(log.recordedAt);
       return logDate >= today && logDate <= todayEnd;
     });
 
-    const todayCalories = todayLogs.reduce((sum, log) => sum + (log.calories || 0), 0);
-    const todayProtein = todayLogs.reduce((sum, log) => sum + (log.protein || 0), 0);
-    const todayCarbs = todayLogs.reduce((sum, log) => sum + (log.carbs || 0), 0);
-    const todayFat = todayLogs.reduce((sum, log) => sum + (log.fat || 0), 0);
+    const todayCalories = todayLogs.reduce((sum: number, log: NutritionLog) => sum + (log.calories || 0), 0);
+    const todayProtein = todayLogs.reduce((sum: number, log: NutritionLog) => sum + (log.protein || 0), 0);
+    const todayCarbs = todayLogs.reduce((sum: number, log: NutritionLog) => sum + (log.carbs || 0), 0);
+    const todayFat = todayLogs.reduce((sum: number, log: NutritionLog) => sum + (log.fat || 0), 0);
 
     return NextResponse.json({
       data: nutritionLogs,

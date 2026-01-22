@@ -110,12 +110,14 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
 
-    const weeklyLogs = sleepLogs.filter(log => new Date(log.recordedAt) >= weekAgo);
+    type SleepLog = typeof sleepLogs[number];
+    const weeklyLogs = sleepLogs.filter((log: SleepLog) => new Date(log.recordedAt) >= weekAgo);
     const avgSleepMinutes = weeklyLogs.length > 0 
-      ? Math.round(weeklyLogs.reduce((sum, log) => sum + log.duration, 0) / weeklyLogs.length)
+      ? Math.round(weeklyLogs.reduce((sum: number, log: SleepLog) => sum + log.duration, 0) / weeklyLogs.length)
       : 0;
-    const avgQuality = weeklyLogs.filter(l => l.quality).length > 0
-      ? weeklyLogs.filter(l => l.quality).reduce((sum, log) => sum + (log.quality || 0), 0) / weeklyLogs.filter(l => l.quality).length
+    const logsWithQuality = weeklyLogs.filter((l: SleepLog) => l.quality !== null);
+    const avgQuality = logsWithQuality.length > 0
+      ? logsWithQuality.reduce((sum: number, log: SleepLog) => sum + (log.quality || 0), 0) / logsWithQuality.length
       : null;
 
     return NextResponse.json({

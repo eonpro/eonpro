@@ -122,9 +122,9 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
 
-    const weeklyLogs = exerciseLogs.filter(log => new Date(log.recordedAt) >= weekAgo);
-    const weeklyMinutes = weeklyLogs.reduce((sum, log) => sum + log.duration, 0);
-    const weeklyCalories = weeklyLogs.reduce((sum, log) => sum + (log.calories || 0), 0);
+    const weeklyLogs = exerciseLogs.filter((log: typeof exerciseLogs[number]) => new Date(log.recordedAt) >= weekAgo);
+    const weeklyMinutes = weeklyLogs.reduce((sum: number, log: typeof exerciseLogs[number]) => sum + log.duration, 0);
+    const weeklyCalories = weeklyLogs.reduce((sum: number, log: typeof exerciseLogs[number]) => sum + (log.calories || 0), 0);
 
     return NextResponse.json({
       data: exerciseLogs,

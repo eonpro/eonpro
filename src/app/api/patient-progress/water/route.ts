@@ -131,7 +131,8 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       }
     });
 
-    const todayTotal = todayLogs.reduce((sum, log) => sum + log.amount, 0);
+    type WaterLog = typeof todayLogs[number];
+    const todayTotal = todayLogs.reduce((sum: number, log: WaterLog) => sum + log.amount, 0);
 
     return NextResponse.json({
       data: waterLogs,
