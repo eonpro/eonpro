@@ -63,7 +63,7 @@ export default function PatientChatPage() {
 
   useEffect(() => {
     if (!patientId) return;
-    
+
     fetchMessages();
     // Poll for new messages every 10 seconds
     const interval = setInterval(fetchMessages, 10000);
