@@ -8,22 +8,26 @@
  *
  * @example
  * ```typescript
- * import { patientRepository, type PatientEntity } from '@/domains/patient';
+ * import { patientService, type PatientEntity, type UserContext } from '@/domains/patient';
  *
- * // Find a patient
- * const patient = await patientRepository.findById(123, clinicId);
+ * // Get a patient (with authorization)
+ * const patient = await patientService.getPatient(123, userContext);
  *
  * // List patients
- * const { data, total } = await patientRepository.findMany(
- *   { clinicId },
- *   { limit: 50, orderBy: 'createdAt', orderDir: 'desc' }
- * );
+ * const { data, total } = await patientService.listPatients(userContext, {
+ *   limit: 50,
+ *   recent: '7d',
+ *   search: 'john',
+ * });
  *
  * // Create a patient
- * const newPatient = await patientRepository.create(
+ * const newPatient = await patientService.createPatient(
  *   { firstName: 'John', lastName: 'Doe', ... },
- *   { actorEmail: 'admin@clinic.com', actorRole: 'admin' }
+ *   userContext
  * );
+ *
+ * // For direct repository access (testing/admin)
+ * import { patientRepository } from '@/domains/patient';
  * ```
  */
 
@@ -32,3 +36,6 @@ export * from './types';
 
 // Repositories
 export * from './repositories';
+
+// Services
+export * from './services';
