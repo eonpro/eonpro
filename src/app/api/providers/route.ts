@@ -1,163 +1,79 @@
-import { prisma, basePrisma } from '@/lib/db';
-import { lookupNpi } from '@/lib/npi';
-import { providerSchema } from '@/lib/providerSchema';
-import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+/**
+ * Providers Route
+ * ===============
+ *
+ * API endpoints for provider list and creation.
+ * All handlers use the provider service layer for business logic.
+ *
+ * @module api/providers
+ */
 
-// GET - List providers (protected)
+import { NextRequest, NextResponse } from 'next/server';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { providerService, type UserContext } from '@/domains/provider';
+import { handleApiError } from '@/domains/shared/errors';
+
+/**
+ * GET /api/providers
+ * List providers based on user's access level
+ *
+ * - Super admin: all providers
+ * - Other roles: linked provider + clinic providers + shared providers
+ */
 export const GET = withAuth(
   async (req: NextRequest, user: AuthUser) => {
-    // Get all providers from Provider table (these have NPI and credentials)
-    // Use basePrisma to bypass clinic filtering - providers may work across clinics
-    let providers;
+    try {
+      // Convert auth user to service UserContext
+      const userContext: UserContext = {
+        id: user.id,
+        email: user.email,
+        role: user.role as UserContext['role'],
+        clinicId: user.clinicId,
+        patientId: user.patientId,
+        providerId: user.providerId,
+      };
 
-    logger.info(
-      `[PROVIDERS/GET] Request from user ${user.id}, role: ${user.role}, clinicId: ${user.clinicId}, providerId: ${user.providerId}`
-    );
+      const result = await providerService.listProviders(userContext);
 
-    if (user.role === 'super_admin') {
-      // Super admin sees all providers
-      providers = await basePrisma.provider.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: {
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-            },
-          },
-        },
-      });
-    } else {
-      // For provider role: ALWAYS include their own linked provider record
-      // Plus any providers from their clinic or shared providers
-      const userData = await basePrisma.user.findUnique({
-        where: { id: user.id },
-        select: { providerId: true, email: true },
-      });
-
-      logger.info(
-        `[PROVIDERS/GET] User data: providerId=${userData?.providerId}, email=${userData?.email}`
-      );
-
-      // Build OR conditions
-      const orConditions: any[] = [];
-
-      // If user has a linked provider, include it by ID (highest priority)
-      if (userData?.providerId) {
-        orConditions.push({ id: userData.providerId });
-      }
-
-      // Also include provider matching user's email (in case not linked yet)
-      if (userData?.email) {
-        orConditions.push({ email: userData.email });
-      }
-
-      // Include providers from user's clinic
-      if (user.clinicId) {
-        orConditions.push({ clinicId: user.clinicId });
-      }
-
-      // Include shared providers (no clinic)
-      orConditions.push({ clinicId: null });
-
-      logger.info(`[PROVIDERS/GET] Query conditions:`, { conditions: orConditions });
-
-      providers = await basePrisma.provider.findMany({
-        where: {
-          OR: orConditions,
-        },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-            },
-          },
-        },
-      });
-
-      logger.info(`[PROVIDERS/GET] Found ${providers.length} providers before dedup`);
-
-      // Remove duplicates (in case provider matches multiple conditions)
-      const seen = new Set();
-      providers = providers.filter((p: any) => {
-        if (seen.has(p.id)) return false;
-        seen.add(p.id);
-        return true;
+      return NextResponse.json({ providers: result.providers });
+    } catch (error) {
+      return handleApiError(error, {
+        context: { route: 'GET /api/providers' },
       });
     }
-
-    logger.info(
-      `[PROVIDERS/GET] Returning ${providers.length} providers for user ${user.id} (${user.role})`
-    );
-    return NextResponse.json({ providers });
   },
   { roles: ['admin', 'super_admin', 'provider'] }
 );
 
+/**
+ * POST /api/providers
+ * Create a new provider
+ *
+ * - Validates input with NPI checksum
+ * - Verifies NPI with national registry
+ * - Creates provider with audit logging
+ */
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-
-  // Extract clinicId separately as it's not in the schema
-  const { clinicId, ...providerData } = body;
-
-  const parsed = providerSchema.safeParse(providerData);
-  if (!parsed.success) {
-    const firstIssue = parsed.error.issues[0];
-    return Response.json(
-      {
-        error: firstIssue?.message ?? 'Invalid provider payload',
-        issues: parsed.error.issues,
-      },
-      { status: 400 }
-    );
-  }
-
-  const data = parsed.data;
-
   try {
-    const registry = await lookupNpi(data.npi);
+    const body = await req.json();
 
-    const provider = await prisma.provider.create({
-      data: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        titleLine:
-          data.titleLine ??
-          [registry.basic?.credential, registry.basic?.lastName].filter(Boolean).join(' '),
-        npi: data.npi,
-        licenseState: data.licenseState,
-        licenseNumber: data.licenseNumber,
-        dea: data.dea,
-        email: data.email,
-        phone: data.phone,
-        signatureDataUrl: data.signatureDataUrl ?? undefined,
-        npiVerifiedAt: new Date(),
-        npiRawResponse: registry as any,
-        // Add clinic assignment
-        clinicId: clinicId ? parseInt(clinicId) : null,
-      },
-      include: {
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+    // For unauthenticated provider creation (registration flow),
+    // use a system context
+    const systemContext: UserContext = {
+      id: 0,
+      email: 'system@registration',
+      role: 'admin',
+      clinicId: null,
+      patientId: null,
+      providerId: null,
+    };
+
+    const provider = await providerService.createProvider(body, systemContext);
 
     return Response.json({ provider });
-  } catch (err: any) {
-    // @ts-ignore
-
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    logger.error('[PROVIDERS/POST] Failed to create provider', err);
-    return Response.json({ error: errorMessage ?? 'Failed to create provider' }, { status: 400 });
+  } catch (error) {
+    return handleApiError(error, {
+      context: { route: 'POST /api/providers' },
+    });
   }
 }

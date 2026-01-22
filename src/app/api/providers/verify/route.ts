@@ -1,25 +1,31 @@
-import { lookupNpi } from "@/lib/npi";
-import { z } from "zod";
+/**
+ * NPI Verification Route
+ * ======================
+ *
+ * Verify NPI with national registry.
+ *
+ * @module api/providers/verify
+ */
 
-const schema = z.object({
-  npi: z.string().min(10).max(10),
-});
+import { providerService } from '@/domains/provider';
+import { handleApiError } from '@/domains/shared/errors';
 
+/**
+ * POST /api/providers/verify
+ * Verify NPI with national registry
+ *
+ * Request body: { npi: string }
+ * Response: { result: NpiVerificationResult }
+ */
 export async function POST(req: Request) {
-  const body = await req.json();
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return Response.json(parsed.error, { status: 400 });
-  }
-
   try {
-    const result = await lookupNpi(parsed.data.npi);
+    const body = await req.json();
+    const result = await providerService.verifyNpi(body.npi);
+
     return Response.json({ result });
-  } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    return Response.json({ error: errorMessage ?? "Lookup failed" }, { status: 400 });
+  } catch (error) {
+    return handleApiError(error, {
+      context: { route: 'POST /api/providers/verify' },
+    });
   }
 }
-

@@ -40,3 +40,6 @@ export {
   verifyNpiSchema,
   setPasswordSchema,
 } from './validation';
+
+// Re-export UserContext for convenience (from patient domain)
+export type { UserContext } from '../patient';
