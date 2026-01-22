@@ -1,161 +1,109 @@
-import { prisma } from "@/lib/db";
-import { patientSchema } from "@/lib/validate";
+/**
+ * Patients List Route
+ * ===================
+ *
+ * API endpoints for patient list operations.
+ * All handlers use the patient service layer for business logic.
+ *
+ * @module api/patients
+ */
+
+import { NextRequest } from 'next/server';
 import { withClinicalAuth } from '@/lib/auth/middleware';
-import { NextRequest, NextResponse } from 'next/server';
-import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
 import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
+import { patientService, type UserContext, type ListPatientsOptions } from '@/domains/patient';
+import { handleApiError } from '@/domains/shared/errors';
 
 /**
  * GET /api/patients
- * Protected endpoint - requires provider, admin, or staff authentication
- * Providers see only their patients, admins and staff see all clinic patients
- * Super admins see all patients across all clinics
- * Rate limit: 200 requests per minute (relaxed for list endpoints)
+ * List patients with filtering and pagination
+ *
+ * Uses the patient service layer which handles:
+ * - Clinic isolation (non-super-admin filtered by clinicId)
+ * - PHI decryption
+ * - Pagination and filtering
+ *
+ * Query params:
+ * - limit: Max results (default 100, max 500)
+ * - recent: Time filter ('24h', '7d', '30d')
+ * - search: Search by name or patient ID
+ * - source: Filter by source
+ * - tags: Filter by tags (comma-separated)
  */
 const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
-  // Parse query parameters
-  const { searchParams } = new URL(req.url);
-  const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
-  // Validate and cap limit to prevent abuse (max 500, default 100)
-  const limit = isNaN(rawLimit) || rawLimit <= 0 ? 100 : Math.min(rawLimit, 500);
-  const recent = searchParams.get('recent'); // e.g., '24h', '7d', '30d'
+  try {
+    const { searchParams } = new URL(req.url);
 
-  // Build date filter for recent intakes
-  let createdAtFilter = {};
-  if (recent) {
-    const now = new Date();
-    let fromDate = now;
+    // Parse query parameters
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+    const limit = isNaN(rawLimit) || rawLimit <= 0 ? 100 : Math.min(rawLimit, 500);
 
-    if (recent.endsWith('h')) {
-      const hours = parseInt(recent, 10);
-      if (!isNaN(hours) && hours > 0 && hours <= 168) { // Max 7 days in hours
-        fromDate = new Date(now.getTime() - hours * 60 * 60 * 1000);
-        createdAtFilter = { createdAt: { gte: fromDate } };
-      }
-    } else if (recent.endsWith('d')) {
-      const days = parseInt(recent, 10);
-      if (!isNaN(days) && days > 0 && days <= 365) { // Max 1 year
-        fromDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-        createdAtFilter = { createdAt: { gte: fromDate } };
-      }
-    }
-  }
-
-  // For super admin, get all patients across all clinics
-  // For other roles, the Prisma proxy in db.ts applies clinic filtering
-  let patients;
-
-  if (user.role === 'super_admin') {
-    // Super admin sees all patients with clinic info
-    patients = await prisma.patient.findMany({
-      where: createdAtFilter,
-      select: {
-        id: true,
-        patientId: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        dob: true,
-        gender: true,
-        address1: true,
-        address2: true,
-        city: true,
-        state: true,
-        zip: true,
-        tags: true,
-        source: true,
-        createdAt: true,
-        clinicId: true,
-        clinic: {
-          select: {
-            name: true,
-            subdomain: true,
-          }
-        }
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-  } else {
-    // CRITICAL: Explicitly filter by user's clinicId for multi-tenant isolation
-    // Don't rely solely on the Prisma proxy - add explicit filtering
-    if (!user.clinicId) {
-      return NextResponse.json(
-        { error: 'No clinic associated with your account. Please contact support.' },
-        { status: 403 }
-      );
-    }
-
-    patients = await prisma.patient.findMany({
-      where: {
-        ...createdAtFilter,
-        clinicId: user.clinicId, // EXPLICIT clinic filter for safety
-      },
-      select: {
-        id: true,
-        patientId: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        dob: true,
-        gender: true,
-        address1: true,
-        address2: true,
-        city: true,
-        state: true,
-        zip: true,
-        tags: true,
-        source: true,
-        createdAt: true,
-        clinicId: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-  }
-
-  // Decrypt PHI fields for authorized users and transform to dashboard-friendly format
-  const decryptedPatients = patients.map((patient: any) => {
-    const decrypted = decryptPatientPHI(patient, ['email', 'phone', 'dob']);
-
-    // Build full address string
-    const addressParts = [
-      decrypted.address1,
-      decrypted.address2,
-      decrypted.city,
-      decrypted.state,
-      decrypted.zip
-    ].filter(Boolean);
-
-    return {
-      id: decrypted.id,
-      patientId: decrypted.patientId,
-      firstName: decrypted.firstName,
-      lastName: decrypted.lastName,
-      email: decrypted.email,
-      phone: decrypted.phone,
-      dateOfBirth: decrypted.dob,
-      gender: decrypted.gender,
-      address: addressParts.join(', '),
-      tags: decrypted.tags || [],
-      source: decrypted.source,
-      createdAt: decrypted.createdAt,
-      clinicId: decrypted.clinicId,
-      clinicName: patient.clinic?.name || null,
+    const options: ListPatientsOptions = {
+      limit,
+      recent: searchParams.get('recent') || undefined,
+      search: searchParams.get('search') || undefined,
+      source: searchParams.get('source') as ListPatientsOptions['source'] || undefined,
+      tags: searchParams.get('tags')?.split(',').filter(Boolean) || undefined,
     };
-  });
 
-  return Response.json({
-    patients: decryptedPatients,
-    meta: {
-      count: patients.length,
-      accessedBy: user.email,
-      role: user.role,
-      filters: { limit, recent },
-    }
-  });
+    // Convert auth user to service UserContext
+    const userContext: UserContext = {
+      id: user.id,
+      email: user.email,
+      role: user.role as UserContext['role'],
+      clinicId: user.clinicId,
+      patientId: user.patientId,
+    };
+
+    // Use patient service - handles clinic isolation, PHI decryption
+    const result = await patientService.listPatients(userContext, options);
+
+    // Transform to dashboard-friendly format
+    const patients = result.data.map((patient) => {
+      // Build full address string
+      const addressParts = [
+        patient.address1,
+        patient.address2,
+        patient.city,
+        patient.state,
+        patient.zip,
+      ].filter(Boolean);
+
+      return {
+        id: patient.id,
+        patientId: patient.patientId,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        email: patient.email,
+        phone: patient.phone,
+        dateOfBirth: patient.dob,
+        gender: patient.gender,
+        address: addressParts.join(', '),
+        tags: patient.tags || [],
+        source: patient.source,
+        createdAt: patient.createdAt,
+        clinicId: patient.clinicId,
+        // Include clinic name for super admin
+        clinicName: 'clinicName' in patient ? patient.clinicName : null,
+      };
+    });
+
+    return Response.json({
+      patients,
+      meta: {
+        count: patients.length,
+        total: result.total,
+        hasMore: result.hasMore,
+        accessedBy: user.email,
+        role: user.role,
+        filters: { limit, recent: options.recent },
+      },
+    });
+  } catch (error) {
+    return handleApiError(error, {
+      context: { route: 'GET /api/patients' },
+    });
+  }
 });
 
 // Apply rate limiting to GET endpoint
@@ -163,101 +111,40 @@ export const GET = relaxedRateLimit(getPatientsHandler);
 
 /**
  * POST /api/patients
- * Protected endpoint - requires provider or admin authentication
- * Creates a new patient with audit trail
- * Rate limit: 60 requests per minute (standard)
+ * Create a new patient
+ *
+ * Uses the patient service layer which handles:
+ * - Input validation (with normalization)
+ * - Clinic assignment (super_admin must specify, others use their clinic)
+ * - PHI encryption
+ * - Audit logging
+ * - Duplicate email detection
  */
 const createPatientHandler = withClinicalAuth(async (req: NextRequest, user) => {
-  const body = await req.json();
-  const parsed = patientSchema.safeParse(body);
+  try {
+    const body = await req.json();
 
-  if (!parsed.success) {
-    return Response.json(parsed.error, { status: 400 });
+    // Convert auth user to service UserContext
+    const userContext: UserContext = {
+      id: user.id,
+      email: user.email,
+      role: user.role as UserContext['role'],
+      clinicId: user.clinicId,
+      patientId: user.patientId,
+    };
+
+    // Use patient service - handles validation, clinic assignment, PHI, audit
+    const patient = await patientService.createPatient(body, userContext);
+
+    return Response.json({
+      patient,
+      message: 'Patient created successfully',
+    });
+  } catch (error) {
+    return handleApiError(error, {
+      context: { route: 'POST /api/patients' },
+    });
   }
-
-  // Determine clinic ID:
-  // - Super admin: must provide clinicId in the request
-  // - Other roles: use their assigned clinicId
-  let clinicIdToUse: number;
-
-  if (user.role === 'super_admin') {
-    // Super admin must specify a clinic
-    if (parsed.data.clinicId) {
-      clinicIdToUse = parsed.data.clinicId;
-    } else {
-      return Response.json(
-        { error: 'Super admin must specify a clinic for the patient' },
-        { status: 400 }
-      );
-    }
-  } else {
-    // For other roles, MUST use their assigned clinic
-    // NEVER default to clinicId 1 - this was causing cross-tenant data leaks!
-    if (!user.clinicId) {
-      return Response.json(
-        { error: 'No clinic associated with your account. Please contact support.' },
-        { status: 400 }
-      );
-    }
-    clinicIdToUse = user.clinicId;
-  }
-
-  const patient = await prisma.$transaction(async (tx: any) => {
-    // Get next patient ID
-    const counter = await tx.patientCounter.upsert({
-      where: { id: 1 },
-      create: { id: 1, current: 1 },
-      update: { current: { increment: 1 } },
-    });
-    const patientId = counter.current.toString().padStart(6, "0");
-
-    // Extract clinicId from parsed data to avoid including it in encryptedData
-    const { clinicId: _, ...dataToEncrypt } = parsed.data;
-
-    // Encrypt PHI fields before storing
-    const encryptedData = encryptPatientPHI(dataToEncrypt, ['email', 'phone', 'dob']);
-
-    // Create patient with explicit clinicId
-    const newPatient = await tx.patient.create({
-      data: {
-        ...encryptedData,
-        patientId,
-        clinicId: clinicIdToUse,
-        notes: parsed.data.notes ?? null,
-        tags: parsed.data.tags ?? [],
-        source: "api",
-        sourceMetadata: {
-          endpoint: "/api/patients",
-          timestamp: new Date().toISOString(),
-          userAgent: req.headers.get("user-agent") || "unknown",
-          createdBy: user.email,
-          createdByRole: user.role,
-          createdById: user.id, // Store who created this patient
-        }
-      },
-    });
-
-    // Create audit log
-    await tx.patientAudit.create({
-      data: {
-        patientId: newPatient.id,
-        action: 'CREATE',
-        actorEmail: user.email,
-        diff: {
-          created: parsed.data,
-          by: user.email,
-          role: user.role,
-        },
-      },
-    });
-
-    return newPatient;
-  });
-
-  return Response.json({
-    patient,
-    message: 'Patient created successfully',
-  });
 });
 
 // Apply rate limiting to POST endpoint
