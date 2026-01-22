@@ -55,6 +55,7 @@ model Patient {
   smsLogs             SmsLog[]
   discountUsages      DiscountUsage[]
   affiliateReferrals  AffiliateReferral[]
+  chatMessages        PatientChatMessage[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
@@ -1137,6 +1138,8 @@ model PatientMedicationReminder {
 model PatientWaterLog {
   id         Int      @id @default(autoincrement())
   createdAt  DateTime @default(now())
+  clinicId   Int?
+  clinic     Clinic?  @relation(fields: [clinicId], references: [id])
   patientId  Int
   patient    Patient  @relation(fields: [patientId], references: [id])
   amount     Float    // Amount in ounces
@@ -1146,11 +1149,14 @@ model PatientWaterLog {
   notes      String?
 
   @@index([patientId, recordedAt])
+  @@index([clinicId])
 }
 
 model PatientExerciseLog {
   id           Int      @id @default(autoincrement())
   createdAt    DateTime @default(now())
+  clinicId     Int?
+  clinic       Clinic?  @relation(fields: [clinicId], references: [id])
   patientId    Int
   patient      Patient  @relation(fields: [patientId], references: [id])
   activityType String   // "walking", "running", "cycling", "strength", "yoga", etc.
@@ -1165,11 +1171,14 @@ model PatientExerciseLog {
   recordedAt   DateTime @default(now())
 
   @@index([patientId, recordedAt])
+  @@index([clinicId])
 }
 
 model PatientSleepLog {
   id          Int      @id @default(autoincrement())
   createdAt   DateTime @default(now())
+  clinicId    Int?
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
   patientId   Int
   patient     Patient  @relation(fields: [patientId], references: [id])
   sleepStart  DateTime // When they went to bed
@@ -1185,11 +1194,14 @@ model PatientSleepLog {
   recordedAt  DateTime @default(now())
 
   @@index([patientId, recordedAt])
+  @@index([clinicId])
 }
 
 model PatientNutritionLog {
   id          Int      @id @default(autoincrement())
   createdAt   DateTime @default(now())
+  clinicId    Int?
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
   patientId   Int
   patient     Patient  @relation(fields: [patientId], references: [id])
   mealType    String   // "breakfast", "lunch", "dinner", "snack"
@@ -1207,6 +1219,7 @@ model PatientNutritionLog {
   recordedAt  DateTime @default(now())
 
   @@index([patientId, recordedAt])
+  @@index([clinicId])
 }
 
 // ===== INTERNAL COMMUNICATION SYSTEM =====
@@ -1578,6 +1591,13 @@ model Clinic {
   carePlans            CarePlan[]
   carePlanTemplates    CarePlanTemplate[]
   smsLogs              SmsLog[]
+  patientChatMessages  PatientChatMessage[]
+  
+  // Health Tracking Logs
+  waterLogs            PatientWaterLog[]
+  exerciseLogs         PatientExerciseLog[]
+  sleepLogs            PatientSleepLog[]
+  nutritionLogs        PatientNutritionLog[]
   
   // Product Catalog
   products             Product[]
@@ -2022,6 +2042,78 @@ model SmsLog {
   @@index([fromPhone])
   @@index([toPhone])
   @@index([clinicId])
+}
+
+// ===== PATIENT CHAT SYSTEM =====
+
+model PatientChatMessage {
+  id              Int             @id @default(autoincrement())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  clinicId        Int?
+  clinic          Clinic?         @relation(fields: [clinicId], references: [id])
+  patientId       Int
+  patient         Patient         @relation(fields: [patientId], references: [id])
+  
+  // Message content
+  message         String          // The message text
+  direction       MessageDirection // INBOUND (patient->staff) or OUTBOUND (staff->patient)
+  channel         MessageChannel   @default(WEB) // WEB, SMS, EMAIL
+  
+  // Sender info
+  senderType      SenderType      // PATIENT, STAFF, PROVIDER, SYSTEM
+  senderId        Int?            // User ID if staff/provider, null if patient
+  senderName      String?         // Display name of sender
+  
+  // Delivery status (for SMS/email)
+  status          MessageStatus   @default(SENT)
+  externalId      String?         // Twilio message SID or external reference
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  failureReason   String?
+  
+  // Thread support
+  threadId        String?         // Group messages into threads
+  replyToId       Int?            // Reply to specific message
+  replyTo         PatientChatMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies         PatientChatMessage[] @relation("MessageReplies")
+  
+  // Attachments
+  attachments     Json?           // Array of attachment URLs
+  
+  // Metadata
+  metadata        Json?           // Additional data (device info, etc.)
+  
+  @@index([patientId, createdAt])
+  @@index([clinicId])
+  @@index([threadId])
+  @@index([status])
+}
+
+enum MessageDirection {
+  INBOUND   // Patient -> Staff
+  OUTBOUND  // Staff -> Patient
+}
+
+enum MessageChannel {
+  WEB       // In-app web chat
+  SMS       // Twilio SMS
+  EMAIL     // Email
+}
+
+enum SenderType {
+  PATIENT
+  STAFF
+  PROVIDER
+  SYSTEM
+}
+
+enum MessageStatus {
+  PENDING     // Queued for delivery
+  SENT        // Sent but not confirmed delivered
+  DELIVERED   // Confirmed delivered
+  READ        // Read by recipient
+  FAILED      // Delivery failed
 }
 
 // ===== PRODUCT CATALOG =====

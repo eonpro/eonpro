@@ -29,12 +29,12 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     // Get user statistics
     const [userCount, recentLogs, webhookCount] = await Promise.all([
       // Count users (if permission allows)
-      hasPermission(user.role as any, PERMISSIONS.USER_READ)
+      hasPermission(user.role, PERMISSIONS.USER_READ)
         ? prisma.user.count().catch(() => 0)
         : Promise.resolve(0),
         
       // Get recent audit logs
-      hasPermission(user.role as any, PERMISSIONS.SYSTEM_AUDIT)
+      hasPermission(user.role, PERMISSIONS.SYSTEM_AUDIT)
         ? prisma.userAuditLog.findMany({
             take: 5,
             orderBy: { createdAt: 'desc' },
@@ -52,7 +52,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         : Promise.resolve([]),
         
       // Count webhooks (mock for now)
-      hasPermission(user.role as any, PERMISSIONS.INTEGRATION_READ)
+      hasPermission(user.role, PERMISSIONS.INTEGRATION_READ)
         ? Promise.resolve(3)
         : Promise.resolve(0),
     ]);
@@ -75,7 +75,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         path: '/settings/users',
         badge: userCount > 0 ? userCount : undefined,
         requiredPermission: PERMISSIONS.USER_READ,
-        isAvailable: hasPermission(user.role as any, PERMISSIONS.USER_READ),
+        isAvailable: hasPermission(user.role, PERMISSIONS.USER_READ),
       },
       {
         id: 'integrations',
@@ -84,7 +84,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         icon: '🔌',
         path: '/settings/integrations',
         requiredPermission: PERMISSIONS.INTEGRATION_READ,
-        isAvailable: hasPermission(user.role as any, PERMISSIONS.INTEGRATION_READ),
+        isAvailable: hasPermission(user.role, PERMISSIONS.INTEGRATION_READ),
       },
       {
         id: 'developer',
@@ -94,7 +94,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         path: '/settings/developer',
         badge: webhookCount > 0 ? webhookCount : undefined,
         requiredPermission: PERMISSIONS.INTEGRATION_READ,
-        isAvailable: hasPermission(user.role as any, PERMISSIONS.INTEGRATION_READ),
+        isAvailable: hasPermission(user.role, PERMISSIONS.INTEGRATION_READ),
       },
       {
         id: 'security',
@@ -103,7 +103,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         icon: 'security',
         path: '/settings/security',
         requiredPermission: PERMISSIONS.SYSTEM_CONFIG,
-        isAvailable: hasPermission(user.role as any, PERMISSIONS.SYSTEM_CONFIG),
+        isAvailable: hasPermission(user.role, PERMISSIONS.SYSTEM_CONFIG),
       },
       {
         id: 'billing',
@@ -112,7 +112,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         icon: 'payment',
         path: '/settings/billing',
         requiredPermission: PERMISSIONS.BILLING_VIEW,
-        isAvailable: hasPermission(user.role as any, PERMISSIONS.BILLING_VIEW),
+        isAvailable: hasPermission(user.role, PERMISSIONS.BILLING_VIEW),
       },
       {
         id: 'notifications',
@@ -130,7 +130,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         path: '/settings/audit',
         badge: 'HIPAA',
         requiredPermission: PERMISSIONS.SYSTEM_AUDIT,
-        isAvailable: hasPermission(user.role as any, PERMISSIONS.SYSTEM_AUDIT),
+        isAvailable: hasPermission(user.role, PERMISSIONS.SYSTEM_AUDIT),
       },
     ];
     
@@ -149,7 +149,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     // Quick actions based on permissions
     const quickActions: { id: string; title: string; icon: string; path: string }[] = [];
     
-    if (hasPermission(user.role as any, PERMISSIONS.USER_CREATE)) {
+    if (hasPermission(user.role, PERMISSIONS.USER_CREATE)) {
       quickActions.push({
         id: 'create_user',
         title: 'Create User',
@@ -158,7 +158,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       });
     }
     
-    if (hasPermission(user.role as any, PERMISSIONS.INTEGRATION_CREATE)) {
+    if (hasPermission(user.role, PERMISSIONS.INTEGRATION_CREATE)) {
       quickActions.push({
         id: 'add_integration',
         title: 'Add Integration',
@@ -174,7 +174,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       });
     }
     
-    if (hasPermission(user.role as any, PERMISSIONS.SYSTEM_CONFIG)) {
+    if (hasPermission(user.role, PERMISSIONS.SYSTEM_CONFIG)) {
       quickActions.push({
         id: 'system_backup',
         title: 'System Backup',
@@ -188,8 +188,8 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       user: {
         email: user.email,
         role: user.role,
-        permissions: getRolePermissions(user.role as any).length,
-        features: getRoleFeatures(user.role as any).length,
+        permissions: getRolePermissions(user.role).length,
+        features: getRoleFeatures(user.role).length,
       },
       sections: sections.filter((s: any) => s.isAvailable),
       quickActions,

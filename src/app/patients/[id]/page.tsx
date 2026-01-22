@@ -20,10 +20,6 @@ type Params = {
   params: { id: string };
 };
 
-const PRACTICE_NAME = process.env.LIFEFILE_PRACTICE_NAME ?? 'APOLLO BASED HEALTH LLC';
-const PRACTICE_LOCATION = process.env.LIFEFILE_LOCATION_ID ?? '110396';
-const PRACTICE_VENDOR = process.env.LIFEFILE_VENDOR_ID ?? '11596';
-
 import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
 import { Patient, Provider, Order } from '@/types/models';

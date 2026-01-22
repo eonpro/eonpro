@@ -1,7 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { logger } from '@/lib/logger';
+import {
+  Send,
+  Check,
+  CheckCheck,
+  Clock,
+  AlertCircle,
+  MessageCircle,
+  Phone,
+  Mail,
+  RefreshCw,
+} from 'lucide-react';
 
 interface Patient {
   id: number;
@@ -12,12 +23,21 @@ interface Patient {
   phone?: string;
 }
 
-interface Message {
-  id: string;
-  text: string;
-  sender: 'provider' | 'patient';
-  timestamp: string; // Store as ISO string to avoid hydration mismatch
-  status?: 'sent' | 'delivered' | 'read' | 'failed';
+interface ChatMessage {
+  id: number | string;
+  createdAt: string;
+  message: string;
+  direction: 'INBOUND' | 'OUTBOUND';
+  channel: 'WEB' | 'SMS' | 'EMAIL';
+  senderType: 'PATIENT' | 'STAFF' | 'PROVIDER' | 'SYSTEM';
+  senderName: string | null;
+  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+  readAt: string | null;
+  replyTo?: {
+    id: number;
+    message: string;
+    senderName: string;
+  } | null;
 }
 
 interface PatientChatViewProps {
@@ -25,125 +45,71 @@ interface PatientChatViewProps {
 }
 
 export default function PatientChatView({ patient }: PatientChatViewProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false); // Track client mount
+  const [mounted, setMounted] = useState(false);
+  const [sendViaSms, setSendViaSms] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const patientPhone = patient.phoneNumber || patient.phone;
 
-  // Set mounted state on client
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
   useEffect(() => {
-    if (patientPhone) {
-      loadMessageHistory(true); // Show loading on initial load
-      initializeTwilioConnection();
-      
-      // Poll for new messages every 10 seconds (silently)
-      const pollInterval = setInterval(() => {
-        loadMessageHistory(false); // Don't show loading during polling
-      }, 10000);
-      
-      return () => clearInterval(pollInterval);
-    } else {
-      // No phone number, but still allow the chat UI to show "connected"
-      // (the no-phone-number message will be shown instead)
-      setConnected(true);
-    }
-    return undefined;
-  }, [patient.id, patientPhone]);
+    loadMessages(true);
+
+    // Poll for new messages every 10 seconds
+    const pollInterval = setInterval(() => {
+      loadMessages(false);
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
+  }, [patient.id]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const loadMessageHistory = async (showLoading = true) => {
+  const loadMessages = async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
-      
-      // Get auth token
+
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      
-      const res = await fetch(`/api/twilio/messages/${patient.id}`, {
+
+      const res = await fetch(`/api/patient-chat?patientId=${patient.id}&limit=100`, {
         credentials: 'include',
         headers: {
           ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
-      
+
       if (res.ok) {
         const data = await res.json();
-        
-        if (data.error) {
-          setError(`Messages may be incomplete: ${data.error}`);
-        } else {
-          setError(null);
-        }
-        
-        const apiMessages: Message[] = (data.messages || []).map((msg: { sid?: string; id?: string; body?: string; text?: string; direction?: string; dateCreated?: string; timestamp?: string; status?: string }) => ({
-          id: msg.sid || msg.id || `msg-${Date.now()}-${Math.random()}`,
-          text: msg.body || msg.text,
-          // Twilio uses 'inbound' for patient messages, 'outbound-api' or 'outbound' for provider
-          sender: msg.direction === 'inbound' ? 'patient' : 'provider',
-          // Store as ISO string to avoid hydration mismatch
-          timestamp: new Date(msg.dateCreated || msg.timestamp || Date.now()).toISOString(),
-          status: msg.status === 'delivered' ? 'delivered' : (msg.status === 'sent' ? 'sent' : msg.status)
-        }));
-        
-        // Simple replacement strategy - API is the source of truth
-        // The API now properly returns all messages including ones we just sent
-        setMessages(prevMessages => {
-          // Keep only temp messages that haven't been confirmed by API yet
-          // (messages that start with 'temp-' and aren't in API response)
-          const pendingTempMessages = prevMessages.filter(localMsg => {
-            if (!localMsg.id.startsWith('temp-')) {
-              return false; // Non-temp messages come from API
-            }
-            // Check if this temp message has a matching message in API (by text)
-            const hasMatchInApi = apiMessages.some(
-              apiMsg => apiMsg.text === localMsg.text && apiMsg.sender === localMsg.sender
-            );
-            return !hasMatchInApi; // Keep if NOT yet in API
-          });
-          
-          // Combine: API messages + any pending temp messages
-          const allMessages = [...apiMessages, ...pendingTempMessages];
-          
-          // Sort by timestamp
-          allMessages.sort((a, b) => 
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          );
-          
-          return allMessages;
-        });
+        setMessages(data.data || []);
+        setUnreadCount(data.meta?.unreadCount || 0);
+        setError(null);
       } else {
-        // Only clear messages on first load, not during polling
+        const errorData = await res.json().catch(() => ({}));
         if (showLoading) {
-          logger.warn('Failed to load message history, starting fresh');
-          setMessages([]);
-          setError(`Failed to load messages (${res.status})`);
-        } else {
-          // During polling, keep existing messages
-          logger.warn('Failed to refresh messages, keeping existing');
+          setError(errorData.error || `Failed to load messages (${res.status})`);
         }
       }
-    } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to load message history', { error: errMsg });
-      // Only clear on first load, keep existing on polling failures
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Failed to load messages', { error: errMsg });
       if (showLoading) {
-        setMessages([]);
         setError('Failed to connect to message service');
       }
     } finally {
@@ -151,70 +117,34 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     }
   };
 
-  const initializeTwilioConnection = async () => {
-    // Set a timeout to force connection status after 5 seconds
-    const timeout = setTimeout(() => {
-      logger.warn('Twilio connection timed out, enabling chat anyway');
-      setConnected(true);
-    }, 5000);
-
-    try {
-      const res = await fetch('/api/twilio/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for authentication
-        body: JSON.stringify({ patientId: patient.id })
-      });
-
-      clearTimeout(timeout);
-
-      if (res.ok) {
-        const data = await res.json();
-        // Here you would initialize Twilio Conversations SDK
-        // For now, we'll just mark as connected (works for both real and demo mode)
-        setConnected(true);
-        setError(null);
-      } else {
-        // Even if Twilio token fails, allow SMS sending via the send endpoint
-        // which will work in demo mode
-        const errorData = await res.json().catch(() => ({}));
-        logger.warn('Twilio token request failed', { status: res.status, error: errorData });
-        setConnected(true);
-        setError(null);
-      }
-    } catch (error: any) {
-      clearTimeout(timeout);
-      // @ts-ignore
-      logger.error('Failed to initialize Twilio', error);
-      // Still allow the chat to work - SMS sending can work without real-time connection
-      setConnected(true);
-      setError(null);
-    }
-  };
-
   const sendMessage = async () => {
-    if (!newMessage.trim() || !patientPhone) return;
+    if (!newMessage.trim()) return;
 
+    const messageText = newMessage.trim();
     const tempId = `temp-${Date.now()}`;
-    const messageText = newMessage;
-    
-    const tempMessage: Message = {
+
+    // Optimistic update
+    const tempMessage: ChatMessage = {
       id: tempId,
-      text: messageText,
-      sender: 'provider',
-      timestamp: new Date().toISOString(),
-      status: 'sent'
+      createdAt: new Date().toISOString(),
+      message: messageText,
+      direction: 'OUTBOUND',
+      channel: sendViaSms ? 'SMS' : 'WEB',
+      senderType: 'STAFF',
+      senderName: 'You',
+      status: 'PENDING',
+      readAt: null,
     };
 
     setMessages(prev => [...prev, tempMessage]);
     setNewMessage('');
+    setSending(true);
+    setError(null);
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      
-      const res = await fetch('/api/twilio/send', {
+
+      const res = await fetch('/api/patient-chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -222,44 +152,43 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         },
         credentials: 'include',
         body: JSON.stringify({
-          to: patientPhone,
+          patientId: patient.id,
           message: messageText,
-          patientId: patient.id
+          channel: sendViaSms ? 'SMS' : 'WEB',
         })
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        // Update message with actual ID and status
-        setMessages(prev => prev.map((msg: Message) => 
-          msg.id === tempId 
-            ? { ...msg, id: data.messageSid || tempId, status: 'delivered' as const }
-            : msg
+        // Replace temp message with actual message
+        setMessages(prev => prev.map(msg =>
+          msg.id === tempId ? data : msg
         ));
-        setError(null);
-        
-        // Immediately reload messages to sync with server
-        setTimeout(() => loadMessageHistory(false), 1000);
+
+        // Reload messages to sync
+        setTimeout(() => loadMessages(false), 1000);
       } else {
         throw new Error(data.error || 'Failed to send message');
       }
-    } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
       logger.error('Failed to send message', { error: errMsg });
+
       // Mark message as failed
-      setMessages(prev => prev.map((msg: Message) => 
-        msg.id === tempId 
-          ? { ...msg, status: 'failed' as const }
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempId
+          ? { ...msg, status: 'FAILED' as const }
           : msg
       ));
       setError(`Failed to send: ${errMsg}`);
+    } finally {
+      setSending(false);
     }
   };
 
-  // Format time - only runs on client after mount to avoid hydration mismatch
   const formatTime = (dateString: string) => {
-    if (!mounted) return '—'; // Return consistent placeholder
+    if (!mounted) return '—';
     try {
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('en-US', {
@@ -272,25 +201,24 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     }
   };
 
-  // Format date - only runs on client after mount to avoid hydration mismatch
   const formatDate = (dateString: string) => {
-    if (!mounted) return '—'; // Return consistent placeholder
+    if (!mounted) return '—';
     try {
       const today = new Date();
       const messageDate = new Date(dateString);
-      
+
       if (messageDate.toDateString() === today.toDateString()) {
         return 'Today';
       }
-      
+
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       if (messageDate.toDateString() === yesterday.toDateString()) {
         return 'Yesterday';
       }
-      
-      return messageDate.toLocaleDateString('en-US', { 
-        month: 'short', 
+
+      return messageDate.toLocaleDateString('en-US', {
+        month: 'short',
         day: 'numeric',
         year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
       });
@@ -299,18 +227,43 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     }
   };
 
-  if (!patientPhone) {
-    return (
-      <div className="bg-white rounded-lg border p-8 text-center">
-        <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-        <h3 className="text-lg font-semibold mb-2">No Phone Number Available</h3>
-        <p className="text-gray-600">This patient doesn't have a phone number on file.</p>
-        <p className="text-gray-600 mt-2">Please add a phone number to enable messaging.</p>
-      </div>
-    );
-  }
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return <Clock className="h-3 w-3" />;
+      case 'SENT':
+        return <Check className="h-3 w-3" />;
+      case 'DELIVERED':
+        return <CheckCheck className="h-3 w-3" />;
+      case 'READ':
+        return <CheckCheck className="h-3 w-3 text-blue-500" />;
+      case 'FAILED':
+        return <AlertCircle className="h-3 w-3 text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const getChannelIcon = (channel: string) => {
+    switch (channel) {
+      case 'SMS':
+        return <Phone className="h-3 w-3" />;
+      case 'EMAIL':
+        return <Mail className="h-3 w-3" />;
+      default:
+        return <MessageCircle className="h-3 w-3" />;
+    }
+  };
+
+  // Group messages by date
+  const groupedMessages = messages.reduce((groups, message) => {
+    const date = formatDate(message.createdAt);
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(message);
+    return groups;
+  }, {} as Record<string, ChatMessage[]>);
 
   return (
     <div className="bg-white rounded-lg border flex flex-col h-[600px]">
@@ -324,102 +277,103 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           </div>
           <div>
             <h3 className="font-semibold">{patient.firstName} {patient.lastName}</h3>
-            <p className="text-sm text-gray-600">{patientPhone}</p>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              {patientPhone && <span>{patientPhone}</span>}
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {unreadCount} new
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {connected ? (
-            <span className="flex items-center gap-1 text-green-600 text-sm">
-              <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-              Connected
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-gray-400 text-sm">
-              <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-              Connecting...
-            </span>
-          )}
-        </div>
+        <button
+          onClick={() => loadMessages(true)}
+          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+          title="Refresh messages"
+        >
+          <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Messages Area */}
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
-        {loading ? (
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+        {loading && messages.length === 0 ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="text-gray-600 mt-2">Loading messages...</p>
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8">
-            <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
+            <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-600">No messages yet</p>
             <p className="text-sm text-gray-500 mt-1">Start the conversation by sending a message</p>
           </div>
         ) : (
           <>
-            {/* Render messages - only show dates after client mount to avoid hydration mismatch */}
-            {messages.map((message, index) => {
-              const prevMessage = messages[index - 1];
-              const showDateHeader = mounted && (
-                !prevMessage || formatDate(message.timestamp) !== formatDate(prevMessage.timestamp)
-              );
-              
-              return (
-                <React.Fragment key={message.id}>
-                  {showDateHeader && (
-                    <div className="text-center my-4">
-                      <span className="text-xs text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">
-                        {formatDate(message.timestamp)}
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    className={`flex ${message.sender === 'provider' ? 'justify-end' : 'justify-start'} mb-2`}
-                  >
+            {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+              <div key={date}>
+                <div className="text-center my-4">
+                  <span className="text-xs text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">
+                    {date}
+                  </span>
+                </div>
+
+                {dateMessages.map((message) => {
+                  const isOutgoing = message.direction === 'OUTBOUND';
+
+                  return (
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.sender === 'provider'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white border shadow-sm'
-                      }`}
+                      key={message.id}
+                      className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} mb-3`}
                     >
-                      <p className="text-sm">{message.text}</p>
-                      <div className={`flex items-center gap-1 mt-1 ${
-                        message.sender === 'provider' ? 'text-blue-200' : 'text-gray-400'
-                      }`}>
-                        <span className="text-xs">{formatTime(message.timestamp)}</span>
-                        {message.sender === 'provider' && message.status && (
-                          <>
-                            {message.status === 'sent' && (
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                            {message.status === 'delivered' && (
-                              <>
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                                <svg className="w-3 h-3 -ml-1" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              </>
-                            )}
-                            {message.status === 'failed' && (
-                              <svg className="w-3 h-3 text-red-300" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </>
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                          isOutgoing
+                            ? 'bg-blue-600 text-white rounded-br-md'
+                            : 'bg-white border shadow-sm rounded-bl-md'
+                        }`}
+                      >
+                        {/* Sender info for incoming messages */}
+                        {!isOutgoing && message.senderName && (
+                          <p className="text-xs font-medium text-blue-600 mb-1">
+                            {message.senderName}
+                          </p>
                         )}
+
+                        {/* Reply preview */}
+                        {message.replyTo && (
+                          <div
+                            className={`mb-2 px-3 py-1.5 rounded-lg text-xs border-l-2 ${
+                              isOutgoing
+                                ? 'bg-white/10 border-white/50'
+                                : 'bg-gray-50 border-gray-300'
+                            }`}
+                          >
+                            <p className={`font-medium ${isOutgoing ? 'text-white/80' : 'text-gray-600'}`}>
+                              {message.replyTo.senderName}
+                            </p>
+                            <p className={`line-clamp-1 ${isOutgoing ? 'text-white/60' : 'text-gray-500'}`}>
+                              {message.replyTo.message}
+                            </p>
+                          </div>
+                        )}
+
+                        <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+
+                        <div className={`flex items-center gap-1.5 mt-1.5 ${
+                          isOutgoing ? 'text-blue-200 justify-end' : 'text-gray-400'
+                        }`}>
+                          <span className="text-xs">{formatTime(message.createdAt)}</span>
+                          {getChannelIcon(message.channel)}
+                          {isOutgoing && getStatusIcon(message.status)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </React.Fragment>
-              );
-            })}
+                  );
+                })}
+              </div>
+            ))}
           </>
         )}
         <div ref={messagesEndRef} />
@@ -428,40 +382,69 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       {/* Input Area */}
       <div className="border-t px-6 py-4">
         {error && (
-          <div className="bg-red-50 text-red-600 text-sm p-2 rounded mb-3 flex items-center justify-between">
+          <div className="bg-red-50 text-red-600 text-sm p-2 rounded-lg mb-3 flex items-center justify-between">
             <span>{error}</span>
             <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">✕</button>
           </div>
         )}
-        
-        {/* Debug info - shows message count and source */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="text-xs text-gray-400 mb-2">
-            Messages loaded: {messages.length} | Phone: {patientPhone}
+
+        {/* Channel selector */}
+        {patientPhone && (
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs text-gray-500">Send via:</span>
+            <button
+              onClick={() => setSendViaSms(false)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
+                !sendViaSms
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <MessageCircle className="h-3 w-3" />
+              Web
+            </button>
+            <button
+              onClick={() => setSendViaSms(true)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
+                sendViaSms
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Phone className="h-3 w-3" />
+              SMS
+            </button>
           </div>
         )}
+
         <div className="flex gap-3">
           <input
+            ref={inputRef}
             type="text"
             value={newMessage}
-            onChange={(e: any) => setNewMessage(e.target.value)}
-            onKeyPress={(e: any) => e.key === 'Enter' && sendMessage()}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={!connected}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+            placeholder={sendViaSms ? "Type a message to send via SMS..." : "Type a message..."}
+            className="flex-1 px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <button
             onClick={sendMessage}
-            disabled={!connected || !newMessage.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            disabled={!newMessage.trim() || sending}
+            className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
+            {sending ? (
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
           </button>
         </div>
+
         <p className="text-xs text-gray-500 mt-2">
-          Messages are sent via SMS to the patient's phone number
+          {sendViaSms
+            ? `SMS will be sent to ${patientPhone}`
+            : "Message will appear in patient's app"
+          }
         </p>
       </div>
     </div>

@@ -257,7 +257,6 @@ export async function GET(req: NextRequest, context: RouteParams) {
   } catch (error: any) {
     logger.error('[Messages] Fatal error getting message history', { 
       error: error.message,
-      stack: error.stack,
     });
     
     // Return empty messages with actual error info

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { withAuth } from "@/lib/auth/middleware";
+import { standardRateLimit } from "@/lib/rateLimit";
 import { z } from "zod";
 
 // Validation schemas
@@ -59,6 +60,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const waterLog = await prisma.patientWaterLog.create({
       data: {
         patientId,
+        clinicId: user.clinicId || null,
         amount,
         unit,
         notes: notes || null,
@@ -74,7 +76,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const POST = postHandler;
+export const POST = standardRateLimit(postHandler);
 
 // GET - Get water logs
 const getHandler = withAuth(async (request: NextRequest, user) => {
@@ -141,4 +143,4 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const GET = getHandler;
+export const GET = standardRateLimit(getHandler);

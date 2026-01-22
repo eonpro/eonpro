@@ -2,7 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { withAuth } from "@/lib/auth/middleware";
+import { standardRateLimit } from "@/lib/rateLimit";
 import { z } from "zod";
+
+// Sanitize HTML to prevent XSS
+function sanitizeText(text: string): string {
+  return text
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .trim();
+}
 
 const createNutritionLogSchema = z.object({
   patientId: z.union([z.string(), z.number()]).transform(val => {
@@ -11,7 +22,7 @@ const createNutritionLogSchema = z.object({
     return num;
   }),
   mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]),
-  description: z.string().max(500).optional(),
+  description: z.string().max(500).optional().transform(val => val ? sanitizeText(val) : undefined),
   calories: z.union([z.string(), z.number()]).optional().transform(val => {
     if (!val) return undefined;
     const num = typeof val === 'string' ? parseInt(val, 10) : val;
@@ -32,7 +43,7 @@ const createNutritionLogSchema = z.object({
     const num = typeof val === 'string' ? parseFloat(val) : val;
     return isNaN(num) ? undefined : num;
   }),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(500).optional().transform(val => val ? sanitizeText(val) : undefined),
   recordedAt: z.string().datetime().optional(),
 });
 
@@ -72,6 +83,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const nutritionLog = await prisma.patientNutritionLog.create({
       data: {
         patientId,
+        clinicId: user.clinicId || null,
         mealType,
         description: description || null,
         calories: calories || null,
@@ -91,7 +103,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const POST = postHandler;
+export const POST = standardRateLimit(postHandler);
 
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
@@ -149,4 +161,4 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const GET = getHandler;
+export const GET = standardRateLimit(getHandler);

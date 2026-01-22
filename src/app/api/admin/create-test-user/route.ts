@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     logger.error('Error creating test user', { error: error.message });
     return NextResponse.json(
-      { error: error.message || 'Failed to create user' },
+      { error: 'Failed to create user' },
       { status: 500 }
     );
   }

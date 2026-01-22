@@ -219,7 +219,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
     
   } catch (error: any) {
-    logger.error('Error in send-otp endpoint', { error: error.message, stack: error.stack });
+    logger.error('Error in send-otp endpoint', { error: error.message });
     return NextResponse.json(
       { error: 'An error occurred. Please try again.', debug: error.message },
       { status: 500 }

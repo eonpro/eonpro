@@ -272,9 +272,10 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
       );
     }
     
-    logger.error('Failed to send invoice link', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to send invoice link', { error: errorMessage });
     return NextResponse.json(
-      { error: error.message || 'Failed to send invoice link' },
+      { error: 'Failed to send invoice link' },
       { status: 500 }
     );
   }
@@ -331,9 +332,10 @@ async function getInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise<
     });
     
   } catch (error: any) {
-    logger.error('Failed to get invoice link info', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to get invoice link info', { error: errorMessage });
     return NextResponse.json(
-      { error: error.message || 'Failed to get invoice info' },
+      { error: 'Failed to get invoice info' },
       { status: 500 }
     );
   }

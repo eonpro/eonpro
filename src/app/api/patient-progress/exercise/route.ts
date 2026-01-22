@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { withAuth } from "@/lib/auth/middleware";
+import { standardRateLimit } from "@/lib/rateLimit";
 import { z } from "zod";
 
 const createExerciseLogSchema = z.object({
@@ -72,6 +73,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const exerciseLog = await prisma.patientExerciseLog.create({
       data: {
         patientId,
+        clinicId: user.clinicId || null,
         activityType,
         duration,
         intensity,
@@ -91,7 +93,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const POST = postHandler;
+export const POST = standardRateLimit(postHandler);
 
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
@@ -139,4 +141,4 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const GET = getHandler;
+export const GET = standardRateLimit(getHandler);

@@ -261,7 +261,8 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     logger.error(`[EONPRO INTAKE ${requestId}] Failed to process intake`, {
       error: err.message,
-      stack: err.stack
+      // Stack trace logged only in development for security
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     });
     
     return Response.json({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { withAuth } from "@/lib/auth/middleware";
+import { standardRateLimit } from "@/lib/rateLimit";
 import { z } from "zod";
 
 const createSleepLogSchema = z.object({
@@ -62,6 +63,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const sleepLog = await prisma.patientSleepLog.create({
       data: {
         patientId,
+        clinicId: user.clinicId || null,
         sleepStart: start,
         sleepEnd: end,
         duration,
@@ -79,7 +81,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const POST = postHandler;
+export const POST = standardRateLimit(postHandler);
 
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
@@ -132,4 +134,4 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const GET = getHandler;
+export const GET = standardRateLimit(getHandler);

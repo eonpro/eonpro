@@ -333,7 +333,6 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     logger.error('Error fetching dashboard stats', { 
       error: error.message, 
-      stack: error.stack,
       name: error.name 
     });
     

@@ -59,24 +59,33 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const user = localStorage.getItem('user');
-    if (!user) {
-      const defaultPatient = {
-        id: 1,
-        email: 'patient@example.com',
-        role: 'patient',
-        firstName: 'Patient',
-        lastName: 'User',
-        patientId: 'P12345',
-        clinicId: 1,
-        clinicName: 'Main Clinic',
-      };
-      setUserData(defaultPatient);
-      setLoading(false);
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+    
+    // Security: Redirect to login if no valid session
+    if (!user || !token) {
+      router.push('/login?redirect=/patient-portal&reason=no_session');
       return;
     }
 
-    const data = JSON.parse(user);
-    setUserData(data);
+    try {
+      const data = JSON.parse(user);
+      
+      // Verify user has patient role
+      if (data.role?.toLowerCase() !== 'patient') {
+        router.push('/login?redirect=/patient-portal&reason=invalid_role');
+        return;
+      }
+      
+      setUserData(data);
+    } catch (e) {
+      // Invalid user data in localStorage
+      localStorage.removeItem('user');
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('patient-token');
+      router.push('/login?redirect=/patient-portal&reason=invalid_session');
+      return;
+    }
+    
     setLoading(false);
   }, [router]);
 

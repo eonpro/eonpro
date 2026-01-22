@@ -332,7 +332,6 @@ async function handlePut(req: NextRequest, user: AuthUser) {
   } catch (error: any) {
     logger.error('Error updating provider settings', {
       error: error.message,
-      stack: error.stack,
       userId: user.id,
       code: error.code,
     });

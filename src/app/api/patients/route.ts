@@ -15,7 +15,9 @@ import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
 const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
   // Parse query parameters
   const { searchParams } = new URL(req.url);
-  const limit = parseInt(searchParams.get('limit') || '100');
+  const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+  // Validate and cap limit to prevent abuse (max 500, default 100)
+  const limit = isNaN(rawLimit) || rawLimit <= 0 ? 100 : Math.min(rawLimit, 500);
   const recent = searchParams.get('recent'); // e.g., '24h', '7d', '30d'
 
   // Build date filter for recent intakes
@@ -25,14 +27,18 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
     let fromDate = now;
 
     if (recent.endsWith('h')) {
-      const hours = parseInt(recent);
-      fromDate = new Date(now.getTime() - hours * 60 * 60 * 1000);
+      const hours = parseInt(recent, 10);
+      if (!isNaN(hours) && hours > 0 && hours <= 168) { // Max 7 days in hours
+        fromDate = new Date(now.getTime() - hours * 60 * 60 * 1000);
+        createdAtFilter = { createdAt: { gte: fromDate } };
+      }
     } else if (recent.endsWith('d')) {
-      const days = parseInt(recent);
-      fromDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      const days = parseInt(recent, 10);
+      if (!isNaN(days) && days > 0 && days <= 365) { // Max 1 year
+        fromDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        createdAtFilter = { createdAt: { gte: fromDate } };
+      }
     }
-
-    createdAtFilter = { createdAt: { gte: fromDate } };
   }
 
   // For super admin, get all patients across all clinics

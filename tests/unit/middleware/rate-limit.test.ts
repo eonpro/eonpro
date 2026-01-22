@@ -9,14 +9,26 @@ import { NextRequest, NextResponse } from 'next/server';
 // Mock LRU Cache as a class
 vi.mock('lru-cache', () => {
   return {
-    LRUCache: vi.fn().mockImplementation(function(this: any) {
-      const store = new Map();
-      this.get = (key: string) => store.get(key);
-      this.set = (key: string, value: any) => store.set(key, value);
-      this.delete = (key: string) => store.delete(key);
-      this.clear = () => store.clear();
-      return this;
-    }),
+    LRUCache: class MockLRUCache {
+      private store = new Map();
+      
+      get(key: string) {
+        return this.store.get(key);
+      }
+      
+      set(key: string, value: any) {
+        this.store.set(key, value);
+        return this;
+      }
+      
+      delete(key: string) {
+        return this.store.delete(key);
+      }
+      
+      clear() {
+        this.store.clear();
+      }
+    },
   };
 });
 

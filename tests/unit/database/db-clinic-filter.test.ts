@@ -137,30 +137,44 @@ describe('withClinicContext', () => {
 
 describe('withoutClinicFilter', () => {
   it('should execute without clinic filtering', async () => {
-    const { withoutClinicFilter, getClinicContext, setClinicContext } = await import('@/lib/db');
+    const { withoutClinicFilter, runWithClinicContext, getClinicContext } = await import('@/lib/db');
     
-    setClinicContext(100);
-    
+    // Use runWithClinicContext which properly uses AsyncLocalStorage
     let contextDuringExecution: number | undefined;
+    let contextInsideWithout: number | undefined;
     
-    await withoutClinicFilter(async () => {
+    await runWithClinicContext(100, async () => {
       contextDuringExecution = getClinicContext();
-      return 'result';
+      
+      await withoutClinicFilter(async () => {
+        contextInsideWithout = getClinicContext();
+        return 'result';
+      });
+      
+      return 'done';
     });
     
-    expect(contextDuringExecution).toBeUndefined();
+    // Context should be 100 during normal execution
+    expect(contextDuringExecution).toBe(100);
+    // Context should be undefined inside withoutClinicFilter
+    expect(contextInsideWithout).toBeUndefined();
   });
 
   it('should restore context after execution', async () => {
-    const { withoutClinicFilter, getClinicContext, setClinicContext } = await import('@/lib/db');
+    const { withoutClinicFilter, runWithClinicContext, getClinicContext } = await import('@/lib/db');
     
-    setClinicContext(100);
+    let contextAfterWithout: number | undefined;
     
-    await withoutClinicFilter(async () => {
-      return 'result';
+    await runWithClinicContext(100, async () => {
+      await withoutClinicFilter(async () => {
+        return 'result';
+      });
+      
+      contextAfterWithout = getClinicContext();
+      return 'done';
     });
     
-    expect(getClinicContext()).toBe(100);
+    expect(contextAfterWithout).toBe(100);
   });
 });
 

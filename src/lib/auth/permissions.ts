@@ -469,62 +469,117 @@ export const ROLE_FEATURES = {
   ],
 } as const;
 
+// Type for role keys as stored in database/auth (lowercase)
+export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient' | 'influencer' | 'support';
+
+// Type for role keys in ROLE_PERMISSIONS (uppercase)
+type RoleKey = keyof typeof ROLE_PERMISSIONS;
+
+// Map from lowercase role to uppercase key
+const ROLE_KEY_MAP: Record<UserRole, RoleKey> = {
+  super_admin: 'SUPER_ADMIN',
+  admin: 'ADMIN',
+  provider: 'PROVIDER',
+  staff: 'STAFF',
+  patient: 'PATIENT',
+  influencer: 'INFLUENCER',
+  support: 'SUPPORT',
+};
+
+/**
+ * Normalize role string to the ROLE_PERMISSIONS key format
+ * Accepts both 'admin' and 'ADMIN' formats
+ */
+function normalizeRoleKey(role: string): RoleKey | undefined {
+  const lowerRole = role.toLowerCase() as UserRole;
+  return ROLE_KEY_MAP[lowerRole] ?? (role.toUpperCase() as RoleKey);
+}
+
 /**
  * Check if a user role has a specific permission
+ * Accepts both lowercase ('admin') and uppercase ('ADMIN') role formats
  */
 export function hasPermission(
-  userRole: keyof typeof ROLE_PERMISSIONS,
+  userRole: string,
   permission: string
 ): boolean {
-  const rolePermissions = ROLE_PERMISSIONS[userRole];
-  return rolePermissions ? rolePermissions.includes(permission as any) : false;
+  const roleKey = normalizeRoleKey(userRole);
+  if (!roleKey) return false;
+  
+  const rolePermissions = ROLE_PERMISSIONS[roleKey];
+  if (!rolePermissions) return false;
+  
+  return (rolePermissions as readonly string[]).includes(permission);
 }
 
 /**
  * Check if a user role has access to a feature
+ * Accepts both lowercase ('admin') and uppercase ('ADMIN') role formats
  */
 export function hasFeature(
-  userRole: keyof typeof ROLE_FEATURES,
+  userRole: string,
   featureId: string
 ): boolean {
-  const roleFeatures = ROLE_FEATURES[userRole];
-  return roleFeatures ? roleFeatures.includes(featureId as any) : false;
+  const roleKey = normalizeRoleKey(userRole);
+  if (!roleKey) return false;
+  
+  const roleFeatures = ROLE_FEATURES[roleKey as keyof typeof ROLE_FEATURES];
+  if (!roleFeatures) return false;
+  
+  return (roleFeatures as readonly string[]).includes(featureId);
 }
 
 /**
  * Get all permissions for a role
+ * Accepts both lowercase ('admin') and uppercase ('ADMIN') role formats
  */
 export function getRolePermissions(
-  userRole: keyof typeof ROLE_PERMISSIONS
+  userRole: string
 ): string[] {
-  return [...(ROLE_PERMISSIONS[userRole] || [])];
+  const roleKey = normalizeRoleKey(userRole);
+  if (!roleKey) return [];
+  
+  const permissions = ROLE_PERMISSIONS[roleKey];
+  return permissions ? [...permissions] : [];
 }
 
 /**
  * Get all features for a role
+ * Accepts both lowercase ('admin') and uppercase ('ADMIN') role formats
  */
 export function getRoleFeatures(
-  userRole: keyof typeof ROLE_FEATURES
+  userRole: string
 ): string[] {
-  return [...(ROLE_FEATURES[userRole] || [])];
+  const roleKey = normalizeRoleKey(userRole);
+  if (!roleKey) return [];
+  
+  const features = ROLE_FEATURES[roleKey as keyof typeof ROLE_FEATURES];
+  return features ? [...features] : [];
 }
 
 /**
  * Check multiple permissions at once
  */
 export function hasAllPermissions(
-  userRole: keyof typeof ROLE_PERMISSIONS,
+  userRole: string,
   permissions: string[]
 ): boolean {
-  return permissions.every((permission: any) => hasPermission(userRole, permission));
+  return permissions.every(permission => hasPermission(userRole, permission));
 }
 
 /**
  * Check if user has any of the specified permissions
  */
 export function hasAnyPermission(
-  userRole: keyof typeof ROLE_PERMISSIONS,
+  userRole: string,
   permissions: string[]
 ): boolean {
-  return permissions.some((permission: any) => hasPermission(userRole, permission));
+  return permissions.some(permission => hasPermission(userRole, permission));
+}
+
+/**
+ * Type guard to check if a string is a valid UserRole
+ */
+export function isValidRole(role: string): role is UserRole {
+  return Object.keys(ROLE_KEY_MAP).includes(role.toLowerCase());
 }

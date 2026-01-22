@@ -1,26 +1,52 @@
 import { prisma } from "@/lib/db";
 import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import { z } from 'zod';
 
 type Params = {
   params: Promise<{ id: string }>;
 };
 
+// Validation schema for tag operations
+const tagSchema = z.object({
+  tag: z.string()
+    .min(1, "Tag cannot be empty")
+    .max(50, "Tag too long (max 50 characters)")
+    .transform(val => val.replace(/^#/, '').trim())
+});
+
+// Helper to validate patient ID
+function validatePatientId(idStr: string): { valid: true; id: number } | { valid: false; error: string } {
+  const id = Number(idStr);
+  if (Number.isNaN(id) || id <= 0) {
+    return { valid: false, error: "Invalid patient id" };
+  }
+  return { valid: true, id };
+}
+
 // DELETE - Remove a tag from patient
 const removeTagHandler = withAuthParams(async (request, user, { params }: Params) => {
   const resolvedParams = await params;
-  const id = Number(resolvedParams.id);
+  const validation = validatePatientId(resolvedParams.id);
   
-  if (Number.isNaN(id)) {
-    return Response.json({ error: "Invalid patient id" }, { status: 400 });
+  if (!validation.valid) {
+    return Response.json({ error: validation.error }, { status: 400 });
   }
+  const { id } = validation;
 
   try {
-    const { tag } = await request.json();
+    // Parse and validate request body
+    const body = await request.json();
+    const parseResult = tagSchema.safeParse(body);
     
-    if (!tag || typeof tag !== 'string') {
-      return Response.json({ error: "Tag is required" }, { status: 400 });
+    if (!parseResult.success) {
+      return Response.json({ 
+        error: "Invalid input", 
+        details: parseResult.error.issues.map(i => i.message) 
+      }, { status: 400 });
     }
+    
+    const normalizedTag = parseResult.data.tag.toLowerCase();
 
     const patient = await prisma.patient.findUnique({ where: { id } });
     
@@ -32,13 +58,17 @@ const removeTagHandler = withAuthParams(async (request, user, { params }: Params
     const currentTags = Array.isArray(patient.tags) ? patient.tags as string[] : [];
     
     // Remove the tag (case-insensitive match)
-    const normalizedTag = tag.replace(/^#/, '').toLowerCase();
     const updatedTags = currentTags.filter(
       (t: string) => t.replace(/^#/, '').toLowerCase() !== normalizedTag
     );
+    
+    // Check if tag was actually removed
+    if (updatedTags.length === currentTags.length) {
+      return Response.json({ error: "Tag not found on patient" }, { status: 404 });
+    }
 
     // Update patient
-    const updatedPatient = await prisma.patient.update({
+    await prisma.patient.update({
       where: { id },
       data: { tags: updatedTags },
     });
@@ -53,22 +83,26 @@ const removeTagHandler = withAuthParams(async (request, user, { params }: Params
           tags: {
             before: currentTags,
             after: updatedTags,
-            removed: tag,
+            removed: parseResult.data.tag,
           },
         },
       },
     });
 
-    logger.info(`[DELETE /api/patients/${id}/tags] Tag "${tag}" removed by ${user.email}`);
+    logger.info(`[DELETE /api/patients/${id}/tags] Tag removed by ${user.email}`, { 
+      patientId: id, 
+      removedTag: parseResult.data.tag 
+    });
     
     return Response.json({ 
       success: true, 
       tags: updatedTags,
     });
-  } catch (err: any) {
-    logger.error("[PATIENTS/TAGS/DELETE] Failed to remove tag", err);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error("[PATIENTS/TAGS/DELETE] Failed to remove tag", { error: errorMessage, patientId: id });
     return Response.json(
-      { error: err.message ?? "Failed to remove tag" },
+      { error: "Failed to remove tag" },
       { status: 500 }
     );
   }
@@ -79,18 +113,26 @@ export const DELETE = removeTagHandler;
 // POST - Add a tag to patient
 const addTagHandler = withAuthParams(async (request, user, { params }: Params) => {
   const resolvedParams = await params;
-  const id = Number(resolvedParams.id);
+  const validation = validatePatientId(resolvedParams.id);
   
-  if (Number.isNaN(id)) {
-    return Response.json({ error: "Invalid patient id" }, { status: 400 });
+  if (!validation.valid) {
+    return Response.json({ error: validation.error }, { status: 400 });
   }
+  const { id } = validation;
 
   try {
-    const { tag } = await request.json();
+    // Parse and validate request body
+    const body = await request.json();
+    const parseResult = tagSchema.safeParse(body);
     
-    if (!tag || typeof tag !== 'string') {
-      return Response.json({ error: "Tag is required" }, { status: 400 });
+    if (!parseResult.success) {
+      return Response.json({ 
+        error: "Invalid input", 
+        details: parseResult.error.issues.map(i => i.message) 
+      }, { status: 400 });
     }
+    
+    const normalizedTag = parseResult.data.tag;
 
     const patient = await prisma.patient.findUnique({ where: { id } });
     
@@ -101,23 +143,24 @@ const addTagHandler = withAuthParams(async (request, user, { params }: Params) =
     // Get current tags
     const currentTags = Array.isArray(patient.tags) ? patient.tags as string[] : [];
     
-    // Normalize the tag (remove # prefix if present)
-    const normalizedTag = tag.replace(/^#/, '').trim();
-    
     // Check if tag already exists (case-insensitive)
     const tagExists = currentTags.some(
       (t: string) => t.replace(/^#/, '').toLowerCase() === normalizedTag.toLowerCase()
     );
     
     if (tagExists) {
-      return Response.json({ error: "Tag already exists" }, { status: 400 });
+      return Response.json({ error: "Tag already exists" }, { status: 409 });
     }
 
-    // Add the new tag
+    // Add the new tag (max 20 tags per patient)
+    if (currentTags.length >= 20) {
+      return Response.json({ error: "Maximum tags limit reached (20)" }, { status: 400 });
+    }
+    
     const updatedTags = [...currentTags, normalizedTag];
 
     // Update patient
-    const updatedPatient = await prisma.patient.update({
+    await prisma.patient.update({
       where: { id },
       data: { tags: updatedTags },
     });
@@ -138,16 +181,20 @@ const addTagHandler = withAuthParams(async (request, user, { params }: Params) =
       },
     });
 
-    logger.info(`[POST /api/patients/${id}/tags] Tag "${normalizedTag}" added by ${user.email}`);
+    logger.info(`[POST /api/patients/${id}/tags] Tag added by ${user.email}`, { 
+      patientId: id, 
+      addedTag: normalizedTag 
+    });
     
     return Response.json({ 
       success: true, 
       tags: updatedTags,
-    });
-  } catch (err: any) {
-    logger.error("[PATIENTS/TAGS/POST] Failed to add tag", err);
+    }, { status: 201 });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error("[PATIENTS/TAGS/POST] Failed to add tag", { error: errorMessage, patientId: id });
     return Response.json(
-      { error: err.message ?? "Failed to add tag" },
+      { error: "Failed to add tag" },
       { status: 500 }
     );
   }

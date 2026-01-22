@@ -251,11 +251,11 @@ const deletePatientHandler = withAuthParams(async (_request, user, { params }: P
     logger.info(`[DELETE /api/patients/${id}] Patient deleted by ${user.email}`);
     
     return Response.json({ success: true, message: "Patient deleted successfully" });
-  } catch (err: any) {
+  } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    logger.error("[PATIENTS/DELETE] Failed to delete patient", err);
+    logger.error("[PATIENTS/DELETE] Failed to delete patient", { error: errorMessage, patientId: id });
     return Response.json(
-      { error: errorMessage ?? "Failed to delete patient" },
+      { error: "Failed to delete patient" },
       { status: 500 }
     );
   }

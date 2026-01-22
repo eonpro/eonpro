@@ -25,7 +25,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     // Filter categories based on user permissions
     let availableCategories = SETTINGS_CATEGORIES.filter((cat: any) => {
       if (!cat.requiredPermission) return true;
-      return hasPermission(user.role as any, cat.requiredPermission);
+      return hasPermission(user.role, cat.requiredPermission);
     });
     
     // If specific category requested
@@ -88,7 +88,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 export const PUT = withAuth(async (req: NextRequest, user) => {
   try {
     // Only admins can update settings
-    if (!hasPermission(user.role as any, PERMISSIONS.SYSTEM_CONFIG)) {
+    if (!hasPermission(user.role, PERMISSIONS.SYSTEM_CONFIG)) {
       return NextResponse.json(
         { error: 'You do not have permission to update settings' },
         { status: 403 }
@@ -270,7 +270,7 @@ function getSettingValue(settingId: string, defaultValue: any): any {
  */
 export const POST = withAuth(async (req: NextRequest, user) => {
   try {
-    if (!hasPermission(user.role as any, PERMISSIONS.INTEGRATION_UPDATE)) {
+    if (!hasPermission(user.role, PERMISSIONS.INTEGRATION_UPDATE)) {
       return NextResponse.json(
         { error: 'You do not have permission to test integrations' },
         { status: 403 }

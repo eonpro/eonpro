@@ -309,7 +309,6 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     logger.error('Webhook processing error', { 
       error: error.message,
-      stack: error.stack 
     });
     
     return NextResponse.json(

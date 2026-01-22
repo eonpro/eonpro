@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       status: 'critical',
       timestamp: new Date().toISOString(),
-      error: error.message,
+      error: 'Operation failed',
       summary: {
         totalChecks: 0,
         passed: 0,
@@ -187,7 +187,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
     testedQueries.push({
       name: 'Invoice with Relations',
       success: false,
-      error: error.message,
+      error: 'Operation failed',
       duration: Date.now() - invoiceStart,
     });
   }
@@ -207,7 +207,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
     testedQueries.push({
       name: 'Patient with Relations',
       success: false,
-      error: error.message,
+      error: 'Operation failed',
       duration: Date.now() - patientStart,
     });
   }
@@ -227,7 +227,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
     testedQueries.push({
       name: 'Payment with Relations',
       success: false,
-      error: error.message,
+      error: 'Operation failed',
       duration: Date.now() - paymentStart,
     });
   }
@@ -247,7 +247,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
     testedQueries.push({
       name: 'Subscription with Relations',
       success: false,
-      error: error.message,
+      error: 'Operation failed',
       duration: Date.now() - subStart,
     });
   }
@@ -267,7 +267,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
     testedQueries.push({
       name: 'SOAP Note with Relations',
       success: false,
-      error: error.message,
+      error: 'Operation failed',
       duration: Date.now() - soapStart,
     });
   }
