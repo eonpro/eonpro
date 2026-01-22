@@ -20,3 +20,4 @@ export * from './shared';
 // Domain modules
 export * from './patient';
 export * from './provider';
+export * from './order';
