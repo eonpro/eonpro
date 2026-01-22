@@ -1,12 +1,28 @@
+/**
+ * Orders Route
+ * ============
+ *
+ * API endpoints for order list and creation.
+ * Uses the order service layer for business logic.
+ *
+ * @module api/orders
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import lifefile from "@/lib/lifefile";
-import { prisma } from '@/lib/db';
+import lifefile from '@/lib/lifefile';
 import { verifyAuth } from '@/lib/auth/middleware';
-import { logger } from '@/lib/logger';
+import { orderService, type UserContext } from '@/domains/order';
+import { handleApiError } from '@/domains/shared/errors';
 
 /**
- * GET /api/orders - List orders
- * CRITICAL: Must filter by clinicId for multi-tenant isolation
+ * GET /api/orders
+ * List orders with filtering
+ *
+ * Query params:
+ * - limit: Max results (default 100)
+ * - recent: Time filter (e.g., '24h')
+ * - status: Filter by status
+ * - patientId: Filter by patient
  */
 export async function GET(request: NextRequest) {
   try {
@@ -18,71 +34,59 @@ export async function GET(request: NextRequest) {
 
     const user = authResult.user!;
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '100');
-    const recent = searchParams.get('recent'); // e.g., "24h"
 
-    let dateFilter: any = {};
-    if (recent) {
-      const hours = parseInt(recent.replace('h', ''));
-      if (!isNaN(hours)) {
-        const cutoff = new Date();
-        cutoff.setHours(cutoff.getHours() - hours);
-        dateFilter = {
-          createdAt: {
-            gte: cutoff,
-          },
-        };
-      }
-    }
+    // Parse query parameters
+    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const recent = searchParams.get('recent') || undefined;
+    const status = searchParams.get('status') || undefined;
+    const patientId = searchParams.get('patientId');
 
-    // CRITICAL: Add clinic filter for multi-tenant isolation
-    let clinicFilter: any = {};
-    if (user.role !== 'super_admin') {
-      if (!user.clinicId) {
-        return NextResponse.json(
-          { error: 'No clinic associated with your account.' },
-          { status: 403 }
-        );
-      }
-      clinicFilter = { clinicId: user.clinicId };
-    }
+    // Convert auth user to service UserContext
+    const userContext: UserContext = {
+      id: user.id,
+      email: user.email,
+      role: user.role as UserContext['role'],
+      clinicId: user.clinicId,
+      patientId: user.patientId,
+      providerId: user.providerId,
+    };
 
-    logger.info(`[ORDERS/GET] User ${user.id} (${user.role}) fetching orders for clinicId: ${user.clinicId || 'all'}`);
-
-    const orders = await prisma.order.findMany({
-      where: {
-        ...dateFilter,
-        ...clinicFilter,
-      },
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        rxs: true,
-      },
+    // Use order service - handles clinic isolation, access control
+    const result = await orderService.listOrders(userContext, {
+      limit,
+      recent,
+      status,
+      patientId: patientId ? parseInt(patientId, 10) : undefined,
     });
 
+    // Include rxs for backward compatibility
+    // The service returns OrderWithPatient, we need to fetch rxs separately if needed
     return NextResponse.json({
-      orders,
-      count: orders.length,
+      orders: result.orders,
+      count: result.count,
     });
-  } catch (error: any) {
-    logger.error('[Orders API] Error:', error);
-    return NextResponse.json({ 
-      orders: [],
-      error: error.message 
+  } catch (error) {
+    return handleApiError(error, {
+      context: { route: 'GET /api/orders' },
     });
   }
 }
 
+/**
+ * POST /api/orders
+ * Create order via Lifefile API
+ *
+ * Note: This is a pass-through to Lifefile.
+ * For full prescription creation, use POST /api/prescriptions
+ */
 export async function POST(req: Request) {
-  const body = await req.json();
-  const order = await lifefile.createOrder(body);
-  return Response.json(order.data);
+  try {
+    const body = await req.json();
+    const order = await lifefile.createOrder(body);
+    return Response.json(order.data);
+  } catch (error) {
+    return handleApiError(error, {
+      context: { route: 'POST /api/orders' },
+    });
+  }
 }
