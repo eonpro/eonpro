@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuth } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/patient-progress/test?patientId=X
  *
  * Test endpoint to verify all patient progress database operations work correctly.
  * Returns a comprehensive report of what data exists and can be retrieved.
+ * 
+ * RESTRICTED: Only available to super_admin and admin roles
  */
-export async function GET(request: NextRequest) {
+const getHandler = withAuth(async (request: NextRequest, user) => {
+  // Only allow super_admin and admin
+  if (!['super_admin', 'admin'].includes(user.role)) {
+    return NextResponse.json({ error: 'Access denied - admin only' }, { status: 403 });
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const patientId = searchParams.get('patientId');
@@ -214,34 +223,44 @@ export async function GET(request: NextRequest) {
     // Final status
     results.overallStatus = results.summary.failed === 0 ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED';
 
+    logger.info('Patient progress test completed', { userId: user.id, passed: results.summary.passed, failed: results.summary.failed });
+    
     return NextResponse.json(results, {
       status: results.summary.failed > 0 ? 500 : 200,
     });
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Test endpoint failed', { error: errorMessage, userId: user.id });
     return NextResponse.json(
-      {
-        error: 'Test endpoint failed',
-        message: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      },
+      { error: 'Test endpoint failed' },
       { status: 500 }
     );
   }
-}
+});
+
+// Export GET handler
+export const GET = getHandler;
 
 /**
  * POST /api/patient-progress/test
  *
  * Create test data for a patient (for development/testing only)
+ * RESTRICTED: Only available in development and to admin roles
  */
-export async function POST(request: NextRequest) {
+const postHandler = withAuth(async (request: NextRequest, user) => {
+  // Only allow super_admin and admin
+  if (!['super_admin', 'admin'].includes(user.role)) {
+    return NextResponse.json({ error: 'Access denied - admin only' }, { status: 403 });
+  }
+
   // Only allow in development
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
   }
 
   try {
-    const { patientId, createWeightLogs = true, createReminders = true } = await request.json();
+    const rawBody = await request.json();
+    const { patientId, createWeightLogs = true, createReminders = true } = rawBody;
 
     if (!patientId) {
       return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
@@ -309,15 +328,22 @@ export async function POST(request: NextRequest) {
       results.created.reminders = createdCount;
     }
 
+    logger.info('Test data created', { userId: user.id, patientId: pid });
+    
     return NextResponse.json({
       success: true,
       message: 'Test data created',
       ...results,
     });
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to create test data', { error: errorMessage, userId: user.id });
     return NextResponse.json(
-      { error: 'Failed to create test data', message: error.message },
+      { error: 'Failed to create test data' },
       { status: 500 }
     );
   }
-}
+});
+
+// Export POST handler
+export const POST = postHandler;

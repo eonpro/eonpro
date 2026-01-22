@@ -44,6 +44,10 @@ model Patient {
   intakeSubmissions   IntakeFormSubmission[]
   weightLogs          PatientWeightLog[]
   medicationReminders PatientMedicationReminder[]
+  waterLogs           PatientWaterLog[]
+  exerciseLogs        PatientExerciseLog[]
+  sleepLogs           PatientSleepLog[]
+  nutritionLogs       PatientNutritionLog[]
   tickets             Ticket[]
   appointments        Appointment[]
   superbills          Superbill[]
@@ -1128,6 +1132,81 @@ model PatientMedicationReminder {
 
   @@unique([patientId, medicationName, dayOfWeek]) // One reminder per medication per day
   @@index([patientId, isActive])
+}
+
+model PatientWaterLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  patientId  Int
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  amount     Float    // Amount in ounces
+  unit       String   @default("oz") // "oz" or "ml"
+  source     String   @default("patient") // "patient", "device", "import"
+  recordedAt DateTime @default(now())
+  notes      String?
+
+  @@index([patientId, recordedAt])
+}
+
+model PatientExerciseLog {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  patientId    Int
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  activityType String   // "walking", "running", "cycling", "strength", "yoga", etc.
+  duration     Int      // Duration in minutes
+  intensity    String   @default("moderate") // "light", "moderate", "vigorous"
+  calories     Int?     // Estimated calories burned
+  steps        Int?     // Step count if applicable
+  distance     Float?   // Distance in miles
+  heartRateAvg Int?     // Average heart rate
+  notes        String?
+  source       String   @default("patient") // "patient", "device", "import"
+  recordedAt   DateTime @default(now())
+
+  @@index([patientId, recordedAt])
+}
+
+model PatientSleepLog {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  patientId   Int
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  sleepStart  DateTime // When they went to bed
+  sleepEnd    DateTime // When they woke up
+  duration    Int      // Total sleep duration in minutes
+  quality     Int?     // Sleep quality rating 1-10
+  deepSleep   Int?     // Deep sleep minutes
+  remSleep    Int?     // REM sleep minutes
+  lightSleep  Int?     // Light sleep minutes
+  awakeTime   Int?     // Time awake during sleep in minutes
+  notes       String?
+  source      String   @default("patient") // "patient", "device", "import"
+  recordedAt  DateTime @default(now())
+
+  @@index([patientId, recordedAt])
+}
+
+model PatientNutritionLog {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  patientId   Int
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  mealType    String   // "breakfast", "lunch", "dinner", "snack"
+  description String?  // What they ate
+  calories    Int?     // Total calories
+  protein     Float?   // Grams of protein
+  carbs       Float?   // Grams of carbohydrates
+  fat         Float?   // Grams of fat
+  fiber       Float?   // Grams of fiber
+  sugar       Float?   // Grams of sugar
+  sodium      Float?   // Milligrams of sodium
+  photoUrl    String?  // Optional photo of meal
+  notes       String?
+  source      String   @default("patient") // "patient", "import"
+  recordedAt  DateTime @default(now())
+
+  @@index([patientId, recordedAt])
 }
 
 // ===== INTERNAL COMMUNICATION SYSTEM =====
