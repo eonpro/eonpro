@@ -64,7 +64,7 @@ export default function CalculatorsPage() {
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Health Tools</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Health Tools</h1>
         <p className="mt-1 text-gray-500">Calculators to help you on your journey</p>
       </div>
 

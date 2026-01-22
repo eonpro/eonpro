@@ -61,7 +61,7 @@ export default function TirzepatideDoseCalculatorPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Calculators
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Tirzepatide Dose Calculator</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Tirzepatide Dose Calculator</h1>
         <p className="mt-1 text-gray-500">Convert units to mg for your injection</p>
       </div>
 
@@ -104,7 +104,7 @@ export default function TirzepatideDoseCalculatorPage() {
                 min="0"
                 max="100"
                 step="1"
-                className="w-full rounded-xl border border-gray-200 px-4 py-4 pr-16 text-center text-3xl font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                className="w-full rounded-xl border border-gray-200 px-4 py-4 pr-16 text-center text-3xl font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 font-medium text-gray-400">
                 units
@@ -171,7 +171,7 @@ export default function TirzepatideDoseCalculatorPage() {
                     <p className="font-medium text-gray-900">{schedule.label}</p>
                     <p className="text-sm text-gray-500">{schedule.dose} mg</p>
                   </div>
-                  <span className="rounded-lg bg-blue-100 px-3 py-1 text-sm font-bold text-blue-700">
+                  <span className="rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
                     {Math.round((schedule.dose / concentration) * 100 * 10) / 10} units
                   </span>
                 </button>
@@ -189,17 +189,17 @@ export default function TirzepatideDoseCalculatorPage() {
             <div className="mb-4 grid grid-cols-2 gap-4">
               <div className="rounded-xl bg-white/20 p-4 text-center backdrop-blur">
                 <p className="mb-1 text-sm font-medium text-white/80">Units</p>
-                <p className="text-4xl font-bold text-white">{units || '0'}</p>
+                <p className="text-4xl font-semibold text-white">{units || '0'}</p>
               </div>
               <div className="rounded-xl bg-white/20 p-4 text-center backdrop-blur">
                 <p className="mb-1 text-sm font-medium text-white/80">Milligrams</p>
-                <p className="text-4xl font-bold text-white">{result?.mg || '0'}</p>
+                <p className="text-4xl font-semibold text-white">{result?.mg || '0'}</p>
               </div>
             </div>
 
             <div className="rounded-xl bg-white/15 p-4 text-center backdrop-blur">
               <p className="text-sm font-medium text-white/80">Volume</p>
-              <p className="text-2xl font-bold text-white">{result?.mL || '0'} mL</p>
+              <p className="text-2xl font-semibold text-white">{result?.mL || '0'} mL</p>
             </div>
           </div>
 

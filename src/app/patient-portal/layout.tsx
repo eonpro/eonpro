@@ -197,7 +197,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
               <Bell className="h-6 w-6" />
               {notifications > 0 && (
                 <span
-                  className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                  className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold text-white"
                   style={{ backgroundColor: primaryColor }}
                 >
                   {notifications}
@@ -225,7 +225,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
           <div className="fixed bottom-0 right-0 top-0 z-50 w-72 bg-white shadow-2xl lg:hidden">
             <div className="safe-top" />
             <div className="flex h-14 items-center justify-between border-b border-gray-100 px-4">
-              <span className="text-lg font-bold text-gray-900">Menu</span>
+              <span className="text-lg font-semibold text-gray-900">Menu</span>
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 active:bg-gray-100"
@@ -313,7 +313,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   </div>
                   {/* Label */}
                   <span
-                    className={`mt-0.5 text-[11px] transition-all ${active ? 'font-bold' : 'font-medium'}`}
+                    className={`mt-0.5 text-[11px] transition-all ${active ? 'font-semibold' : 'font-medium'}`}
                     style={{ color: active ? primaryColor : '#9ca3af' }}
                   >
                     {item.label}

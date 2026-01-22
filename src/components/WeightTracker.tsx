@@ -303,7 +303,7 @@ export default function WeightTracker({
 
           <div className="flex items-end justify-between">
             <div className="flex items-baseline gap-3">
-              <span className="text-7xl font-black tracking-tight text-gray-900">
+              <span className="text-7xl font-semibold tracking-tight text-gray-900">
                 {latestWeight || '---'}
               </span>
               <span className="mb-2 text-2xl font-medium text-gray-700/70">lbs</span>
@@ -321,7 +321,7 @@ export default function WeightTracker({
                   <TrendingUp className="h-5 w-5 text-rose-700" />
                 )}
                 <span
-                  className={`text-lg font-bold ${weightChange < 0 ? 'text-emerald-700' : 'text-rose-700'}`}
+                  className={`text-lg font-semibold ${weightChange < 0 ? 'text-emerald-700' : 'text-rose-700'}`}
                 >
                   {Math.abs(weightChange).toFixed(1)} lbs
                 </span>
@@ -333,7 +333,7 @@ export default function WeightTracker({
           {showBMI && currentBMI && bmiCategory && (
             <div className="mt-6 flex items-center gap-3">
               <div className="rounded-xl bg-black/10 px-4 py-2 backdrop-blur-sm">
-                <span className="text-sm font-bold text-gray-800">BMI {currentBMI.toFixed(1)}</span>
+                <span className="text-sm font-semibold text-gray-800">BMI {currentBMI.toFixed(1)}</span>
               </div>
               <div
                 className="flex items-center gap-2 rounded-xl px-4 py-2"
@@ -343,7 +343,7 @@ export default function WeightTracker({
                   className="h-2 w-2 rounded-full"
                   style={{ backgroundColor: bmiCategory.color }}
                 />
-                <span className="text-sm font-bold" style={{ color: bmiCategory.color }}>
+                <span className="text-sm font-semibold" style={{ color: bmiCategory.color }}>
                   {bmiCategory.label}
                 </span>
               </div>
@@ -374,7 +374,7 @@ export default function WeightTracker({
               onBlur={() => setIsFocused(false)}
               onKeyDown={(e) => e.key === 'Enter' && handleWeightSubmit()}
               placeholder="Enter weight"
-              className={`w-full rounded-2xl border-2 bg-gray-50 px-5 py-4 text-xl font-bold text-gray-900 outline-none transition-all duration-300 placeholder:font-normal placeholder:text-gray-400 sm:px-6 sm:py-5 ${
+              className={`w-full rounded-2xl border-2 bg-gray-50 px-5 py-4 text-xl font-semibold text-gray-900 outline-none transition-all duration-300 placeholder:font-normal placeholder:text-gray-400 sm:px-6 sm:py-5 ${
                 isFocused ? 'border-gray-900 bg-white shadow-lg' : 'border-transparent'
               }`}
               style={{ fontSize: '18px' }} // Prevent iOS zoom
@@ -387,7 +387,7 @@ export default function WeightTracker({
           <button
             onClick={handleWeightSubmit}
             disabled={isLoading || !currentWeight}
-            className="group relative min-h-[52px] overflow-hidden rounded-2xl px-8 py-4 font-bold text-gray-900 transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:px-10 sm:py-5 sm:hover:scale-105 sm:hover:shadow-xl"
+            className="group relative min-h-[52px] overflow-hidden rounded-2xl px-8 py-4 font-semibold text-gray-900 transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:px-10 sm:py-5 sm:hover:scale-105 sm:hover:shadow-xl"
             style={{ backgroundColor: accentColor }}
           >
             <span className="absolute inset-0 translate-y-full bg-black/10 transition-transform duration-300 group-hover:translate-y-0" />
@@ -412,13 +412,13 @@ export default function WeightTracker({
       <div className="p-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-bold text-gray-900">Your Progress</h3>
+            <h3 className="text-xl font-semibold text-gray-900">Your Progress</h3>
             <p className="mt-1 text-sm text-gray-500">Last 7 check-ins</p>
           </div>
           {percentChange > 0 && weightChange !== 0 && (
             <div className="text-right">
               <span
-                className={`text-2xl font-black ${weightChange < 0 ? 'text-emerald-500' : 'text-rose-500'}`}
+                className={`text-2xl font-semibold ${weightChange < 0 ? 'text-emerald-500' : 'text-rose-500'}`}
               >
                 {weightChange < 0 ? '-' : '+'}
                 {percentChange.toFixed(1)}%
@@ -464,7 +464,7 @@ export default function WeightTracker({
               <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
                 {stat.label}
               </p>
-              <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
+              <p className={`text-2xl font-semibold ${stat.color}`}>{stat.value}</p>
               <p className="text-xs text-gray-400">{stat.unit}</p>
             </div>
           ))}

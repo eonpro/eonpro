@@ -89,7 +89,7 @@ export default function ProgressPage() {
     <div className="min-h-[100dvh] px-4 py-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-900">Weight Progress</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Weight Progress</h1>
         <p className="mt-1 text-sm text-gray-500">Track your weight loss journey</p>
       </div>
 
@@ -102,7 +102,7 @@ export default function ProgressPage() {
               <Activity className="h-4 w-4 text-gray-500" />
             </div>
           </div>
-          <p className="text-2xl font-black text-gray-900">{latestWeight || '--'}</p>
+          <p className="text-2xl font-semibold text-gray-900">{latestWeight || '--'}</p>
           <p className="text-xs font-medium text-gray-500">Current (lbs)</p>
         </div>
 
@@ -122,7 +122,7 @@ export default function ProgressPage() {
             </div>
           </div>
           <p
-            className={`text-2xl font-black ${totalChange <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+            className={`text-2xl font-semibold ${totalChange <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
           >
             {totalChange > 0 ? '+' : ''}
             {totalChange.toFixed(1)}
@@ -137,7 +137,7 @@ export default function ProgressPage() {
               <Calendar className="h-4 w-4 text-blue-600" />
             </div>
           </div>
-          <p className="text-2xl font-black text-gray-900">
+          <p className="text-2xl font-semibold text-gray-900">
             {weeklyAverage ? weeklyAverage.toFixed(1) : '--'}
           </p>
           <p className="text-xs font-medium text-gray-500">Weekly Avg</p>
@@ -150,7 +150,7 @@ export default function ProgressPage() {
               <Flame className="h-4 w-4 text-purple-600" />
             </div>
           </div>
-          <p className="text-2xl font-black text-gray-900">{weightLogs.length}</p>
+          <p className="text-2xl font-semibold text-gray-900">{weightLogs.length}</p>
           <p className="text-xs font-medium text-gray-500">Check-ins</p>
         </div>
       </div>
@@ -167,12 +167,12 @@ export default function ProgressPage() {
                 <Target className="h-5 w-5" style={{ color: primaryColor }} />
               </div>
               <div>
-                <h2 className="font-bold text-gray-900">Goal Progress</h2>
+                <h2 className="font-semibold text-gray-900">Goal Progress</h2>
                 <p className="text-xs text-gray-500">Target: {goalWeight} lbs</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-black" style={{ color: primaryColor }}>
+              <p className="text-2xl font-semibold" style={{ color: primaryColor }}>
                 {Math.min(100, Math.max(0, progressToGoal)).toFixed(0)}%
               </p>
             </div>
@@ -192,7 +192,7 @@ export default function ProgressPage() {
           {/* Labels */}
           <div className="mt-3 flex justify-between text-xs text-gray-500">
             <span>{startingWeight} lbs</span>
-            <span className="font-bold text-gray-700">{latestWeight} lbs</span>
+            <span className="font-semibold text-gray-700">{latestWeight} lbs</span>
             <span>{goalWeight} lbs</span>
           </div>
         </div>
@@ -202,7 +202,7 @@ export default function ProgressPage() {
       <div className="mb-6 flex gap-2 rounded-2xl bg-white p-1.5 shadow-sm">
         <button
           onClick={() => setActiveTab('tracker')}
-          className={`flex-1 rounded-xl py-3.5 text-sm font-bold transition-all active:scale-[0.98] ${
+          className={`flex-1 rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.98] ${
             activeTab === 'tracker' ? 'text-white shadow-md' : 'text-gray-500'
           }`}
           style={activeTab === 'tracker' ? { backgroundColor: primaryColor } : {}}
@@ -211,7 +211,7 @@ export default function ProgressPage() {
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex-1 rounded-xl py-3.5 text-sm font-bold transition-all active:scale-[0.98] ${
+          className={`flex-1 rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.98] ${
             activeTab === 'history' ? 'text-white shadow-md' : 'text-gray-500'
           }`}
           style={activeTab === 'history' ? { backgroundColor: primaryColor } : {}}
@@ -232,7 +232,7 @@ export default function ProgressPage() {
       ) : (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
           <div className="border-b border-gray-100 p-4">
-            <h2 className="font-bold text-gray-900">Weight History</h2>
+            <h2 className="font-semibold text-gray-900">Weight History</h2>
             <p className="text-xs text-gray-500">{sortedLogs.length} total entries</p>
           </div>
 
@@ -271,10 +271,10 @@ export default function ProgressPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-black text-gray-900">{log.weight} lbs</p>
+                      <p className="text-lg font-semibold text-gray-900">{log.weight} lbs</p>
                       {change !== 0 && (
                         <p
-                          className={`text-xs font-bold ${change < 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+                          className={`text-xs font-semibold ${change < 0 ? 'text-emerald-600' : 'text-rose-600'}`}
                         >
                           {change > 0 ? '+' : ''}
                           {change.toFixed(1)} lbs
@@ -293,7 +293,7 @@ export default function ProgressPage() {
       <div className="mt-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
         <div className="mb-3 flex items-center gap-2">
           <Award className="h-5 w-5 text-blue-600" />
-          <h3 className="font-bold text-gray-900">Weight Loss Tips</h3>
+          <h3 className="font-semibold text-gray-900">Weight Loss Tips</h3>
         </div>
         <ul className="space-y-2 text-sm text-gray-600">
           <li className="flex items-start gap-3">

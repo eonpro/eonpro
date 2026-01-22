@@ -141,7 +141,7 @@ export default function SubscriptionPage() {
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Subscription & Billing</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Subscription & Billing</h1>
         <p className="mt-1 text-gray-500">Manage your subscription and payment details</p>
       </div>
 
@@ -157,12 +157,12 @@ export default function SubscriptionPage() {
                     <p className="mb-1 text-sm font-medium" style={{ color: '#555' }}>
                       Current Plan
                     </p>
-                    <h2 className="text-2xl font-bold" style={{ color: '#1a1a1a' }}>
+                    <h2 className="text-2xl font-semibold" style={{ color: '#1a1a1a' }}>
                       {subscription.planName}
                     </h2>
                   </div>
                   <span
-                    className="rounded-full px-3 py-1.5 text-xs font-bold uppercase"
+                    className="rounded-full px-3 py-1.5 text-xs font-semibold uppercase"
                     style={{
                       backgroundColor: subscription.status === 'active' ? '#22C55E' : '#F59E0B',
                       color: 'white',
@@ -173,7 +173,7 @@ export default function SubscriptionPage() {
                 </div>
 
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold" style={{ color: '#1a1a1a' }}>
+                  <span className="text-4xl font-semibold" style={{ color: '#1a1a1a' }}>
                     ${subscription.amount}
                   </span>
                   <span style={{ color: '#555' }}>/{subscription.interval}</span>

@@ -102,7 +102,7 @@ export default function DietaryPlansPage() {
         <div className="rounded-2xl bg-gradient-to-br from-green-500 to-green-600 p-6 text-white">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold">Week {selectedWeek} Plan</h2>
+              <h2 className="text-xl font-semibold">Week {selectedWeek} Plan</h2>
               <p className="mt-1 text-sm text-green-100">1400 calories/day target</p>
             </div>
             <TrendingDown className="h-8 w-8 text-green-200" />
@@ -110,15 +110,15 @@ export default function DietaryPlansPage() {
 
           <div className="mb-4 grid grid-cols-3 gap-3">
             <div className="rounded-lg bg-white/20 p-3 text-center backdrop-blur">
-              <p className="text-2xl font-bold">107g</p>
+              <p className="text-2xl font-semibold">107g</p>
               <p className="text-xs text-green-100">Protein</p>
             </div>
             <div className="rounded-lg bg-white/20 p-3 text-center backdrop-blur">
-              <p className="text-2xl font-bold">140g</p>
+              <p className="text-2xl font-semibold">140g</p>
               <p className="text-xs text-green-100">Carbs</p>
             </div>
             <div className="rounded-lg bg-white/20 p-3 text-center backdrop-blur">
-              <p className="text-2xl font-bold">47g</p>
+              <p className="text-2xl font-semibold">47g</p>
               <p className="text-xs text-green-100">Fats</p>
             </div>
           </div>
@@ -132,7 +132,7 @@ export default function DietaryPlansPage() {
         {/* Today's Meals */}
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold">Today's Meals</h2>
+            <h2 className="text-lg font-semibold">Today's Meals</h2>
             <span className="text-sm text-gray-500">{new Date().toLocaleDateString()}</span>
           </div>
 
@@ -146,7 +146,7 @@ export default function DietaryPlansPage() {
                   <p className="text-xs text-gray-600">{todaysMeals.breakfast.time}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold">{todaysMeals.breakfast.calories} cal</p>
+                  <p className="text-sm font-semibold">{todaysMeals.breakfast.calories} cal</p>
                   <p className="text-xs text-gray-600">{todaysMeals.breakfast.protein} protein</p>
                 </div>
               </div>
@@ -168,7 +168,7 @@ export default function DietaryPlansPage() {
                   <p className="text-xs text-gray-600">{todaysMeals.lunch.time}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold">{todaysMeals.lunch.calories} cal</p>
+                  <p className="text-sm font-semibold">{todaysMeals.lunch.calories} cal</p>
                   <p className="text-xs text-gray-600">{todaysMeals.lunch.protein} protein</p>
                 </div>
               </div>
@@ -190,7 +190,7 @@ export default function DietaryPlansPage() {
                   <p className="text-xs text-gray-600">{todaysMeals.snack.time}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold">{todaysMeals.snack.calories} cal</p>
+                  <p className="text-sm font-semibold">{todaysMeals.snack.calories} cal</p>
                   <p className="text-xs text-gray-600">{todaysMeals.snack.protein} protein</p>
                 </div>
               </div>
@@ -205,7 +205,7 @@ export default function DietaryPlansPage() {
                   <p className="text-xs text-gray-600">{todaysMeals.dinner.time}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold">{todaysMeals.dinner.calories} cal</p>
+                  <p className="text-sm font-semibold">{todaysMeals.dinner.calories} cal</p>
                   <p className="text-xs text-gray-600">{todaysMeals.dinner.protein} protein</p>
                 </div>
               </div>
@@ -223,7 +223,7 @@ export default function DietaryPlansPage() {
           <div className="mt-4 flex items-center justify-between border-t pt-4">
             <span className="font-semibold">Daily Total</span>
             <div className="text-right">
-              <p className="font-bold">1,400 calories</p>
+              <p className="font-semibold">1,400 calories</p>
               <p className="text-xs text-gray-600">107g protein</p>
             </div>
           </div>

@@ -123,7 +123,7 @@ export default function TutorialVideosPage() {
       {/* Featured Video */}
       <div className="mx-auto max-w-2xl px-4 py-6">
         <div className="mb-6 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-500 p-6 text-white">
-          <h2 className="mb-2 text-xl font-bold">Featured: Weight Loss Journey</h2>
+          <h2 className="mb-2 text-xl font-semibold">Featured: Weight Loss Journey</h2>
           <p className="mb-4 text-sm text-orange-100">Get started from anywhere</p>
 
           <div className="grid grid-cols-2 gap-3">

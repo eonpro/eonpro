@@ -173,7 +173,7 @@ export default function PatientPortalDashboard() {
       {/* Welcome Header */}
       <div className="mb-6">
         <p className="text-sm text-gray-500">{formatDate()}</p>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-semibold text-gray-900">
           Hello, {patient?.firstName || 'Patient'}
         </h1>
       </div>
@@ -191,7 +191,7 @@ export default function PatientPortalDashboard() {
                   Current Weight
                 </p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-bold" style={{ color: '#333' }}>
+                  <span className="text-5xl font-semibold" style={{ color: '#333' }}>
                     {currentWeight || '---'}
                   </span>
                   <span className="text-xl font-medium" style={{ color: '#555' }}>
@@ -337,11 +337,11 @@ export default function PatientPortalDashboard() {
         <div className="p-4">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <p className="text-lg font-bold text-gray-900">Semaglutide</p>
+              <p className="text-lg font-semibold text-gray-900">Semaglutide</p>
               <p className="text-sm text-gray-500">0.5mg weekly injection</p>
             </div>
             <span
-              className="rounded-full px-3 py-1.5 text-xs font-bold"
+              className="rounded-full px-3 py-1.5 text-xs font-semibold"
               style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
             >
               ACTIVE

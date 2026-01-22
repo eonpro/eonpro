@@ -148,7 +148,7 @@ export default function ShipmentsPage() {
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Shipment Tracking</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Shipment Tracking</h1>
         <p className="mt-1 text-gray-500">Track your medication deliveries</p>
       </div>
 
@@ -202,7 +202,7 @@ export default function ShipmentsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="mb-1 text-sm text-white/80">Order Status</p>
-                    <p className="text-2xl font-bold text-white">
+                    <p className="text-2xl font-semibold text-white">
                       {statusConfig[selectedShipment.status].label}
                     </p>
                   </div>
@@ -246,7 +246,7 @@ export default function ShipmentsPage() {
                       return (
                         <div key={step.status} className="flex flex-col items-center">
                           <div
-                            className={`z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                            className={`z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all ${
                               isCompleted || isCurrent
                                 ? 'text-white'
                                 : 'border-2 border-gray-200 bg-white text-gray-400'

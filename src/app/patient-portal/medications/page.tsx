@@ -231,7 +231,7 @@ END:VCALENDAR`;
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-black text-gray-900">Medications</h1>
+        <h1 className="text-3xl font-semibold text-gray-900">Medications</h1>
         <p className="mt-2 text-gray-500">Your prescriptions and dose reminders</p>
       </div>
 
@@ -265,11 +265,11 @@ END:VCALENDAR`;
                         <Syringe className="h-7 w-7 text-white" />
                       </div>
                       <div>
-                        <h3 className="text-2xl font-black text-white">{med.name}</h3>
+                        <h3 className="text-2xl font-semibold text-white">{med.name}</h3>
                         <p className="text-lg font-medium text-white/80">{med.dosage}</p>
                       </div>
                     </div>
-                    <span className="rounded-full bg-white/20 px-4 py-2 text-sm font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+                    <span className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
                       Active
                     </span>
                   </div>
@@ -282,20 +282,20 @@ END:VCALENDAR`;
                     <div className="rounded-2xl bg-gray-50 p-4">
                       <div className="mb-1 flex items-center gap-2">
                         <Clock className="h-4 w-4 text-gray-400" />
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                           Frequency
                         </p>
                       </div>
-                      <p className="text-lg font-bold text-gray-900">{med.frequency}</p>
+                      <p className="text-lg font-semibold text-gray-900">{med.frequency}</p>
                     </div>
                     <div className="rounded-2xl bg-gray-50 p-4">
                       <div className="mb-1 flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-gray-400" />
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                           Started
                         </p>
                       </div>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-lg font-semibold text-gray-900">
                         {new Date(med.startDate).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -308,7 +308,7 @@ END:VCALENDAR`;
                   <div className="mb-6 rounded-2xl border-2 border-gray-100 bg-gray-50 p-4">
                     <div className="mb-2 flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-gray-400" />
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                         Instructions
                       </p>
                     </div>
@@ -320,9 +320,9 @@ END:VCALENDAR`;
                     <div className="mb-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Bell className="h-5 w-5 text-gray-400" />
-                        <span className="font-bold text-gray-900">Reminders</span>
+                        <span className="font-semibold text-gray-900">Reminders</span>
                         {medReminders.length > 0 && (
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
                             {medReminders.length}
                           </span>
                         )}
@@ -332,7 +332,7 @@ END:VCALENDAR`;
                           setSelectedMed(med);
                           setShowReminderModal(true);
                         }}
-                        className="flex items-center gap-2 rounded-xl px-4 py-2 font-bold text-white transition-all hover:scale-105"
+                        className="flex items-center gap-2 rounded-xl px-4 py-2 font-semibold text-white transition-all hover:scale-105"
                         style={{ backgroundColor: primaryColor }}
                       >
                         <Plus className="h-4 w-4" />
@@ -363,7 +363,7 @@ END:VCALENDAR`;
                                 <Bell className="h-5 w-5 text-gray-700" />
                               </div>
                               <div>
-                                <p className="font-bold text-gray-900">
+                                <p className="font-semibold text-gray-900">
                                   {daysOfWeek.find((d) => d.value === reminder.dayOfWeek)?.full}
                                 </p>
                                 <p className="text-sm text-gray-500">at {reminder.timeOfDay}</p>
@@ -398,7 +398,7 @@ END:VCALENDAR`;
                           <AlertCircle className="h-6 w-6 text-amber-600" />
                         </div>
                         <div>
-                          <p className="font-bold text-amber-900">Refill needed soon</p>
+                          <p className="font-semibold text-amber-900">Refill needed soon</p>
                           <p className="text-sm text-amber-700">
                             Due by{' '}
                             {new Date(med.refillDate).toLocaleDateString('en-US', {
@@ -430,7 +430,7 @@ END:VCALENDAR`;
                 <Syringe className="h-6 w-6 text-gray-700" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Dose Calculator</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Dose Calculator</h3>
                 <p className="text-sm text-gray-500">Calculate your injection</p>
               </div>
             </div>
@@ -450,7 +450,7 @@ END:VCALENDAR`;
                 <Pill className="h-6 w-6" style={{ color: primaryColor }} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Injection Guide</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Injection Guide</h3>
                 <p className="text-sm text-gray-500">Watch how-to videos</p>
               </div>
             </div>
@@ -477,7 +477,7 @@ END:VCALENDAR`;
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-2xl font-black text-gray-900">Add Reminder</h2>
+                    <h2 className="text-2xl font-semibold text-gray-900">Add Reminder</h2>
                     <p className="mt-1 text-gray-700">
                       {selectedMed.name} ({selectedMed.dosage})
                     </p>
@@ -494,7 +494,7 @@ END:VCALENDAR`;
               <div className="p-6">
                 {/* Day Selection */}
                 <div className="mb-6">
-                  <label className="mb-3 block text-sm font-bold uppercase tracking-wider text-gray-500">
+                  <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
                     Day of Week
                   </label>
                   <div className="flex gap-2">
@@ -504,7 +504,7 @@ END:VCALENDAR`;
                         onClick={() =>
                           setNewReminder((prev) => ({ ...prev, dayOfWeek: day.value }))
                         }
-                        className={`flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold transition-all ${
+                        className={`flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-semibold transition-all ${
                           newReminder.dayOfWeek === day.value
                             ? 'scale-110 bg-gray-900 text-white shadow-lg'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -516,7 +516,7 @@ END:VCALENDAR`;
                   </div>
                   <p className="mt-2 text-sm text-gray-500">
                     Selected:{' '}
-                    <span className="font-bold text-gray-900">
+                    <span className="font-semibold text-gray-900">
                       {daysOfWeek.find((d) => d.value === newReminder.dayOfWeek)?.full}
                     </span>
                   </p>
@@ -524,14 +524,14 @@ END:VCALENDAR`;
 
                 {/* Time Selection */}
                 <div className="mb-8">
-                  <label className="mb-3 block text-sm font-bold uppercase tracking-wider text-gray-500">
+                  <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
                     Time
                   </label>
                   <input
                     type="time"
                     value={newReminder.time}
                     onChange={(e) => setNewReminder((prev) => ({ ...prev, time: e.target.value }))}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-6 py-4 text-2xl font-bold text-gray-900 outline-none transition-all focus:border-gray-900 focus:bg-white focus:shadow-lg"
+                    className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-6 py-4 text-2xl font-semibold text-gray-900 outline-none transition-all focus:border-gray-900 focus:bg-white focus:shadow-lg"
                   />
                 </div>
 
@@ -539,14 +539,14 @@ END:VCALENDAR`;
                 <div className="flex gap-4">
                   <button
                     onClick={() => setShowReminderModal(false)}
-                    className="flex-1 rounded-2xl border-2 border-gray-200 px-6 py-4 font-bold text-gray-700 transition-all hover:bg-gray-50"
+                    className="flex-1 rounded-2xl border-2 border-gray-200 px-6 py-4 font-semibold text-gray-700 transition-all hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={addReminder}
                     disabled={saving}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl px-6 py-4 font-bold text-white transition-all hover:scale-[1.02] hover:shadow-lg disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-lg disabled:opacity-50"
                     style={{ backgroundColor: primaryColor }}
                   >
                     {saving ? (

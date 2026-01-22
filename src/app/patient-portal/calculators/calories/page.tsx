@@ -87,7 +87,7 @@ export default function CalorieCalculatorPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Calculators
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Calorie Calculator</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Calorie Calculator</h1>
         <p className="mt-1 text-gray-500">Calculate your daily calorie needs for weight loss</p>
       </div>
 
@@ -282,7 +282,7 @@ export default function CalorieCalculatorPage() {
                       : {}
                   }
                 >
-                  <p className="font-bold text-gray-900">{rate.label}</p>
+                  <p className="font-semibold text-gray-900">{rate.label}</p>
                   <p className="mt-1 text-xs text-gray-500">{rate.description}</p>
                 </button>
               ))}
@@ -302,7 +302,7 @@ export default function CalorieCalculatorPage() {
               To lose {lossRate} lb/week
             </p>
 
-            <div className="mb-2 text-6xl font-bold" style={{ color: '#1a1a1a' }}>
+            <div className="mb-2 text-6xl font-semibold" style={{ color: '#1a1a1a' }}>
               {results?.targetCalories || '--'}
             </div>
             <p className="text-sm" style={{ color: '#555' }}>
@@ -317,19 +317,19 @@ export default function CalorieCalculatorPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-xl bg-gray-50 p-3 text-center">
                     <p className="mb-1 text-xs text-gray-500">BMR</p>
-                    <p className="text-xl font-bold text-gray-900">{results.bmr}</p>
+                    <p className="text-xl font-semibold text-gray-900">{results.bmr}</p>
                     <p className="text-xs text-gray-400">cal/day</p>
                   </div>
                   <div className="rounded-xl bg-gray-50 p-3 text-center">
                     <p className="mb-1 text-xs text-gray-500">Maintenance</p>
-                    <p className="text-xl font-bold text-gray-900">{results.maintenanceCalories}</p>
+                    <p className="text-xl font-semibold text-gray-900">{results.maintenanceCalories}</p>
                     <p className="text-xs text-gray-400">cal/day</p>
                   </div>
                 </div>
 
                 <div className="mt-4 rounded-xl bg-red-50 p-4">
                   <p className="text-sm font-medium text-red-700">Daily Deficit</p>
-                  <p className="text-2xl font-bold text-red-600">-{results.deficit} cal</p>
+                  <p className="text-2xl font-semibold text-red-600">-{results.deficit} cal</p>
                 </div>
               </div>
 
@@ -354,7 +354,7 @@ export default function CalorieCalculatorPage() {
                       className="rounded-xl p-3 text-center"
                       style={{ backgroundColor: `${primaryColor}08` }}
                     >
-                      <p className="text-3xl font-bold" style={{ color: primaryColor }}>
+                      <p className="text-3xl font-semibold" style={{ color: primaryColor }}>
                         {results.weeksToGoal}
                       </p>
                       <p className="text-xs text-gray-500">weeks</p>
@@ -363,7 +363,7 @@ export default function CalorieCalculatorPage() {
                       className="rounded-xl p-3 text-center"
                       style={{ backgroundColor: `${primaryColor}08` }}
                     >
-                      <p className="text-3xl font-bold" style={{ color: primaryColor }}>
+                      <p className="text-3xl font-semibold" style={{ color: primaryColor }}>
                         {results.monthsToGoal}
                       </p>
                       <p className="text-xs text-gray-500">months</p>

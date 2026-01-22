@@ -112,7 +112,7 @@ export default function BMICalculatorPage() {
           <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
           Back to Tools
         </Link>
-        <h1 className="text-3xl font-black text-gray-900">BMI Calculator</h1>
+        <h1 className="text-3xl font-semibold text-gray-900">BMI Calculator</h1>
         <p className="mt-2 text-gray-500">
           Calculate your Body Mass Index and find your healthy weight range
         </p>
@@ -123,7 +123,7 @@ export default function BMICalculatorPage() {
         <div className="space-y-6 lg:col-span-2">
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
             <div className="border-b border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                 <Target className="h-5 w-5" style={{ color: primaryColor }} />
                 Your Measurements
               </h2>
@@ -132,7 +132,7 @@ export default function BMICalculatorPage() {
             <div className="p-6">
               {/* Height */}
               <div className="mb-6">
-                <label className="mb-3 block text-sm font-bold uppercase tracking-wider text-gray-500">
+                <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
                   Height
                 </label>
                 <div className="flex gap-3">
@@ -147,10 +147,10 @@ export default function BMICalculatorPage() {
                         placeholder="5"
                         min="0"
                         max="8"
-                        className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-4 text-xl font-bold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:px-5 sm:text-2xl"
+                        className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-4 text-xl font-semibold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:px-5 sm:text-2xl"
                         style={{ fontSize: '20px' }}
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 sm:right-5 sm:text-sm">
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 sm:right-5 sm:text-sm">
                         ft
                       </span>
                     </div>
@@ -166,10 +166,10 @@ export default function BMICalculatorPage() {
                         placeholder="10"
                         min="0"
                         max="11"
-                        className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-4 text-xl font-bold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:px-5 sm:text-2xl"
+                        className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-4 text-xl font-semibold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:px-5 sm:text-2xl"
                         style={{ fontSize: '20px' }}
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 sm:right-5 sm:text-sm">
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 sm:right-5 sm:text-sm">
                         in
                       </span>
                     </div>
@@ -179,7 +179,7 @@ export default function BMICalculatorPage() {
 
               {/* Weight */}
               <div className="mb-8">
-                <label className="mb-3 block text-sm font-bold uppercase tracking-wider text-gray-500">
+                <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
                   Weight
                 </label>
                 <div className="group relative">
@@ -191,10 +191,10 @@ export default function BMICalculatorPage() {
                     onChange={(e) => setWeight(e.target.value)}
                     placeholder="170"
                     min="0"
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-4 text-xl font-bold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:px-5 sm:text-2xl"
+                    className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-4 text-xl font-semibold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:px-5 sm:text-2xl"
                     style={{ fontSize: '20px' }}
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 sm:right-5 sm:text-sm">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 sm:right-5 sm:text-sm">
                     lbs
                   </span>
                 </div>
@@ -202,7 +202,7 @@ export default function BMICalculatorPage() {
 
               {/* Category Legend */}
               <div className="space-y-2">
-                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-400">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   BMI Categories
                 </p>
                 {bmiCategories.map((cat) => (
@@ -224,7 +224,7 @@ export default function BMICalculatorPage() {
                         className="h-3 w-3 rounded-full"
                         style={{ backgroundColor: cat.color }}
                       />
-                      <span className="font-bold" style={{ color: cat.color }}>
+                      <span className="font-semibold" style={{ color: cat.color }}>
                         {cat.label}
                       </span>
                     </div>
@@ -252,7 +252,7 @@ export default function BMICalculatorPage() {
             <div className="relative">
               <div className="mb-6 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-gray-700/60" />
-                <span className="text-sm font-bold uppercase tracking-wider text-gray-700/60">
+                <span className="text-sm font-semibold uppercase tracking-wider text-gray-700/60">
                   Your BMI
                 </span>
               </div>
@@ -262,14 +262,14 @@ export default function BMICalculatorPage() {
                 <div
                   className={`inline-block transition-transform duration-500 ${isAnimating ? 'scale-110' : 'scale-100'}`}
                 >
-                  <span className="text-8xl font-black text-gray-900">
+                  <span className="text-8xl font-semibold text-gray-900">
                     {bmi ? bmi.toFixed(1) : '--'}
                   </span>
                 </div>
                 {category && (
                   <div className="mt-4">
                     <span
-                      className="inline-flex items-center gap-2 rounded-full px-6 py-2 text-lg font-bold shadow-lg"
+                      className="inline-flex items-center gap-2 rounded-full px-6 py-2 text-lg font-semibold shadow-lg"
                       style={{ backgroundColor: category.bgColor, color: category.color }}
                     >
                       <div
@@ -293,7 +293,7 @@ export default function BMICalculatorPage() {
                     style={{ left: `calc(${gaugePosition}% - 2px)` }}
                   />
                 )}
-                <div className="mt-2 flex justify-between text-xs font-bold text-gray-700/60">
+                <div className="mt-2 flex justify-between text-xs font-semibold text-gray-700/60">
                   <span>15</span>
                   <span>20</span>
                   <span>25</span>
@@ -308,7 +308,7 @@ export default function BMICalculatorPage() {
           {idealWeight && (
             <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
               <div className="border-b border-gray-100 p-6">
-                <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                   <Target className="h-5 w-5" style={{ color: primaryColor }} />
                   Your Healthy Weight Range
                 </h3>
@@ -318,20 +318,20 @@ export default function BMICalculatorPage() {
               <div className="p-6">
                 <div className="mb-6 flex items-center justify-center gap-8">
                   <div className="text-center">
-                    <p className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-400">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
                       Minimum
                     </p>
-                    <p className="text-4xl font-black" style={{ color: primaryColor }}>
+                    <p className="text-4xl font-semibold" style={{ color: primaryColor }}>
                       {idealWeight.min}
                     </p>
                     <p className="text-sm font-medium text-gray-500">lbs</p>
                   </div>
                   <div className="text-4xl font-light text-gray-300">—</div>
                   <div className="text-center">
-                    <p className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-400">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
                       Maximum
                     </p>
-                    <p className="text-4xl font-black" style={{ color: primaryColor }}>
+                    <p className="text-4xl font-semibold" style={{ color: primaryColor }}>
                       {idealWeight.max}
                     </p>
                     <p className="text-sm font-medium text-gray-500">lbs</p>
@@ -355,7 +355,7 @@ export default function BMICalculatorPage() {
                           <TrendingDown className="h-6 w-6 text-amber-600" />
                         </div>
                         <div>
-                          <p className="font-bold text-amber-900">
+                          <p className="font-semibold text-amber-900">
                             {weightToLose.toFixed(0)} lbs to healthy range
                           </p>
                           <p className="text-sm text-amber-700">
@@ -369,7 +369,7 @@ export default function BMICalculatorPage() {
                           <Info className="h-6 w-6 text-blue-600" />
                         </div>
                         <div>
-                          <p className="font-bold text-blue-900">
+                          <p className="font-semibold text-blue-900">
                             {(idealWeight.min - parseFloat(weight)).toFixed(0)} lbs below range
                           </p>
                           <p className="text-sm text-blue-700">
@@ -383,7 +383,7 @@ export default function BMICalculatorPage() {
                           <Sparkles className="h-6 w-6 text-emerald-600" />
                         </div>
                         <div>
-                          <p className="font-bold text-emerald-900">You're in a healthy range!</p>
+                          <p className="font-semibold text-emerald-900">You're in a healthy range!</p>
                           <p className="text-sm text-emerald-700">
                             Keep maintaining your current lifestyle
                           </p>
@@ -403,7 +403,7 @@ export default function BMICalculatorPage() {
                 <Info className="h-5 w-5 text-gray-600" />
               </div>
               <div>
-                <h3 className="mb-2 font-bold text-gray-900">What is BMI?</h3>
+                <h3 className="mb-2 font-semibold text-gray-900">What is BMI?</h3>
                 <p className="text-sm leading-relaxed text-gray-600">
                   Body Mass Index (BMI) is a measure of body fat based on height and weight. While
                   useful as a screening tool, it doesn't account for muscle mass, bone density, or

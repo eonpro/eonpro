@@ -73,7 +73,7 @@ export default function CareTeamPage() {
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
         {/* Book a Visit Card */}
         <div className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
-          <h2 className="mb-2 text-xl font-bold">Book a Visit</h2>
+          <h2 className="mb-2 text-xl font-semibold">Book a Visit</h2>
           <p className="mb-4 text-sm text-blue-100">Schedule your next appointment</p>
 
           <div className="flex gap-3">
@@ -104,7 +104,7 @@ export default function CareTeamPage() {
               <div className="flex items-start gap-4">
                 {/* Avatar */}
                 <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-full font-bold text-white ${
+                  className={`flex h-14 w-14 items-center justify-center rounded-full font-semibold text-white ${
                     member.avatar === 'AI'
                       ? 'bg-gradient-to-br from-purple-500 to-pink-500'
                       : 'bg-gradient-to-br from-blue-500 to-blue-600'

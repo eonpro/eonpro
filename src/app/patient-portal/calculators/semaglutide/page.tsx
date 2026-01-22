@@ -57,7 +57,7 @@ export default function SemaglutideDoseCalculatorPage() {
           <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
           Back to Tools
         </Link>
-        <h1 className="text-3xl font-black text-gray-900">Dose Calculator</h1>
+        <h1 className="text-3xl font-semibold text-gray-900">Dose Calculator</h1>
         <p className="mt-2 text-gray-500">
           Convert units to milligrams for your Semaglutide injection
         </p>
@@ -69,7 +69,7 @@ export default function SemaglutideDoseCalculatorPage() {
           {/* Concentration Selection */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
             <div className="border-b border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                 <Droplets className="h-5 w-5" style={{ color: primaryColor }} />
                 Vial Concentration
               </h2>
@@ -89,7 +89,7 @@ export default function SemaglutideDoseCalculatorPage() {
                     }`}
                   >
                     <div
-                      className={`mb-2 text-3xl font-black ${concentration === c.value ? 'text-white' : 'text-gray-900'}`}
+                      className={`mb-2 text-3xl font-semibold ${concentration === c.value ? 'text-white' : 'text-gray-900'}`}
                     >
                       {c.value}
                     </div>
@@ -112,7 +112,7 @@ export default function SemaglutideDoseCalculatorPage() {
           {/* Units Input with Syringe Visual */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
             <div className="border-b border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                 <Syringe className="h-5 w-5" style={{ color: primaryColor }} />
                 Enter Units
               </h2>
@@ -133,10 +133,10 @@ export default function SemaglutideDoseCalculatorPage() {
                   min="0"
                   max="100"
                   step="1"
-                  className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 py-5 text-center text-4xl font-black text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:py-6 sm:text-5xl"
+                  className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 py-5 text-center text-4xl font-semibold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:py-6 sm:text-5xl"
                   style={{ fontSize: '36px' }} // Prevent iOS zoom
                 />
-                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-bold uppercase tracking-wider text-gray-400 sm:bottom-2 sm:text-sm">
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-semibold uppercase tracking-wider text-gray-400 sm:bottom-2 sm:text-sm">
                   insulin units
                 </span>
               </div>
@@ -163,7 +163,7 @@ export default function SemaglutideDoseCalculatorPage() {
                       >
                         <div className={`${mark % 20 === 0 ? 'w-4' : 'w-2'} h-0.5 bg-gray-300`} />
                         {mark % 20 === 0 && (
-                          <span className="ml-1 text-[10px] font-bold text-gray-400">{mark}</span>
+                          <span className="ml-1 text-[10px] font-semibold text-gray-400">{mark}</span>
                         )}
                       </div>
                     ))}
@@ -188,7 +188,7 @@ export default function SemaglutideDoseCalculatorPage() {
           {/* Quick Dose Selection */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
             <div className="border-b border-gray-100 p-6">
-              <h2 className="text-lg font-bold text-gray-900">Or Select Your Week</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Or Select Your Week</h2>
               <p className="mt-1 text-sm text-gray-500">Auto-calculates units for your dose</p>
             </div>
 
@@ -209,7 +209,7 @@ export default function SemaglutideDoseCalculatorPage() {
                   >
                     <div className="flex items-center gap-4">
                       <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-xl font-bold transition-all ${
+                        className={`flex h-10 w-10 items-center justify-center rounded-xl font-semibold transition-all ${
                           isSelected
                             ? 'bg-gray-900 text-white'
                             : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
@@ -218,13 +218,13 @@ export default function SemaglutideDoseCalculatorPage() {
                         {i + 1}
                       </div>
                       <div>
-                        <p className="font-bold text-gray-900">{schedule.label}</p>
+                        <p className="font-semibold text-gray-900">{schedule.label}</p>
                         <p className="text-sm text-gray-500">{schedule.desc}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <p className="text-lg font-black text-gray-900">{schedule.dose} mg</p>
+                        <p className="text-lg font-semibold text-gray-900">{schedule.dose} mg</p>
                         <p className="text-sm font-medium text-gray-500">{scheduleUnits} units</p>
                       </div>
                       <ChevronRight
@@ -254,31 +254,31 @@ export default function SemaglutideDoseCalculatorPage() {
             <div className="relative">
               <div className="mb-6 flex items-center gap-2">
                 <Syringe className="h-5 w-5 text-gray-700/60" />
-                <span className="text-sm font-bold uppercase tracking-wider text-gray-700/60">
+                <span className="text-sm font-semibold uppercase tracking-wider text-gray-700/60">
                   Your Dose
                 </span>
               </div>
 
               <div className="mb-6 grid grid-cols-2 gap-4">
                 <div className="rounded-2xl bg-white/40 p-6 backdrop-blur-sm">
-                  <p className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-600">
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-600">
                     Units
                   </p>
-                  <p className="text-5xl font-black text-gray-900">{units || '0'}</p>
+                  <p className="text-5xl font-semibold text-gray-900">{units || '0'}</p>
                 </div>
                 <div className="rounded-2xl bg-white/40 p-6 backdrop-blur-sm">
-                  <p className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-600">
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-600">
                     Milligrams
                   </p>
-                  <p className="text-5xl font-black text-gray-900">{result?.mg || '0'}</p>
+                  <p className="text-5xl font-semibold text-gray-900">{result?.mg || '0'}</p>
                 </div>
               </div>
 
               <div className="rounded-2xl bg-white/30 p-5 text-center backdrop-blur-sm">
-                <p className="mb-1 text-sm font-bold uppercase tracking-wider text-gray-600">
+                <p className="mb-1 text-sm font-semibold uppercase tracking-wider text-gray-600">
                   Volume to Inject
                 </p>
-                <p className="text-4xl font-black text-gray-900">{result?.mL || '0'} mL</p>
+                <p className="text-4xl font-semibold text-gray-900">{result?.mL || '0'} mL</p>
               </div>
             </div>
           </div>
@@ -286,36 +286,36 @@ export default function SemaglutideDoseCalculatorPage() {
           {/* Formula Card */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
             <div className="border-b border-gray-100 p-6">
-              <h3 className="text-lg font-bold text-gray-900">How It Works</h3>
+              <h3 className="text-lg font-semibold text-gray-900">How It Works</h3>
             </div>
 
             <div className="space-y-4 p-6">
               <div className="rounded-2xl bg-gray-50 p-4">
-                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   Step 1: Units to mL
                 </div>
-                <div className="font-mono text-lg font-bold text-gray-900">
+                <div className="font-mono text-lg font-semibold text-gray-900">
                   {units || '0'} units ÷ 100 = {result?.mL || '0'} mL
                 </div>
               </div>
 
               <div className="rounded-2xl bg-gray-50 p-4">
-                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   Step 2: mL to mg
                 </div>
-                <div className="font-mono text-lg font-bold text-gray-900">
+                <div className="font-mono text-lg font-semibold text-gray-900">
                   {result?.mL || '0'} mL × {concentration} mg/mL = {result?.mg || '0'} mg
                 </div>
               </div>
 
               <div className="rounded-2xl p-4" style={{ backgroundColor: `${primaryColor}10` }}>
                 <div
-                  className="mb-2 text-xs font-bold uppercase tracking-wider"
+                  className="mb-2 text-xs font-semibold uppercase tracking-wider"
                   style={{ color: primaryColor }}
                 >
                   Quick Reference
                 </div>
-                <div className="font-mono text-lg font-bold" style={{ color: primaryColor }}>
+                <div className="font-mono text-lg font-semibold" style={{ color: primaryColor }}>
                   100 units = 1 mL = {concentration} mg
                 </div>
               </div>
@@ -325,7 +325,7 @@ export default function SemaglutideDoseCalculatorPage() {
           {/* Titration Schedule */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
             <div className="border-b border-gray-100 p-6">
-              <h3 className="text-lg font-bold text-gray-900">Standard Titration</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Standard Titration</h3>
               <p className="mt-1 text-sm text-gray-500">Typical dosing schedule</p>
             </div>
 
@@ -338,7 +338,7 @@ export default function SemaglutideDoseCalculatorPage() {
                   {dosingSchedule.map((s, i) => (
                     <div key={s.week} className="relative flex items-center gap-4 pl-12">
                       <div
-                        className={`absolute left-0 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white text-sm font-bold shadow ${
+                        className={`absolute left-0 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white text-sm font-semibold shadow ${
                           i === dosingSchedule.length - 1
                             ? 'bg-gray-900 text-white'
                             : 'bg-gray-100 text-gray-600'
@@ -348,11 +348,11 @@ export default function SemaglutideDoseCalculatorPage() {
                       </div>
                       <div className="flex flex-1 items-center justify-between rounded-2xl bg-gray-50 p-4">
                         <div>
-                          <p className="font-bold text-gray-900">{s.label}</p>
+                          <p className="font-semibold text-gray-900">{s.label}</p>
                           <p className="text-sm text-gray-500">{s.desc}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-black text-gray-900">{s.dose} mg</p>
+                          <p className="text-xl font-semibold text-gray-900">{s.dose} mg</p>
                         </div>
                       </div>
                     </div>
@@ -369,7 +369,7 @@ export default function SemaglutideDoseCalculatorPage() {
                 <AlertTriangle className="h-6 w-6 text-amber-600" />
               </div>
               <div>
-                <h3 className="mb-2 font-bold text-amber-900">Important Safety Information</h3>
+                <h3 className="mb-2 font-semibold text-amber-900">Important Safety Information</h3>
                 <p className="text-sm leading-relaxed text-amber-800">
                   This calculator is for reference only. Always follow your provider's specific
                   dosing instructions. Contact your healthcare provider if you have any questions
