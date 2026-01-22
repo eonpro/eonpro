@@ -31,8 +31,21 @@ import {
   ValidationError,
   ForbiddenError,
   ConflictError,
+  type ValidationErrorDetail,
 } from '../../shared/errors';
 import type { UserContext } from '../../shared/types';
+import type { ZodIssue } from 'zod';
+
+/**
+ * Convert Zod issues to ValidationErrorDetail format
+ */
+function zodIssuesToValidationErrors(issues: ZodIssue[]): ValidationErrorDetail[] {
+  return issues.map((issue) => ({
+    field: issue.path.join('.'),
+    message: issue.message,
+    code: issue.code,
+  }));
+}
 
 /**
  * List providers result
@@ -138,7 +151,7 @@ export const providerService = {
       const firstIssue = parsed.error.issues[0];
       throw new ValidationError(
         firstIssue?.message ?? 'Invalid provider data',
-        parsed.error.issues
+        zodIssuesToValidationErrors(parsed.error.issues)
       );
     }
 
@@ -146,13 +159,25 @@ export const providerService = {
 
     // Check if NPI already exists
     if (await providerRepository.npiExists(data.npi)) {
-      throw new ConflictError('NPI', data.npi, 'This NPI is already registered');
+      throw new ConflictError('This NPI is already registered', { field: 'npi', value: data.npi });
     }
 
     // Verify NPI with national registry
     let npiRegistry: NpiVerificationResult | null = null;
     try {
-      npiRegistry = await lookupNpi(data.npi);
+      const lookupResult = await lookupNpi(data.npi);
+      // Map NpiLookupResult to NpiVerificationResult
+      npiRegistry = {
+        valid: !!lookupResult.number,
+        basic: lookupResult.basic,
+        addresses: lookupResult.addresses?.map(addr => ({
+          addressPurpose: addr.addressPurpose ?? '',
+          addressType: addr.addressType ?? '',
+          city: addr.city,
+          state: addr.state,
+          postalCode: addr.postalCode,
+        })),
+      };
     } catch (error) {
       logger.warn('[ProviderService] NPI verification failed', {
         npi: data.npi,
@@ -224,7 +249,7 @@ export const providerService = {
       const firstIssue = parsed.error.issues[0];
       throw new ValidationError(
         firstIssue?.message ?? 'Invalid provider data',
-        parsed.error.issues
+        zodIssuesToValidationErrors(parsed.error.issues)
       );
     }
 
@@ -233,7 +258,7 @@ export const providerService = {
     // If changing NPI, check it's not already taken
     if (data.npi && data.npi !== existing.npi) {
       if (await providerRepository.npiExists(data.npi, id)) {
-        throw new ConflictError('NPI', data.npi, 'This NPI is already registered');
+        throw new ConflictError('This NPI is already registered', { field: 'npi', value: data.npi });
       }
     }
 
@@ -286,12 +311,23 @@ export const providerService = {
     // Validate NPI format
     const parsed = verifyNpiSchema.safeParse({ npi });
     if (!parsed.success) {
-      throw new ValidationError('Invalid NPI format', parsed.error.issues);
+      throw new ValidationError('Invalid NPI format', zodIssuesToValidationErrors(parsed.error.issues));
     }
 
     try {
-      const result = await lookupNpi(npi);
-      return result;
+      const lookupResult = await lookupNpi(npi);
+      // Map NpiLookupResult to NpiVerificationResult
+      return {
+        valid: !!lookupResult.number,
+        basic: lookupResult.basic,
+        addresses: lookupResult.addresses?.map(addr => ({
+          addressPurpose: addr.addressPurpose ?? '',
+          addressType: addr.addressType ?? '',
+          city: addr.city,
+          state: addr.state,
+          postalCode: addr.postalCode,
+        })),
+      };
     } catch (error) {
       throw new AppError(
         'NPI_LOOKUP_FAILED',
@@ -315,7 +351,7 @@ export const providerService = {
     // Validate input
     const parsed = setPasswordSchema.safeParse(input);
     if (!parsed.success) {
-      throw new ValidationError('Invalid password input', parsed.error.issues);
+      throw new ValidationError('Invalid password input', zodIssuesToValidationErrors(parsed.error.issues));
     }
 
     // Check provider exists

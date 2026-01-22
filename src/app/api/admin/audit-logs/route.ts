@@ -20,8 +20,8 @@ import {
 } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 
-export const GET = withAuth({ roles: ['super_admin', 'admin'] })(
-  async (req: NextRequest, user: any) => {
+export const GET = withAuth(
+  async (req: NextRequest, user) => {
     try {
       const { searchParams } = new URL(req.url);
       
@@ -123,5 +123,6 @@ export const GET = withAuth({ roles: ['super_admin', 'admin'] })(
         { status: 500 }
       );
     }
-  }
+  },
+  { roles: ['super_admin', 'admin'] }
 );

@@ -8,6 +8,7 @@
  * @module domains/order/repositories
  */
 
+import { type Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type {
@@ -484,7 +485,7 @@ export const orderRepository = {
     orderInput: CreateOrderInput,
     rxInputs: Omit<CreateRxInput, 'orderId'>[]
   ): Promise<OrderWithDetails> {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create order
       const order = await tx.order.create({
         data: {

@@ -73,6 +73,7 @@
   "dependencies": {
     "@aws-sdk/client-kms": "^3.956.0",
     "@aws-sdk/client-s3": "^3.939.0",
+    "@aws-sdk/client-secrets-manager": "^3.974.0",
     "@aws-sdk/client-ses": "^3.939.0",
     "@aws-sdk/s3-request-presigner": "^3.939.0",
     "@azure/msal-node": "^3.8.4",

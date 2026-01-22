@@ -15,8 +15,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 describe('Multi-Tenant Security', () => {
   describe('Clinic Data Isolation', () => {
     it('should not allow access to other clinic data', () => {
-      const userClinicId = 1;
-      const requestedDataClinicId = 2;
+      const userClinicId: number = 1;
+      const requestedDataClinicId: number = 2;
       
       const isAuthorized = userClinicId === requestedDataClinicId;
       expect(isAuthorized).toBe(false);
@@ -55,8 +55,8 @@ describe('Multi-Tenant Security', () => {
     });
 
     it('should block cross-clinic updates', () => {
-      const userClinicId = 1;
-      const recordClinicId = 2;
+      const userClinicId: number = 1;
+      const recordClinicId: number = 2;
       
       // Simulate checking if user can update record
       const canUpdate = userClinicId === recordClinicId;
@@ -85,7 +85,7 @@ describe('Multi-Tenant Security', () => {
     });
 
     it('should not allow admin to bypass clinic filter', () => {
-      const userRole = 'admin';
+      const userRole: string = 'admin';
       const shouldBypassFilter = userRole === 'super_admin';
       
       expect(shouldBypassFilter).toBe(false);

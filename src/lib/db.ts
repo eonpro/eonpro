@@ -1,7 +1,8 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { logger } from './logger';
-import { createPrismaWithPHI, PrismaWithPHI } from './database/phi-extension';
+// PHI extension disabled - SSN field no longer exists in schema
+// import { createPrismaWithPHI, PrismaWithPHI } from './database/phi-extension';
 
 // Use AsyncLocalStorage for request-scoped clinic context
 // This prevents race conditions in serverless environments
@@ -532,22 +533,8 @@ export { clinicContextStorage };
 // ============================================================================
 // PHI ENCRYPTION
 // ============================================================================
+// PHI extension disabled - SSN field no longer exists in Patient schema
+// Re-enable when PHI fields are added back or use existing phi-encryption.ts
+// for field-level encryption in repositories
 
-/**
- * Prisma client with automatic PHI field encryption
- * Use this for operations that involve SSN or other sensitive PHI fields
- * 
- * @example
- * ```typescript
- * import { prismaWithPHI } from '@/lib/db';
- * 
- * // SSN is automatically encrypted on write
- * const patient = await prismaWithPHI.patient.create({
- *   data: { firstName: 'John', lastName: 'Doe', ssn: '123-45-6789', ... }
- * });
- * 
- * // SSN is automatically decrypted on read
- * console.log(patient.ssn); // '123-45-6789'
- * ```
- */
-export const prismaWithPHI: PrismaWithPHI = createPrismaWithPHI(basePrisma);
+// export const prismaWithPHI: PrismaWithPHI = createPrismaWithPHI(basePrisma);

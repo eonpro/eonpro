@@ -8,6 +8,7 @@
  * @module domains/provider/repositories
  */
 
+import { type Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
@@ -185,7 +186,7 @@ export const providerRepository = {
 
     // Remove duplicates (in case provider matches multiple conditions)
     const seen = new Set<number>();
-    const deduped = providers.filter((p) => {
+    const deduped = providers.filter((p: { id: number }) => {
       if (seen.has(p.id)) return false;
       seen.add(p.id);
       return true;
@@ -221,7 +222,7 @@ export const providerRepository = {
     },
     actorEmail: string
   ): Promise<ProviderWithClinic> {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const provider = await tx.provider.create({
         data: {
           firstName: input.firstName,
@@ -236,7 +237,7 @@ export const providerRepository = {
           signatureDataUrl: input.signatureDataUrl ?? null,
           clinicId: input.clinicId ?? null,
           npiVerifiedAt: input.npiVerifiedAt ?? null,
-          npiRawResponse: input.npiRawResponse ?? null,
+          npiRawResponse: (input.npiRawResponse ?? null) as Prisma.InputJsonValue,
         },
         select: PROVIDER_WITH_CLINIC_SELECT,
       });
@@ -248,9 +249,9 @@ export const providerRepository = {
           actorEmail,
           action: 'CREATE',
           diff: {
-            created: input,
+            created: JSON.stringify(input),
             by: actorEmail,
-          },
+          } as Prisma.InputJsonValue,
         },
       });
 
@@ -273,7 +274,7 @@ export const providerRepository = {
     input: UpdateProviderInput,
     actorEmail: string
   ): Promise<ProviderWithClinic> {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Get existing for diff
       const existing = await tx.provider.findUnique({
         where: { id },
@@ -312,7 +313,7 @@ export const providerRepository = {
             providerId: id,
             actorEmail,
             action: 'UPDATE',
-            diff: changeSet,
+            diff: changeSet as Prisma.InputJsonValue,
           },
         });
 
@@ -331,7 +332,7 @@ export const providerRepository = {
    * Delete provider (soft delete via audit trail)
    */
   async delete(id: number, actorEmail: string): Promise<void> {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.provider.findUnique({
         where: { id },
       });
@@ -375,7 +376,7 @@ export const providerRepository = {
    * Set or update provider password
    */
   async setPassword(id: number, passwordHash: string, actorEmail: string): Promise<void> {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.provider.update({
         where: { id },
         data: {

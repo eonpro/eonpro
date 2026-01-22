@@ -109,13 +109,14 @@ export function startSpan<T>(
     {
       name: options.name,
       op: options.op,
-      attributes: {
-        ...options.data,
-        ...options.tags,
-      },
+      attributes: Object.fromEntries(
+        Object.entries({ ...options.data, ...options.tags })
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      ),
     },
     callback
-  );
+  ) as Promise<T>;
 }
 
 /**
@@ -129,11 +130,20 @@ export async function trace<T>(
 ): Promise<T> {
   const startTime = Date.now();
   
+  // Convert metadata to string values for Sentry attributes
+  const attributes = metadata 
+    ? Object.fromEntries(
+        Object.entries(metadata)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      )
+    : undefined;
+  
   return Sentry.startSpan(
     {
       name,
       op: operation,
-      attributes: metadata,
+      attributes,
     },
     async (span) => {
       try {
@@ -142,7 +152,6 @@ export async function trace<T>(
         const duration = Date.now() - startTime;
         Sentry.metrics.distribution(`${operation}.duration`, duration, {
           unit: 'millisecond',
-          tags: { name },
         });
         
         return result;

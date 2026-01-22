@@ -300,7 +300,8 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
   return {
     async getPatient(id: number, user: UserContext): Promise<PatientEntity> {
       // Determine clinic filter based on role
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+      // Convert null to undefined for type compatibility
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
       // Require clinic for non-super-admin
       if (user.role !== 'super_admin' && !clinicId) {
@@ -438,7 +439,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       }
 
       // Determine clinic filter
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
       if (user.role !== 'super_admin' && !clinicId) {
         throw new ForbiddenError(ERR_NO_CLINIC);
@@ -484,7 +485,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       }
 
       // Determine clinic filter
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
       if (user.role !== 'super_admin' && !clinicId) {
         throw new ForbiddenError(ERR_NO_CLINIC);

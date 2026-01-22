@@ -33,24 +33,26 @@ import { trace, traceDbQuery, traceExternalService } from './tracing';
 
 /**
  * Record a custom metric
+ * Note: Tags removed - Sentry metrics API doesn't support tags in this version
  */
 export function recordMetric(
   name: string,
   value: number,
   unit?: string,
-  tags?: Record<string, string>
+  _tags?: Record<string, string>
 ): void {
-  Sentry.metrics.gauge(name, value, { unit, tags });
+  Sentry.metrics.gauge(name, value, { unit });
 }
 
 /**
  * Record a counter increment
+ * Note: Using gauge instead of increment due to API limitations
  */
 export function incrementCounter(
   name: string,
-  tags?: Record<string, string>
+  _tags?: Record<string, string>
 ): void {
-  Sentry.metrics.increment(name, 1, { tags });
+  Sentry.metrics.gauge(`${name}_count`, 1, {});
 }
 
 /**
@@ -60,9 +62,9 @@ export function recordDistribution(
   name: string,
   value: number,
   unit?: string,
-  tags?: Record<string, string>
+  _tags?: Record<string, string>
 ): void {
-  Sentry.metrics.distribution(name, value, { unit, tags });
+  Sentry.metrics.distribution(name, value, { unit });
 }
 
 /**

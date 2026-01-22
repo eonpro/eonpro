@@ -132,7 +132,12 @@ describe('Authentication Security', () => {
 
     it('should invalidate session on logout', async () => {
       // Session should be marked as invalid
-      const session = {
+      const session: {
+        id: string;
+        userId: number;
+        isValid: boolean;
+        invalidatedAt: Date | null;
+      } = {
         id: 'session-123',
         userId: 1,
         isValid: true,

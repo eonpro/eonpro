@@ -10,6 +10,7 @@
 
 /**
  * Patient entity as stored in the database
+ * Note: JSON fields (tags, sourceMetadata) use Prisma's JsonValue type for compatibility
  */
 export interface PatientEntity {
   id: number;
@@ -29,10 +30,10 @@ export interface PatientEntity {
   zip: string;
   lifefileId: string | null;
   notes: string | null;
-  tags: string[] | null;
+  tags: unknown; // Prisma JsonValue - typically string[] but stored as JSON
   stripeCustomerId: string | null;
   source: PatientSource;
-  sourceMetadata: PatientSourceMetadata | null;
+  sourceMetadata: unknown; // Prisma JsonValue - typically PatientSourceMetadata but stored as JSON
 }
 
 /**
@@ -49,7 +50,7 @@ export interface PatientWithClinic extends PatientEntity {
 /**
  * Patient source types
  */
-export type PatientSource = 'manual' | 'webhook' | 'api' | 'referral' | 'import';
+export type PatientSource = 'manual' | 'webhook' | 'api' | 'referral' | 'import' | string;
 
 /**
  * Metadata about how patient was created
@@ -64,6 +65,7 @@ export interface PatientSourceMetadata {
   webhookUrl?: string;
   referrerId?: string;
   importBatch?: string;
+  [key: string]: unknown; // Index signature for Prisma JSON compatibility
 }
 
 /**
@@ -83,7 +85,7 @@ export interface PatientSummary {
   city: string;
   state: string;
   zip: string;
-  tags: string[] | null;
+  tags: unknown; // Prisma JsonValue - typically string[] but stored as JSON
   source: PatientSource;
   createdAt: Date;
   clinicId: number;
@@ -116,6 +118,7 @@ export interface CreatePatientInput {
   clinicId: number;
   source?: PatientSource;
   sourceMetadata?: PatientSourceMetadata;
+  [key: string]: unknown; // Index signature for Prisma compatibility
 }
 
 /**
@@ -135,6 +138,7 @@ export interface UpdatePatientInput {
   zip?: string;
   notes?: string | null;
   tags?: string[] | null;
+  [key: string]: unknown; // Index signature for Prisma compatibility
 }
 
 /**
