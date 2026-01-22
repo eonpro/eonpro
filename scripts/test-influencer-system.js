@@ -12,7 +12,8 @@ async function main() {
   try {
     // 1. Create a test influencer
     logger.info('1. Creating test influencer...');
-    const passwordHash = await bcrypt.hash('test123', 10);
+    const testPassword = process.env.TEST_PASSWORD || 'TestPassword123!';
+    const passwordHash = await bcrypt.hash(testPassword, 10);
     
     let influencer = await prisma.influencer.findUnique({
       where: { email: 'test.influencer@example.com' }

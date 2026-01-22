@@ -384,6 +384,9 @@ export async function getFormByLinkId(linkId: string): Promise<any> {
             questions: {
               orderBy: { orderIndex: 'asc' },
             },
+            clinic: {
+              select: { id: true, name: true },
+            },
           },
         },
         submission: {
@@ -457,12 +460,26 @@ export async function submitFormResponses(
 
     // If patientInfo is provided, try to find/create patient
     if (!patientId && patientInfo?.email) {
-      // Find or create patient
+      // Get clinicId from template for data integrity
+      const templateClinicId = link.template.clinicId;
+      
+      // Find or create patient within the clinic context
       let patient = await prisma.patient.findFirst({
-        where: { email: patientInfo.email.toLowerCase() }
+        where: { 
+          email: patientInfo.email.toLowerCase(),
+          ...(templateClinicId && { clinicId: templateClinicId }),
+        }
       });
 
       if (!patient) {
+        // CRITICAL: Must have clinicId for new patients
+        if (!templateClinicId) {
+          logger.warn('Creating patient without clinicId from intake form', {
+            email: patientInfo.email,
+            templateId: link.template.id,
+          });
+        }
+        
         patient = await prisma.patient.create({
           data: {
             email: patientInfo.email.toLowerCase(),
@@ -474,7 +491,8 @@ export async function submitFormResponses(
             address1: '',
             city: '',
             state: '',
-            zip: ''
+            zip: '',
+            clinicId: templateClinicId, // Inherit from template
           }
         });
       } else {

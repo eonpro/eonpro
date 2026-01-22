@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { logger } from './logger';
+import { createPrismaWithPHI, PrismaWithPHI } from './database/phi-extension';
 
 // Use AsyncLocalStorage for request-scoped clinic context
 // This prevents race conditions in serverless environments
@@ -12,26 +13,50 @@ const globalForPrisma = global as unknown as {
 };
 
 // Models that require clinic isolation (lowercase for comparison)
+// IMPORTANT: Any model with clinicId should be in this list
 const CLINIC_ISOLATED_MODELS = [
+  // Core clinical models
   'patient',
   'provider',
   'order',
+  'prescription',
+  'soapnote',
+  'appointment',
+  'careplan',           // Treatment plans
+  
+  // Billing models
   'invoice',
   'payment',
   'subscription',
-  'influencer',
-  'ticket',
+  'superbill',          // Medical billing
+  
+  // Documents & forms
   'patientdocument',
-  'soapnote',
-  'prescription',
-  'appointment',
   'intakeformtemplate',
+  
+  // Communication
   'internalmessage',
-  'patientchatmessage', // Two-way patient chat
-  'patientwaterlog',    // Health tracking
+  'patientchatmessage',
+  
+  // Support tickets (clinic-specific)
+  'ticket',
+  'ticketcomment',
+  'ticketworklog',
+  'ticketassignment',
+  
+  // Patient health tracking
+  'patientwaterlog',
   'patientexerciselog',
   'patientsleeplog',
   'patientnutritionlog',
+  'patientweightlog',
+  'patientmedicationreminder',
+  
+  // Affiliate/influencer (clinic-specific programs)
+  'influencer',
+  
+  // Products (clinic-specific catalog)
+  'product',
 ];
 
 /**
@@ -82,12 +107,30 @@ class PrismaWithClinicFilter {
   }
 
   /**
+   * Check if clinic filter should be bypassed
+   * SECURITY: Only allowed in non-production environments
+   */
+  private shouldBypassFilter(): boolean {
+    if (process.env.BYPASS_CLINIC_FILTER === 'true') {
+      if (process.env.NODE_ENV === 'production') {
+        logger.security('CRITICAL: BYPASS_CLINIC_FILTER attempted in production - BLOCKED', {
+          timestamp: new Date().toISOString(),
+        });
+        return false; // NEVER bypass in production
+      }
+      logger.warn('BYPASS_CLINIC_FILTER is enabled - clinic isolation disabled');
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Apply clinic filter to where clause
    */
   private applyClinicFilter(where: any = {}): any {
     const clinicId = this.getClinicId();
     
-    if (!clinicId || process.env.BYPASS_CLINIC_FILTER === 'true') {
+    if (!clinicId || this.shouldBypassFilter()) {
       return where;
     }
     
@@ -98,12 +141,12 @@ class PrismaWithClinicFilter {
   }
   
   /**
-   * Apply clinic ID to data
+   * Apply clinic ID to data for creates
    */
   private applyClinicToData(data: any): any {
     const clinicId = this.getClinicId();
     
-    if (!clinicId || process.env.BYPASS_CLINIC_FILTER === 'true') {
+    if (!clinicId || this.shouldBypassFilter()) {
       return data;
     }
     
@@ -117,6 +160,25 @@ class PrismaWithClinicFilter {
     return {
       ...data,
       clinicId: clinicId
+    };
+  }
+
+  /**
+   * Apply clinic filter to groupBy args
+   */
+  private applyClinicToGroupBy(args: any = {}): any {
+    const clinicId = this.getClinicId();
+    
+    if (!clinicId || this.shouldBypassFilter()) {
+      return args;
+    }
+    
+    return {
+      ...args,
+      where: {
+        ...args.where,
+        clinicId: clinicId
+      }
     };
   }
   
@@ -150,9 +212,15 @@ class PrismaWithClinicFilter {
         
         // Wrap methods that need clinic filtering
         const methodsToWrap = [
+          // Read operations
           'findUnique', 'findFirst', 'findMany', 
-          'create', 'createMany', 'update', 'updateMany',
-          'delete', 'deleteMany', 'count', 'aggregate'
+          'findUniqueOrThrow', 'findFirstOrThrow',
+          'count', 'aggregate', 'groupBy',
+          // Write operations
+          'create', 'createMany', 'createManyAndReturn',
+          'update', 'updateMany',
+          'delete', 'deleteMany',
+          'upsert',
         ];
         
         if (!methodsToWrap.includes(prop as string)) {
@@ -162,22 +230,35 @@ class PrismaWithClinicFilter {
         // Return wrapped method
         return async (args: any = {}) => {
           let modifiedArgs = { ...args };
+          const method = prop as string;
           
-          // Apply clinic filter based on method
-          if (['findUnique', 'findFirst', 'findMany', 'count', 'aggregate'].includes(prop as string)) {
+          // Apply clinic filter based on method type
+          if ([
+            'findUnique', 'findFirst', 'findMany',
+            'findUniqueOrThrow', 'findFirstOrThrow',
+            'count', 'aggregate'
+          ].includes(method)) {
             modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where);
-          } else if (prop === 'create') {
+          } else if (method === 'groupBy') {
+            modifiedArgs = this.applyClinicToGroupBy(modifiedArgs);
+          } else if (method === 'create' || method === 'createMany' || method === 'createManyAndReturn') {
             modifiedArgs.data = this.applyClinicToData(modifiedArgs.data);
-          } else if (prop === 'createMany') {
-            modifiedArgs.data = this.applyClinicToData(modifiedArgs.data);
-          } else if (['update', 'updateMany', 'delete', 'deleteMany'].includes(prop as string)) {
+          } else if (['update', 'updateMany', 'delete', 'deleteMany'].includes(method)) {
             modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where);
+          } else if (method === 'upsert') {
+            // Upsert needs both where filter and create data with clinicId
+            modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where);
+            modifiedArgs.create = this.applyClinicToData(modifiedArgs.create);
+            // Update clause should NOT override clinicId
+            if (modifiedArgs.update && typeof modifiedArgs.update === 'object') {
+              delete modifiedArgs.update.clinicId; // Prevent changing clinic via upsert
+            }
           }
           
           // Execute with modified args
           const result = await originalMethod.call(target, modifiedArgs);
           
-          // Validate results
+          // Validate results (defense-in-depth)
           const currentClinicId = this.getClinicId();
           if (result && currentClinicId) {
             const clinicId = currentClinicId;
@@ -190,12 +271,13 @@ class PrismaWithClinicFilter {
               if (invalidRecords.length > 0) {
                 logger.security('CRITICAL: Cross-clinic data leak detected', {
                   model: modelName,
-                  method: prop,
+                  method: method,
                   expectedClinic: clinicId,
-                  leakedRecords: invalidRecords.length
+                  leakedRecords: invalidRecords.length,
+                  timestamp: new Date().toISOString(),
                 });
                 
-                // Filter out invalid records
+                // Filter out invalid records - never leak data
                 return result.filter((record: any) => 
                   !record.clinicId || record.clinicId === clinicId
                 );
@@ -204,11 +286,13 @@ class PrismaWithClinicFilter {
               if (result.clinicId && result.clinicId !== clinicId) {
                 logger.security('CRITICAL: Cross-clinic data access attempted', {
                   model: modelName,
-                  method: prop,
+                  method: method,
                   expectedClinic: clinicId,
-                  actualClinic: result.clinicId
+                  actualClinic: result.clinicId,
+                  timestamp: new Date().toISOString(),
                 });
                 
+                // Block access - return null instead of wrong clinic's data
                 return null;
               }
             }
@@ -220,78 +304,126 @@ class PrismaWithClinicFilter {
     });
   }
   
-  // Expose Prisma models with clinic filtering
+  // ============================================================================
+  // CLINIC-ISOLATED MODELS (automatically filtered by clinicId)
+  // ============================================================================
+  
+  // Core clinical models
   get patient() { return this.createModelProxy('patient'); }
   get provider() { return this.createModelProxy('provider'); }
   get order() { return this.createModelProxy('order'); }
+  get prescription() { return this.createModelProxy('prescription'); }
+  get sOAPNote() { return this.createModelProxy('sOAPNote'); }
+  get appointment() { return this.createModelProxy('appointment'); }
+  get carePlan() { return this.createModelProxy('carePlan'); }
+  
+  // Billing models
   get invoice() { return this.createModelProxy('invoice'); }
   get payment() { return this.createModelProxy('payment'); }
   get subscription() { return this.createModelProxy('subscription'); }
-  get influencer() { return this.createModelProxy('influencer'); }
-  get ticket() { return this.createModelProxy('ticket'); }
+  get superbill() { return this.createModelProxy('superbill'); }
+  
+  // Documents & forms
   get patientDocument() { return this.createModelProxy('patientDocument'); }
-  get sOAPNote() { return this.createModelProxy('sOAPNote'); }
-  get prescription() { return this.createModelProxy('prescription'); }
-  get appointment() { return this.createModelProxy('appointment'); }
   get intakeFormTemplate() { return this.createModelProxy('intakeFormTemplate'); }
+  
+  // Communication
   get internalMessage() { return this.createModelProxy('internalMessage'); }
   get patientChatMessage() { return this.createModelProxy('patientChatMessage'); }
+  
+  // Support tickets (clinic-specific)
+  get ticket() { return this.createModelProxy('ticket'); }
+  get ticketComment() { return this.createModelProxy('ticketComment'); }
+  get ticketWorkLog() { return this.createModelProxy('ticketWorkLog'); }
+  get ticketAssignment() { return this.createModelProxy('ticketAssignment'); }
+  
+  // Patient health tracking
   get patientWaterLog() { return this.createModelProxy('patientWaterLog'); }
   get patientExerciseLog() { return this.createModelProxy('patientExerciseLog'); }
   get patientSleepLog() { return this.createModelProxy('patientSleepLog'); }
   get patientNutritionLog() { return this.createModelProxy('patientNutritionLog'); }
+  get patientWeightLog() { return this.createModelProxy('patientWeightLog'); }
+  get patientMedicationReminder() { return this.createModelProxy('patientMedicationReminder'); }
+  
+  // Affiliate/influencer
+  get influencer() { return this.createModelProxy('influencer'); }
+  
+  // Products
+  get product() { return this.createModelProxy('product'); }
 
-  // Models that don't need clinic filtering - pass through directly
+  // ============================================================================
+  // NON-ISOLATED MODELS (global or user-scoped, not clinic-scoped)
+  // ============================================================================
+  
+  // System-wide models
   get user() { return this.client.user; }
   get clinic() { return this.client.clinic; }
   get systemSettings() { return this.client.systemSettings; }
   get integration() { return this.client.integration; }
   get apiKey() { return this.client.apiKey; }
+  
+  // Webhook infrastructure (system-wide)
   get webhookConfig() { return this.client.webhookConfig; }
   get webhookDelivery() { return this.client.webhookDelivery; }
   get webhookLog() { return this.client.webhookLog; }
+  
+  // Audit logs (need cross-clinic visibility for super admin)
   get clinicAuditLog() { return this.client.clinicAuditLog; }
   get userSession() { return this.client.userSession; }
   get userAuditLog() { return this.client.userAuditLog; }
   get patientAudit() { return this.client.patientAudit; }
   get providerAudit() { return this.client.providerAudit; }
   get orderEvent() { return this.client.orderEvent; }
+  get auditLog() { return this.client.auditLog; }
+  
+  // Counters & sequences (clinic-scoped but handled differently)
   get patientCounter() { return this.client.patientCounter; }
+  
+  // AI (user-scoped, not clinic-scoped)
   get aIConversation() { return this.client.aIConversation; }
   get aIMessage() { return this.client.aIMessage; }
+  
+  // Prescriptions (Rx model is separate from prescription)
   get rx() { return this.client.rx; }
   get sOAPNoteRevision() { return this.client.sOAPNoteRevision; }
+  
+  // Payment methods (user-scoped)
   get paymentMethod() { return this.client.paymentMethod; }
+  
+  // Referral/affiliate (program-level, not clinic-level)
   get referralTracking() { return this.client.referralTracking; }
   get influencerBankAccount() { return this.client.influencerBankAccount; }
   get commission() { return this.client.commission; }
   get commissionPayout() { return this.client.commissionPayout; }
-  get intakeFormSubmission() { return this.client.intakeFormSubmission; }
-  get intakeFormQuestion() { return this.client.intakeFormQuestion; }
-  get intakeFormResponse() { return this.client.intakeFormResponse; }
-  get intakeFormLink() { return this.client.intakeFormLink; }
-  get patientWeightLog() { return this.client.patientWeightLog; }
-  get patientMedicationReminder() { return this.client.patientMedicationReminder; }
-  get ticketAssignment() { return this.client.ticketAssignment; }
-  get ticketComment() { return this.client.ticketComment; }
-  get ticketStatusHistory() { return this.client.ticketStatusHistory; }
-  get ticketWorkLog() { return this.client.ticketWorkLog; }
-  get ticketEscalation() { return this.client.ticketEscalation; }
-  get ticketSLA() { return this.client.ticketSLA; }
-  get apiUsageLog() { return this.client.apiUsageLog; }
-  get integrationLog() { return this.client.integrationLog; }
-  get developerTool() { return this.client.developerTool; }
-  get auditLog() { return this.client.auditLog; }
-  get superbill() { return this.client.superbill; }
-  get carePlan() { return this.client.carePlan; }
-  get smsLog() { return this.client.smsLog; }
-  get discountCode() { return this.client.discountCode; }
-  get discountUsage() { return this.client.discountUsage; }
   get affiliateReferral() { return this.client.affiliateReferral; }
   get affiliateCommission() { return this.client.affiliateCommission; }
   get affiliateProgram() { return this.client.affiliateProgram; }
   get affiliateTier() { return this.client.affiliateTier; }
-  get product() { return this.createModelProxy('product'); }
+  
+  // Intake forms (submission-level, not clinic-level)
+  get intakeFormSubmission() { return this.client.intakeFormSubmission; }
+  get intakeFormQuestion() { return this.client.intakeFormQuestion; }
+  get intakeFormResponse() { return this.client.intakeFormResponse; }
+  get intakeFormLink() { return this.client.intakeFormLink; }
+  
+  // Ticket metadata (non-isolated - ticket itself is isolated)
+  get ticketStatusHistory() { return this.client.ticketStatusHistory; }
+  get ticketEscalation() { return this.client.ticketEscalation; }
+  get ticketSLA() { return this.client.ticketSLA; }
+  
+  // Developer/API tools (system-wide)
+  get apiUsageLog() { return this.client.apiUsageLog; }
+  get integrationLog() { return this.client.integrationLog; }
+  get developerTool() { return this.client.developerTool; }
+  
+  // SMS logs (system-wide)
+  get smsLog() { return this.client.smsLog; }
+  
+  // Discounts (system-wide promotions)
+  get discountCode() { return this.client.discountCode; }
+  get discountUsage() { return this.client.discountUsage; }
+  
+  // Product bundles (system-wide catalog)
   get productBundle() { return this.client.productBundle; }
   get productBundleItem() { return this.client.productBundleItem; }
   get pricingRule() { return this.client.pricingRule; }
@@ -396,3 +528,26 @@ export async function withoutClinicFilter<T>(
  * Use this to wrap request handlers in a clinic context
  */
 export { clinicContextStorage };
+
+// ============================================================================
+// PHI ENCRYPTION
+// ============================================================================
+
+/**
+ * Prisma client with automatic PHI field encryption
+ * Use this for operations that involve SSN or other sensitive PHI fields
+ * 
+ * @example
+ * ```typescript
+ * import { prismaWithPHI } from '@/lib/db';
+ * 
+ * // SSN is automatically encrypted on write
+ * const patient = await prismaWithPHI.patient.create({
+ *   data: { firstName: 'John', lastName: 'Doe', ssn: '123-45-6789', ... }
+ * });
+ * 
+ * // SSN is automatically decrypted on read
+ * console.log(patient.ssn); // '123-45-6789'
+ * ```
+ */
+export const prismaWithPHI: PrismaWithPHI = createPrismaWithPHI(basePrisma);

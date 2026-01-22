@@ -10,8 +10,10 @@ datasource db {
 model Patient {
   id                  Int                         @id @default(autoincrement())
   createdAt           DateTime                    @default(now())
-  clinicId            Int? // Multi-clinic support
-  clinic              Clinic?                     @relation(fields: [clinicId], references: [id])
+  // REQUIRED: All patients must belong to a clinic for multi-tenant data isolation
+  // Migration: Run scripts/fix-orphaned-patients.ts before deploying this change
+  clinicId            Int
+  clinic              Clinic                      @relation(fields: [clinicId], references: [id])
   firstName           String
   lastName            String
   dob                 String
@@ -770,6 +772,54 @@ model AuditLog {
   @@index([userId, createdAt(sort: Desc)])
   @@index([action, createdAt(sort: Desc)])
   @@index([resource, resourceId])
+}
+
+// HIPAA-Compliant Audit Entry - Comprehensive PHI access logging
+// Designed to meet HIPAA §164.312(b) audit control requirements
+model HIPAAAuditEntry {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  
+  // User context - who performed the action
+  userId        String   // String to handle system/anonymous
+  userEmail     String
+  userRole      String
+  clinicId      Int?
+  
+  // Event classification
+  eventType     String   // PHI_VIEW, PHI_UPDATE, LOGIN, etc.
+  resourceType  String   // Patient, Order, SOAPNote, etc.
+  resourceId    String?  // ID of accessed resource
+  patientId     Int?     // Patient whose data was accessed (for PHI events)
+  
+  // Request context - forensic data
+  ipAddress     String
+  userAgent     String
+  sessionId     String?
+  requestId     String   // Unique request identifier
+  requestMethod String   // GET, POST, PUT, DELETE
+  requestPath   String   // API path accessed
+  
+  // Outcome tracking
+  outcome       String   // SUCCESS, FAILURE, PARTIAL
+  reason        String?  // Failure reason if applicable
+  
+  // Integrity verification (tamper detection)
+  hash          String   // SHA-256 hash of record for integrity
+  
+  // Additional context
+  metadata      Json?    // Flexible additional data
+  emergency     Boolean  @default(false) // Break-glass access
+  
+  // Indexes for efficient querying (HIPAA requires searchable audit logs)
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
+  @@index([patientId, createdAt(sort: Desc)])
+  @@index([clinicId, createdAt(sort: Desc)])
+  @@index([resourceType, resourceId])
+  @@index([createdAt(sort: Desc)])
+  @@index([outcome, createdAt(sort: Desc)])
+  @@index([requestId])
 }
 
 // Password Reset Token

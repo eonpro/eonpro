@@ -70,11 +70,11 @@ jobs:
         
       - name: Run npm audit
         run: npm audit --production --audit-level=high
-        continue-on-error: true
+        # Security scans are BLOCKING - no continue-on-error
         
       - name: Run Snyk security scan
         uses: snyk/actions/node@master
-        continue-on-error: true
+        # Security scans are BLOCKING - no continue-on-error
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -333,8 +333,9 @@ jobs:
             echo "❌ Lint check failed"
             exit 1
           fi
-          if [[ "${{ needs.security.result }}" == "failure" ]]; then
-            echo "⚠️ Security scan found issues (allowed to continue)"
+          if [[ "${{ needs.security.result }}" != "success" ]]; then
+            echo "❌ Security scan failed - blocking deployment"
+            exit 1
           fi
           if [[ "${{ needs.test.result }}" != "success" ]]; then
             echo "❌ Tests failed"
@@ -344,4 +345,4 @@ jobs:
             echo "❌ Build failed"
             exit 1
           fi
-          echo "✅ All quality gates passed"
+          echo "✅ All quality gates passed (including security)"

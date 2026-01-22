@@ -3,7 +3,10 @@
  * ====================
  * Creates a test admin user (protected by init key)
  * 
- * POST /api/admin/create-test-user?key=init-eonpro-2024
+ * ⚠️ SECURITY: This endpoint is DISABLED in production environments.
+ * No environment variable can override this restriction.
+ * 
+ * POST /api/admin/create-test-user?key=<DB_INIT_KEY>
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,17 +16,24 @@ import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
-    // Security check - STRICT: Requires DB_INIT_KEY env var, no fallback
+    // SECURITY: HARD BLOCK in production - NO EXCEPTIONS
+    // This cannot be overridden by any environment variable
+    if (process.env.NODE_ENV === 'production') {
+      logger.security('BLOCKED: Test user creation attempted in production', {
+        ip: req.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: req.headers.get('user-agent') || 'unknown',
+      });
+      return NextResponse.json(
+        { error: 'This endpoint is permanently disabled in production' },
+        { status: 403 }
+      );
+    }
+    
+    // Security check - Requires DB_INIT_KEY env var, no fallback
     const expectedKey = process.env.DB_INIT_KEY;
     if (!expectedKey) {
       logger.error('[CREATE-TEST-USER] DB_INIT_KEY not configured');
       return NextResponse.json({ error: 'Endpoint not configured' }, { status: 500 });
-    }
-    
-    // Only allow in development/staging
-    if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_TEST_USER_CREATION) {
-      logger.warn('[CREATE-TEST-USER] Attempt to create test user in production');
-      return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
     }
     
     const { searchParams } = new URL(req.url);

@@ -1,12 +1,21 @@
 /**
  * HIPAA-Compliant Audit Logging Service
  * Tracks all PHI access and modifications with tamper-proof logging
+ * 
+ * Persists to HIPAAAuditEntry table for queryable compliance reporting.
+ * Meets HIPAA §164.312(b) audit control requirements.
+ * 
+ * @module audit/hipaa-audit
+ * @version 2.0.0 - Database persistence enabled
  */
 
-import { prisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { logger } from '@/lib/logger';
+
+// Feature flag for database persistence (allows gradual rollout)
+const AUDIT_TO_DATABASE = process.env.AUDIT_TO_DATABASE !== 'false'; // Default: true
 
 // Audit event types
 export enum AuditEventType {
@@ -156,12 +165,45 @@ export async function auditLog(
     // Calculate integrity hash
     const hash = calculateAuditHash(auditData);
     
-    // Store in database (create new model if needed)
-    // For now, log to system
+    // PERSIST TO DATABASE for queryable audit trail (HIPAA requirement)
+    if (AUDIT_TO_DATABASE) {
+      try {
+        await basePrisma.hIPAAAuditEntry.create({
+          data: {
+            userId: auditData.userId,
+            userEmail: auditData.userEmail,
+            userRole: auditData.userRole,
+            clinicId: auditData.clinicId,
+            eventType: auditData.eventType,
+            resourceType: auditData.resourceType,
+            resourceId: auditData.resourceId || null,
+            patientId: auditData.patientId,
+            ipAddress: auditData.ipAddress,
+            userAgent: auditData.userAgent,
+            sessionId: auditData.sessionId,
+            requestId: auditData.requestId,
+            requestMethod: auditData.requestMethod,
+            requestPath: auditData.requestPath,
+            outcome: auditData.outcome,
+            reason: auditData.reason,
+            hash: hash,
+            metadata: auditData.metadata,
+            emergency: auditData.emergency,
+          },
+        });
+      } catch (dbError) {
+        // Database write failed - log but don't fail the request
+        logger.error('Failed to persist audit log to database', dbError as Error);
+        // Fall through to Sentry logging as backup
+      }
+    }
+    
+    // Also log to Sentry for real-time monitoring
     logger.api('AUDIT', context.eventType, {
       ...auditData,
       hash,
       integrity: 'SHA256',
+      persistedToDb: AUDIT_TO_DATABASE,
     });
     
     // If this is a security event, trigger alerts
@@ -339,19 +381,59 @@ export function withAuditLog<T extends (...args: any[]) => any>(
 
 /**
  * Query audit logs with filters
+ * Returns audit entries matching the specified criteria
  */
 export async function queryAuditLogs(filters: {
   userId?: string;
   patientId?: number;
+  clinicId?: number;
   eventType?: AuditEventType;
   startDate?: Date;
   endDate?: Date;
   outcome?: 'SUCCESS' | 'FAILURE';
   limit?: number;
+  offset?: number;
 }): Promise<any[]> {
-  // This would query from database
-  // For now, return empty array
-  return [];
+  try {
+    const where: any = {};
+    
+    if (filters.userId) {
+      where.userId = filters.userId;
+    }
+    if (filters.patientId) {
+      where.patientId = filters.patientId;
+    }
+    if (filters.clinicId) {
+      where.clinicId = filters.clinicId;
+    }
+    if (filters.eventType) {
+      where.eventType = filters.eventType;
+    }
+    if (filters.outcome) {
+      where.outcome = filters.outcome;
+    }
+    if (filters.startDate || filters.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) {
+        where.createdAt.gte = filters.startDate;
+      }
+      if (filters.endDate) {
+        where.createdAt.lte = filters.endDate;
+      }
+    }
+    
+    const logs = await basePrisma.hIPAAAuditEntry.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: filters.limit || 1000,
+      skip: filters.offset || 0,
+    });
+    
+    return logs;
+  } catch (error) {
+    logger.error('Failed to query audit logs', error as Error);
+    return [];
+  }
 }
 
 /**
@@ -385,14 +467,131 @@ export async function generateAuditReport(
 }
 
 /**
- * Verify audit log integrity
+ * Verify audit log integrity by recalculating and comparing hash
+ * Used for tamper detection in compliance audits
  */
 export async function verifyAuditIntegrity(
-  logId: string
+  logId: number
 ): Promise<{ valid: boolean; reason?: string }> {
-  // Fetch log and recalculate hash
-  // Compare with stored hash
-  return { valid: true };
+  try {
+    const entry = await basePrisma.hIPAAAuditEntry.findUnique({
+      where: { id: logId },
+    });
+    
+    if (!entry) {
+      return { valid: false, reason: 'Audit entry not found' };
+    }
+    
+    // Reconstruct the data object for hash verification
+    const auditData = {
+      userId: entry.userId,
+      userEmail: entry.userEmail,
+      userRole: entry.userRole,
+      clinicId: entry.clinicId,
+      eventType: entry.eventType,
+      resourceType: entry.resourceType,
+      resourceId: entry.resourceId,
+      patientId: entry.patientId,
+      ipAddress: entry.ipAddress,
+      userAgent: entry.userAgent,
+      sessionId: entry.sessionId,
+      requestId: entry.requestId,
+      requestMethod: entry.requestMethod,
+      requestPath: entry.requestPath,
+      outcome: entry.outcome,
+      reason: entry.reason,
+      metadata: entry.metadata,
+      emergency: entry.emergency,
+    };
+    
+    const recalculatedHash = calculateAuditHash(auditData);
+    
+    if (recalculatedHash !== entry.hash) {
+      logger.security('AUDIT_INTEGRITY_VIOLATION', {
+        logId,
+        expectedHash: entry.hash,
+        calculatedHash: recalculatedHash,
+      });
+      return { valid: false, reason: 'Hash mismatch - possible tampering detected' };
+    }
+    
+    return { valid: true };
+  } catch (error) {
+    logger.error('Failed to verify audit integrity', error as Error);
+    return { valid: false, reason: 'Verification failed due to error' };
+  }
+}
+
+/**
+ * Get audit statistics for compliance reporting
+ */
+export async function getAuditStats(filters: {
+  clinicId?: number;
+  startDate: Date;
+  endDate: Date;
+}): Promise<{
+  totalEvents: number;
+  byEventType: Record<string, number>;
+  byOutcome: Record<string, number>;
+  phiAccessCount: number;
+}> {
+  try {
+    const where: any = {
+      createdAt: {
+        gte: filters.startDate,
+        lte: filters.endDate,
+      },
+    };
+    
+    if (filters.clinicId) {
+      where.clinicId = filters.clinicId;
+    }
+    
+    const [totalEvents, phiAccessCount, eventTypeGroups, outcomeGroups] = await Promise.all([
+      basePrisma.hIPAAAuditEntry.count({ where }),
+      basePrisma.hIPAAAuditEntry.count({
+        where: {
+          ...where,
+          eventType: { in: ['PHI_VIEW', 'PHI_UPDATE', 'PHI_CREATE', 'PHI_DELETE', 'PHI_EXPORT'] },
+        },
+      }),
+      basePrisma.hIPAAAuditEntry.groupBy({
+        by: ['eventType'],
+        where,
+        _count: true,
+      }),
+      basePrisma.hIPAAAuditEntry.groupBy({
+        by: ['outcome'],
+        where,
+        _count: true,
+      }),
+    ]);
+    
+    const byEventType: Record<string, number> = {};
+    eventTypeGroups.forEach((g: any) => {
+      byEventType[g.eventType] = g._count;
+    });
+    
+    const byOutcome: Record<string, number> = {};
+    outcomeGroups.forEach((g: any) => {
+      byOutcome[g.outcome] = g._count;
+    });
+    
+    return {
+      totalEvents,
+      byEventType,
+      byOutcome,
+      phiAccessCount,
+    };
+  } catch (error) {
+    logger.error('Failed to get audit stats', error as Error);
+    return {
+      totalEvents: 0,
+      byEventType: {},
+      byOutcome: {},
+      phiAccessCount: 0,
+    };
+  }
 }
 
 // Export event types for use in application

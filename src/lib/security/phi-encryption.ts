@@ -1,9 +1,42 @@
 /**
  * PHI Encryption Service
- * HIPAA-compliant encryption for Protected Health Information
- * Uses AES-256-GCM for authenticated encryption
+ * ======================
  * 
- * In production, encryption keys are managed by AWS KMS
+ * HIPAA-compliant encryption for Protected Health Information (PHI)
+ * using AES-256-GCM authenticated encryption.
+ * 
+ * @module security/phi-encryption
+ * @version 2.0.0
+ * @security CRITICAL - This module handles all PHI encryption/decryption
+ * 
+ * ## Features
+ * - AES-256-GCM authenticated encryption
+ * - Unique IV (Initialization Vector) per encryption
+ * - AWS KMS integration for production key management
+ * - Key rotation support
+ * - Batch encryption/decryption operations
+ * 
+ * ## Security Notes
+ * - NEVER log decrypted PHI data
+ * - NEVER store encryption keys in code
+ * - ALWAYS use async versions in production for KMS support
+ * - Key must be 32 bytes (256 bits)
+ * 
+ * ## Usage
+ * ```typescript
+ * import { encryptPHI, decryptPHI } from '@/lib/security/phi-encryption';
+ * 
+ * // Encrypt sensitive data
+ * const encrypted = encryptPHI(patient.ssn);
+ * 
+ * // Decrypt for authorized access
+ * const ssn = decryptPHI(encrypted);
+ * ```
+ * 
+ * ## Encrypted Data Format
+ * `base64(iv):base64(authTag):base64(ciphertext)`
+ * 
+ * @see {@link https://csrc.nist.gov/publications/detail/sp/800-38d/final} NIST GCM Specification
  */
 
 import crypto from 'crypto';

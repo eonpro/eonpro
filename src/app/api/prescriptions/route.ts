@@ -358,6 +358,18 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       });
 
       if (!patientRecord) {
+        // CRITICAL: Must have clinicId for data integrity
+        if (!activeClinicId) {
+          logger.error('[PRESCRIPTIONS] Cannot create patient without clinic context', {
+            userId: user.id,
+            patientEmail: p.patient.email
+          });
+          return NextResponse.json(
+            { error: 'Clinic context required to create patient' },
+            { status: 400 }
+          );
+        }
+        
         patientRecord = await prisma.patient.create({
           data: {
             firstName: p.patient.firstName,
@@ -371,6 +383,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             city: p.patient.city,
             state: p.patient.state,
             zip: p.patient.zip,
+            clinicId: activeClinicId, // Explicit clinic assignment
           },
         });
       }

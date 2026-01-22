@@ -50,8 +50,15 @@ async function main() {
   });
   console.log(`✅ Created clinic: ${clinic.name} (ID: ${clinic.id})`);
 
-  // Create admin user
-  const hashedPassword = await bcrypt.hash('admin123', 12);
+  // Create admin user - Password MUST be provided via environment variable
+  const seedPassword = process.env.SEED_PASSWORD;
+  if (!seedPassword) {
+    throw new Error(
+      'SEED_PASSWORD environment variable is required.\n' +
+      'Usage: SEED_PASSWORD="YourSecurePassword123!" npx tsx scripts/seed-production.ts'
+    );
+  }
+  const hashedPassword = await bcrypt.hash(seedPassword, 12);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@eonpro.com' },
     update: {},
@@ -70,7 +77,7 @@ async function main() {
   console.log('\n🎉 Production database seeded successfully!');
   console.log('\n📋 Login credentials:');
   console.log('   Email: admin@eonpro.com');
-  console.log('   Password: admin123');
+  console.log('   Password: [provided via SEED_PASSWORD env var]');
 }
 
 main()

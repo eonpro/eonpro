@@ -8,11 +8,17 @@ import { test, expect, Page } from '@playwright/test';
 // Test configuration
 const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3001';
 
-// Test credentials (use environment variables in CI)
-const TEST_ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL || 'admin@test.com';
-const TEST_ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD || 'Test123!@#';
-const TEST_PROVIDER_EMAIL = process.env.TEST_PROVIDER_EMAIL || 'provider@test.com';
-const TEST_PROVIDER_PASSWORD = process.env.TEST_PROVIDER_PASSWORD || 'Test123!@#';
+// Test credentials - MUST be provided via environment variables
+// No hardcoded fallbacks for security compliance
+const TEST_ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL;
+const TEST_ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD;
+const TEST_PROVIDER_EMAIL = process.env.TEST_PROVIDER_EMAIL;
+const TEST_PROVIDER_PASSWORD = process.env.TEST_PROVIDER_PASSWORD;
+
+// Validate required environment variables before running tests
+if (!TEST_ADMIN_EMAIL || !TEST_ADMIN_PASSWORD) {
+  console.warn('⚠️ TEST_ADMIN_EMAIL and TEST_ADMIN_PASSWORD environment variables required for auth tests');
+}
 
 // Helper function to login
 async function login(page: Page, email: string, password: string) {

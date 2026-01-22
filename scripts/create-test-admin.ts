@@ -58,8 +58,14 @@ async function main() {
       return;
     }
 
-    // Hash password
-    const password = 'EonMeds2024!';
+    // Hash password - MUST be provided via environment variable
+    const password = process.env.SEED_PASSWORD;
+    if (!password) {
+      throw new Error(
+        'SEED_PASSWORD environment variable is required.\n' +
+        'Usage: SEED_PASSWORD="YourSecurePassword123!" npx tsx scripts/create-test-admin.ts'
+      );
+    }
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Create admin user
@@ -100,7 +106,7 @@ async function main() {
     console.log('\n✅ SUCCESS!');
     console.log('========================');
     console.log('Email: italo@eonmeds.com');
-    console.log('Password: EonMeds2024!');
+    console.log('Password: [provided via SEED_PASSWORD env var]');
     console.log('Phone: +1(813) 263-7844');
     console.log('Clinic: EONMEDS');
     console.log('========================');
