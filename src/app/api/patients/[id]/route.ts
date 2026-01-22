@@ -4,6 +4,10 @@ import { logger } from '@/lib/logger';
 import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 
+// Domain imports for service-based handlers
+import { patientService, type UserContext } from '@/domains/patient';
+import { handleApiError, BadRequestError } from '@/domains/shared/errors';
+
 type Params = {
   params: Promise<{ id: string }>;
 };
@@ -22,42 +26,41 @@ function diffPatient(
   return diff;
 }
 
+/**
+ * GET /api/patients/[id]
+ * Fetch a single patient by ID
+ *
+ * Uses the patient service layer which handles:
+ * - Authorization (patient can only access own record)
+ * - PHI decryption (with graceful error handling)
+ * - Clinic isolation (non-super-admin filtered by clinicId)
+ */
 const getPatientHandler = withAuthParams(async (_request, user, { params }: Params) => {
   try {
     const resolvedParams = await params;
     const id = Number(resolvedParams.id);
+
     if (Number.isNaN(id)) {
-      return Response.json({ error: "Invalid patient id" }, { status: 400 });
+      throw new BadRequestError('Invalid patient id');
     }
-    
-    const patient = await prisma.patient.findUnique({
-      where: { id },
+
+    // Convert auth user to service UserContext
+    const userContext: UserContext = {
+      id: user.id,
+      email: user.email,
+      role: user.role as UserContext['role'],
+      clinicId: user.clinicId,
+      patientId: user.patientId,
+    };
+
+    // Use patient service - handles authorization, PHI decryption, clinic isolation
+    const patient = await patientService.getPatient(id, userContext);
+
+    return Response.json({ patient });
+  } catch (error) {
+    return handleApiError(error, {
+      context: { route: 'GET /api/patients/[id]' },
     });
-    
-    if (!patient) {
-      return Response.json({ error: "Patient not found" }, { status: 404 });
-    }
-    
-    // Check authorization: patients can only see their own record
-    if (user.role === 'patient' && user.patientId !== patient.id) {
-      return Response.json({ error: "Access denied" }, { status: 403 });
-    }
-    
-    // Decrypt PHI fields for authorized users - with error handling
-    let decryptedPatient;
-    try {
-      decryptedPatient = decryptPatientPHI(patient, ['email', 'phone', 'dob']);
-    } catch (decryptError) {
-      // If decryption fails, return patient data without decryption
-      logger.warn('Failed to decrypt patient PHI, returning raw data', { patientId: id });
-      decryptedPatient = patient;
-    }
-    
-    return Response.json({ patient: decryptedPatient });
-  } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[GET /api/patients/:id] Error', { error: errMsg });
-    return Response.json({ error: 'Failed to fetch patient' }, { status: 500 });
   }
 }, { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff'] });
 
