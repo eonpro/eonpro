@@ -5,7 +5,15 @@ import crypto from 'crypto';
 const IV_LENGTH = 16;
 const AES_KEY_LENGTH = 32; // AES-256 requires 32 bytes
 
+// Lazy-loaded encryption key to handle Vercel cold starts
+let _encryptionKey: Buffer | null = null;
+
 function getEncryptionKey(): Buffer {
+  // Return cached key if available
+  if (_encryptionKey) {
+    return _encryptionKey;
+  }
+
   const key = process.env.CARD_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY;
   
   if (!key) {
@@ -13,7 +21,8 @@ function getEncryptionKey(): Buffer {
     if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
       console.warn('[ENCRYPTION] WARNING: Using development encryption key. Set CARD_ENCRYPTION_KEY in production!');
       // Return a deterministic 32-byte key for development
-      return Buffer.from('dev_encryption_key_for_testing!!'); // Exactly 32 chars
+      _encryptionKey = Buffer.from('dev_encryption_key_for_testing!!'); // Exactly 32 chars
+      return _encryptionKey;
     }
     throw new Error(
       'CRITICAL: CARD_ENCRYPTION_KEY or ENCRYPTION_KEY environment variable must be set. ' +
@@ -27,12 +36,14 @@ function getEncryptionKey(): Buffer {
   
   if (key.length === 64 && /^[0-9a-fA-F]+$/.test(key)) {
     // Hex-encoded 32-byte key
-    return Buffer.from(key, 'hex');
+    _encryptionKey = Buffer.from(key, 'hex');
+    return _encryptionKey;
   }
   
   if (key.length === 32) {
     // Direct string key (legacy format)
-    return Buffer.from(key, 'utf8');
+    _encryptionKey = Buffer.from(key, 'utf8');
+    return _encryptionKey;
   }
   
   throw new Error(
@@ -42,13 +53,12 @@ function getEncryptionKey(): Buffer {
   );
 }
 
-const ENCRYPTION_KEY = getEncryptionKey();
-
 export function encryptCardData(text: string): string {
+  const key = getEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(
     'aes-256-cbc',
-    ENCRYPTION_KEY, // Already a Buffer
+    key,
     iv
   );
   
@@ -59,12 +69,13 @@ export function encryptCardData(text: string): string {
 }
 
 export function decryptCardData(text: string): string {
+  const key = getEncryptionKey();
   const textParts = text.split(':');
   const iv = Buffer.from(textParts.shift()!, 'hex');
   const encryptedText = Buffer.from(textParts.join(':'), 'hex');
   const decipher = crypto.createDecipheriv(
     'aes-256-cbc',
-    ENCRYPTION_KEY, // Already a Buffer
+    key,
     iv
   );
   
