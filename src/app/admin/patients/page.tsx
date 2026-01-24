@@ -29,7 +29,8 @@ export default function AdminPatientsPage() {
   const fetchPatients = async () => {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-      const response = await fetch('/api/patients', {
+      // Include contact info to show DOB, email, and phone in the list
+      const response = await fetch('/api/patients?includeContact=true', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
