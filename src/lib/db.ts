@@ -401,6 +401,25 @@ class PrismaWithClinicFilter {
   get affiliateProgram() { return this.client.affiliateProgram; }
   get affiliateTier() { return this.client.affiliateTier; }
   
+  // Enterprise affiliate system
+  get affiliate() { return this.client.affiliate; }
+  get affiliateRefCode() { return this.client.affiliateRefCode; }
+  get affiliateOtpCode() { return this.client.affiliateOtpCode; }
+  get affiliateCommissionPlan() { return this.client.affiliateCommissionPlan; }
+  get affiliatePlanAssignment() { return this.client.affiliatePlanAssignment; }
+  get affiliateCommissionEvent() { return this.client.affiliateCommissionEvent; }
+  get affiliateTouch() { return this.client.affiliateTouch; }
+  get affiliateAttributionConfig() { return this.client.affiliateAttributionConfig; }
+  get affiliateCommissionTier() { return this.client.affiliateCommissionTier; }
+  get affiliateProductRate() { return this.client.affiliateProductRate; }
+  get affiliatePromotion() { return this.client.affiliatePromotion; }
+  get affiliatePayoutMethod() { return this.client.affiliatePayoutMethod; }
+  get affiliatePayout() { return this.client.affiliatePayout; }
+  get affiliateTaxDocument() { return this.client.affiliateTaxDocument; }
+  get affiliateFraudAlert() { return this.client.affiliateFraudAlert; }
+  get affiliateIpIntel() { return this.client.affiliateIpIntel; }
+  get affiliateFraudConfig() { return this.client.affiliateFraudConfig; }
+  
   // Intake forms (submission-level, not clinic-level)
   get intakeFormSubmission() { return this.client.intakeFormSubmission; }
   get intakeFormQuestion() { return this.client.intakeFormQuestion; }

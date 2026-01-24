@@ -351,6 +351,12 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.BILLING_VIEW,
     PERMISSIONS.SYSTEM_LOGS,
   ],
+  
+  AFFILIATE: [
+    // HIPAA-COMPLIANT: Only aggregated commission data
+    PERMISSIONS.BILLING_VIEW, // Own commissions only
+    PERMISSIONS.REPORT_GENERATE, // Own aggregated reports only
+  ],
   // Lowercase aliases for compatibility
   super_admin: [...Object.values(PERMISSIONS)],
   admin: [
@@ -370,6 +376,7 @@ export const ROLE_PERMISSIONS = {
   support: [PERMISSIONS.USER_READ, PERMISSIONS.PATIENT_READ, PERMISSIONS.ORDER_READ, PERMISSIONS.SOAP_READ, PERMISSIONS.BILLING_VIEW, PERMISSIONS.SYSTEM_LOGS],
   influencer: [PERMISSIONS.INFLUENCER_READ, PERMISSIONS.PATIENT_READ, PERMISSIONS.ORDER_READ, PERMISSIONS.BILLING_VIEW, PERMISSIONS.REPORT_GENERATE],
   patient: [PERMISSIONS.ORDER_READ, PERMISSIONS.BILLING_VIEW],
+  affiliate: [PERMISSIONS.BILLING_VIEW, PERMISSIONS.REPORT_GENERATE],
 } as const;
 
 // Role-based feature access
@@ -467,10 +474,15 @@ export const ROLE_FEATURES = {
     'secure_messaging',
     'audit_logs',
   ],
+  
+  AFFILIATE: [
+    // HIPAA-compliant: aggregated metrics only
+    'dashboard_analytics', // Own aggregated data only
+  ],
 } as const;
 
 // Type for role keys as stored in database/auth (lowercase)
-export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient' | 'influencer' | 'support';
+export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient' | 'influencer' | 'support' | 'affiliate';
 
 // Type for role keys in ROLE_PERMISSIONS (uppercase)
 type RoleKey = keyof typeof ROLE_PERMISSIONS;
@@ -484,6 +496,7 @@ const ROLE_KEY_MAP: Record<UserRole, RoleKey> = {
   patient: 'PATIENT',
   influencer: 'INFLUENCER',
   support: 'SUPPORT',
+  affiliate: 'AFFILIATE',
 };
 
 /**

@@ -1,74 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '../../../../lib/logger';
-
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 
 /**
  * GET /api/clinic/list
  * Get list of clinics the current user has access to
+ *
+ * Access Control:
+ * - super_admin: All active clinics
+ * - admin/provider: Only their assigned clinic
  */
-export async function GET(request: NextRequest) {
-  try {
-    // TODO: Add user authentication and filter clinics based on user access
-    // For now, return all active clinics
+export const GET = withAuth(
+  async (request: NextRequest, user: AuthUser) => {
+    try {
+      // Build where clause based on user role
+      const isSuperAdmin = user.role === 'super_admin';
 
-    const clinics = await prisma.clinic.findMany({
-      where: {
-        status: { in: ['ACTIVE', 'TRIAL'] },
-      },
-      select: {
-        id: true,
-        name: true,
-        subdomain: true,
-        logoUrl: true,
-        status: true,
-        billingPlan: true,
-        _count: {
-          select: {
-            patients: true,
+      // Super admin sees all clinics, others only see their assigned clinic
+      const whereClause = isSuperAdmin
+        ? { status: { in: ['ACTIVE', 'TRIAL'] as const } }
+        : {
+            id: user.clinicId,
+            status: { in: ['ACTIVE', 'TRIAL'] as const },
+          };
+
+      // Non-super-admin must have a clinic assignment
+      if (!isSuperAdmin && !user.clinicId) {
+        logger.warn('User without clinic attempted to list clinics', {
+          userId: user.id,
+          role: user.role,
+        });
+        return NextResponse.json({ error: 'No clinic assigned' }, { status: 403 });
+      }
+
+      const clinics = await prisma.clinic.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          name: true,
+          subdomain: true,
+          logoUrl: true,
+          status: true,
+          billingPlan: true,
+          _count: {
+            select: {
+              patients: true,
+            },
           },
         },
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
+        orderBy: {
+          name: 'asc',
+        },
+      });
 
-    // Count providers per clinic from both User table (role PROVIDER) and Provider table
-    type ClinicEntry = (typeof clinics)[number];
-    const transformedClinics = await Promise.all(
-      clinics.map(async (clinic: ClinicEntry) => {
-        const [userProviderCount, providerTableCount] = await Promise.all([
-          prisma.user.count({
-            where: {
-              clinicId: clinic.id,
-              role: 'provider',
-            },
-          }),
-          prisma.provider.count({
-            where: {
-              clinicId: clinic.id,
-            },
-          }),
-        ]);
-        // Use the higher count (some providers may be in both tables)
-        const providerCount = Math.max(userProviderCount, providerTableCount);
-        return {
-          id: clinic.id,
-          name: clinic.name,
-          subdomain: clinic.subdomain,
-          logoUrl: clinic.logoUrl,
-          status: clinic.status,
-          billingPlan: clinic.billingPlan,
-          patientCount: clinic._count.patients,
-          providerCount: providerCount,
-        };
-      })
-    );
+      // Count providers per clinic from both User table (role PROVIDER) and Provider table
+      type ClinicEntry = (typeof clinics)[number];
+      const transformedClinics = await Promise.all(
+        clinics.map(async (clinic: ClinicEntry) => {
+          const [userProviderCount, providerTableCount] = await Promise.all([
+            prisma.user.count({
+              where: {
+                clinicId: clinic.id,
+                role: 'provider',
+              },
+            }),
+            prisma.provider.count({
+              where: {
+                clinicId: clinic.id,
+              },
+            }),
+          ]);
+          // Use the higher count (some providers may be in both tables)
+          const providerCount = Math.max(userProviderCount, providerTableCount);
+          return {
+            id: clinic.id,
+            name: clinic.name,
+            subdomain: clinic.subdomain,
+            logoUrl: clinic.logoUrl,
+            status: clinic.status,
+            billingPlan: clinic.billingPlan,
+            patientCount: clinic._count.patients,
+            providerCount: providerCount,
+          };
+        })
+      );
 
-    return NextResponse.json(transformedClinics);
-  } catch (error) {
-    logger.error('Error fetching clinics:', error);
-    return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
-  }
-}
+      logger.info('Clinic list retrieved', {
+        userId: user.id,
+        role: user.role,
+        clinicCount: transformedClinics.length,
+      });
+
+      return NextResponse.json(transformedClinics);
+    } catch (error) {
+      logger.error('Error fetching clinics:', error);
+      return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
+    }
+  },
+  { roles: ['admin', 'super_admin', 'provider'] }
+);

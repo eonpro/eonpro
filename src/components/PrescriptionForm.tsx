@@ -406,7 +406,23 @@ export default function PrescriptionForm({
         alert(`Error submitting prescription:\n${errorMsg}${detailMsg}`);
         return;
       }
-      router.push(redirectPath ?? "/orders/dashboard?submitted=1");
+
+      // If onSuccess callback is provided, call it (modal flow stays in place)
+      // Otherwise, navigate to the redirect path or patient profile
+      if (onSuccess) {
+        onSuccess();
+      } else if (redirectPath) {
+        router.push(redirectPath);
+      } else if (selectedPatientId) {
+        // Navigate to patient profile with prescriptions tab if we have a patient ID
+        router.push(`/patients/${selectedPatientId}?tab=prescriptions&submitted=1`);
+      } else if (data.patientId) {
+        // Use patient ID from the API response (for newly created patients)
+        router.push(`/patients/${data.patientId}?tab=prescriptions&submitted=1`);
+      } else {
+        // Fallback to orders dashboard (should rarely happen)
+        router.push("/orders/dashboard?submitted=1");
+      }
     } catch (err: any) {
       logger.error("Prescription fetch error:", err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';

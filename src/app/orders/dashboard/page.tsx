@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { logger } from '@/lib/logger';
 
 type OrderRow = {
@@ -18,7 +20,9 @@ type OrderRow = {
   trackingNumber: string | null;
   trackingUrl: string | null;
   lastWebhookAt: string | null;
+  patientId: number | null;
   patient: {
+    id: number;
     firstName: string;
     lastName: string;
   } | null;
@@ -33,6 +37,8 @@ type OrderRow = {
 export default function OrdersDashboardPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const submitted = searchParams.get("submitted") === "1";
 
   useEffect(() => {
     async function load() {
@@ -53,10 +59,56 @@ export default function OrdersDashboardPage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-3xl font-bold mb-4">Recent Orders</h1>
-      <p className="text-sm text-gray-600 mb-4">
-        Showing the 50 most recent orders logged in the local database.
-      </p>
+      {/* Success Banner */}
+      {submitted && (
+        <div className="mb-6 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+          <svg
+            className="h-5 w-5 flex-shrink-0 text-emerald-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          <span className="font-medium">Prescription submitted successfully!</span>
+          <span className="text-sm">The order is now being processed by the pharmacy.</span>
+        </div>
+      )}
+
+      {/* Header with Navigation */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Recent Orders</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Showing the 50 most recent orders logged in the local database.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Link
+            href="/admin/patients"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            View Patients
+          </Link>
+          <Link
+            href="/admin/orders"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#4fa77e] rounded-lg hover:bg-[#3f8660] transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Orders Admin
+          </Link>
+        </div>
+      </div>
       {loading && <p>Loading…</p>}
       {!loading && orders.length === 0 && (
         <p className="text-gray-600">No orders found yet.</p>
@@ -87,7 +139,16 @@ export default function OrdersDashboardPage() {
                     {new Date(o.createdAt).toLocaleString()}
                   </td>
                   <td className="border px-2 py-1">
-                    {o.patient?.firstName} {o.patient?.lastName}
+                    {o.patient ? (
+                      <Link
+                        href={`/patients/${o.patient.id}?tab=prescriptions`}
+                        className="text-[#4fa77e] hover:underline font-medium"
+                      >
+                        {o.patient.firstName} {o.patient.lastName}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="border px-2 py-1">
                     {o.primaryMedName}

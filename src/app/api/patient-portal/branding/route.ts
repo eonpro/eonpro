@@ -92,14 +92,37 @@ export async function GET(request: NextRequest) {
  * PUT /api/patient-portal/branding
  *
  * Updates clinic branding settings (admin only)
+ *
+ * @security Requires authentication - admin/super_admin only
  */
 export async function PUT(request: NextRequest) {
+  // SECURITY FIX: This endpoint was previously unauthenticated!
+  // Import auth middleware at top of file
+  const { verifyAuth } = await import('@/lib/auth/middleware');
+
+  const authResult = await verifyAuth(request);
+  if (!authResult.success) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const user = authResult.user!;
+
+  // Only admins can update branding
+  if (!['admin', 'super_admin'].includes(user.role)) {
+    return NextResponse.json({ error: 'Forbidden - admin access required' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const { clinicId, ...brandingData } = body;
 
     if (!clinicId) {
       return NextResponse.json({ error: 'clinicId is required' }, { status: 400 });
+    }
+
+    // Non-super-admin can only update their own clinic
+    if (user.role !== 'super_admin' && user.clinicId !== parseInt(clinicId)) {
+      return NextResponse.json({ error: 'Forbidden - can only update own clinic' }, { status: 403 });
     }
 
     // Verify the clinic exists

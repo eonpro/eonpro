@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
-import { basePrisma } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
@@ -69,7 +69,7 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
     };
     
     // Get all invoices in range
-    const invoices = await basePrisma.invoice.findMany({
+    const invoices = await prisma.invoice.findMany({
       where: whereClause,
       include: { payments: true },
     });
@@ -123,7 +123,7 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
     }
     
     // Get recent invoices
-    const recent = await basePrisma.invoice.findMany({
+    const recent = await prisma.invoice.findMany({
       where: {
         ...(user.clinicId && { clinicId: user.clinicId }),
         ...(patientId && { patientId: parseInt(patientId) }),
@@ -136,7 +136,7 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
     });
     
     // Get overdue invoices
-    const overdue = await basePrisma.invoice.findMany({
+    const overdue = await prisma.invoice.findMany({
       where: {
         status: 'OPEN',
         dueDate: { lt: now },
@@ -154,10 +154,11 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
     const collectionRate = totalInvoiced > 0 ? (totalPaid / totalInvoiced) * 100 : 0;
     
     // Calculate average payment time
-    const paidInvoices = invoices.filter(i => i.status === 'PAID' && i.paidAt);
+    type InvoiceType = typeof invoices[number];
+    const paidInvoices = invoices.filter((i: InvoiceType) => i.status === 'PAID' && i.paidAt);
     let avgPaymentDays = 0;
     if (paidInvoices.length > 0) {
-      const totalDays = paidInvoices.reduce((sum, inv) => {
+      const totalDays = paidInvoices.reduce((sum: number, inv: InvoiceType) => {
         const days = Math.floor((inv.paidAt!.getTime() - inv.createdAt.getTime()) / (1000 * 60 * 60 * 24));
         return sum + days;
       }, 0);
@@ -187,7 +188,7 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
         month,
         ...data,
       })).sort((a, b) => a.month.localeCompare(b.month)),
-      recentInvoices: recent.map(inv => ({
+      recentInvoices: recent.map((inv: typeof recent[number]) => ({
         id: inv.id,
         patient: `${inv.patient.firstName} ${inv.patient.lastName}`,
         amount: inv.amount,
@@ -195,7 +196,7 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
         dueDate: inv.dueDate,
         createdAt: inv.createdAt,
       })),
-      overdueInvoices: overdue.map(inv => ({
+      overdueInvoices: overdue.map((inv: typeof overdue[number]) => ({
         id: inv.id,
         patient: {
           name: `${inv.patient.firstName} ${inv.patient.lastName}`,

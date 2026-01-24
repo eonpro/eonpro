@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyAuth } from '@/lib/auth/middleware';
-import { basePrisma } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 import { createInvoiceManager } from '@/services/billing/InvoiceManager';
 import { logger } from '@/lib/logger';
 
@@ -38,7 +38,7 @@ export async function GET(
     }
     
     // Get patient
-    const patient = await basePrisma.patient.findUnique({
+    const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       include: {
         invoices: {
@@ -95,7 +95,10 @@ export async function GET(
     const creditBalance = ((patient as any).metadata?.creditBalance || 0);
     
     // Build payment history
-    const paymentHistory = patient.payments.map(p => ({
+    type PaymentType = typeof patient.payments[number];
+    type SubscriptionType = typeof patient.subscriptions[number];
+    
+    const paymentHistory = patient.payments.map((p: PaymentType) => ({
       id: p.id,
       date: p.createdAt,
       amount: p.amount,
@@ -105,7 +108,7 @@ export async function GET(
     }));
     
     // Active subscriptions
-    const activeSubscriptions = patient.subscriptions.map(s => ({
+    const activeSubscriptions = patient.subscriptions.map((s: SubscriptionType) => ({
       id: s.id,
       planName: s.planName,
       amount: s.amount,
@@ -116,8 +119,8 @@ export async function GET(
     
     // Recurring revenue from this patient
     const monthlyRecurring = patient.subscriptions
-      .filter(s => s.status === 'ACTIVE')
-      .reduce((sum, s) => {
+      .filter((s: SubscriptionType) => s.status === 'ACTIVE')
+      .reduce((sum: number, s: SubscriptionType) => {
         if (s.interval === 'month') return sum + s.amount;
         if (s.interval === 'year') return sum + (s.amount / 12);
         if (s.interval === 'week') return sum + (s.amount * 4);
@@ -151,7 +154,7 @@ export async function GET(
         monthlyRecurring,
       },
       paymentMethods: stripePaymentMethods,
-      recentInvoices: patient.invoices.slice(0, 10).map(inv => ({
+      recentInvoices: patient.invoices.slice(0, 10).map((inv: typeof patient.invoices[number]) => ({
         id: inv.id,
         date: inv.createdAt,
         amount: inv.amount,
@@ -206,7 +209,7 @@ export async function POST(
     const validated = addCreditSchema.parse(body);
     
     // Get patient
-    const patient = await basePrisma.patient.findUnique({ where: { id: patientId } });
+    const patient = await prisma.patient.findUnique({ where: { id: patientId } });
     if (!patient) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
@@ -233,7 +236,7 @@ export async function POST(
     }
     
     // Update patient sourceMetadata with credit balance
-    await basePrisma.patient.update({
+    await prisma.patient.update({
       where: { id: patientId },
       data: {
         sourceMetadata: {

@@ -1,11 +1,14 @@
 import "../styles/globals.css";
 import type { ReactNode } from "react";
+import { Suspense } from "react";
 import Script from "next/script";
 import ConditionalHeader from "@/components/ConditionalHeader";
 import BeccaAIGlobalChat from "@/components/BeccaAIGlobalChat";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ConditionalLayout from "@/components/ConditionalLayout";
 import SessionExpirationHandler from "@/components/SessionExpirationHandler";
+import GlobalFetchInterceptor from "@/components/GlobalFetchInterceptor";
+import AffiliateTracker from "@/components/AffiliateTracker";
 import { ToastProvider } from "@/components/Toast";
 // DevAuth removed for production
 import { ClientProviders } from "@/components/providers/ClientProviders";
@@ -30,6 +33,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ErrorBoundary>
         <ClientProviders>
           <ToastProvider>
+            <Suspense fallback={null}>
+              <AffiliateTracker />
+            </Suspense>
+            <GlobalFetchInterceptor />
             <SessionExpirationHandler />
             <ConditionalHeader />
             <ConditionalLayout>{children}</ConditionalLayout>

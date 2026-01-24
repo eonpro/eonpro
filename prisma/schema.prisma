@@ -8,56 +8,63 @@ datasource db {
 }
 
 model Patient {
-  id                  Int                         @id @default(autoincrement())
-  createdAt           DateTime                    @default(now())
+  id               Int      @id @default(autoincrement())
+  createdAt        DateTime @default(now())
   // REQUIRED: All patients must belong to a clinic for multi-tenant data isolation
   // Migration: Run scripts/fix-orphaned-patients.ts before deploying this change
-  clinicId            Int
-  clinic              Clinic                      @relation(fields: [clinicId], references: [id])
-  firstName           String
-  lastName            String
-  dob                 String
-  gender              String
-  phone               String
-  email               String
-  address1            String
-  city                String
-  state               String
-  zip                 String
-  lifefileId          String?
-  notes               String?
-  tags                Json?
-  address2            String?
-  patientId           String?                     @unique
-  stripeCustomerId    String?                     @unique
-  source              String                      @default("manual") // "webhook", "api", "manual", "referral", "import"
-  sourceMetadata      Json? // Additional source details (e.g., webhook URL, referrer ID, import batch)
-  aiConversations     AIConversation[]
-  invoices            Invoice[]
-  orders              Order[]
-  auditEntries        PatientAudit[]
-  documents           PatientDocument[]
-  payments            Payment[]
-  paymentMethods      PaymentMethod[]
-  soapNotes           SOAPNote[]
-  subscriptions       Subscription[]
-  referrals           ReferralTracking[]
-  user                User?
-  intakeSubmissions   IntakeFormSubmission[]
-  weightLogs          PatientWeightLog[]
-  medicationReminders PatientMedicationReminder[]
-  waterLogs           PatientWaterLog[]
-  exerciseLogs        PatientExerciseLog[]
-  sleepLogs           PatientSleepLog[]
-  nutritionLogs       PatientNutritionLog[]
-  tickets             Ticket[]
-  appointments        Appointment[]
-  superbills          Superbill[]
-  carePlans           CarePlan[]
-  smsLogs             SmsLog[]
-  discountUsages      DiscountUsage[]
-  affiliateReferrals  AffiliateReferral[]
-  chatMessages        PatientChatMessage[]
+  clinicId         Int
+  clinic           Clinic   @relation(fields: [clinicId], references: [id])
+  firstName        String
+  lastName         String
+  dob              String
+  gender           String
+  phone            String
+  email            String
+  address1         String
+  city             String
+  state            String
+  zip              String
+  lifefileId       String?
+  notes            String?
+  tags             Json?
+  address2         String?
+  patientId        String?  @unique
+  stripeCustomerId String?  @unique
+  source           String   @default("manual") // "webhook", "api", "manual", "referral", "import"
+  sourceMetadata   Json? // Additional source details (e.g., webhook URL, referrer ID, import batch)
+
+  // Affiliate Attribution (HIPAA-safe: only used for commission tracking, not in clinical notes)
+  attributionAffiliateId  Int? // The affiliate who referred this patient
+  attributionAffiliate    Affiliate?                  @relation(fields: [attributionAffiliateId], references: [id])
+  attributionRefCode      String? // The ref code used (e.g., "infl_xxx")
+  attributionFirstTouchAt DateTime? // When the attribution was first recorded
+  aiConversations         AIConversation[]
+  invoices                Invoice[]
+  orders                  Order[]
+  auditEntries            PatientAudit[]
+  documents               PatientDocument[]
+  payments                Payment[]
+  paymentMethods          PaymentMethod[]
+  soapNotes               SOAPNote[]
+  subscriptions           Subscription[]
+  referrals               ReferralTracking[]
+  reconciliations         PaymentReconciliation[]
+  user                    User?
+  intakeSubmissions       IntakeFormSubmission[]
+  weightLogs              PatientWeightLog[]
+  medicationReminders     PatientMedicationReminder[]
+  waterLogs               PatientWaterLog[]
+  exerciseLogs            PatientExerciseLog[]
+  sleepLogs               PatientSleepLog[]
+  nutritionLogs           PatientNutritionLog[]
+  tickets                 Ticket[]
+  appointments            Appointment[]
+  superbills              Superbill[]
+  carePlans               CarePlan[]
+  smsLogs                 SmsLog[]
+  discountUsages          DiscountUsage[]
+  affiliateReferrals      AffiliateReferral[]
+  chatMessages            PatientChatMessage[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
@@ -150,7 +157,7 @@ model PatientDocument {
   filename           String
   mimeType           String
   source             String?
-  data               Bytes?                  // PDF binary data (or legacy JSON)
+  data               Bytes? // PDF binary data (or legacy JSON)
   externalUrl        String?
   sourceSubmissionId String?                 @unique
   category           PatientDocumentCategory @default(OTHER)
@@ -199,34 +206,35 @@ model PatientAudit {
 }
 
 model Invoice {
-  id                   Int           @id @default(autoincrement())
-  createdAt            DateTime      @default(now())
-  clinicId             Int? // Multi-clinic support
-  clinic               Clinic?       @relation(fields: [clinicId], references: [id])
-  updatedAt            DateTime      @updatedAt
-  stripeInvoiceId      String?       @unique // Optional for demo mode
-  stripeInvoiceNumber  String?
-  stripeInvoiceUrl     String?
-  stripePdfUrl         String?
-  patientId            Int
-  description          String?
-  amount               Int?          // Total amount for demo mode
-  amountDue            Int?
-  amountPaid           Int           @default(0)
-  currency             String        @default("usd")
-  status               InvoiceStatus @default(DRAFT)
-  dueDate              DateTime?
-  paidAt               DateTime?
-  lineItems            Json?
-  metadata             Json?
-  orderId              Int?
-  commissionGenerated  Boolean       @default(false)
-  createSubscription   Boolean       @default(false) // If true, creates subscription on payment
-  subscriptionCreated  Boolean       @default(false) // Was subscription created?
-  patient              Patient       @relation(fields: [patientId], references: [id])
-  commission           Commission?
-  payments             Payment[]
-  items                InvoiceItem[] // Structured line items
+  id                  Int                     @id @default(autoincrement())
+  createdAt           DateTime                @default(now())
+  clinicId            Int? // Multi-clinic support
+  clinic              Clinic?                 @relation(fields: [clinicId], references: [id])
+  updatedAt           DateTime                @updatedAt
+  stripeInvoiceId     String?                 @unique // Optional for demo mode
+  stripeInvoiceNumber String?
+  stripeInvoiceUrl    String?
+  stripePdfUrl        String?
+  patientId           Int
+  description         String?
+  amount              Int? // Total amount for demo mode
+  amountDue           Int?
+  amountPaid          Int                     @default(0)
+  currency            String                  @default("usd")
+  status              InvoiceStatus           @default(DRAFT)
+  dueDate             DateTime?
+  paidAt              DateTime?
+  lineItems           Json?
+  metadata            Json?
+  orderId             Int?
+  commissionGenerated Boolean                 @default(false)
+  createSubscription  Boolean                 @default(false) // If true, creates subscription on payment
+  subscriptionCreated Boolean                 @default(false) // Was subscription created?
+  patient             Patient                 @relation(fields: [patientId], references: [id])
+  commission          Commission?
+  payments            Payment[]
+  items               InvoiceItem[] // Structured line items
+  reconciliations     PaymentReconciliation[]
 }
 
 model Payment {
@@ -236,14 +244,15 @@ model Payment {
   clinic                Clinic?       @relation(fields: [clinicId], references: [id])
   stripePaymentIntentId String?       @unique
   stripeChargeId        String?
-  stripeRefundId        String?       // Stripe refund ID if refunded
+  stripeRefundId        String? // Stripe refund ID if refunded
   amount                Int
   currency              String        @default("usd")
   status                PaymentStatus @default(PENDING)
   paymentMethod         String?
   failureReason         String?
-  refundedAmount        Int?          // Amount refunded in cents
-  refundedAt            DateTime?     // When refund was processed
+  refundedAmount        Int? // Amount refunded in cents
+  refundedAt            DateTime? // When refund was processed
+  paidAt                DateTime? // When payment was completed
   patientId             Int
   invoiceId             Int?
   subscriptionId        Int?
@@ -253,6 +262,64 @@ model Payment {
   invoice               Invoice?      @relation(fields: [invoiceId], references: [id])
   patient               Patient       @relation(fields: [patientId], references: [id])
   subscription          Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+// Audit trail for Stripe payment matching
+model PaymentReconciliation {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int?
+  clinic    Clinic?  @relation(fields: [clinicId], references: [id])
+
+  // Stripe identifiers
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+  stripeInvoiceId       String?
+  stripeCustomerId      String?
+  stripeEventId         String? @unique // Prevent duplicate processing
+  stripeEventType       String // e.g., "charge.succeeded"
+
+  // Payment details
+  amount      Int
+  currency    String  @default("usd")
+  description String?
+
+  // Customer data from Stripe
+  customerEmail String?
+  customerName  String?
+  customerPhone String?
+
+  // Matching results
+  status          ReconciliationStatus @default(PENDING)
+  matchedBy       String? // "stripeCustomerId", "email", "phone", "name"
+  matchConfidence String? // "exact", "high", "medium", "low"
+
+  // Linked records (null if unmatched)
+  patientId Int?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  invoiceId Int?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+
+  // Processing details
+  patientCreated Boolean   @default(false)
+  processedAt    DateTime?
+  errorMessage   String?
+  metadata       Json? // Raw Stripe event metadata
+
+  @@index([stripePaymentIntentId])
+  @@index([stripeChargeId])
+  @@index([stripeCustomerId])
+  @@index([customerEmail])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum ReconciliationStatus {
+  PENDING // Not yet processed
+  MATCHED // Successfully matched to existing patient
+  CREATED // New patient created
+  FAILED // Processing failed
+  SKIPPED // Intentionally skipped (e.g., duplicate)
 }
 
 model PaymentMethod {
@@ -363,35 +430,35 @@ model AIMessage {
 }
 
 model Subscription {
-  id                   Int                @id @default(autoincrement())
-  createdAt            DateTime           @default(now())
+  id                   Int                  @id @default(autoincrement())
+  createdAt            DateTime             @default(now())
   clinicId             Int? // Multi-clinic support
-  clinic               Clinic?            @relation(fields: [clinicId], references: [id])
-  updatedAt            DateTime           @updatedAt
+  clinic               Clinic?              @relation(fields: [clinicId], references: [id])
+  updatedAt            DateTime             @updatedAt
   patientId            Int
   planId               String
   planName             String
   planDescription      String
-  status               SubscriptionStatus @default(ACTIVE)
+  status               SubscriptionStatus   @default(ACTIVE)
   amount               Int
-  currency             String             @default("usd")
-  interval             String             @default("month")
-  intervalCount        Int                @default(1)
-  startDate            DateTime           @default(now())
-  currentPeriodStart   DateTime           @default(now())
-  currentPeriodEnd     DateTime           @default(now())
+  currency             String               @default("usd")
+  interval             String               @default("month")
+  intervalCount        Int                  @default(1)
+  startDate            DateTime             @default(now())
+  currentPeriodStart   DateTime             @default(now())
+  currentPeriodEnd     DateTime             @default(now())
   nextBillingDate      DateTime?
   canceledAt           DateTime?
   pausedAt             DateTime?
   resumeAt             DateTime?
   endedAt              DateTime?
   paymentMethodId      Int?
-  stripeSubscriptionId String?            @unique
+  stripeSubscriptionId String?              @unique
   metadata             Json?
   lastPaymentId        Int?
-  failedAttempts       Int                @default(0)
-  patient              Patient            @relation(fields: [patientId], references: [id])
-  paymentMethod        PaymentMethod?     @relation(fields: [paymentMethodId], references: [id])
+  failedAttempts       Int                  @default(0)
+  patient              Patient              @relation(fields: [patientId], references: [id])
+  paymentMethod        PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
   payments             Payment[]
   actions              SubscriptionAction[]
 
@@ -424,11 +491,11 @@ model Influencer {
   payouts                CommissionPayout[]
   bankAccounts           InfluencerBankAccount[]
   user                   User?
-  
+
   // New affiliate system relations
-  discountCodes          DiscountCode[]
-  affiliateReferrals     AffiliateReferral[]
-  affiliateCommissions   AffiliateCommission[]
+  discountCodes        DiscountCode[]
+  affiliateReferrals   AffiliateReferral[]
+  affiliateCommissions AffiliateCommission[]
 
   @@index([promoCode])
   @@index([email])
@@ -611,50 +678,60 @@ model WebhookLog {
   id               Int           @id @default(autoincrement())
   clinicId         Int? // Multi-clinic support
   clinic           Clinic?       @relation(fields: [clinicId], references: [id])
-  endpoint         String
-  method           String
+  source           String? // "stripe", "heyflow", etc.
+  eventId          String? // Stripe event ID for deduplication
+  eventType        String? // "payment_intent.succeeded", etc.
+  endpoint         String?
+  method           String?
   headers          Json?
   payload          Json?
   status           WebhookStatus
-  statusCode       Int
+  statusCode       Int?
   errorMessage     String?
   responseData     Json?
   ipAddress        String?
   userAgent        String?
   processingTimeMs Int?
+  retryCount       Int           @default(0)
+  lastRetryAt      DateTime?
+  processedAt      DateTime?
+  metadata         Json?
   createdAt        DateTime      @default(now())
 
+  @@unique([source, eventId])
   @@index([endpoint, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
+  @@index([source, eventId])
+  @@index([source, status])
 }
 
 // Unified User Management System
 model User {
-  id                  Int                  @id @default(autoincrement())
+  id                  Int        @id @default(autoincrement())
   clinicId            Int? // Primary clinic (nullable for super admins)
-  clinic              Clinic?              @relation(fields: [clinicId], references: [id])
+  clinic              Clinic?    @relation(fields: [clinicId], references: [id])
   activeClinicId      Int? // Currently active clinic for multi-clinic users
-  email               String               @unique
+  email               String     @unique
   passwordHash        String
   firstName           String
   lastName            String
   role                UserRole
-  status              UserStatus           @default(ACTIVE)
+  status              UserStatus @default(ACTIVE)
   permissions         Json? // Custom permissions override
   features            Json? // Enabled features for this user
   metadata            Json? // Additional user metadata
   lastLogin           DateTime?
   lastPasswordChange  DateTime?
-  failedLoginAttempts Int                  @default(0)
+  failedLoginAttempts Int        @default(0)
   lockedUntil         DateTime?
-  
+
   // Two-Factor Authentication fields
-  twoFactorEnabled     Boolean              @default(false)
+  twoFactorEnabled     Boolean   @default(false)
   twoFactorSecret      String? // Encrypted TOTP secret
-  twoFactorBackupCodes Json?                @default("[]") // Hashed backup codes (stored as JSON array)
+  twoFactorBackupCodes Json?     @default("[]") // Hashed backup codes (stored as JSON array)
   twoFactorVerifiedAt  DateTime? // When 2FA was last verified
-  
+
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   createdById         Int?
@@ -667,9 +744,9 @@ model User {
   integrations        Integration[]
   intakeTemplates     IntakeFormTemplate[]
   passwordResetTokens PasswordResetToken[]
-  
+
   // Multi-clinic support
-  userClinics         UserClinic[] // All clinics this user belongs to
+  userClinics UserClinic[] // All clinics this user belongs to
 
   // Relations to existing models
   providerId   Int?        @unique
@@ -678,6 +755,9 @@ model User {
   provider     Provider?   @relation(fields: [providerId], references: [id])
   influencer   Influencer? @relation(fields: [influencerId], references: [id])
   patient      Patient?    @relation(fields: [patientId], references: [id])
+
+  // Affiliate Portal relation
+  affiliateProfile Affiliate?
 
   // Internal Communication Relations
   sentMessages        InternalMessage[]     @relation("SentMessages")
@@ -695,11 +775,11 @@ model User {
   escalationsMade     TicketEscalation[]    @relation("EscalationsMade")
   escalationsReceived TicketEscalation[]    @relation("EscalationsReceived")
   clinicAuditLogs     ClinicAuditLog[] // Multi-clinic audit logs
-  
+
   // Scheduling & Care Plan Relations
-  appointmentsCreated   Appointment[]        @relation("AppointmentCreatedBy")
-  carePlanTemplates     CarePlanTemplate[]
-  carePlanProgress      CarePlanProgress[]
+  appointmentsCreated Appointment[]      @relation("AppointmentCreatedBy")
+  carePlanTemplates   CarePlanTemplate[]
+  carePlanProgress    CarePlanProgress[]
 
   @@index([email])
   @@index([role, status])
@@ -758,16 +838,16 @@ model UserAuditLog {
 
 // General audit log for all system activities (HIPAA compliance)
 model AuditLog {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  action    String   // TWO_FACTOR_ENABLED, PHI_ACCESS, PRESCRIPTION_CREATED, etc.
-  resource  String?  // Resource type (Patient, Order, etc.)
-  resourceId Int?    // ID of the resource
-  details   Json?    // Additional audit details
-  ipAddress String?
-  userAgent String?
-  clinicId  Int?
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  action     String // TWO_FACTOR_ENABLED, PHI_ACCESS, PRESCRIPTION_CREATED, etc.
+  resource   String? // Resource type (Patient, Order, etc.)
+  resourceId Int? // ID of the resource
+  details    Json? // Additional audit details
+  ipAddress  String?
+  userAgent  String?
+  clinicId   Int?
+  createdAt  DateTime @default(now())
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([action, createdAt(sort: Desc)])
@@ -777,40 +857,40 @@ model AuditLog {
 // HIPAA-Compliant Audit Entry - Comprehensive PHI access logging
 // Designed to meet HIPAA §164.312(b) audit control requirements
 model HIPAAAuditEntry {
-  id            Int      @id @default(autoincrement())
-  createdAt     DateTime @default(now())
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
   // User context - who performed the action
-  userId        String   // String to handle system/anonymous
-  userEmail     String
-  userRole      String
-  clinicId      Int?
-  
+  userId    String // String to handle system/anonymous
+  userEmail String
+  userRole  String
+  clinicId  Int?
+
   // Event classification
-  eventType     String   // PHI_VIEW, PHI_UPDATE, LOGIN, etc.
-  resourceType  String   // Patient, Order, SOAPNote, etc.
-  resourceId    String?  // ID of accessed resource
-  patientId     Int?     // Patient whose data was accessed (for PHI events)
-  
+  eventType    String // PHI_VIEW, PHI_UPDATE, LOGIN, etc.
+  resourceType String // Patient, Order, SOAPNote, etc.
+  resourceId   String? // ID of accessed resource
+  patientId    Int? // Patient whose data was accessed (for PHI events)
+
   // Request context - forensic data
   ipAddress     String
   userAgent     String
   sessionId     String?
-  requestId     String   // Unique request identifier
-  requestMethod String   // GET, POST, PUT, DELETE
-  requestPath   String   // API path accessed
-  
+  requestId     String // Unique request identifier
+  requestMethod String // GET, POST, PUT, DELETE
+  requestPath   String // API path accessed
+
   // Outcome tracking
-  outcome       String   // SUCCESS, FAILURE, PARTIAL
-  reason        String?  // Failure reason if applicable
-  
+  outcome String // SUCCESS, FAILURE, PARTIAL
+  reason  String? // Failure reason if applicable
+
   // Integrity verification (tamper detection)
-  hash          String   // SHA-256 hash of record for integrity
-  
+  hash String // SHA-256 hash of record for integrity
+
   // Additional context
-  metadata      Json?    // Flexible additional data
-  emergency     Boolean  @default(false) // Break-glass access
-  
+  metadata  Json? // Flexible additional data
+  emergency Boolean @default(false) // Break-glass access
+
   // Indexes for efficient querying (HIPAA requires searchable audit logs)
   @@index([userId, createdAt(sort: Desc)])
   @@index([eventType, createdAt(sort: Desc)])
@@ -841,13 +921,13 @@ model PasswordResetToken {
 // Phone OTP for SMS-based authentication
 model PhoneOtp {
   id        Int       @id @default(autoincrement())
-  phone     String    // Formatted phone number
-  code      String    // 6-digit OTP code
+  phone     String // Formatted phone number
+  code      String // 6-digit OTP code
   expiresAt DateTime
   used      Boolean   @default(false)
   usedAt    DateTime?
-  userId    Int?      // If associated with a User
-  patientId Int?      // If associated with a Patient
+  userId    Int? // If associated with a User
+  patientId Int? // If associated with a Patient
   ipAddress String?
   createdAt DateTime  @default(now())
 
@@ -860,6 +940,7 @@ enum UserRole {
   ADMIN
   PROVIDER
   INFLUENCER
+  AFFILIATE
   PATIENT
   STAFF
   SUPPORT
@@ -1192,7 +1273,7 @@ model PatientWaterLog {
   clinic     Clinic?  @relation(fields: [clinicId], references: [id])
   patientId  Int
   patient    Patient  @relation(fields: [patientId], references: [id])
-  amount     Float    // Amount in ounces
+  amount     Float // Amount in ounces
   unit       String   @default("oz") // "oz" or "ml"
   source     String   @default("patient") // "patient", "device", "import"
   recordedAt DateTime @default(now())
@@ -1209,13 +1290,13 @@ model PatientExerciseLog {
   clinic       Clinic?  @relation(fields: [clinicId], references: [id])
   patientId    Int
   patient      Patient  @relation(fields: [patientId], references: [id])
-  activityType String   // "walking", "running", "cycling", "strength", "yoga", etc.
-  duration     Int      // Duration in minutes
+  activityType String // "walking", "running", "cycling", "strength", "yoga", etc.
+  duration     Int // Duration in minutes
   intensity    String   @default("moderate") // "light", "moderate", "vigorous"
-  calories     Int?     // Estimated calories burned
-  steps        Int?     // Step count if applicable
-  distance     Float?   // Distance in miles
-  heartRateAvg Int?     // Average heart rate
+  calories     Int? // Estimated calories burned
+  steps        Int? // Step count if applicable
+  distance     Float? // Distance in miles
+  heartRateAvg Int? // Average heart rate
   notes        String?
   source       String   @default("patient") // "patient", "device", "import"
   recordedAt   DateTime @default(now())
@@ -1225,23 +1306,23 @@ model PatientExerciseLog {
 }
 
 model PatientSleepLog {
-  id          Int      @id @default(autoincrement())
-  createdAt   DateTime @default(now())
-  clinicId    Int?
-  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
-  patientId   Int
-  patient     Patient  @relation(fields: [patientId], references: [id])
-  sleepStart  DateTime // When they went to bed
-  sleepEnd    DateTime // When they woke up
-  duration    Int      // Total sleep duration in minutes
-  quality     Int?     // Sleep quality rating 1-10
-  deepSleep   Int?     // Deep sleep minutes
-  remSleep    Int?     // REM sleep minutes
-  lightSleep  Int?     // Light sleep minutes
-  awakeTime   Int?     // Time awake during sleep in minutes
-  notes       String?
-  source      String   @default("patient") // "patient", "device", "import"
-  recordedAt  DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  clinicId   Int?
+  clinic     Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId  Int
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  sleepStart DateTime // When they went to bed
+  sleepEnd   DateTime // When they woke up
+  duration   Int // Total sleep duration in minutes
+  quality    Int? // Sleep quality rating 1-10
+  deepSleep  Int? // Deep sleep minutes
+  remSleep   Int? // REM sleep minutes
+  lightSleep Int? // Light sleep minutes
+  awakeTime  Int? // Time awake during sleep in minutes
+  notes      String?
+  source     String   @default("patient") // "patient", "device", "import"
+  recordedAt DateTime @default(now())
 
   @@index([patientId, recordedAt])
   @@index([clinicId])
@@ -1254,16 +1335,16 @@ model PatientNutritionLog {
   clinic      Clinic?  @relation(fields: [clinicId], references: [id])
   patientId   Int
   patient     Patient  @relation(fields: [patientId], references: [id])
-  mealType    String   // "breakfast", "lunch", "dinner", "snack"
-  description String?  // What they ate
-  calories    Int?     // Total calories
-  protein     Float?   // Grams of protein
-  carbs       Float?   // Grams of carbohydrates
-  fat         Float?   // Grams of fat
-  fiber       Float?   // Grams of fiber
-  sugar       Float?   // Grams of sugar
-  sodium      Float?   // Milligrams of sodium
-  photoUrl    String?  // Optional photo of meal
+  mealType    String // "breakfast", "lunch", "dinner", "snack"
+  description String? // What they ate
+  calories    Int? // Total calories
+  protein     Float? // Grams of protein
+  carbs       Float? // Grams of carbohydrates
+  fat         Float? // Grams of fat
+  fiber       Float? // Grams of fiber
+  sugar       Float? // Grams of sugar
+  sodium      Float? // Milligrams of sodium
+  photoUrl    String? // Optional photo of meal
   notes       String?
   source      String   @default("patient") // "patient", "import"
   recordedAt  DateTime @default(now())
@@ -1555,15 +1636,15 @@ model Clinic {
   integrations Json // API keys, webhooks per clinic
 
   // Stripe Connect Integration
-  stripeAccountId          String?  @unique // Connected account ID (acct_xxx)
-  stripeAccountStatus      String?  // 'pending', 'active', 'restricted', 'rejected'
-  stripeOnboardingComplete Boolean  @default(false) // Has completed Stripe onboarding
-  stripeChargesEnabled     Boolean  @default(false) // Can accept charges
-  stripePayoutsEnabled     Boolean  @default(false) // Can receive payouts
-  stripeDetailsSubmitted   Boolean  @default(false) // Has submitted account details
-  stripePlatformAccount    Boolean  @default(false) // Is this the platform account (EONmeds)?
+  stripeAccountId          String?   @unique // Connected account ID (acct_xxx)
+  stripeAccountStatus      String? // 'pending', 'active', 'restricted', 'rejected'
+  stripeOnboardingComplete Boolean   @default(false) // Has completed Stripe onboarding
+  stripeChargesEnabled     Boolean   @default(false) // Can accept charges
+  stripePayoutsEnabled     Boolean   @default(false) // Can receive payouts
+  stripeDetailsSubmitted   Boolean   @default(false) // Has submitted account details
+  stripePlatformAccount    Boolean   @default(false) // Is this the platform account (EONmeds)?
   stripeConnectedAt        DateTime? // When they connected their Stripe account
-  
+
   // Lifefile Integration (per-clinic credentials - encrypted)
   lifefileBaseUrl          String? // API base URL
   lifefileUsername         String? // API username (encrypted)
@@ -1630,7 +1711,8 @@ model Clinic {
   webhookConfigs     WebhookConfig[]
   systemSettings     SystemSettings[]
   userClinics        UserClinic[] // Multi-clinic user assignments
-  
+  reconciliations    PaymentReconciliation[]
+
   // Scheduling & Care Plan Relations
   appointments         Appointment[]
   appointmentTypes     AppointmentTypeConfig[]
@@ -1642,16 +1724,16 @@ model Clinic {
   carePlanTemplates    CarePlanTemplate[]
   smsLogs              SmsLog[]
   patientChatMessages  PatientChatMessage[]
-  
+
   // Health Tracking Logs
-  waterLogs            PatientWaterLog[]
-  exerciseLogs         PatientExerciseLog[]
-  sleepLogs            PatientSleepLog[]
-  nutritionLogs        PatientNutritionLog[]
-  
+  waterLogs     PatientWaterLog[]
+  exerciseLogs  PatientExerciseLog[]
+  sleepLogs     PatientSleepLog[]
+  nutritionLogs PatientNutritionLog[]
+
   // Product Catalog
-  products             Product[]
-  
+  products Product[]
+
   // Pricing & Promotions
   discountCodes        DiscountCode[]
   promotions           Promotion[]
@@ -1661,6 +1743,20 @@ model Clinic {
   affiliateReferrals   AffiliateReferral[]
   affiliateCommissions AffiliateCommission[]
   retentionOffers      RetentionOffer[]
+
+  // New Affiliate Portal System
+  affiliates                Affiliate[]
+  affiliateRefCodes         AffiliateRefCode[]
+  affiliateCommissionPlans  AffiliateCommissionPlan[]
+  affiliatePlanAssignments  AffiliatePlanAssignment[]
+  affiliateCommissionEvents AffiliateCommissionEvent[]
+
+  // Enterprise Affiliate System
+  affiliateTouches           AffiliateTouch[]
+  affiliateAttributionConfig AffiliateAttributionConfig?
+  affiliatePayouts           AffiliatePayout[]
+  affiliateFraudAlerts       AffiliateFraudAlert[]
+  affiliateFraudConfig       AffiliateFraudConfig?
 
   @@index([subdomain])
   @@index([status])
@@ -1725,127 +1821,127 @@ enum ReminderStatus {
 }
 
 model AppointmentTypeConfig {
-  id                   Int                  @id @default(autoincrement())
+  id                   Int                 @id @default(autoincrement())
   clinicId             Int?
-  clinic               Clinic?              @relation(fields: [clinicId], references: [id])
+  clinic               Clinic?             @relation(fields: [clinicId], references: [id])
   name                 String
   description          String?
-  duration             Int                  @default(30) // in minutes
-  color                String               @default("#3B82F6")
-  isActive             Boolean              @default(true)
-  requiresVideoLink    Boolean              @default(false)
-  allowSelfScheduling  Boolean              @default(true)
-  bufferBefore         Int                  @default(0) // minutes before
-  bufferAfter          Int                  @default(0) // minutes after
+  duration             Int                 @default(30) // in minutes
+  color                String              @default("#3B82F6")
+  isActive             Boolean             @default(true)
+  requiresVideoLink    Boolean             @default(false)
+  allowSelfScheduling  Boolean             @default(true)
+  bufferBefore         Int                 @default(0) // minutes before
+  bufferAfter          Int                 @default(0) // minutes after
   price                Int? // in cents
   intakeFormTemplateId Int?
-  intakeFormTemplate   IntakeFormTemplate?  @relation(fields: [intakeFormTemplateId], references: [id])
+  intakeFormTemplate   IntakeFormTemplate? @relation(fields: [intakeFormTemplateId], references: [id])
   appointments         Appointment[]
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   @@index([clinicId])
 }
 
 model ProviderAvailability {
-  id               Int       @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   providerId       Int
-  provider         Provider  @relation(fields: [providerId], references: [id])
+  provider         Provider @relation(fields: [providerId], references: [id])
   clinicId         Int?
-  clinic           Clinic?   @relation(fields: [clinicId], references: [id])
+  clinic           Clinic?  @relation(fields: [clinicId], references: [id])
   dayOfWeek        Int // 0 = Sunday, 6 = Saturday
   startTime        String // "09:00"
   endTime          String // "17:00"
-  isActive         Boolean   @default(true)
+  isActive         Boolean  @default(true)
   locationId       Int?
   appointmentTypes Json? // Array of allowed appointment type IDs
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([providerId])
   @@index([dayOfWeek])
 }
 
 model ProviderTimeOff {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   providerId  Int
-  provider    Provider @relation(fields: [providerId], references: [id])
+  provider    Provider  @relation(fields: [providerId], references: [id])
   clinicId    Int?
-  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
+  clinic      Clinic?   @relation(fields: [clinicId], references: [id])
   startDate   DateTime
   endDate     DateTime
   startTime   DateTime?
   endTime     DateTime?
   reason      String?
-  isApproved  Boolean  @default(true)
-  isAllDay    Boolean  @default(false)
-  isRecurring Boolean  @default(false)
-  source      String?  // 'manual', 'calendar_sync'
-  createdAt   DateTime @default(now())
+  isApproved  Boolean   @default(true)
+  isAllDay    Boolean   @default(false)
+  isRecurring Boolean   @default(false)
+  source      String? // 'manual', 'calendar_sync'
+  createdAt   DateTime  @default(now())
 
   @@index([providerId])
   @@index([startDate, endDate])
 }
 
 model ProviderCalendarIntegration {
-  id            Int      @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   providerId    Int
-  provider      String   // 'google', 'outlook'
+  provider      String // 'google', 'outlook'
   clinicId      Int?
   accessToken   String?
   refreshToken  String?
   expiresAt     DateTime?
   accountId     String?
-  calendarId    String?  @default("primary")
-  isActive      Boolean  @default(true)
-  syncEnabled   Boolean  @default(true)
-  syncDirection String   @default("both") // 'to_external', 'from_external', 'both'
+  calendarId    String?   @default("primary")
+  isActive      Boolean   @default(true)
+  syncEnabled   Boolean   @default(true)
+  syncDirection String    @default("both") // 'to_external', 'from_external', 'both'
   lastSyncAt    DateTime?
   lastError     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([providerId, provider], name: "providerId_provider")
   @@index([providerId])
 }
 
 model Appointment {
-  id                  Int                    @id @default(autoincrement())
-  clinicId            Int?
-  clinic              Clinic?                @relation(fields: [clinicId], references: [id])
-  patientId           Int
-  patient             Patient                @relation(fields: [patientId], references: [id])
-  providerId          Int
-  provider            Provider               @relation(fields: [providerId], references: [id])
-  appointmentTypeId   Int?
-  appointmentType     AppointmentTypeConfig? @relation(fields: [appointmentTypeId], references: [id])
-  title               String?
-  startTime           DateTime
-  endTime             DateTime
-  duration            Int                    @default(30)
-  type                AppointmentModeType    @default(IN_PERSON)
-  status              AppointmentStatus      @default(SCHEDULED)
-  reason              String?
-  notes               String? // Patient-visible notes
-  internalNotes       String? // Provider-only notes
-  location            String?
-  roomNumber          String?
-  videoLink           String?
-  zoomMeetingId       String?
-  confirmedAt         DateTime?
-  checkedInAt         DateTime?
-  startedAt           DateTime?
-  completedAt         DateTime?
-  cancelledAt         DateTime?
-  cancellationReason  String?
-  rescheduledFromId   Int?
-  rescheduledToId     Int?
-  noShowAt            DateTime?
-  createdById         Int?
-  createdBy           User?                  @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
-  metadata            Json?
+  id                     Int                    @id @default(autoincrement())
+  clinicId               Int?
+  clinic                 Clinic?                @relation(fields: [clinicId], references: [id])
+  patientId              Int
+  patient                Patient                @relation(fields: [patientId], references: [id])
+  providerId             Int
+  provider               Provider               @relation(fields: [providerId], references: [id])
+  appointmentTypeId      Int?
+  appointmentType        AppointmentTypeConfig? @relation(fields: [appointmentTypeId], references: [id])
+  title                  String?
+  startTime              DateTime
+  endTime                DateTime
+  duration               Int                    @default(30)
+  type                   AppointmentModeType    @default(IN_PERSON)
+  status                 AppointmentStatus      @default(SCHEDULED)
+  reason                 String?
+  notes                  String? // Patient-visible notes
+  internalNotes          String? // Provider-only notes
+  location               String?
+  roomNumber             String?
+  videoLink              String?
+  zoomMeetingId          String?
+  confirmedAt            DateTime?
+  checkedInAt            DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  cancelledAt            DateTime?
+  cancellationReason     String?
+  rescheduledFromId      Int?
+  rescheduledToId        Int?
+  noShowAt               DateTime?
+  createdById            Int?
+  createdBy              User?                  @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  metadata               Json?
   reminders              AppointmentReminder[]
   superbills             Superbill[]
   googleCalendarEventId  String?
@@ -1879,27 +1975,27 @@ model AppointmentReminder {
 // ===== SUPERBILL / INSURANCE SYSTEM =====
 
 model Superbill {
-  id            Int             @id @default(autoincrement())
-  clinicId      Int?
-  clinic        Clinic?         @relation(fields: [clinicId], references: [id])
-  patientId     Int
-  patient       Patient         @relation(fields: [patientId], references: [id])
-  providerId    Int
-  provider      Provider        @relation(fields: [providerId], references: [id])
-  appointmentId Int?
-  appointment   Appointment?    @relation(fields: [appointmentId], references: [id])
-  serviceDate   DateTime
-  totalAmount   Int             @default(0) // in cents
-  paidAmount    Int             @default(0) // in cents
-  status        String          @default("DRAFT") // DRAFT, FINALIZED, SENT, PAID
-  pdfUrl        String?
+  id             Int             @id @default(autoincrement())
+  clinicId       Int?
+  clinic         Clinic?         @relation(fields: [clinicId], references: [id])
+  patientId      Int
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  providerId     Int
+  provider       Provider        @relation(fields: [providerId], references: [id])
+  appointmentId  Int?
+  appointment    Appointment?    @relation(fields: [appointmentId], references: [id])
+  serviceDate    DateTime
+  totalAmount    Int             @default(0) // in cents
+  paidAmount     Int             @default(0) // in cents
+  status         String          @default("DRAFT") // DRAFT, FINALIZED, SENT, PAID
+  pdfUrl         String?
   pdfGeneratedAt DateTime?
-  sentToPatient Boolean         @default(false)
-  sentAt        DateTime?
-  notes         String?
-  items         SuperbillItem[]
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  sentToPatient  Boolean         @default(false)
+  sentAt         DateTime?
+  notes          String?
+  items          SuperbillItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@index([clinicId])
   @@index([patientId])
@@ -1960,20 +2056,20 @@ enum GoalStatus {
 }
 
 model CarePlan {
-  id                Int               @id @default(autoincrement())
+  id                Int                @id @default(autoincrement())
   clinicId          Int?
-  clinic            Clinic?           @relation(fields: [clinicId], references: [id])
+  clinic            Clinic?            @relation(fields: [clinicId], references: [id])
   patientId         Int
-  patient           Patient           @relation(fields: [patientId], references: [id])
+  patient           Patient            @relation(fields: [patientId], references: [id])
   providerId        Int?
-  provider          Provider?         @relation(fields: [providerId], references: [id])
+  provider          Provider?          @relation(fields: [providerId], references: [id])
   title             String
   description       String?
-  status            CarePlanStatus    @default(DRAFT)
+  status            CarePlanStatus     @default(DRAFT)
   startDate         DateTime?
   endDate           DateTime?
   templateId        Int?
-  template          CarePlanTemplate? @relation(fields: [templateId], references: [id])
+  template          CarePlanTemplate?  @relation(fields: [templateId], references: [id])
   pdfUrl            String?
   patientSignature  String? // Base64 signature
   patientSignedAt   DateTime?
@@ -1986,8 +2082,8 @@ model CarePlan {
   goals             CarePlanGoal[]
   activities        CarePlanActivity[]
   progress          CarePlanProgress[]
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([clinicId])
   @@index([patientId])
@@ -2073,21 +2169,21 @@ model CarePlanProgress {
 // ===== SMS MESSAGE LOG =====
 
 model SmsLog {
-  id          Int       @id @default(autoincrement())
-  createdAt   DateTime  @default(now())
-  clinicId    Int?
-  clinic      Clinic?   @relation(fields: [clinicId], references: [id])
-  patientId   Int?
-  patient     Patient?  @relation(fields: [patientId], references: [id])
-  messageSid  String?   @unique // Twilio message SID
-  fromPhone   String    // Sender phone number
-  toPhone     String    // Recipient phone number
-  body        String    // Message content
-  direction   String    // 'inbound' or 'outbound'
-  status      String    @default("sent") // sent, delivered, failed, etc.
-  error       String?   // Error message if failed
-  metadata    Json?     // Additional data
-  
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  clinicId   Int?
+  clinic     Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId  Int?
+  patient    Patient? @relation(fields: [patientId], references: [id])
+  messageSid String?  @unique // Twilio message SID
+  fromPhone  String // Sender phone number
+  toPhone    String // Recipient phone number
+  body       String // Message content
+  direction  String // 'inbound' or 'outbound'
+  status     String   @default("sent") // sent, delivered, failed, etc.
+  error      String? // Error message if failed
+  metadata   Json? // Additional data
+
   @@index([patientId, createdAt])
   @@index([fromPhone])
   @@index([toPhone])
@@ -2097,43 +2193,43 @@ model SmsLog {
 // ===== PATIENT CHAT SYSTEM =====
 
 model PatientChatMessage {
-  id              Int             @id @default(autoincrement())
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  clinicId        Int?
-  clinic          Clinic?         @relation(fields: [clinicId], references: [id])
-  patientId       Int
-  patient         Patient         @relation(fields: [patientId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int?
+  clinic    Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId Int
+  patient   Patient  @relation(fields: [patientId], references: [id])
+
   // Message content
-  message         String          // The message text
-  direction       MessageDirection // INBOUND (patient->staff) or OUTBOUND (staff->patient)
-  channel         MessageChannel   @default(WEB) // WEB, SMS, EMAIL
-  
+  message   String // The message text
+  direction MessageDirection // INBOUND (patient->staff) or OUTBOUND (staff->patient)
+  channel   MessageChannel   @default(WEB) // WEB, SMS, EMAIL
+
   // Sender info
-  senderType      SenderType      // PATIENT, STAFF, PROVIDER, SYSTEM
-  senderId        Int?            // User ID if staff/provider, null if patient
-  senderName      String?         // Display name of sender
-  
+  senderType SenderType // PATIENT, STAFF, PROVIDER, SYSTEM
+  senderId   Int? // User ID if staff/provider, null if patient
+  senderName String? // Display name of sender
+
   // Delivery status (for SMS/email)
-  status          MessageStatus   @default(SENT)
-  externalId      String?         // Twilio message SID or external reference
-  deliveredAt     DateTime?
-  readAt          DateTime?
-  failureReason   String?
-  
+  status        MessageStatus @default(SENT)
+  externalId    String? // Twilio message SID or external reference
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  failureReason String?
+
   // Thread support
-  threadId        String?         // Group messages into threads
-  replyToId       Int?            // Reply to specific message
-  replyTo         PatientChatMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
-  replies         PatientChatMessage[] @relation("MessageReplies")
-  
+  threadId  String? // Group messages into threads
+  replyToId Int? // Reply to specific message
+  replyTo   PatientChatMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies   PatientChatMessage[] @relation("MessageReplies")
+
   // Attachments
-  attachments     Json?           // Array of attachment URLs
-  
+  attachments Json? // Array of attachment URLs
+
   // Metadata
-  metadata        Json?           // Additional data (device info, etc.)
-  
+  metadata Json? // Additional data (device info, etc.)
+
   @@index([patientId, createdAt])
   @@index([clinicId])
   @@index([threadId])
@@ -2141,14 +2237,14 @@ model PatientChatMessage {
 }
 
 enum MessageDirection {
-  INBOUND   // Patient -> Staff
-  OUTBOUND  // Staff -> Patient
+  INBOUND // Patient -> Staff
+  OUTBOUND // Staff -> Patient
 }
 
 enum MessageChannel {
-  WEB       // In-app web chat
-  SMS       // Twilio SMS
-  EMAIL     // Email
+  WEB // In-app web chat
+  SMS // Twilio SMS
+  EMAIL // Email
 }
 
 enum SenderType {
@@ -2159,167 +2255,167 @@ enum SenderType {
 }
 
 enum MessageStatus {
-  PENDING     // Queued for delivery
-  SENT        // Sent but not confirmed delivered
-  DELIVERED   // Confirmed delivered
-  READ        // Read by recipient
-  FAILED      // Delivery failed
+  PENDING // Queued for delivery
+  SENT // Sent but not confirmed delivered
+  DELIVERED // Confirmed delivered
+  READ // Read by recipient
+  FAILED // Delivery failed
 }
 
 // ===== PRODUCT CATALOG =====
 
 model Product {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  clinicId           Int
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Basic Information
-  name               String            // e.g., "Semaglutide 0-1.25mg Monthly"
-  description        String?           // Detailed description
-  shortDescription   String?           // For invoices/receipts
-  category           ProductCategory   @default(SERVICE)
-  
+  name             String // e.g., "Semaglutide 0-1.25mg Monthly"
+  description      String? // Detailed description
+  shortDescription String? // For invoices/receipts
+  category         ProductCategory @default(SERVICE)
+
   // Pricing
-  price              Int               // Price in cents
-  currency           String            @default("usd")
-  
+  price    Int // Price in cents
+  currency String @default("usd")
+
   // Billing Type
-  billingType        BillingType       @default(ONE_TIME)
-  billingInterval    BillingInterval?  // For recurring: MONTHLY, QUARTERLY, etc.
-  billingIntervalCount Int             @default(1) // e.g., 3 for quarterly (3 months)
-  
+  billingType          BillingType      @default(ONE_TIME)
+  billingInterval      BillingInterval? // For recurring: MONTHLY, QUARTERLY, etc.
+  billingIntervalCount Int              @default(1) // e.g., 3 for quarterly (3 months)
+
   // Trial Period (for subscriptions)
-  trialDays          Int?              // Optional trial period
-  
+  trialDays Int? // Optional trial period
+
   // Stripe Integration
-  stripeProductId    String?           @unique // Stripe Product ID
-  stripePriceId      String?           @unique // Stripe Price ID
-  
+  stripeProductId String? @unique // Stripe Product ID
+  stripePriceId   String? @unique // Stripe Price ID
+
   // Status & Visibility
-  isActive           Boolean           @default(true)
-  isVisible          Boolean           @default(true) // Show in patient-facing catalog
-  displayOrder       Int               @default(0)   // For sorting
-  
+  isActive     Boolean @default(true)
+  isVisible    Boolean @default(true) // Show in patient-facing catalog
+  displayOrder Int     @default(0) // For sorting
+
   // Inventory (optional)
-  trackInventory     Boolean           @default(false)
-  inventoryCount     Int?
-  lowStockThreshold  Int?
-  
+  trackInventory    Boolean @default(false)
+  inventoryCount    Int?
+  lowStockThreshold Int?
+
   // Tax
-  taxable            Boolean           @default(false)
-  taxRate            Float?            // e.g., 0.07 for 7%
-  
+  taxable Boolean @default(false)
+  taxRate Float? // e.g., 0.07 for 7%
+
   // Metadata
-  metadata           Json?             // Additional custom data
-  tags               Json?             // Array of tags for filtering
-  
+  metadata Json? // Additional custom data
+  tags     Json? // Array of tags for filtering
+
   // Relations
-  invoiceItems       InvoiceItem[]
-  bundleItems        ProductBundleItem[]
-  
+  invoiceItems InvoiceItem[]
+  bundleItems  ProductBundleItem[]
+
   @@index([clinicId, isActive])
   @@index([clinicId, category])
   @@index([stripeProductId])
 }
 
 model InvoiceItem {
-  id          Int       @id @default(autoincrement())
-  createdAt   DateTime  @default(now())
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
   invoiceId   Int
-  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   productId   Int?
-  product     Product?  @relation(fields: [productId], references: [id])
-  description String    // Line item description
-  quantity    Int       @default(1)
-  unitPrice   Int       // Price per unit in cents
-  amount      Int       // Total amount (quantity * unitPrice)
+  product     Product? @relation(fields: [productId], references: [id])
+  description String // Line item description
+  quantity    Int      @default(1)
+  unitPrice   Int // Price per unit in cents
+  amount      Int // Total amount (quantity * unitPrice)
   metadata    Json?
-  
+
   @@index([invoiceId])
   @@index([productId])
 }
 
 enum ProductCategory {
-  SERVICE        // Medical services, consultations
-  MEDICATION     // Prescription medications
-  SUPPLEMENT     // OTC supplements
-  LAB_TEST       // Lab work, tests
-  PROCEDURE      // Medical procedures
-  PACKAGE        // Bundled services
-  MEMBERSHIP     // Membership/subscription plans
+  SERVICE // Medical services, consultations
+  MEDICATION // Prescription medications
+  SUPPLEMENT // OTC supplements
+  LAB_TEST // Lab work, tests
+  PROCEDURE // Medical procedures
+  PACKAGE // Bundled services
+  MEMBERSHIP // Membership/subscription plans
   OTHER
 }
 
 enum BillingType {
-  ONE_TIME       // Single payment
-  RECURRING      // Subscription
+  ONE_TIME // Single payment
+  RECURRING // Subscription
 }
 
 enum BillingInterval {
   WEEKLY
   MONTHLY
-  QUARTERLY      // Every 3 months
-  SEMI_ANNUAL    // Every 6 months
-  ANNUAL         // Yearly
-  CUSTOM         // Custom interval using billingIntervalCount
+  QUARTERLY // Every 3 months
+  SEMI_ANNUAL // Every 6 months
+  ANNUAL // Yearly
+  CUSTOM // Custom interval using billingIntervalCount
 }
 
 // ===== DISCOUNT & PROMO CODE SYSTEM =====
 
 model DiscountCode {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  clinicId           Int
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Code Details
-  code               String            // e.g., "WELCOME20", "SUMMER2026"
-  name               String            // Display name: "Welcome Discount"
-  description        String?           // Internal description
-  
+  code        String // e.g., "WELCOME20", "SUMMER2026"
+  name        String // Display name: "Welcome Discount"
+  description String? // Internal description
+
   // Discount Type
-  discountType       DiscountType      @default(PERCENTAGE)
-  discountValue      Float             // 20 for 20% or 2000 for $20 off (cents)
-  
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float // 20 for 20% or 2000 for $20 off (cents)
+
   // Applicability
-  applyTo            DiscountApplyTo   @default(ALL_PRODUCTS)
-  productIds         Json?             // Specific product IDs if LIMITED_PRODUCTS
-  categoryIds        Json?             // Specific categories if LIMITED_CATEGORIES
-  excludeProductIds  Json?             // Products to exclude
-  
+  applyTo           DiscountApplyTo @default(ALL_PRODUCTS)
+  productIds        Json? // Specific product IDs if LIMITED_PRODUCTS
+  categoryIds       Json? // Specific categories if LIMITED_CATEGORIES
+  excludeProductIds Json? // Products to exclude
+
   // Usage Limits
-  maxUses            Int?              // Total uses allowed (null = unlimited)
-  maxUsesPerPatient  Int?              // Per patient limit (null = unlimited)
-  currentUses        Int               @default(0)
-  
+  maxUses           Int? // Total uses allowed (null = unlimited)
+  maxUsesPerPatient Int? // Per patient limit (null = unlimited)
+  currentUses       Int  @default(0)
+
   // Validity
-  startsAt           DateTime          @default(now())
-  expiresAt          DateTime?         // null = never expires
-  isActive           Boolean           @default(true)
-  
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime? // null = never expires
+  isActive  Boolean   @default(true)
+
   // Requirements
-  minOrderAmount     Int?              // Minimum order in cents
-  minQuantity        Int?              // Minimum quantity of items
-  firstTimeOnly      Boolean           @default(false) // Only for new patients
-  
+  minOrderAmount Int? // Minimum order in cents
+  minQuantity    Int? // Minimum quantity of items
+  firstTimeOnly  Boolean @default(false) // Only for new patients
+
   // Subscription Specifics
-  applyToFirstPayment  Boolean         @default(true)
-  applyToRecurring     Boolean         @default(false)
-  recurringDuration    Int?            // How many billing cycles to apply (null = all)
-  
+  applyToFirstPayment Boolean @default(true)
+  applyToRecurring    Boolean @default(false)
+  recurringDuration   Int? // How many billing cycles to apply (null = all)
+
   // Stripe Integration
-  stripeCouponId     String?           @unique
-  
+  stripeCouponId String? @unique
+
   // Tracking
-  affiliateId        Int?              // If code belongs to affiliate
-  affiliate          Influencer?       @relation(fields: [affiliateId], references: [id])
-  
+  affiliateId Int? // If code belongs to affiliate
+  affiliate   Influencer? @relation(fields: [affiliateId], references: [id])
+
   // Usage Records
-  usages             DiscountUsage[]
-  
+  usages DiscountUsage[]
+
   @@unique([clinicId, code])
   @@index([clinicId, isActive])
   @@index([code])
@@ -2327,154 +2423,154 @@ model DiscountCode {
 }
 
 model DiscountUsage {
-  id              Int           @id @default(autoincrement())
-  createdAt       DateTime      @default(now())
-  discountCodeId  Int
-  discountCode    DiscountCode  @relation(fields: [discountCodeId], references: [id])
-  patientId       Int
-  patient         Patient       @relation(fields: [patientId], references: [id])
-  invoiceId       Int?
-  orderId         Int?
-  amountSaved     Int           // Amount saved in cents
-  orderTotal      Int           // Original order total
-  
+  id             Int          @id @default(autoincrement())
+  createdAt      DateTime     @default(now())
+  discountCodeId Int
+  discountCode   DiscountCode @relation(fields: [discountCodeId], references: [id])
+  patientId      Int
+  patient        Patient      @relation(fields: [patientId], references: [id])
+  invoiceId      Int?
+  orderId        Int?
+  amountSaved    Int // Amount saved in cents
+  orderTotal     Int // Original order total
+
   @@index([discountCodeId])
   @@index([patientId])
 }
 
 enum DiscountType {
-  PERCENTAGE        // % off
-  FIXED_AMOUNT      // $ off
-  FREE_SHIPPING     // Free shipping
-  FREE_TRIAL        // Extended trial period
-  BUY_X_GET_Y       // Buy X get Y free/discounted
+  PERCENTAGE // % off
+  FIXED_AMOUNT // $ off
+  FREE_SHIPPING // Free shipping
+  FREE_TRIAL // Extended trial period
+  BUY_X_GET_Y // Buy X get Y free/discounted
 }
 
 enum DiscountApplyTo {
   ALL_PRODUCTS
-  LIMITED_PRODUCTS    // Specific products only
-  LIMITED_CATEGORIES  // Specific categories only
-  SUBSCRIPTIONS_ONLY  // Only recurring products
-  ONE_TIME_ONLY       // Only one-time products
+  LIMITED_PRODUCTS // Specific products only
+  LIMITED_CATEGORIES // Specific categories only
+  SUBSCRIPTIONS_ONLY // Only recurring products
+  ONE_TIME_ONLY // Only one-time products
 }
 
 // ===== PROMOTIONS & SPECIALS =====
 
 model Promotion {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  clinicId           Int
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Basic Info
-  name               String            // "Summer Sale 2026"
-  description        String?
-  internalNotes      String?
-  
+  name          String // "Summer Sale 2026"
+  description   String?
+  internalNotes String?
+
   // Promotion Type
-  promotionType      PromotionType     @default(SALE)
-  
+  promotionType PromotionType @default(SALE)
+
   // Discount Configuration
-  discountType       DiscountType      @default(PERCENTAGE)
-  discountValue      Float
-  
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float
+
   // Applicability
-  applyTo            DiscountApplyTo   @default(ALL_PRODUCTS)
-  productIds         Json?
-  categoryIds        Json?
-  
+  applyTo     DiscountApplyTo @default(ALL_PRODUCTS)
+  productIds  Json?
+  categoryIds Json?
+
   // Schedule
-  startsAt           DateTime
-  endsAt             DateTime?
-  isActive           Boolean           @default(true)
-  
+  startsAt DateTime
+  endsAt   DateTime?
+  isActive Boolean   @default(true)
+
   // Display
-  bannerText         String?           // "Save 20% - Limited Time!"
-  bannerColor        String?           // Hex color for banner
-  showOnProducts     Boolean           @default(true)
-  showBanner         Boolean           @default(false)
-  
+  bannerText     String? // "Save 20% - Limited Time!"
+  bannerColor    String? // Hex color for banner
+  showOnProducts Boolean @default(true)
+  showBanner     Boolean @default(false)
+
   // Limits
   maxRedemptions     Int?
-  currentRedemptions Int               @default(0)
-  
+  currentRedemptions Int  @default(0)
+
   // Auto-apply
-  autoApply          Boolean           @default(true) // Automatically apply vs. need code
-  requiresCode       Boolean           @default(false)
-  discountCodeId     Int?              // If requires code
-  
+  autoApply      Boolean @default(true) // Automatically apply vs. need code
+  requiresCode   Boolean @default(false)
+  discountCodeId Int? // If requires code
+
   // Stripe
-  stripeCouponId     String?
-  
+  stripeCouponId String?
+
   @@index([clinicId, isActive])
   @@index([startsAt, endsAt])
 }
 
 enum PromotionType {
-  SALE              // General sale
-  FLASH_SALE        // Limited time (hours)
-  SEASONAL          // Holiday/seasonal
-  CLEARANCE         // Clearance pricing
-  NEW_PATIENT       // New patient special
-  LOYALTY           // Loyalty reward
-  BUNDLE            // Bundle deal
-  UPGRADE           // Upgrade offer
+  SALE // General sale
+  FLASH_SALE // Limited time (hours)
+  SEASONAL // Holiday/seasonal
+  CLEARANCE // Clearance pricing
+  NEW_PATIENT // New patient special
+  LOYALTY // Loyalty reward
+  BUNDLE // Bundle deal
+  UPGRADE // Upgrade offer
 }
 
 // ===== PRODUCT BUNDLES =====
 
 model ProductBundle {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  clinicId           Int
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Bundle Info
-  name               String            // "3-Month Weight Loss Program"
-  description        String?
-  shortDescription   String?
-  
+  name             String // "3-Month Weight Loss Program"
+  description      String?
+  shortDescription String?
+
   // Pricing
-  regularPrice       Int               // Sum of individual products (cents)
-  bundlePrice        Int               // Discounted bundle price
-  savingsAmount      Int               // How much they save
-  savingsPercent     Float             // Percentage saved
-  
+  regularPrice   Int // Sum of individual products (cents)
+  bundlePrice    Int // Discounted bundle price
+  savingsAmount  Int // How much they save
+  savingsPercent Float // Percentage saved
+
   // Products in Bundle
-  items              ProductBundleItem[]
-  
+  items ProductBundleItem[]
+
   // Billing
-  billingType        BillingType       @default(ONE_TIME)
-  billingInterval    BillingInterval?
-  
+  billingType     BillingType      @default(ONE_TIME)
+  billingInterval BillingInterval?
+
   // Status
-  isActive           Boolean           @default(true)
-  isVisible          Boolean           @default(true)
-  displayOrder       Int               @default(0)
-  
+  isActive     Boolean @default(true)
+  isVisible    Boolean @default(true)
+  displayOrder Int     @default(0)
+
   // Stripe
-  stripeProductId    String?           @unique
-  stripePriceId      String?           @unique
-  
+  stripeProductId String? @unique
+  stripePriceId   String? @unique
+
   // Limits
-  maxPurchases       Int?              // Max times can be purchased
-  currentPurchases   Int               @default(0)
-  availableFrom      DateTime?
-  availableUntil     DateTime?
-  
+  maxPurchases     Int? // Max times can be purchased
+  currentPurchases Int       @default(0)
+  availableFrom    DateTime?
+  availableUntil   DateTime?
+
   @@index([clinicId, isActive])
 }
 
 model ProductBundleItem {
-  id          Int           @id @default(autoincrement())
-  bundleId    Int
-  bundle      ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
-  productId   Int
-  product     Product       @relation(fields: [productId], references: [id])
-  quantity    Int           @default(1)
-  
+  id        Int           @id @default(autoincrement())
+  bundleId  Int
+  bundle    ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product       @relation(fields: [productId], references: [id])
+  quantity  Int           @default(1)
+
   @@index([bundleId])
   @@index([productId])
 }
@@ -2482,172 +2578,172 @@ model ProductBundleItem {
 // ===== PRICING RULES ENGINE =====
 
 model PricingRule {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  clinicId           Int
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Rule Info
-  name               String            // "Volume Discount Tier 1"
-  description        String?
-  priority           Int               @default(0) // Higher = applied first
-  
+  name        String // "Volume Discount Tier 1"
+  description String?
+  priority    Int     @default(0) // Higher = applied first
+
   // Rule Type
-  ruleType           PricingRuleType   @default(VOLUME_DISCOUNT)
-  
+  ruleType PricingRuleType @default(VOLUME_DISCOUNT)
+
   // Conditions (JSON for flexibility)
-  conditions         Json              // Array of condition objects
+  conditions Json // Array of condition objects
   // Example: [{"type": "quantity", "operator": ">=", "value": 5}]
   // Example: [{"type": "patientTag", "operator": "contains", "value": "VIP"}]
-  
+
   // Action
-  discountType       DiscountType      @default(PERCENTAGE)
-  discountValue      Float
-  
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float
+
   // Applicability
-  applyTo            DiscountApplyTo   @default(ALL_PRODUCTS)
-  productIds         Json?
-  
+  applyTo    DiscountApplyTo @default(ALL_PRODUCTS)
+  productIds Json?
+
   // Status
-  isActive           Boolean           @default(true)
-  startsAt           DateTime?
-  endsAt             DateTime?
-  
+  isActive Boolean   @default(true)
+  startsAt DateTime?
+  endsAt   DateTime?
+
   @@index([clinicId, isActive, priority])
 }
 
 enum PricingRuleType {
-  VOLUME_DISCOUNT     // Buy more, save more
-  TIERED_PRICING      // Price decreases at quantity thresholds
-  PATIENT_SEGMENT     // Based on patient attributes/tags
-  LOYALTY_DISCOUNT    // Based on purchase history
-  TIME_BASED          // Different prices at different times
-  LOCATION_BASED      // Based on patient location
-  CUSTOM              // Custom rule logic
+  VOLUME_DISCOUNT // Buy more, save more
+  TIERED_PRICING // Price decreases at quantity thresholds
+  PATIENT_SEGMENT // Based on patient attributes/tags
+  LOYALTY_DISCOUNT // Based on purchase history
+  TIME_BASED // Different prices at different times
+  LOCATION_BASED // Based on patient location
+  CUSTOM // Custom rule logic
 }
 
 // ===== AFFILIATE/REFERRAL PROGRAM ENHANCEMENTS =====
 
 model AffiliateProgram {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  clinicId           Int               @unique
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int      @unique
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Program Settings
-  name               String            @default("Affiliate Program")
-  isActive           Boolean           @default(true)
-  
+  name     String  @default("Affiliate Program")
+  isActive Boolean @default(true)
+
   // Default Commission
-  defaultCommissionType   CommissionType  @default(PERCENTAGE)
-  defaultCommissionValue  Float           @default(10) // 10% or $10
-  
+  defaultCommissionType  CommissionType @default(PERCENTAGE)
+  defaultCommissionValue Float          @default(10) // 10% or $10
+
   // Commission Rules
-  commissionOnFirstPurchase  Boolean   @default(true)
-  commissionOnRecurring      Boolean   @default(true)
-  recurringCommissionDuration Int?     // Months to pay recurring (null = lifetime)
-  
+  commissionOnFirstPurchase   Boolean @default(true)
+  commissionOnRecurring       Boolean @default(true)
+  recurringCommissionDuration Int? // Months to pay recurring (null = lifetime)
+
   // Cookie/Attribution
-  attributionWindowDays   Int          @default(30) // Days to attribute sale
-  
+  attributionWindowDays Int @default(30) // Days to attribute sale
+
   // Tiers
-  tiers              AffiliateTier[]
-  
+  tiers AffiliateTier[]
+
   // Payouts
-  minimumPayout      Int               @default(5000) // $50 minimum
-  payoutFrequency    PayoutFrequency   @default(MONTHLY)
-  
+  minimumPayout   Int             @default(5000) // $50 minimum
+  payoutFrequency PayoutFrequency @default(MONTHLY)
+
   @@index([clinicId])
 }
 
 model AffiliateTier {
-  id                 Int               @id @default(autoincrement())
-  programId          Int
-  program            AffiliateProgram  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  
+  id        Int              @id @default(autoincrement())
+  programId Int
+  program   AffiliateProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
   // Tier Info
-  name               String            // "Bronze", "Silver", "Gold", "Platinum"
-  level              Int               @default(1) // 1, 2, 3, 4...
-  
+  name  String // "Bronze", "Silver", "Gold", "Platinum"
+  level Int    @default(1) // 1, 2, 3, 4...
+
   // Requirements
-  minReferrals       Int               @default(0) // Min referrals to reach tier
-  minRevenue         Int               @default(0) // Min revenue generated (cents)
-  
+  minReferrals Int @default(0) // Min referrals to reach tier
+  minRevenue   Int @default(0) // Min revenue generated (cents)
+
   // Benefits
-  commissionType     CommissionType    @default(PERCENTAGE)
-  commissionValue    Float             // Commission rate for this tier
-  bonusAmount        Int?              // One-time bonus for reaching tier
-  
+  commissionType  CommissionType @default(PERCENTAGE)
+  commissionValue Float // Commission rate for this tier
+  bonusAmount     Int? // One-time bonus for reaching tier
+
   // Perks
-  perks              Json?             // Array of perk descriptions
-  
+  perks Json? // Array of perk descriptions
+
   @@unique([programId, level])
   @@index([programId])
 }
 
 model AffiliateReferral {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  clinicId           Int
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Referral Details
-  affiliateId        Int               // The influencer/affiliate
-  affiliate          Influencer        @relation(fields: [affiliateId], references: [id])
-  referredPatientId  Int               // The patient who was referred
-  referredPatient    Patient           @relation(fields: [referredPatientId], references: [id])
-  
+  affiliateId       Int // The influencer/affiliate
+  affiliate         Influencer @relation(fields: [affiliateId], references: [id])
+  referredPatientId Int // The patient who was referred
+  referredPatient   Patient    @relation(fields: [referredPatientId], references: [id])
+
   // Attribution
-  discountCodeUsed   String?           // Code they used
-  landingPage        String?           // Where they landed
-  utmSource          String?
-  utmMedium          String?
-  utmCampaign        String?
-  
+  discountCodeUsed String? // Code they used
+  landingPage      String? // Where they landed
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+
   // Status
-  status             ReferralStatus    @default(PENDING)
-  convertedAt        DateTime?         // When they made first purchase
-  
+  status      ReferralStatus @default(PENDING)
+  convertedAt DateTime? // When they made first purchase
+
   // Lifetime Value
-  totalRevenue       Int               @default(0) // Total revenue from this referral
-  totalCommission    Int               @default(0) // Total commission paid
-  
+  totalRevenue    Int @default(0) // Total revenue from this referral
+  totalCommission Int @default(0) // Total commission paid
+
   @@index([affiliateId])
   @@index([referredPatientId])
   @@index([clinicId])
 }
 
 model AffiliateCommission {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  clinicId           Int
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Commission Details
-  affiliateId        Int
-  affiliate          Influencer        @relation(fields: [affiliateId], references: [id])
-  referralId         Int?
-  
+  affiliateId Int
+  affiliate   Influencer @relation(fields: [affiliateId], references: [id])
+  referralId  Int?
+
   // Source
-  invoiceId          Int?
-  orderId            Int?
-  subscriptionId     Int?
-  
+  invoiceId      Int?
+  orderId        Int?
+  subscriptionId Int?
+
   // Amounts
-  orderAmount        Int               // Order/payment amount
-  commissionRate     Float             // Rate applied
-  commissionAmount   Int               // Commission earned
-  
+  orderAmount      Int // Order/payment amount
+  commissionRate   Float // Rate applied
+  commissionAmount Int // Commission earned
+
   // Status
-  status             CommissionStatus  @default(PENDING)
-  paidAt             DateTime?
-  payoutId           String?           // External payout reference
-  
+  status   CommissionStatus @default(PENDING)
+  paidAt   DateTime?
+  payoutId String? // External payout reference
+
   // Type
-  commissionType     String            @default("first_purchase") // first_purchase, recurring, bonus
-  
+  commissionType String @default("first_purchase") // first_purchase, recurring, bonus
+
   @@index([affiliateId])
   @@index([clinicId])
   @@index([status])
@@ -2666,79 +2762,79 @@ enum PayoutFrequency {
 }
 
 enum ReferralStatus {
-  PENDING       // Signed up but no purchase
-  CONVERTED     // Made first purchase
-  ACTIVE        // Active customer
-  CHURNED       // Cancelled/inactive
+  PENDING // Signed up but no purchase
+  CONVERTED // Made first purchase
+  ACTIVE // Active customer
+  CHURNED // Cancelled/inactive
 }
 
 // ===== SUBSCRIPTION MANAGEMENT =====
 
 model SubscriptionAction {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  subscriptionId     Int
-  subscription       Subscription      @relation(fields: [subscriptionId], references: [id])
-  
+  id             Int          @id @default(autoincrement())
+  createdAt      DateTime     @default(now())
+  subscriptionId Int
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
   // Action Details
-  actionType         SubscriptionActionType
-  reason             String?
-  
+  actionType SubscriptionActionType
+  reason     String?
+
   // For Pauses
-  pausedUntil        DateTime?
-  
+  pausedUntil DateTime?
+
   // For Plan Changes
-  previousPlanId     String?
-  newPlanId          String?
-  previousAmount     Int?
-  newAmount          Int?
-  
+  previousPlanId String?
+  newPlanId      String?
+  previousAmount Int?
+  newAmount      Int?
+
   // For Cancellation
   cancellationReason String?
-  retentionOfferMade Boolean           @default(false)
+  retentionOfferMade Boolean @default(false)
   retentionOfferId   Int?
-  
+
   // Who performed
-  performedBy        String?           // user ID or "system" or "patient"
-  
+  performedBy String? // user ID or "system" or "patient"
+
   @@index([subscriptionId])
 }
 
 model RetentionOffer {
-  id                 Int               @id @default(autoincrement())
-  createdAt          DateTime          @default(now())
-  clinicId           Int
-  clinic             Clinic            @relation(fields: [clinicId], references: [id])
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
   // Offer Info
-  name               String            // "Stay with us - 50% off next month"
-  description        String?
-  
+  name        String // "Stay with us - 50% off next month"
+  description String?
+
   // Offer Type
-  offerType          RetentionOfferType @default(DISCOUNT)
-  
+  offerType RetentionOfferType @default(DISCOUNT)
+
   // Discount (if applicable)
-  discountType       DiscountType?
-  discountValue      Float?
-  discountDuration   Int?              // How many billing cycles
-  
+  discountType     DiscountType?
+  discountValue    Float?
+  discountDuration Int? // How many billing cycles
+
   // Free Period (if applicable)
-  freeMonths         Int?
-  
+  freeMonths Int?
+
   // Pause Option
-  pauseDuration      Int?              // Days to pause
-  
+  pauseDuration Int? // Days to pause
+
   // Targeting
-  triggerOn          String            @default("cancellation") // cancellation, payment_failed, etc.
-  minSubscriptionAge Int?              // Min days subscribed to show offer
-  
+  triggerOn          String @default("cancellation") // cancellation, payment_failed, etc.
+  minSubscriptionAge Int? // Min days subscribed to show offer
+
   // Status
-  isActive           Boolean           @default(true)
-  
+  isActive Boolean @default(true)
+
   // Stats
-  timesShown         Int               @default(0)
-  timesAccepted      Int               @default(0)
-  
+  timesShown    Int @default(0)
+  timesAccepted Int @default(0)
+
   @@index([clinicId, isActive])
 }
 
@@ -2759,9 +2855,746 @@ enum SubscriptionActionType {
 }
 
 enum RetentionOfferType {
-  DISCOUNT          // Percentage or fixed off
-  FREE_PERIOD       // Free month(s)
-  PAUSE             // Pause subscription
-  DOWNGRADE         // Offer cheaper plan
-  BONUS             // Free add-on product
+  DISCOUNT // Percentage or fixed off
+  FREE_PERIOD // Free month(s)
+  PAUSE // Pause subscription
+  DOWNGRADE // Offer cheaper plan
+  BONUS // Free add-on product
+}
+
+// ===== AFFILIATE PORTAL SYSTEM =====
+// HIPAA-COMPLIANT: Affiliates only see aggregated metrics, never patient-level data
+
+model Affiliate {
+  id          Int             @id @default(autoincrement())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  clinicId    Int // Multi-tenant: affiliate belongs to a clinic
+  clinic      Clinic          @relation(fields: [clinicId], references: [id])
+  userId      Int             @unique // Link to User for login credentials
+  user        User            @relation(fields: [userId], references: [id])
+  displayName String // Display name shown in portal
+  status      AffiliateStatus @default(ACTIVE)
+  metadata    Json? // Additional affiliate info
+
+  // Tier tracking (cached for performance)
+  currentTierId        Int? // Current tier level
+  currentTier          AffiliateCommissionTier? @relation(fields: [currentTierId], references: [id])
+  tierQualifiedAt      DateTime? // When they qualified for current tier
+  lifetimeConversions  Int       @default(0)
+  lifetimeRevenueCents Int       @default(0)
+
+  // Login tracking
+  lastLoginAt DateTime?
+
+  // Relations
+  refCodes           AffiliateRefCode[]
+  planAssignments    AffiliatePlanAssignment[]
+  commissionEvents   AffiliateCommissionEvent[]
+  attributedPatients Patient[]
+  touches            AffiliateTouch[]
+  payoutMethods      AffiliatePayoutMethod[]
+  payouts            AffiliatePayout[]
+  taxDocuments       AffiliateTaxDocument[]
+  fraudAlerts        AffiliateFraudAlert[]
+  otpCode            AffiliateOtpCode?
+
+  @@index([clinicId])
+  @@index([status])
+}
+
+// OTP codes for phone-based login
+model AffiliateOtpCode {
+  id          Int       @id @default(autoincrement())
+  affiliateId Int       @unique
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  code        String    // 6-digit code
+  expiresAt   DateTime
+  attempts    Int       @default(0) // Failed verification attempts
+  createdAt   DateTime  @default(now())
+}
+
+model AffiliateRefCode {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  clinicId    Int // Multi-tenant scoping
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+  refCode     String // e.g., "infl_xxx", "partner_abc"
+  description String? // Optional description of the ref code source
+  isActive    Boolean   @default(true)
+
+  @@unique([clinicId, refCode]) // Ref codes unique per clinic
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([refCode])
+}
+
+model AffiliateCommissionPlan {
+  id              Int                 @id @default(autoincrement())
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  clinicId        Int // Multi-tenant scoping
+  clinic          Clinic              @relation(fields: [clinicId], references: [id])
+  name            String // e.g., "Standard 10%", "VIP Partner 15%"
+  description     String?
+  planType        CommissionPlanType  @default(PERCENT)
+  flatAmountCents Int? // For flat-rate commissions (in cents)
+  percentBps      Int? // For percentage commissions (basis points: 1000 = 10%)
+  appliesTo       CommissionAppliesTo @default(FIRST_PAYMENT_ONLY)
+  holdDays        Int                 @default(0) // Days to hold before commission is approved
+  clawbackEnabled Boolean             @default(false) // If true, refund/chargeback reverses commission
+  isActive        Boolean             @default(true)
+
+  // Tier-based commission
+  tierEnabled Boolean @default(false)
+
+  // Recurring commission settings
+  recurringEnabled  Boolean @default(false)
+  recurringMonths   Int? // null = lifetime recurring
+  recurringDecayPct Int? // e.g., 50 = 50% of original rate after year 1
+
+  // Relations
+  assignments  AffiliatePlanAssignment[]
+  tiers        AffiliateCommissionTier[]
+  productRules AffiliateProductRate[]
+  promotions   AffiliatePromotion[]
+
+  @@index([clinicId])
+  @@index([isActive])
+}
+
+model AffiliatePlanAssignment {
+  id               Int                     @id @default(autoincrement())
+  createdAt        DateTime                @default(now())
+  clinicId         Int // Multi-tenant scoping
+  clinic           Clinic                  @relation(fields: [clinicId], references: [id])
+  affiliateId      Int
+  affiliate        Affiliate               @relation(fields: [affiliateId], references: [id])
+  commissionPlanId Int
+  commissionPlan   AffiliateCommissionPlan @relation(fields: [commissionPlanId], references: [id])
+  effectiveFrom    DateTime                @default(now())
+  effectiveTo      DateTime? // Null = no expiry
+
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([commissionPlanId])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+// Immutable ledger of commission events - NEVER store patient-level data here
+model AffiliateCommissionEvent {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  clinicId    Int // Multi-tenant scoping
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  // Stripe event tracking for idempotency
+  stripeEventId   String // Stripe event ID (evt_xxx)
+  stripeObjectId  String // Payment intent/charge/session ID
+  stripeEventType String // e.g., "payment_intent.succeeded"
+
+  // Commission details (HIPAA-SAFE: no patient identifiers)
+  eventAmountCents      Int // Total payment amount
+  commissionAmountCents Int // Calculated commission
+  commissionPlanId      Int? // Plan used for calculation (null if plan deleted)
+
+  // Commission breakdown (for tiered/promotional calculations)
+  baseCommissionCents    Int? // Base commission before adjustments
+  tierBonusCents         Int? // Tier-based bonus
+  promotionBonusCents    Int? // Promotional bonus
+  productAdjustmentCents Int? // Product-specific adjustment
+
+  // Attribution tracking
+  touchId          Int? // Link to the touch that attributed this conversion
+  attributionModel String? // Which model was used (FIRST_CLICK, LAST_CLICK, etc.)
+
+  // Recurring tracking
+  isRecurring     Boolean @default(false)
+  recurringMonth  Int? // Which month of recurring (1, 2, 3...)
+  originalEventId Int? // Link to first commission event for this subscription
+
+  // Status tracking
+  status         CommissionEventStatus @default(PENDING)
+  occurredAt     DateTime // When the payment occurred
+  holdUntil      DateTime? // When commission becomes eligible for approval
+  approvedAt     DateTime?
+  paidAt         DateTime?
+  reversedAt     DateTime?
+  reversalReason String? // e.g., "refund", "chargeback"
+
+  // Payout tracking
+  payoutId Int? // Which payout included this commission
+  payout   AffiliatePayout? @relation(fields: [payoutId], references: [id])
+
+  // Audit trail
+  metadata Json? // Additional non-PHI context
+
+  @@unique([clinicId, stripeEventId]) // Idempotency: one event per stripe event per clinic
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([status])
+  @@index([occurredAt])
+  @@index([stripeEventId])
+  @@index([payoutId])
+}
+
+enum AffiliateStatus {
+  ACTIVE
+  PAUSED
+  SUSPENDED
+  INACTIVE
+}
+
+enum CommissionPlanType {
+  FLAT // Flat dollar amount per conversion
+  PERCENT // Percentage of revenue
+}
+
+enum CommissionAppliesTo {
+  FIRST_PAYMENT_ONLY // Commission only on first payment
+  ALL_PAYMENTS // Commission on all payments (recurring)
+}
+
+enum CommissionEventStatus {
+  PENDING // Waiting for hold period
+  APPROVED // Hold period passed, ready for payout
+  PAID // Commission paid out
+  REVERSED // Clawed back due to refund/chargeback
+}
+
+// ===== ENTERPRISE AFFILIATE SYSTEM - ATTRIBUTION =====
+
+// Multi-touch attribution tracking (HIPAA-safe: no names/medical data)
+model AffiliateTouch {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Visitor identification (HIPAA-safe: hashed/anonymized)
+  visitorFingerprint String // Browser fingerprint hash
+  cookieId           String? // First-party cookie ID
+  ipAddressHash      String? // SHA-256 hashed IP for privacy
+  userAgent          String?
+
+  // Attribution data
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+  refCode     String
+
+  // UTM tracking
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+
+  // Sub-ID tracking (custom tracking params)
+  subId1 String?
+  subId2 String?
+  subId3 String?
+  subId4 String?
+  subId5 String?
+
+  // Landing info
+  landingPage String?
+  referrerUrl String?
+
+  // Touch type
+  touchType TouchType @default(CLICK)
+
+  // Conversion tracking
+  convertedPatientId Int? // Set when this touch leads to conversion
+  convertedAt        DateTime? // When conversion occurred
+
+  @@index([clinicId, visitorFingerprint])
+  @@index([clinicId, cookieId])
+  @@index([affiliateId])
+  @@index([createdAt])
+  @@index([refCode])
+}
+
+enum TouchType {
+  CLICK // Regular click
+  IMPRESSION // View (for CPM tracking)
+  POSTBACK // Server-to-server tracking
+}
+
+// Attribution configuration per clinic
+model AffiliateAttributionConfig {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int      @unique
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Attribution model selection
+  newPatientModel       AttributionModel @default(FIRST_CLICK)
+  returningPatientModel AttributionModel @default(LAST_CLICK)
+
+  // Cookie/window settings
+  cookieWindowDays      Int @default(30)
+  impressionWindowHours Int @default(24)
+
+  // Fingerprinting
+  enableFingerprinting Boolean @default(true)
+
+  // Sub-ID tracking
+  enableSubIds Boolean @default(true)
+  maxSubIds    Int     @default(5)
+
+  // Advanced settings
+  crossDeviceEnabled     Boolean @default(false)
+  viewThroughEnabled     Boolean @default(false)
+  viewThroughWindowHours Int     @default(24)
+}
+
+enum AttributionModel {
+  FIRST_CLICK // Credit to first referrer
+  LAST_CLICK // Credit to most recent referrer
+  LINEAR // Split evenly among all touches
+  TIME_DECAY // More credit to recent touches (exponential decay)
+  POSITION // 40% first, 40% last, 20% split among middle
+}
+
+// ===== ENTERPRISE AFFILIATE SYSTEM - TIERED COMMISSIONS =====
+
+// Commission tiers within a plan
+model AffiliateCommissionTier {
+  id        Int                     @id @default(autoincrement())
+  createdAt DateTime                @default(now())
+  planId    Int
+  plan      AffiliateCommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  // Tier info
+  name  String // "Bronze", "Silver", "Gold", "Platinum"
+  level Int    @default(1) // 1, 2, 3, 4...
+
+  // Requirements to reach this tier
+  minConversions  Int  @default(0)
+  minRevenueCents Int  @default(0)
+  minActiveMonths Int? // Optional: months active
+
+  // Override commission rate for this tier
+  percentBps      Int? // Overrides plan rate
+  flatAmountCents Int? // Overrides plan rate
+
+  // Bonus for reaching tier
+  bonusCents Int? // One-time bonus
+
+  // Additional perks (JSON array of perk descriptions)
+  perks Json?
+
+  // Back-reference for affiliates at this tier
+  affiliates Affiliate[]
+
+  @@unique([planId, level])
+  @@unique([planId, name])
+  @@index([planId])
+}
+
+// Product-specific commission rates
+model AffiliateProductRate {
+  id        Int                     @id @default(autoincrement())
+  createdAt DateTime                @default(now())
+  planId    Int
+  plan      AffiliateCommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  // Product matching (supports SKU, category, or price range)
+  productSku      String? // Exact SKU match
+  productCategory String? // Category match
+  minPriceCents   Int? // Min price for range
+  maxPriceCents   Int? // Max price for range
+
+  // Override rate for matching products
+  percentBps      Int?
+  flatAmountCents Int?
+
+  // Priority (higher = checked first)
+  priority Int @default(0)
+
+  isActive Boolean @default(true)
+
+  @@index([planId])
+  @@index([productSku])
+  @@index([productCategory])
+}
+
+// Time-limited promotional rates
+model AffiliatePromotion {
+  id        Int                     @id @default(autoincrement())
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+  planId    Int
+  plan      AffiliateCommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  // Promotion info
+  name        String // "Summer 2026 Bonus"
+  description String?
+
+  // Time window
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Bonus rate during promotion (added on top of base)
+  bonusPercentBps Int? // Additional % on top of base
+  bonusFlatCents  Int? // Additional flat amount
+
+  // Conditions
+  minOrderCents Int? // Minimum order value
+  maxUses       Int? // Max times this promotion can be used
+  usesCount     Int  @default(0)
+
+  // Targeting
+  affiliateIds Json? // Specific affiliates (null = all)
+  refCodes     Json? // Specific ref codes (null = all)
+
+  isActive Boolean @default(true)
+
+  @@index([planId, startsAt, endsAt])
+  @@index([isActive])
+}
+
+// ===== ENTERPRISE AFFILIATE SYSTEM - PAYOUTS =====
+
+// Affiliate payout methods
+model AffiliatePayoutMethod {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  methodType PayoutMethodType
+  isDefault  Boolean          @default(false)
+  isVerified Boolean          @default(false)
+  verifiedAt DateTime?
+
+  // Stripe Connect
+  stripeAccountId          String? // acct_xxx
+  stripeAccountStatus      String? // pending, active, restricted
+  stripeOnboardingComplete Boolean @default(false)
+
+  // PayPal
+  paypalEmail    String?
+  paypalPayerId  String?
+  paypalVerified Boolean @default(false)
+
+  // Bank (for manual wire)
+  bankName         String?
+  bankAccountLast4 String? // Last 4 digits only
+  bankRoutingLast4 String? // Last 4 digits only
+  bankCountry      String?
+
+  // Encrypted full details (for manual processing) - AES-256 encrypted JSON
+  encryptedDetails String?
+  encryptionKeyId  String? // KMS key ID used
+
+  // Check mailing address
+  mailingAddressLine1 String?
+  mailingAddressLine2 String?
+  mailingCity         String?
+  mailingState        String?
+  mailingZip          String?
+  mailingCountry      String?
+
+  metadata Json?
+
+  @@unique([affiliateId, methodType])
+  @@index([affiliateId])
+}
+
+enum PayoutMethodType {
+  STRIPE_CONNECT // Direct deposit via Stripe
+  PAYPAL // PayPal Payouts
+  BANK_WIRE // Manual bank wire
+  CHECK // Physical check
+  MANUAL // Manual/other method
+}
+
+// Payout records
+model AffiliatePayout {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  clinicId    Int
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  // Payout details
+  amountCents    Int
+  feeCents       Int              @default(0) // Processing fees
+  netAmountCents Int // Amount after fees
+  currency       String           @default("USD")
+  methodType     PayoutMethodType
+
+  // Status tracking
+  status        AffiliatePayoutStatus @default(PENDING)
+  scheduledAt   DateTime?
+  processedAt   DateTime?
+  completedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+  failureCode   String? // Machine-readable error code
+
+  // External references
+  stripeTransferId String? // tr_xxx
+  stripePayoutId   String? // po_xxx
+  paypalBatchId    String?
+  paypalPayoutId   String?
+  checkNumber      String?
+  wireReference    String?
+
+  // Commission events included in this payout
+  commissionEvents AffiliateCommissionEvent[]
+
+  // Period covered
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  // Audit
+  processedBy Int? // Admin user ID who initiated
+  approvedBy  Int? // Admin user ID who approved
+  notes       String?
+
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+enum AffiliatePayoutStatus {
+  PENDING // Awaiting processing
+  SCHEDULED // Scheduled for future date
+  AWAITING_APPROVAL // Needs admin approval
+  PROCESSING // In progress
+  COMPLETED // Successfully paid
+  FAILED // Payment failed
+  CANCELLED // Cancelled by admin
+  ON_HOLD // Temporarily held
+}
+
+// Tax documents for compliance
+model AffiliateTaxDocument {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  documentType TaxDocumentType
+  taxYear      Int
+
+  // Document storage (encrypted in S3)
+  s3Key           String?
+  s3Bucket        String?
+  encryptionKeyId String? // KMS key ID
+
+  // Status
+  status          TaxDocumentStatus @default(PENDING)
+  submittedAt     DateTime?
+  verifiedAt      DateTime?
+  verifiedBy      Int? // Admin user ID
+  rejectedAt      DateTime?
+  rejectionReason String?
+  expiresAt       DateTime?
+
+  // Extracted/validated data (masked for display)
+  taxIdLast4        String? // Last 4 of SSN/EIN
+  taxIdType         String? // SSN, EIN, ITIN
+  legalName         String?
+  businessName      String?
+  taxClassification String? // Individual, LLC, Corporation, etc.
+  address           String?
+
+  // IRS TIN matching (optional)
+  tinMatchStatus String? // matched, mismatched, pending
+  tinMatchedAt   DateTime?
+
+  @@unique([affiliateId, documentType, taxYear])
+  @@index([affiliateId])
+  @@index([status])
+}
+
+enum TaxDocumentType {
+  W9 // US persons/entities
+  W8BEN // Foreign individuals
+  W8BENE // Foreign entities
+}
+
+enum TaxDocumentStatus {
+  PENDING // Not yet submitted
+  SUBMITTED // Submitted, awaiting review
+  VERIFIED // Verified and valid
+  REJECTED // Rejected, needs resubmission
+  EXPIRED // Document expired
+}
+
+// ===== ENTERPRISE AFFILIATE SYSTEM - FRAUD DETECTION =====
+
+// Fraud alerts for review
+model AffiliateFraudAlert {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  clinicId    Int
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  alertType FraudAlertType
+  severity  FraudSeverity  @default(MEDIUM)
+
+  // Evidence
+  description String
+  evidence    Json // Detailed evidence data (IPs, patterns, etc.)
+
+  // Related records
+  commissionEventId Int?
+  touchId           Int?
+
+  // Risk scoring
+  riskScore Int @default(50) // 0-100
+
+  // Financial impact
+  affectedAmountCents Int? // Commission at risk
+
+  // Resolution
+  status           FraudAlertStatus       @default(OPEN)
+  resolvedAt       DateTime?
+  resolvedBy       Int? // Admin user ID
+  resolution       String? // Resolution notes
+  resolutionAction FraudResolutionAction?
+
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+enum FraudAlertType {
+  SELF_REFERRAL // Affiliate referring themselves
+  DUPLICATE_IP // Multiple conversions from same IP
+  VELOCITY_SPIKE // Unusual conversion rate spike
+  SUSPICIOUS_PATTERN // Detected anomaly in behavior
+  GEO_MISMATCH // IP location doesn't match patient billing
+  REFUND_ABUSE // High refund rate for affiliate's referrals
+  COOKIE_STUFFING // Suspected cookie stuffing
+  CLICK_FRAUD // Invalid click patterns
+  DEVICE_FRAUD // Same device, multiple "new" conversions
+  INCENTIVIZED_TRAFFIC // Suspected paid/incentivized signups
+}
+
+enum FraudSeverity {
+  LOW // Minor concern, informational
+  MEDIUM // Needs review
+  HIGH // Likely fraud, hold commissions
+  CRITICAL // Confirmed fraud, suspend affiliate
+}
+
+enum FraudAlertStatus {
+  OPEN // New, not yet reviewed
+  INVESTIGATING // Under investigation
+  CONFIRMED_FRAUD // Fraud confirmed
+  FALSE_POSITIVE // Not fraud
+  DISMISSED // Dismissed without action
+}
+
+enum FraudResolutionAction {
+  NO_ACTION // Alert dismissed
+  WARNING_ISSUED // Warning sent to affiliate
+  COMMISSION_REVERSED // Commission clawed back
+  COMMISSIONS_HELD // Future commissions on hold
+  AFFILIATE_SUSPENDED // Affiliate suspended
+  AFFILIATE_TERMINATED // Affiliate terminated
+}
+
+// IP intelligence cache
+model AffiliateIpIntel {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipHash    String   @unique // SHA-256 hash of IP
+
+  // Geolocation
+  country     String?
+  countryCode String?
+  region      String?
+  city        String?
+  latitude    Float?
+  longitude   Float?
+  timezone    String?
+
+  // ISP info
+  isp          String?
+  organization String?
+  asn          String?
+
+  // Risk indicators
+  isProxy      Boolean @default(false)
+  isVpn        Boolean @default(false)
+  isTor        Boolean @default(false)
+  isDatacenter Boolean @default(false)
+  isBot        Boolean @default(false)
+  isCrawler    Boolean @default(false)
+
+  // Risk score (0-100, higher = riskier)
+  riskScore  Int @default(0)
+  fraudScore Int @default(0)
+
+  // Provider used
+  provider String? // "ipqualityscore", "maxmind", etc.
+
+  // Cache expiry
+  expiresAt DateTime
+
+  @@index([ipHash])
+  @@index([expiresAt])
+}
+
+// Fraud detection thresholds per clinic
+model AffiliateFraudConfig {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int      @unique
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Enable/disable fraud checks
+  enabled Boolean @default(true)
+
+  // Velocity thresholds
+  maxConversionsPerDay    Int   @default(50)
+  maxConversionsPerHour   Int   @default(10)
+  velocitySpikeMultiplier Float @default(3.0) // Alert if > 3x normal
+
+  // IP thresholds
+  maxConversionsPerIp Int     @default(3) // Per 30 days
+  minIpRiskScore      Int     @default(75) // Alert if IP risk > 75
+  blockProxyVpn       Boolean @default(false)
+  blockDatacenter     Boolean @default(true)
+  blockTor            Boolean @default(true)
+
+  // Refund thresholds
+  maxRefundRatePct   Int @default(20) // Alert if refund rate > 20%
+  minRefundsForAlert Int @default(5) // Need at least 5 refunds to trigger
+
+  // Geo settings
+  enableGeoMismatchCheck Boolean @default(true)
+  allowedCountries       Json? // null = all allowed
+
+  // Self-referral
+  enableSelfReferralCheck Boolean @default(true)
+
+  // Auto-actions
+  autoHoldOnHighRisk    Boolean @default(true)
+  autoSuspendOnCritical Boolean @default(false)
+
+  @@index([clinicId])
 }

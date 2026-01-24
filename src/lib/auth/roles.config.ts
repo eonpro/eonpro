@@ -3,7 +3,7 @@
  * Defines features, permissions, and UI layouts for each user role
  */
 
-export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'support' | 'patient' | 'influencer';
+export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'support' | 'patient' | 'influencer' | 'affiliate';
 
 export interface RoleConfig {
   role: UserRole;
@@ -580,6 +580,75 @@ export const INFLUENCER_CONFIG: RoleConfig = {
   restrictions: ['No patient data access', 'View-only commission data', 'Cannot process medical operations']
 };
 
+// AFFILIATE - Affiliate/referral partners portal
+export const AFFILIATE_CONFIG: RoleConfig = {
+  role: 'affiliate',
+  displayName: 'Affiliate Partner',
+  description: 'Referral partners with aggregated performance metrics',
+  defaultPath: '/portal/affiliate',
+  theme: {
+    primaryColor: '#8B5CF6', // Violet
+    secondaryColor: '#7C3AED',
+    iconColor: '#C4B5FD',
+    bgGradient: 'from-violet-500 to-purple-600'
+  },
+  features: {
+    viewAllPatients: false,
+    editPatients: false,
+    deletePatients: false,
+    viewPatientPHI: false, // CRITICAL: Affiliates NEVER see patient data
+    exportPatientData: false,
+    createSoapNotes: false,
+    prescribeRx: false,
+    orderLabs: false,
+    viewMedicalRecords: false,
+    uploadDocuments: false,
+    manageUsers: false,
+    manageClinics: false,
+    viewAnalytics: true, // Own aggregated metrics only
+    viewFinancials: false,
+    manageSubscriptions: false,
+    internalMessaging: false,
+    patientMessaging: false,
+    ticketManagement: false,
+    supportTickets: true, // Can submit support tickets
+    systemSettings: false,
+    auditLogs: false,
+    apiAccess: false,
+    bulkOperations: false,
+    manageOrders: false,
+    processPayments: false,
+    manageInventory: false,
+    viewCommissions: true, // View own commission data
+  },
+  navigation: {
+    primary: [
+      { label: 'Dashboard', path: '/portal/affiliate', icon: 'Home' },
+      { label: 'Performance', path: '/portal/affiliate/performance', icon: 'TrendingUp' },
+      { label: 'Commissions', path: '/portal/affiliate/commissions', icon: 'DollarSign' },
+      { label: 'Ref Codes', path: '/portal/affiliate/ref-codes', icon: 'Link' },
+      { label: 'Resources', path: '/portal/affiliate/resources', icon: 'Download' },
+      { label: 'Support', path: '/portal/affiliate/support', icon: 'HelpCircle' },
+    ],
+    quick: [
+      { label: 'Copy Link', action: 'copy-ref-link', icon: 'Copy', color: 'blue' },
+      { label: 'View Earnings', action: 'view-earnings', icon: 'DollarSign', color: 'green' },
+    ]
+  },
+  widgets: [
+    { id: 'commission-overview', title: 'Commission Overview', type: 'stat', size: 'large', position: 1 },
+    { id: 'conversion-trends', title: 'Conversion Trends', type: 'chart', size: 'large', position: 2 },
+    { id: 'pending-commissions', title: 'Pending Commissions', type: 'stat', size: 'medium', position: 3 },
+    { id: 'recent-activity', title: 'Recent Activity', type: 'list', size: 'medium', position: 4 },
+  ],
+  restrictions: [
+    'No access to patient data (HIPAA compliant)',
+    'View-only aggregated metrics',
+    'Cannot process medical operations',
+    'Cannot view individual conversion details'
+  ]
+};
+
 // Role configuration map
 export const ROLE_CONFIGS: Record<UserRole, RoleConfig> = {
   super_admin: SUPER_ADMIN_CONFIG,
@@ -589,6 +658,7 @@ export const ROLE_CONFIGS: Record<UserRole, RoleConfig> = {
   support: SUPPORT_CONFIG,
   patient: PATIENT_CONFIG,
   influencer: INFLUENCER_CONFIG,
+  affiliate: AFFILIATE_CONFIG,
 };
 
 // Helper function to get role configuration

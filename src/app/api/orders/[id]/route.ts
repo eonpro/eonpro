@@ -5,10 +5,14 @@
  * API endpoint for getting order status from Lifefile.
  *
  * @module api/orders/[id]
+ * @security Requires authentication
  */
 
+import { NextRequest, NextResponse } from 'next/server';
 import lifefile from '@/lib/lifefile';
-import { handleApiError, AppError } from '@/domains/shared/errors';
+import { verifyAuth } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
+import { logger } from '@/lib/logger';
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -20,19 +24,32 @@ type Params = {
  *
  * Note: This fetches status directly from Lifefile pharmacy API,
  * not from our local database. The ID is the Lifefile order ID.
+ *
+ * @security Requires authentication
  */
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   try {
+    // SECURITY FIX: This endpoint was previously unauthenticated
+    const authResult = await verifyAuth(req);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
+    logger.info('[Orders] Fetching Lifefile order status', {
+      lifefileOrderId: id,
+      userId: authResult.user?.id,
+    });
+
     const status = await lifefile.getOrderStatus(id);
 
-    return Response.json({ success: true, status });
+    return NextResponse.json({ success: true, status });
   } catch (error) {
     // Return 502 for Lifefile API errors (external service)
     if (error instanceof Error) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: error.message },
         { status: 502 }
       );

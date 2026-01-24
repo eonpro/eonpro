@@ -28,6 +28,7 @@ export interface AuthUser {
   providerId?: number;
   patientId?: number;
   influencerId?: number;
+  affiliateId?: number;
   permissions?: string[];
   tokenVersion?: number;
   iat?: number;
@@ -39,6 +40,7 @@ export type UserRole =
   | 'admin' 
   | 'provider' 
   | 'influencer' 
+  | 'affiliate'
   | 'patient' 
   | 'staff' 
   | 'support';
@@ -121,6 +123,7 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
       providerId: payload.providerId as number | undefined,
       patientId: payload.patientId as number | undefined,
       influencerId: payload.influencerId as number | undefined,
+      affiliateId: payload.affiliateId as number | undefined,
       permissions: payload.permissions as string[] | undefined,
       tokenVersion: tokenVersion,
       iat: payload.iat,
@@ -184,7 +187,7 @@ function validateTokenClaims(payload: JWTPayload): string | null {
   
   const validRoles: UserRole[] = [
     'super_admin', 'admin', 'provider', 'influencer', 
-    'patient', 'staff', 'support'
+    'affiliate', 'patient', 'staff', 'support'
   ];
   
   if (!validRoles.includes(payload.role as UserRole)) {
@@ -216,6 +219,7 @@ function extractToken(req: NextRequest): string | null {
     'admin-token',
     'provider-token',
     'influencer-token',
+    'affiliate-token',
     'patient-token',
     'staff-token',
     'support-token',
@@ -613,6 +617,16 @@ export function withInfluencerAuth(
 }
 
 /**
+ * Middleware for affiliate portal routes
+ * HIPAA-COMPLIANT: Affiliates can only access their own aggregated data
+ */
+export function withAffiliateAuth(
+  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
+): (req: NextRequest) => Promise<Response> {
+  return withAuth(handler, { roles: ['super_admin', 'admin', 'affiliate'] });
+}
+
+/**
  * Middleware for patient routes
  */
 export function withPatientAuth(
@@ -660,6 +674,7 @@ export async function verifyAuth(req: NextRequest): Promise<{
       'admin-token',
       'provider-token',
       'influencer-token',
+      'affiliate-token',
       'patient-token',
       'staff-token',
       'support-token',
@@ -693,6 +708,7 @@ export async function verifyAuth(req: NextRequest): Promise<{
       providerId: payload.providerId as number | undefined,
       patientId: payload.patientId as number | undefined,
       influencerId: payload.influencerId as number | undefined,
+      affiliateId: payload.affiliateId as number | undefined,
       permissions: payload.permissions as string[] | undefined,
       iat: payload.iat,
       exp: payload.exp,

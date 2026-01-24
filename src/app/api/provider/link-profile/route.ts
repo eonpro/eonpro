@@ -4,14 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { basePrisma } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
 async function handlePost(req: NextRequest, user: AuthUser) {
   try {
     // Get current user with provider
-    const userData = await basePrisma.user.findUnique({
+    const userData = await prisma.user.findUnique({
       where: { id: user.id },
       include: { provider: true },
     });
@@ -34,7 +34,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     }
 
     // Try to find provider by email
-    const provider = await basePrisma.provider.findFirst({
+    const provider = await prisma.provider.findFirst({
       where: { email: user.email },
     });
 
@@ -47,7 +47,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     }
 
     // Link the provider to the user
-    await basePrisma.user.update({
+    await prisma.user.update({
       where: { id: user.id },
       data: { providerId: provider.id },
     });

@@ -1,13 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/white-label/test?clinicId=X
  *
  * Comprehensive test endpoint to verify all white-label capabilities.
  * Returns a detailed report of white-label configuration and status.
+ *
+ * @security Requires super_admin role
  */
 export async function GET(request: NextRequest) {
+  // SECURITY FIX: This endpoint was previously unauthenticated and exposed sensitive data
+  const authResult = await verifyAuth(request);
+  if (!authResult.success) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Only super_admin can access this diagnostic endpoint
+  if (authResult.user?.role !== 'super_admin') {
+    logger.security('[WhiteLabel] Non-super-admin attempted to access test endpoint', {
+      userId: authResult.user?.id,
+      role: authResult.user?.role,
+    });
+    return NextResponse.json({ error: 'Forbidden - super_admin required' }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const clinicId = searchParams.get('clinicId');

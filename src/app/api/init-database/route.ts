@@ -3,12 +3,24 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
 export async function GET(request: Request) {
-  // Security check - should use env variable in production
+  // SECURITY: Block in production - this is a development-only endpoint
+  if (process.env.NODE_ENV === 'production') {
+    logger.security('[INIT-DB] Blocked attempt in production');
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
+  
+  // Security check - Requires DB_INIT_KEY env var, no fallback
+  const expectedKey = process.env.DB_INIT_KEY;
+  if (!expectedKey) {
+    logger.error('[INIT-DB] DB_INIT_KEY not configured');
+    return NextResponse.json({ error: 'Endpoint not configured' }, { status: 500 });
+  }
+  
   const { searchParams } = new URL(request.url);
   const initKey = searchParams.get('key');
-  const expectedKey = process.env.DB_INIT_KEY || 'init-eonpro-2024';
   
   if (initKey !== expectedKey) {
+    logger.warn('[INIT-DB] Invalid init key provided');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
