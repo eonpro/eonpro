@@ -184,7 +184,7 @@ export const DELETE = withSuperAdminAuth(async (req: NextRequest, user: AuthUser
     }
 
     // Delete all related records in a transaction
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // 1. Delete sessions
       await tx.userSession.deleteMany({ where: { userId } });
       
