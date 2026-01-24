@@ -287,33 +287,13 @@ export default function AffiliateLoginPage() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Gradient Background - uses branding colors */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: branding
-            ? `linear-gradient(135deg, ${primaryColor}08 0%, ${primaryColor}12 25%, ${secondaryColor}10 50%, ${accentColor}15 75%, ${accentColor}20 100%)`
-            : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
-        }}
-      />
-
-      {/* Subtle mesh overlay */}
-      <div
-        className="absolute inset-0 opacity-30"
-        style={{
-          backgroundImage: branding
-            ? `radial-gradient(circle at 20% 50%, ${primaryColor}15 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, ${accentColor}20 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, ${secondaryColor}15 0%, transparent 50%)`
-            : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.15) 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.1) 0%, transparent 50%)`,
-        }}
-      />
+    <div 
+      className="min-h-screen"
+      style={{ backgroundColor: '#f5f5f0' }}
+    >
 
       {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col">
         {/* Logo centered at top - uses clinic logo if available */}
         <div className="flex flex-col items-center pt-12 pb-8">
           {branding ? (
@@ -359,12 +339,9 @@ export default function AffiliateLoginPage() {
               >
                 {/* Welcome Text */}
                 <div className="text-center mb-8">
-                  <h1 className="text-5xl md:text-6xl font-light text-gray-900 mb-4 tracking-tight">
+                  <h1 className="text-5xl md:text-6xl font-light text-gray-900 tracking-tight">
                     Partner Portal
                   </h1>
-                  <p className="text-gray-600 text-lg">
-                    {branding ? `Sign in to manage your ${branding.name} partnership` : 'Enter your phone number to continue'}
-                  </p>
                 </div>
 
                 <form onSubmit={handlePhoneSubmit} className="space-y-4">
