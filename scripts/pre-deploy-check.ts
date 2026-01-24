@@ -134,7 +134,7 @@ async function checkSchemaIntegrity(prisma: PrismaClient) {
     Patient: ['id', 'firstName', 'lastName', 'email', 'clinicId'],
     Payment: ['id', 'patientId', 'amount', 'status'],
     Subscription: ['id', 'patientId', 'status', 'stripeSubscriptionId'],
-    SOAPNote: ['id', 'patientId', 'providerId', 'subjective', 'objective', 'assessment', 'plan'],
+    SOAPNote: ['id', 'patientId', 'subjective', 'objective', 'assessment', 'plan'],
     User: ['id', 'email', 'role'],
     Product: ['id', 'name', 'price', 'stripeProductId'],
     InvoiceItem: ['id', 'invoiceId', 'quantity', 'unitPrice'],
@@ -240,7 +240,7 @@ async function checkSchemaDrift(prisma: PrismaClient) {
       'lifefileEnabled', 'lifefileBaseUrl', 'lifefileUsername', 'lifefilePassword',
       'lifefileVendorId', 'lifefilePracticeId', 'lifefileLocationId',
     ],
-    PatientCounter: ['id', 'clinicId', 'currentNumber', 'prefix', 'updatedAt'],
+    PatientCounter: ['id', 'clinicId', 'current'],
   };
 
   const driftIssues: string[] = [];
