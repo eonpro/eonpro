@@ -72,14 +72,91 @@ jobs:
             })
 
   # ============================================================================
-  # Deploy to Production
+  # Database Migration (RUNS BEFORE DEPLOYMENT)
+  # ============================================================================
+  # IMPORTANT: Migrations must run BEFORE deploying code to prevent schema
+  # mismatch errors. The new code may expect columns that don't exist yet.
+  # 
+  # Flow: staging -> migrate -> production
+  # ============================================================================
+  migrate-database:
+    name: Database Migration (Pre-Deploy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        
+      - name: Check for pending migrations
+        id: check-migrations
+        run: |
+          echo "Checking migration status..."
+          STATUS=$(npx prisma migrate status 2>&1) || true
+          echo "$STATUS"
+          if echo "$STATUS" | grep -q "Database schema is up to date"; then
+            echo "has_migrations=false" >> $GITHUB_OUTPUT
+            echo "✅ No pending migrations"
+          else
+            echo "has_migrations=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Pending migrations detected"
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          
+      - name: Run pre-deploy validation
+        run: |
+          echo "Running pre-deployment database checks..."
+          npm run db:validate || echo "::warning::Pre-deploy validation had warnings"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        continue-on-error: true
+          
+      - name: Run database migrations
+        run: |
+          echo "🔄 Running database migrations..."
+          npx prisma migrate deploy
+          echo "✅ Migrations completed successfully"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          
+      - name: Verify migration status
+        run: |
+          echo "Verifying migration status..."
+          npx prisma migrate status
+          echo "✅ Migration verification complete"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          
+      - name: Schema drift check
+        run: |
+          echo "Checking for schema drift..."
+          npm run db:validate || echo "::warning::Schema drift detected - review before deployment"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        continue-on-error: true
+
+  # ============================================================================
+  # Deploy to Production (RUNS AFTER MIGRATION)
   # ============================================================================
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
-    needs: [deploy-staging]
+    needs: [migrate-database]  # CRITICAL: Wait for migrations before deploying
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event.inputs.environment == 'production')
     
     steps:
@@ -106,6 +183,7 @@ jobs:
         run: |
           URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "🚀 Deployed to: $URL"
           
       - name: Run production health check
         run: |
@@ -113,6 +191,7 @@ jobs:
           sleep 30
           curl -f "${{ steps.deploy.outputs.url }}/api/health" || exit 1
           curl -f "${{ steps.deploy.outputs.url }}/api/ready" || exit 1
+          echo "✅ Health checks passed"
           
       - name: Create release tag
         uses: actions/github-script@v7
@@ -138,37 +217,3 @@ jobs:
           fields: repo,message,commit,author,action,eventName,ref,workflow
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  # ============================================================================
-  # Database Migration
-  # ============================================================================
-  migrate-database:
-    name: Database Migration
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [deploy-production]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-        
-      - name: Run database migrations
-        run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          
-      - name: Verify migration
-        run: npx prisma migrate status
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}

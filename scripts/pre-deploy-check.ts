@@ -57,13 +57,16 @@ async function main() {
     // 2. Schema Validation
     await checkSchemaIntegrity(prisma);
 
-    // 3. Critical Data Queries
+    // 3. Schema Drift Detection (Prisma schema vs actual DB)
+    await checkSchemaDrift(prisma);
+
+    // 4. Critical Data Queries
     await checkCriticalDataQueries(prisma);
 
-    // 4. Data Integrity
+    // 5. Data Integrity
     await checkDataIntegrity(prisma);
 
-    // 5. API Endpoints (if in same environment)
+    // 6. API Endpoints (if in same environment)
     await checkCriticalEndpoints();
 
   } catch (error: any) {
@@ -125,6 +128,7 @@ async function checkSchemaIntegrity(prisma: PrismaClient) {
   console.log(`${BLUE}[2/5]${RESET} Validating database schema...`);
 
   // Critical tables and their required columns
+  // NOTE: When adding new columns to Clinic, add them here BEFORE deploying code that uses them
   const criticalTables = {
     Invoice: ['id', 'patientId', 'status', 'amountDue', 'amountPaid', 'stripeInvoiceId', 'createSubscription', 'subscriptionCreated'],
     Patient: ['id', 'firstName', 'lastName', 'email', 'clinicId'],
@@ -134,6 +138,14 @@ async function checkSchemaIntegrity(prisma: PrismaClient) {
     User: ['id', 'email', 'role'],
     Product: ['id', 'name', 'price', 'stripeProductId'],
     InvoiceItem: ['id', 'invoiceId', 'quantity', 'unitPrice'],
+    // Clinic model - critical for multi-tenant architecture
+    Clinic: [
+      'id', 'name', 'subdomain', 'status', 'adminEmail',
+      'primaryColor', 'secondaryColor', 'accentColor',
+      'logoUrl', 'iconUrl', 'faviconUrl',
+      'billingPlan', 'patientLimit', 'providerLimit',
+      'buttonTextColor', // Added 2026-01-24
+    ],
   };
 
   const missingColumns: string[] = [];
@@ -199,8 +211,110 @@ async function checkSchemaIntegrity(prisma: PrismaClient) {
   }
 }
 
+/**
+ * Check for schema drift between Prisma schema expectations and actual database.
+ * This catches cases where the Prisma client expects columns that don't exist in DB.
+ * 
+ * IMPORTANT: This is a critical check that prevents deployment failures when
+ * new columns are added to the Prisma schema but migrations haven't been run.
+ */
+async function checkSchemaDrift(prisma: PrismaClient) {
+  console.log(`${BLUE}[3/6]${RESET} Checking for schema drift...`);
+
+  // Models that are frequently updated and need drift detection
+  // Add new columns here when they are added to the Prisma schema
+  const expectedColumns: Record<string, string[]> = {
+    Clinic: [
+      // Core fields
+      'id', 'createdAt', 'updatedAt', 'name', 'subdomain', 'customDomain', 'status',
+      // Contact
+      'adminEmail', 'supportEmail', 'phone', 'timezone', 'address',
+      // Branding - frequently updated
+      'primaryColor', 'secondaryColor', 'accentColor', 'buttonTextColor',
+      'logoUrl', 'iconUrl', 'faviconUrl', 'customCss',
+      // Billing
+      'billingPlan', 'patientLimit', 'providerLimit', 'storageLimit',
+      // Settings
+      'settings', 'features', 'integrations',
+      // Lifefile integration
+      'lifefileEnabled', 'lifefileBaseUrl', 'lifefileUsername', 'lifefilePassword',
+      'lifefileVendorId', 'lifefilePracticeId', 'lifefileLocationId',
+    ],
+    PatientCounter: ['id', 'clinicId', 'currentNumber', 'prefix', 'updatedAt'],
+  };
+
+  const driftIssues: string[] = [];
+
+  try {
+    // Get actual columns from database
+    const columns = await prisma.$queryRaw<Array<{ table_name: string; column_name: string }>>`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+    `;
+
+    const schemaMap = new Map<string, Set<string>>();
+    for (const col of columns) {
+      if (!schemaMap.has(col.table_name)) {
+        schemaMap.set(col.table_name, new Set());
+      }
+      schemaMap.get(col.table_name)!.add(col.column_name);
+    }
+
+    // Check each monitored model for missing columns
+    for (const [model, expectedCols] of Object.entries(expectedColumns)) {
+      const actualCols = schemaMap.get(model);
+      
+      if (!actualCols) {
+        driftIssues.push(`⚠️  Table "${model}" expected but not found in database`);
+        continue;
+      }
+
+      for (const col of expectedCols) {
+        if (!actualCols.has(col)) {
+          driftIssues.push(`🔴 ${model}.${col} - Column expected by Prisma but missing in DB`);
+        }
+      }
+    }
+
+    if (driftIssues.length > 0) {
+      results.push({
+        name: 'Schema Drift Detection',
+        passed: false,
+        critical: true, // Schema drift is critical - will cause 500 errors
+        message: `Schema drift detected: ${driftIssues.length} missing column(s)`,
+        details: [
+          ...driftIssues,
+          '',
+          '💡 To fix: Run migrations before deploying:',
+          '   npx prisma migrate deploy',
+        ],
+      });
+      console.log(`  ${RED}✗${RESET} Schema drift detected!`);
+      driftIssues.forEach(issue => console.log(`    ${RED}-${RESET} ${issue}`));
+      console.log(`\n    ${YELLOW}Run 'npx prisma migrate deploy' to fix${RESET}`);
+    } else {
+      results.push({
+        name: 'Schema Drift Detection',
+        passed: true,
+        critical: true,
+        message: 'No schema drift detected - DB matches Prisma expectations',
+      });
+      console.log(`  ${GREEN}✓${RESET} No schema drift - database is in sync`);
+    }
+  } catch (error: any) {
+    results.push({
+      name: 'Schema Drift Detection',
+      passed: false,
+      critical: false, // Don't block if check itself fails
+      message: `Schema drift check failed: ${error.message}`,
+    });
+    console.log(`  ${YELLOW}⚠${RESET} Schema drift check failed: ${error.message}`);
+  }
+}
+
 async function checkCriticalDataQueries(prisma: PrismaClient) {
-  console.log(`${BLUE}[3/5]${RESET} Testing critical data queries...`);
+  console.log(`${BLUE}[4/6]${RESET} Testing critical data queries...`);
 
   const queries = [
     {
@@ -251,7 +365,7 @@ async function checkCriticalDataQueries(prisma: PrismaClient) {
 }
 
 async function checkDataIntegrity(prisma: PrismaClient) {
-  console.log(`${BLUE}[4/5]${RESET} Checking data integrity...`);
+  console.log(`${BLUE}[5/6]${RESET} Checking data integrity...`);
 
   const issues: string[] = [];
 
@@ -322,7 +436,7 @@ async function checkDataIntegrity(prisma: PrismaClient) {
 }
 
 async function checkCriticalEndpoints() {
-  console.log(`${BLUE}[5/5]${RESET} Checking critical API endpoints...`);
+  console.log(`${BLUE}[6/6]${RESET} Checking critical API endpoints...`);
 
   // Only run if we have an API URL
   const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL;
