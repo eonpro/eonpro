@@ -715,6 +715,7 @@ model User {
   clinic              Clinic?    @relation(fields: [clinicId], references: [id])
   activeClinicId      Int? // Currently active clinic for multi-clinic users
   email               String     @unique
+  phone               String?    // Phone number for SMS login and notifications
   passwordHash        String
   firstName           String
   lastName            String

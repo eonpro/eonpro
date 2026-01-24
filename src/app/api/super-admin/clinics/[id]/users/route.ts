@@ -64,6 +64,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       select: {
         id: true,
         email: true,
+        phone: true,
         firstName: true,
         lastName: true,
         role: true,
@@ -89,6 +90,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       return {
         id: user.id,
         email: user.email,
+        phone: user.phone,
         firstName: user.firstName,
         lastName: user.lastName,
         role: clinicAssignment?.role || user.role, // Use clinic-specific role if exists
@@ -139,7 +141,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
 
     const body = await req.json();
     const { 
-      email, firstName, lastName, role, password, sendInvite,
+      email, phone, firstName, lastName, role, password, sendInvite,
       // Provider-specific fields
       npi, deaNumber, licenseNumber, licenseState, specialty 
     } = body;
@@ -386,6 +388,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     const newUser = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
+        phone: phone || null,
         firstName,
         lastName,
         role: prismaRole,
@@ -396,6 +399,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
       select: {
         id: true,
         email: true,
+        phone: true,
         firstName: true,
         lastName: true,
         role: true,

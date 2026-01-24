@@ -42,6 +42,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       select: {
         id: true,
         email: true,
+        phone: true,
         firstName: true,
         lastName: true,
         role: true,
@@ -100,14 +101,15 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
     }
 
     const body = await req.json();
-    const { firstName, lastName, role, status, password } = body;
+    const { firstName, lastName, role, status, password, phone } = body;
 
     // Build update data
     const updateData: any = {};
-    if (firstName) updateData.firstName = firstName;
-    if (lastName) updateData.lastName = lastName;
-    if (role) updateData.role = role;
-    if (status) updateData.status = status;
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (role !== undefined) updateData.role = role;
+    if (status !== undefined) updateData.status = status;
+    if (phone !== undefined) updateData.phone = phone || null; // Allow clearing phone
 
     // Handle password reset
     if (password) {
@@ -127,6 +129,7 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       select: {
         id: true,
         email: true,
+        phone: true,
         firstName: true,
         lastName: true,
         role: true,
@@ -180,14 +183,91 @@ export const DELETE = withSuperAdminAuth(async (req: NextRequest, user: AuthUser
       );
     }
 
-    // Delete associated provider record if exists
-    await prisma.provider.deleteMany({
-      where: { userId },
-    });
-
-    // Delete the user
-    await prisma.user.delete({
-      where: { id: userId },
+    // Delete all related records in a transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete sessions
+      await tx.userSession.deleteMany({ where: { userId } });
+      
+      // 2. Delete audit logs
+      await tx.userAuditLog.deleteMany({ where: { userId } });
+      
+      // 3. Delete password reset tokens
+      await tx.passwordResetToken.deleteMany({ where: { userId } });
+      
+      // 4. Delete email verification tokens
+      await tx.emailVerificationToken.deleteMany({ where: { userId } });
+      
+      // 5. Delete user clinic assignments
+      await tx.userClinic.deleteMany({ where: { userId } });
+      
+      // 6. Delete API keys and usage logs
+      const apiKeys = await tx.apiKey.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+      for (const key of apiKeys) {
+        await tx.apiUsageLog.deleteMany({ where: { apiKeyId: key.id } });
+      }
+      await tx.apiKey.deleteMany({ where: { userId } });
+      
+      // 7. Update tickets to remove user references (set to null instead of delete)
+      await tx.ticket.updateMany({
+        where: { createdById: userId },
+        data: { createdById: null as any },
+      });
+      await tx.ticket.updateMany({
+        where: { assignedToId: userId },
+        data: { assignedToId: null },
+      });
+      await tx.ticket.updateMany({
+        where: { resolvedById: userId },
+        data: { resolvedById: null },
+      });
+      await tx.ticket.updateMany({
+        where: { ownerId: userId },
+        data: { ownerId: null },
+      });
+      await tx.ticket.updateMany({
+        where: { lastWorkedById: userId },
+        data: { lastWorkedById: null },
+      });
+      
+      // 8. Delete ticket-related records
+      await tx.ticketAssignment.deleteMany({ where: { assignedById: userId } });
+      await tx.ticketAssignment.deleteMany({ where: { assignedToId: userId } });
+      await tx.ticketComment.deleteMany({ where: { userId } });
+      await tx.ticketStatusHistory.deleteMany({ where: { changedById: userId } });
+      await tx.ticketWorkLog.deleteMany({ where: { userId } });
+      await tx.ticketEscalation.deleteMany({ where: { escalatedById: userId } });
+      await tx.ticketEscalation.deleteMany({ where: { escalatedToId: userId } });
+      
+      // 9. Delete clinic audit logs
+      await tx.clinicAuditLog.deleteMany({ where: { userId } });
+      
+      // 10. Update appointments to remove creator reference
+      await tx.appointment.updateMany({
+        where: { createdById: userId },
+        data: { createdById: null },
+      });
+      
+      // 11. Delete care plan progress
+      await tx.carePlanProgress.deleteMany({ where: { recordedById: userId } });
+      
+      // 12. Delete internal messages
+      await tx.internalMessage.deleteMany({ where: { senderId: userId } });
+      await tx.internalMessage.deleteMany({ where: { recipientId: userId } });
+      
+      // 13. Delete associated provider record if exists
+      await tx.provider.deleteMany({ where: { userId } });
+      
+      // 14. Update createdBy references to null for users created by this user
+      await tx.user.updateMany({
+        where: { createdById: userId },
+        data: { createdById: null },
+      });
+      
+      // Finally delete the user
+      await tx.user.delete({ where: { id: userId } });
     });
 
     return NextResponse.json({
