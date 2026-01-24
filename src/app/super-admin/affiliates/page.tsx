@@ -1,0 +1,596 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import {
+  Users,
+  Plus,
+  Search,
+  Building2,
+  DollarSign,
+  TrendingUp,
+  Eye,
+  Copy,
+  Check,
+  ChevronDown,
+} from 'lucide-react';
+
+interface Clinic {
+  id: number;
+  name: string;
+  subdomain: string | null;
+}
+
+interface Affiliate {
+  id: number;
+  displayName: string;
+  status: string;
+  createdAt: string;
+  clinicId: number;
+  clinic: {
+    id: number;
+    name: string;
+    subdomain: string | null;
+  };
+  user: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    lastLogin: string | null;
+    status: string;
+  };
+  refCodes: Array<{
+    id: number;
+    refCode: string;
+    isActive: boolean;
+  }>;
+  currentPlan: {
+    id: number;
+    name: string;
+    planType: string;
+    flatAmountCents: number | null;
+    percentBps: number | null;
+  } | null;
+  stats: {
+    totalConversions: number;
+    totalRevenueCents: number;
+    totalCommissionCents: number;
+  };
+}
+
+interface CommissionPlan {
+  id: number;
+  name: string;
+  planType: string;
+  flatAmountCents: number | null;
+  percentBps: number | null;
+  isActive: boolean;
+  clinicId: number;
+}
+
+function formatCurrency(cents: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(cents / 100);
+}
+
+function formatPercent(bps: number): string {
+  return `${(bps / 100).toFixed(1)}%`;
+}
+
+export default function SuperAdminAffiliatesPage() {
+  const router = useRouter();
+  const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [plans, setPlans] = useState<CommissionPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedClinic, setSelectedClinic] = useState<number | 'all'>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Create form state
+  const [createForm, setCreateForm] = useState({
+    clinicId: '',
+    email: '',
+    password: '',
+    displayName: '',
+    firstName: '',
+    lastName: '',
+    initialRefCode: '',
+    commissionPlanId: '',
+  });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    const token = localStorage.getItem('auth-token');
+
+    try {
+      // Fetch clinics first
+      const clinicsRes = await fetch('/api/super-admin/clinics', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (clinicsRes.ok) {
+        const clinicsData = await clinicsRes.json();
+        setClinics(clinicsData.clinics || []);
+      }
+
+      // Fetch all affiliates across all clinics
+      const affiliatesRes = await fetch('/api/super-admin/affiliates', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (affiliatesRes.ok) {
+        const data = await affiliatesRes.json();
+        setAffiliates(data.affiliates || []);
+        setPlans(data.plans || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAffiliate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    setCreateError(null);
+
+    const token = localStorage.getItem('auth-token');
+
+    try {
+      const response = await fetch('/api/super-admin/affiliates', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...createForm,
+          clinicId: parseInt(createForm.clinicId),
+          commissionPlanId: createForm.commissionPlanId 
+            ? parseInt(createForm.commissionPlanId) 
+            : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create affiliate');
+      }
+
+      setShowCreateModal(false);
+      setCreateForm({
+        clinicId: '',
+        email: '',
+        password: '',
+        displayName: '',
+        firstName: '',
+        lastName: '',
+        initialRefCode: '',
+        commissionPlanId: '',
+      });
+      fetchData();
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleCopyCode = async (code: string) => {
+    const baseUrl = window.location.origin;
+    const link = `${baseUrl}?ref=${code}`;
+    
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch (e) {
+      console.error('Failed to copy');
+    }
+  };
+
+  // Filter affiliates
+  const filteredAffiliates = affiliates.filter(a => {
+    const matchesSearch = 
+      a.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.refCodes.some(r => r.refCode.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesClinic = selectedClinic === 'all' || a.clinicId === selectedClinic;
+    
+    return matchesSearch && matchesClinic;
+  });
+
+  // Get plans for selected clinic in create form
+  const availablePlans = plans.filter(p => 
+    p.isActive && (!createForm.clinicId || p.clinicId === parseInt(createForm.clinicId))
+  );
+
+  const statusColors: Record<string, string> = {
+    ACTIVE: 'bg-green-100 text-green-800',
+    PAUSED: 'bg-yellow-100 text-yellow-800',
+    SUSPENDED: 'bg-red-100 text-red-800',
+    INACTIVE: 'bg-gray-100 text-gray-800',
+  };
+
+  // Calculate totals
+  const totals = {
+    affiliates: filteredAffiliates.length,
+    conversions: filteredAffiliates.reduce((sum, a) => sum + a.stats.totalConversions, 0),
+    commissions: filteredAffiliates.reduce((sum, a) => sum + a.stats.totalCommissionCents, 0),
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">All Affiliates</h1>
+          <p className="text-gray-500">Manage affiliates across all clinics</p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
+        >
+          <Plus className="h-5 w-5" />
+          Add Affiliate
+        </button>
+      </div>
+
+      {/* Stats Summary */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{totals.affiliates}</p>
+              <p className="text-sm text-gray-500">Total Affiliates</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-green-100 p-2 text-green-600">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{totals.conversions}</p>
+              <p className="text-sm text-gray-500">Total Conversions</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
+              <DollarSign className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totals.commissions)}</p>
+              <p className="text-sm text-gray-500">Total Commissions</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name, email, or ref code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+          />
+        </div>
+        <div className="relative">
+          <Building2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <select
+            value={selectedClinic}
+            onChange={(e) => setSelectedClinic(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+            className="appearance-none rounded-lg border border-gray-200 py-2 pl-10 pr-10 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+          >
+            <option value="all">All Clinics</option>
+            {clinics.map((clinic) => (
+              <option key={clinic.id} value={clinic.id}>
+                {clinic.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Affiliates Table */}
+      <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Affiliate
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Clinic
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Ref Codes
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Plan
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Stats
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Status
+              </th>
+              <th className="relative px-6 py-3">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {filteredAffiliates.map((affiliate) => (
+              <tr key={affiliate.id} className="hover:bg-gray-50">
+                <td className="whitespace-nowrap px-6 py-4">
+                  <div>
+                    <p className="font-medium text-gray-900">{affiliate.displayName}</p>
+                    <p className="text-sm text-gray-500">{affiliate.user.email}</p>
+                  </div>
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{affiliate.clinic.name}</p>
+                      <p className="text-xs text-gray-500">{affiliate.clinic.subdomain}.eonpro.io</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {affiliate.refCodes.slice(0, 2).map((ref) => (
+                      <button
+                        key={ref.id}
+                        onClick={() => handleCopyCode(ref.refCode)}
+                        className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-mono text-gray-700 hover:bg-gray-200"
+                      >
+                        {ref.refCode}
+                        {copiedCode === ref.refCode ? (
+                          <Check className="h-3 w-3 text-green-600" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                    ))}
+                    {affiliate.refCodes.length > 2 && (
+                      <span className="text-xs text-gray-400">
+                        +{affiliate.refCodes.length - 2}
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  {affiliate.currentPlan ? (
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {affiliate.currentPlan.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {affiliate.currentPlan.planType === 'PERCENT' && affiliate.currentPlan.percentBps
+                          ? formatPercent(affiliate.currentPlan.percentBps)
+                          : affiliate.currentPlan.flatAmountCents
+                            ? formatCurrency(affiliate.currentPlan.flatAmountCents)
+                            : 'N/A'}
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">No plan</span>
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <div className="text-sm">
+                    <p className="text-gray-900">
+                      {affiliate.stats.totalConversions} conversions
+                    </p>
+                    <p className="text-gray-500">
+                      {formatCurrency(affiliate.stats.totalCommissionCents)} earned
+                    </p>
+                  </div>
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}>
+                    {affiliate.status}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-6 py-4 text-right">
+                  <Link
+                    href={`/super-admin/affiliates/${affiliate.id}`}
+                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    <Eye className="h-5 w-5" />
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {filteredAffiliates.length === 0 && (
+          <div className="py-12 text-center">
+            <Users className="mx-auto h-12 w-12 text-gray-300" />
+            <p className="mt-2 text-gray-500">No affiliates found</p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="mt-4 text-violet-600 hover:text-violet-700 font-medium"
+            >
+              Add your first affiliate
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="mb-4 text-xl font-bold text-gray-900">Create Affiliate</h2>
+            
+            <form onSubmit={handleCreateAffiliate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Clinic *</label>
+                <select
+                  required
+                  value={createForm.clinicId}
+                  onChange={(e) => setCreateForm(f => ({ ...f, clinicId: e.target.value, commissionPlanId: '' }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                >
+                  <option value="">Select a clinic...</option>
+                  {clinics.map((clinic) => (
+                    <option key={clinic.id} value={clinic.id}>
+                      {clinic.name} ({clinic.subdomain}.eonpro.io)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm(f => ({ ...f, password: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Display Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={createForm.displayName}
+                  onChange={(e) => setCreateForm(f => ({ ...f, displayName: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">First Name</label>
+                  <input
+                    type="text"
+                    value={createForm.firstName}
+                    onChange={(e) => setCreateForm(f => ({ ...f, firstName: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                  <input
+                    type="text"
+                    value={createForm.lastName}
+                    onChange={(e) => setCreateForm(f => ({ ...f, lastName: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Initial Ref Code</label>
+                <input
+                  type="text"
+                  value={createForm.initialRefCode}
+                  onChange={(e) => setCreateForm(f => ({ ...f, initialRefCode: e.target.value.toUpperCase() }))}
+                  placeholder="e.g., PARTNER_ABC"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Commission Plan</label>
+                <select
+                  value={createForm.commissionPlanId}
+                  onChange={(e) => setCreateForm(f => ({ ...f, commissionPlanId: e.target.value }))}
+                  disabled={!createForm.clinicId}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 disabled:bg-gray-100"
+                >
+                  <option value="">Select a plan...</option>
+                  {availablePlans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} ({plan.planType === 'PERCENT' && plan.percentBps
+                        ? formatPercent(plan.percentBps)
+                        : plan.flatAmountCents
+                          ? formatCurrency(plan.flatAmountCents)
+                          : 'N/A'})
+                    </option>
+                  ))}
+                </select>
+                {!createForm.clinicId && (
+                  <p className="mt-1 text-xs text-gray-500">Select a clinic first</p>
+                )}
+              </div>
+
+              {createError && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {createError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {creating ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
