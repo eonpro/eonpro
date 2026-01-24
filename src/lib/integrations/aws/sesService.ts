@@ -1,6 +1,6 @@
 /**
  * AWS SES Email Service
- * 
+ *
  * Handles email sending with templates, retry logic, and rate limiting
  */
 
@@ -129,7 +129,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
     let html = params.html;
     let text = params.text;
     let subject = params.subject;
-    
+
     // Apply template if specified
     if (params.template && params.templateData) {
       const rendered = await renderTemplate(params.template, params.templateData);
@@ -137,39 +137,43 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
       text = rendered.text;
       subject = rendered.subject || subject || DEFAULT_SUBJECTS[params.template];
     }
-    
+
     // Compile subject with handlebars if it contains variables
     if (subject && params.templateData) {
       const subjectTemplate = handlebars.compile(subject);
       subject = subjectTemplate(params.templateData);
     }
-    
+
     // Send email (using AWS SDK directly for production, mock for development)
     let result;
-    
+
     if (!isSESEnabled()) {
       // Use mock transporter for development
       const transporter = getTransporter();
       result = await transporter.sendMail({
-      from: `${sesConfig.fromName} <${sesConfig.fromEmail}>`,
-      to: recipients.join(', '),
-      cc: params.cc,
-      bcc: params.bcc,
-      replyTo: params.replyTo || sesConfig.replyToEmail,
-      subject: subject || 'No Subject',
-      html,
-      text,
-      attachments: params.attachments,
-      priority: params.priority,
-      headers: {
-        'X-Priority': params.priority === EmailPriority.HIGH ? '1' : '3',
-        'X-Campaign': params.template || 'custom',
-        ...(params.tags && Object.entries(params.tags).reduce((acc, [key, value]) => ({
-          ...acc,
-          [`X-Tag-${key}`]: value,
-        }), {})),
-      },
-    });
+        from: `${sesConfig.fromName} <${sesConfig.fromEmail}>`,
+        to: recipients.join(', '),
+        cc: params.cc,
+        bcc: params.bcc,
+        replyTo: params.replyTo || sesConfig.replyToEmail,
+        subject: subject || 'No Subject',
+        html,
+        text,
+        attachments: params.attachments,
+        priority: params.priority,
+        headers: {
+          'X-Priority': params.priority === EmailPriority.HIGH ? '1' : '3',
+          'X-Campaign': params.template || 'custom',
+          ...(params.tags &&
+            Object.entries(params.tags).reduce(
+              (acc, [key, value]) => ({
+                ...acc,
+                [`X-Tag-${key}`]: value,
+              }),
+              {}
+            )),
+        },
+      });
     } else {
       // Use AWS SES SDK directly
       const client = getSESClient();
@@ -178,7 +182,11 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
         Destination: {
           ToAddresses: recipients,
           CcAddresses: Array.isArray(params.cc) ? params.cc : params.cc ? [params.cc] : undefined,
-          BccAddresses: Array.isArray(params.bcc) ? params.bcc : params.bcc ? [params.bcc] : undefined,
+          BccAddresses: Array.isArray(params.bcc)
+            ? params.bcc
+            : params.bcc
+              ? [params.bcc]
+              : undefined,
         },
         Message: {
           Subject: { Data: subject || 'No Subject' },
@@ -187,10 +195,14 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
             Text: text ? { Data: text } : undefined,
           },
         },
-        ReplyToAddresses: params.replyTo ? [params.replyTo] : sesConfig.replyToEmail ? [sesConfig.replyToEmail] : undefined,
+        ReplyToAddresses: params.replyTo
+          ? [params.replyTo]
+          : sesConfig.replyToEmail
+            ? [sesConfig.replyToEmail]
+            : undefined,
         ConfigurationSetName: sesConfig.configurationSet,
       });
-      
+
       const response = await client.send(command);
       result = { messageId: response.MessageId };
     }
@@ -203,10 +215,10 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
     };
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES] Send email failed:', error);
-    
+
     return {
       messageId: '',
       status: EmailStatus.FAILED,
@@ -225,12 +237,12 @@ export async function sendBulkEmails(
 ): Promise<EmailResponse[]> {
   const results: EmailResponse[] = [];
   const batches = [];
-  
+
   // Split into batches
   for (let i = 0; i < recipients.length; i += EMAIL_CONFIG.BATCH.SIZE) {
     batches.push(recipients.slice(i, i + EMAIL_CONFIG.BATCH.SIZE));
   }
-  
+
   // Process batches
   for (const batch of batches) {
     const batchPromises = batch.map((recipient: any) =>
@@ -240,16 +252,16 @@ export async function sendBulkEmails(
         templateData: { ...defaultData, ...recipient.data },
       })
     );
-    
+
     const batchResults = await Promise.all(batchPromises);
     results.push(...batchResults);
-    
+
     // Add delay between batches
     if (batches.indexOf(batch) < batches.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, EMAIL_CONFIG.BATCH.DELAY));
+      await new Promise((resolve) => setTimeout(resolve, EMAIL_CONFIG.BATCH.DELAY));
     }
   }
-  
+
   return results;
 }
 
@@ -260,18 +272,18 @@ export async function renderTemplate(
 ): Promise<{ html: string; text: string; subject?: string }> {
   // Get template content
   const templateContent = await getTemplateContent(template);
-  
+
   // Merge with default data
   const templateData = {
     ...EMAIL_CONFIG.TEMPLATE_DEFAULTS,
     ...data,
     year: new Date().getFullYear(),
   };
-  
+
   // Compile templates
   const htmlTemplate = handlebars.compile(templateContent.html);
   const textTemplate = handlebars.compile(templateContent.text);
-  
+
   return {
     html: htmlTemplate(templateData),
     text: textTemplate(templateData),
@@ -343,7 +355,110 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
         The {{COMPANY_NAME}} Team
       `,
     },
-    
+
+    [EmailTemplate.PATIENT_WELCOME_VERIFICATION]: {
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .header h1 { margin: 0; font-size: 24px; }
+              .content { padding: 30px 20px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
+              .verify-button { 
+                display: inline-block; 
+                padding: 14px 32px; 
+                background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); 
+                color: white !important; 
+                text-decoration: none; 
+                border-radius: 8px; 
+                font-weight: 600;
+                margin: 20px 0;
+              }
+              .verify-button:hover { opacity: 0.9; }
+              .info-box { 
+                background: #F3F4F6; 
+                border-radius: 8px; 
+                padding: 16px; 
+                margin: 20px 0;
+              }
+              .footer { text-align: center; padding: 20px; color: #6B7280; font-size: 12px; }
+              .warning { color: #DC2626; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Welcome to {{clinicName}}!</h1>
+              </div>
+              <div class="content">
+                <h2>Hello {{firstName}},</h2>
+                <p>Thank you for registering with <strong>{{clinicName}}</strong>. We're excited to have you as a patient!</p>
+                
+                <p>To complete your registration and access your patient portal, please verify your email address by clicking the button below:</p>
+                
+                <p style="text-align: center;">
+                  <a href="{{verificationLink}}" class="verify-button">Verify My Email</a>
+                </p>
+                
+                <div class="info-box">
+                  <p style="margin: 0;"><strong>This link will expire in {{expiresIn}}.</strong></p>
+                </div>
+                
+                <p>Once verified, you'll be able to:</p>
+                <ul>
+                  <li>View your health records and medications</li>
+                  <li>Schedule and manage appointments</li>
+                  <li>Communicate with your care team</li>
+                  <li>Track shipments and orders</li>
+                </ul>
+                
+                <p class="warning">If you didn't create this account, please ignore this email or contact our support team.</p>
+                
+                <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; color: #4F46E5; font-size: 12px;">{{verificationLink}}</p>
+                
+                <p>Best regards,<br>The {{clinicName}} Team</p>
+              </div>
+              <div class="footer">
+                <p>This email was sent by {{COMPANY_NAME}} on behalf of {{clinicName}}.</p>
+                <p>{{COMPANY_ADDRESS}}</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+      text: `
+Welcome to {{clinicName}}!
+
+Hello {{firstName}},
+
+Thank you for registering with {{clinicName}}. We're excited to have you as a patient!
+
+To complete your registration and access your patient portal, please verify your email address by clicking the link below:
+
+{{verificationLink}}
+
+This link will expire in {{expiresIn}}.
+
+Once verified, you'll be able to:
+- View your health records and medications
+- Schedule and manage appointments
+- Communicate with your care team
+- Track shipments and orders
+
+If you didn't create this account, please ignore this email or contact our support team.
+
+Best regards,
+The {{clinicName}} Team
+
+---
+This email was sent by {{COMPANY_NAME}} on behalf of {{clinicName}}.
+      `,
+    },
+
     [EmailTemplate.APPOINTMENT_REMINDER]: {
       html: `
         <!DOCTYPE html>
@@ -418,7 +533,7 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
         {{COMPANY_NAME}}
       `,
     },
-    
+
     [EmailTemplate.ORDER_CONFIRMATION]: {
       html: `
         <!DOCTYPE html>
@@ -461,8 +576,230 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
       `,
       text: `Order Confirmed! Order #{{orderId}} - Total: \${{totalAmount}}`,
     },
-    
-    // Add other templates as needed...
+
+    // Invoice/Payment Templates
+    [EmailTemplate.INVOICE]: {
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .invoice-box { 
+                background: #FEF3C7; 
+                border: 2px solid #F59E0B; 
+                border-radius: 8px; 
+                padding: 20px; 
+                margin: 20px 0; 
+              }
+              .amount { font-size: 24px; font-weight: bold; color: #1F2937; }
+              .pay-button {
+                display: inline-block;
+                padding: 14px 28px;
+                background: #10B981;
+                color: white;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: bold;
+                margin: 20px 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>Invoice from {{COMPANY_NAME}}</h2>
+              <p>Hello {{patientName}},</p>
+              <p>You have a new invoice ready for payment:</p>
+              
+              <div class="invoice-box">
+                <p><strong>Invoice #:</strong> {{invoiceNumber}}</p>
+                <p><strong>Description:</strong> {{description}}</p>
+                <p><strong>Due Date:</strong> {{dueDate}}</p>
+                <p class="amount">Amount Due: \${{amount}} {{currency}}</p>
+              </div>
+              
+              <p style="text-align: center;">
+                <a href="{{paymentLink}}" class="pay-button">Pay Now - Secure Payment</a>
+              </p>
+              
+              <p>Click the button above to pay securely online. You can also view and download your invoice from the link.</p>
+              
+              <p>If you have questions about this invoice, please contact us at {{SUPPORT_EMAIL}}.</p>
+              
+              <p>Thank you for your business,<br>{{COMPANY_NAME}}</p>
+            </div>
+          </body>
+        </html>
+      `,
+      text: `Invoice from {{COMPANY_NAME}}
+
+Hello {{patientName}},
+
+Invoice #: {{invoiceNumber}}
+Description: {{description}}
+Amount Due: \${{amount}} {{currency}}
+Due Date: {{dueDate}}
+
+Pay now: {{paymentLink}}
+
+Thank you,
+{{COMPANY_NAME}}`,
+    },
+
+    [EmailTemplate.PAYMENT_RECEIVED]: {
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .success-box { 
+                background: #D1FAE5; 
+                border: 2px solid #10B981; 
+                border-radius: 8px; 
+                padding: 20px; 
+                margin: 20px 0;
+                text-align: center;
+              }
+              .checkmark { font-size: 48px; color: #10B981; }
+              .amount { font-size: 24px; font-weight: bold; color: #1F2937; }
+              .receipt-link {
+                display: inline-block;
+                padding: 10px 20px;
+                background: #4F46E5;
+                color: white;
+                text-decoration: none;
+                border-radius: 5px;
+                margin: 10px 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="success-box">
+                <div class="checkmark">✓</div>
+                <h2>Payment Received!</h2>
+                <p class="amount">\${{amount}} {{currency}}</p>
+              </div>
+              
+              <p>Hello {{customerName}},</p>
+              <p>Thank you for your payment! This email confirms that we have received your payment.</p>
+              
+              <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><strong>Invoice #:</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">{{invoiceNumber}}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><strong>Amount Paid:</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">\${{amount}} {{currency}}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><strong>Date:</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">{{paidAt}}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px;"><strong>Description:</strong></td>
+                  <td style="padding: 8px;">{{description}}</td>
+                </tr>
+              </table>
+              
+              {{#if receiptUrl}}
+              <p style="text-align: center;">
+                <a href="{{receiptUrl}}" class="receipt-link">View/Download Receipt</a>
+              </p>
+              {{/if}}
+              
+              <p>If you have any questions about this payment, please contact us at {{SUPPORT_EMAIL}}.</p>
+              
+              <p>Thank you for choosing {{COMPANY_NAME}}!</p>
+            </div>
+          </body>
+        </html>
+      `,
+      text: `Payment Received!
+
+Hello {{customerName}},
+
+Thank you for your payment!
+
+Invoice #: {{invoiceNumber}}
+Amount Paid: \${{amount}} {{currency}}
+Date: {{paidAt}}
+Description: {{description}}
+
+{{#if receiptUrl}}View receipt: {{receiptUrl}}{{/if}}
+
+Thank you for choosing {{COMPANY_NAME}}!`,
+    },
+
+    [EmailTemplate.PAYMENT_FAILED]: {
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .alert-box { 
+                background: #FEE2E2; 
+                border: 2px solid #EF4444; 
+                border-radius: 8px; 
+                padding: 20px; 
+                margin: 20px 0; 
+              }
+              .retry-button {
+                display: inline-block;
+                padding: 14px 28px;
+                background: #EF4444;
+                color: white;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: bold;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>Payment Failed</h2>
+              <p>Hello {{customerName}},</p>
+              
+              <div class="alert-box">
+                <p><strong>We were unable to process your payment of \${{amount}}.</strong></p>
+                <p>Reason: {{reason}}</p>
+              </div>
+              
+              <p>Please update your payment method and try again to avoid any service interruption.</p>
+              
+              {{#if retryLink}}
+              <p style="text-align: center;">
+                <a href="{{retryLink}}" class="retry-button">Update Payment Method</a>
+              </p>
+              {{/if}}
+              
+              <p>If you need assistance, please contact us at {{SUPPORT_EMAIL}} or call {{SUPPORT_PHONE}}.</p>
+              
+              <p>Best regards,<br>{{COMPANY_NAME}}</p>
+            </div>
+          </body>
+        </html>
+      `,
+      text: `Payment Failed
+
+Hello {{customerName}},
+
+We were unable to process your payment of \${{amount}}.
+Reason: {{reason}}
+
+{{#if retryLink}}Update payment method: {{retryLink}}{{/if}}
+
+Please contact us at {{SUPPORT_EMAIL}} if you need assistance.
+
+{{COMPANY_NAME}}`,
+    },
+
     [EmailTemplate.PASSWORD_RESET]: {
       html: `
         <!DOCTYPE html>
@@ -484,7 +821,7 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
       text: `Reset Your Password\n\nClick here: {{resetLink}}\n\nThis link expires in 1 hour.`,
     },
   } as Record<EmailTemplate, { html: string; text: string }>;
-  
+
   // Provide minimal templates for any missing types
   Object.values(EmailTemplate).forEach((tmpl) => {
     const templateKey = tmpl as EmailTemplate;
@@ -495,7 +832,7 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
       };
     }
   });
-  
+
   return {
     ...templates[template],
     subject: DEFAULT_SUBJECTS[template],
@@ -514,7 +851,7 @@ export async function verifyEmailAddress(email: string): Promise<boolean> {
     return true;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[SES] Failed to verify email:', error);
     return false;
   }
@@ -537,7 +874,7 @@ export async function getSendQuota(): Promise<{
   try {
     const client = getSESClient();
     const response = await client.send(new GetSendQuotaCommand({}));
-    
+
     return {
       max24HourSend: response.Max24HourSend || 0,
       maxSendRate: response.MaxSendRate || 0,
@@ -545,7 +882,7 @@ export async function getSendQuota(): Promise<{
     };
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[SES] Failed to get quota:', error);
     return {
       max24HourSend: 0,
@@ -558,14 +895,14 @@ export async function getSendQuota(): Promise<{
 // Mock email sending for development
 function mockSendEmail(params: SendEmailParams): EmailResponse {
   const recipients = Array.isArray(params.to) ? params.to : [params.to];
-  
+
   logger.debug('[Mock Email] Sending email:', {
     to: recipients,
     subject: params.subject || DEFAULT_SUBJECTS[params.template || EmailTemplate.CUSTOM],
     template: params.template,
     priority: params.priority,
   });
-  
+
   return {
     messageId: `mock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     status: EmailStatus.SENT,

@@ -1,223 +1,396 @@
 /**
  * Email Service
- * Basic email functionality for sending intake form links
+ *
+ * Unified email service that delegates to AWS SES for production
+ * and provides mock functionality for development/testing.
+ *
+ * @see src/lib/integrations/aws/sesService.ts for full SES implementation
+ * @see docs/EMAIL_ARCHITECTURE.md for architecture overview
  */
 
 import { logger } from '@/lib/logger';
+import {
+  sendEmail as sesSendEmail,
+  sendBulkEmails as sesSendBulkEmails,
+  renderTemplate,
+  type SendEmailParams,
+  type EmailResponse,
+} from '@/lib/integrations/aws/sesService';
+import {
+  EmailTemplate,
+  EmailPriority,
+  EmailStatus,
+  isSESEnabled,
+  validateEmail,
+} from '@/lib/integrations/aws/sesConfig';
 
-interface EmailOptions {
-  to: string;
+// Re-export types and enums for convenience
+export { EmailTemplate, EmailPriority, EmailStatus };
+export type { SendEmailParams, EmailResponse };
+
+/**
+ * Simple email options for basic use cases
+ */
+export interface EmailOptions {
+  to: string | string[];
   subject: string;
   html?: string;
   text?: string;
   from?: string;
+  replyTo?: string;
 }
 
 /**
- * Send an email
- * This is a placeholder implementation - you should integrate with your preferred email service
- * (SendGrid, AWS SES, Resend, etc.)
+ * Templated email options
  */
-export async function sendEmail(options: EmailOptions): Promise<void> {
-  const { to, subject, html, text, from } = options;
-  
-  // Get email configuration from environment
-  const emailProvider = process.env.EMAIL_PROVIDER; // 'sendgrid', 'ses', 'resend', etc.
-  const fromEmail = from || process.env.EMAIL_FROM || 'noreply@lifefile.com';
-  
+export interface TemplatedEmailOptions {
+  to: string | string[];
+  template: EmailTemplate;
+  data: Record<string, unknown>;
+  subject?: string;
+  priority?: EmailPriority;
+  replyTo?: string;
+}
+
+/**
+ * Email service result
+ */
+export interface EmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Send an email using AWS SES
+ *
+ * @example
+ * // Simple email
+ * await sendEmail({
+ *   to: 'patient@example.com',
+ *   subject: 'Your Appointment',
+ *   html: '<p>Your appointment is confirmed.</p>'
+ * });
+ *
+ * @example
+ * // Multiple recipients
+ * await sendEmail({
+ *   to: ['user1@example.com', 'user2@example.com'],
+ *   subject: 'Team Update',
+ *   text: 'Hello team!'
+ * });
+ */
+export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
+  const { to, subject, html, text, replyTo } = options;
+
+  // Validate recipients
+  const recipients = Array.isArray(to) ? to : [to];
+  for (const email of recipients) {
+    if (!validateEmail(email)) {
+      logger.error('Invalid email address', { email });
+      return {
+        success: false,
+        error: `Invalid email address: ${email}`,
+      };
+    }
+  }
+
   try {
-    // Log email for development
-    if (process.env.NODE_ENV === 'development') {
-      logger.info('Email sent (dev mode)', {
-        to,
-        subject,
-        from: fromEmail,
-        preview: text?.substring(0, 100) || html?.substring(0, 100),
-      });
-      
-      // In development, just log the email
-      logger.info('=== EMAIL DEBUG ===');
-      logger.info('Email details', {
-        to,
-        from: fromEmail,
-        subject,
-        content: html || text
-      });
-      logger.info('==================');
-      
-      return;
-    }
-    
-    // Production email sending
-    switch (emailProvider) {
-      case 'sendgrid':
-        await sendViaSendGrid(to, subject, html || text || '', fromEmail);
-        break;
-        
-      case 'resend':
-        await sendViaResend(to, subject, html || text || '', fromEmail);
-        break;
-        
-      case 'ses':
-        await sendViaAWSSES(to, subject, html || text || '', fromEmail);
-        break;
-        
-      default:
-        // Fallback to console logging in production if no provider configured
-        logger.warn('No email provider configured', {
-          to,
-          subject,
-          from: fromEmail,
-        });
-        
-        if (process.env.NODE_ENV !== 'production') {
-          logger.info(`Email would be sent to ${to}: ${subject}`);
-        }
-    }
-    
-    logger.info('Email sent successfully', {
-      to,
+    // Use AWS SES service
+    const response = await sesSendEmail({
+      to: recipients,
       subject,
-      provider: emailProvider || 'none',
+      html,
+      text,
+      replyTo,
     });
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Failed to send email', {
-      error,
-      to,
+
+    if (response.status === EmailStatus.SENT) {
+      logger.info('Email sent successfully', {
+        to: recipients,
+        subject,
+        messageId: response.messageId,
+        provider: isSESEnabled() ? 'aws-ses' : 'mock',
+      });
+
+      return {
+        success: true,
+        messageId: response.messageId,
+      };
+    } else {
+      logger.error('Email send failed', {
+        to: recipients,
+        subject,
+        error: response.error,
+      });
+
+      return {
+        success: false,
+        error: response.error,
+      };
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Email send exception', {
+      to: recipients,
       subject,
+      error: errorMessage,
     });
-    throw error;
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
   }
 }
 
 /**
- * Send email via SendGrid
- * Requires: npm install @sendgrid/mail
- * Environment: SENDGRID_API_KEY
+ * Send a templated email using predefined templates
+ *
+ * @example
+ * // Appointment reminder
+ * await sendTemplatedEmail({
+ *   to: 'patient@example.com',
+ *   template: EmailTemplate.APPOINTMENT_REMINDER,
+ *   data: {
+ *     patientName: 'John Doe',
+ *     appointmentDate: 'January 25, 2026',
+ *     appointmentTime: '2:00 PM',
+ *     providerName: 'Dr. Smith',
+ *     location: 'Main Clinic'
+ *   }
+ * });
+ *
+ * @example
+ * // Password reset
+ * await sendTemplatedEmail({
+ *   to: 'user@example.com',
+ *   template: EmailTemplate.PASSWORD_RESET,
+ *   data: {
+ *     firstName: 'John',
+ *     resetLink: 'https://app.lifefile.com/reset?token=abc123'
+ *   },
+ *   priority: EmailPriority.HIGH
+ * });
  */
-async function sendViaSendGrid(
-  to: string,
-  subject: string,
-  content: string,
-  from: string
-): Promise<void> {
-  // Placeholder for SendGrid integration
-  // const sgMail = require('@sendgrid/mail');
-  // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  // 
-  // const msg = {
-  //   to,
-  //   from,
-  //   subject,
-  //   html: content,
-  // };
-  // 
-  // await sgMail.send(msg);
-  
-  throw new Error('SendGrid integration not implemented. Please install @sendgrid/mail and configure SENDGRID_API_KEY');
+export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promise<EmailResult> {
+  const { to, template, data, subject, priority, replyTo } = options;
+
+  // Validate recipients
+  const recipients = Array.isArray(to) ? to : [to];
+  for (const email of recipients) {
+    if (!validateEmail(email)) {
+      logger.error('Invalid email address', { email });
+      return {
+        success: false,
+        error: `Invalid email address: ${email}`,
+      };
+    }
+  }
+
+  try {
+    const response = await sesSendEmail({
+      to: recipients,
+      subject,
+      template,
+      templateData: data,
+      priority,
+      replyTo,
+    });
+
+    if (response.status === EmailStatus.SENT) {
+      logger.info('Templated email sent successfully', {
+        to: recipients,
+        template,
+        messageId: response.messageId,
+        provider: isSESEnabled() ? 'aws-ses' : 'mock',
+      });
+
+      return {
+        success: true,
+        messageId: response.messageId,
+      };
+    } else {
+      logger.error('Templated email send failed', {
+        to: recipients,
+        template,
+        error: response.error,
+      });
+
+      return {
+        success: false,
+        error: response.error,
+      };
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Templated email send exception', {
+      to: recipients,
+      template,
+      error: errorMessage,
+    });
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
 }
 
 /**
- * Send email via Resend
- * Requires: npm install resend
- * Environment: RESEND_API_KEY
- */
-async function sendViaResend(
-  to: string,
-  subject: string,
-  content: string,
-  from: string
-): Promise<void> {
-  // Placeholder for Resend integration
-  // const { Resend } = require('resend');
-  // const resend = new Resend(process.env.RESEND_API_KEY);
-  // 
-  // await resend.emails.send({
-  //   from,
-  //   to,
-  //   subject,
-  //   html: content,
-  // });
-  
-  throw new Error('Resend integration not implemented. Please install resend and configure RESEND_API_KEY');
-}
-
-/**
- * Send email via AWS SES
- * Requires: npm install @aws-sdk/client-ses
- * Environment: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
- */
-async function sendViaAWSSES(
-  to: string,
-  subject: string,
-  content: string,
-  from: string
-): Promise<void> {
-  // Placeholder for AWS SES integration
-  // const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
-  // 
-  // const client = new SESClient({
-  //   region: process.env.AWS_REGION || 'us-east-1',
-  // });
-  // 
-  // const command = new SendEmailCommand({
-  //   Source: from,
-  //   Destination: {
-  //     ToAddresses: [to],
-  //   },
-  //   Message: {
-  //     Subject: {
-  //       Data: subject,
-  //     },
-  //     Body: {
-  //       Html: {
-  //         Data: content,
-  //       },
-  //     },
-  //   },
-  // });
-  // 
-  // await client.send(command);
-  
-  throw new Error('AWS SES integration not implemented. Please install @aws-sdk/client-ses and configure AWS credentials');
-}
-
-/**
- * Send bulk emails
- * Use this for sending the same email to multiple recipients
+ * Send bulk emails to multiple recipients
+ * Handles batching and rate limiting automatically
+ *
+ * @example
+ * // Send newsletter to all subscribers
+ * await sendBulkEmail(
+ *   ['user1@example.com', 'user2@example.com', 'user3@example.com'],
+ *   'Monthly Newsletter',
+ *   '<h1>Welcome to our newsletter!</h1>'
+ * );
  */
 export async function sendBulkEmail(
   recipients: string[],
   subject: string,
   content: string,
   options?: { from?: string; batchSize?: number }
-): Promise<void> {
+): Promise<{ sent: number; failed: number; errors: string[] }> {
+  const results = {
+    sent: 0,
+    failed: 0,
+    errors: [] as string[],
+  };
+
   const batchSize = options?.batchSize || 50;
-  
+
   // Split recipients into batches
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batch = recipients.slice(i, i + batchSize);
-    
+
     // Send to each recipient in the batch
-    await Promise.all(
-      batch.map((to: any) =>
-        sendEmail({
+    const batchResults = await Promise.all(
+      batch.map(async (to) => {
+        const result = await sendEmail({
           to,
           subject,
           html: content,
-          from: options?.from,
-        }).catch(error => {
-          logger.error('Failed to send email to recipient', { to, error });
-          // Don't throw - continue with other recipients
-        })
-      )
+        });
+
+        if (result.success) {
+          results.sent++;
+        } else {
+          results.failed++;
+          results.errors.push(`${to}: ${result.error}`);
+        }
+
+        return result;
+      })
     );
-    
+
     // Add delay between batches to avoid rate limiting
     if (i + batchSize < recipients.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
+
+  logger.info('Bulk email complete', {
+    total: recipients.length,
+    sent: results.sent,
+    failed: results.failed,
+  });
+
+  return results;
+}
+
+/**
+ * Send bulk templated emails with individual data per recipient
+ *
+ * @example
+ * // Send personalized appointment reminders
+ * await sendBulkTemplatedEmail(
+ *   [
+ *     { email: 'patient1@example.com', data: { patientName: 'John', appointmentDate: 'Jan 25' } },
+ *     { email: 'patient2@example.com', data: { patientName: 'Jane', appointmentDate: 'Jan 26' } },
+ *   ],
+ *   EmailTemplate.APPOINTMENT_REMINDER,
+ *   { clinicName: 'Main Clinic' }
+ * );
+ */
+export async function sendBulkTemplatedEmail(
+  recipients: Array<{ email: string; data?: Record<string, unknown> }>,
+  template: EmailTemplate,
+  defaultData?: Record<string, unknown>
+): Promise<{ sent: number; failed: number; errors: string[] }> {
+  const results = {
+    sent: 0,
+    failed: 0,
+    errors: [] as string[],
+  };
+
+  try {
+    const responses = await sesSendBulkEmails(recipients, template, defaultData);
+
+    for (const response of responses) {
+      if (response.status === EmailStatus.SENT) {
+        results.sent++;
+      } else {
+        results.failed++;
+        results.errors.push(`${response.to.join(', ')}: ${response.error}`);
+      }
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    results.failed = recipients.length;
+    results.errors.push(errorMessage);
+  }
+
+  logger.info('Bulk templated email complete', {
+    template,
+    total: recipients.length,
+    sent: results.sent,
+    failed: results.failed,
+  });
+
+  return results;
+}
+
+/**
+ * Preview an email template with sample data
+ * Useful for testing and debugging templates
+ *
+ * @example
+ * const preview = await previewTemplate(
+ *   EmailTemplate.WELCOME,
+ *   { firstName: 'John' }
+ * );
+ * console.log(preview.html);
+ */
+export async function previewTemplate(
+  template: EmailTemplate,
+  data: Record<string, unknown>
+): Promise<{ html: string; text: string; subject?: string }> {
+  return renderTemplate(template, data);
+}
+
+/**
+ * Check if email service is properly configured
+ */
+export function isEmailConfigured(): boolean {
+  return isSESEnabled();
+}
+
+/**
+ * Get email service status
+ */
+export function getEmailServiceStatus(): {
+  configured: boolean;
+  provider: string;
+  mode: 'production' | 'mock';
+} {
+  const configured = isSESEnabled();
+  return {
+    configured,
+    provider: configured ? 'aws-ses' : 'mock',
+    mode: configured ? 'production' : 'mock',
+  };
 }

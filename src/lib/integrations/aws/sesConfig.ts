@@ -49,6 +49,7 @@ export function isSESEnabled(): boolean {
 export enum EmailTemplate {
   // Patient Communications
   WELCOME = 'welcome',
+  PATIENT_WELCOME_VERIFICATION = 'patient_welcome_verification',
   APPOINTMENT_CONFIRMATION = 'appointment_confirmation',
   APPOINTMENT_REMINDER = 'appointment_reminder',
   APPOINTMENT_CANCELLED = 'appointment_cancelled',
@@ -155,6 +156,7 @@ export function validateEmail(email: string): boolean {
 // Default email subjects
 export const DEFAULT_SUBJECTS: Record<EmailTemplate, string> = {
   [EmailTemplate.WELCOME]: 'Welcome to Lifefile Health!',
+  [EmailTemplate.PATIENT_WELCOME_VERIFICATION]: 'Verify Your Email - Welcome to {{clinicName}}',
   [EmailTemplate.APPOINTMENT_CONFIRMATION]: 'Your Appointment is Confirmed',
   [EmailTemplate.APPOINTMENT_REMINDER]: 'Appointment Reminder - {{date}}',
   [EmailTemplate.APPOINTMENT_CANCELLED]: 'Appointment Cancelled',

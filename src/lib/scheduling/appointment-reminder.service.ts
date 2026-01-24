@@ -1,19 +1,23 @@
 /**
  * Appointment Reminder Service
- * 
+ *
  * Handles automated appointment reminders via SMS and Email
  * Integrates with Twilio for SMS and can integrate with SendGrid/SES for email
  */
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { getTwilioClient, isTwilioConfigured, SMS_TEMPLATES } from '@/lib/integrations/twilio/config';
+import {
+  getTwilioClient,
+  isTwilioConfigured,
+  SMS_TEMPLATES,
+} from '@/lib/integrations/twilio/config';
 import { ReminderStatus, ReminderType } from '@prisma/client';
 
 // Reminder timing configuration (hours before appointment)
 export const REMINDER_SCHEDULE = {
   FIRST_REMINDER: 24, // 24 hours before
-  SECOND_REMINDER: 2,  // 2 hours before
+  SECOND_REMINDER: 2, // 2 hours before
 };
 
 interface SendReminderResult {
@@ -61,9 +65,11 @@ export async function createAppointmentReminders(appointmentId: number): Promise
 
     const now = new Date();
     const appointmentTime = new Date(appointment.startTime);
-    
+
     // Create 24-hour reminder if applicable
-    const firstReminderTime = new Date(appointmentTime.getTime() - REMINDER_SCHEDULE.FIRST_REMINDER * 60 * 60 * 1000);
+    const firstReminderTime = new Date(
+      appointmentTime.getTime() - REMINDER_SCHEDULE.FIRST_REMINDER * 60 * 60 * 1000
+    );
     if (firstReminderTime > now) {
       await prisma.appointmentReminder.create({
         data: {
@@ -74,11 +80,16 @@ export async function createAppointmentReminders(appointmentId: number): Promise
           template: 'APPOINTMENT_REMINDER_24H',
         },
       });
-      logger.info('Created 24-hour appointment reminder', { appointmentId, scheduledFor: firstReminderTime });
+      logger.info('Created 24-hour appointment reminder', {
+        appointmentId,
+        scheduledFor: firstReminderTime,
+      });
     }
 
     // Create 2-hour reminder if applicable
-    const secondReminderTime = new Date(appointmentTime.getTime() - REMINDER_SCHEDULE.SECOND_REMINDER * 60 * 60 * 1000);
+    const secondReminderTime = new Date(
+      appointmentTime.getTime() - REMINDER_SCHEDULE.SECOND_REMINDER * 60 * 60 * 1000
+    );
     if (secondReminderTime > now) {
       await prisma.appointmentReminder.create({
         data: {
@@ -89,7 +100,10 @@ export async function createAppointmentReminders(appointmentId: number): Promise
           template: 'APPOINTMENT_REMINDER_2H',
         },
       });
-      logger.info('Created 2-hour appointment reminder', { appointmentId, scheduledFor: secondReminderTime });
+      logger.info('Created 2-hour appointment reminder', {
+        appointmentId,
+        scheduledFor: secondReminderTime,
+      });
     }
   } catch (error) {
     logger.error('Failed to create appointment reminders', { appointmentId, error });
@@ -121,7 +135,10 @@ export async function cancelAppointmentReminders(appointmentId: number): Promise
 /**
  * Send SMS reminder
  */
-async function sendSMSReminder(appointment: AppointmentForReminder, template: string): Promise<SendReminderResult> {
+async function sendSMSReminder(
+  appointment: AppointmentForReminder,
+  template: string
+): Promise<SendReminderResult> {
   if (!isTwilioConfigured()) {
     logger.warn('Twilio not configured, skipping SMS reminder');
     return { success: false, error: 'Twilio not configured' };
@@ -141,7 +158,7 @@ async function sendSMSReminder(appointment: AppointmentForReminder, template: st
     const patientName = appointment.patient.firstName;
 
     let messageBody: string;
-    
+
     if (template === 'APPOINTMENT_REMINDER_24H') {
       messageBody = SMS_TEMPLATES.APPOINTMENT_REMINDER(patientName, appointmentDate, doctorName);
     } else if (template === 'APPOINTMENT_REMINDER_2H') {
@@ -152,7 +169,7 @@ async function sendSMSReminder(appointment: AppointmentForReminder, template: st
       } else if (appointment.location) {
         locationInfo = `\n\nLocation: ${appointment.location}`;
       }
-      
+
       messageBody = `Hi ${patientName}, your appointment with Dr. ${doctorName} is in 2 hours at ${appointmentDate}.${locationInfo}\n\nReply CONFIRM if you're on your way!`;
     } else {
       messageBody = SMS_TEMPLATES.APPOINTMENT_REMINDER(patientName, appointmentDate, doctorName);
@@ -178,47 +195,81 @@ async function sendSMSReminder(appointment: AppointmentForReminder, template: st
     return { success: true, messageId: message.sid };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to send SMS reminder', { appointmentId: appointment.id, error: errorMessage });
+    logger.error('Failed to send SMS reminder', {
+      appointmentId: appointment.id,
+      error: errorMessage,
+    });
     return { success: false, error: errorMessage };
   }
 }
 
 /**
- * Send Email reminder (placeholder - integrate with your email provider)
+ * Send Email reminder via AWS SES
  */
-async function sendEmailReminder(appointment: AppointmentForReminder, template: string): Promise<SendReminderResult> {
-  // TODO: Integrate with SendGrid, AWS SES, or other email provider
+async function sendEmailReminder(
+  appointment: AppointmentForReminder,
+  template: string
+): Promise<SendReminderResult> {
+  // Import email service dynamically to avoid circular dependencies
+  const { sendTemplatedEmail, EmailTemplate } = await import('@/lib/email');
+
   try {
-    const appointmentDate = new Date(appointment.startTime).toLocaleString('en-US', {
+    const appointmentDate = new Date(appointment.startTime).toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
       year: 'numeric',
+    });
+
+    const appointmentTime = new Date(appointment.startTime).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
     });
 
-    const doctorName = `Dr. ${appointment.provider.firstName} ${appointment.provider.lastName}`;
-    
-    // For now, log the email that would be sent
-    logger.info('Email reminder would be sent', {
+    const providerName = `Dr. ${appointment.provider.firstName} ${appointment.provider.lastName}`;
+
+    // Build location info
+    let location = 'TBD';
+    if (appointment.type === 'VIDEO' && appointment.videoLink) {
+      location = `Video Call: ${appointment.videoLink}`;
+    } else if (appointment.location) {
+      location = appointment.location;
+    }
+
+    const result = await sendTemplatedEmail({
       to: appointment.patient.email,
-      subject: `Appointment Reminder - ${appointmentDate}`,
-      appointmentId: appointment.id,
-      doctorName,
-      template,
+      template: EmailTemplate.APPOINTMENT_REMINDER,
+      data: {
+        patientName: `${appointment.patient.firstName} ${appointment.patient.lastName}`,
+        appointmentDate,
+        appointmentTime,
+        providerName,
+        location,
+        notes:
+          template === 'APPOINTMENT_REMINDER_2H' ? 'Your appointment is in 2 hours!' : undefined,
+      },
     });
 
-    // If you have SendGrid or AWS SES configured, implement here:
-    // Example with SendGrid:
-    // const sgMail = require('@sendgrid/mail');
-    // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    // await sgMail.send({ to, from, subject, html });
-
-    return { success: true, messageId: `email-${Date.now()}` };
+    if (result.success) {
+      logger.info('Email reminder sent via SES', {
+        appointmentId: appointment.id,
+        patientId: appointment.patient.id,
+        messageId: result.messageId,
+      });
+      return { success: true, messageId: result.messageId };
+    } else {
+      logger.error('Email reminder failed', {
+        appointmentId: appointment.id,
+        error: result.error,
+      });
+      return { success: false, error: result.error };
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to send email reminder', { appointmentId: appointment.id, error: errorMessage });
+    logger.error('Failed to send email reminder', {
+      appointmentId: appointment.id,
+      error: errorMessage,
+    });
     return { success: false, error: errorMessage };
   }
 }
@@ -248,7 +299,7 @@ async function processReminder(reminder: {
   // Determine overall success
   const success = smsResult.success || emailResult.success;
   const messageId = smsResult.messageId || emailResult.messageId;
-  const errorMessage = !success ? (smsResult.error || emailResult.error) : null;
+  const errorMessage = !success ? smsResult.error || emailResult.error : null;
 
   // Update reminder status
   await prisma.appointmentReminder.update({
@@ -348,7 +399,9 @@ export async function processPendingReminders(): Promise<{
 /**
  * Send immediate confirmation when appointment is confirmed
  */
-export async function sendAppointmentConfirmation(appointmentId: number): Promise<SendReminderResult> {
+export async function sendAppointmentConfirmation(
+  appointmentId: number
+): Promise<SendReminderResult> {
   try {
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
@@ -417,7 +470,10 @@ export async function sendAppointmentConfirmation(appointmentId: number): Promis
 /**
  * Get reminder statistics for a clinic
  */
-export async function getReminderStats(clinicId?: number, days: number = 30): Promise<{
+export async function getReminderStats(
+  clinicId?: number,
+  days: number = 30
+): Promise<{
   totalSent: number;
   totalFailed: number;
   pendingCount: number;
@@ -426,9 +482,7 @@ export async function getReminderStats(clinicId?: number, days: number = 30): Pr
   const since = new Date();
   since.setDate(since.getDate() - days);
 
-  const where = clinicId
-    ? { appointment: { clinicId } }
-    : {};
+  const where = clinicId ? { appointment: { clinicId } } : {};
 
   const [sent, failed, pending, byType] = await Promise.all([
     prisma.appointmentReminder.count({
@@ -451,9 +505,12 @@ export async function getReminderStats(clinicId?: number, days: number = 30): Pr
     totalSent: sent,
     totalFailed: failed,
     pendingCount: pending,
-    byType: byType.reduce((acc: Record<string, number>, item: { type: string; _count: number }) => {
-      acc[item.type] = item._count;
-      return acc;
-    }, {} as Record<string, number>),
+    byType: byType.reduce(
+      (acc: Record<string, number>, item: { type: string; _count: number }) => {
+        acc[item.type] = item._count;
+        return acc;
+      },
+      {} as Record<string, number>
+    ),
   };
 }

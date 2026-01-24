@@ -34,7 +34,7 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
       throw new Error('Submission not found');
     }
 
-    const notifications: Promise<void>[] = [];
+    const notifications: Promise<unknown>[] = [];
 
     // Notify provider if they exist and have an email
     if (notifyProvider && submission.template.provider?.email) {
@@ -59,9 +59,9 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
           </p>
         `
       };
-      
+
       notifications.push(
-        sendEmail(providerEmail).catch(err => {
+        sendEmail(providerEmail).catch((err) => {
           logger.error('Failed to send provider notification', { err, submissionId });
         })
       );
