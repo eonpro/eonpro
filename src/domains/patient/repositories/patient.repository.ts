@@ -442,25 +442,17 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         // 1. Health Tracking Logs
         await tx.patientMedicationReminder.deleteMany({ where: { patientId: id } });
         await tx.patientWeightLog.deleteMany({ where: { patientId: id } });
-        await tx.waterIntakeLog.deleteMany({ where: { patientId: id } });
-        await tx.activityLog.deleteMany({ where: { patientId: id } });
-        await tx.sleepLog.deleteMany({ where: { patientId: id } });
-        await tx.mealLog.deleteMany({ where: { patientId: id } });
+        await tx.patientWaterLog.deleteMany({ where: { patientId: id } });
+        await tx.patientExerciseLog.deleteMany({ where: { patientId: id } });
+        await tx.patientSleepLog.deleteMany({ where: { patientId: id } });
+        await tx.patientNutritionLog.deleteMany({ where: { patientId: id } });
 
         // 2. Chat & Conversations
         await tx.patientChatMessage.deleteMany({ where: { patientId: id } });
         await tx.aIConversation.deleteMany({ where: { patientId: id } });
 
-        // 3. Care Plans (delete status history and checklist items first)
-        const carePlanAssignments = await tx.carePlanAssignment.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        for (const assignment of carePlanAssignments) {
-          await tx.carePlanStatusHistory.deleteMany({ where: { assignmentId: assignment.id } });
-          await tx.carePlanChecklistItem.deleteMany({ where: { assignmentId: assignment.id } });
-        }
-        await tx.carePlanAssignment.deleteMany({ where: { patientId: id } });
+        // 3. Care Plans (cascade delete handles goals, activities, progress)
+        await tx.carePlan.deleteMany({ where: { patientId: id } });
 
         // 4. Intake form responses and submissions
         const submissions = await tx.intakeFormSubmission.findMany({
@@ -508,21 +500,18 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         // 10. Tickets, referrals, discount usage
         await tx.ticket.deleteMany({ where: { patientId: id } });
         await tx.referralTracking.deleteMany({ where: { patientId: id } });
-        await tx.discountCodeUsage.deleteMany({ where: { patientId: id } });
+        await tx.discountUsage.deleteMany({ where: { patientId: id } });
 
         // 11. SMS logs (nullable patientId, but clean up anyway)
         await tx.smsLog.deleteMany({ where: { patientId: id } });
 
-        // 12. Magic links (nullable patientId)
-        await tx.magicLink.deleteMany({ where: { patientId: id } });
-
-        // 13. User association (nullable patientId)
+        // 12. User association (nullable patientId)
         await tx.user.updateMany({
           where: { patientId: id },
           data: { patientId: null }
         });
 
-        // 14. Delete patient audit records (compliance note: may want to keep these)
+        // 13. Delete patient audit records (compliance note: may want to keep these)
         await tx.patientAudit.deleteMany({ where: { patientId: id } });
 
         // Finally delete the patient
