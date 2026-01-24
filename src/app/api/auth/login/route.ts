@@ -18,9 +18,15 @@ import { Patient, Provider, Order } from '@/types/models';
  * Supports multi-clinic users - returns clinics array for selection
  */
 async function loginHandler(req: NextRequest) {
+  const startTime = Date.now();
+  let debugInfo: any = { step: 'start' };
+  
   try {
     const body = await req.json();
     const { email, password, role = 'patient', clinicId: selectedClinicId } = body;
+    
+    debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
+    console.log('[LOGIN_DEBUG] Starting login', debugInfo);
 
     // Validate input
     if (!email || !password) {
@@ -30,6 +36,9 @@ async function loginHandler(req: NextRequest) {
       );
     }
 
+    debugInfo.step = 'finding_user';
+    console.log('[LOGIN_DEBUG] Finding user by email');
+    
     // Find user from unified User table first
     let user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
@@ -39,6 +48,11 @@ async function loginHandler(req: NextRequest) {
         patient: true,
       },
     });
+    
+    debugInfo.step = 'user_found';
+    debugInfo.userFound = !!user;
+    debugInfo.userRole = user?.role;
+    console.log('[LOGIN_DEBUG] User lookup result', { found: !!user, role: user?.role });
 
     let passwordHash: string | null = null;
 
@@ -354,6 +368,7 @@ async function loginHandler(req: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
     const prismaError = (error as any)?.code;
+    const duration = Date.now() - startTime;
     
     // Log detailed error for debugging
     console.error('[LOGIN_ERROR]', {
@@ -361,6 +376,8 @@ async function loginHandler(req: NextRequest) {
       stack: errorStack,
       type: error?.constructor?.name,
       prismaCode: prismaError,
+      debugInfo,
+      duration,
     });
     
     logger.error('Login error:', error instanceof Error ? error : new Error(errorMessage));
@@ -371,6 +388,8 @@ async function loginHandler(req: NextRequest) {
         error: 'An error occurred during login',
         details: errorMessage,
         code: prismaError || 'UNKNOWN',
+        step: debugInfo?.step,
+        duration,
       },
       { status: 500 }
     );
