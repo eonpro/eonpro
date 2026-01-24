@@ -267,8 +267,30 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     });
   } catch (error) {
     console.error('Failed to create affiliate:', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isPrismaTableError = errorMessage.includes('does not exist') ||
+                               errorMessage.includes('relation') ||
+                               errorMessage.includes('P2021') ||
+                               errorMessage.includes('P2025') ||
+                               errorMessage.includes('P2003');
+
+    if (isPrismaTableError) {
+      return NextResponse.json({
+        error: 'Database tables not found. Please run migrations first.',
+        details: 'Run: npx prisma migrate deploy',
+      }, { status: 500 });
+    }
+
+    // Check for unique constraint violations
+    if (errorMessage.includes('P2002') || errorMessage.includes('Unique constraint')) {
+      return NextResponse.json({
+        error: 'An affiliate with this email or ref code already exists',
+      }, { status: 400 });
+    }
+
     return NextResponse.json(
-      { error: 'Failed to create affiliate' },
+      { error: 'Failed to create affiliate', details: errorMessage },
       { status: 500 }
     );
   }
