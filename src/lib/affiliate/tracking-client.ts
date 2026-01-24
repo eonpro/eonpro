@@ -271,9 +271,15 @@ export class AffiliateTracker {
  * Auto-tracking script for embedding on pages
  * Usage: Include this script and call window.AffiliateTracker.autoTrack()
  */
-export function autoTrack(config?: TrackingConfig): Promise<TrackingResult> {
+export interface AutoTrackOptions extends TrackingConfig {
+  refCode?: string;
+  touchType?: 'CLICK' | 'IMPRESSION' | 'POSTBACK';
+}
+
+export function autoTrack(options?: AutoTrackOptions): Promise<TrackingResult> {
+  const { refCode, touchType, ...config } = options || {};
   const tracker = new AffiliateTracker(config);
-  return tracker.track();
+  return tracker.track({ refCode, touchType });
 }
 
 /**
