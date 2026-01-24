@@ -6,16 +6,24 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/verify';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
-export async function GET(req: NextRequest) {
+/**
+ * Middleware to check for Super Admin role
+ */
+function withSuperAdminAuth(
+  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
+) {
+  return withAuth(handler, { roles: ['super_admin', 'SUPER_ADMIN'] });
+}
+
+/**
+ * GET /api/super-admin/affiliates
+ */
+export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const auth = await verifyAuth(req);
-    if (!auth || auth.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     // Get all affiliates with their clinic, user, ref codes, and stats
     const affiliates = await basePrisma.affiliate.findMany({
@@ -118,15 +126,13 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+/**
+ * POST /api/super-admin/affiliates
+ */
+export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const auth = await verifyAuth(req);
-    if (!auth || auth.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await req.json();
     const {
       clinicId,
@@ -249,4 +255,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
