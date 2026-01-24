@@ -190,7 +190,7 @@ export default function ClinicsListPage() {
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Globe className="h-4 w-4 text-gray-400" />
-                    <span>{clinic.subdomain}.eonpro.app</span>
+                    <span>{clinic.subdomain}.eonpro.io</span>
                   </div>
                   {clinic.customDomain && (
                     <div className="flex items-center gap-2 text-sm text-[#4fa77e]">

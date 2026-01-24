@@ -252,7 +252,7 @@ export default function CreateClinicPage() {
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                       <span className="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm">
-                        .eonpro.app
+                        .eonpro.io
                       </span>
                     </div>
                   </div>
