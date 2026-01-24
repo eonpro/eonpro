@@ -222,9 +222,11 @@ export async function PUT(request: NextRequest) {
     if (brandingData.accentColor !== undefined) {
       updateData.accentColor = brandingData.accentColor;
     }
-    if (brandingData.buttonTextColor !== undefined) {
-      updateData.buttonTextColor = brandingData.buttonTextColor;
-    }
+    // NOTE: buttonTextColor removed - column doesn't exist in production yet
+    // Uncomment after migration is deployed:
+    // if (brandingData.buttonTextColor !== undefined) {
+    //   updateData.buttonTextColor = brandingData.buttonTextColor;
+    // }
     if (brandingData.customCss !== undefined) {
       updateData.customCss = brandingData.customCss;
     }
