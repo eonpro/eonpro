@@ -16,6 +16,10 @@ import {
   ChevronDown,
   AlertCircle,
   RefreshCw,
+  Pencil,
+  Trash2,
+  X,
+  MoreHorizontal,
 } from 'lucide-react';
 
 interface Clinic {
@@ -108,6 +112,29 @@ export default function SuperAdminAffiliatesPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [migrationNeeded, setMigrationNeeded] = useState(false);
+
+  // Edit state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAffiliate, setEditingAffiliate] = useState<Affiliate | null>(null);
+  const [editForm, setEditForm] = useState({
+    displayName: '',
+    status: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    commissionPlanId: '',
+  });
+  const [updating, setUpdating] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Delete state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingAffiliate, setDeletingAffiliate] = useState<Affiliate | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Actions dropdown
+  const [openActionMenu, setOpenActionMenu] = useState<number | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -215,6 +242,102 @@ export default function SuperAdminAffiliatesPage() {
       setTimeout(() => setCopiedCode(null), 2000);
     } catch (e) {
       console.error('Failed to copy');
+    }
+  };
+
+  const handleOpenEdit = (affiliate: Affiliate) => {
+    setEditingAffiliate(affiliate);
+    setEditForm({
+      displayName: affiliate.displayName,
+      status: affiliate.status,
+      firstName: affiliate.user.firstName,
+      lastName: affiliate.user.lastName,
+      email: affiliate.user.email,
+      commissionPlanId: affiliate.currentPlan?.id?.toString() || '',
+    });
+    setEditError(null);
+    setShowEditModal(true);
+    setOpenActionMenu(null);
+  };
+
+  const handleUpdateAffiliate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAffiliate) return;
+    
+    setUpdating(true);
+    setEditError(null);
+
+    const token = localStorage.getItem('auth-token');
+
+    try {
+      const response = await fetch(`/api/super-admin/affiliates/${editingAffiliate.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          displayName: editForm.displayName,
+          status: editForm.status,
+          firstName: editForm.firstName,
+          lastName: editForm.lastName,
+          email: editForm.email,
+          commissionPlanId: editForm.commissionPlanId 
+            ? parseInt(editForm.commissionPlanId) 
+            : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update affiliate');
+      }
+
+      setShowEditModal(false);
+      setEditingAffiliate(null);
+      fetchData();
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleOpenDelete = (affiliate: Affiliate) => {
+    setDeletingAffiliate(affiliate);
+    setDeleteError(null);
+    setShowDeleteModal(true);
+    setOpenActionMenu(null);
+  };
+
+  const handleDeleteAffiliate = async () => {
+    if (!deletingAffiliate) return;
+    
+    setDeleting(true);
+    setDeleteError(null);
+
+    const token = localStorage.getItem('auth-token');
+
+    try {
+      const response = await fetch(`/api/super-admin/affiliates/${deletingAffiliate.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete affiliate');
+      }
+
+      setShowDeleteModal(false);
+      setDeletingAffiliate(null);
+      fetchData();
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -477,12 +600,29 @@ export default function SuperAdminAffiliatesPage() {
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-6 py-4 text-right">
-                  <Link
-                    href={`/super-admin/affiliates/${affiliate.id}`}
-                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                  >
-                    <Eye className="h-5 w-5" />
-                  </Link>
+                  <div className="relative flex items-center justify-end gap-1">
+                    <Link
+                      href={`/super-admin/affiliates/${affiliate.id}`}
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      title="View details"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                    <button
+                      onClick={() => handleOpenEdit(affiliate)}
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-blue-600"
+                      title="Edit affiliate"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleOpenDelete(affiliate)}
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600"
+                      title="Delete affiliate"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -646,6 +786,199 @@ export default function SuperAdminAffiliatesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && editingAffiliate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Edit Affiliate</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="p-1 rounded hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateAffiliate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Display Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.displayName}
+                  onChange={(e) => setEditForm(f => ({ ...f, displayName: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="PAUSED">Paused</option>
+                  <option value="SUSPENDED">Suspended</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">First Name</label>
+                  <input
+                    type="text"
+                    value={editForm.firstName}
+                    onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                  <input
+                    type="text"
+                    value={editForm.lastName}
+                    onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Commission Plan</label>
+                <select
+                  value={editForm.commissionPlanId}
+                  onChange={(e) => setEditForm(f => ({ ...f, commissionPlanId: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                >
+                  <option value="">No plan</option>
+                  {plans
+                    .filter(p => p.isActive && p.clinicId === editingAffiliate.clinicId)
+                    .map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name} ({plan.planType === 'PERCENT' && plan.percentBps
+                          ? formatPercent(plan.percentBps)
+                          : plan.flatAmountCents
+                            ? formatCurrency(plan.flatAmountCents)
+                            : 'N/A'})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="text-xs text-gray-500">
+                  <strong>Clinic:</strong> {editingAffiliate.clinic.name}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  <strong>Ref Codes:</strong> {editingAffiliate.refCodes.map(r => r.refCode).join(', ') || 'None'}
+                </p>
+              </div>
+
+              {editError && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {editError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updating}
+                  className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
+                >
+                  {updating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && deletingAffiliate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <div className="flex items-center justify-center mb-4">
+              <div className="rounded-full bg-red-100 p-3">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+            
+            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
+              Delete Affiliate?
+            </h2>
+            
+            <p className="text-gray-600 text-center mb-4">
+              Are you sure you want to delete <strong>{deletingAffiliate.displayName}</strong>?
+            </p>
+
+            {deletingAffiliate.stats.totalConversions > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
+                <p className="text-sm text-amber-800">
+                  <strong>Note:</strong> This affiliate has {deletingAffiliate.stats.totalConversions} conversion(s) 
+                  and {formatCurrency(deletingAffiliate.stats.totalCommissionCents)} in commissions. 
+                  They will be deactivated instead of permanently deleted to preserve history.
+                </p>
+              </div>
+            )}
+
+            {deletingAffiliate.stats.totalConversions === 0 && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 mb-4">
+                <p className="text-sm text-red-800">
+                  <strong>Warning:</strong> This action cannot be undone. The affiliate and their user account 
+                  will be permanently deleted.
+                </p>
+              </div>
+            )}
+
+            {deleteError && (
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAffiliate}
+                disabled={deleting}
+                className="flex-1 rounded-lg bg-red-600 py-2 font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
