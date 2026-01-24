@@ -228,8 +228,8 @@ export class IntakeProcessor {
       logger.info(`[INTAKE ${this.requestId}] Updated patient: ${patient.id}`);
       return { patient, isNew: false };
     } else {
-      // Create new patient
-      const patientNumber = await this.getNextPatientId();
+      // Create new patient - use clinic-specific counter
+      const patientNumber = await this.getNextPatientId(clinicId);
       
       const patient = await prisma.patient.create({
         data: {

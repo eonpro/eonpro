@@ -58,7 +58,9 @@ export async function upsertPatientFromIntake(
   }
 
   const created = await prisma.$transaction(async (tx: any) => {
-    const patientId = await getNextPatientId(tx);
+    // Use clinic-specific counter (default to clinic 1 if not specified)
+    const clinicIdForCounter = options?.clinicId || 1;
+    const patientId = await getNextPatientId(tx, clinicIdForCounter);
     return tx.patient.create({
       data: {
         ...normalized,

@@ -296,10 +296,10 @@ export async function createPatientFromStripePayment(
     ? splitName(paymentData.name)
     : { firstName: 'Unknown', lastName: 'Customer' };
   
-  // Generate next patient ID
+  // Generate next patient ID - clinic-specific counter
   const counter = await prisma.patientCounter.upsert({
-    where: { id: 1 },
-    create: { id: 1, current: 1 },
+    where: { clinicId },
+    create: { clinicId, current: 1 },
     update: { current: { increment: 1 } },
   });
   const patientId = counter.current.toString().padStart(6, '0');

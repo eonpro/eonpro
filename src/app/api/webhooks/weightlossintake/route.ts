@@ -284,8 +284,8 @@ export async function POST(req: NextRequest) {
       }));
       logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Updated patient: ${patient.id}`);
     } else {
-      // Create new
-      const patientNumber = await getNextPatientId();
+      // Create new - use clinic-specific counter
+      const patientNumber = await getNextPatientId(clinicId);
       patient = await withRetry(() => prisma.patient.create({
         data: {
           ...patientData,
@@ -697,11 +697,11 @@ function normalizePatientData(patient: any) {
   };
 }
 
-async function getNextPatientId(): Promise<string> {
+async function getNextPatientId(clinicId: number = 1): Promise<string> {
   try {
     const counter = await withRetry(() => prisma.patientCounter.upsert({
-      where: { id: 1 },
-      create: { id: 1, current: 1 },
+      where: { clinicId },
+      create: { clinicId, current: 1 },
       update: { current: { increment: 1 } },
     }));
     return (counter as { current: number }).current.toString().padStart(6, "0");
