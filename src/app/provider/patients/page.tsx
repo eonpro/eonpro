@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Users, Search, Filter, UserPlus, Activity, Calendar, FileText, AlertCircle, X, Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -17,6 +18,7 @@ interface Patient {
 }
 
 export default function ProviderPatientsPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -116,7 +118,15 @@ export default function ProviderPatientsPage() {
 
   const calculateAge = (dob: string) => {
     if (!dob) return "-";
+    // Check if the value looks like encrypted data (contains colons and base64-like characters)
+    if (dob.includes(':') && dob.length > 50) {
+      return "-"; // Encrypted data, can't calculate age
+    }
     const birthDate = new Date(dob);
+    // Check if date is valid
+    if (isNaN(birthDate.getTime())) {
+      return "-";
+    }
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -284,7 +294,10 @@ export default function ProviderPatientsPage() {
                           >
                             View
                           </Link>
-                          <button className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                          <button
+                            onClick={() => router.push(`/patients/${patient.id}?tab=chat`)}
+                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                          >
                             Message
                           </button>
                         </div>

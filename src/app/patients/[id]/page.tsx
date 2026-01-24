@@ -102,12 +102,25 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     );
   }
 
-  // Decrypt PHI fields for display
-  const decryptedPatient = decryptPatientPHI(patient, ['email', 'phone', 'dob', 'ssn']);
-  const patientWithDecryptedPHI = {
-    ...patient,
-    ...decryptedPatient,
-  };
+  // Decrypt PHI fields for display (with error handling)
+  let patientWithDecryptedPHI;
+  try {
+    const decryptedPatient = decryptPatientPHI(patient, ['email', 'phone', 'dob', 'ssn']);
+    patientWithDecryptedPHI = {
+      ...patient,
+      ...decryptedPatient,
+    };
+  } catch (decryptError) {
+    // Log the error but continue with original data
+    logger.error('Failed to decrypt patient PHI, showing encrypted values:', {
+      patientId: patient.id,
+      error: decryptError instanceof Error ? decryptError.message : String(decryptError)
+    });
+    // Use original patient data as fallback
+    patientWithDecryptedPHI = {
+      ...patient,
+    };
+  }
 
   // Parse intake document data from Buffer/Uint8Array to JSON
   const documentsWithParsedData = patientWithDecryptedPHI.documents.map((doc: any) => {

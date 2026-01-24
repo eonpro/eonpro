@@ -132,6 +132,20 @@ async function loginHandler(req: NextRequest) {
       }
     }
 
+    // Check if email is verified for patients
+    // @ts-ignore - emailVerified is a new field
+    if (user.role === 'PATIENT' && user.emailVerified === false) {
+      logger.warn(`Unverified email login attempt for ${email}`);
+      return NextResponse.json(
+        {
+          error: 'Please verify your email before logging in.',
+          code: 'EMAIL_NOT_VERIFIED',
+          email: user.email,
+        },
+        { status: 403 }
+      );
+    }
+
     // Normalize role to lowercase for consistency
     const userRole = (user.role || role).toLowerCase();
 
@@ -269,6 +283,8 @@ async function loginHandler(req: NextRequest) {
       user: {
         id: user.id,
         email: user.email,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
         name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
         role: userRole,
         clinicId: activeClinicId,

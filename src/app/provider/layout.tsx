@@ -49,7 +49,11 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         router.push('/login');
         return;
       }
-      setUserName(`Dr. ${parsedUser.firstName || ''} ${parsedUser.lastName || ''}`.trim());
+      // Build display name from firstName/lastName or fallback to name field
+      const displayName = parsedUser.firstName && parsedUser.lastName
+        ? `${parsedUser.firstName} ${parsedUser.lastName}`
+        : parsedUser.name || parsedUser.email?.split('@')[0] || '';
+      setUserName(`Dr. ${displayName}`.trim());
       setLoading(false);
     } catch {
       localStorage.removeItem('user');

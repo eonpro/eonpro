@@ -37,7 +37,9 @@ export default function ProviderDashboard() {
     <div className="p-6 lg:p-8 min-h-screen">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-[#4fa77e] to-[#3d9268] rounded-2xl p-6 text-white mb-8 shadow-sm">
-        <h1 className="text-2xl font-bold mb-2">Welcome back, Dr. {userData?.lastName}!</h1>
+        <h1 className="text-2xl font-bold mb-2">
+          Welcome back, Dr. {userData?.lastName || userData?.name?.split(' ').pop() || userData?.email?.split('@')[0]}!
+        </h1>
         <p className="text-green-100">You have 8 patients scheduled for today</p>
       </div>
 
