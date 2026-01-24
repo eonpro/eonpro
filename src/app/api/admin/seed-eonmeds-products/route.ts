@@ -402,7 +402,7 @@ export async function POST(req: NextRequest) {
       logger.info('[SEED PRODUCTS] Product table check:', tableError.message);
     }
 
-    // Find EONMEDS clinic
+    // Find EONMEDS clinic (use select for backwards compatibility)
     const eonmeds = await prisma.clinic.findFirst({
       where: {
         OR: [
@@ -410,6 +410,7 @@ export async function POST(req: NextRequest) {
           { name: { contains: 'EONMEDS', mode: 'insensitive' } },
         ],
       },
+      select: { id: true, name: true, subdomain: true },
     });
 
     if (!eonmeds) {

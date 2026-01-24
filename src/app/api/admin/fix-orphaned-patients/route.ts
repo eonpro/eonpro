@@ -29,11 +29,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Find EONMEDS clinic
+    // Find EONMEDS clinic (use select for backwards compatibility)
     const eonmedsClinic = await prisma.clinic.findFirst({
       where: {
         OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
       },
+      select: { id: true, name: true, subdomain: true },
     });
 
     if (!eonmedsClinic) {

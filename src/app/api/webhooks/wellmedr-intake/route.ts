@@ -123,13 +123,19 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   let clinicId: number;
   try {
-    const wellmedrClinic = await withRetry<Clinic | null>(() => prisma.clinic.findFirst({
+    // Select only needed fields for backwards compatibility with schema changes
+    const wellmedrClinic = await withRetry<{ id: number; name: string; subdomain: string | null } | null>(() => prisma.clinic.findFirst({
       where: {
         OR: [
           { subdomain: WELLMEDR_CLINIC_SUBDOMAIN },
           { subdomain: { contains: "wellmedr", mode: "insensitive" } },
           { name: { contains: "Wellmedr", mode: "insensitive" } },
         ],
+      },
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
       },
     }));
 

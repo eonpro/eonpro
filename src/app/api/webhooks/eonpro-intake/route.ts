@@ -128,12 +128,18 @@ export async function POST(req: NextRequest) {
 
   try {
     // Get EONMEDS clinic (all patients go here)
+    // Select only needed fields for backwards compatibility with schema changes
     const eonmedsClinic = await prisma.clinic.findFirst({
       where: {
         OR: [
           { subdomain: 'eonmeds' },
           { name: { contains: 'EONMEDS', mode: 'insensitive' } },
         ],
+      },
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
       },
     });
 

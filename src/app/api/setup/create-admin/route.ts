@@ -72,9 +72,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Ensure a clinic exists
+      // Ensure a clinic exists (use select for backwards compatibility)
       let clinic = await prisma.clinic.findFirst({
         where: { status: 'ACTIVE' },
+        select: { id: true, name: true, subdomain: true },
       });
 
       if (!clinic) {
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
             features: {},
             integrations: {},
           },
+          select: { id: true, name: true, subdomain: true },
         });
       }
 

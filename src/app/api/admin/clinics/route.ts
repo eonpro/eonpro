@@ -11,8 +11,29 @@ export async function GET(request: NextRequest) {
   try {
     // TODO: Add admin authentication check
 
+    // Use explicit select for backwards compatibility with schema changes
     const clinics = await prisma.clinic.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        customDomain: true,
+        status: true,
+        adminEmail: true,
+        supportEmail: true,
+        phone: true,
+        timezone: true,
+        billingPlan: true,
+        patientLimit: true,
+        providerLimit: true,
+        storageLimit: true,
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+        logoUrl: true,
+        faviconUrl: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             patients: true,
@@ -81,9 +102,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if subdomain is already taken
+    // Check if subdomain is already taken (select only id for efficiency)
     const existing = await prisma.clinic.findUnique({
-      where: { subdomain: body.subdomain }
+      where: { subdomain: body.subdomain },
+      select: { id: true },
     });
 
     if (existing) {

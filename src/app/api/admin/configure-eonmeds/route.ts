@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     
-    // Find EONMEDS clinic
+    // Find EONMEDS clinic (use select for backwards compatibility)
     let eonmeds = await prisma.clinic.findFirst({
       where: {
         OR: [
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
           { name: { contains: 'EONMEDS', mode: 'insensitive' } },
         ],
       },
+      select: { id: true, name: true, subdomain: true },
     });
 
     if (!eonmeds) {
@@ -43,12 +44,13 @@ export async function POST(req: NextRequest) {
           features: {},
           integrations: {},
         },
+        select: { id: true, name: true, subdomain: true },
       });
       
       logger.info(`[CONFIGURE] Created EONMEDS clinic with ID: ${eonmeds.id}`);
     }
 
-    // Update with Lifefile credentials
+    // Update with Lifefile credentials (use select for backwards compatibility)
     const updated = await prisma.clinic.update({
       where: { id: eonmeds.id },
       data: {
@@ -64,6 +66,14 @@ export async function POST(req: NextRequest) {
         lifefilePracticeAddress: body.lifefilePracticeAddress || null,
         lifefilePracticePhone: body.lifefilePracticePhone || null,
         lifefilePracticeFax: body.lifefilePracticeFax || null,
+      },
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        lifefileEnabled: true,
+        lifefilePracticeName: true,
+        lifefileLocationId: true,
       },
     });
 

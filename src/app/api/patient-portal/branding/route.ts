@@ -191,9 +191,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - can only update own clinic' }, { status: 403 });
     }
 
-    // Verify the clinic exists
+    // Verify the clinic exists (use select for backwards compatibility)
     const existingClinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
+      select: { id: true, settings: true },
     });
 
     if (!existingClinic) {

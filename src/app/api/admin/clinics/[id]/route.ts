@@ -22,9 +22,35 @@ export async function GET(
       );
     }
     
+    // Use explicit select for backwards compatibility with schema changes
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        customDomain: true,
+        status: true,
+        adminEmail: true,
+        supportEmail: true,
+        phone: true,
+        timezone: true,
+        address: true,
+        billingPlan: true,
+        patientLimit: true,
+        providerLimit: true,
+        storageLimit: true,
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+        logoUrl: true,
+        faviconUrl: true,
+        customCss: true,
+        settings: true,
+        features: true,
+        integrations: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             patients: true,
@@ -74,9 +100,10 @@ export async function PATCH(
       );
     }
     
-    // Check if clinic exists
+    // Check if clinic exists (select only needed fields)
     const existing = await prisma.clinic.findUnique({
-      where: { id: clinicId }
+      where: { id: clinicId },
+      select: { id: true, subdomain: true },
     });
     
     if (!existing) {
@@ -89,7 +116,8 @@ export async function PATCH(
     // If subdomain is being changed, check if it's available
     if (body.subdomain && body.subdomain !== existing.subdomain) {
       const subdomainTaken = await prisma.clinic.findUnique({
-        where: { subdomain: body.subdomain }
+        where: { subdomain: body.subdomain },
+        select: { id: true },
       });
       
       if (subdomainTaken) {
@@ -100,7 +128,7 @@ export async function PATCH(
       }
     }
     
-    // Update the clinic
+    // Update the clinic (use explicit select for backwards compatibility)
     const updated = await prisma.clinic.update({
       where: { id: clinicId },
       data: {
@@ -126,7 +154,32 @@ export async function PATCH(
         features: body.features,
         integrations: body.integrations,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        customDomain: true,
+        status: true,
+        adminEmail: true,
+        supportEmail: true,
+        phone: true,
+        timezone: true,
+        address: true,
+        billingPlan: true,
+        patientLimit: true,
+        providerLimit: true,
+        storageLimit: true,
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+        logoUrl: true,
+        faviconUrl: true,
+        customCss: true,
+        settings: true,
+        features: true,
+        integrations: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             patients: true,
@@ -180,10 +233,13 @@ export async function DELETE(
       );
     }
     
-    // Check if clinic exists and has no data
+    // Check if clinic exists and has no data (use select for backwards compatibility)
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
         _count: {
           select: {
             patients: true,

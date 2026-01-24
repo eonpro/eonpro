@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     // Normalize the payload
     const normalized = normalizeMedLinkPayload(payload);
     
-    // Find EONMEDS clinic
+    // Find EONMEDS clinic (use select for backwards compatibility)
     const clinic = await prisma.clinic.findFirst({
       where: { 
         OR: [
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
           { name: { contains: "EONMeds", mode: "insensitive" } },
         ]
       },
+      select: { id: true, name: true, subdomain: true },
     });
     
     const clinicId = clinic?.id || 3;

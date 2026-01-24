@@ -17,11 +17,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find EONMEDS clinic
+    // Find EONMEDS clinic (use select for backwards compatibility)
     const eonmeds = await prisma.clinic.findFirst({
       where: {
         OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
       },
+      select: { id: true, name: true, subdomain: true },
     });
 
     if (!eonmeds) {

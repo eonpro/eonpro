@@ -104,10 +104,21 @@ export async function GET(request: NextRequest) {
     if (clinicId) {
       const cId = parseInt(clinicId);
 
-      // Test 4: Specific clinic exists
+      // Test 4: Specific clinic exists (use select for backwards compatibility)
       try {
         const clinic = await prisma.clinic.findUnique({
           where: { id: cId },
+          select: {
+            id: true,
+            name: true,
+            subdomain: true,
+            customDomain: true,
+            status: true,
+            primaryColor: true,
+            secondaryColor: true,
+            logoUrl: true,
+            faviconUrl: true,
+          },
         });
 
         if (clinic) {
