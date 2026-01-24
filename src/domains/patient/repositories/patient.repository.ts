@@ -417,7 +417,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       }
 
       await db.$transaction(async (tx) => {
-        // Create audit log BEFORE deletion
+        // Create audit log BEFORE deletion (will be orphaned but preserved for compliance)
         await tx.patientAudit.create({
           data: {
             patientId: id,
@@ -434,11 +434,35 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           },
         });
 
-        // Delete related records in order (respecting foreign key constraints)
+        // ═══════════════════════════════════════════════════════════════════
+        // DELETE ALL RELATED RECORDS (respecting foreign key constraints)
+        // Order matters! Delete child records before parent records.
+        // ═══════════════════════════════════════════════════════════════════
+
+        // 1. Health Tracking Logs
         await tx.patientMedicationReminder.deleteMany({ where: { patientId: id } });
         await tx.patientWeightLog.deleteMany({ where: { patientId: id } });
+        await tx.waterIntakeLog.deleteMany({ where: { patientId: id } });
+        await tx.activityLog.deleteMany({ where: { patientId: id } });
+        await tx.sleepLog.deleteMany({ where: { patientId: id } });
+        await tx.mealLog.deleteMany({ where: { patientId: id } });
 
-        // Delete intake form responses and submissions
+        // 2. Chat & Conversations
+        await tx.patientChatMessage.deleteMany({ where: { patientId: id } });
+        await tx.aIConversation.deleteMany({ where: { patientId: id } });
+
+        // 3. Care Plans (delete status history and checklist items first)
+        const carePlanAssignments = await tx.carePlanAssignment.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        for (const assignment of carePlanAssignments) {
+          await tx.carePlanStatusHistory.deleteMany({ where: { assignmentId: assignment.id } });
+          await tx.carePlanChecklistItem.deleteMany({ where: { assignmentId: assignment.id } });
+        }
+        await tx.carePlanAssignment.deleteMany({ where: { patientId: id } });
+
+        // 4. Intake form responses and submissions
         const submissions = await tx.intakeFormSubmission.findMany({
           where: { patientId: id },
           select: { id: true },
@@ -448,14 +472,29 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         }
         await tx.intakeFormSubmission.deleteMany({ where: { patientId: id } });
 
-        // Delete other related records
+        // 5. SOAP Notes (need to delete revisions first)
+        const soapNotes = await tx.sOAPNote.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        for (const note of soapNotes) {
+          await tx.sOAPNoteRevision.deleteMany({ where: { soapNoteId: note.id } });
+        }
         await tx.sOAPNote.deleteMany({ where: { patientId: id } });
-        await tx.appointment.deleteMany({ where: { patientId: id } });
+
+        // 6. Documents and appointments
         await tx.patientDocument.deleteMany({ where: { patientId: id } });
+        await tx.appointment.deleteMany({ where: { patientId: id } });
+
+        // 7. Payments and Invoices (delete payments before invoices)
+        await tx.payment.deleteMany({ where: { patientId: id } });
+        await tx.invoice.deleteMany({ where: { patientId: id } });
+
+        // 8. Subscriptions and payment methods
         await tx.subscription.deleteMany({ where: { patientId: id } });
         await tx.paymentMethod.deleteMany({ where: { patientId: id } });
 
-        // Delete order events and rxs, then orders
+        // 9. Orders (delete events and rxs first)
         const orders = await tx.order.findMany({
           where: { patientId: id },
           select: { id: true },
@@ -466,9 +505,25 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         }
         await tx.order.deleteMany({ where: { patientId: id } });
 
-        // Delete tickets and referrals
+        // 10. Tickets, referrals, discount usage
         await tx.ticket.deleteMany({ where: { patientId: id } });
         await tx.referralTracking.deleteMany({ where: { patientId: id } });
+        await tx.discountCodeUsage.deleteMany({ where: { patientId: id } });
+
+        // 11. SMS logs (nullable patientId, but clean up anyway)
+        await tx.smsLog.deleteMany({ where: { patientId: id } });
+
+        // 12. Magic links (nullable patientId)
+        await tx.magicLink.deleteMany({ where: { patientId: id } });
+
+        // 13. User association (nullable patientId)
+        await tx.user.updateMany({
+          where: { patientId: id },
+          data: { patientId: null }
+        });
+
+        // 14. Delete patient audit records (compliance note: may want to keep these)
+        await tx.patientAudit.deleteMany({ where: { patientId: id } });
 
         // Finally delete the patient
         await tx.patient.delete({ where: { id } });
