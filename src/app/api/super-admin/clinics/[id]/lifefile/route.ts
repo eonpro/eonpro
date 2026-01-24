@@ -112,9 +112,10 @@ export const PUT = withAuth(
 
     const settings = parsed.data;
 
-    // Check if clinic exists
+    // Check if clinic exists (select only needed fields for backwards compatibility)
     const existingClinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
+      select: { id: true, name: true },
     });
 
     if (!existingClinic) {

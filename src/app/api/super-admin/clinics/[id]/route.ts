@@ -148,9 +148,10 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       status,
     } = body;
 
-    // Check if clinic exists
+    // Check if clinic exists (select only needed fields for backwards compatibility)
     const existingClinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
+      select: { id: true, subdomain: true },
     });
 
     if (!existingClinic) {
@@ -164,6 +165,7 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
     if (subdomain && subdomain !== existingClinic.subdomain) {
       const subdomainTaken = await prisma.clinic.findUnique({
         where: { subdomain },
+        select: { id: true },
       });
       if (subdomainTaken) {
         return NextResponse.json(
@@ -253,9 +255,10 @@ export const DELETE = withSuperAdminAuth(async (req: NextRequest, user: AuthUser
       );
     }
 
-    // Check if clinic exists
+    // Check if clinic exists (select only needed fields for backwards compatibility)
     const existingClinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
+      select: { id: true, name: true },
     });
 
     if (!existingClinic) {

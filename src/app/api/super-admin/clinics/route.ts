@@ -147,9 +147,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       );
     }
 
-    // Check if subdomain is already taken
+    // Check if subdomain is already taken (select only id for efficiency)
     const existingClinic = await prisma.clinic.findUnique({
       where: { subdomain },
+      select: { id: true },
     });
 
     if (existingClinic) {
@@ -163,6 +164,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     if (customDomain) {
       const existingDomain = await prisma.clinic.findUnique({
         where: { customDomain },
+        select: { id: true },
       });
       if (existingDomain) {
         return NextResponse.json(
