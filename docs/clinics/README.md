@@ -7,6 +7,7 @@ This directory contains configuration documentation for each clinic using EONPRO
 | Clinic | ID | Status | Intake URL | Documentation |
 |--------|-----|--------|------------|---------------|
 | **EONMEDS** | 3 | ✅ Active | `intake.eonmeds.com` | [EONMEDS.md](./EONMEDS.md) |
+| **WELLMEDR** | - | ✅ Active | `intake.wellmedr.com` | [WELLMEDR.md](./WELLMEDR.md) |
 
 ## Adding a New Clinic
 
