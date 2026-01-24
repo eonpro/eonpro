@@ -39,13 +39,43 @@ vi.mock('@/lib/db', () => ({
     },
     patientAudit: {
       create: vi.fn(),
+      deleteMany: vi.fn(),
     },
+    // Health Tracking Logs
     patientMedicationReminder: {
       deleteMany: vi.fn(),
     },
     patientWeightLog: {
       deleteMany: vi.fn(),
     },
+    patientWaterLog: {
+      deleteMany: vi.fn(),
+    },
+    patientExerciseLog: {
+      deleteMany: vi.fn(),
+    },
+    patientSleepLog: {
+      deleteMany: vi.fn(),
+    },
+    patientNutritionLog: {
+      deleteMany: vi.fn(),
+    },
+    // Chat & Conversations
+    patientChatMessage: {
+      deleteMany: vi.fn(),
+    },
+    aIConversation: {
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    aIMessage: {
+      deleteMany: vi.fn(),
+    },
+    // Care Plans
+    carePlan: {
+      deleteMany: vi.fn(),
+    },
+    // Intake forms
     intakeFormSubmission: {
       findMany: vi.fn(),
       deleteMany: vi.fn(),
@@ -53,21 +83,63 @@ vi.mock('@/lib/db', () => ({
     intakeFormResponse: {
       deleteMany: vi.fn(),
     },
+    // SOAP Notes
     sOAPNote: {
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    sOAPNoteRevision: {
+      deleteMany: vi.fn(),
+    },
+    // Documents and appointments
+    patientDocument: {
       deleteMany: vi.fn(),
     },
     appointment: {
       deleteMany: vi.fn(),
     },
-    patientDocument: {
+    // Payments and Invoices
+    payment: {
       deleteMany: vi.fn(),
     },
+    invoice: {
+      deleteMany: vi.fn(),
+    },
+    // Subscriptions and payment methods
     subscription: {
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    subscriptionAction: {
       deleteMany: vi.fn(),
     },
     paymentMethod: {
       deleteMany: vi.fn(),
     },
+    // Tickets (must be deleted before Orders due to FK constraint)
+    ticket: {
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    ticketSLA: {
+      deleteMany: vi.fn(),
+    },
+    ticketEscalation: {
+      deleteMany: vi.fn(),
+    },
+    ticketWorkLog: {
+      deleteMany: vi.fn(),
+    },
+    ticketStatusHistory: {
+      deleteMany: vi.fn(),
+    },
+    ticketComment: {
+      deleteMany: vi.fn(),
+    },
+    ticketAssignment: {
+      deleteMany: vi.fn(),
+    },
+    // Orders
     order: {
       findMany: vi.fn(),
       deleteMany: vi.fn(),
@@ -78,11 +150,31 @@ vi.mock('@/lib/db', () => ({
     rx: {
       deleteMany: vi.fn(),
     },
-    ticket: {
-      deleteMany: vi.fn(),
-    },
+    // Referrals and discounts
     referralTracking: {
       deleteMany: vi.fn(),
+    },
+    discountUsage: {
+      deleteMany: vi.fn(),
+    },
+    affiliateReferral: {
+      deleteMany: vi.fn(),
+    },
+    // Superbills
+    superbill: {
+      deleteMany: vi.fn(),
+    },
+    // Payment reconciliation
+    paymentReconciliation: {
+      updateMany: vi.fn(),
+    },
+    // SMS logs
+    smsLog: {
+      deleteMany: vi.fn(),
+    },
+    // User association
+    user: {
+      updateMany: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -451,14 +543,24 @@ describe('PatientRepository', () => {
   });
 
   describe('delete', () => {
-    it('should delete patient and all related records', async () => {
+    // Helper to setup common delete mocks
+    const setupDeleteMocks = () => {
       const patientWithCounts = {
         ...mockPatient,
         _count: { orders: 0, documents: 0, soapNotes: 0, appointments: 0 },
       };
       mockPrisma.patient.findFirst.mockResolvedValue(patientWithCounts);
+      mockPrisma.aIConversation.findMany.mockResolvedValue([]);
       mockPrisma.intakeFormSubmission.findMany.mockResolvedValue([]);
+      mockPrisma.sOAPNote.findMany.mockResolvedValue([]);
+      mockPrisma.subscription.findMany.mockResolvedValue([]);
+      mockPrisma.ticket.findMany.mockResolvedValue([]);
       mockPrisma.order.findMany.mockResolvedValue([]);
+      return patientWithCounts;
+    };
+
+    it('should delete patient and all related records', async () => {
+      setupDeleteMocks();
 
       await repo.delete(1, mockAuditContext);
 
@@ -480,21 +582,33 @@ describe('PatientRepository', () => {
     });
 
     it('should delete related intake submissions and responses', async () => {
-      const patientWithCounts = {
-        ...mockPatient,
-        _count: { orders: 0, documents: 0, soapNotes: 0, appointments: 0 },
-      };
-      mockPrisma.patient.findFirst.mockResolvedValue(patientWithCounts);
+      setupDeleteMocks();
       mockPrisma.intakeFormSubmission.findMany.mockResolvedValue([
         { id: 1 },
         { id: 2 },
       ]);
-      mockPrisma.order.findMany.mockResolvedValue([]);
 
       await repo.delete(1, mockAuditContext);
 
       expect(mockPrisma.intakeFormResponse.deleteMany).toHaveBeenCalledTimes(2);
       expect(mockPrisma.intakeFormSubmission.deleteMany).toHaveBeenCalledWith({
+        where: { patientId: 1 },
+      });
+    });
+
+    it('should delete tickets before orders (FK constraint)', async () => {
+      setupDeleteMocks();
+      mockPrisma.ticket.findMany.mockResolvedValue([{ id: 10 }, { id: 11 }]);
+      mockPrisma.order.findMany.mockResolvedValue([{ id: 20 }]);
+
+      await repo.delete(1, mockAuditContext);
+
+      // Verify tickets deleted
+      expect(mockPrisma.ticket.deleteMany).toHaveBeenCalledWith({
+        where: { patientId: 1 },
+      });
+      // Verify orders deleted
+      expect(mockPrisma.order.deleteMany).toHaveBeenCalledWith({
         where: { patientId: 1 },
       });
     });

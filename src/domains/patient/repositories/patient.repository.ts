@@ -502,18 +502,8 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         await tx.subscription.deleteMany({ where: { patientId: id } });
         await tx.paymentMethod.deleteMany({ where: { patientId: id } });
 
-        // 9. Orders (delete events and rxs first)
-        const orders = await tx.order.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        for (const order of orders) {
-          await tx.orderEvent.deleteMany({ where: { orderId: order.id } });
-          await tx.rx.deleteMany({ where: { orderId: order.id } });
-        }
-        await tx.order.deleteMany({ where: { patientId: id } });
-
-        // 10. Tickets (delete related records first)
+        // 9. Tickets (delete related records first)
+        // IMPORTANT: Tickets must be deleted BEFORE Orders because Ticket.orderId references Order
         const tickets = await tx.ticket.findMany({
           where: { patientId: id },
           select: { id: true },
@@ -527,6 +517,18 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           await tx.ticketAssignment.deleteMany({ where: { ticketId: ticket.id } });
         }
         await tx.ticket.deleteMany({ where: { patientId: id } });
+
+        // 10. Orders (delete events and rxs first)
+        // Must be deleted AFTER Tickets since Tickets reference Orders via orderId FK
+        const orders = await tx.order.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        for (const order of orders) {
+          await tx.orderEvent.deleteMany({ where: { orderId: order.id } });
+          await tx.rx.deleteMany({ where: { orderId: order.id } });
+        }
+        await tx.order.deleteMany({ where: { patientId: id } });
 
         // 11. Referrals and discount usage
         await tx.referralTracking.deleteMany({ where: { patientId: id } });

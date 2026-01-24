@@ -202,8 +202,14 @@ function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma
       }
 
       // Foreign key constraint violation
-      case 'P2003':
-        return new BadRequestError('Referenced record does not exist');
+      case 'P2003': {
+        const fieldName = error.meta?.field_name as string | undefined;
+        return new BadRequestError(
+          fieldName
+            ? `Cannot complete operation: related records exist (${fieldName})`
+            : 'Cannot complete operation: related records still exist'
+        );
+      }
 
       // Record not found
       case 'P2001':
