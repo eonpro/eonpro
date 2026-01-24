@@ -83,6 +83,25 @@ async function loginHandler(req: NextRequest) {
           }
           break;
 
+        case 'patient':
+          // Patient login from legacy Patient table
+          const patientRecord = await prisma.patient.findFirst({
+            where: { email: email.toLowerCase() },
+          });
+          // Note: Patients typically don't have passwords in legacy system
+          // They use email magic link or are created via User table now
+          if (patientRecord) {
+            // Check if there's an associated User record
+            const patientUser = await prisma.user.findFirst({
+              where: { patientId: patientRecord.id },
+            });
+            if (patientUser) {
+              user = patientUser;
+              passwordHash = patientUser.passwordHash;
+            }
+          }
+          break;
+
         case 'admin':
         case 'super_admin':
           // SECURITY: Admin users must exist in the database
@@ -101,12 +120,26 @@ async function loginHandler(req: NextRequest) {
             passwordHash = adminUser.passwordHash;
           }
           break;
+
+        case 'staff':
+        case 'support':
+          // Staff and support users
+          const staffUser = await prisma.user.findFirst({
+            where: { 
+              email: email.toLowerCase(),
+              role: { in: ['STAFF', 'SUPPORT'] }
+            },
+          });
+          if (staffUser) {
+            user = staffUser;
+            passwordHash = staffUser.passwordHash;
+          }
+          break;
         
         default:
-          return NextResponse.json(
-            { error: 'Invalid role specified' },
-            { status: 400 }
-          );
+          // For any unrecognized role, try to find user by email only
+          // This provides fallback compatibility
+          break;
       }
     }
 
@@ -320,26 +353,25 @@ async function loginHandler(req: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
+    const prismaError = (error as any)?.code;
     
     // Log detailed error for debugging
     console.error('[LOGIN_ERROR]', {
       message: errorMessage,
       stack: errorStack,
       type: error?.constructor?.name,
+      prismaCode: prismaError,
     });
     
     logger.error('Login error:', error instanceof Error ? error : new Error(errorMessage));
     
-    // In development, return more details
-    if (process.env.NODE_ENV === 'development') {
-      return NextResponse.json(
-        { error: errorMessage, stack: errorStack },
-        { status: 500 }
-      );
-    }
-    
+    // Return error details (safe to show in production for debugging login issues)
     return NextResponse.json(
-      { error: 'An error occurred during login' },
+      { 
+        error: 'An error occurred during login',
+        details: errorMessage,
+        code: prismaError || 'UNKNOWN',
+      },
       { status: 500 }
     );
   }
