@@ -41,6 +41,8 @@ const PUBLIC_ROUTES = [
 const SUPER_ADMIN_ROUTES = [
   '/admin/clinics',
   '/api/admin/clinics',
+  '/super-admin',
+  '/api/super-admin',
 ];
 
 export async function clinicMiddleware(request: NextRequest) {

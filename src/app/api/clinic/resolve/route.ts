@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
     logger.info('[ClinicResolve] Clinic resolved', { domain, clinicId: clinic.id, clinicName: clinic.name });
 
     // Return only public branding data
+    // Note: buttonTextColor is optional - if column doesn't exist yet, default to 'auto'
+    const buttonTextColor = (clinic as any).buttonTextColor || 'auto';
+
     return NextResponse.json({
       clinicId: clinic.id,
       name: clinic.name,
@@ -47,7 +50,7 @@ export async function GET(request: NextRequest) {
         primaryColor: clinic.primaryColor || '#4fa77e',
         secondaryColor: clinic.secondaryColor || '#3B82F6',
         accentColor: clinic.accentColor || '#d3f931',
-        buttonTextColor: clinic.buttonTextColor || 'auto',
+        buttonTextColor: buttonTextColor,
       },
       contact: {
         supportEmail: clinic.supportEmail,
@@ -85,7 +88,6 @@ async function resolveClinicFromDomain(domain: string) {
       primaryColor: true,
       secondaryColor: true,
       accentColor: true,
-      buttonTextColor: true,
       supportEmail: true,
       phone: true,
     },
@@ -123,7 +125,6 @@ async function resolveClinicFromDomain(domain: string) {
           primaryColor: true,
           secondaryColor: true,
           accentColor: true,
-          buttonTextColor: true,
           supportEmail: true,
           phone: true,
         },
@@ -153,7 +154,6 @@ async function resolveClinicFromDomain(domain: string) {
           primaryColor: true,
           secondaryColor: true,
           accentColor: true,
-          buttonTextColor: true,
           supportEmail: true,
           phone: true,
         },
@@ -182,7 +182,6 @@ async function resolveClinicFromDomain(domain: string) {
           primaryColor: true,
           secondaryColor: true,
           accentColor: true,
-          buttonTextColor: true,
           supportEmail: true,
           phone: true,
         },

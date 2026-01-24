@@ -36,6 +36,8 @@ const getBrandingHandler = async (request: NextRequest) => {
 
     const { clinicId } = parseResult.data;
 
+    // Note: Not selecting buttonTextColor directly as it may not exist in production DB
+    // if migration hasn't run yet. We'll add it back once migration is deployed.
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
       select: {
@@ -47,7 +49,6 @@ const getBrandingHandler = async (request: NextRequest) => {
         primaryColor: true,
         secondaryColor: true,
         accentColor: true,
-        buttonTextColor: true,
         customCss: true,
         settings: true,
         adminEmail: true,
@@ -63,6 +64,7 @@ const getBrandingHandler = async (request: NextRequest) => {
     const settings = (clinic.settings as any) || {};
     const patientPortalSettings = settings.patientPortal || {};
 
+    // buttonTextColor defaults to 'auto' until migration is deployed
     const branding = {
       clinicId: clinic.id,
       clinicName: clinic.name,
@@ -72,7 +74,7 @@ const getBrandingHandler = async (request: NextRequest) => {
       primaryColor: clinic.primaryColor || '#4fa77e',
       secondaryColor: clinic.secondaryColor || '#3B82F6',
       accentColor: clinic.accentColor || patientPortalSettings.accentColor || '#d3f931',
-      buttonTextColor: clinic.buttonTextColor || 'auto',
+      buttonTextColor: (clinic as any).buttonTextColor || 'auto',
       customCss: clinic.customCss,
       features: {
         showBMICalculator: patientPortalSettings.showBMICalculator ?? true,

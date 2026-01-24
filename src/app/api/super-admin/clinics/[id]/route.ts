@@ -33,9 +33,37 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       );
     }
 
+    // Note: Explicitly selecting fields for backwards compatibility
+    // (buttonTextColor may not exist in production DB if migration hasn't run)
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        customDomain: true,
+        status: true,
+        adminEmail: true,
+        supportEmail: true,
+        phone: true,
+        timezone: true,
+        address: true,
+        billingPlan: true,
+        patientLimit: true,
+        providerLimit: true,
+        storageLimit: true,
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+        logoUrl: true,
+        iconUrl: true,
+        faviconUrl: true,
+        customCss: true,
+        settings: true,
+        features: true,
+        integrations: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             patients: true,

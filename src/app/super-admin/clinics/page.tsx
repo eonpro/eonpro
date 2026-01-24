@@ -38,17 +38,22 @@ export default function ClinicsListPage() {
   const fetchClinics = async () => {
     try {
       const token = localStorage.getItem('auth-token');
-      
+
       if (!token) {
+        console.error('[CLINICS PAGE] No auth token found');
         router.push('/login?redirect=/super-admin/clinics&reason=session_expired');
         return;
       }
 
+      console.log('[CLINICS PAGE] Fetching clinics...');
       const response = await fetch('/api/super-admin/clinics', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      
+
+      console.log('[CLINICS PAGE] Response status:', response.status);
+
       if (response.status === 401 || response.status === 403) {
+        console.error('[CLINICS PAGE] Auth failed, status:', response.status);
         localStorage.removeItem('auth-token');
         localStorage.removeItem('super_admin-token');
         router.push('/login?redirect=/super-admin/clinics&reason=session_expired');
@@ -57,10 +62,18 @@ export default function ClinicsListPage() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[CLINICS PAGE] Response data:', {
+          clinicsCount: data.clinics?.length,
+          totalPatients: data.totalPatients,
+          totalClinics: data.totalClinics,
+        });
         setClinics(data.clinics || []);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[CLINICS PAGE] Error response:', response.status, errorData);
       }
     } catch (error) {
-      console.error('Failed to fetch clinics:', error);
+      console.error('[CLINICS PAGE] Failed to fetch clinics:', error);
     } finally {
       setLoading(false);
     }

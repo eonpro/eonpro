@@ -17,8 +17,26 @@ function withSuperAdminAuth(
  */
 export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
+    console.log('[SUPER-ADMIN/CLINICS] Fetching clinics for user:', user.email, 'role:', user.role);
+
+    // Note: Explicitly selecting fields for backwards compatibility
+    // (buttonTextColor may not exist in production DB if migration hasn't run)
     const clinics = await prisma.clinic.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        customDomain: true,
+        status: true,
+        adminEmail: true,
+        billingPlan: true,
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+        logoUrl: true,
+        iconUrl: true,
+        faviconUrl: true,
+        createdAt: true,
         _count: {
           select: {
             patients: true,
@@ -29,9 +47,11 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       orderBy: { createdAt: 'desc' },
     });
 
+    console.log('[SUPER-ADMIN/CLINICS] Found', clinics.length, 'clinics');
+
     // Count providers per clinic from both User table (role PROVIDER) and Provider table
     const clinicsWithProviderCount = await Promise.all(
-      clinics.map(async (clinic: { id: number; name: string; subdomain: string | null; logo: string | null; _count: { patients: number; users: number } }) => {
+      clinics.map(async (clinic) => {
         const [userProviderCount, providerTableCount] = await Promise.all([
           prisma.user.count({
             where: {
@@ -74,9 +94,14 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       totalClinics: clinics.length,
     });
   } catch (error: any) {
-    console.error('Error fetching clinics:', error);
+    console.error('[SUPER-ADMIN/CLINICS] Error fetching clinics:', error);
+    console.error('[SUPER-ADMIN/CLINICS] Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+    });
     return NextResponse.json(
-      { error: 'Failed to fetch clinics' },
+      { error: 'Failed to fetch clinics', details: error.message },
       { status: 500 }
     );
   }
