@@ -47,6 +47,7 @@ const getBrandingHandler = async (request: NextRequest) => {
         primaryColor: true,
         secondaryColor: true,
         accentColor: true,
+        buttonTextColor: true,
         customCss: true,
         settings: true,
         adminEmail: true,
@@ -71,6 +72,7 @@ const getBrandingHandler = async (request: NextRequest) => {
       primaryColor: clinic.primaryColor || '#4fa77e',
       secondaryColor: clinic.secondaryColor || '#3B82F6',
       accentColor: clinic.accentColor || patientPortalSettings.accentColor || '#d3f931',
+      buttonTextColor: clinic.buttonTextColor || 'auto',
       customCss: clinic.customCss,
       features: {
         showBMICalculator: patientPortalSettings.showBMICalculator ?? true,
@@ -123,6 +125,7 @@ const updateBrandingSchema = z.object({
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  buttonTextColor: z.enum(['auto', 'light', 'dark']).optional(),
   customCss: z.string().max(10000).optional(),
   features: z.object({
     showBMICalculator: z.boolean().optional(),
@@ -215,6 +218,9 @@ export async function PUT(request: NextRequest) {
     }
     if (brandingData.accentColor !== undefined) {
       updateData.accentColor = brandingData.accentColor;
+    }
+    if (brandingData.buttonTextColor !== undefined) {
+      updateData.buttonTextColor = brandingData.buttonTextColor;
     }
     if (brandingData.customCss !== undefined) {
       updateData.customCss = brandingData.customCss;

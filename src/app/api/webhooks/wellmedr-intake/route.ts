@@ -37,8 +37,20 @@ import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
  * Created: 2026-01-24
  */
 
-// WELLMEDR clinic identifier - DO NOT CHANGE
+// ═══════════════════════════════════════════════════════════════════
+// WELLMEDR CLINIC ISOLATION - CRITICAL SECURITY CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════
+// These values ensure ALL data goes ONLY to the Wellmedr clinic.
+// DO NOT CHANGE without understanding the security implications.
 const WELLMEDR_CLINIC_SUBDOMAIN = "wellmedr";
+const EXPECTED_WELLMEDR_CLINIC_ID = process.env.WELLMEDR_CLINIC_ID 
+  ? parseInt(process.env.WELLMEDR_CLINIC_ID, 10) 
+  : null;
+
+// Startup validation - log warning if env var not set
+if (!EXPECTED_WELLMEDR_CLINIC_ID) {
+  logger.warn('[WELLMEDR-INTAKE] WELLMEDR_CLINIC_ID env var not set - will use dynamic lookup only');
+}
 
 // Retry helper for database operations
 async function withRetry<T>(
@@ -129,8 +141,45 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+    
     clinicId = wellmedrClinic.id;
-    logger.debug(`[WELLMEDR-INTAKE ${requestId}] ✓ Clinic ID: ${clinicId}`);
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // RUNTIME ASSERTION: Validate clinic ID matches expected value
+    // This prevents accidental data leaks to wrong clinic
+    // ═══════════════════════════════════════════════════════════════════
+    if (EXPECTED_WELLMEDR_CLINIC_ID && clinicId !== EXPECTED_WELLMEDR_CLINIC_ID) {
+      logger.error(`[WELLMEDR-INTAKE ${requestId}] SECURITY ALERT: Clinic ID mismatch!`, {
+        expected: EXPECTED_WELLMEDR_CLINIC_ID,
+        found: clinicId,
+        clinicName: wellmedrClinic.name,
+        clinicSubdomain: wellmedrClinic.subdomain,
+      });
+      recordError("wellmedr-intake", `SECURITY: Clinic ID mismatch - expected ${EXPECTED_WELLMEDR_CLINIC_ID}, got ${clinicId}`, { 
+        requestId,
+        expected: EXPECTED_WELLMEDR_CLINIC_ID,
+        found: clinicId,
+      });
+      return Response.json(
+        { error: "Clinic configuration error", code: "CLINIC_ID_MISMATCH", requestId },
+        { status: 500 }
+      );
+    }
+    
+    // Validate subdomain matches expected pattern
+    if (!wellmedrClinic.subdomain?.toLowerCase().includes('wellmedr')) {
+      logger.error(`[WELLMEDR-INTAKE ${requestId}] SECURITY ALERT: Clinic subdomain mismatch!`, {
+        expected: 'wellmedr',
+        found: wellmedrClinic.subdomain,
+      });
+      recordError("wellmedr-intake", `SECURITY: Clinic subdomain mismatch`, { requestId });
+      return Response.json(
+        { error: "Clinic configuration error", code: "CLINIC_SUBDOMAIN_MISMATCH", requestId },
+        { status: 500 }
+      );
+    }
+    
+    logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ CLINIC VERIFIED: ID=${clinicId}, Name="${wellmedrClinic.name}", Subdomain="${wellmedrClinic.subdomain}"`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INTAKE ${requestId}] Database error finding clinic:`, { error: errMsg });
@@ -295,7 +344,7 @@ export async function POST(req: NextRequest) {
           notes: buildNotes(existingPatient.notes),
         },
       }));
-      logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Updated patient: ${patient.id}`);
+      logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Updated patient: ${patient.id} → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`);
     } else {
       // Create new
       const patientNumber = await getNextPatientId();
@@ -319,7 +368,7 @@ export async function POST(req: NextRequest) {
         },
       }));
       isNewPatient = true;
-      logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`);
+      logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`);
     }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
@@ -728,8 +777,14 @@ export async function GET(req: NextRequest) {
     status: "ok",
     endpoint: "/api/webhooks/wellmedr-intake",
     clinic: "Wellmedr",
+    clinicIsolation: {
+      enforced: true,
+      expectedClinicId: EXPECTED_WELLMEDR_CLINIC_ID || "dynamic-lookup",
+      subdomain: WELLMEDR_CLINIC_SUBDOMAIN,
+      note: "ALL data from this webhook goes ONLY to Wellmedr clinic",
+    },
     intakeUrl: "https://intake.wellmedr.com",
-    version: "1.0.0",
+    version: "1.1.0",
     timestamp: new Date().toISOString(),
     configured: !!process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET,
   });

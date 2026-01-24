@@ -28,7 +28,7 @@ model Patient {
   notes            String?
   tags             Json?
   address2         String?
-  patientId        String?  @unique
+  patientId        String?  // Unique within clinic (see @@unique below)
   stripeCustomerId String?  @unique
   source           String   @default("manual") // "webhook", "api", "manual", "referral", "import"
   sourceMetadata   Json? // Additional source details (e.g., webhook URL, referrer ID, import batch)
@@ -170,8 +170,10 @@ model PatientDocument {
 }
 
 model PatientCounter {
-  id      Int @id @default(autoincrement())
-  current Int @default(0)
+  id       Int    @id @default(autoincrement())
+  clinicId Int    @unique // Each clinic has its own counter
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+  current  Int    @default(0)
 }
 
 model OrderEvent {
@@ -1720,6 +1722,7 @@ model Clinic {
   primaryColor   String  @default("#3B82F6")
   secondaryColor String  @default("#10B981")
   accentColor    String  @default("#d3f931") // Third brand color for highlights
+  buttonTextColor String @default("auto") // 'auto', 'light', 'dark' - controls text color on buttons
   customCss      String? // Custom CSS overrides
 
   // Database Configuration (for future isolation)
@@ -1753,6 +1756,7 @@ model Clinic {
   systemSettings     SystemSettings[]
   userClinics        UserClinic[] // Multi-clinic user assignments
   reconciliations    PaymentReconciliation[]
+  patientCounter     PatientCounter? // Clinic-specific patient numbering
 
   // Scheduling & Care Plan Relations
   appointments         Appointment[]

@@ -16,35 +16,111 @@ interface Clinic {
   isPrimary: boolean;
 }
 
+interface ClinicBranding {
+  clinicId: number;
+  name: string;
+  logoUrl: string | null;
+  iconUrl: string | null;
+  faviconUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  buttonTextColor: 'auto' | 'light' | 'dark';
+}
+
+// Helper function to calculate text color based on background luminance
+function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string {
+  if (mode === 'light') return '#ffffff';
+  if (mode === 'dark') return '#1f2937';
+
+  // Auto mode: calculate based on luminance
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return '#ffffff';
+
+  const r = parseInt(result[1], 16) / 255;
+  const g = parseInt(result[2], 16) / 255;
+  const b = parseInt(result[3], 16) / 255;
+
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.5 ? '#1f2937' : '#ffffff';
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Form state
   const [identifier, setIdentifier] = useState(''); // email or phone
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // UI state
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<LoginStep>('identifier');
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email');
   const [sessionMessage, setSessionMessage] = useState('');
-  
+
   // OTP state
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [canResend, setCanResend] = useState(false);
-  
+
   // Multi-clinic state
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const [pendingLoginData, setPendingLoginData] = useState<any>(null);
-  
+
+  // White-label branding state
+  const [branding, setBranding] = useState<ClinicBranding | null>(null);
+  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
+
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Resolve clinic from domain and load branding
+  useEffect(() => {
+    const resolveClinic = async () => {
+      try {
+        const domain = window.location.hostname;
+        const response = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          setResolvedClinicId(data.clinicId);
+          setBranding({
+            clinicId: data.clinicId,
+            name: data.name,
+            logoUrl: data.branding.logoUrl,
+            iconUrl: data.branding.iconUrl,
+            faviconUrl: data.branding.faviconUrl,
+            primaryColor: data.branding.primaryColor,
+            secondaryColor: data.branding.secondaryColor,
+            accentColor: data.branding.accentColor,
+            buttonTextColor: data.branding.buttonTextColor || 'auto',
+          });
+
+          // Update favicon if clinic has one
+          if (data.branding.faviconUrl) {
+            const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+            link.type = 'image/x-icon';
+            link.rel = 'shortcut icon';
+            link.href = data.branding.faviconUrl;
+            document.head.appendChild(link);
+          }
+
+          // Update page title
+          document.title = `Login | ${data.name}`;
+        }
+      } catch (err) {
+        // Silently fail - use default branding
+        console.log('Using default branding');
+      }
+    };
+
+    resolveClinic();
+  }, []);
 
   // Check for session expired message
   useEffect(() => {
@@ -228,10 +304,10 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: identifier, 
+        body: JSON.stringify({
+          email: identifier,
           password,
-          clinicId: clinicId || selectedClinicId,
+          clinicId: clinicId || selectedClinicId || resolvedClinicId,
         }),
       });
 
@@ -371,23 +447,36 @@ export default function LoginPage() {
     setOtpSent(false);
   };
 
+  // Get colors from branding or use defaults
+  const primaryColor = branding?.primaryColor || '#10B981';
+  const secondaryColor = branding?.secondaryColor || '#3B82F6';
+  const accentColor = branding?.accentColor || '#d3f931';
+  const buttonTextMode = branding?.buttonTextColor || 'auto';
+  const buttonTextColor = getTextColorForBg(primaryColor, buttonTextMode);
+
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Gradient Background */}
-      <div 
+      {/* Gradient Background - uses branding colors */}
+      <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
+          background: branding
+            ? `linear-gradient(135deg, ${primaryColor}08 0%, ${primaryColor}12 25%, ${secondaryColor}10 50%, ${accentColor}15 75%, ${accentColor}20 100%)`
+            : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
         }}
       />
-      
+
       {/* Subtle mesh overlay */}
-      <div 
+      <div
         className="absolute inset-0 opacity-30"
         style={{
-          backgroundImage: `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-                           radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.15) 0%, transparent 50%),
-                           radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.1) 0%, transparent 50%)`,
+          backgroundImage: branding
+            ? `radial-gradient(circle at 20% 50%, ${primaryColor}15 0%, transparent 50%),
+               radial-gradient(circle at 80% 20%, ${accentColor}20 0%, transparent 50%),
+               radial-gradient(circle at 40% 80%, ${secondaryColor}15 0%, transparent 50%)`
+            : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+               radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.15) 0%, transparent 50%),
+               radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.1) 0%, transparent 50%)`,
         }}
       />
 
@@ -395,7 +484,7 @@ export default function LoginPage() {
       <div className="relative z-10 min-h-screen flex flex-col">
         {/* Header with X button */}
         <div className="p-6">
-          <button 
+          <button
             onClick={() => router.push('/')}
             className="p-2 hover:bg-black/5 rounded-full transition-colors"
             aria-label="Close"
@@ -404,13 +493,21 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* Logo centered at top */}
+        {/* Logo centered at top - uses clinic logo if available */}
         <div className="flex justify-center pt-4 pb-8">
-          <img 
-            src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
-            alt="EONPRO"
-            className="h-10 w-auto"
-          />
+          {branding?.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt={branding.name}
+              className="h-12 max-w-[200px] object-contain"
+            />
+          ) : (
+            <img
+              src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+              alt="EONPRO"
+              className="h-10 w-auto"
+            />
+          )}
         </div>
 
         {/* Main Content */}
@@ -420,7 +517,7 @@ export default function LoginPage() {
             Welcome
           </h1>
           <p className="text-gray-600 text-lg mb-12">
-            Let's get you logged in.
+            {branding ? `Sign in to ${branding.name}` : "Let's get you logged in."}
           </p>
 
           {/* Login Form */}
@@ -442,7 +539,8 @@ export default function LoginPage() {
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
+                    className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
+                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Email or phone number"
                     required
                     autoComplete="username"
@@ -465,13 +563,17 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`w-full px-6 py-4 rounded-2xl font-semibold text-white transition-all flex items-center justify-center gap-2 ${
-                    loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800'
+                  className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
                   }`}
+                  style={{
+                    backgroundColor: loading ? '#9CA3AF' : primaryColor,
+                    color: buttonTextColor,
+                  }}
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent" />
                       {isPhoneNumber(identifier) ? 'Sending code...' : 'Continue'}
                     </>
                   ) : (
@@ -486,7 +588,11 @@ export default function LoginPage() {
                 <div className="pt-4 border-t border-gray-100">
                   <p className="text-sm text-center text-gray-600">
                     New patient?{' '}
-                    <a href="/register" className="text-emerald-600 hover:text-emerald-700 font-medium">
+                    <a
+                      href="/register"
+                      className="font-medium hover:opacity-80"
+                      style={{ color: primaryColor }}
+                    >
                       Create an account
                     </a>
                   </p>
@@ -519,7 +625,8 @@ export default function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-4 pr-12 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
+                    className="w-full px-4 py-4 pr-12 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
+                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Password"
                     required
                     autoComplete="current-password"
@@ -543,13 +650,17 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`w-full px-6 py-4 rounded-2xl font-semibold text-white transition-all flex items-center justify-center gap-2 ${
-                    loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800'
+                  className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
                   }`}
+                  style={{
+                    backgroundColor: loading ? '#9CA3AF' : primaryColor,
+                    color: buttonTextColor,
+                  }}
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent" />
                       Logging in...
                     </>
                   ) : (
@@ -628,7 +739,8 @@ export default function LoginPage() {
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleOtpPaste : undefined}
-                      className="w-12 h-14 text-center text-2xl font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      className="w-12 h-14 text-center text-2xl font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
                   ))}
@@ -642,7 +754,10 @@ export default function LoginPage() {
 
                 {loading && (
                   <div className="flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
+                    <div
+                      className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
+                      style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+                    />
                   </div>
                 )}
 
@@ -652,7 +767,8 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={handleResendOtp}
-                      className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
+                      className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
+                      style={{ color: primaryColor }}
                     >
                       <RefreshCw className="h-4 w-4" />
                       Resend code
@@ -697,7 +813,7 @@ export default function LoginPage() {
 
                 {/* Clinic Selection Instructions */}
                 <div className="text-center">
-                  <Building2 className="h-12 w-12 text-emerald-600 mx-auto mb-4" />
+                  <Building2 className="h-12 w-12 mx-auto mb-4" style={{ color: primaryColor }} />
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">
                     Select a Clinic
                   </h2>
@@ -714,22 +830,27 @@ export default function LoginPage() {
                       onClick={() => handleClinicSelect(clinic.id)}
                       disabled={loading}
                       className={`w-full p-4 text-left rounded-2xl border-2 transition-all ${
-                        selectedClinicId === clinic.id
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                      } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        loading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      style={{
+                        borderColor: selectedClinicId === clinic.id ? primaryColor : '#e5e7eb',
+                        backgroundColor: selectedClinicId === clinic.id ? `${primaryColor}10` : 'white',
+                      }}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {clinic.logoUrl ? (
-                            <img 
-                              src={clinic.logoUrl} 
+                            <img
+                              src={clinic.logoUrl}
                               alt={clinic.name}
                               className="h-10 w-10 rounded-lg object-cover"
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                              <Building2 className="h-5 w-5 text-emerald-600" />
+                            <div
+                              className="h-10 w-10 rounded-lg flex items-center justify-center"
+                              style={{ backgroundColor: `${primaryColor}20` }}
+                            >
+                              <Building2 className="h-5 w-5" style={{ color: primaryColor }} />
                             </div>
                           )}
                           <div>
@@ -739,12 +860,15 @@ export default function LoginPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           {clinic.isPrimary && (
-                            <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full">
+                            <span
+                              className="text-xs px-2 py-1 rounded-full"
+                              style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+                            >
                               Primary
                             </span>
                           )}
                           {selectedClinicId === clinic.id && (
-                            <Check className="h-5 w-5 text-emerald-600" />
+                            <Check className="h-5 w-5" style={{ color: primaryColor }} />
                           )}
                         </div>
                       </div>
@@ -760,7 +884,10 @@ export default function LoginPage() {
 
                 {loading && (
                   <div className="flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
+                    <div
+                      className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
+                      style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+                    />
                   </div>
                 )}
 
@@ -776,7 +903,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="p-6 text-center">
           <p className="text-xs text-gray-500">
-            HIPAA Compliant Healthcare Platform • © 2026 EONPRO
+            HIPAA Compliant Healthcare Platform • © 2026 {branding?.name || 'EONPRO'}
           </p>
         </div>
       </div>

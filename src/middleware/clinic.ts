@@ -28,10 +28,13 @@ const PUBLIC_ROUTES = [
   '/api/auth/login',
   '/api/auth/refresh-token',
   '/api/webhooks',
+  '/api/clinic/resolve',
   '/_next',
   '/favicon.ico',
   '/clinic-select',
   '/api/clinic/list',
+  '/login',
+  '/register',
 ];
 
 // Routes that require super admin (no clinic context)

@@ -317,10 +317,11 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
     async create(input: CreatePatientInput, audit: AuditContext): Promise<PatientEntity> {
       return db.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Generate next patient ID
+        // Generate next patient ID - CLINIC-SPECIFIC
+        // Each clinic has its own counter starting from 1
         const counter = await tx.patientCounter.upsert({
-          where: { id: 1 },
-          create: { id: 1, current: 1 },
+          where: { clinicId: input.clinicId },
+          create: { clinicId: input.clinicId, current: 1 },
           update: { current: { increment: 1 } },
         });
         const patientId = counter.current.toString().padStart(6, '0');

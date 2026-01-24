@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import {
-  Search, Clock, UserPlus, CreditCard, RefreshCw, FileText
+  Search, Clock, UserPlus, CreditCard, RefreshCw, FileText, Building2
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -27,9 +27,17 @@ interface DashboardStats {
   newPrescriptions: number;
 }
 
+interface ClinicInfo {
+  id: number;
+  name: string;
+  subdomain?: string;
+  logoUrl?: string | null;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [userData, setUserData] = useState<any>(null);
+  const [activeClinic, setActiveClinic] = useState<ClinicInfo | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [systemStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,6 +66,23 @@ export default function AdminPage() {
         // ignore
       }
     }
+
+    // Load active clinic info
+    const clinicsStr = localStorage.getItem('clinics');
+    const activeClinicIdStr = localStorage.getItem('activeClinicId');
+    if (clinicsStr && activeClinicIdStr) {
+      try {
+        const clinics = JSON.parse(clinicsStr);
+        const activeClinicId = parseInt(activeClinicIdStr);
+        const clinic = clinics.find((c: ClinicInfo) => c.id === activeClinicId);
+        if (clinic) {
+          setActiveClinic(clinic);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     loadDashboardData();
   }, []);
 
@@ -171,6 +196,13 @@ export default function AdminPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
+          {/* Clinic Badge */}
+          {activeClinic && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-white border border-gray-200 rounded-full w-fit">
+              <Building2 className="h-4 w-4 text-[#4fa77e]" />
+              <span className="text-sm font-medium text-gray-700">{activeClinic.name}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2 mb-1">
             <div className={`w-2 h-2 rounded-full ${
               systemStatus === 'healthy' ? 'bg-[#4fa77e]' :

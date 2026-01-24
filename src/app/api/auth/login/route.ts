@@ -319,7 +319,25 @@ async function loginHandler(req: NextRequest) {
     return response;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    // Log detailed error for debugging
+    console.error('[LOGIN_ERROR]', {
+      message: errorMessage,
+      stack: errorStack,
+      type: error?.constructor?.name,
+    });
+    
     logger.error('Login error:', error instanceof Error ? error : new Error(errorMessage));
+    
+    // In development, return more details
+    if (process.env.NODE_ENV === 'development') {
+      return NextResponse.json(
+        { error: errorMessage, stack: errorStack },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'An error occurred during login' },
       { status: 500 }

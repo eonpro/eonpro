@@ -118,6 +118,8 @@ export async function middleware(request: NextRequest) {
   // Add CORS headers for API routes - RESTRICTED to allowed origins
   if (isApiRoute(pathname)) {
     const origin = request.headers.get('origin') || '';
+
+    // Static allowed origins
     const allowedOrigins = [
       'https://app.eonpro.io',
       'https://eonpro.io',
@@ -125,9 +127,16 @@ export async function middleware(request: NextRequest) {
       'http://localhost:3000',
       'http://localhost:3001',
     ];
-    
+
+    // Check if origin is allowed (static list, *.eonpro.io pattern, or development)
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      /^https:\/\/[a-z0-9-]+\.eonpro\.io$/.test(origin) || // Allow all *.eonpro.io subdomains
+      /^https:\/\/portal\.[a-z0-9-]+\.com$/.test(origin) || // Allow portal.*.com custom domains
+      process.env.NODE_ENV === 'development';
+
     // Only set CORS headers if origin is allowed
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+    if (isAllowed) {
       response.headers.set('Access-Control-Allow-Origin', origin);
       response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-webhook-secret');
