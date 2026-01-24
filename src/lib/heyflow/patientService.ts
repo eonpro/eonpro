@@ -97,10 +97,10 @@ function buildMatchFilters(patient: NormalizedPatient) {
   return filters;
 }
 
-async function getNextPatientId(tx: Prisma.TransactionClient) {
+async function getNextPatientId(tx: Prisma.TransactionClient, clinicId: number = 1) {
   const counter = await tx.patientCounter.upsert({
-    where: { id: 1 },
-    create: { id: 1, current: 1 },
+    where: { clinicId },
+    create: { clinicId, current: 1 },
     update: { current: { increment: 1 } },
   });
   return counter.current.toString().padStart(6, "0");

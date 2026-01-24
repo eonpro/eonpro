@@ -494,13 +494,27 @@ export default function LoginPage() {
         </div>
 
         {/* Logo centered at top - uses clinic logo if available */}
-        <div className="flex justify-center pt-4 pb-8">
-          {branding?.logoUrl ? (
-            <img
-              src={branding.logoUrl}
-              alt={branding.name}
-              className="h-12 max-w-[200px] object-contain"
-            />
+        <div className="flex flex-col items-center pt-4 pb-8">
+          {branding ? (
+            <>
+              {branding.logoUrl ? (
+                <img
+                  src={branding.logoUrl}
+                  alt={branding.name}
+                  className="h-12 max-w-[200px] object-contain"
+                />
+              ) : (
+                <h1
+                  className="text-3xl font-bold"
+                  style={{ color: primaryColor }}
+                >
+                  {branding.name}
+                </h1>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Powered by <span className="font-medium">EONPRO</span>
+              </p>
+            </>
           ) : (
             <img
               src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"

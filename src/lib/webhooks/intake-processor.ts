@@ -392,11 +392,11 @@ export class IntakeProcessor {
     };
   }
 
-  private async getNextPatientId(): Promise<string> {
+  private async getNextPatientId(clinicId: number = 1): Promise<string> {
     try {
       const counter = await prisma.patientCounter.upsert({
-        where: { id: 1 },
-        create: { id: 1, current: 1 },
+        where: { clinicId },
+        create: { clinicId, current: 1 },
         update: { current: { increment: 1 } },
       });
       return counter.current.toString().padStart(6, '0');
