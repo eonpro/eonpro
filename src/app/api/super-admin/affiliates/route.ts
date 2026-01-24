@@ -16,7 +16,7 @@ import bcrypt from 'bcryptjs';
 function withSuperAdminAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
 ) {
-  return withAuth(handler, { roles: ['super_admin', 'SUPER_ADMIN'] });
+  return withAuth(handler, { roles: ['super_admin'] });
 }
 
 /**
