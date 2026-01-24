@@ -30,77 +30,92 @@ type PageProps = {
 };
 
 export default async function PatientDetailPage({ params, searchParams }: PageProps) {
-  const resolvedParams = await params;
-  const id = Number(resolvedParams.id);
+  try {
+    const resolvedParams = await params;
+    const id = Number(resolvedParams.id);
 
-  // Validate the ID
-  if (isNaN(id) || id <= 0) {
-    return (
-      <div className="p-10">
-        <p className="text-red-600">Invalid patient ID.</p>
-        <Link href="/patients" className="mt-4 block text-[#4fa77e] underline">
-          ← Back to patients
-        </Link>
-      </div>
-    );
-  }
+    // Validate the ID
+    if (isNaN(id) || id <= 0) {
+      return (
+        <div className="p-10">
+          <p className="text-red-600">Invalid patient ID.</p>
+          <Link href="/patients" className="mt-4 block text-[#4fa77e] underline">
+            ← Back to patients
+          </Link>
+        </div>
+      );
+    }
 
-  const patient = await prisma.patient.findUnique({
-    where: { id },
-    include: {
-      orders: {
-        orderBy: { createdAt: 'desc' },
+    let patient;
+    try {
+      patient = await prisma.patient.findUnique({
+        where: { id },
         include: {
-          rxs: true,
-          provider: true,
-          events: {
+          orders: {
             orderBy: { createdAt: 'desc' },
-          },
-        },
-      },
-      documents: {
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          filename: true,
-          mimeType: true,
-          createdAt: true,
-          externalUrl: true,
-          category: true,
-          sourceSubmissionId: true,
-          data: true, // PDF binary data (or legacy JSON)
-          // intakeData field added after migration - uncomment once DB is migrated
-          // intakeData: true,
-        },
-      },
-      intakeSubmissions: {
-        orderBy: { createdAt: 'desc' },
-        include: {
-          template: true,
-          responses: {
             include: {
-              question: true,
+              rxs: true,
+              provider: true,
+              events: {
+                orderBy: { createdAt: 'desc' },
+              },
             },
           },
+          documents: {
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              filename: true,
+              mimeType: true,
+              createdAt: true,
+              externalUrl: true,
+              category: true,
+              sourceSubmissionId: true,
+              data: true,
+            },
+          },
+          intakeSubmissions: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              template: true,
+              responses: {
+                include: {
+                  question: true,
+                },
+              },
+            },
+          },
+          auditEntries: {
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          },
         },
-      },
-      auditEntries: {
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      },
-    },
-  });
+      });
+    } catch (dbError) {
+      logger.error('Database error fetching patient:', {
+        patientId: id,
+        error: dbError instanceof Error ? dbError.message : String(dbError)
+      });
+      return (
+        <div className="p-10">
+          <p className="text-red-600">Error loading patient data. Please try again.</p>
+          <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
+            ← Back to patients
+          </Link>
+        </div>
+      );
+    }
 
-  if (!patient) {
-    return (
-      <div className="p-10">
-        <p className="text-red-600">Patient not found.</p>
-        <Link href="/patients" className="mt-4 block text-[#4fa77e] underline">
-          ← Back to patients
-        </Link>
-      </div>
-    );
-  }
+    if (!patient) {
+      return (
+        <div className="p-10">
+          <p className="text-red-600">Patient not found.</p>
+          <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
+            ← Back to patients
+          </Link>
+        </div>
+      );
+    }
 
   // Decrypt PHI fields for display (with error handling)
   let patientWithDecryptedPHI;
@@ -743,6 +758,22 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       </div>
     </div>
   );
+  } catch (error) {
+    // Global error handler - catch any unexpected errors
+    logger.error('Unexpected error in PatientDetailPage:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return (
+      <div className="p-10">
+        <p className="text-red-600">An error occurred while loading this page.</p>
+        <p className="text-sm text-gray-500 mt-2">Please try refreshing the page or contact support if the problem persists.</p>
+        <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
+          ← Back to patients
+        </Link>
+      </div>
+    );
+  }
 }
 
 function formatDob(dob: string | null) {

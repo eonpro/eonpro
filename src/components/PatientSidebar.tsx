@@ -47,6 +47,8 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
     if (!dob) return "—";
     const clean = dob.trim();
     if (!clean) return "—";
+    // Check if the value looks like encrypted data
+    if (clean.includes(':') && clean.length > 50) return "—";
     if (clean.includes("/")) return clean;
     const parts = clean.split("-");
     if (parts.length === 3) {
@@ -58,7 +60,11 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
 
   const calculateAge = (dob: string) => {
     if (!dob) return '';
+    // Check if the value looks like encrypted data
+    if (dob.includes(':') && dob.length > 50) return '';
     const birthDate = new Date(dob);
+    // Check if date is valid
+    if (isNaN(birthDate.getTime())) return '';
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const m = today.getMonth() - birthDate.getMonth();
@@ -144,7 +150,7 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
 
         {/* Name and basic info */}
         <h2 className="text-xl font-bold text-gray-900">{patient.firstName} {patient.lastName}</h2>
-        <p className="text-sm text-gray-500 mb-3">{age}, {genderLabel}</p>
+        <p className="text-sm text-gray-500 mb-3">{age ? `${age}, ` : ''}{genderLabel}</p>
 
         {/* Contact info */}
         <div className="space-y-1 text-sm text-gray-600 mb-3">
