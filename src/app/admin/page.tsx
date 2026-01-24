@@ -9,6 +9,21 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
+// Helper to detect if data looks like encrypted PHI (base64:base64:base64 format)
+const isEncryptedData = (value: string | null | undefined): boolean => {
+  if (!value || typeof value !== 'string') return false;
+  const parts = value.split(':');
+  if (parts.length !== 3) return false;
+  return parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
+};
+
+// Safely display contact info - hide encrypted data
+const displayContact = (value: string | null | undefined): string => {
+  if (!value) return '-';
+  if (isEncryptedData(value)) return '(encrypted)';
+  return value;
+};
+
 interface PatientIntake {
   id: number;
   firstName: string;
@@ -356,12 +371,14 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">{formatDate(patient.dateOfBirth)}</p>
+                        <p className="text-sm text-gray-600">
+                          {isEncryptedData(patient.dateOfBirth) ? '-' : formatDate(patient.dateOfBirth)}
+                        </p>
                         <p className="text-xs text-gray-400">({formatGender(patient.gender)})</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">{patient.phone}</p>
-                        <p className="text-xs text-gray-400 truncate max-w-[180px]">{patient.email}</p>
+                        <p className="text-sm text-gray-600">{displayContact(patient.phone)}</p>
+                        <p className="text-xs text-gray-400 truncate max-w-[180px]">{displayContact(patient.email)}</p>
                       </td>
                       <td className="px-6 py-4">
                         <Link

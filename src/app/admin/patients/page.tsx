@@ -15,6 +15,22 @@ interface Patient {
   createdAt: string;
 }
 
+// Helper to detect if data looks like encrypted PHI (base64:base64:base64 format)
+const isEncryptedData = (value: string | null | undefined): boolean => {
+  if (!value || typeof value !== 'string') return false;
+  const parts = value.split(':');
+  if (parts.length !== 3) return false;
+  // Check if all parts look like base64 (contain base64 chars and end with = padding or alphanumeric)
+  return parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
+};
+
+// Safely display contact info - hide encrypted data
+const displayContact = (value: string | null | undefined): string => {
+  if (!value) return '-';
+  if (isEncryptedData(value)) return '(encrypted)';
+  return value;
+};
+
 export default function AdminPatientsPage() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -159,11 +175,13 @@ export default function AdminPatientsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{patient.email}</div>
-                    <div className="text-sm text-gray-500">{patient.phone}</div>
+                    <div className="text-sm text-gray-900">{displayContact(patient.email)}</div>
+                    <div className="text-sm text-gray-500">{displayContact(patient.phone)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : '-'}
+                    {patient.dateOfBirth && !isEncryptedData(patient.dateOfBirth) 
+                      ? new Date(patient.dateOfBirth).toLocaleDateString() 
+                      : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
