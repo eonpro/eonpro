@@ -25,11 +25,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   return (
-    <html lang="en" className={sofiaPro.variable}>
+    <html lang="en" className={sofiaPro.variable} suppressHydrationWarning>
       <head>
         <link rel="icon" href="https://static.wixstatic.com/media/c49a9b_2e6625f0f27d44068998ab51675c6d7b~mv2.png" />
       </head>
-      <body className={sofiaPro.className}>
+      <body className={sofiaPro.className} suppressHydrationWarning>
         <ErrorBoundary>
         <ClientProviders>
           <ToastProvider>
