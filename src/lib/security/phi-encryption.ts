@@ -294,19 +294,39 @@ export function encryptPatientPHI<T extends Record<string, unknown>>(
 
 /**
  * Decrypts an entire patient object's PHI fields
+ * Handles decryption failures gracefully per-field
  */
 export function decryptPatientPHI<T extends Record<string, unknown>>(
   patient: T,
   fieldsToDecrypt: (keyof T)[] = ['ssn', 'dob', 'phone', 'email'] as (keyof T)[]
 ): T {
   const decrypted = { ...patient };
-  
+
   for (const field of fieldsToDecrypt) {
     if (patient[field]) {
-      (decrypted[field] as unknown) = decryptPHI(String(patient[field]));
+      try {
+        const value = String(patient[field]);
+        // Check if the value looks encrypted (3 base64 parts separated by colons)
+        const parts = value.split(':');
+        const looksEncrypted = parts.length === 3 &&
+          parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 5);
+
+        if (looksEncrypted) {
+          const decryptedValue = decryptPHI(value);
+          (decrypted[field] as unknown) = decryptedValue;
+        }
+        // If not encrypted, keep original value
+      } catch (error) {
+        // Decryption failed - show placeholder instead of encrypted blob
+        logger.warn(`Failed to decrypt field ${String(field)} for patient`, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        // Return null to indicate decryption failure (UI should handle this)
+        (decrypted[field] as unknown) = null;
+      }
     }
   }
-  
+
   return decrypted;
 }
 
