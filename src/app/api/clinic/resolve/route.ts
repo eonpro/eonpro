@@ -29,6 +29,36 @@ export async function GET(request: NextRequest) {
 
     if (!clinic) {
       logger.info('[ClinicResolve] No clinic found for domain', { domain });
+      
+      // For main app domain, return default EONPRO branding
+      const isMainApp = domain.includes('app.eonpro.io') || 
+                        domain === 'app.eonpro.io' ||
+                        domain === 'localhost' ||
+                        domain.startsWith('localhost:');
+      
+      if (isMainApp) {
+        return NextResponse.json({
+          clinicId: null,
+          name: 'EONPRO',
+          subdomain: null,
+          customDomain: null,
+          isMainApp: true,
+          branding: {
+            logoUrl: null,
+            iconUrl: null,
+            faviconUrl: null,
+            primaryColor: '#4fa77e',
+            secondaryColor: '#3B82F6',
+            accentColor: '#d3f931',
+            buttonTextColor: 'auto',
+          },
+          contact: {
+            supportEmail: 'support@eonpro.io',
+            phone: null,
+          },
+        });
+      }
+      
       return NextResponse.json({ error: 'Clinic not found for this domain' }, { status: 404 });
     }
 
