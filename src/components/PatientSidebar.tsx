@@ -80,8 +80,18 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
     return g;
   };
 
+  // Helper to detect encrypted data (base64:base64:base64 format)
+  const isEncryptedData = (value: string | null | undefined): boolean => {
+    if (!value || typeof value !== 'string') return false;
+    const parts = value.split(':');
+    if (parts.length !== 3) return false;
+    return parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
+  };
+
   const formatPhone = (phone: string) => {
     if (!phone) return '';
+    // Check if encrypted
+    if (isEncryptedData(phone)) return '(encrypted)';
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length === 10) {
       return `+1(${cleaned.slice(0, 3)})${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
@@ -90,6 +100,12 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
       return `+1(${cleaned.slice(1, 4)})${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
     }
     return phone;
+  };
+
+  const formatEmail = (email: string | null | undefined): string => {
+    if (!email) return '-';
+    if (isEncryptedData(email)) return '(encrypted)';
+    return email;
   };
 
   const handleSavePatient = async (data: any) => {
@@ -109,8 +125,14 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
   };
 
   const handleDeletePatient = async () => {
+    // Get auth token from localStorage
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+    
     const response = await fetch(`/api/patients/${patient.id}`, {
       method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
     });
 
     if (!response.ok) {
@@ -119,7 +141,7 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
     }
 
     // Redirect to patients list
-    router.push('/patients');
+    router.push('/admin/patients');
   };
 
   const age = calculateAge(patient.dob);
@@ -155,7 +177,7 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
         {/* Contact info */}
         <div className="space-y-1 text-sm text-gray-600 mb-3">
           <p><span className="text-gray-500">DOB:</span> {formatDob(patient.dob)}</p>
-          <p>{patient.email}</p>
+          <p>{formatEmail(patient.email)}</p>
           <p>{formatPhone(patient.phone)}</p>
         </div>
 

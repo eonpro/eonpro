@@ -3,6 +3,20 @@
 import { useState } from 'react';
 import { X, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 
+// Helper to detect encrypted data
+const isEncryptedData = (value: string | null | undefined): boolean => {
+  if (!value || typeof value !== 'string') return false;
+  const parts = value.split(':');
+  if (parts.length !== 3) return false;
+  return parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
+};
+
+const formatEmail = (email: string | null | undefined): string => {
+  if (!email) return '-';
+  if (isEncryptedData(email)) return '(encrypted)';
+  return email;
+};
+
 interface DeletePatientModalProps {
   patient: {
     id: number;
@@ -73,7 +87,7 @@ export default function DeletePatientModal({ patient, onClose, onDelete }: Delet
               <p className="font-semibold text-gray-900">
                 {patient.firstName} {patient.lastName}
               </p>
-              <p className="text-sm text-gray-500">{patient.email}</p>
+              <p className="text-sm text-gray-500">{formatEmail(patient.email)}</p>
             </div>
           </div>
 
