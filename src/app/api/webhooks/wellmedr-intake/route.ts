@@ -378,7 +378,21 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
-    logger.error(`[WELLMEDR-INTAKE ${requestId}] CRITICAL: Patient upsert failed:`, { error: errorMsg });
+    const errorStack = err instanceof Error ? err.stack : undefined;
+    const prismaError = (err as any)?.code || (err as any)?.meta;
+    
+    logger.error(`[WELLMEDR-INTAKE ${requestId}] CRITICAL: Patient upsert failed:`, { 
+      error: errorMsg,
+      stack: errorStack,
+      prismaCode: (err as any)?.code,
+      prismaMeta: (err as any)?.meta,
+      patientData: {
+        email: patientData?.email,
+        firstName: patientData?.firstName,
+        lastName: patientData?.lastName,
+        clinicId,
+      }
+    });
     recordError("wellmedr-intake", `Patient creation failed: ${errorMsg}`, { requestId });
     
     // Queue to DLQ for retry
@@ -400,10 +414,15 @@ export async function POST(req: NextRequest) {
     }
     
     return Response.json({
-      error: "Failed to create patient",
+      error: `Failed to create patient: ${errorMsg}`,
       code: "PATIENT_ERROR",
       requestId,
       message: errorMsg,
+      prismaError: prismaError || null,
+      debug: {
+        clinicId,
+        patientEmail: patientData?.email,
+      },
       partialSuccess: false,
       queued: isDLQConfigured(),
     }, { status: 500 });
