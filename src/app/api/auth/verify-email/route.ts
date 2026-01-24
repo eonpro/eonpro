@@ -1,6 +1,7 @@
 /**
  * Email verification endpoint
  * Handles sending and verifying email verification codes
+ * Also handles link-based verification for patient self-registration
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,6 +13,48 @@ import {
   verifyOTPCode,
   sendVerificationEmail,
 } from '@/lib/auth/verification';
+import { verifyEmail } from '@/lib/auth/registration';
+
+/**
+ * GET /api/auth/verify-email?token=xxx
+ * Verify email with link token (for patient self-registration)
+ */
+export async function GET(req: NextRequest): Promise<Response> {
+  try {
+    const { searchParams } = new URL(req.url);
+    const token = searchParams.get('token');
+
+    if (!token) {
+      // Redirect to error page
+      return NextResponse.redirect(
+        new URL('/email-verified?status=error&message=Missing+verification+token', req.url)
+      );
+    }
+
+    const result = await verifyEmail(token);
+
+    if (!result.success) {
+      // Redirect to error page with message
+      const errorMessage = encodeURIComponent(result.error || 'Verification failed');
+      return NextResponse.redirect(
+        new URL(`/email-verified?status=error&message=${errorMessage}`, req.url)
+      );
+    }
+
+    logger.info('Email verified via link', { userId: result.userId });
+
+    // Redirect to success page
+    return NextResponse.redirect(
+      new URL('/email-verified?status=success', req.url)
+    );
+
+  } catch (error: any) {
+    logger.error('Error verifying email via link:', error);
+    return NextResponse.redirect(
+      new URL('/email-verified?status=error&message=An+error+occurred', req.url)
+    );
+  }
+}
 
 /**
  * POST /api/auth/verify-email

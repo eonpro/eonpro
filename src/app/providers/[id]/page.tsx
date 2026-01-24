@@ -1,37 +1,86 @@
+import { redirect } from "next/navigation";
 import EditProviderForm from "@/components/EditProviderForm";
 import Breadcrumb from "@/components/Breadcrumb";
-import { prisma } from "@/lib/db";
+import { prisma, runWithClinicContext } from "@/lib/db";
+import { getUserFromCookies } from "@/lib/auth/session";
+import { logger } from "@/lib/logger";
 import Link from "next/link";
+
+// Force dynamic rendering for fresh data
+export const dynamic = "force-dynamic";
 
 type Params = {
   params: Promise<{ id: string }>;
 };
 
 export default async function ProviderDetailPage({ params }: Params) {
+  // Verify user is authenticated via cookies
+  const user = await getUserFromCookies();
+  if (!user) {
+    redirect("/login?redirect=" + encodeURIComponent("/providers"));
+  }
+
   const resolvedParams = await params;
   const id = Number(resolvedParams.id);
-  const provider = await prisma.provider.findUnique({
-    where: { id },
-    include: {
-      clinic: {
-        select: { id: true, name: true, subdomain: true },
-      },
-      orders: {
-        orderBy: { createdAt: "desc" },
-        include: { patient: true, rxs: true },
-        take: 25,
-      },
-      auditEntries: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      },
-    },
-  });
+
+  // Validate the ID
+  if (isNaN(id) || id <= 0) {
+    return (
+      <div className="p-10">
+        <p className="text-red-600">Invalid provider ID.</p>
+        <Link href="/providers" className="text-[#4fa77e] underline mt-4 block">
+          ← Back to providers
+        </Link>
+      </div>
+    );
+  }
+
+  // Fetch provider with clinic context for proper isolation
+  // Super admins can access any clinic, others are restricted to their clinic
+  const clinicId = user.role === "super_admin" ? undefined : user.clinicId;
+
+  let provider;
+  try {
+    provider = await runWithClinicContext(clinicId, async () => {
+      return prisma.provider.findUnique({
+        where: { id },
+        include: {
+          clinic: {
+            select: { id: true, name: true, subdomain: true },
+          },
+          orders: {
+            orderBy: { createdAt: "desc" },
+            include: { patient: true, rxs: true },
+            take: 25,
+          },
+          auditEntries: {
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+        },
+      });
+    });
+  } catch (dbError) {
+    logger.error("Database error fetching provider:", {
+      providerId: id,
+      clinicId: clinicId,
+      userId: user.id,
+      error: dbError instanceof Error ? dbError.message : String(dbError),
+    });
+    return (
+      <div className="p-10">
+        <p className="text-red-600">Error loading provider data. Please try again.</p>
+        <Link href="/providers" className="text-[#4fa77e] underline mt-4 block">
+          ← Back to providers
+        </Link>
+      </div>
+    );
+  }
 
   if (!provider) {
     return (
       <div className="p-10">
-        <p className="text-red-600">Provider not found.</p>
+        <p className="text-red-600">Provider not found or you don't have access to this provider.</p>
         <Link href="/providers" className="text-[#4fa77e] underline mt-4 block">
           ← Back to providers
         </Link>

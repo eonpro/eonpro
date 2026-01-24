@@ -6,6 +6,7 @@ export interface ClinicBranding {
   clinicId: number;
   clinicName: string;
   logoUrl: string | null;
+  iconUrl: string | null; // App icon for PWA/mobile (192x192)
   faviconUrl: string | null;
   primaryColor: string;
   secondaryColor: string;
@@ -60,6 +61,7 @@ const defaultBranding: ClinicBranding = {
   clinicId: 0,
   clinicName: 'EONPRO',
   logoUrl: null,
+  iconUrl: null,
   faviconUrl: null,
   primaryColor: '#4fa77e',
   secondaryColor: '#3B82F6',
@@ -200,6 +202,29 @@ export function ClinicBrandingProvider({
           document.head.appendChild(newFavicon);
         }
       }
+
+      // Update apple-touch-icon if iconUrl is provided (for PWA/mobile)
+      if (branding.iconUrl) {
+        let appleTouchIcon = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
+        if (appleTouchIcon) {
+          appleTouchIcon.href = branding.iconUrl;
+        } else {
+          appleTouchIcon = document.createElement('link');
+          appleTouchIcon.rel = 'apple-touch-icon';
+          appleTouchIcon.href = branding.iconUrl;
+          document.head.appendChild(appleTouchIcon);
+        }
+      }
+
+      // Update document title with clinic name
+      if (branding.clinicName && branding.clinicName !== 'EONPRO') {
+        const currentTitle = document.title;
+        if (!currentTitle.includes(branding.clinicName)) {
+          // Preserve page-specific title but add clinic name
+          const pagePart = currentTitle.split(' | ').pop() || currentTitle;
+          document.title = `${pagePart} | ${branding.clinicName}`;
+        }
+      }
     }
   }, [branding]);
 
@@ -243,6 +268,8 @@ export function useBrandingColors() {
     secondary: branding?.secondaryColor || '#3B82F6',
     accent: branding?.accentColor || '#d3f931',
     logo: branding?.logoUrl,
+    icon: branding?.iconUrl,
+    favicon: branding?.faviconUrl,
     clinicName: branding?.clinicName || 'EONPRO',
   };
 }

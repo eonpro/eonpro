@@ -732,6 +732,10 @@ model User {
   twoFactorBackupCodes Json?     @default("[]") // Hashed backup codes (stored as JSON array)
   twoFactorVerifiedAt  DateTime? // When 2FA was last verified
 
+  // Email Verification fields
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   createdById         Int?
@@ -743,7 +747,8 @@ model User {
   systemSettings      SystemSettings[]
   integrations        Integration[]
   intakeTemplates     IntakeFormTemplate[]
-  passwordResetTokens PasswordResetToken[]
+  passwordResetTokens      PasswordResetToken[]
+  emailVerificationTokens  EmailVerificationToken[]
 
   // Multi-clinic support
   userClinics UserClinic[] // All clinics this user belongs to
@@ -916,6 +921,39 @@ model PasswordResetToken {
 
   @@index([token])
   @@index([userId, expiresAt])
+}
+
+// Email verification tokens for patient self-registration
+model EmailVerificationToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique // Hashed token (SHA-256)
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+// Clinic invite codes for patient self-registration
+model ClinicInviteCode {
+  id          Int       @id @default(autoincrement())
+  clinicId    Int
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  code        String    @unique // e.g., "CLINIC123" (uppercase, alphanumeric)
+  description String? // e.g., "Website registration", "Marketing campaign"
+  usageLimit  Int? // null = unlimited
+  usageCount  Int       @default(0)
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  createdById Int?
+
+  @@index([code])
+  @@index([clinicId])
 }
 
 // Phone OTP for SMS-based authentication
@@ -1677,9 +1715,11 @@ model Clinic {
 
   // Branding
   logoUrl        String?
+  iconUrl        String? // App icon for PWA/mobile (192x192)
   faviconUrl     String?
   primaryColor   String  @default("#3B82F6")
   secondaryColor String  @default("#10B981")
+  accentColor    String  @default("#d3f931") // Third brand color for highlights
   customCss      String? // Custom CSS overrides
 
   // Database Configuration (for future isolation)
@@ -1690,6 +1730,7 @@ model Clinic {
   users              User[]
   providers          Provider[]
   patients           Patient[]
+  inviteCodes        ClinicInviteCode[]
   orders             Order[]
   tickets            Ticket[]
   intakeTemplates    IntakeFormTemplate[]

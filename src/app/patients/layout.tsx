@@ -20,10 +20,37 @@ const navItems = [
   { icon: Settings, path: '/admin/settings', label: 'Settings' },
 ];
 
+// Roles allowed to access patient pages
+const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
+
 export default function PatientsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Authentication check on mount
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (!user) {
+      router.push('/login?redirect=' + encodeURIComponent(pathname || '/patients'));
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(user);
+      const role = parsedUser.role?.toLowerCase();
+      if (!ALLOWED_ROLES.includes(role)) {
+        // User doesn't have permission to view patients
+        router.push('/');
+        return;
+      }
+      setLoading(false);
+    } catch {
+      localStorage.removeItem('user');
+      router.push('/login');
+    }
+  }, [router, pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -36,6 +63,15 @@ export default function PatientsLayout({ children }: { children: React.ReactNode
     if (path === '/admin/patients') return pathname?.startsWith('/patients') || pathname?.startsWith('/admin/patients');
     return pathname === path || pathname?.startsWith(path + '/');
   };
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-[#4fa77e] border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#efece7] flex">

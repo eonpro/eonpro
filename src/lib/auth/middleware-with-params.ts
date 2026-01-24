@@ -13,12 +13,19 @@ import { AuthUser } from './middleware';
 
 /**
  * Verify JWT token from various sources
+ * 
+ * SECURITY: Demo tokens are DISABLED in production environments.
+ * They are only available when NODE_ENV !== 'production' AND
+ * ENABLE_DEMO_TOKENS === 'true' (explicit opt-in required).
  */
 async function verifyToken(token: string): Promise<AuthUser | null> {
-  // Check if this is a demo token
-  if (token.includes('demo-')) {
-    // Handle demo tokens (for development/demo purposes only)
-    // In production, remove this block
+  // SECURITY: Demo tokens only work in non-production with explicit flag
+  const isDemoEnabled = process.env.NODE_ENV !== 'production' && 
+                        process.env.ENABLE_DEMO_TOKENS === 'true';
+  
+  if (isDemoEnabled && token.includes('demo-')) {
+    // Demo tokens for development/testing only
+    // WARNING: Never enable in production!
     const demoUsers: Record<string, AuthUser> = {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBsaWZlZmlsZS5jb20iLCJyb2xlIjoiYWRtaW4iLCJjbGluaWNJZCI6MX0.demo-admin-token': {
         id: 1,
@@ -49,7 +56,7 @@ async function verifyToken(token: string): Promise<AuthUser | null> {
         email: 'patient@example.com',
         role: 'patient',
         clinicId: 1,
-        patientId: 1 // Link to Test Patient
+        patientId: 1
       }
     };
     

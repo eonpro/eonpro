@@ -8,9 +8,11 @@
  * @module api/providers/[id]
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { providerService, type UserContext } from '@/domains/provider';
 import { handleApiError, ValidationError } from '@/domains/shared/errors';
+import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import { AuthUser } from '@/lib/auth/middleware';
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -30,59 +32,77 @@ function parseProviderId(idString: string): number {
 /**
  * GET /api/providers/[id]
  * Get a single provider by ID
+ * Protected: Requires authentication
  */
-export async function GET(request: NextRequest, { params }: Params) {
-  try {
-    const resolvedParams = await params;
-    const id = parseProviderId(resolvedParams.id);
+const getProviderHandler = withAuthParams(
+  async (request: NextRequest, user: AuthUser, { params }: Params) => {
+    try {
+      const resolvedParams = await params;
+      const id = parseProviderId(resolvedParams.id);
 
-    // No auth context - return provider without access control
-    // Access control is handled at route middleware level
-    const provider = await providerService.getById(id);
+      // Create user context for access control
+      const userContext: UserContext = {
+        id: user.id,
+        email: user.email,
+        role: user.role as UserContext['role'],
+        clinicId: user.clinicId || null,
+        patientId: user.patientId || null,
+        providerId: user.providerId || null,
+      };
 
-    return Response.json({ provider });
-  } catch (error) {
-    return handleApiError(error, {
-      context: { route: 'GET /api/providers/[id]' },
-    });
-  }
-}
+      const provider = await providerService.getById(id, userContext);
+
+      if (!provider) {
+        return NextResponse.json(
+          { error: 'Provider not found or access denied' },
+          { status: 404 }
+        );
+      }
+
+      return Response.json({ provider });
+    } catch (error) {
+      return handleApiError(error, {
+        context: { route: 'GET /api/providers/[id]' },
+      });
+    }
+  },
+  { roles: ['super_admin', 'admin', 'provider', 'staff'] }
+);
+
+export const GET = getProviderHandler;
 
 /**
  * PATCH /api/providers/[id]
  * Update a provider
- *
- * Uses x-actor-email or x-user-email header for audit logging
+ * Protected: Requires admin or super_admin role
  */
-export async function PATCH(request: NextRequest, { params }: Params) {
-  try {
-    const resolvedParams = await params;
-    const id = parseProviderId(resolvedParams.id);
-    const body = await request.json();
+const updateProviderHandler = withAuthParams(
+  async (request: NextRequest, user: AuthUser, { params }: Params) => {
+    try {
+      const resolvedParams = await params;
+      const id = parseProviderId(resolvedParams.id);
+      const body = await request.json();
 
-    // Get actor email from headers for audit logging
-    const actorEmail =
-      request.headers.get('x-actor-email') ??
-      request.headers.get('x-user-email') ??
-      'unknown';
+      // Create user context for access control and audit logging
+      const userContext: UserContext = {
+        id: user.id,
+        email: user.email,
+        role: user.role as UserContext['role'],
+        clinicId: user.clinicId || null,
+        patientId: user.patientId || null,
+        providerId: user.providerId || null,
+      };
 
-    // Create a system context for the update
-    // TODO: This route should use withAuth middleware for proper access control
-    const systemContext: UserContext = {
-      id: 0,
-      email: actorEmail,
-      role: 'admin', // Allow update
-      clinicId: null,
-      patientId: null,
-      providerId: null,
-    };
+      const provider = await providerService.updateProvider(id, body, userContext);
 
-    const provider = await providerService.updateProvider(id, body, systemContext);
+      return Response.json({ provider });
+    } catch (error) {
+      return handleApiError(error, {
+        context: { route: 'PATCH /api/providers/[id]' },
+      });
+    }
+  },
+  { roles: ['super_admin', 'admin'] }
+);
 
-    return Response.json({ provider });
-  } catch (error) {
-    return handleApiError(error, {
-      context: { route: 'PATCH /api/providers/[id]' },
-    });
-  }
-}
+export const PATCH = updateProviderHandler;

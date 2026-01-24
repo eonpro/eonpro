@@ -1,11 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { withAuthParams } from '@/lib/auth/middleware-with-params';
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+type Params = {
+  params: Promise<{ id: string }>;
+};
+
+const getSubscriptionsHandler = withAuthParams(async (
+  request: NextRequest,
+  user,
+  { params }: Params
+) => {
   try {
     const resolvedParams = await params;
     const patientId = parseInt(resolvedParams.id);
@@ -14,6 +20,14 @@ export async function GET(
       return NextResponse.json(
         { error: 'Invalid patient ID' },
         { status: 400 }
+      );
+    }
+
+    // Authorization: patients can only access their own subscriptions
+    if (user.role === 'patient' && user.patientId !== patientId) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
       );
     }
     
@@ -41,14 +55,16 @@ export async function GET(
     
     return NextResponse.json(formattedSubscriptions);
   } catch (error: any) {
-    // @ts-ignore
-   
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Detailed error fetching subscriptions:', error);
-    logger.error('Error stack:', { value: error.stack });
+    logger.error('Error fetching subscriptions:', {
+      patientId: (await params).id,
+      error: errorMessage,
+    });
     return NextResponse.json(
       { error: `Failed to fetch subscriptions: ${errorMessage}` },
       { status: 500 }
     );
   }
-}
+});
+
+export const GET = getSubscriptionsHandler;

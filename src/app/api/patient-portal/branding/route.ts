@@ -1,30 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { z } from 'zod';
+import { logger } from '@/lib/logger';
+import { relaxedRateLimiter } from '@/lib/security/rate-limiter-redis';
+
+// Query params validation
+const getBrandingQuerySchema = z.object({
+  clinicId: z.string().regex(/^\d+$/, 'clinicId must be a number').transform(Number),
+});
 
 /**
  * GET /api/patient-portal/branding
  *
  * Fetches clinic branding for the patient portal
+ * This is intentionally public as it's needed to render the login page
  * Query params: clinicId (required)
+ *
+ * Rate limited: 300 requests per minute (relaxed, for page loads)
  */
-export async function GET(request: NextRequest) {
+const getBrandingHandler = async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
-    const clinicId = searchParams.get('clinicId');
 
-    if (!clinicId) {
-      return NextResponse.json({ error: 'clinicId is required' }, { status: 400 });
+    // Validate query params
+    const parseResult = getBrandingQuerySchema.safeParse({
+      clinicId: searchParams.get('clinicId'),
+    });
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid clinicId parameter', details: parseResult.error.flatten() },
+        { status: 400 }
+      );
     }
 
+    const { clinicId } = parseResult.data;
+
     const clinic = await prisma.clinic.findUnique({
-      where: { id: parseInt(clinicId) },
+      where: { id: clinicId },
       select: {
         id: true,
         name: true,
         logoUrl: true,
+        iconUrl: true,
         faviconUrl: true,
         primaryColor: true,
         secondaryColor: true,
+        accentColor: true,
         customCss: true,
         settings: true,
         adminEmail: true,
@@ -44,10 +66,11 @@ export async function GET(request: NextRequest) {
       clinicId: clinic.id,
       clinicName: clinic.name,
       logoUrl: clinic.logoUrl,
+      iconUrl: clinic.iconUrl,
       faviconUrl: clinic.faviconUrl,
       primaryColor: clinic.primaryColor || '#4fa77e',
       secondaryColor: clinic.secondaryColor || '#3B82F6',
-      accentColor: patientPortalSettings.accentColor || '#d3f931',
+      accentColor: clinic.accentColor || patientPortalSettings.accentColor || '#d3f931',
       customCss: clinic.customCss,
       features: {
         showBMICalculator: patientPortalSettings.showBMICalculator ?? true,
@@ -83,10 +106,43 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(branding);
   } catch (error: any) {
-    console.error('Error fetching clinic branding:', error);
+    logger.error('Error fetching clinic branding:', { error: error.message });
     return NextResponse.json({ error: 'Failed to fetch clinic branding' }, { status: 500 });
   }
-}
+};
+
+// Apply rate limiting to GET endpoint
+export const GET = relaxedRateLimiter(getBrandingHandler);
+
+// Update branding validation schema
+const updateBrandingSchema = z.object({
+  clinicId: z.number().int().positive(),
+  logoUrl: z.string().url().nullable().optional(),
+  iconUrl: z.string().url().nullable().optional(),
+  faviconUrl: z.string().url().nullable().optional(),
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  customCss: z.string().max(10000).optional(),
+  features: z.object({
+    showBMICalculator: z.boolean().optional(),
+    showCalorieCalculator: z.boolean().optional(),
+    showDoseCalculator: z.boolean().optional(),
+    showShipmentTracking: z.boolean().optional(),
+    showMedicationReminders: z.boolean().optional(),
+    showWeightTracking: z.boolean().optional(),
+    showResources: z.boolean().optional(),
+    showBilling: z.boolean().optional(),
+  }).optional(),
+  resourceVideos: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    description: z.string().optional(),
+    url: z.string().url(),
+    thumbnail: z.string().optional(),
+    category: z.string().optional(),
+  })).optional(),
+});
 
 /**
  * PUT /api/patient-portal/branding
@@ -96,8 +152,7 @@ export async function GET(request: NextRequest) {
  * @security Requires authentication - admin/super_admin only
  */
 export async function PUT(request: NextRequest) {
-  // SECURITY FIX: This endpoint was previously unauthenticated!
-  // Import auth middleware at top of file
+  // Import auth middleware
   const { verifyAuth } = await import('@/lib/auth/middleware');
 
   const authResult = await verifyAuth(request);
@@ -114,20 +169,26 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { clinicId, ...brandingData } = body;
 
-    if (!clinicId) {
-      return NextResponse.json({ error: 'clinicId is required' }, { status: 400 });
+    // Validate input
+    const parseResult = updateBrandingSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid branding data', details: parseResult.error.flatten() },
+        { status: 400 }
+      );
     }
 
+    const { clinicId, ...brandingData } = parseResult.data;
+
     // Non-super-admin can only update their own clinic
-    if (user.role !== 'super_admin' && user.clinicId !== parseInt(clinicId)) {
+    if (user.role !== 'super_admin' && user.clinicId !== clinicId) {
       return NextResponse.json({ error: 'Forbidden - can only update own clinic' }, { status: 403 });
     }
 
     // Verify the clinic exists
     const existingClinic = await prisma.clinic.findUnique({
-      where: { id: parseInt(clinicId) },
+      where: { id: clinicId },
     });
 
     if (!existingClinic) {
@@ -140,6 +201,9 @@ export async function PUT(request: NextRequest) {
     if (brandingData.logoUrl !== undefined) {
       updateData.logoUrl = brandingData.logoUrl;
     }
+    if (brandingData.iconUrl !== undefined) {
+      updateData.iconUrl = brandingData.iconUrl;
+    }
     if (brandingData.faviconUrl !== undefined) {
       updateData.faviconUrl = brandingData.faviconUrl;
     }
@@ -148,6 +212,9 @@ export async function PUT(request: NextRequest) {
     }
     if (brandingData.secondaryColor !== undefined) {
       updateData.secondaryColor = brandingData.secondaryColor;
+    }
+    if (brandingData.accentColor !== undefined) {
+      updateData.accentColor = brandingData.accentColor;
     }
     if (brandingData.customCss !== undefined) {
       updateData.customCss = brandingData.customCss;
@@ -168,9 +235,11 @@ export async function PUT(request: NextRequest) {
     }
 
     const updatedClinic = await prisma.clinic.update({
-      where: { id: parseInt(clinicId) },
+      where: { id: clinicId },
       data: updateData,
     });
+
+    logger.info('Clinic branding updated', { clinicId, updatedBy: user.email });
 
     return NextResponse.json({
       success: true,
@@ -182,7 +251,7 @@ export async function PUT(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Error updating clinic branding:', error);
+    logger.error('Error updating clinic branding:', { error: error.message });
     return NextResponse.json({ error: 'Failed to update clinic branding' }, { status: 500 });
   }
 }

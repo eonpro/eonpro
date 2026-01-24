@@ -16,9 +16,11 @@ import {
   ToggleRight,
   Plus,
 } from 'lucide-react';
+import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 
 interface PortalSettings {
   logoUrl: string | null;
+  iconUrl: string | null;
   faviconUrl: string | null;
   primaryColor: string;
   secondaryColor: string;
@@ -46,6 +48,7 @@ interface PortalSettings {
 
 const defaultSettings: PortalSettings = {
   logoUrl: null,
+  iconUrl: null,
   faviconUrl: null,
   primaryColor: '#4fa77e',
   secondaryColor: '#3B82F6',
@@ -95,6 +98,7 @@ export default function ClinicPortalSettingsPage() {
         setClinicName(data.clinicName);
         setSettings({
           logoUrl: data.logoUrl,
+          iconUrl: data.iconUrl,
           faviconUrl: data.faviconUrl,
           primaryColor: data.primaryColor || '#4fa77e',
           secondaryColor: data.secondaryColor || '#3B82F6',
@@ -283,91 +287,61 @@ export default function ClinicPortalSettingsPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Settings Panels */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Logo & Favicon */}
+          {/* Logo, Icon & Favicon */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-gray-900">
               <Image className="h-5 w-5 text-[#4fa77e]" />
-              Logo & Favicon
+              Branding Assets
             </h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Upload your clinic's logo, icon, and favicon to white-label the platform for your patients.
+            </p>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Logo Upload */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Logo</label>
-                <div
-                  onClick={() => logoInputRef.current?.click()}
-                  className="cursor-pointer rounded-xl border-2 border-dashed border-gray-300 p-6 text-center transition-colors hover:border-[#4fa77e]"
-                >
-                  {settings.logoUrl ? (
-                    <div className="relative">
-                      <img src={settings.logoUrl} alt="Logo" className="mx-auto max-h-16" />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSettings((prev) => ({ ...prev, logoUrl: null }));
-                        }}
-                        className="absolute -right-2 -top-2 rounded-full bg-red-100 p-1 text-red-600 hover:bg-red-200"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="mx-auto mb-2 h-8 w-8 text-gray-400" />
-                      <p className="text-sm text-gray-500">Click to upload logo</p>
-                      <p className="mt-1 text-xs text-gray-400">PNG, SVG up to 2MB</p>
-                    </>
-                  )}
-                </div>
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) =>
-                    e.target.files?.[0] && handleFileUpload('logo', e.target.files[0])
-                  }
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <BrandingImageUploader
+                label="Logo"
+                description="Main logo displayed in header and emails"
+                imageUrl={settings.logoUrl}
+                onImageChange={(url) => {
+                  setSettings((prev) => ({ ...prev, logoUrl: url }));
+                  setSaved(false);
+                }}
+                imageType="logo"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                maxSizeMB={2}
+                recommendedSize="Recommended: 400x100px, transparent PNG or SVG"
+                clinicId={parseInt(clinicId as string)}
+              />
 
-              {/* Favicon Upload */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Favicon</label>
-                <div
-                  onClick={() => faviconInputRef.current?.click()}
-                  className="cursor-pointer rounded-xl border-2 border-dashed border-gray-300 p-6 text-center transition-colors hover:border-[#4fa77e]"
-                >
-                  {settings.faviconUrl ? (
-                    <div className="relative">
-                      <img src={settings.faviconUrl} alt="Favicon" className="mx-auto h-12 w-12" />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSettings((prev) => ({ ...prev, faviconUrl: null }));
-                        }}
-                        className="absolute -right-2 -top-2 rounded-full bg-red-100 p-1 text-red-600 hover:bg-red-200"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="mx-auto mb-2 h-8 w-8 text-gray-400" />
-                      <p className="text-sm text-gray-500">Click to upload favicon</p>
-                      <p className="mt-1 text-xs text-gray-400">ICO, PNG 32x32px</p>
-                    </>
-                  )}
-                </div>
-                <input
-                  ref={faviconInputRef}
-                  type="file"
-                  accept="image/*,.ico"
-                  className="hidden"
-                  onChange={(e) =>
-                    e.target.files?.[0] && handleFileUpload('favicon', e.target.files[0])
-                  }
-                />
-              </div>
+              <BrandingImageUploader
+                label="App Icon"
+                description="Square icon for mobile apps and PWA"
+                imageUrl={settings.iconUrl}
+                onImageChange={(url) => {
+                  setSettings((prev) => ({ ...prev, iconUrl: url }));
+                  setSaved(false);
+                }}
+                imageType="icon"
+                accept="image/png,image/jpeg"
+                maxSizeMB={1}
+                recommendedSize="Required: 192x192px square PNG"
+                clinicId={parseInt(clinicId as string)}
+              />
+
+              <BrandingImageUploader
+                label="Favicon"
+                description="Small icon shown in browser tabs"
+                imageUrl={settings.faviconUrl}
+                onImageChange={(url) => {
+                  setSettings((prev) => ({ ...prev, faviconUrl: url }));
+                  setSaved(false);
+                }}
+                imageType="favicon"
+                accept="image/png,image/x-icon,.ico"
+                maxSizeMB={0.1}
+                recommendedSize="Required: 32x32px or 16x16px"
+                clinicId={parseInt(clinicId as string)}
+              />
             </div>
           </div>
 

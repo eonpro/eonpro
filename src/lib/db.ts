@@ -8,10 +8,52 @@ import { logger } from './logger';
 // This prevents race conditions in serverless environments
 const clinicContextStorage = new AsyncLocalStorage<{ clinicId?: number }>();
 
-const globalForPrisma = global as unknown as { 
+const globalForPrisma = global as unknown as {
   prisma?: PrismaClient;
   currentClinicId?: number; // DEPRECATED: Use clinicContextStorage instead
 };
+
+// ============================================================================
+// DATABASE CONNECTION POOLING CONFIGURATION
+// ============================================================================
+//
+// For production, use PgBouncer or Prisma Accelerate for connection pooling.
+//
+// Connection Pool Settings:
+// - Serverless (Vercel): Use ?pgbouncer=true&connection_limit=1 in DATABASE_URL
+// - Traditional: Set connection_limit based on serverless concurrency
+//
+// DATABASE_URL format with pooling:
+// postgresql://user:pass@host:6543/db?pgbouncer=true&connection_limit=1
+//
+// Or with Prisma Accelerate:
+// prisma://accelerate.prisma-data.net/?api_key=YOUR_KEY
+//
+// Environment Variables:
+// - DATABASE_CONNECTION_LIMIT: Max connections per instance (default: 10)
+// - DATABASE_POOL_TIMEOUT: Connection timeout in seconds (default: 10)
+// ============================================================================
+
+/**
+ * Get connection limit based on environment
+ */
+function getConnectionLimit(): number {
+  // In serverless (Vercel), use minimal connections
+  if (process.env.VERCEL) {
+    return 1;
+  }
+
+  // Use env var or default
+  const limit = parseInt(process.env.DATABASE_CONNECTION_LIMIT || '10', 10);
+  return Math.min(limit, 20); // Cap at 20 connections per instance
+}
+
+/**
+ * Get pool timeout
+ */
+function getPoolTimeout(): number {
+  return parseInt(process.env.DATABASE_POOL_TIMEOUT || '10', 10);
+}
 
 // Models that require clinic isolation (lowercase for comparison)
 // IMPORTANT: Any model with clinicId should be in this list
@@ -24,27 +66,27 @@ const CLINIC_ISOLATED_MODELS = [
   'soapnote',
   'appointment',
   'careplan',           // Treatment plans
-  
+
   // Billing models
   'invoice',
   'payment',
   'subscription',
   'superbill',          // Medical billing
-  
+
   // Documents & forms
   'patientdocument',
   'intakeformtemplate',
-  
+
   // Communication
   'internalmessage',
   'patientchatmessage',
-  
+
   // Support tickets (clinic-specific)
   'ticket',
   'ticketcomment',
   'ticketworklog',
   'ticketassignment',
-  
+
   // Patient health tracking
   'patientwaterlog',
   'patientexerciselog',
@@ -52,25 +94,69 @@ const CLINIC_ISOLATED_MODELS = [
   'patientnutritionlog',
   'patientweightlog',
   'patientmedicationreminder',
-  
+
   // Affiliate/influencer (clinic-specific programs)
   'influencer',
-  
+
   // Products (clinic-specific catalog)
   'product',
 ];
 
 /**
- * Create Prisma client with multi-clinic isolation
+ * Create Prisma client with multi-clinic isolation and connection pooling
  * Using query extension pattern for Prisma v4+
  */
 function createPrismaClient() {
-  const client = new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : [],
+  const isProd = process.env.NODE_ENV === 'production';
+  const connectionLimit = getConnectionLimit();
+  const poolTimeout = getPoolTimeout();
+
+  // Log configuration
+  logger.info('Prisma client configuration', {
+    environment: process.env.NODE_ENV,
+    connectionLimit,
+    poolTimeout,
+    isVercel: !!process.env.VERCEL,
+    hasPgBouncer: process.env.DATABASE_URL?.includes('pgbouncer=true'),
   });
-  
-  // For Prisma v4+, we'll handle clinic filtering in a different way
-  // since $use middleware is deprecated
+
+  const client = new PrismaClient({
+    log: process.env.NODE_ENV === "development"
+      ? ["warn", "error"]
+      : isProd
+        ? ["error"]  // Only errors in production
+        : ["warn", "error"],
+    // Prisma handles connection pooling internally
+    // For serverless, set connection_limit in DATABASE_URL
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+  });
+
+  // Add query timing middleware for monitoring
+  if (isProd || process.env.ENABLE_QUERY_LOGGING === 'true') {
+    // @ts-ignore - Prisma v5 middleware
+    client.$use?.(async (params, next) => {
+      const start = Date.now();
+      const result = await next(params);
+      const duration = Date.now() - start;
+
+      // Log slow queries (> 1 second)
+      if (duration > 1000) {
+        logger.warn('Slow database query detected', {
+          model: params.model,
+          action: params.action,
+          duration,
+          args: isProd ? '[redacted]' : params.args,
+        });
+      }
+
+      return result;
+    });
+  }
+
   return client;
 }
 
@@ -87,11 +173,11 @@ if (process.env.NODE_ENV !== "production") {
  */
 class PrismaWithClinicFilter {
   private client: PrismaClient;
-  
+
   constructor(client: PrismaClient) {
     this.client = client;
   }
-  
+
   /**
    * Get clinic ID from AsyncLocalStorage (thread-safe) or fallback to global
    */
@@ -130,34 +216,34 @@ class PrismaWithClinicFilter {
    */
   private applyClinicFilter(where: any = {}): any {
     const clinicId = this.getClinicId();
-    
+
     if (!clinicId || this.shouldBypassFilter()) {
       return where;
     }
-    
+
     return {
       ...where,
       clinicId: clinicId
     };
   }
-  
+
   /**
    * Apply clinic ID to data for creates
    */
   private applyClinicToData(data: any): any {
     const clinicId = this.getClinicId();
-    
+
     if (!clinicId || this.shouldBypassFilter()) {
       return data;
     }
-    
+
     if (Array.isArray(data)) {
       return data.map(item => ({
         ...item,
         clinicId: clinicId
       }));
     }
-    
+
     return {
       ...data,
       clinicId: clinicId
@@ -169,11 +255,11 @@ class PrismaWithClinicFilter {
    */
   private applyClinicToGroupBy(args: any = {}): any {
     const clinicId = this.getClinicId();
-    
+
     if (!clinicId || this.shouldBypassFilter()) {
       return args;
     }
-    
+
     return {
       ...args,
       where: {
@@ -182,39 +268,39 @@ class PrismaWithClinicFilter {
       }
     };
   }
-  
+
   /**
    * Create model proxy with clinic filtering
    */
   private createModelProxy(modelName: string): any {
     const model = (this.client as any)[modelName];
-    
+
     // If model is undefined, log error and return original client model
     if (!model) {
       logger.error(`Model ${modelName} not found on Prisma client`);
       return (this.client as any)[modelName];
     }
-    
+
     // If model doesn't need clinic isolation, return original
     // Compare lowercase to handle case differences
     if (!CLINIC_ISOLATED_MODELS.includes(modelName.toLowerCase())) {
       return model;
     }
-    
+
     // Create proxy with clinic filtering
     return new Proxy(model, {
       get: (target, prop) => {
         const originalMethod = target[prop];
-        
+
         // If not a function, return as is
         if (typeof originalMethod !== 'function') {
           return originalMethod;
         }
-        
+
         // Wrap methods that need clinic filtering
         const methodsToWrap = [
           // Read operations
-          'findUnique', 'findFirst', 'findMany', 
+          'findUnique', 'findFirst', 'findMany',
           'findUniqueOrThrow', 'findFirstOrThrow',
           'count', 'aggregate', 'groupBy',
           // Write operations
@@ -223,16 +309,16 @@ class PrismaWithClinicFilter {
           'delete', 'deleteMany',
           'upsert',
         ];
-        
+
         if (!methodsToWrap.includes(prop as string)) {
           return originalMethod.bind(target);
         }
-        
+
         // Return wrapped method
         return async (args: any = {}) => {
           let modifiedArgs = { ...args };
           const method = prop as string;
-          
+
           // Apply clinic filter based on method type
           if ([
             'findUnique', 'findFirst', 'findMany',
@@ -255,20 +341,20 @@ class PrismaWithClinicFilter {
               delete modifiedArgs.update.clinicId; // Prevent changing clinic via upsert
             }
           }
-          
+
           // Execute with modified args
           const result = await originalMethod.call(target, modifiedArgs);
-          
+
           // Validate results (defense-in-depth)
           const currentClinicId = this.getClinicId();
           if (result && currentClinicId) {
             const clinicId = currentClinicId;
-            
+
             if (Array.isArray(result)) {
-              const invalidRecords = result.filter((record: any) => 
+              const invalidRecords = result.filter((record: any) =>
                 record.clinicId && record.clinicId !== clinicId
               );
-              
+
               if (invalidRecords.length > 0) {
                 logger.security('CRITICAL: Cross-clinic data leak detected', {
                   model: modelName,
@@ -277,9 +363,9 @@ class PrismaWithClinicFilter {
                   leakedRecords: invalidRecords.length,
                   timestamp: new Date().toISOString(),
                 });
-                
+
                 // Filter out invalid records - never leak data
-                return result.filter((record: any) => 
+                return result.filter((record: any) =>
                   !record.clinicId || record.clinicId === clinicId
                 );
               }
@@ -292,23 +378,23 @@ class PrismaWithClinicFilter {
                   actualClinic: result.clinicId,
                   timestamp: new Date().toISOString(),
                 });
-                
+
                 // Block access - return null instead of wrong clinic's data
                 return null;
               }
             }
           }
-          
+
           return result;
         };
       }
     });
   }
-  
+
   // ============================================================================
   // CLINIC-ISOLATED MODELS (automatically filtered by clinicId)
   // ============================================================================
-  
+
   // Core clinical models
   get patient() { return this.createModelProxy('patient'); }
   get provider() { return this.createModelProxy('provider'); }
@@ -317,27 +403,27 @@ class PrismaWithClinicFilter {
   get sOAPNote() { return this.createModelProxy('sOAPNote'); }
   get appointment() { return this.createModelProxy('appointment'); }
   get carePlan() { return this.createModelProxy('carePlan'); }
-  
+
   // Billing models
   get invoice() { return this.createModelProxy('invoice'); }
   get payment() { return this.createModelProxy('payment'); }
   get subscription() { return this.createModelProxy('subscription'); }
   get superbill() { return this.createModelProxy('superbill'); }
-  
+
   // Documents & forms
   get patientDocument() { return this.createModelProxy('patientDocument'); }
   get intakeFormTemplate() { return this.createModelProxy('intakeFormTemplate'); }
-  
+
   // Communication
   get internalMessage() { return this.createModelProxy('internalMessage'); }
   get patientChatMessage() { return this.createModelProxy('patientChatMessage'); }
-  
+
   // Support tickets (clinic-specific)
   get ticket() { return this.createModelProxy('ticket'); }
   get ticketComment() { return this.createModelProxy('ticketComment'); }
   get ticketWorkLog() { return this.createModelProxy('ticketWorkLog'); }
   get ticketAssignment() { return this.createModelProxy('ticketAssignment'); }
-  
+
   // Patient health tracking
   get patientWaterLog() { return this.createModelProxy('patientWaterLog'); }
   get patientExerciseLog() { return this.createModelProxy('patientExerciseLog'); }
@@ -345,29 +431,29 @@ class PrismaWithClinicFilter {
   get patientNutritionLog() { return this.createModelProxy('patientNutritionLog'); }
   get patientWeightLog() { return this.createModelProxy('patientWeightLog'); }
   get patientMedicationReminder() { return this.createModelProxy('patientMedicationReminder'); }
-  
+
   // Affiliate/influencer
   get influencer() { return this.createModelProxy('influencer'); }
-  
+
   // Products
   get product() { return this.createModelProxy('product'); }
 
   // ============================================================================
   // NON-ISOLATED MODELS (global or user-scoped, not clinic-scoped)
   // ============================================================================
-  
+
   // System-wide models
   get user() { return this.client.user; }
   get clinic() { return this.client.clinic; }
   get systemSettings() { return this.client.systemSettings; }
   get integration() { return this.client.integration; }
   get apiKey() { return this.client.apiKey; }
-  
+
   // Webhook infrastructure (system-wide)
   get webhookConfig() { return this.client.webhookConfig; }
   get webhookDelivery() { return this.client.webhookDelivery; }
   get webhookLog() { return this.client.webhookLog; }
-  
+
   // Audit logs (need cross-clinic visibility for super admin)
   get clinicAuditLog() { return this.client.clinicAuditLog; }
   get userSession() { return this.client.userSession; }
@@ -376,21 +462,21 @@ class PrismaWithClinicFilter {
   get providerAudit() { return this.client.providerAudit; }
   get orderEvent() { return this.client.orderEvent; }
   get auditLog() { return this.client.auditLog; }
-  
+
   // Counters & sequences (clinic-scoped but handled differently)
   get patientCounter() { return this.client.patientCounter; }
-  
+
   // AI (user-scoped, not clinic-scoped)
   get aIConversation() { return this.client.aIConversation; }
   get aIMessage() { return this.client.aIMessage; }
-  
+
   // Prescriptions (Rx model is separate from prescription)
   get rx() { return this.client.rx; }
   get sOAPNoteRevision() { return this.client.sOAPNoteRevision; }
-  
+
   // Payment methods (user-scoped)
   get paymentMethod() { return this.client.paymentMethod; }
-  
+
   // Referral/affiliate (program-level, not clinic-level)
   get referralTracking() { return this.client.referralTracking; }
   get influencerBankAccount() { return this.client.influencerBankAccount; }
@@ -400,7 +486,7 @@ class PrismaWithClinicFilter {
   get affiliateCommission() { return this.client.affiliateCommission; }
   get affiliateProgram() { return this.client.affiliateProgram; }
   get affiliateTier() { return this.client.affiliateTier; }
-  
+
   // Enterprise affiliate system
   get affiliate() { return this.client.affiliate; }
   get affiliateRefCode() { return this.client.affiliateRefCode; }
@@ -419,36 +505,36 @@ class PrismaWithClinicFilter {
   get affiliateFraudAlert() { return this.client.affiliateFraudAlert; }
   get affiliateIpIntel() { return this.client.affiliateIpIntel; }
   get affiliateFraudConfig() { return this.client.affiliateFraudConfig; }
-  
+
   // Intake forms (submission-level, not clinic-level)
   get intakeFormSubmission() { return this.client.intakeFormSubmission; }
   get intakeFormQuestion() { return this.client.intakeFormQuestion; }
   get intakeFormResponse() { return this.client.intakeFormResponse; }
   get intakeFormLink() { return this.client.intakeFormLink; }
-  
+
   // Ticket metadata (non-isolated - ticket itself is isolated)
   get ticketStatusHistory() { return this.client.ticketStatusHistory; }
   get ticketEscalation() { return this.client.ticketEscalation; }
   get ticketSLA() { return this.client.ticketSLA; }
-  
+
   // Developer/API tools (system-wide)
   get apiUsageLog() { return this.client.apiUsageLog; }
   get integrationLog() { return this.client.integrationLog; }
   get developerTool() { return this.client.developerTool; }
-  
+
   // SMS logs (system-wide)
   get smsLog() { return this.client.smsLog; }
-  
+
   // Discounts (system-wide promotions)
   get discountCode() { return this.client.discountCode; }
   get discountUsage() { return this.client.discountUsage; }
-  
+
   // Product bundles (system-wide catalog)
   get productBundle() { return this.client.productBundle; }
   get productBundleItem() { return this.client.productBundleItem; }
   get pricingRule() { return this.client.pricingRule; }
   get invoiceItem() { return this.client.invoiceItem; }
-  
+
   // Expose transaction support
   async $transaction(fn: (tx: any) => Promise<any>) {
     return this.client.$transaction(async (tx) => {
@@ -457,7 +543,7 @@ class PrismaWithClinicFilter {
       return fn(wrappedTx);
     });
   }
-  
+
   // Expose other Prisma client methods
   $connect() { return this.client.$connect(); }
   $disconnect() { return this.client.$disconnect(); }

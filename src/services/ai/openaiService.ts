@@ -87,13 +87,13 @@ class RateLimiter {
   async checkLimit(): Promise<void> {
     const now = Date.now();
     this.requests = this.requests.filter((time: number) => now - time < this.windowMs);
-    
+
     if (this.requests.length >= this.maxRequests) {
       const oldestRequest = this.requests[0];
       const waitTime = this.windowMs - (now - oldestRequest);
       throw new Error(`Internal rate limit. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
     }
-    
+
     this.requests.push(now);
   }
 }
@@ -109,27 +109,27 @@ async function withRetry<T>(
   baseDelayMs: number = 1000
 ): Promise<T> {
   let lastError: Error | null = null;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error: any) {
       lastError = error;
-      
+
       // Only retry on rate limits (429) or server errors (5xx)
       const isRetryable = error.status === 429 || (error.status >= 500 && error.status < 600);
-      
+
       if (!isRetryable || attempt === maxRetries) {
         throw error;
       }
-      
+
       // Exponential backoff: 1s, 2s, 4s
       const delay = baseDelayMs * Math.pow(2, attempt);
       logger.warn(`[OpenAI] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw lastError;
 }
 
@@ -140,10 +140,10 @@ function calculateCost(usage: UsageMetrics): number {
   // GPT-4 Turbo pricing (as of 2024)
   const inputCostPer1K = 0.01; // $0.01 per 1K input tokens
   const outputCostPer1K = 0.03; // $0.03 per 1K output tokens
-  
+
   const inputCost = (usage.promptTokens / 1000) * inputCostPer1K;
   const outputCost = (usage.completionTokens / 1000) * outputCostPer1K;
-  
+
   return parseFloat((inputCost + outputCost).toFixed(4));
 }
 
@@ -172,7 +172,7 @@ export interface SOAPNote {
 
 export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAPNote> {
   await rateLimiter.checkLimit();
-  
+
   // CRITICAL: Anonymize PHI before sending to OpenAI
   // OpenAI does not have a BAA for HIPAA compliance
   const anonymizedInput = {
@@ -181,19 +181,19 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
     dateOfBirth: input.dateOfBirth ? '01/01/1970' : undefined, // Use placeholder DOB
     chiefComplaint: input.chiefComplaint // Chief complaint is generally not PHI
   };
-  
+
   // Log the anonymization for audit
   logAnonymization(
     0, // System-generated
     'SOAP note generation via OpenAI',
     'Patient intake data'
   );
-  
+
   logger.info('Generating SOAP note with anonymized data', {
     originalPatient: input.patientName,
     anonymizedPatient: anonymizedInput.patientName
   });
-  
+
   const client = getOpenAIClient();
   const env = envSchema.parse({
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
@@ -202,7 +202,7 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
     OPENAI_MAX_TOKENS: process.env.OPENAI_MAX_TOKENS,
   });
 
-  const systemPrompt = `You are a licensed prescribing provider (MD/DO/NP/PA) creating a comprehensive SOAP note for a telehealth weight management evaluation. 
+  const systemPrompt = `You are a licensed prescribing provider (MD/DO/NP/PA) creating a comprehensive SOAP note for a telehealth weight management evaluation.
 
 You must generate a professional, clinical-grade SOAP note for GLP-1 receptor agonist therapy evaluation (semaglutide/tirzepatide).
 
@@ -218,7 +218,7 @@ CRITICAL: Return your response in JSON format with ALL fields as plain text STRI
 
 BMI Classifications:
 - BMI 25-29.9: Overweight
-- BMI 30-34.9: Class I Obesity  
+- BMI 30-34.9: Class I Obesity
 - BMI 35-39.9: Class II Obesity
 - BMI ≥40: Class III (Severe) Obesity
 
@@ -357,7 +357,7 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
 
   try {
     logger.debug('[OpenAI] Generating SOAP note for patient:', { value: input.patientName });
-    
+
     // Use retry wrapper for resilience against rate limits
     // 4 retries with exponential backoff: 3s, 6s, 12s, 24s (total ~45s max wait)
     const completion = await withRetry(async () => {
@@ -403,7 +403,7 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
       }
       return field?.toString() || '';
     };
-    
+
     return {
       subjective: ensureString(parsed.subjective) || '',
       objective: ensureString(parsed.objective) || '',
@@ -419,7 +419,7 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('[OpenAI] Error generating SOAP note:', { error: errorMessage, status: error.status });
-    
+
     // Handle specific OpenAI error codes
     if (error.status === 429) {
       throw new Error('OpenAI API is busy. Please wait 30 seconds and try again.');
@@ -433,12 +433,12 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
     if (error.code === 'insufficient_quota') {
       throw new Error('OpenAI quota exceeded. Please contact support to upgrade the plan.');
     }
-    
+
     // Check if it's our internal rate limiter
     if (errorMessage.includes('Internal rate limit')) {
       throw new Error(errorMessage);
     }
-    
+
     throw new Error(`Failed to generate SOAP note: ${errorMessage}`);
   }
 }
@@ -461,7 +461,7 @@ export interface QueryResponse {
 
 export async function queryPatientData(input: PatientQueryInput): Promise<QueryResponse> {
   await rateLimiter.checkLimit();
-  
+
   const client = getOpenAIClient();
   const env = envSchema.parse({
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
@@ -504,34 +504,62 @@ Response Guidelines:
   let contextDescription = 'No patient data provided.';
   if (input.patientContext) {
     const context = input.patientContext;
-    
+
     if (context.type === 'patient_found') {
       const summary = context.summary as any;
+      // HIPAA COMPLIANCE: Anonymize PHI before sending to OpenAI
+      // Only include clinical context, not PII
+      const anonymizedAge = summary.age !== null ? summary.age + ' years old' : 'Unknown';
+      const anonymizedGender = summary.gender || 'Not specified';
+
+      // Anonymize orders - only include clinical info, not patient identifiers
+      const anonymizedOrders = ((context.patient as any)?.orders || []).map((order: any) => ({
+        status: order.status,
+        type: order.type,
+        items: order.items?.map((item: any) => ({
+          name: item.productName || item.name,
+          quantity: item.quantity,
+        })),
+        createdAt: order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Unknown',
+      }));
+
+      // Anonymize documents - only include metadata
+      const anonymizedDocs = ((context.patient as any)?.documents || []).map((doc: any) => ({
+        category: doc.category,
+        createdAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown',
+      }));
+
+      // Anonymize SOAP notes - only include clinical sections
+      const anonymizedSoapNotes = ((context.patient as any)?.soapNotes || []).map((note: any) => ({
+        subjective: note.subjective ? '[Subjective findings present]' : null,
+        objective: note.objective ? '[Objective findings present]' : null,
+        assessment: note.assessment ? '[Assessment present]' : null,
+        plan: note.plan ? '[Treatment plan present]' : null,
+        createdAt: note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Unknown',
+      }));
+
       contextDescription = `Patient Found:
-Name: ${summary.name}
-Date of Birth: ${summary.dateOfBirth || 'Not provided'}
-Age: ${summary.age !== null ? summary.age + ' years old' : 'Unknown'}
-Gender: ${summary.gender || 'Not specified'}
-Phone: ${summary.phone || 'Not provided'}
-Email: ${summary.email || 'Not provided'}
-Address: ${summary.address}
+Patient Identifier: [ANONYMIZED-${summary.patientId || 'UNKNOWN'}]
+Age: ${anonymizedAge}
+Gender: ${anonymizedGender}
 Total Orders: ${summary.orderCount}
 Total Documents: ${summary.documentCount}
 
-Recent Orders: ${JSON.stringify((context.patient as any)?.orders || [], null, 2)}
-Recent Documents: ${JSON.stringify((context.patient as any)?.documents || [], null, 2)}
-SOAP Notes: ${JSON.stringify((context.patient as any)?.soapNotes || [], null, 2)}`;
+Recent Orders Summary: ${JSON.stringify(anonymizedOrders, null, 2)}
+Document Types Available: ${JSON.stringify(anonymizedDocs, null, 2)}
+SOAP Notes Summary: ${JSON.stringify(anonymizedSoapNotes, null, 2)}`;
     } else if (context.type === 'patient_not_found') {
+      // HIPAA: Don't send searched names or similar patient details to OpenAI
       contextDescription = `Patient Not Found:
-Searched for: ${context.searchedName}
-${context.similarPatients ? `Similar patients found: ${JSON.stringify(context.similarPatients, null, 2)}` : 'No similar patients found'}`;
+Search query could not be matched to any patient records.
+${context.similarPatients ? `${(context.similarPatients as any[]).length} possible matches found in system.` : 'No similar patients found'}`;
     } else if (context.statistics) {
       const stats = context.statistics as any;
+      // HIPAA: Only send aggregate statistics, no individual patient data
       contextDescription = `Platform Statistics:
 Total Patients: ${stats.totalPatients}
 ${stats.totalOrders ? `Total Orders: ${stats.totalOrders}` : ''}
-${stats.totalProviders ? `Total Providers: ${stats.totalProviders}` : ''}
-${stats.recentPatients ? `Recent Patients: ${JSON.stringify(stats.recentPatients, null, 2)}` : ''}`;
+${stats.totalProviders ? `Total Providers: ${stats.totalProviders}` : ''}`;
     } else if (context.type === 'tracking_search') {
       contextDescription = `Tracking Information:
 ${JSON.stringify(context.results, null, 2)}`;
@@ -566,7 +594,7 @@ Please provide a clear, accurate answer based on the available information. If a
 
   try {
     logger.debug('[OpenAI] Processing patient query:', { value: input.query });
-    
+
     const completion = await client.chat.completions.create({
       model: env.OPENAI_MODEL,
       messages,
@@ -594,10 +622,10 @@ Please provide a clear, accurate answer based on the available information. If a
     };
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[OpenAI] Error processing query:', error);
-    
+
     throw new Error(`Failed to process query: ${errorMessage}`);
   }
 }

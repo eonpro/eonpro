@@ -18,6 +18,9 @@ import { handleApiError } from '@/domains/shared/errors';
  * GET /api/patients
  * List patients with filtering and pagination
  *
+ * HIPAA CONSIDERATION: By default returns minimal PHI.
+ * Use includeContact=true to get email/phone/address.
+ *
  * Uses the patient service layer which handles:
  * - Clinic isolation (non-super-admin filtered by clinicId)
  * - PHI decryption
@@ -29,6 +32,7 @@ import { handleApiError } from '@/domains/shared/errors';
  * - search: Search by name or patient ID
  * - source: Filter by source
  * - tags: Filter by tags (comma-separated)
+ * - includeContact: Include email/phone/address (default: false)
  */
 const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
   try {
@@ -37,6 +41,9 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
     // Parse query parameters
     const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
     const limit = isNaN(rawLimit) || rawLimit <= 0 ? 100 : Math.min(rawLimit, 500);
+
+    // HIPAA: Only include contact info if explicitly requested
+    const includeContact = searchParams.get('includeContact') === 'true';
 
     const options: ListPatientsOptions = {
       limit,
@@ -59,26 +66,15 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
     const result = await patientService.listPatients(userContext, options);
 
     // Transform to dashboard-friendly format
+    // HIPAA: Minimize PHI in list responses
     const patients = result.data.map((patient) => {
-      // Build full address string
-      const addressParts = [
-        patient.address1,
-        patient.address2,
-        patient.city,
-        patient.state,
-        patient.zip,
-      ].filter(Boolean);
-
-      return {
+      // Base fields (minimal PHI)
+      const baseData: Record<string, any> = {
         id: patient.id,
         patientId: patient.patientId,
         firstName: patient.firstName,
         lastName: patient.lastName,
-        email: patient.email,
-        phone: patient.phone,
-        dateOfBirth: patient.dob,
         gender: patient.gender,
-        address: addressParts.join(', '),
         tags: patient.tags || [],
         source: patient.source,
         createdAt: patient.createdAt,
@@ -86,6 +82,24 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         // Include clinic name for super admin
         clinicName: 'clinicName' in patient ? patient.clinicName : null,
       };
+
+      // HIPAA: Only include contact info if explicitly requested
+      if (includeContact) {
+        const addressParts = [
+          patient.address1,
+          patient.address2,
+          patient.city,
+          patient.state,
+          patient.zip,
+        ].filter(Boolean);
+
+        baseData.email = patient.email;
+        baseData.phone = patient.phone;
+        baseData.dateOfBirth = patient.dob;
+        baseData.address = addressParts.join(', ');
+      }
+
+      return baseData;
     });
 
     return Response.json({
@@ -97,6 +111,7 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         accessedBy: user.email,
         role: user.role,
         filters: { limit, recent: options.recent },
+        includeContact,
       },
     });
   } catch (error) {

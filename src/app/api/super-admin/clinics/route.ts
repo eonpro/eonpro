@@ -107,7 +107,9 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       storageLimit,
       primaryColor,
       secondaryColor,
+      accentColor,
       logoUrl,
+      iconUrl,
       faviconUrl,
     } = body;
 
@@ -164,7 +166,9 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         storageLimit: storageLimit || 5000,
         primaryColor: primaryColor || '#10B981',
         secondaryColor: secondaryColor || '#3B82F6',
+        accentColor: accentColor || '#d3f931',
         logoUrl: logoUrl || null,
+        iconUrl: iconUrl || null,
         faviconUrl: faviconUrl || null,
         status: 'ACTIVE',
       },

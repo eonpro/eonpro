@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import PatientIntakeView from '@/components/PatientIntakeView';
 import { PatientBillingView } from '@/components/PatientBillingView';
 import PatientPaymentMethods from '@/components/PatientPaymentMethods';
@@ -8,10 +10,12 @@ import PatientAppointmentsView from '@/components/PatientAppointmentsView';
 import PatientProgressView from '@/components/PatientProgressView';
 import PatientSidebar from '@/components/PatientSidebar';
 import PatientTags from '@/components/PatientTags';
-import { prisma } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { getUserFromCookies } from '@/lib/auth/session';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 
 // Force dynamic rendering to ensure fresh data after intake edits
 export const dynamic = 'force-dynamic';
@@ -31,6 +35,13 @@ type PageProps = {
 
 export default async function PatientDetailPage({ params, searchParams }: PageProps) {
   try {
+    // Verify user is authenticated via cookies
+    const user = await getUserFromCookies();
+    if (!user) {
+      // Not authenticated - redirect to login
+      redirect('/login?redirect=' + encodeURIComponent('/patients'));
+    }
+
     const resolvedParams = await params;
     const id = Number(resolvedParams.id);
 
@@ -39,61 +50,70 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       return (
         <div className="p-10">
           <p className="text-red-600">Invalid patient ID.</p>
-          <Link href="/patients" className="mt-4 block text-[#4fa77e] underline">
+          <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
             ← Back to patients
           </Link>
         </div>
       );
     }
 
+    // Fetch patient with clinic context for proper isolation
+    // Super admins can access any clinic, others are restricted to their clinic
+    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+
     let patient;
     try {
-      patient = await prisma.patient.findUnique({
-        where: { id },
-        include: {
-          orders: {
-            orderBy: { createdAt: 'desc' },
-            include: {
-              rxs: true,
-              provider: true,
-              events: {
-                orderBy: { createdAt: 'desc' },
-              },
-            },
-          },
-          documents: {
-            orderBy: { createdAt: 'desc' },
-            select: {
-              id: true,
-              filename: true,
-              mimeType: true,
-              createdAt: true,
-              externalUrl: true,
-              category: true,
-              sourceSubmissionId: true,
-              data: true,
-            },
-          },
-          intakeSubmissions: {
-            orderBy: { createdAt: 'desc' },
-            include: {
-              template: true,
-              responses: {
-                include: {
-                  question: true,
+      // Wrap query in clinic context for proper multi-tenant isolation
+      patient = await runWithClinicContext(clinicId, async () => {
+        return prisma.patient.findUnique({
+          where: { id },
+          include: {
+            orders: {
+              orderBy: { createdAt: 'desc' },
+              include: {
+                rxs: true,
+                provider: true,
+                events: {
+                  orderBy: { createdAt: 'desc' },
                 },
               },
             },
+            documents: {
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true,
+                filename: true,
+                mimeType: true,
+                createdAt: true,
+                externalUrl: true,
+                category: true,
+                sourceSubmissionId: true,
+                data: true,
+              },
+            },
+            intakeSubmissions: {
+              orderBy: { createdAt: 'desc' },
+              include: {
+                template: true,
+                responses: {
+                  include: {
+                    question: true,
+                  },
+                },
+              },
+            },
+            auditEntries: {
+              orderBy: { createdAt: 'desc' },
+              take: 10,
+            },
           },
-          auditEntries: {
-            orderBy: { createdAt: 'desc' },
-            take: 10,
-          },
-        },
+        });
       });
     } catch (dbError) {
       logger.error('Database error fetching patient:', {
         patientId: id,
+        clinicId: clinicId,
+        userId: user.id,
         error: dbError instanceof Error ? dbError.message : String(dbError)
       });
       return (
@@ -107,15 +127,44 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     }
 
     if (!patient) {
+      // Patient not found or not in user's clinic - log access attempt
+      await auditLog(null, {
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: user.clinicId,
+        eventType: AuditEventType.PHI_VIEW,
+        resourceType: 'Patient',
+        resourceId: id,
+        patientId: id,
+        action: 'VIEW_PATIENT_DENIED',
+        outcome: 'FAILURE',
+        reason: 'Patient not found or access denied',
+      });
+
       return (
         <div className="p-10">
-          <p className="text-red-600">Patient not found.</p>
+          <p className="text-red-600">Patient not found or you don't have access to this patient.</p>
           <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
             ← Back to patients
           </Link>
         </div>
       );
     }
+
+    // HIPAA Audit: Log successful PHI access
+    await auditLog(null, {
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      clinicId: user.clinicId,
+      eventType: AuditEventType.PHI_VIEW,
+      resourceType: 'Patient',
+      resourceId: id,
+      patientId: id,
+      action: 'VIEW_PATIENT_RECORD',
+      outcome: 'SUCCESS',
+    });
 
   // Decrypt PHI fields for display (with error handling)
   let patientWithDecryptedPHI;

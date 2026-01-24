@@ -1,14 +1,20 @@
 /**
- * API Fetch Utility with Session Expiration Handling
+ * API Fetch Utility with Session Expiration Handling and Automatic Token Refresh
  *
  * This module provides a wrapper around fetch that:
  * 1. Automatically includes auth headers
  * 2. Handles 401/403 errors by triggering logout
  * 3. Broadcasts session expiration events for UI handling
+ * 4. Automatically refreshes tokens before expiry
  */
 
 // Custom event for session expiration
 export const SESSION_EXPIRED_EVENT = 'eonpro:session:expired';
+
+// Token refresh state
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 minutes before expiry
 
 /**
  * Dispatch session expired event for global handling
@@ -34,6 +40,120 @@ function getAuthToken(): string | null {
     localStorage.getItem('provider-token') ||
     null
   );
+}
+
+/**
+ * Get the refresh token from localStorage
+ */
+function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('refresh-token') || localStorage.getItem('refresh_token');
+}
+
+/**
+ * Parse JWT token to get expiration time
+ */
+function parseTokenExpiry(token: string): number | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload.exp ? payload.exp * 1000 : null; // Convert to milliseconds
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if token is about to expire
+ */
+function isTokenExpiringSoon(token: string): boolean {
+  const expiry = parseTokenExpiry(token);
+  if (!expiry) return false;
+  return Date.now() > expiry - TOKEN_REFRESH_BUFFER_MS;
+}
+
+/**
+ * Refresh the auth token
+ */
+async function refreshAuthToken(): Promise<boolean> {
+  // If already refreshing, wait for that to complete
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    return false;
+  }
+
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch('/api/auth/refresh-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${refreshToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+
+      // Store new tokens
+      if (data.token) {
+        localStorage.setItem('auth-token', data.token);
+        // Set cookie for server-side auth
+        document.cookie = `auth-token=${data.token}; path=/; secure; samesite=strict`;
+      }
+      if (data.refreshToken) {
+        localStorage.setItem('refresh-token', data.refreshToken);
+      }
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
+
+      console.debug('[Auth] Token refreshed successfully');
+      return true;
+    } catch (error) {
+      console.error('[Auth] Token refresh failed:', error);
+      return false;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+/**
+ * Ensure token is valid, refresh if needed
+ */
+async function ensureValidToken(): Promise<string | null> {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  // Check if token is expiring soon
+  if (isTokenExpiringSoon(token)) {
+    console.debug('[Auth] Token expiring soon, attempting refresh');
+    const refreshed = await refreshAuthToken();
+    if (refreshed) {
+      return getAuthToken();
+    }
+    // If refresh failed but token is still valid, continue with old token
+    const expiry = parseTokenExpiry(token);
+    if (expiry && Date.now() < expiry) {
+      return token;
+    }
+    return null;
+  }
+
+  return token;
 }
 
 /**
@@ -118,7 +238,12 @@ async function handleResponseError(response: Response): Promise<Response> {
 }
 
 /**
- * API Fetch wrapper with automatic auth and error handling
+ * API Fetch wrapper with automatic auth, token refresh, and error handling
+ *
+ * Features:
+ * - Automatic token refresh before expiry
+ * - Retry on 401 with fresh token
+ * - Session expiration handling
  *
  * @example
  * ```ts
@@ -135,9 +260,11 @@ async function handleResponseError(response: Response): Promise<Response> {
  */
 export async function apiFetch(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retryCount = 0
 ): Promise<Response> {
-  const token = getAuthToken();
+  // Get valid token (with automatic refresh if needed)
+  const token = await ensureValidToken();
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -155,6 +282,16 @@ export async function apiFetch(
       headers,
       credentials: 'include', // Include cookies
     });
+
+    // If we get a 401 and haven't retried yet, try refreshing the token
+    if (response.status === 401 && retryCount === 0) {
+      console.debug('[Auth] Got 401, attempting token refresh');
+      const refreshed = await refreshAuthToken();
+      if (refreshed) {
+        // Retry the request with the new token
+        return apiFetch(url, options, retryCount + 1);
+      }
+    }
 
     // Check for auth errors
     return await handleResponseError(response);

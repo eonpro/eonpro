@@ -1,40 +1,89 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getUserFromCookies } from "@/lib/auth/session";
+import { logger } from "@/lib/logger";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAuditsPage() {
-  // Get all patient audit entries
-  const patientAudits = await prisma.patientAudit.findMany({
-    include: {
-      patient: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          patientId: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+  // Verify user is authenticated and is a super admin
+  const user = await getUserFromCookies();
+  if (!user) {
+    redirect("/login?redirect=" + encodeURIComponent("/admin/audits"));
+  }
 
-  // Get all provider audit entries
-  const providerAudits = await prisma.providerAudit.findMany({
-    include: {
-      provider: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          npi: true,
+  // Only super admins can access system-wide audit logs
+  if (user.role !== "super_admin") {
+    logger.security("Unauthorized access attempt to admin audits page", {
+      userId: user.id,
+      userRole: user.role,
+      clinicId: user.clinicId,
+    });
+    return (
+      <div className="p-10">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <h1 className="text-2xl font-bold text-red-700">Access Denied</h1>
+          <p className="text-red-600 mt-2">
+            You do not have permission to view this page. This page is restricted to super administrators only.
+          </p>
+          <Link href="/admin" className="mt-4 inline-block text-[#4fa77e] underline">
+            ← Back to Admin
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  let patientAudits;
+  let providerAudits;
+
+  try {
+    // Get all patient audit entries (super admin sees all clinics)
+    patientAudits = await prisma.patientAudit.findMany({
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            patientId: true,
+          },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
+    // Get all provider audit entries
+    providerAudits = await prisma.providerAudit.findMany({
+      include: {
+        provider: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            npi: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+  } catch (dbError) {
+    logger.error("Database error fetching audit logs:", {
+      userId: user.id,
+      error: dbError instanceof Error ? dbError.message : String(dbError),
+    });
+    return (
+      <div className="p-10">
+        <p className="text-red-600">Error loading audit data. Please try again.</p>
+        <Link href="/admin" className="mt-4 block text-[#4fa77e] underline">
+          ← Back to Admin
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="p-10 space-y-8">

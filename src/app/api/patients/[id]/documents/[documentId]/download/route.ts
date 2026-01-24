@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { retrieveFile } from '@/lib/storage/secure-storage';
+import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 
 // Helper to convert data field to Buffer
 const toBuffer = (data: any): Buffer | null => {
@@ -20,10 +22,15 @@ const isPdfBuffer = (buffer: Buffer): boolean => {
   return buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46;
 };
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string; documentId: string }> }
-) {
+type Params = {
+  params: Promise<{ id: string; documentId: string }>;
+};
+
+const downloadDocumentHandler = withAuthParams(async (
+  request: NextRequest,
+  user,
+  { params }: Params
+) => {
   try {
     const resolvedParams = await params;
     const patientId = parseInt(resolvedParams.id);
@@ -35,6 +42,40 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    // Authorization: patients can only download their own documents
+    if (user.role === 'patient' && user.patientId !== patientId) {
+      await auditLog(request, {
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: user.clinicId,
+        eventType: AuditEventType.PHI_VIEW,
+        resourceType: 'PatientDocument',
+        resourceId: documentId,
+        action: 'DOWNLOAD_DENIED',
+        outcome: 'FAILURE',
+        reason: 'Patient attempted to access another patient document',
+      });
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // HIPAA Audit: Log document access
+    await auditLog(request, {
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      clinicId: user.clinicId,
+      eventType: AuditEventType.DOCUMENT_VIEW,
+      resourceType: 'PatientDocument',
+      resourceId: documentId,
+      patientId: patientId,
+      action: 'DOWNLOAD',
+      outcome: 'SUCCESS',
+    });
 
     // Fetch the document
     const document: any = await prisma.patientDocument.findFirst({
@@ -121,4 +162,6 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
+
+export const GET = downloadDocumentHandler;

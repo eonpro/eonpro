@@ -8,8 +8,9 @@ import {
   ArrowLeft, Building2, Globe, Palette, Save, Trash2,
   Users, Activity, Calendar, Settings, AlertTriangle, Plus,
   UserPlus, Mail, Shield, X, Eye, EyeOff, Pill, FileText,
-  CheckCircle2, XCircle, ExternalLink, Zap
+  CheckCircle2, XCircle, ExternalLink, Zap, Image as ImageIcon
 } from 'lucide-react';
+import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 
 interface ClinicFeatures {
   telehealth: boolean;
@@ -137,6 +138,10 @@ export default function ClinicDetailPage() {
     address: string;
     primaryColor: string;
     secondaryColor: string;
+    accentColor: string;
+    logoUrl: string;
+    iconUrl: string;
+    faviconUrl: string;
     plan: string;
     isActive: boolean;
     features: ClinicFeatures;
@@ -149,6 +154,10 @@ export default function ClinicDetailPage() {
     address: '',
     primaryColor: '#0d9488',
     secondaryColor: '#6366f1',
+    accentColor: '#d3f931',
+    logoUrl: '',
+    iconUrl: '',
+    faviconUrl: '',
     plan: 'professional',
     isActive: true,
     features: {
@@ -210,8 +219,12 @@ export default function ClinicDetailPage() {
           adminEmail: fetchedClinic.adminEmail,
           phone: fetchedClinic.phone || '',
           address: fetchedClinic.address || '',
-          primaryColor: fetchedClinic.primaryColor || '#0d9488',
-          secondaryColor: fetchedClinic.secondaryColor || '#6366f1',
+          primaryColor: clinicData.primaryColor || '#0d9488',
+          secondaryColor: clinicData.secondaryColor || '#6366f1',
+          accentColor: clinicData.accentColor || '#d3f931',
+          logoUrl: clinicData.logoUrl || '',
+          iconUrl: clinicData.iconUrl || '',
+          faviconUrl: clinicData.faviconUrl || '',
           plan: fetchedClinic.plan,
           isActive: fetchedClinic.isActive,
           features: fetchedClinic.features,
@@ -510,6 +523,10 @@ export default function ClinicDetailPage() {
           address: formData.address || null,
           primaryColor: formData.primaryColor,
           secondaryColor: formData.secondaryColor,
+          accentColor: formData.accentColor,
+          logoUrl: formData.logoUrl || null,
+          iconUrl: formData.iconUrl || null,
+          faviconUrl: formData.faviconUrl || null,
           billingPlan: formData.plan,
           status: formData.isActive ? 'ACTIVE' : 'INACTIVE',
           features: formData.features,
@@ -752,8 +769,12 @@ export default function ClinicDetailPage() {
 
         {activeTab === 'branding' && (
           <div className="space-y-6">
+            {/* Domain Settings */}
             <div className="bg-white rounded-xl p-6 border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">White Label Branding</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Globe className="h-5 w-5 text-teal-600" />
+                Domain Settings
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Subdomain</label>
@@ -779,8 +800,72 @@ export default function ClinicDetailPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Branding Assets */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-teal-600" />
+                Branding Assets
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Upload your clinic's logo, icon, and favicon to white-label the platform for your members.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <BrandingImageUploader
+                  label="Logo"
+                  description="Main logo displayed in header and emails"
+                  imageUrl={formData.logoUrl || null}
+                  onImageChange={(url) => setFormData({ ...formData, logoUrl: url || '' })}
+                  imageType="logo"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  maxSizeMB={2}
+                  recommendedSize="Recommended: 400x100px, transparent PNG or SVG"
+                  clinicId={parseInt(clinicId as string)}
+                />
+
+                <BrandingImageUploader
+                  label="App Icon"
+                  description="Square icon for mobile apps and PWA"
+                  imageUrl={formData.iconUrl || null}
+                  onImageChange={(url) => setFormData({ ...formData, iconUrl: url || '' })}
+                  imageType="icon"
+                  accept="image/png,image/jpeg"
+                  maxSizeMB={1}
+                  recommendedSize="Required: 192x192px square PNG"
+                  clinicId={parseInt(clinicId as string)}
+                />
+
+                <BrandingImageUploader
+                  label="Favicon"
+                  description="Small icon shown in browser tabs"
+                  imageUrl={formData.faviconUrl || null}
+                  onImageChange={(url) => setFormData({ ...formData, faviconUrl: url || '' })}
+                  imageType="favicon"
+                  accept="image/png,image/x-icon,.ico"
+                  maxSizeMB={0.1}
+                  recommendedSize="Required: 32x32px or 16x16px"
+                  clinicId={parseInt(clinicId as string)}
+                />
+              </div>
+            </div>
+
+            {/* Brand Colors */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <Palette className="h-5 w-5 text-teal-600" />
+                Brand Colors
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Define your clinic's color palette for a consistent brand experience.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
+                  <p className="text-xs text-gray-500 mb-2">Main brand color for buttons and links</p>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
@@ -793,16 +878,17 @@ export default function ClinicDetailPage() {
                       value={formData.primaryColor}
                       onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
                       placeholder="#10B981"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
+                  <p className="text-xs text-gray-500 mb-2">Supporting color for backgrounds</p>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
-                      value={/^#[0-9A-Fa-f]{6}$/.test(formData.secondaryColor) ? formData.secondaryColor : '#EFECE7'}
+                      value={/^#[0-9A-Fa-f]{6}$/.test(formData.secondaryColor) ? formData.secondaryColor : '#3B82F6'}
                       onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
                       className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
                     />
@@ -810,40 +896,112 @@ export default function ClinicDetailPage() {
                       type="text"
                       value={formData.secondaryColor}
                       onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
-                      placeholder="#EFECE7"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      placeholder="#3B82F6"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Accent Color</label>
+                  <p className="text-xs text-gray-500 mb-2">Highlight color for badges and alerts</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={/^#[0-9A-Fa-f]{6}$/.test(formData.accentColor) ? formData.accentColor : '#d3f931'}
+                      onChange={(e) => setFormData({ ...formData, accentColor: e.target.value })}
+                      className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={formData.accentColor}
+                      onChange={(e) => setFormData({ ...formData, accentColor: e.target.value })}
+                      placeholder="#d3f931"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm"
                     />
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="mt-6 p-6 bg-gray-50 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Preview</h4>
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold"
-                    style={{ backgroundColor: formData.primaryColor }}
-                  >
-                    {formData.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-semibold" style={{ color: formData.primaryColor }}>{formData.name}</p>
-                    <p className="text-sm text-gray-500">{formData.subdomain}.eonpro.io</p>
+            {/* Live Preview */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Preview</h3>
+              <div className="bg-gray-100 rounded-xl p-6">
+                {/* Header Preview */}
+                <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    {formData.logoUrl ? (
+                      <img src={formData.logoUrl} alt="Logo" className="h-10 max-w-[150px] object-contain" />
+                    ) : (
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
+                        style={{ backgroundColor: formData.primaryColor }}
+                      >
+                        {formData.name.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-semibold" style={{ color: formData.primaryColor }}>{formData.name}</p>
+                      <p className="text-xs text-gray-500">{formData.subdomain}.eonpro.io</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button
-                    className="px-4 py-2 rounded-lg text-white"
-                    style={{ backgroundColor: formData.primaryColor }}
-                  >
-                    Primary Button
-                  </button>
-                  <button
-                    className="px-4 py-2 rounded-lg text-white"
-                    style={{ backgroundColor: formData.secondaryColor }}
-                  >
-                    Secondary Button
-                  </button>
+
+                {/* UI Elements Preview */}
+                <div className="bg-white rounded-lg shadow-sm p-4">
+                  <div className="flex flex-wrap gap-3 mb-4">
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-lg text-white text-sm font-medium"
+                      style={{ backgroundColor: formData.primaryColor }}
+                    >
+                      Primary Button
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-lg text-white text-sm font-medium"
+                      style={{ backgroundColor: formData.secondaryColor }}
+                    >
+                      Secondary Button
+                    </button>
+                    <span
+                      className="px-3 py-1 rounded-full text-xs font-medium"
+                      style={{ backgroundColor: formData.accentColor, color: '#333' }}
+                    >
+                      Accent Badge
+                    </span>
+                  </div>
+
+                  {/* Color Swatches */}
+                  <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+                    <span className="text-xs text-gray-500 mr-2">Color Palette:</span>
+                    <div
+                      className="w-8 h-8 rounded-lg shadow-inner"
+                      style={{ backgroundColor: formData.primaryColor }}
+                      title="Primary"
+                    />
+                    <div
+                      className="w-8 h-8 rounded-lg shadow-inner"
+                      style={{ backgroundColor: formData.secondaryColor }}
+                      title="Secondary"
+                    />
+                    <div
+                      className="w-8 h-8 rounded-lg shadow-inner border border-gray-200"
+                      style={{ backgroundColor: formData.accentColor }}
+                      title="Accent"
+                    />
+                    {(formData.iconUrl || formData.faviconUrl) && (
+                      <>
+                        <span className="text-xs text-gray-500 ml-4 mr-2">Icons:</span>
+                        {formData.iconUrl && (
+                          <img src={formData.iconUrl} alt="Icon" className="w-8 h-8 rounded" />
+                        )}
+                        {formData.faviconUrl && (
+                          <img src={formData.faviconUrl} alt="Favicon" className="w-4 h-4" />
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -12,6 +12,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { providerService, type UserContext } from '@/domains/provider';
 import { handleApiError } from '@/domains/shared/errors';
+import { authRateLimiter } from '@/lib/security/rate-limiter-redis';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/providers
@@ -49,13 +51,31 @@ export const GET = withAuth(
  * POST /api/providers
  * Create a new provider
  *
+ * SECURITY NOTE: This endpoint is intentionally public for the registration flow.
+ * Rate limited strictly to prevent abuse.
+ *
  * - Validates input with NPI checksum
  * - Verifies NPI with national registry
  * - Creates provider with audit logging
  */
-export async function POST(req: NextRequest) {
+const createProviderHandler = async (req: NextRequest) => {
   try {
     const body = await req.json();
+
+    // Validate required fields for registration
+    if (!body.email || !body.npi) {
+      return NextResponse.json(
+        { error: 'Email and NPI are required for provider registration' },
+        { status: 400 }
+      );
+    }
+
+    // Log registration attempt for security monitoring
+    logger.info('Provider registration attempt', {
+      email: body.email,
+      npi: body.npi ? body.npi.substring(0, 4) + '****' : undefined,
+      ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+    });
 
     // For unauthenticated provider creation (registration flow),
     // use a system context
@@ -76,4 +96,8 @@ export async function POST(req: NextRequest) {
       context: { route: 'POST /api/providers' },
     });
   }
-}
+};
+
+// Apply strict rate limiting to prevent registration abuse
+// 5 attempts per 15 minutes
+export const POST = authRateLimiter(createProviderHandler);

@@ -238,6 +238,12 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle unverified email specially
+        if (data.code === 'EMAIL_NOT_VERIFIED') {
+          setError(`${data.error} Check your email or request a new verification link.`);
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error || 'Login failed');
       }
 
@@ -475,6 +481,16 @@ export default function LoginPage() {
                     </>
                   )}
                 </button>
+
+                {/* New Patient Registration Link */}
+                <div className="pt-4 border-t border-gray-100">
+                  <p className="text-sm text-center text-gray-600">
+                    New patient?{' '}
+                    <a href="/register" className="text-emerald-600 hover:text-emerald-700 font-medium">
+                      Create an account
+                    </a>
+                  </p>
+                </div>
               </form>
             )}
 
