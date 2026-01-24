@@ -3,15 +3,44 @@
 /**
  * Affiliate Login Page
  * 
- * Premium phone-based authentication experience.
- * Mobile-first, minimal design inspired by Hims/Ro.
+ * Premium phone-based authentication with clinic branding.
+ * Mobile-first, minimal design.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type LoginStep = 'phone' | 'code' | 'success';
+
+interface ClinicBranding {
+  clinicId: number;
+  name: string;
+  logoUrl: string | null;
+  iconUrl: string | null;
+  faviconUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  buttonTextColor: 'auto' | 'light' | 'dark';
+}
+
+// Helper function to calculate text color based on background luminance
+function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string {
+  if (mode === 'light') return '#ffffff';
+  if (mode === 'dark') return '#1f2937';
+
+  // Auto mode: calculate based on luminance
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return '#ffffff';
+
+  const r = parseInt(result[1], 16) / 255;
+  const g = parseInt(result[2], 16) / 255;
+  const b = parseInt(result[3], 16) / 255;
+
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.5 ? '#1f2937' : '#ffffff';
+}
 
 export default function AffiliateLoginPage() {
   const router = useRouter();
@@ -25,8 +54,56 @@ export default function AffiliateLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
   
+  // Branding state
+  const [branding, setBranding] = useState<ClinicBranding | null>(null);
+  const [brandingLoaded, setBrandingLoaded] = useState(false);
+  
   const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const phoneInputRef = useRef<HTMLInputElement>(null);
+
+  // Resolve clinic from domain and load branding
+  useEffect(() => {
+    const resolveClinic = async () => {
+      try {
+        const domain = window.location.hostname;
+        const response = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          setBranding({
+            clinicId: data.clinicId,
+            name: data.name,
+            logoUrl: data.branding.logoUrl,
+            iconUrl: data.branding.iconUrl,
+            faviconUrl: data.branding.faviconUrl,
+            primaryColor: data.branding.primaryColor,
+            secondaryColor: data.branding.secondaryColor,
+            accentColor: data.branding.accentColor,
+            buttonTextColor: data.branding.buttonTextColor || 'auto',
+          });
+
+          // Update favicon if clinic has one
+          if (data.branding.faviconUrl) {
+            const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+            link.type = 'image/x-icon';
+            link.rel = 'shortcut icon';
+            link.href = data.branding.faviconUrl;
+            document.head.appendChild(link);
+          }
+
+          // Update page title
+          document.title = `Partner Portal | ${data.name}`;
+        }
+      } catch (err) {
+        // Silently fail - use default branding
+        console.log('Using default branding');
+      } finally {
+        setBrandingLoaded(true);
+      }
+    };
+
+    resolveClinic();
+  }, []);
 
   // Format phone number as user types
   const formatPhone = (value: string) => {
@@ -185,219 +262,318 @@ export default function AffiliateLoginPage() {
 
   // Auto-focus phone input
   useEffect(() => {
-    phoneInputRef.current?.focus();
-  }, []);
+    if (brandingLoaded) {
+      phoneInputRef.current?.focus();
+    }
+  }, [brandingLoaded]);
+
+  // Get colors from branding or use defaults
+  const primaryColor = branding?.primaryColor || '#10B981';
+  const secondaryColor = branding?.secondaryColor || '#3B82F6';
+  const accentColor = branding?.accentColor || '#d3f931';
+  const buttonTextMode = branding?.buttonTextColor || 'auto';
+  const buttonTextColor = getTextColorForBg(primaryColor, buttonTextMode);
+
+  // Show loading while branding is being fetched
+  if (!brandingLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div 
+          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
-      <header className="px-6 py-4 flex items-center justify-center border-b border-gray-100">
-        <div className="text-xl font-semibold tracking-tight text-gray-900">
-          Partner Portal
-        </div>
-      </header>
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Gradient Background - uses branding colors */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: branding
+            ? `linear-gradient(135deg, ${primaryColor}08 0%, ${primaryColor}12 25%, ${secondaryColor}10 50%, ${accentColor}15 75%, ${accentColor}20 100%)`
+            : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
+        }}
+      />
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        <AnimatePresence mode="wait">
-          {step === 'phone' && (
-            <motion.div
-              key="phone"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="w-full max-w-sm"
-            >
-              <div className="text-center mb-8">
-                <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-                  Welcome back
-                </h1>
-                <p className="text-gray-500">
-                  Enter your phone number to continue
-                </p>
-              </div>
+      {/* Subtle mesh overlay */}
+      <div
+        className="absolute inset-0 opacity-30"
+        style={{
+          backgroundImage: branding
+            ? `radial-gradient(circle at 20% 50%, ${primaryColor}15 0%, transparent 50%),
+               radial-gradient(circle at 80% 20%, ${accentColor}20 0%, transparent 50%),
+               radial-gradient(circle at 40% 80%, ${secondaryColor}15 0%, transparent 50%)`
+            : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+               radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.15) 0%, transparent 50%),
+               radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.1) 0%, transparent 50%)`,
+        }}
+      />
 
-              <form onSubmit={handlePhoneSubmit} className="space-y-6">
-                <div>
-                  <label htmlFor="phone" className="sr-only">
-                    Phone number
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
-                      +1
-                    </span>
-                    <input
-                      ref={phoneInputRef}
-                      id="phone"
-                      type="tel"
-                      inputMode="numeric"
-                      autoComplete="tel"
-                      value={phone}
-                      onChange={handlePhoneChange}
-                      placeholder="(555) 555-5555"
-                      className="w-full pl-12 pr-4 py-4 text-lg rounded-xl border border-gray-200 
-                               focus:border-gray-900 focus:ring-0 transition-colors
-                               placeholder:text-gray-300"
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-red-500 text-sm text-center"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isLoading || phone.replace(/\D/g, '').length !== 10}
-                  className="w-full py-4 bg-gray-900 text-white text-lg font-medium rounded-xl
-                           hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400
-                           transition-all duration-200 flex items-center justify-center"
+      {/* Content */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* Logo centered at top - uses clinic logo if available */}
+        <div className="flex flex-col items-center pt-12 pb-8">
+          {branding ? (
+            <>
+              {branding.logoUrl ? (
+                <img
+                  src={branding.logoUrl}
+                  alt={branding.name}
+                  className="h-12 max-w-[200px] object-contain"
+                />
+              ) : (
+                <h1
+                  className="text-3xl font-bold"
+                  style={{ color: primaryColor }}
                 >
-                  {isLoading ? (
-                    <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    'Continue'
-                  )}
-                </button>
-              </form>
-
-              <p className="mt-8 text-center text-sm text-gray-400">
-                By continuing, you agree to our{' '}
-                <a href="/terms" className="text-gray-600 hover:underline">Terms</a>
-                {' '}and{' '}
-                <a href="/privacy" className="text-gray-600 hover:underline">Privacy Policy</a>
+                  {branding.name}
+                </h1>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Powered by <span className="font-medium">EONPRO</span>
               </p>
-            </motion.div>
+            </>
+          ) : (
+            <img
+              src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+              alt="EONPRO"
+              className="h-10 w-auto"
+            />
           )}
+        </div>
 
-          {step === 'code' && (
-            <motion.div
-              key="code"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="w-full max-w-sm"
-            >
-              <button
-                onClick={() => {
-                  setStep('phone');
-                  setCode(['', '', '', '', '', '']);
-                  setError(null);
-                }}
-                className="mb-6 text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-              </button>
-
-              <div className="text-center mb-8">
-                <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-                  Enter code
-                </h1>
-                <p className="text-gray-500">
-                  We sent a code to {phone}
-                </p>
-              </div>
-
-              <div className="space-y-6">
-                <div 
-                  className="flex justify-center gap-3"
-                  onPaste={handleCodePaste}
-                >
-                  {code.map((digit, index) => (
-                    <input
-                      key={index}
-                      ref={el => { codeInputRefs.current[index] = el; }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={e => handleCodeChange(index, e.target.value)}
-                      onKeyDown={e => handleCodeKeyDown(index, e)}
-                      className="w-12 h-14 text-center text-2xl font-semibold rounded-xl
-                               border border-gray-200 focus:border-gray-900 focus:ring-0
-                               transition-colors"
-                    />
-                  ))}
-                </div>
-
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-red-500 text-sm text-center"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-
-                {isLoading && (
-                  <div className="flex justify-center">
-                    <span className="inline-block w-6 h-6 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
-                  </div>
-                )}
-
-                <div className="text-center">
-                  {countdown > 0 ? (
-                    <p className="text-gray-400 text-sm">
-                      Resend code in {countdown}s
-                    </p>
-                  ) : (
-                    <button
-                      onClick={handleResendCode}
-                      disabled={isLoading}
-                      className="text-gray-900 font-medium text-sm hover:underline"
-                    >
-                      Resend code
-                    </button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 'success' && (
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center"
-            >
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+          <AnimatePresence mode="wait">
+            {step === 'phone' && (
               <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', duration: 0.5 }}
-                className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
+                key="phone"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="w-full max-w-md"
               >
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </motion.div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Welcome back!
-              </h2>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+                {/* Welcome Text */}
+                <div className="text-center mb-8">
+                  <h1 className="text-5xl md:text-6xl font-light text-gray-900 mb-4 tracking-tight">
+                    Partner Portal
+                  </h1>
+                  <p className="text-gray-600 text-lg">
+                    {branding ? `Sign in to manage your ${branding.name} partnership` : 'Enter your phone number to continue'}
+                  </p>
+                </div>
 
-      {/* Footer */}
-      <footer className="px-6 py-4 text-center text-xs text-gray-400">
-        Need help?{' '}
-        <a href="mailto:partners@lifefile.com" className="text-gray-600 hover:underline">
-          Contact support
-        </a>
-      </footer>
+                <form onSubmit={handlePhoneSubmit} className="space-y-4">
+                  <div>
+                    <label htmlFor="phone" className="sr-only">
+                      Phone number
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
+                        +1
+                      </span>
+                      <input
+                        ref={phoneInputRef}
+                        id="phone"
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        value={phone}
+                        onChange={handlePhoneChange}
+                        placeholder="(555) 555-5555"
+                        className="w-full pl-12 pr-4 py-4 text-lg bg-white border border-gray-200 rounded-2xl 
+                                 focus:outline-none focus:ring-2 focus:border-transparent transition-all
+                                 placeholder:text-gray-400"
+                        style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      />
+                    </div>
+                  </div>
+
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-4 bg-red-50 border border-red-200 rounded-2xl"
+                    >
+                      <p className="text-sm text-red-600 text-center">{error}</p>
+                    </motion.div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || phone.replace(/\D/g, '').length !== 10}
+                    className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                      isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                    }`}
+                    style={{
+                      backgroundColor: isLoading || phone.replace(/\D/g, '').length !== 10 ? '#9CA3AF' : primaryColor,
+                      color: buttonTextColor,
+                    }}
+                  >
+                    {isLoading ? (
+                      <span className="inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      'Continue'
+                    )}
+                  </button>
+                </form>
+
+                <p className="mt-8 text-center text-sm text-gray-500">
+                  By continuing, you agree to our{' '}
+                  <a href="/terms" className="font-medium hover:opacity-80" style={{ color: primaryColor }}>Terms</a>
+                  {' '}and{' '}
+                  <a href="/privacy" className="font-medium hover:opacity-80" style={{ color: primaryColor }}>Privacy Policy</a>
+                </p>
+              </motion.div>
+            )}
+
+            {step === 'code' && (
+              <motion.div
+                key="code"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="w-full max-w-md"
+              >
+                <button
+                  onClick={() => {
+                    setStep('phone');
+                    setCode(['', '', '', '', '', '']);
+                    setError(null);
+                  }}
+                  className="mb-6 text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back
+                </button>
+
+                <div className="text-center mb-8">
+                  <h1 className="text-4xl font-light text-gray-900 mb-4">
+                    Enter code
+                  </h1>
+                  <p className="text-gray-600">
+                    We sent a verification code to <span className="font-medium">{phone}</span>
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  <div 
+                    className="flex justify-center gap-3"
+                    onPaste={handleCodePaste}
+                  >
+                    {code.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={el => { codeInputRefs.current[index] = el; }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={e => handleCodeChange(index, e.target.value)}
+                        onKeyDown={e => handleCodeKeyDown(index, e)}
+                        className="w-12 h-14 text-center text-2xl font-semibold bg-white rounded-xl
+                                 border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent
+                                 transition-colors"
+                        style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      />
+                    ))}
+                  </div>
+
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-4 bg-red-50 border border-red-200 rounded-2xl"
+                    >
+                      <p className="text-sm text-red-600 text-center">{error}</p>
+                    </motion.div>
+                  )}
+
+                  {isLoading && (
+                    <div className="flex justify-center">
+                      <span 
+                        className="inline-block w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
+                        style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="text-center">
+                    {countdown > 0 ? (
+                      <p className="text-gray-500 text-sm">
+                        Resend code in {countdown}s
+                      </p>
+                    ) : (
+                      <button
+                        onClick={handleResendCode}
+                        disabled={isLoading}
+                        className="font-medium text-sm hover:opacity-80"
+                        style={{ color: primaryColor }}
+                      >
+                        Resend code
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 'success' && (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center"
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', duration: 0.5 }}
+                  className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                  style={{ backgroundColor: `${primaryColor}20` }}
+                >
+                  <svg 
+                    className="w-8 h-8" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    style={{ color: primaryColor }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </motion.div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Welcome back!
+                </h2>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+
+        {/* Footer */}
+        <footer className="p-6 text-center">
+          <p className="text-xs text-gray-500">
+            Need help?{' '}
+            <a 
+              href={`mailto:support@${branding?.name?.toLowerCase().replace(/\s+/g, '') || 'eonpro'}.com`} 
+              className="font-medium hover:opacity-80"
+              style={{ color: primaryColor }}
+            >
+              Contact support
+            </a>
+          </p>
+          <p className="text-xs text-gray-400 mt-2">
+            © 2026 {branding?.name || 'EONPRO'} • Partner Portal
+          </p>
+        </footer>
+      </div>
     </div>
   );
 }
