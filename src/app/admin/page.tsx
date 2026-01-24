@@ -88,7 +88,8 @@ export default function AdminPage() {
 
   const loadDashboardData = async () => {
     try {
-      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h');
+      // Include contact info to show DOB, email, and phone
+      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h&includeContact=true');
 
       if (intakesResponse.ok) {
         const intakesData = await intakesResponse.json();
@@ -139,8 +140,10 @@ export default function AdminPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
     return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
   };
 
