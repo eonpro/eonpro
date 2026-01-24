@@ -133,8 +133,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       primaryColor,
       secondaryColor,
       accentColor,
-      // NOTE: buttonTextColor removed - column doesn't exist in production yet
-      // Uncomment after migration is deployed: buttonTextColor,
+      buttonTextColor,
       logoUrl,
       iconUrl,
       faviconUrl,
@@ -196,8 +195,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         primaryColor: primaryColor || '#10B981',
         secondaryColor: secondaryColor || '#3B82F6',
         accentColor: accentColor || '#d3f931',
-        // NOTE: buttonTextColor removed - column doesn't exist in production yet
-        // Uncomment after migration is deployed: buttonTextColor: buttonTextColor || 'auto',
+        buttonTextColor: buttonTextColor || 'auto',
         logoUrl: logoUrl || null,
         iconUrl: iconUrl || null,
         faviconUrl: faviconUrl || null,

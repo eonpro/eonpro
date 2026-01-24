@@ -20,10 +20,24 @@ FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE RESTRICT ON UPDATE 
 -- This ensures new patients get the next number after existing ones
 
 -- First, get the max patient number per clinic and insert/update counters
+-- Patient IDs may be in format "PT-000001" or just numbers, so we extract the numeric suffix
 INSERT INTO "PatientCounter" ("clinicId", "current")
 SELECT 
   p."clinicId",
-  COALESCE(MAX(CAST(p."patientId" AS INTEGER)), 0) as max_patient_id
+  COALESCE(
+    MAX(
+      CASE 
+        -- Handle format like "PT-000001" - extract numbers after last hyphen
+        WHEN p."patientId" ~ '-' THEN 
+          NULLIF(REGEXP_REPLACE(SUBSTRING(p."patientId" FROM '[0-9]+$'), '^0+', ''), '')::INTEGER
+        -- Handle pure numeric format
+        WHEN p."patientId" ~ '^[0-9]+$' THEN 
+          p."patientId"::INTEGER
+        ELSE NULL
+      END
+    ), 
+    0
+  ) as max_patient_id
 FROM "Patient" p
 WHERE p."clinicId" IS NOT NULL AND p."patientId" IS NOT NULL
 GROUP BY p."clinicId"
