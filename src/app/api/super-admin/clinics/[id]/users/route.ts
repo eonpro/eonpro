@@ -33,9 +33,10 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       );
     }
 
-    // Verify clinic exists
+    // Verify clinic exists (select only needed fields for backwards compatibility)
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
+      select: { id: true, name: true },
     });
 
     if (!clinic) {
@@ -123,9 +124,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
       );
     }
 
-    // Verify clinic exists
+    // Verify clinic exists (select only needed fields for backwards compatibility)
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
+      select: { id: true, name: true },
     });
 
     if (!clinic) {
