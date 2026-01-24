@@ -14,6 +14,8 @@ import {
   Copy,
   Check,
   ChevronDown,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 interface Clinic {
@@ -104,6 +106,8 @@ export default function SuperAdminAffiliatesPage() {
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [migrationNeeded, setMigrationNeeded] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -111,6 +115,8 @@ export default function SuperAdminAffiliatesPage() {
 
   const fetchData = async () => {
     const token = localStorage.getItem('auth-token');
+    setFetchError(null);
+    setMigrationNeeded(false);
 
     try {
       // Fetch clinics first
@@ -128,13 +134,25 @@ export default function SuperAdminAffiliatesPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
+      const data = await affiliatesRes.json();
+
       if (affiliatesRes.ok) {
-        const data = await affiliatesRes.json();
         setAffiliates(data.affiliates || []);
         setPlans(data.plans || []);
+
+        // Check if migration warning exists
+        if (data.details?.includes('migration')) {
+          setMigrationNeeded(true);
+        }
+      } else {
+        setFetchError(data.error || 'Failed to load affiliates');
+        if (data.details?.includes('migration')) {
+          setMigrationNeeded(true);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      setFetchError('Failed to connect to server');
     } finally {
       setLoading(false);
     }
@@ -255,6 +273,39 @@ export default function SuperAdminAffiliatesPage() {
           Add Affiliate
         </button>
       </div>
+
+      {/* Error/Warning Banner */}
+      {(fetchError || migrationNeeded) && (
+        <div className={`mb-6 rounded-xl border p-4 flex items-start gap-3 ${
+          fetchError ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+        }`}>
+          <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
+            fetchError ? 'text-red-500' : 'text-amber-500'
+          }`} />
+          <div className="flex-1">
+            <p className={`font-medium ${fetchError ? 'text-red-800' : 'text-amber-800'}`}>
+              {fetchError || 'Database migration may be needed'}
+            </p>
+            {migrationNeeded && (
+              <p className="mt-1 text-sm text-amber-600">
+                Run <code className="bg-amber-100 px-1 rounded">npx prisma migrate deploy</code> to create the affiliate tables.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              setLoading(true);
+              fetchData();
+            }}
+            className={`p-1.5 rounded-lg hover:bg-white/50 ${
+              fetchError ? 'text-red-600' : 'text-amber-600'
+            }`}
+            title="Retry"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Stats Summary */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
@@ -442,12 +493,19 @@ export default function SuperAdminAffiliatesPage() {
           <div className="py-12 text-center">
             <Users className="mx-auto h-12 w-12 text-gray-300" />
             <p className="mt-2 text-gray-500">No affiliates found</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="mt-4 text-violet-600 hover:text-violet-700 font-medium"
-            >
-              Add your first affiliate
-            </button>
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="text-violet-600 hover:text-violet-700 font-medium"
+              >
+                Add your first affiliate
+              </button>
+              {plans.length === 0 && (
+                <p className="text-sm text-gray-400">
+                  Tip: <Link href="/super-admin/commission-plans" className="text-violet-600 hover:underline">Create a commission plan</Link> first
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>

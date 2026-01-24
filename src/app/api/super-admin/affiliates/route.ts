@@ -121,8 +121,25 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     });
   } catch (error) {
     console.error('Failed to fetch affiliates:', error);
+
+    // Check if this is a Prisma error indicating missing tables
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isPrismaTableError = errorMessage.includes('does not exist') ||
+                               errorMessage.includes('relation') ||
+                               errorMessage.includes('P2021') ||
+                               errorMessage.includes('P2025');
+
+    if (isPrismaTableError) {
+      return NextResponse.json({
+        error: 'Database tables not found. Please run migrations.',
+        details: 'The affiliate system tables have not been created yet. Run: npx prisma migrate deploy',
+        affiliates: [],
+        plans: [],
+      }, { status: 200 }); // Return 200 with empty data so UI doesn't break
+    }
+
     return NextResponse.json(
-      { error: 'Failed to fetch affiliates' },
+      { error: 'Failed to fetch affiliates', details: errorMessage },
       { status: 500 }
     );
   }
