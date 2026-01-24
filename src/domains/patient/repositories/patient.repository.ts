@@ -449,6 +449,15 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
         // 2. Chat & Conversations
         await tx.patientChatMessage.deleteMany({ where: { patientId: id } });
+
+        // Delete AI messages first (foreign key to AIConversation)
+        const aiConversations = await tx.aIConversation.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        for (const conv of aiConversations) {
+          await tx.aIMessage.deleteMany({ where: { conversationId: conv.id } });
+        }
         await tx.aIConversation.deleteMany({ where: { patientId: id } });
 
         // 3. Care Plans (cascade delete handles goals, activities, progress)
@@ -497,21 +506,45 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         }
         await tx.order.deleteMany({ where: { patientId: id } });
 
-        // 10. Tickets, referrals, discount usage
+        // 10. Tickets (delete related records first)
+        const tickets = await tx.ticket.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        for (const ticket of tickets) {
+          await tx.ticketSLA.deleteMany({ where: { ticketId: ticket.id } });
+          await tx.ticketEscalation.deleteMany({ where: { ticketId: ticket.id } });
+          await tx.ticketWorkLog.deleteMany({ where: { ticketId: ticket.id } });
+          await tx.ticketStatusHistory.deleteMany({ where: { ticketId: ticket.id } });
+          await tx.ticketComment.deleteMany({ where: { ticketId: ticket.id } });
+          await tx.ticketAssignment.deleteMany({ where: { ticketId: ticket.id } });
+        }
         await tx.ticket.deleteMany({ where: { patientId: id } });
+
+        // 11. Referrals and discount usage
         await tx.referralTracking.deleteMany({ where: { patientId: id } });
         await tx.discountUsage.deleteMany({ where: { patientId: id } });
+        await tx.affiliateReferral.deleteMany({ where: { referredPatientId: id } });
 
-        // 11. SMS logs (nullable patientId, but clean up anyway)
+        // 12. Superbills (SuperbillItem will cascade delete)
+        await tx.superbill.deleteMany({ where: { patientId: id } });
+
+        // 13. Payment reconciliation records (nullable patientId)
+        await tx.paymentReconciliation.updateMany({
+          where: { patientId: id },
+          data: { patientId: null }
+        });
+
+        // 14. SMS logs (nullable patientId, but clean up anyway)
         await tx.smsLog.deleteMany({ where: { patientId: id } });
 
-        // 12. User association (nullable patientId)
+        // 15. User association (nullable patientId)
         await tx.user.updateMany({
           where: { patientId: id },
           data: { patientId: null }
         });
 
-        // 13. Delete patient audit records (compliance note: may want to keep these)
+        // 16. Delete patient audit records (compliance note: may want to keep these)
         await tx.patientAudit.deleteMany({ where: { patientId: id } });
 
         // Finally delete the patient
