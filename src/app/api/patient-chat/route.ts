@@ -56,18 +56,31 @@ const sendMessageSchema = z.object({
 });
 
 const getMessagesSchema = z.object({
-  patientId: z.string().transform(val => {
+  patientId: z.string().nullable().transform((val, ctx) => {
+    if (!val) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'patientId is required',
+      });
+      return z.NEVER;
+    }
     const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
+    if (isNaN(num) || num <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'patientId must be a positive integer',
+      });
+      return z.NEVER;
+    }
     return num;
   }),
-  limit: z.string().optional().transform(val => {
+  limit: z.string().nullable().optional().transform(val => {
     if (!val) return 50;
     const num = parseInt(val, 10);
     return isNaN(num) || num <= 0 ? 50 : Math.min(num, 100);
   }),
-  before: z.string().optional(), // ISO datetime string for pagination
-  threadId: z.string().max(100).optional(),
+  before: z.string().nullable().optional(), // ISO datetime string for pagination
+  threadId: z.string().max(100).nullable().optional(),
 });
 
 const markReadSchema = z.object({
@@ -395,6 +408,13 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     });
 
     if (!parseResult.success) {
+      logger.warn('Patient chat GET validation failed', {
+        issues: parseResult.error.issues,
+        rawParams: {
+          patientId: searchParams.get("patientId"),
+          limit: searchParams.get("limit"),
+        },
+      });
       return NextResponse.json(
         {
           error: "Invalid parameters",
