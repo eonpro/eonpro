@@ -90,11 +90,26 @@ export async function getStripeForClinic(clinicId: number): Promise<StripeContex
     throw new Error(`Clinic ${clinicId} not found`);
   }
   
-  // If it's the platform account or has no connected account, use platform directly
-  if (clinic.stripePlatformAccount || !clinic.stripeAccountId) {
+  // If clinic is explicitly marked as platform account (e.g., EONmeds)
+  if (clinic.stripePlatformAccount) {
     return {
       stripe,
       isPlatformAccount: true,
+      clinicId: clinic.id,
+    };
+  }
+  
+  // If clinic has no connected account AND is not a platform account,
+  // return isPlatformAccount: false so API routes can detect and return empty data
+  if (!clinic.stripeAccountId) {
+    logger.info('[STRIPE CONNECT] Clinic has no Stripe account configured', {
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+    });
+    return {
+      stripe,
+      isPlatformAccount: false,
+      stripeAccountId: undefined,
       clinicId: clinic.id,
     };
   }
