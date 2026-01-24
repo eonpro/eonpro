@@ -229,7 +229,7 @@ export class IntakeProcessor {
       return { patient, isNew: false };
     } else {
       // Create new patient - use clinic-specific counter
-      const patientNumber = await this.getNextPatientId(clinicId);
+      const patientNumber = await this.getNextPatientId(clinicId ?? undefined);
       
       const patient = await prisma.patient.create({
         data: {
