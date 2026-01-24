@@ -51,7 +51,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
 
     // Count providers per clinic from both User table (role PROVIDER) and Provider table
     const clinicsWithProviderCount = await Promise.all(
-      clinics.map(async (clinic) => {
+      clinics.map(async (clinic: typeof clinics[number]) => {
         const [userProviderCount, providerTableCount] = await Promise.all([
           prisma.user.count({
             where: {
