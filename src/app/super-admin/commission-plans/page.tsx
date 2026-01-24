@@ -285,7 +285,7 @@ export default function SuperAdminCommissionPlansPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#4fa77e] border-t-transparent" />
       </div>
     );
   }
@@ -300,7 +300,7 @@ export default function SuperAdminCommissionPlansPage() {
         </div>
         <button
           onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 font-medium text-white hover:bg-[#3d8a66]"
         >
           <Plus className="h-5 w-5" />
           Create Plan
@@ -325,7 +325,7 @@ export default function SuperAdminCommissionPlansPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+            <div className="rounded-lg bg-[#4fa77e]/10 p-2 text-[#4fa77e]">
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
@@ -378,7 +378,7 @@ export default function SuperAdminCommissionPlansPage() {
             placeholder="Search plans..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
           />
         </div>
         <div className="relative">
@@ -388,7 +388,7 @@ export default function SuperAdminCommissionPlansPage() {
             onChange={(e) =>
               setSelectedClinic(e.target.value === 'all' ? 'all' : parseInt(e.target.value))
             }
-            className="appearance-none rounded-lg border border-gray-200 py-2 pl-10 pr-10 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="appearance-none rounded-lg border border-gray-200 py-2 pl-10 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
           >
             <option value="all">All Clinics</option>
             {clinics.map((clinic) => (
@@ -446,19 +446,19 @@ export default function SuperAdminCommissionPlansPage() {
             </div>
 
             {/* Commission Rate */}
-            <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg p-4 mb-3">
+            <div className="bg-gradient-to-r from-[#4fa77e]/5 to-[#4fa77e]/5 rounded-lg p-4 mb-3">
               <div className="flex items-center gap-2">
                 {plan.planType === 'PERCENT' ? (
                   <>
-                    <Percent className="h-5 w-5 text-violet-600" />
-                    <span className="text-2xl font-bold text-violet-700">
+                    <Percent className="h-5 w-5 text-[#4fa77e]" />
+                    <span className="text-2xl font-bold text-[#3d8a66]">
                       {plan.percentBps ? formatPercent(plan.percentBps) : 'N/A'}
                     </span>
                   </>
                 ) : (
                   <>
-                    <DollarSign className="h-5 w-5 text-violet-600" />
-                    <span className="text-2xl font-bold text-violet-700">
+                    <DollarSign className="h-5 w-5 text-[#4fa77e]" />
+                    <span className="text-2xl font-bold text-[#3d8a66]">
                       {plan.flatAmountCents ? formatCurrency(plan.flatAmountCents) : 'N/A'}
                     </span>
                   </>
@@ -528,7 +528,7 @@ export default function SuperAdminCommissionPlansPage() {
             <p className="mt-2 text-gray-500">No commission plans found</p>
             <button
               onClick={openCreateModal}
-              className="mt-4 text-violet-600 hover:text-violet-700 font-medium"
+              className="mt-4 text-[#4fa77e] hover:text-[#3d8a66] font-medium"
             >
               Create your first plan
             </button>
@@ -561,7 +561,7 @@ export default function SuperAdminCommissionPlansPage() {
                   value={formData.clinicId}
                   onChange={(e) => setFormData((f) => ({ ...f, clinicId: e.target.value }))}
                   disabled={!!editingPlan}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 disabled:bg-gray-100"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e] disabled:bg-gray-100"
                 >
                   <option value="">Select a clinic...</option>
                   {clinics.map((clinic) => (
@@ -581,7 +581,7 @@ export default function SuperAdminCommissionPlansPage() {
                   value={formData.name}
                   onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
                   placeholder="e.g., Standard 10%, VIP Partner"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
 
@@ -593,7 +593,7 @@ export default function SuperAdminCommissionPlansPage() {
                   onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Optional description of this plan..."
                   rows={2}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
 
@@ -608,15 +608,15 @@ export default function SuperAdminCommissionPlansPage() {
                     onClick={() => setFormData((f) => ({ ...f, planType: 'PERCENT' }))}
                     className={`p-3 rounded-lg border-2 transition-colors ${
                       formData.planType === 'PERCENT'
-                        ? 'border-violet-500 bg-violet-50'
+                        ? 'border-[#4fa77e] bg-[#4fa77e]/5'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <Percent
-                      className={`h-5 w-5 mx-auto mb-1 ${formData.planType === 'PERCENT' ? 'text-violet-600' : 'text-gray-400'}`}
+                      className={`h-5 w-5 mx-auto mb-1 ${formData.planType === 'PERCENT' ? 'text-[#4fa77e]' : 'text-gray-400'}`}
                     />
                     <p
-                      className={`text-sm font-medium ${formData.planType === 'PERCENT' ? 'text-violet-700' : 'text-gray-600'}`}
+                      className={`text-sm font-medium ${formData.planType === 'PERCENT' ? 'text-[#3d8a66]' : 'text-gray-600'}`}
                     >
                       Percentage
                     </p>
@@ -627,15 +627,15 @@ export default function SuperAdminCommissionPlansPage() {
                     onClick={() => setFormData((f) => ({ ...f, planType: 'FLAT' }))}
                     className={`p-3 rounded-lg border-2 transition-colors ${
                       formData.planType === 'FLAT'
-                        ? 'border-violet-500 bg-violet-50'
+                        ? 'border-[#4fa77e] bg-[#4fa77e]/5'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <DollarSign
-                      className={`h-5 w-5 mx-auto mb-1 ${formData.planType === 'FLAT' ? 'text-violet-600' : 'text-gray-400'}`}
+                      className={`h-5 w-5 mx-auto mb-1 ${formData.planType === 'FLAT' ? 'text-[#4fa77e]' : 'text-gray-400'}`}
                     />
                     <p
-                      className={`text-sm font-medium ${formData.planType === 'FLAT' ? 'text-violet-700' : 'text-gray-600'}`}
+                      className={`text-sm font-medium ${formData.planType === 'FLAT' ? 'text-[#3d8a66]' : 'text-gray-600'}`}
                     >
                       Flat Rate
                     </p>
@@ -660,7 +660,7 @@ export default function SuperAdminCommissionPlansPage() {
                       value={formData.percentBps}
                       onChange={(e) => setFormData((f) => ({ ...f, percentBps: e.target.value }))}
                       placeholder="10"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
                   </div>
@@ -685,7 +685,7 @@ export default function SuperAdminCommissionPlansPage() {
                         setFormData((f) => ({ ...f, flatAmountCents: e.target.value }))
                       }
                       placeholder="50.00"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-7 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-7 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                   </div>
                   <p className="mt-1 text-xs text-gray-500">Fixed amount per conversion in USD</p>
@@ -698,7 +698,7 @@ export default function SuperAdminCommissionPlansPage() {
                 <select
                   value={formData.appliesTo}
                   onChange={(e) => setFormData((f) => ({ ...f, appliesTo: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 >
                   <option value="FIRST_PAYMENT_ONLY">First Payment Only</option>
                   <option value="ALL_PAYMENTS">All Payments</option>
@@ -714,7 +714,7 @@ export default function SuperAdminCommissionPlansPage() {
                   min="0"
                   value={formData.holdDays}
                   onChange={(e) => setFormData((f) => ({ ...f, holdDays: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Days before commission is approved (0 = immediate)
@@ -730,7 +730,7 @@ export default function SuperAdminCommissionPlansPage() {
                   onChange={(e) =>
                     setFormData((f) => ({ ...f, clawbackEnabled: e.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
                 />
                 <label htmlFor="clawback" className="text-sm text-gray-700">
                   Enable clawback (reverse commissions on refunds/chargebacks)
@@ -754,7 +754,7 @@ export default function SuperAdminCommissionPlansPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
                 >
                   {submitting ? 'Saving...' : editingPlan ? 'Update Plan' : 'Create Plan'}
                 </button>
