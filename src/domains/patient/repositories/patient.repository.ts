@@ -491,7 +491,14 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         await tx.payment.deleteMany({ where: { patientId: id } });
         await tx.invoice.deleteMany({ where: { patientId: id } });
 
-        // 8. Subscriptions and payment methods
+        // 8. Subscriptions and payment methods (delete actions first due to FK constraint)
+        const subscriptions = await tx.subscription.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        for (const sub of subscriptions) {
+          await tx.subscriptionAction.deleteMany({ where: { subscriptionId: sub.id } });
+        }
         await tx.subscription.deleteMany({ where: { patientId: id } });
         await tx.paymentMethod.deleteMany({ where: { patientId: id } });
 
