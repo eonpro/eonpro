@@ -599,7 +599,7 @@ export default function LoginPage() {
                 </button>
 
                 {/* New Patient Registration Link */}
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-4">
                   <p className="text-sm text-center text-gray-600">
                     New patient?{' '}
                     <a
