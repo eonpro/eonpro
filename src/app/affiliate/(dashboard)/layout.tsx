@@ -26,6 +26,7 @@ interface ClinicBranding {
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
+  backgroundColor: string;
 }
 
 const navItems: NavItem[] = [
@@ -115,6 +116,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
               primaryColor: data.branding?.primaryColor || '#111827',
               secondaryColor: data.branding?.secondaryColor || '#6B7280',
               accentColor: data.branding?.accentColor || '#10B981',
+              backgroundColor: data.branding?.backgroundColor || '#F9FAFB',
             });
 
             // Update favicon if clinic has one
@@ -152,10 +154,14 @@ export default function AffiliateDashboardLayout({ children }: { children: React
 
   // Get colors from branding or use defaults
   const primaryColor = branding?.primaryColor || '#111827';
+  const backgroundColor = branding?.backgroundColor || '#F9FAFB';
   const portalName = branding?.name ? `${branding.name} Partners` : 'Partner Portal';
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0 md:pl-64">
+    <div 
+      className="min-h-screen pb-20 md:pb-0 md:pl-64"
+      style={{ backgroundColor }}
+    >
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-gray-100 flex-col">
         <div className="p-6 border-b border-gray-100">

@@ -124,7 +124,7 @@ export default function AffiliateDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <span className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
       </div>
     );
@@ -155,9 +155,9 @@ export default function AffiliateDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white px-6 py-6 border-b border-gray-100">
+      <header className="px-6 py-6">
         <div className="max-w-3xl mx-auto">
           <p className="text-gray-500 text-sm mb-1">{greeting}</p>
           <h1 className="text-2xl font-semibold text-gray-900">

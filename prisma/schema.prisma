@@ -1723,6 +1723,7 @@ model Clinic {
   primaryColor    String  @default("#3B82F6")
   secondaryColor  String  @default("#10B981")
   accentColor     String  @default("#d3f931") // Third brand color for highlights
+  backgroundColor String  @default("#F9FAFB") // Page background color
   buttonTextColor String  @default("auto") // 'auto', 'light', 'dark' - controls text color on buttons
   customCss       String? // Custom CSS overrides
 

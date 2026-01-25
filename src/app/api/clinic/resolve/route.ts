@@ -67,6 +67,8 @@ export async function GET(request: NextRequest) {
     // Return only public branding data
     // Note: buttonTextColor is optional - if column doesn't exist yet, default to 'auto'
     const buttonTextColor = (clinic as any).buttonTextColor || 'auto';
+    // backgroundColor from branding
+    const backgroundColor = clinic.backgroundColor || '#F9FAFB';
 
     return NextResponse.json({
       clinicId: clinic.id,
@@ -81,6 +83,7 @@ export async function GET(request: NextRequest) {
         secondaryColor: clinic.secondaryColor || '#3B82F6',
         accentColor: clinic.accentColor || '#d3f931',
         buttonTextColor: buttonTextColor,
+        backgroundColor: backgroundColor,
       },
       contact: {
         supportEmail: clinic.supportEmail,
@@ -118,6 +121,7 @@ async function resolveClinicFromDomain(domain: string) {
       primaryColor: true,
       secondaryColor: true,
       accentColor: true,
+      backgroundColor: true,
       supportEmail: true,
       phone: true,
     },
