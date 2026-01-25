@@ -12,7 +12,7 @@ import { Download, Image, FileText, ArrowLeft, ExternalLink } from 'lucide-react
 
 export default function AffiliateResourcesPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
       <header className="bg-white px-6 py-4 border-b border-gray-100">
         <div className="max-w-3xl mx-auto">

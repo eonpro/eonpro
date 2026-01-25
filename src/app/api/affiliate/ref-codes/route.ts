@@ -53,22 +53,42 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     // Get stats for each ref code
     const refCodeStats = await Promise.all(
       refCodes.map(async (code: typeof refCodes[number]) => {
-        const [clickCount, conversions, lastClick] = await Promise.all([
+        // Get click count and last click from touches
+        const [clickCount, lastClick] = await Promise.all([
           prisma.affiliateTouch.count({
-            where: { refCode: code.refCode },
-          }),
-          prisma.affiliateCommissionEvent.count({
-            where: {
+            where: { 
               affiliateId,
               refCode: code.refCode,
             },
           }),
           prisma.affiliateTouch.findFirst({
-            where: { refCode: code.refCode },
+            where: { 
+              affiliateId,
+              refCode: code.refCode,
+            },
             orderBy: { createdAt: 'desc' },
             select: { createdAt: true },
           }),
         ]);
+
+        // Get conversion count by finding touches with this refCode that have commission events
+        // Note: This is an approximation since touchId links are optional
+        const touchesWithRefCode = await prisma.affiliateTouch.findMany({
+          where: { 
+            affiliateId,
+            refCode: code.refCode,
+          },
+          select: { id: true },
+        });
+        
+        const conversions = touchesWithRefCode.length > 0 
+          ? await prisma.affiliateCommissionEvent.count({
+              where: {
+                affiliateId,
+                touchId: { in: touchesWithRefCode.map((t: { id: number }) => t.id) },
+              },
+            })
+          : 0;
 
         return {
           id: code.id.toString(),

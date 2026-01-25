@@ -38,7 +38,7 @@ export default function AffiliateHelpPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
       <header className="bg-white px-6 py-4 border-b border-gray-100">
         <div className="max-w-3xl mx-auto">

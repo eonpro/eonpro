@@ -12,7 +12,7 @@ import { BarChart3, TrendingUp, Calendar, ArrowLeft } from 'lucide-react';
 
 export default function AffiliateAnalyticsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
       <header className="bg-white px-6 py-4 border-b border-gray-100">
         <div className="max-w-3xl mx-auto">

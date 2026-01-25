@@ -132,7 +132,7 @@ export default function WithdrawPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <span className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
       </div>
     );
@@ -141,7 +141,7 @@ export default function WithdrawPage() {
   // No payout method
   if (!displayData.payoutMethod) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
           <div className="max-w-3xl mx-auto flex items-center gap-4">
             <Link href="/affiliate" className="text-gray-400 hover:text-gray-600">
@@ -179,7 +179,7 @@ export default function WithdrawPage() {
   // Pending payout
   if (displayData.pendingPayout) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
           <div className="max-w-3xl mx-auto flex items-center gap-4">
             <Link href="/affiliate" className="text-gray-400 hover:text-gray-600">
@@ -215,7 +215,7 @@ export default function WithdrawPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
       <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto flex items-center gap-4">
