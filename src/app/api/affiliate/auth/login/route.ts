@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Find affiliate by user email
+    // Try 1: Find in new Affiliate table (linked to User)
     const affiliate = await prisma.affiliate.findFirst({
       where: {
         user: {
@@ -53,76 +53,149 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!affiliate || !affiliate.user) {
-      logger.info('[Affiliate Auth] Email not found', {
-        email: normalizedEmail.substring(0, 3) + '***',
-      });
+    if (affiliate && affiliate.user) {
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, affiliate.user.passwordHash);
       
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
+      if (!isValidPassword) {
+        logger.warn('[Affiliate Auth] Invalid password (Affiliate table)', {
+          affiliateId: affiliate.id,
+        });
+        
+        return NextResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        );
+      }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, affiliate.user.passwordHash);
-    
-    if (!isValidPassword) {
-      logger.warn('[Affiliate Auth] Invalid password', {
+      // Create JWT token
+      const token = await new SignJWT({
+        sub: affiliate.user.id.toString(),
         affiliateId: affiliate.id,
+        clinicId: affiliate.clinicId,
+        role: 'affiliate',
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime('30d')
+        .sign(JWT_SECRET);
+
+      // Set session cookie
+      const cookieStore = await cookies();
+      cookieStore.set(COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: SESSION_DURATION / 1000,
+        path: '/',
       });
-      
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
+
+      // Update last login
+      await prisma.affiliate.update({
+        where: { id: affiliate.id },
+        data: { lastLoginAt: new Date() },
+      });
+
+      logger.info('[Affiliate Auth] Login successful (Affiliate table)', {
+        affiliateId: affiliate.id,
+        userId: affiliate.user.id,
+      });
+
+      return NextResponse.json({
+        success: true,
+        token,
+        affiliate: {
+          id: affiliate.id,
+          displayName: affiliate.displayName,
+          email: affiliate.user.email,
+        },
+      });
     }
 
-    // Create JWT token
-    const token = await new SignJWT({
-      sub: affiliate.user.id.toString(),
-      affiliateId: affiliate.id,
-      clinicId: affiliate.clinicId,
-      role: 'affiliate',
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('30d')
-      .sign(JWT_SECRET);
-
-    // Set session cookie
-    const cookieStore = await cookies();
-    cookieStore.set(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: SESSION_DURATION / 1000,
-      path: '/',
+    // Try 2: Fall back to legacy Influencer table
+    const influencer = await prisma.influencer.findUnique({
+      where: { email: normalizedEmail },
     });
 
-    // Update last login
-    await prisma.affiliate.update({
-      where: { id: affiliate.id },
-      data: { lastLoginAt: new Date() },
-    });
+    if (influencer && influencer.passwordHash) {
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, influencer.passwordHash);
+      
+      if (!isValidPassword) {
+        logger.warn('[Affiliate Auth] Invalid password (Influencer table)', {
+          influencerId: influencer.id,
+        });
+        
+        return NextResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        );
+      }
 
-    logger.info('[Affiliate Auth] Login successful', {
-      affiliateId: affiliate.id,
-      userId: affiliate.user.id,
-    });
+      // Check status
+      if (influencer.status !== 'ACTIVE') {
+        return NextResponse.json(
+          { error: 'Account is not active' },
+          { status: 401 }
+        );
+      }
 
-    return NextResponse.json({
-      success: true,
-      token, // Return token for localStorage storage
-      affiliate: {
-        id: affiliate.id,
-        displayName: affiliate.displayName,
-        email: affiliate.user.email,
-      },
+      // Create JWT token (using influencer ID)
+      const token = await new SignJWT({
+        sub: influencer.id.toString(),
+        influencerId: influencer.id,
+        clinicId: influencer.clinicId,
+        role: 'influencer',
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime('30d')
+        .sign(JWT_SECRET);
+
+      // Set session cookie
+      const cookieStore = await cookies();
+      cookieStore.set(COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: SESSION_DURATION / 1000,
+        path: '/',
+      });
+
+      // Update last login
+      await prisma.influencer.update({
+        where: { id: influencer.id },
+        data: { lastLogin: new Date() },
+      });
+
+      logger.info('[Affiliate Auth] Login successful (Influencer table)', {
+        influencerId: influencer.id,
+      });
+
+      return NextResponse.json({
+        success: true,
+        token,
+        affiliate: {
+          id: influencer.id,
+          displayName: influencer.name,
+          email: influencer.email,
+        },
+      });
+    }
+
+    // No matching account found
+    logger.info('[Affiliate Auth] Email not found', {
+      email: normalizedEmail.substring(0, 3) + '***',
     });
+    
+    return NextResponse.json(
+      { error: 'Invalid email or password' },
+      { status: 401 }
+    );
   } catch (error) {
     logger.error('[Affiliate Auth] Login error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
     });
     
     return NextResponse.json(
