@@ -448,6 +448,11 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         await tx.patientNutritionLog.deleteMany({ where: { patientId: id } });
 
         // 2. Chat & Conversations
+        // First nullify self-referencing FK (replyToId) to avoid FK violation during delete
+        await tx.patientChatMessage.updateMany({
+          where: { patientId: id },
+          data: { replyToId: null }
+        });
         await tx.patientChatMessage.deleteMany({ where: { patientId: id } });
 
         // Delete AI messages first (foreign key to AIConversation)
