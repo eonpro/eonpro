@@ -487,8 +487,21 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         await tx.patientDocument.deleteMany({ where: { patientId: id } });
         await tx.appointment.deleteMany({ where: { patientId: id } });
 
-        // 7. Payments and Invoices (delete payments before invoices)
+        // 7. Payments, Commissions, and Invoices
+        // Delete payments first
         await tx.payment.deleteMany({ where: { patientId: id } });
+
+        // Delete commissions before invoices (Commission references Invoice via invoiceId)
+        const patientInvoices = await tx.invoice.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        if (patientInvoices.length > 0) {
+          const invoiceIds = patientInvoices.map((inv) => inv.id);
+          await tx.commission.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+        }
+
+        // Now delete invoices
         await tx.invoice.deleteMany({ where: { patientId: id } });
 
         // 8. Subscriptions and payment methods (delete actions first due to FK constraint)
@@ -531,6 +544,15 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         await tx.order.deleteMany({ where: { patientId: id } });
 
         // 11. Referrals and discount usage
+        // Delete commissions referencing referral trackings first (Commission has referralId FK)
+        const referralTrackings = await tx.referralTracking.findMany({
+          where: { patientId: id },
+          select: { id: true },
+        });
+        if (referralTrackings.length > 0) {
+          const referralIds = referralTrackings.map((ref) => ref.id);
+          await tx.commission.deleteMany({ where: { referralId: { in: referralIds } } });
+        }
         await tx.referralTracking.deleteMany({ where: { patientId: id } });
         await tx.discountUsage.deleteMany({ where: { patientId: id } });
         await tx.affiliateReferral.deleteMany({ where: { referredPatientId: id } });
