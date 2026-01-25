@@ -483,9 +483,8 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         }
         await tx.sOAPNote.deleteMany({ where: { patientId: id } });
 
-        // 6. Documents and appointments
+        // 6. Documents (NOT appointments yet - Superbill references appointments)
         await tx.patientDocument.deleteMany({ where: { patientId: id } });
-        await tx.appointment.deleteMany({ where: { patientId: id } });
 
         // 7. Payments, Commissions, and Invoices
         // Delete payments first
@@ -558,7 +557,11 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         await tx.affiliateReferral.deleteMany({ where: { referredPatientId: id } });
 
         // 12. Superbills (SuperbillItem will cascade delete)
+        // Must delete BEFORE appointments because Superbill.appointmentId references Appointment
         await tx.superbill.deleteMany({ where: { patientId: id } });
+
+        // 12b. Now safe to delete appointments
+        await tx.appointment.deleteMany({ where: { patientId: id } });
 
         // 13. Payment reconciliation records (nullable patientId)
         await tx.paymentReconciliation.updateMany({
