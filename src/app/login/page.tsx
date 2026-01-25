@@ -75,6 +75,7 @@ export default function LoginPage() {
   // White-label branding state
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
   const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
+  const [isMainApp, setIsMainApp] = useState(false);
 
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -88,6 +89,14 @@ export default function LoginPage() {
 
         if (response.ok) {
           const data = await response.json();
+          
+          // Check if this is the main app (not a white-labeled clinic)
+          if (data.isMainApp) {
+            setIsMainApp(true);
+            // Don't set branding for main app - use default EONPRO branding
+            return;
+          }
+          
           setResolvedClinicId(data.clinicId);
           setBranding({
             clinicId: data.clinicId,
@@ -495,7 +504,7 @@ export default function LoginPage() {
 
         {/* Logo centered at top - uses clinic logo if available */}
         <div className="flex flex-col items-center pt-4 pb-8">
-          {branding ? (
+          {branding && !isMainApp ? (
             <>
               {branding.logoUrl ? (
                 <img
@@ -516,6 +525,7 @@ export default function LoginPage() {
               </p>
             </>
           ) : (
+            /* Main app (app.eonpro.io) - show EONPRO logo only, no "Powered by" */
             <img
               src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
               alt="EONPRO"
@@ -531,7 +541,7 @@ export default function LoginPage() {
             Welcome
           </h1>
           <p className="text-gray-600 text-lg mb-12">
-            {branding ? `Sign in to ${branding.name}` : "Let's get you logged in."}
+            {branding && !isMainApp ? `Sign in to ${branding.name}` : "Sign in to EONPRO"}
           </p>
 
           {/* Login Form */}
