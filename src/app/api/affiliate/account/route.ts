@@ -92,14 +92,14 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       prisma.affiliatePayoutMethod.findFirst({
         where: {
           affiliateId,
-          isActive: true,
+          isDefault: true,
         },
         select: {
           id: true,
           methodType: true,
-          last4: true,
+          bankAccountLast4: true,
           bankName: true,
-          accountEmail: true,
+          paypalEmail: true,
           isVerified: true,
         },
       }),
@@ -145,9 +145,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       },
       payoutMethod: payoutMethod ? {
         type: payoutMethod.methodType === 'PAYPAL' ? 'paypal' : 'bank',
-        last4: payoutMethod.last4,
+        last4: payoutMethod.bankAccountLast4,
         bankName: payoutMethod.bankName,
-        email: payoutMethod.accountEmail,
+        email: payoutMethod.paypalEmail,
         isVerified: payoutMethod.isVerified,
       } : null,
       preferences,
