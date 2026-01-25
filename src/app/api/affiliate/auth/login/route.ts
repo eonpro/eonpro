@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         user: {
           email: normalizedEmail,
         },
-        status: { in: ['ACTIVE', 'PENDING'] },
+        status: 'ACTIVE',
       },
       include: {
         user: {
