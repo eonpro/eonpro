@@ -9,15 +9,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { SignJWT } from 'jose';
-import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'affiliate-portal-secret-key-change-in-production'
-);
+import { JWT_SECRET } from '@/lib/auth/config';
 
 const COOKIE_NAME = 'affiliate_session';
-const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SESSION_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,25 +66,18 @@ export async function POST(request: NextRequest) {
 
       // Create JWT token
       const token = await new SignJWT({
-        sub: affiliate.user.id.toString(),
+        id: affiliate.id,
         affiliateId: affiliate.id,
+        userId: affiliate.user.id,
         clinicId: affiliate.clinicId,
+        email: affiliate.user.email,
+        name: affiliate.displayName,
         role: 'affiliate',
       })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('30d')
         .sign(JWT_SECRET);
-
-      // Set session cookie
-      const cookieStore = await cookies();
-      cookieStore.set(COOKIE_NAME, token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: SESSION_DURATION / 1000,
-        path: '/',
-      });
 
       // Update last login
       await prisma.affiliate.update({
@@ -101,7 +90,8 @@ export async function POST(request: NextRequest) {
         userId: affiliate.user.id,
       });
 
-      return NextResponse.json({
+      // Create response with cookie
+      const response = NextResponse.json({
         success: true,
         token,
         affiliate: {
@@ -110,6 +100,17 @@ export async function POST(request: NextRequest) {
           email: affiliate.user.email,
         },
       });
+
+      // Set HTTP-only cookie
+      response.cookies.set(COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
+        sameSite: 'lax',
+        maxAge: SESSION_DURATION,
+        path: '/',
+      });
+
+      return response;
     }
 
     // Try 2: Fall back to legacy Influencer table
@@ -140,27 +141,20 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create JWT token (using influencer ID)
+      // Create JWT token (using influencer ID) - same format as /api/influencers/auth/login
       const token = await new SignJWT({
-        sub: influencer.id.toString(),
+        id: influencer.id,
         influencerId: influencer.id,
         clinicId: influencer.clinicId,
+        email: influencer.email,
+        name: influencer.name,
+        promoCode: influencer.promoCode,
         role: 'influencer',
       })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('30d')
         .sign(JWT_SECRET);
-
-      // Set session cookie
-      const cookieStore = await cookies();
-      cookieStore.set(COOKIE_NAME, token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: SESSION_DURATION / 1000,
-        path: '/',
-      });
 
       // Update last login
       await prisma.influencer.update({
@@ -172,7 +166,8 @@ export async function POST(request: NextRequest) {
         influencerId: influencer.id,
       });
 
-      return NextResponse.json({
+      // Create response with cookie
+      const response = NextResponse.json({
         success: true,
         token,
         affiliate: {
@@ -181,6 +176,26 @@ export async function POST(request: NextRequest) {
           email: influencer.email,
         },
       });
+
+      // Set HTTP-only cookie (same name as influencer login for compatibility)
+      response.cookies.set('influencer-token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
+        sameSite: 'lax',
+        maxAge: SESSION_DURATION,
+        path: '/',
+      });
+
+      // Also set affiliate_session cookie
+      response.cookies.set(COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
+        sameSite: 'lax',
+        maxAge: SESSION_DURATION,
+        path: '/',
+      });
+
+      return response;
     }
 
     // No matching account found
