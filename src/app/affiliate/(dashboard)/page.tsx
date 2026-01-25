@@ -88,6 +88,7 @@ const formatRelativeTime = (dateString: string) => {
 export default function AffiliateDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [greeting, setGreeting] = useState('');
 
   useEffect(() => {
@@ -106,9 +107,14 @@ export default function AffiliateDashboard() {
         if (res.ok) {
           const dashboardData = await res.json();
           setData(dashboardData);
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          console.error('Dashboard API error:', res.status, errorData);
+          setError(errorData.error || 'Failed to load dashboard');
         }
-      } catch (error) {
-        console.error('Failed to fetch dashboard:', error);
+      } catch (err) {
+        console.error('Failed to fetch dashboard:', err);
+        setError('Failed to connect to server');
       } finally {
         setIsLoading(false);
       }
@@ -124,32 +130,28 @@ export default function AffiliateDashboard() {
     );
   }
 
-  // Mock data for development
+  // Default data for affiliates with no activity yet
   const displayData: DashboardData = data || {
     affiliate: {
       displayName: 'Partner',
-      tier: 'Gold',
-      tierProgress: 75,
+      tier: 'Standard',
+      tierProgress: 0,
     },
     earnings: {
-      availableBalance: 125000,
-      pendingBalance: 45000,
-      lifetimeEarnings: 850000,
-      thisMonth: 85000,
-      lastMonth: 72000,
-      monthOverMonthChange: 18.1,
+      availableBalance: 0,
+      pendingBalance: 0,
+      lifetimeEarnings: 0,
+      thisMonth: 0,
+      lastMonth: 0,
+      monthOverMonthChange: 0,
     },
     performance: {
-      clicks: 1247,
-      conversions: 89,
-      conversionRate: 7.1,
-      avgOrderValue: 12500,
+      clicks: 0,
+      conversions: 0,
+      conversionRate: 0,
+      avgOrderValue: 0,
     },
-    recentActivity: [
-      { id: '1', type: 'conversion', amount: 2500, createdAt: new Date().toISOString(), description: 'New conversion' },
-      { id: '2', type: 'conversion', amount: 1800, createdAt: new Date(Date.now() - 3600000).toISOString(), description: 'New conversion' },
-      { id: '3', type: 'payout', amount: 50000, createdAt: new Date(Date.now() - 86400000).toISOString(), description: 'Payout completed' },
-    ],
+    recentActivity: [],
   };
 
   return (

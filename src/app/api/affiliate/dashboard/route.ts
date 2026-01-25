@@ -38,21 +38,21 @@ async function handleInfluencerDashboard(influencerId: number) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Get influencer commission events (if any exist in the new system)
-  // For legacy influencers, they may only have totalEarnings from the old system
-  const [monthlyCommissions, clickCount] = await Promise.all([
-    // Try to get commissions from InfluencerCommission table
-    prisma.influencerCommission.aggregate({
+  // Get legacy commissions from Commission table
+  const [monthlyCommissions, referralCount] = await Promise.all([
+    // Get commissions from Commission table (legacy model)
+    prisma.commission.aggregate({
       where: {
         influencerId,
         createdAt: { gte: startOfMonth },
+        status: { in: ['PENDING', 'APPROVED', 'PAID'] },
       },
-      _sum: { commissionAmountCents: true },
+      _sum: { commissionAmount: true },
       _count: true,
-    }).catch(() => ({ _sum: { commissionAmountCents: null }, _count: 0 })),
+    }).catch(() => ({ _sum: { commissionAmount: null }, _count: 0 })),
     
-    // Get click count from InfluencerTouch if exists
-    prisma.influencerTouch.count({
+    // Get referral count from ReferralTracking
+    prisma.referralTracking.count({
       where: {
         influencerId,
         createdAt: { gte: startOfMonth },
@@ -60,7 +60,8 @@ async function handleInfluencerDashboard(influencerId: number) {
     }).catch(() => 0),
   ]);
 
-  const thisMonth = monthlyCommissions._sum.commissionAmountCents || 0;
+  // Commission amounts are stored as dollars in legacy model
+  const thisMonth = Math.round((monthlyCommissions._sum.commissionAmount || 0) * 100);
   const conversionsThisMonth = monthlyCommissions._count || 0;
   const totalEarnings = influencer.totalEarnings || 0;
 
@@ -79,9 +80,9 @@ async function handleInfluencerDashboard(influencerId: number) {
       monthOverMonthChange: 0,
     },
     performance: {
-      clicks: clickCount,
+      clicks: referralCount, // Use referral count as a proxy for activity
       conversions: conversionsThisMonth,
-      conversionRate: clickCount > 0 ? Math.round((conversionsThisMonth / clickCount) * 1000) / 10 : 0,
+      conversionRate: referralCount > 0 ? Math.round((conversionsThisMonth / referralCount) * 1000) / 10 : 0,
       avgOrderValue: 0,
     },
     recentActivity: [],
