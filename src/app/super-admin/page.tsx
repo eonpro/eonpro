@@ -147,7 +147,7 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <button
           onClick={() => router.push('/super-admin/clinics/new')}
           className="bg-[#4fa77e] hover:bg-[#3d9268] text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all shadow-sm"
@@ -161,13 +161,6 @@ export default function SuperAdminDashboard() {
         >
           <Building2 className="h-6 w-6" />
           <span className="font-medium text-sm">Manage Clinics</span>
-        </button>
-        <button
-          onClick={() => router.push('/super-admin/branding')}
-          className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all shadow-sm"
-        >
-          <Globe className="h-6 w-6" />
-          <span className="font-medium text-sm">White Label</span>
         </button>
         <button
           onClick={() => router.push('/super-admin/settings')}
