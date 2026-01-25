@@ -170,10 +170,27 @@ export default function AffiliateLoginPage() {
         throw new Error(data.error || 'Invalid email or password');
       }
 
-      // Store token
+      // Clear any old session data to prevent role confusion
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('super_admin-token');
+      localStorage.removeItem('admin-token');
+      localStorage.removeItem('provider-token');
+      localStorage.removeItem('staff-token');
+      
+      // Store affiliate-specific tokens and user data
       if (data.token) {
         localStorage.setItem('affiliate-token', data.token);
         localStorage.setItem('auth-token', data.token);
+        localStorage.setItem('influencer-token', data.token); // For compatibility
+        
+        // Store user data for role-based redirects
+        localStorage.setItem('user', JSON.stringify({
+          id: data.affiliate?.id,
+          email: data.affiliate?.email,
+          name: data.affiliate?.displayName,
+          role: 'affiliate',
+        }));
       }
 
       setStep('success');

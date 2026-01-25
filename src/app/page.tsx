@@ -73,6 +73,26 @@ export default function HomePage() {
 
     try {
       const parsedUser = JSON.parse(user);
+      
+      // Redirect based on user role - this page is for admins only
+      const role = parsedUser.role?.toLowerCase();
+      if (role === 'affiliate' || role === 'influencer') {
+        router.push('/affiliate');
+        return;
+      }
+      if (role === 'patient') {
+        router.push('/patient-portal');
+        return;
+      }
+      if (role === 'provider') {
+        router.push('/provider');
+        return;
+      }
+      if (role === 'staff') {
+        router.push('/staff');
+        return;
+      }
+      
       setUserData(parsedUser);
       setLoading(false);
       loadDashboardData();
