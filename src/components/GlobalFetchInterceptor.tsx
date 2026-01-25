@@ -31,7 +31,10 @@ export default function GlobalFetchInterceptor() {
           // Check if this is a login/auth route (don't intercept those)
           const isAuthRoute = url.includes('/api/auth/login') || 
                               url.includes('/api/auth/verify') ||
-                              url.includes('/api/auth/refresh');
+                              url.includes('/api/auth/refresh') ||
+                              url.includes('/api/affiliate/auth/login') ||
+                              url.includes('/api/affiliate/auth/me') ||
+                              url.includes('/api/influencers/auth/');
           
           if (!isAuthRoute) {
             // Clone response to read the body without consuming it

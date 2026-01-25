@@ -100,7 +100,9 @@ export default function AffiliateDashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await fetch('/api/affiliate/dashboard');
+        const res = await fetch('/api/affiliate/dashboard', {
+          credentials: 'include',
+        });
         if (res.ok) {
           const dashboardData = await res.json();
           setData(dashboardData);

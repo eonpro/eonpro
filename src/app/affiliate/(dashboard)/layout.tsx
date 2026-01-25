@@ -69,7 +69,9 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/affiliate/auth/me');
+        const res = await fetch('/api/affiliate/auth/me', {
+          credentials: 'include',
+        });
         if (res.ok) {
           setIsAuthed(true);
         } else {

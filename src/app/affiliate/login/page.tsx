@@ -158,6 +158,7 @@ export default function AffiliateLoginPage() {
       const res = await fetch('/api/affiliate/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
           email: email.trim().toLowerCase(),
           password,
