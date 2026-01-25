@@ -586,6 +586,13 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         // 16. Delete patient audit records (compliance note: may want to keep these)
         await tx.patientAudit.deleteMany({ where: { patientId: id } });
 
+        // 17. Clean up HIPAA audit entries and phone OTPs (no FK but good to clean)
+        await tx.hIPAAAuditEntry.updateMany({
+          where: { patientId: id },
+          data: { patientId: null }
+        });
+        await tx.phoneOtp.deleteMany({ where: { patientId: id } });
+
         // Finally delete the patient
         await tx.patient.delete({ where: { id } });
       });
