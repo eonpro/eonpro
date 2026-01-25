@@ -147,6 +147,13 @@ export function withConnectedAccount<T extends object>(
 
 /**
  * Create a Stripe Connect account for a clinic
+ * 
+ * @param clinicId - The clinic ID
+ * @param options - Account creation options
+ * @param options.email - Email for the connected account
+ * @param options.businessType - 'individual' or 'company' (default: 'company')
+ * @param options.country - Country code (default: 'US')
+ * @param options.returnPath - Custom return path after onboarding (default: /admin/settings/stripe)
  */
 export async function createConnectedAccount(
   clinicId: number,
@@ -154,6 +161,7 @@ export async function createConnectedAccount(
     email: string;
     businessType?: 'individual' | 'company';
     country?: string;
+    returnPath?: string;
   }
 ): Promise<{ accountId: string; onboardingUrl: string }> {
   const stripe = getPlatformStripe();
@@ -197,11 +205,15 @@ export async function createConnectedAccount(
     },
   });
   
+  // Default return path for self-service flow
+  const returnPath = options.returnPath || '/admin/settings/stripe';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  
   // Create account link for onboarding
   const accountLink = await stripe.accountLinks.create({
     account: account.id,
-    refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/clinics/${clinicId}/settings?stripe=refresh`,
-    return_url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/clinics/${clinicId}/settings?stripe=complete`,
+    refresh_url: `${baseUrl}${returnPath}?stripe=refresh`,
+    return_url: `${baseUrl}${returnPath}?stripe=complete`,
     type: 'account_onboarding',
   });
   
@@ -218,8 +230,14 @@ export async function createConnectedAccount(
 
 /**
  * Get onboarding link for existing connected account
+ * 
+ * @param clinicId - The clinic ID
+ * @param returnPath - Custom return path after onboarding (default: /admin/settings/stripe)
  */
-export async function getOnboardingLink(clinicId: number): Promise<string> {
+export async function getOnboardingLink(
+  clinicId: number,
+  returnPath?: string
+): Promise<string> {
   const stripe = getPlatformStripe();
   
   const clinic = await prisma.clinic.findUnique({
@@ -231,10 +249,13 @@ export async function getOnboardingLink(clinicId: number): Promise<string> {
     throw new Error(`Clinic ${clinicId} has no connected account`);
   }
   
+  const path = returnPath || '/admin/settings/stripe';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  
   const accountLink = await stripe.accountLinks.create({
     account: clinic.stripeAccountId,
-    refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/clinics/${clinicId}/settings?stripe=refresh`,
-    return_url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/clinics/${clinicId}/settings?stripe=complete`,
+    refresh_url: `${baseUrl}${path}?stripe=refresh`,
+    return_url: `${baseUrl}${path}?stripe=complete`,
     type: 'account_onboarding',
   });
   
