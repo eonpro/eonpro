@@ -12,9 +12,97 @@ import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 
+/**
+ * Handle dashboard for legacy Influencer model users
+ * Returns simplified dashboard data from the Influencer table
+ */
+async function handleInfluencerDashboard(influencerId: number) {
+  const influencer = await prisma.influencer.findUnique({
+    where: { id: influencerId },
+    select: {
+      id: true,
+      name: true,
+      promoCode: true,
+      commissionRate: true,
+      status: true,
+      totalEarnings: true,
+      createdAt: true,
+    },
+  });
+
+  if (!influencer || influencer.status !== 'ACTIVE') {
+    return NextResponse.json({ error: 'Influencer not found or inactive' }, { status: 404 });
+  }
+
+  // Calculate date ranges for this month
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Get influencer commission events (if any exist in the new system)
+  // For legacy influencers, they may only have totalEarnings from the old system
+  const [monthlyCommissions, clickCount] = await Promise.all([
+    // Try to get commissions from InfluencerCommission table
+    prisma.influencerCommission.aggregate({
+      where: {
+        influencerId,
+        createdAt: { gte: startOfMonth },
+      },
+      _sum: { commissionAmountCents: true },
+      _count: true,
+    }).catch(() => ({ _sum: { commissionAmountCents: null }, _count: 0 })),
+    
+    // Get click count from InfluencerTouch if exists
+    prisma.influencerTouch.count({
+      where: {
+        influencerId,
+        createdAt: { gte: startOfMonth },
+      },
+    }).catch(() => 0),
+  ]);
+
+  const thisMonth = monthlyCommissions._sum.commissionAmountCents || 0;
+  const conversionsThisMonth = monthlyCommissions._count || 0;
+  const totalEarnings = influencer.totalEarnings || 0;
+
+  return NextResponse.json({
+    affiliate: {
+      displayName: influencer.name,
+      tier: 'Standard',
+      tierProgress: 0,
+    },
+    earnings: {
+      availableBalance: Math.round(totalEarnings * 100), // Convert to cents if stored as dollars
+      pendingBalance: 0,
+      lifetimeEarnings: Math.round(totalEarnings * 100),
+      thisMonth,
+      lastMonth: 0,
+      monthOverMonthChange: 0,
+    },
+    performance: {
+      clicks: clickCount,
+      conversions: conversionsThisMonth,
+      conversionRate: clickCount > 0 ? Math.round((conversionsThisMonth / clickCount) * 1000) / 10 : 0,
+      avgOrderValue: 0,
+    },
+    recentActivity: [],
+    // Additional info for influencers
+    influencer: {
+      promoCode: influencer.promoCode,
+      commissionRate: influencer.commissionRate,
+    },
+  });
+}
+
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
+    const influencerId = user.influencerId;
+    
+    // Handle legacy Influencer users
+    if (!affiliateId && influencerId) {
+      return handleInfluencerDashboard(influencerId);
+    }
+    
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
