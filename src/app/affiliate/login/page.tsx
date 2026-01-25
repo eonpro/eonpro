@@ -289,7 +289,7 @@ export default function AffiliateLoginPage() {
   return (
     <div 
       className="min-h-screen"
-      style={{ backgroundColor: '#f5f5f0' }}
+      style={{ backgroundColor: '#EFECE7' }}
     >
 
       {/* Content */}
@@ -399,7 +399,12 @@ export default function AffiliateLoginPage() {
                   </button>
                 </form>
 
-                <p className="mt-8 text-center text-sm text-gray-500">
+                <p className="mt-6 text-center text-sm text-gray-500">
+                  Not a partner yet?{' '}
+                  <a href="/affiliate/apply" className="font-medium hover:opacity-80" style={{ color: primaryColor }}>Apply now</a>
+                </p>
+
+                <p className="mt-4 text-center text-xs text-gray-400">
                   By continuing, you agree to our{' '}
                   <a href="/terms" className="font-medium hover:opacity-80" style={{ color: primaryColor }}>Terms</a>
                   {' '}and{' '}

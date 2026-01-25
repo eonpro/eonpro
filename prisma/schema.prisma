@@ -28,7 +28,7 @@ model Patient {
   notes            String?
   tags             Json?
   address2         String?
-  patientId        String?  // Unique within clinic (see @@unique below)
+  patientId        String? // Unique within clinic (see @@unique below)
   stripeCustomerId String?  @unique
   source           String   @default("manual") // "webhook", "api", "manual", "referral", "import"
   sourceMetadata   Json? // Additional source details (e.g., webhook URL, referrer ID, import batch)
@@ -715,7 +715,7 @@ model User {
   clinic              Clinic?    @relation(fields: [clinicId], references: [id])
   activeClinicId      Int? // Currently active clinic for multi-clinic users
   email               String     @unique
-  phone               String?    // Phone number for SMS login and notifications
+  phone               String? // Phone number for SMS login and notifications
   passwordHash        String
   firstName           String
   lastName            String
@@ -739,19 +739,19 @@ model User {
   emailVerified   Boolean   @default(false)
   emailVerifiedAt DateTime?
 
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  createdById         Int?
-  createdBy           User?                @relation("UserCreatedBy", fields: [createdById], references: [id])
-  createdUsers        User[]               @relation("UserCreatedBy")
-  auditLogs           UserAuditLog[]
-  sessions            UserSession[]
-  apiKeys             ApiKey[]
-  systemSettings      SystemSettings[]
-  integrations        Integration[]
-  intakeTemplates     IntakeFormTemplate[]
-  passwordResetTokens      PasswordResetToken[]
-  emailVerificationTokens  EmailVerificationToken[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  createdById             Int?
+  createdBy               User?                    @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers            User[]                   @relation("UserCreatedBy")
+  auditLogs               UserAuditLog[]
+  sessions                UserSession[]
+  apiKeys                 ApiKey[]
+  systemSettings          SystemSettings[]
+  integrations            Integration[]
+  intakeTemplates         IntakeFormTemplate[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 
   // Multi-clinic support
   userClinics UserClinic[] // All clinics this user belongs to
@@ -1717,14 +1717,14 @@ model Clinic {
   timezone     String  @default("America/New_York")
 
   // Branding
-  logoUrl        String?
-  iconUrl        String? // App icon for PWA/mobile (192x192)
-  faviconUrl     String?
-  primaryColor   String  @default("#3B82F6")
-  secondaryColor String  @default("#10B981")
-  accentColor    String  @default("#d3f931") // Third brand color for highlights
-  buttonTextColor String @default("auto") // 'auto', 'light', 'dark' - controls text color on buttons
-  customCss      String? // Custom CSS overrides
+  logoUrl         String?
+  iconUrl         String? // App icon for PWA/mobile (192x192)
+  faviconUrl      String?
+  primaryColor    String  @default("#3B82F6")
+  secondaryColor  String  @default("#10B981")
+  accentColor     String  @default("#d3f931") // Third brand color for highlights
+  buttonTextColor String  @default("auto") // 'auto', 'light', 'dark' - controls text color on buttons
+  customCss       String? // Custom CSS overrides
 
   // Database Configuration (for future isolation)
   databaseUrl String? // Optional: for dedicated databases
@@ -1792,6 +1792,7 @@ model Clinic {
 
   // New Affiliate Portal System
   affiliates                Affiliate[]
+  affiliateApplications     AffiliateApplication[]
   affiliateRefCodes         AffiliateRefCode[]
   affiliateCommissionPlans  AffiliateCommissionPlan[]
   affiliatePlanAssignments  AffiliatePlanAssignment[]
@@ -2927,8 +2928,8 @@ model Affiliate {
   currentTierId        Int? // Current tier level
   currentTier          AffiliateCommissionTier? @relation(fields: [currentTierId], references: [id])
   tierQualifiedAt      DateTime? // When they qualified for current tier
-  lifetimeConversions  Int       @default(0)
-  lifetimeRevenueCents Int       @default(0)
+  lifetimeConversions  Int                      @default(0)
+  lifetimeRevenueCents Int                      @default(0)
 
   // Login tracking
   lastLoginAt DateTime?
@@ -2944,6 +2945,7 @@ model Affiliate {
   taxDocuments       AffiliateTaxDocument[]
   fraudAlerts        AffiliateFraudAlert[]
   otpCode            AffiliateOtpCode?
+  application        AffiliateApplication? // Link to original application (if created via self-signup)
 
   @@index([clinicId])
   @@index([status])
@@ -2954,10 +2956,54 @@ model AffiliateOtpCode {
   id          Int       @id @default(autoincrement())
   affiliateId Int       @unique
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
-  code        String    // 6-digit code
+  code        String // 6-digit code
   expiresAt   DateTime
   attempts    Int       @default(0) // Failed verification attempts
   createdAt   DateTime  @default(now())
+}
+
+// Self-service affiliate applications (pending approval)
+model AffiliateApplication {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Required applicant information
+  fullName String
+  email    String
+  phone    String
+
+  // Address
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  zipCode      String
+  country      String  @default("US")
+
+  // Social media profiles (JSON array: [{platform: "instagram", url: "..."}])
+  socialProfiles Json
+
+  // Optional additional info
+  website       String?
+  audienceSize  String? // e.g., "1K-10K", "10K-50K", "50K-100K", "100K+"
+  promotionPlan String? // How they plan to promote
+
+  // Application status
+  status      AffiliateApplicationStatus @default(PENDING)
+  reviewedAt  DateTime?
+  reviewedBy  Int? // Admin user who reviewed
+  reviewNotes String? // Internal notes from reviewer
+
+  // If approved, link to created affiliate
+  affiliateId Int?       @unique
+  affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])
+
+  @@index([clinicId, status])
+  @@index([email])
+  @@index([phone])
 }
 
 model AffiliateRefCode {
@@ -3093,6 +3139,12 @@ enum AffiliateStatus {
   PAUSED
   SUSPENDED
   INACTIVE
+}
+
+enum AffiliateApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum CommissionPlanType {
