@@ -59,22 +59,24 @@ export async function POST(request: NextRequest) {
       case 'account.updated':
         await handleAccountUpdated(event.data.object as Stripe.Account);
         break;
-        
+
       case 'account.application.deauthorized':
-        await handleAccountDeauthorized(event.data.object as Stripe.Account);
+        // For deauthorized events, the account ID is in event.account
+        if (event.account) {
+          await handleAccountDeauthorized(event.account);
+        }
         break;
-        
+
       case 'capability.updated':
         // Capability changes (e.g., card_payments enabled)
         await handleCapabilityUpdated(event);
         break;
-        
+
       default:
         logger.info('[STRIPE CONNECT WEBHOOK] Unhandled event type:', event.type);
     }
-    
+
     return NextResponse.json({ received: true });
-    
   } catch (error: any) {
     logger.error('[STRIPE CONNECT WEBHOOK] Error processing event:', error);
     return NextResponse.json(
@@ -142,20 +144,20 @@ async function handleAccountUpdated(account: Stripe.Account) {
  * Handle account.application.deauthorized event
  * When user disconnects their Stripe account from our platform
  */
-async function handleAccountDeauthorized(account: Stripe.Account) {
+async function handleAccountDeauthorized(accountId: string) {
   logger.info('[STRIPE CONNECT WEBHOOK] Account deauthorized', {
-    accountId: account.id,
+    accountId,
   });
-  
+
   // Find clinic with this account
   const clinic = await prisma.clinic.findFirst({
-    where: { stripeAccountId: account.id },
+    where: { stripeAccountId: accountId },
     select: { id: true, name: true },
   });
-  
+
   if (!clinic) {
     logger.warn('[STRIPE CONNECT WEBHOOK] No clinic found for deauthorized account', {
-      accountId: account.id,
+      accountId,
     });
     return;
   }
