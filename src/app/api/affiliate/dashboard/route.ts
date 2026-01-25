@@ -108,14 +108,21 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     }
 
     // Get affiliate with tier info
+    const now = new Date();
     const affiliate = await prisma.affiliate.findUnique({
       where: { id: affiliateId },
       include: {
         currentTier: true,
         planAssignments: {
-          where: { isActive: true },
+          where: {
+            effectiveFrom: { lte: now },
+            OR: [
+              { effectiveTo: null },
+              { effectiveTo: { gte: now } },
+            ],
+          },
           include: {
-            plan: {
+            commissionPlan: {
               include: {
                 tiers: {
                   orderBy: { level: 'asc' },
@@ -243,7 +250,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 
     // Calculate tier progress
     let tierProgress = 0;
-    const currentPlan = affiliate.planAssignments[0]?.plan;
+    const currentPlan = affiliate.planAssignments[0]?.commissionPlan;
     if (currentPlan && affiliate.currentTier) {
       const tiers = currentPlan.tiers;
       const currentTierIndex = tiers.findIndex((t: typeof tiers[number]) => t.id === affiliate.currentTierId);
