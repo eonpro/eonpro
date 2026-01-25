@@ -29,7 +29,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         clinicId: true,
         clinic: {
           select: {
-            domain: true,
+            subdomain: true,
+            customDomain: true,
             name: true,
           },
         },
@@ -82,10 +83,13 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       })
     );
 
-    // Determine base URL
-    const baseUrl = affiliate.clinic.domain 
-      ? `https://${affiliate.clinic.domain}`
-      : process.env.NEXT_PUBLIC_APP_URL || 'https://app.lifefile.com';
+    // Determine base URL - prefer custom domain, then subdomain
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
+    if (affiliate.clinic.customDomain) {
+      baseUrl = `https://${affiliate.clinic.customDomain}`;
+    } else if (affiliate.clinic.subdomain) {
+      baseUrl = `https://${affiliate.clinic.subdomain}.eonpro.io`;
+    }
 
     return NextResponse.json({
       baseUrl,

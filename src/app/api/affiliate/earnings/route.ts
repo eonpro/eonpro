@@ -88,7 +88,6 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       select: {
         id: true,
         lifetimeRevenueCents: true,
-        lifetimeCommissionsCents: true,
       },
     });
 
@@ -104,6 +103,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       commissionEvents,
       payouts,
       paidCommissions,
+      lifetimeCommissions,
     ] = await Promise.all([
       // Available balance (approved, not yet paid)
       prisma.affiliateCommissionEvent.aggregate({
@@ -138,11 +138,6 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         where: { affiliateId },
         orderBy: { createdAt: 'desc' },
         take: 100,
-        include: {
-          refCode: {
-            select: { code: true },
-          },
-        },
       }),
       
       // Payouts
@@ -160,6 +155,15 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
         _sum: { netAmountCents: true },
       }),
+      
+      // Lifetime commissions (all approved/paid)
+      prisma.affiliateCommissionEvent.aggregate({
+        where: {
+          affiliateId,
+          status: { in: ['APPROVED', 'PAID'] },
+        },
+        _sum: { commissionAmountCents: true },
+      }),
     ]);
 
     // Format commissions
@@ -168,8 +172,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       createdAt: c.createdAt.toISOString(),
       amount: c.commissionAmountCents,
       status: c.status.toLowerCase() as 'pending' | 'approved' | 'paid' | 'reversed',
-      orderAmount: c.orderAmountCents,
-      refCode: c.refCode?.code || 'DIRECT',
+      orderAmount: c.eventAmountCents,
+      refCode: 'DIRECT', // TODO: Join with touch to get actual refCode if needed
       holdUntil: c.holdUntil?.toISOString(),
     }));
 
@@ -177,11 +181,11 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     const formattedPayouts = payouts.map((p: typeof payouts[number]) => ({
       id: String(p.id),
       createdAt: p.createdAt.toISOString(),
-      amount: p.grossAmountCents,
+      amount: p.amountCents,
       fee: p.feeCents,
       netAmount: p.netAmountCents,
       status: p.status.toLowerCase() as 'processing' | 'completed' | 'failed',
-      method: p.paymentMethod || 'Bank Transfer',
+      method: p.methodType === 'PAYPAL' ? 'PayPal' : 'Bank Transfer',
     }));
 
     // Calculate next payout (estimated)
@@ -210,7 +214,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         availableBalance,
         pendingBalance,
         processingPayout: processingPayouts._sum.netAmountCents || 0,
-        lifetimeEarnings: affiliate.lifetimeCommissionsCents || 0,
+        lifetimeEarnings: lifetimeCommissions._sum.commissionAmountCents || 0,
         lifetimePaid: paidCommissions._sum.netAmountCents || 0,
       },
       commissions: formattedCommissions,
