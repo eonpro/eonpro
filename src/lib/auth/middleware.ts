@@ -619,11 +619,12 @@ export function withInfluencerAuth(
 /**
  * Middleware for affiliate portal routes
  * HIPAA-COMPLIANT: Affiliates can only access their own aggregated data
+ * Note: Also allows 'influencer' role for legacy Influencer table users
  */
 export function withAffiliateAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
 ): (req: NextRequest) => Promise<Response> {
-  return withAuth(handler, { roles: ['super_admin', 'admin', 'affiliate'] });
+  return withAuth(handler, { roles: ['super_admin', 'admin', 'affiliate', 'influencer'] });
 }
 
 /**
