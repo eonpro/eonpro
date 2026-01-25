@@ -268,9 +268,64 @@ export const DELETE = withSuperAdminAuth(async (req: NextRequest, user: AuthUser
       );
     }
 
-    // Delete the clinic (this will cascade delete related records based on schema)
-    await prisma.clinic.delete({
-      where: { id: clinicId },
+    // Delete all related records before deleting the clinic
+    // Order matters - delete child records before parent records
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete PatientCounter (unique per clinic)
+      await tx.patientCounter.deleteMany({ where: { clinicId } });
+
+      // 2. Delete ClinicAuditLog
+      await tx.clinicAuditLog.deleteMany({ where: { clinicId } });
+
+      // 3. Delete ClinicInviteCode
+      await tx.clinicInviteCode.deleteMany({ where: { clinicId } });
+
+      // 4. Delete SystemSettings for this clinic
+      await tx.systemSettings.deleteMany({ where: { clinicId } });
+
+      // 5. Delete Integrations and related
+      const integrations = await tx.integration.findMany({
+        where: { clinicId },
+        select: { id: true },
+      });
+      for (const integration of integrations) {
+        await tx.apiKey.deleteMany({ where: { integrationId: integration.id } });
+        await tx.webhookConfig.deleteMany({ where: { integrationId: integration.id } });
+        await tx.integrationLog.deleteMany({ where: { integrationId: integration.id } });
+      }
+      await tx.integration.deleteMany({ where: { clinicId } });
+
+      // 6. Delete ApiKeys not tied to integrations
+      await tx.apiKey.deleteMany({ where: { clinicId } });
+
+      // 7. Delete WebhookConfigs and deliveries
+      const webhooks = await tx.webhookConfig.findMany({
+        where: { clinicId },
+        select: { id: true },
+      });
+      for (const webhook of webhooks) {
+        await tx.webhookDelivery.deleteMany({ where: { webhookId: webhook.id } });
+      }
+      await tx.webhookConfig.deleteMany({ where: { clinicId } });
+
+      // 8. Delete WebhookLogs
+      await tx.webhookLog.deleteMany({ where: { clinicId } });
+
+      // Note: Patients and all patient-related data should be deleted first
+      // For safety, we check if there are any patients
+      const patientCount = await tx.patient.count({ where: { clinicId } });
+      if (patientCount > 0) {
+        throw new Error(`Cannot delete clinic with ${patientCount} patients. Delete all patients first.`);
+      }
+
+      // 9. Delete Providers
+      await tx.provider.deleteMany({ where: { clinicId } });
+
+      // 10. Delete Users associated with this clinic
+      await tx.user.deleteMany({ where: { clinicId } });
+
+      // 11. Finally delete the clinic
+      await tx.clinic.delete({ where: { id: clinicId } });
     });
 
     return NextResponse.json({
