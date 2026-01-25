@@ -213,14 +213,15 @@ function extractToken(req: NextRequest): string | null {
   }
 
   // Priority 2: HTTP-only cookies (secure for browser clients)
+  // Note: Order matters! More specific cookies should be checked first
   const cookieTokenNames = [
+    'affiliate_session',  // Affiliate portal - check first for affiliate routes
+    'influencer-token',   // Legacy influencer portal
+    'affiliate-token',
     'auth-token',
     'super_admin-token',
     'admin-token',
     'provider-token',
-    'influencer-token',
-    'affiliate-token',
-    'affiliate_session',  // Used by affiliate login
     'patient-token',
     'staff-token',
     'support-token',
@@ -669,15 +670,16 @@ export async function verifyAuth(req: NextRequest): Promise<{
   }
   
   // Check cookies as fallback
+  // Note: Order matters! More specific cookies should be checked first
   if (!token) {
     const cookieTokenNames = [
+      'affiliate_session',  // Affiliate portal - check first for affiliate routes
+      'influencer-token',   // Legacy influencer portal
+      'affiliate-token',
       'auth-token',
       'super_admin-token',
       'admin-token',
       'provider-token',
-      'influencer-token',
-      'affiliate-token',
-      'affiliate_session',  // Used by affiliate login
       'patient-token',
       'staff-token',
       'support-token',
