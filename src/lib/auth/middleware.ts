@@ -220,6 +220,7 @@ function extractToken(req: NextRequest): string | null {
     'provider-token',
     'influencer-token',
     'affiliate-token',
+    'affiliate_session',  // Used by affiliate login
     'patient-token',
     'staff-token',
     'support-token',
@@ -676,6 +677,7 @@ export async function verifyAuth(req: NextRequest): Promise<{
       'provider-token',
       'influencer-token',
       'affiliate-token',
+      'affiliate_session',  // Used by affiliate login
       'patient-token',
       'staff-token',
       'support-token',
