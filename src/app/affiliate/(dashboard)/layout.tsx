@@ -4,7 +4,7 @@
  * Affiliate Dashboard Layout
  * 
  * Mobile-first bottom navigation with elegant transitions.
- * Inspired by Hims/Ro minimal design language.
+ * Supports clinic branding (logo, colors).
  */
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -15,6 +15,17 @@ interface NavItem {
   href: string;
   label: string;
   icon: (active: boolean) => ReactNode;
+}
+
+interface ClinicBranding {
+  clinicId: number;
+  name: string;
+  logoUrl: string | null;
+  iconUrl: string | null;
+  faviconUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
 }
 
 const navItems: NavItem[] = [
@@ -64,10 +75,13 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   const pathname = usePathname();
   const router = useRouter();
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+  const [branding, setBranding] = useState<ClinicBranding | null>(null);
+  const [isMainApp, setIsMainApp] = useState(false);
 
-  // Check auth on mount
+  // Check auth and load branding on mount
   useEffect(() => {
-    const checkAuth = async () => {
+    const init = async () => {
+      // Check auth
       try {
         const res = await fetch('/api/affiliate/auth/me', {
           credentials: 'include',
@@ -76,12 +90,51 @@ export default function AffiliateDashboardLayout({ children }: { children: React
           setIsAuthed(true);
         } else {
           router.push(`/affiliate/login?redirect=${encodeURIComponent(pathname)}`);
+          return;
         }
       } catch {
         router.push('/affiliate/login');
+        return;
+      }
+
+      // Load clinic branding
+      try {
+        const domain = window.location.hostname;
+        const brandingRes = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
+        if (brandingRes.ok) {
+          const data = await brandingRes.json();
+          if (data.isMainApp) {
+            setIsMainApp(true);
+          } else {
+            setBranding({
+              clinicId: data.clinicId,
+              name: data.name,
+              logoUrl: data.branding?.logoUrl,
+              iconUrl: data.branding?.iconUrl,
+              faviconUrl: data.branding?.faviconUrl,
+              primaryColor: data.branding?.primaryColor || '#111827',
+              secondaryColor: data.branding?.secondaryColor || '#6B7280',
+              accentColor: data.branding?.accentColor || '#10B981',
+            });
+
+            // Update favicon if clinic has one
+            if (data.branding?.faviconUrl) {
+              const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+              link.type = 'image/x-icon';
+              link.rel = 'shortcut icon';
+              link.href = data.branding.faviconUrl;
+              document.head.appendChild(link);
+            }
+
+            // Update page title
+            document.title = `Partner Portal | ${data.name}`;
+          }
+        }
+      } catch {
+        // Silently fail - use default branding
       }
     };
-    checkAuth();
+    init();
   }, [pathname, router]);
 
   if (isAuthed === null) {
@@ -97,12 +150,24 @@ export default function AffiliateDashboardLayout({ children }: { children: React
     return pathname.startsWith(href);
   };
 
+  // Get colors from branding or use defaults
+  const primaryColor = branding?.primaryColor || '#111827';
+  const portalName = branding?.name ? `${branding.name} Partners` : 'Partner Portal';
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0 md:pl-64">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-gray-100 flex-col">
         <div className="p-6 border-b border-gray-100">
-          <h1 className="text-xl font-semibold text-gray-900">Partner Portal</h1>
+          {branding?.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt={branding.name}
+              className="h-8 max-w-[180px] object-contain"
+            />
+          ) : (
+            <h1 className="text-xl font-semibold text-gray-900">{portalName}</h1>
+          )}
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => {
@@ -113,9 +178,10 @@ export default function AffiliateDashboardLayout({ children }: { children: React
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
                   ${active 
-                    ? 'bg-gray-900 text-white' 
+                    ? 'text-white' 
                     : 'text-gray-600 hover:bg-gray-50'
                   }`}
+                style={active ? { backgroundColor: primaryColor } : undefined}
               >
                 {item.icon(active)}
                 <span className="font-medium">{item.label}</span>
@@ -134,6 +200,11 @@ export default function AffiliateDashboardLayout({ children }: { children: React
             </svg>
             <span>Help & Support</span>
           </a>
+          {branding && !isMainApp && (
+            <p className="text-xs text-gray-400 mt-4 px-4">
+              Powered by <span className="font-medium">EONPRO</span>
+            </p>
+          )}
         </div>
       </aside>
 
@@ -148,16 +219,23 @@ export default function AffiliateDashboardLayout({ children }: { children: React
                 href={item.href}
                 className="flex flex-col items-center justify-center flex-1 py-2 relative"
               >
-                <span className={`transition-colors duration-200 ${active ? 'text-gray-900' : 'text-gray-400'}`}>
+                <span 
+                  className="transition-colors duration-200"
+                  style={{ color: active ? primaryColor : '#9CA3AF' }}
+                >
                   {item.icon(active)}
                 </span>
-                <span className={`text-xs mt-1 transition-colors duration-200 ${active ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+                <span 
+                  className={`text-xs mt-1 transition-colors duration-200 ${active ? 'font-medium' : ''}`}
+                  style={{ color: active ? primaryColor : '#9CA3AF' }}
+                >
                   {item.label}
                 </span>
                 {active && (
                   <motion.div
                     layoutId="bottomNavIndicator"
-                    className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gray-900 rounded-full"
+                    className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                    style={{ backgroundColor: primaryColor }}
                     transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                   />
                 )}
