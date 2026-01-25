@@ -163,7 +163,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     ]);
 
     // Format commissions
-    const formattedCommissions = commissionEvents.map((c) => ({
+    const formattedCommissions = commissionEvents.map((c: typeof commissionEvents[number]) => ({
       id: String(c.id),
       createdAt: c.createdAt.toISOString(),
       amount: c.commissionAmountCents,
@@ -174,7 +174,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     }));
 
     // Format payouts
-    const formattedPayouts = payouts.map((p) => ({
+    const formattedPayouts = payouts.map((p: typeof payouts[number]) => ({
       id: String(p.id),
       createdAt: p.createdAt.toISOString(),
       amount: p.grossAmountCents,
