@@ -65,15 +65,11 @@ export default function WithdrawPage() {
     fetchData();
   }, []);
 
-  // Mock data
+  // Use real data or empty state
   const displayData: WithdrawData = data || {
-    availableBalance: 125000,
+    availableBalance: 0,
     minWithdrawal: 5000,
-    payoutMethod: {
-      type: 'bank',
-      last4: '4567',
-      bankName: 'Chase Bank',
-    },
+    payoutMethod: null,
     pendingPayout: null,
   };
 

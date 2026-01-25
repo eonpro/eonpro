@@ -72,28 +72,24 @@ export default function AccountPage() {
     }
   };
 
-  // Mock data for development
+  // Use real data or empty state
   const displayData: AccountData = data || {
     profile: {
-      displayName: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      phone: '+1 (555) 123-4567',
-      tier: 'Gold Partner',
-      joinedAt: '2024-03-15',
+      displayName: 'Partner',
+      email: '',
+      phone: '',
+      tier: 'Standard',
+      joinedAt: new Date().toISOString(),
     },
-    payoutMethod: {
-      type: 'bank',
-      last4: '4567',
-      bankName: 'Chase Bank',
-    },
+    payoutMethod: null,
     preferences: {
       emailNotifications: true,
       smsNotifications: false,
       weeklyReport: true,
     },
     taxStatus: {
-      hasValidW9: true,
-      yearToDateEarnings: 850000,
+      hasValidW9: false,
+      yearToDateEarnings: 0,
       threshold: 60000,
     },
   };

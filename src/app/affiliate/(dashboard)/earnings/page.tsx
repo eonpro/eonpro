@@ -107,30 +107,17 @@ export default function EarningsPage() {
     fetchEarnings();
   }, []);
 
-  // Mock data for development
+  // Use real data or empty state
   const displayData: EarningsData = data || {
     summary: {
-      availableBalance: 125000,
-      pendingBalance: 45000,
+      availableBalance: 0,
+      pendingBalance: 0,
       processingPayout: 0,
-      lifetimeEarnings: 850000,
-      lifetimePaid: 680000,
+      lifetimeEarnings: 0,
+      lifetimePaid: 0,
     },
-    commissions: [
-      { id: '1', createdAt: new Date().toISOString(), amount: 2500, status: 'approved', orderAmount: 12500, refCode: 'SUMMER24' },
-      { id: '2', createdAt: new Date(Date.now() - 86400000).toISOString(), amount: 1800, status: 'pending', orderAmount: 9000, refCode: 'SUMMER24', holdUntil: new Date(Date.now() + 86400000 * 14).toISOString() },
-      { id: '3', createdAt: new Date(Date.now() - 172800000).toISOString(), amount: 3200, status: 'paid', orderAmount: 16000, refCode: 'VIP10' },
-      { id: '4', createdAt: new Date(Date.now() - 259200000).toISOString(), amount: 2100, status: 'approved', orderAmount: 10500, refCode: 'SUMMER24' },
-      { id: '5', createdAt: new Date(Date.now() - 345600000).toISOString(), amount: 1500, status: 'reversed', orderAmount: 7500, refCode: 'SUMMER24' },
-    ],
-    payouts: [
-      { id: '1', createdAt: new Date(Date.now() - 604800000).toISOString(), amount: 50000, fee: 0, netAmount: 50000, status: 'completed', method: 'Bank Transfer' },
-      { id: '2', createdAt: new Date(Date.now() - 2592000000).toISOString(), amount: 75000, fee: 0, netAmount: 75000, status: 'completed', method: 'Bank Transfer' },
-    ],
-    nextPayout: {
-      date: new Date(Date.now() + 604800000).toISOString(),
-      estimatedAmount: 45000,
-    },
+    commissions: [],
+    payouts: [],
   };
 
   const filteredCommissions = displayData.commissions.filter(c => {

@@ -134,14 +134,10 @@ export default function LinksPage() {
     }
   };
 
-  // Mock data for development
+  // Use real data or empty state
   const displayData: LinksData = data || {
-    baseUrl: 'https://app.lifefile.com',
-    refCodes: [
-      { id: '1', code: 'SUMMER24', name: 'Main Link', isDefault: true, clickCount: 1247, conversionCount: 89, lastClickAt: new Date().toISOString(), createdAt: new Date(Date.now() - 30 * 86400000).toISOString() },
-      { id: '2', code: 'VIP10', name: 'Instagram Bio', isDefault: false, clickCount: 456, conversionCount: 32, lastClickAt: new Date(Date.now() - 3600000).toISOString(), createdAt: new Date(Date.now() - 15 * 86400000).toISOString() },
-      { id: '3', code: 'TIKTOK', name: 'TikTok', isDefault: false, clickCount: 234, conversionCount: 18, createdAt: new Date(Date.now() - 7 * 86400000).toISOString() },
-    ],
+    baseUrl: window.location.origin,
+    refCodes: [],
     canCreateMore: true,
     maxCodes: 10,
   };
@@ -172,7 +168,32 @@ export default function LinksPage() {
       </header>
 
       <div className="max-w-3xl mx-auto px-6 py-6 space-y-4">
-        {/* Quick Copy Card */}
+        {/* Empty State */}
+        {displayData.refCodes.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl p-8 text-center"
+          >
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">No links yet</h2>
+            <p className="text-gray-500 mb-6">Create your first referral link to start earning</p>
+            <button
+              onClick={() => setIsCreating(true)}
+              className="px-6 py-3 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 transition-colors"
+            >
+              Create Your First Link
+            </button>
+          </motion.div>
+        )}
+
+        {/* Quick Copy Card - Only show when there are links */}
+        {displayData.refCodes.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -226,8 +247,10 @@ export default function LinksPage() {
             </button>
           </div>
         </motion.div>
+        )}
 
         {/* All Links */}
+        {displayData.refCodes.length > 0 && (
         <div className="space-y-3">
           {displayData.refCodes.map((refCode, index) => (
             <motion.div
@@ -329,6 +352,7 @@ export default function LinksPage() {
             </motion.div>
           ))}
         </div>
+        )}
 
         {/* Tips */}
         <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-5">
