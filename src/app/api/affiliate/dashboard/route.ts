@@ -139,8 +139,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
     }
 
-    // Calculate date ranges
-    const now = new Date();
+    // Calculate date ranges (now already defined above)
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
