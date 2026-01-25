@@ -3,15 +3,16 @@
 /**
  * Affiliate Login Page
  * 
- * Premium phone-based authentication with clinic branding.
+ * Email + password authentication with clinic branding.
  * Mobile-first, minimal design.
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, EyeOff, Mail, ArrowRight } from 'lucide-react';
 
-type LoginStep = 'phone' | 'code' | 'success';
+type LoginStep = 'email' | 'password' | 'success';
 
 interface ClinicBranding {
   clinicId: number;
@@ -47,19 +48,20 @@ export default function AffiliateLoginPage() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/affiliate';
   
-  const [step, setStep] = useState<LoginStep>('phone');
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [step, setStep] = useState<LoginStep>('email');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(0);
   
   // Branding state
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
   const [brandingLoaded, setBrandingLoaded] = useState(false);
+  const [isMainApp, setIsMainApp] = useState(false);
   
-  const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   // Resolve clinic from domain and load branding
   useEffect(() => {
@@ -70,6 +72,14 @@ export default function AffiliateLoginPage() {
 
         if (response.ok) {
           const data = await response.json();
+          
+          // Check if this is the main app (not a white-labeled clinic)
+          if (data.isMainApp) {
+            setIsMainApp(true);
+            setBrandingLoaded(true);
+            return;
+          }
+          
           setBranding({
             clinicId: data.clinicId,
             name: data.name,
@@ -105,26 +115,39 @@ export default function AffiliateLoginPage() {
     resolveClinic();
   }, []);
 
-  // Format phone number as user types
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-  };
+  // Auto-focus email input
+  useEffect(() => {
+    if (brandingLoaded && step === 'email') {
+      emailInputRef.current?.focus();
+    }
+  }, [brandingLoaded, step]);
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhone(e.target.value);
-    setPhone(formatted);
-    setError(null);
-  };
+  // Auto-focus password input
+  useEffect(() => {
+    if (step === 'password') {
+      setTimeout(() => passwordInputRef.current?.focus(), 100);
+    }
+  }, [step]);
 
-  const handlePhoneSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const digits = phone.replace(/\D/g, '');
     
-    if (digits.length !== 10) {
-      setError('Please enter a valid 10-digit phone number');
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setError(null);
+    setStep('password');
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!password) {
+      setError('Please enter your password');
       return;
     }
 
@@ -132,88 +155,25 @@ export default function AffiliateLoginPage() {
     setError(null);
 
     try {
-      const res = await fetch('/api/affiliate/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+1${digits}` }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to send code');
-      }
-
-      setStep('code');
-      setCountdown(60);
-      setTimeout(() => codeInputRefs.current[0]?.focus(), 100);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCodeChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
-    
-    const newCode = [...code];
-    newCode[index] = value.slice(-1);
-    setCode(newCode);
-    setError(null);
-
-    // Auto-advance to next input
-    if (value && index < 5) {
-      codeInputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-submit when complete
-    if (value && index === 5 && newCode.every(d => d)) {
-      handleCodeSubmit(newCode.join(''));
-    }
-  };
-
-  const handleCodeKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !code[index] && index > 0) {
-      codeInputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handleCodePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted.length === 6) {
-      const newCode = pasted.split('');
-      setCode(newCode);
-      handleCodeSubmit(pasted);
-    }
-  };
-
-  const handleCodeSubmit = async (codeString?: string) => {
-    const finalCode = codeString || code.join('');
-    if (finalCode.length !== 6) {
-      setError('Please enter the 6-digit code');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const digits = phone.replace(/\D/g, '');
-      const res = await fetch('/api/affiliate/auth/verify-code', {
+      const res = await fetch('/api/affiliate/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          phone: `+1${digits}`,
-          code: finalCode,
+          email: email.trim().toLowerCase(),
+          password,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Invalid code');
+        throw new Error(data.error || 'Invalid email or password');
+      }
+
+      // Store token
+      if (data.token) {
+        localStorage.setItem('affiliate-token', data.token);
+        localStorage.setItem('auth-token', data.token);
       }
 
       setStep('success');
@@ -223,61 +183,27 @@ export default function AffiliateLoginPage() {
         router.push(redirectTo);
       }, 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid code');
-      setCode(['', '', '', '', '', '']);
-      codeInputRefs.current[0]?.focus();
+      setError(err instanceof Error ? err.message : 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleResendCode = async () => {
-    if (countdown > 0) return;
-    
-    setIsLoading(true);
-    try {
-      const digits = phone.replace(/\D/g, '');
-      await fetch('/api/affiliate/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+1${digits}` }),
-      });
-      setCountdown(60);
-      setError(null);
-    } catch {
-      setError('Failed to resend code');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleBack = () => {
+    setStep('email');
+    setPassword('');
+    setError(null);
   };
-
-  // Countdown timer
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [countdown]);
-
-  // Auto-focus phone input
-  useEffect(() => {
-    if (brandingLoaded) {
-      phoneInputRef.current?.focus();
-    }
-  }, [brandingLoaded]);
 
   // Get colors from branding or use defaults
   const primaryColor = branding?.primaryColor || '#10B981';
-  const secondaryColor = branding?.secondaryColor || '#3B82F6';
-  const accentColor = branding?.accentColor || '#d3f931';
   const buttonTextMode = branding?.buttonTextColor || 'auto';
   const buttonTextColor = getTextColorForBg(primaryColor, buttonTextMode);
 
   // Show loading while branding is being fetched
   if (!brandingLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#EFECE7' }}>
         <div 
           className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
@@ -291,12 +217,11 @@ export default function AffiliateLoginPage() {
       className="min-h-screen"
       style={{ backgroundColor: '#EFECE7' }}
     >
-
       {/* Content */}
       <div className="min-h-screen flex flex-col">
         {/* Logo centered at top - uses clinic logo if available */}
         <div className="flex flex-col items-center pt-12 pb-8">
-          {branding ? (
+          {branding && !isMainApp ? (
             <>
               {branding.logoUrl ? (
                 <img
@@ -328,9 +253,9 @@ export default function AffiliateLoginPage() {
         {/* Main Content */}
         <main className="flex-1 flex flex-col items-center justify-center px-6 py-8">
           <AnimatePresence mode="wait">
-            {step === 'phone' && (
+            {step === 'email' && (
               <motion.div
-                key="phone"
+                key="email"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -344,24 +269,26 @@ export default function AffiliateLoginPage() {
                   </h1>
                 </div>
 
-                <form onSubmit={handlePhoneSubmit} className="space-y-4">
+                <form onSubmit={handleEmailSubmit} className="space-y-4">
                   <div>
-                    <label htmlFor="phone" className="sr-only">
-                      Phone number
+                    <label htmlFor="email" className="sr-only">
+                      Email address
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
-                        +1
-                      </span>
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                        <Mail className="h-5 w-5" />
+                      </div>
                       <input
-                        ref={phoneInputRef}
-                        id="phone"
-                        type="tel"
-                        inputMode="numeric"
-                        autoComplete="tel"
-                        value={phone}
-                        onChange={handlePhoneChange}
-                        placeholder="(555) 555-5555"
+                        ref={emailInputRef}
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          setError(null);
+                        }}
+                        placeholder="Email address"
                         className="w-full pl-12 pr-4 py-4 text-lg bg-white border border-gray-200 rounded-2xl 
                                  focus:outline-none focus:ring-2 focus:border-transparent transition-all
                                  placeholder:text-gray-400"
@@ -382,20 +309,17 @@ export default function AffiliateLoginPage() {
 
                   <button
                     type="submit"
-                    disabled={isLoading || phone.replace(/\D/g, '').length !== 10}
+                    disabled={isLoading || !email.trim()}
                     className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                      isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                      isLoading || !email.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
                     }`}
                     style={{
-                      backgroundColor: isLoading || phone.replace(/\D/g, '').length !== 10 ? '#9CA3AF' : primaryColor,
+                      backgroundColor: isLoading || !email.trim() ? '#9CA3AF' : primaryColor,
                       color: buttonTextColor,
                     }}
                   >
-                    {isLoading ? (
-                      <span className="inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      'Continue'
-                    )}
+                    Continue
+                    <ArrowRight className="h-5 w-5" />
                   </button>
                 </form>
 
@@ -413,9 +337,9 @@ export default function AffiliateLoginPage() {
               </motion.div>
             )}
 
-            {step === 'code' && (
+            {step === 'password' && (
               <motion.div
-                key="code"
+                key="password"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -423,11 +347,7 @@ export default function AffiliateLoginPage() {
                 className="w-full max-w-md"
               >
                 <button
-                  onClick={() => {
-                    setStep('phone');
-                    setCode(['', '', '', '', '', '']);
-                    setError(null);
-                  }}
+                  onClick={handleBack}
                   className="mb-6 text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -436,36 +356,46 @@ export default function AffiliateLoginPage() {
                   Back
                 </button>
 
-                <div className="text-center mb-8">
-                  <h1 className="text-4xl font-light text-gray-900 mb-4">
-                    Enter code
-                  </h1>
-                  <p className="text-gray-600">
-                    We sent a verification code to <span className="font-medium">{phone}</span>
-                  </p>
+                {/* Email Display */}
+                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl mb-6">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Email</p>
+                    <p className="text-gray-900 font-medium">{email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                  >
+                    Edit
+                  </button>
                 </div>
 
-                <div className="space-y-6">
-                  <div 
-                    className="flex justify-center gap-3"
-                    onPaste={handleCodePaste}
-                  >
-                    {code.map((digit, index) => (
-                      <input
-                        key={index}
-                        ref={el => { codeInputRefs.current[index] = el; }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={e => handleCodeChange(index, e.target.value)}
-                        onKeyDown={e => handleCodeKeyDown(index, e)}
-                        className="w-12 h-14 text-center text-2xl font-semibold bg-white rounded-xl
-                                 border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent
-                                 transition-colors"
-                        style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-                      />
-                    ))}
+                <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                  <div className="relative">
+                    <input
+                      ref={passwordInputRef}
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setError(null);
+                      }}
+                      className="w-full px-4 py-4 pr-12 bg-white border border-gray-200 rounded-2xl 
+                               focus:outline-none focus:ring-2 focus:border-transparent transition-all 
+                               text-gray-900 placeholder-gray-400"
+                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      placeholder="Password"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                   </div>
 
                   {error && (
@@ -478,31 +408,32 @@ export default function AffiliateLoginPage() {
                     </motion.div>
                   )}
 
-                  {isLoading && (
-                    <div className="flex justify-center">
-                      <span 
-                        className="inline-block w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-                        style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-                      />
-                    </div>
-                  )}
-
-                  <div className="text-center">
-                    {countdown > 0 ? (
-                      <p className="text-gray-500 text-sm">
-                        Resend code in {countdown}s
-                      </p>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                      isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                    }`}
+                    style={{
+                      backgroundColor: isLoading ? '#9CA3AF' : primaryColor,
+                      color: buttonTextColor,
+                    }}
+                  >
+                    {isLoading ? (
+                      <span className="inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <button
-                        onClick={handleResendCode}
-                        disabled={isLoading}
-                        className="font-medium text-sm hover:opacity-80"
-                        style={{ color: primaryColor }}
-                      >
-                        Resend code
-                      </button>
+                      'Log in'
                     )}
-                  </div>
+                  </button>
+                </form>
+
+                <div className="mt-4 text-center">
+                  <a 
+                    href="/affiliate/forgot-password" 
+                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                  >
+                    Forgot password?
+                  </a>
                 </div>
               </motion.div>
             )}
