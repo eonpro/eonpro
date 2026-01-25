@@ -89,7 +89,6 @@ export default function StripeSettingsPage() {
         }
         
         setClinicId(user.clinicId);
-        setAdminEmail(user.email || '');
         await loadStripeStatus(user.clinicId);
       } catch (err) {
         console.error('Failed to load data:', err);
