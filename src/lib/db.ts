@@ -489,6 +489,7 @@ class PrismaWithClinicFilter {
 
   // Enterprise affiliate system
   get affiliate() { return this.client.affiliate; }
+  get affiliateApplication() { return this.client.affiliateApplication; }
   get affiliateRefCode() { return this.client.affiliateRefCode; }
   get affiliateOtpCode() { return this.client.affiliateOtpCode; }
   get affiliateCommissionPlan() { return this.client.affiliateCommissionPlan; }

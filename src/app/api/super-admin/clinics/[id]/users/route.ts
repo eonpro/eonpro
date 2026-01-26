@@ -219,6 +219,32 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
         );
       }
 
+      // If adding as PROVIDER role and user doesn't have a Provider record, validate first
+      let needsProviderRecord = false;
+      if (normalizedRole === 'provider' && !existingUser.provider) {
+        needsProviderRecord = true;
+        
+        // Validate provider credentials are provided
+        if (!npi || !licenseNumber || !licenseState) {
+          return NextResponse.json(
+            { error: 'NPI, license number, and license state are required when adding a user as a provider' },
+            { status: 400 }
+          );
+        }
+
+        // Check if NPI is already in use by another provider
+        const npiInUse = await prisma.provider.findFirst({
+          where: { npi },
+        });
+
+        if (npiInUse) {
+          return NextResponse.json(
+            { error: 'This NPI is already registered to another provider' },
+            { status: 400 }
+          );
+        }
+      }
+
       // Add user to this clinic via UserClinic
       await prisma.userClinic.create({
         data: {
@@ -229,6 +255,39 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
           isActive: true,
         },
       });
+
+      // Create Provider record if needed (validated above)
+      if (needsProviderRecord) {
+        try {
+          // Create Provider record for existing user
+          const providerRecord = await prisma.provider.create({
+            data: {
+              email: existingUser.email.toLowerCase(),
+              firstName: existingUser.firstName || firstName,
+              lastName: existingUser.lastName || lastName,
+              passwordHash: existingUser.passwordHash || '', // Use existing user's password hash
+              clinicId,
+              npi: npi,
+              dea: deaNumber || null,
+              licenseNumber: licenseNumber || null,
+              licenseState: licenseState || null,
+              titleLine: specialty || null,
+            },
+          });
+
+          // Link Provider record to existing User
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { providerId: providerRecord.id },
+          });
+
+          console.log(`[CLINIC-USERS] Created and linked Provider record for existing user ${existingUser.email}`);
+        } catch (providerError: any) {
+          console.error('Error creating provider record for existing user:', providerError);
+          // Don't fail the operation - the user was already added to the clinic
+          // They can complete their provider profile later
+        }
+      }
 
       return NextResponse.json({
         user: {

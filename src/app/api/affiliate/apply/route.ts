@@ -114,13 +114,12 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (findError) {
-      const errMsg = findError instanceof Error ? findError.message : 'Unknown';
       logger.error('[AffiliateApply] Error checking existing application', {
-        error: errMsg,
+        error: findError instanceof Error ? findError.message : 'Unknown',
         stack: findError instanceof Error ? findError.stack : undefined,
       });
       return NextResponse.json(
-        { error: 'Database error checking existing application.', debug: errMsg },
+        { error: 'Database error. Please try again.' },
         { status: 500 }
       );
     }
@@ -215,15 +214,8 @@ export async function POST(request: NextRequest) {
       name: error instanceof Error ? error.name : undefined,
     });
 
-    // Return the actual error message for debugging
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
     return NextResponse.json(
-      { 
-        error: 'Failed to submit application. Please try again.',
-        // Always include details for now to debug
-        debug: errorMessage,
-      },
+      { error: 'Failed to submit application. Please try again.' },
       { status: 500 }
     );
   }
