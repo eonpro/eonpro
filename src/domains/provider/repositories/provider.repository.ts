@@ -147,7 +147,8 @@ export const providerRepository = {
    * For non-super-admin users:
    * - Include their linked provider (by ID)
    * - Include providers matching their email
-   * - Include providers from their clinic
+   * - Include providers from their clinic (by Provider.clinicId)
+   * - Include providers whose linked User is in the clinic (via UserClinic) - multi-clinic support
    * - Include shared providers (clinicId null)
    */
   async list(filters: ListProvidersFilters): Promise<ProviderWithClinic[]> {
@@ -164,9 +165,23 @@ export const providerRepository = {
       orConditions.push({ email: filters.userEmail.toLowerCase() });
     }
 
-    // Include providers from user's clinic
+    // Include providers from user's clinic (direct assignment)
     if (filters.clinicId) {
       orConditions.push({ clinicId: filters.clinicId });
+
+      // MULTI-CLINIC SUPPORT: Also include providers whose linked User
+      // is assigned to this clinic via UserClinic table
+      orConditions.push({
+        user: {
+          userClinics: {
+            some: {
+              clinicId: filters.clinicId,
+              isActive: true,
+              role: 'PROVIDER', // Only if they have provider role in this clinic
+            },
+          },
+        },
+      });
     }
 
     // Include shared providers (no clinic) if requested
