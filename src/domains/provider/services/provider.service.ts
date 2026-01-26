@@ -581,6 +581,71 @@ export const providerService = {
       actor: userContext.email,
     });
   },
+
+  // ============================================================================
+  // SUPER ADMIN: Global Provider Operations
+  // ============================================================================
+
+  /**
+   * List all providers with clinic counts (for super admin)
+   * Returns providers with statistics useful for global management
+   */
+  async listAllProvidersWithStats(): Promise<{
+    providers: ProviderWithClinic[];
+    count: number;
+    assignedCount: number;
+    unassignedCount: number;
+  }> {
+    const providers = await providerRepository.listAll();
+
+    // Calculate assigned vs unassigned
+    let assignedCount = 0;
+    let unassignedCount = 0;
+
+    for (const provider of providers) {
+      const hasClinic = 
+        provider.clinicId !== null || 
+        (provider.providerClinics && provider.providerClinics.length > 0);
+      
+      if (hasClinic) {
+        assignedCount++;
+      } else {
+        unassignedCount++;
+      }
+    }
+
+    return {
+      providers,
+      count: providers.length,
+      assignedCount,
+      unassignedCount,
+    };
+  },
+
+  /**
+   * Create a global provider (without clinic assignment)
+   * Only super admin can create global providers
+   */
+  async createGlobalProvider(
+    input: unknown,
+    userContext: UserContext
+  ): Promise<ProviderWithClinic> {
+    // Ensure only super admin can create global providers
+    if (userContext.role !== 'super_admin') {
+      throw new ForbiddenError('Only super admins can create global providers');
+    }
+
+    // Force clinicId to null for global provider
+    const globalInput = {
+      ...(input as Record<string, unknown>),
+      clinicId: null,
+    };
+
+    return this.createProvider(globalInput, {
+      ...userContext,
+      clinicId: null, // Ensure context has no clinic
+    });
+  },
 };
 
 export type ProviderService = typeof providerService;

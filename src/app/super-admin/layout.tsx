@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Shield, Building2, Settings, LogOut, ChevronRight, Users, DollarSign
+  Shield, Building2, Settings, LogOut, ChevronRight, Users, DollarSign, UserCog
 } from 'lucide-react';
 
 const navItems = [
   { icon: Shield, path: '/super-admin', label: 'Dashboard', exact: true },
   { icon: Building2, path: '/super-admin/clinics', label: 'Clinics' },
+  { icon: UserCog, path: '/super-admin/providers', label: 'Providers' },
   { icon: Users, path: '/super-admin/affiliates', label: 'Affiliates' },
   { icon: DollarSign, path: '/super-admin/commission-plans', label: 'Commission Plans' },
   { icon: Settings, path: '/super-admin/settings', label: 'Settings' },
