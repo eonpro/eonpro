@@ -190,7 +190,7 @@ export const POST = withSuperAdminAuth(async (
     // Determine clinic ID - use provided, or provider's primary clinic, or first clinic
     let userClinicId = clinicId;
     if (!userClinicId && provider.providerClinics.length > 0) {
-      const primaryClinic = provider.providerClinics.find(pc => pc.isPrimary);
+      const primaryClinic = provider.providerClinics.find((pc: { isPrimary: boolean; clinicId: number }) => pc.isPrimary);
       userClinicId = primaryClinic?.clinicId || provider.providerClinics[0].clinicId;
     }
 
