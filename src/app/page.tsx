@@ -14,11 +14,11 @@ interface PatientIntake {
   id: number;
   firstName: string;
   lastName: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string;
-  gender: string;
-  address: string;
+  email?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
   tags: string[];
   createdAt: string;
 }
@@ -104,8 +104,8 @@ export default function HomePage() {
 
   const loadDashboardData = async () => {
     try {
-      // Fetch recent patient intakes
-      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h');
+      // Fetch recent patient intakes (includeContact=true for dashboard display)
+      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h&includeContact=true');
 
       if (intakesResponse.ok) {
         const intakesData = await intakesResponse.json();
@@ -178,12 +178,14 @@ export default function HomePage() {
     router.push('/login');
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
   };
 
-  const formatGender = (gender: string) => {
+  const formatGender = (gender: string | null | undefined) => {
     if (!gender) return '';
     const g = gender.toLowerCase().trim();
     if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
@@ -459,8 +461,8 @@ export default function HomePage() {
                             <p className="text-xs text-gray-400">({formatGender(patient.gender)})</p>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-600">{patient.phone}</p>
-                            <p className="text-xs text-gray-400 truncate max-w-[180px]">{patient.email}</p>
+                            <p className="text-sm text-gray-600">{patient.phone || 'N/A'}</p>
+                            <p className="text-xs text-gray-400 truncate max-w-[180px]">{patient.email || 'N/A'}</p>
                           </td>
                           <td className="px-6 py-4">
                             <Link
