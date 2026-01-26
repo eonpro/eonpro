@@ -132,12 +132,12 @@ export default function AffiliateActivityPage() {
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center
                       ${activity.type === 'conversion' ? 'bg-green-50' : 
-                        activity.type === 'payout' ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                        activity.type === 'payout' ? 'bg-[#fdf6e3]' : 'bg-gray-50'}`}>
                       {activity.type === 'conversion' && (
                         <TrendingUp className="w-5 h-5 text-green-600" />
                       )}
                       {activity.type === 'payout' && (
-                        <ArrowUpRight className="w-5 h-5 text-blue-600" />
+                        <ArrowUpRight className="w-5 h-5 text-[#cab172]" />
                       )}
                       {activity.type === 'click' && (
                         <Clock className="w-5 h-5 text-gray-600" />

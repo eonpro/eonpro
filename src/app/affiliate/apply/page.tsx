@@ -695,7 +695,7 @@ export default function AffiliateApplyPage() {
                           href={profile.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline truncate"
+                          className="text-[#b5a05a] hover:underline truncate"
                         >
                           {profile.url}
                         </a>

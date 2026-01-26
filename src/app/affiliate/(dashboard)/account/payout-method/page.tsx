@@ -164,7 +164,7 @@ export default function PayoutMethodPage() {
                       d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                   </svg>
                 ) : (
-                  <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="w-6 h-6 text-[#cab172]" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                 )}
@@ -227,7 +227,7 @@ export default function PayoutMethodPage() {
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <svg className="w-8 h-8 mx-auto mb-2 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="w-8 h-8 mx-auto mb-2 text-[#cab172]" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                   <p className="font-medium text-gray-900">PayPal</p>
@@ -321,9 +321,9 @@ export default function PayoutMethodPage() {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-blue-50 rounded-xl text-sm text-blue-800">
+                  <div className="p-4 bg-[#fdf6e3] rounded-xl text-sm text-[#6b5c2e]">
                     <p className="font-medium mb-1">Your information is secure</p>
-                    <p className="text-blue-600">
+                    <p className="text-[#8b7a42]">
                       Bank details are encrypted and stored securely. We use bank-level security.
                     </p>
                   </div>
@@ -357,9 +357,9 @@ export default function PayoutMethodPage() {
                     </p>
                   </div>
 
-                  <div className="p-4 bg-blue-50 rounded-xl text-sm text-blue-800">
+                  <div className="p-4 bg-[#fdf6e3] rounded-xl text-sm text-[#6b5c2e]">
                     <p className="font-medium mb-1">Instant Payouts</p>
-                    <p className="text-blue-600">
+                    <p className="text-[#8b7a42]">
                       PayPal payouts are typically processed instantly once approved.
                     </p>
                   </div>

@@ -284,8 +284,8 @@ export default function AffiliateDashboard() {
             className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-[#fdf6e3] rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-[#cab172]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -305,8 +305,8 @@ export default function AffiliateDashboard() {
             className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-[#fdf6e3] rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-[#b5a05a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
@@ -364,14 +364,14 @@ export default function AffiliateDashboard() {
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center
                       ${activity.type === 'conversion' ? 'bg-green-50' : 
-                        activity.type === 'payout' ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                        activity.type === 'payout' ? 'bg-[#fdf6e3]' : 'bg-gray-50'}`}>
                       {activity.type === 'conversion' && (
                         <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                       )}
                       {activity.type === 'payout' && (
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 text-[#cab172]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                         </svg>
                       )}

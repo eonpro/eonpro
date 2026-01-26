@@ -252,13 +252,13 @@ function HomeTab({ greeting }: { greeting: string }) {
               <div key={activity.id} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center
-                    ${activity.type === 'conversion' ? 'bg-green-50' : 'bg-blue-50'}`}>
+                    ${activity.type === 'conversion' ? 'bg-green-50' : 'bg-[#fdf6e3]'}`}>
                     {activity.type === 'conversion' ? (
                       <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                     ) : (
-                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-[#cab172]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                       </svg>
                     )}
@@ -350,8 +350,8 @@ function EarningsTab() {
           <h2 className="font-semibold text-gray-900 mb-4">Payout Method</h2>
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-[#fdf6e3] rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-[#cab172]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
               </div>
@@ -360,7 +360,7 @@ function EarningsTab() {
                 <p className="text-sm text-gray-500">****4567</p>
               </div>
             </div>
-            <button className="text-sm text-blue-600 font-medium">Change</button>
+            <button className="text-sm text-[#b5a05a] font-medium">Change</button>
           </div>
         </div>
       </div>
@@ -473,7 +473,7 @@ function AccountTab() {
         {/* Profile Card */}
         <div className="bg-white rounded-2xl p-6">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            <div className="w-16 h-16 bg-gradient-to-br from-[#cab172] to-[#a89048] rounded-full flex items-center justify-center text-white text-2xl font-bold">
               {mockData.affiliate.displayName.charAt(0)}
             </div>
             <div>

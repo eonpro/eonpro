@@ -355,23 +355,23 @@ export default function LinksPage() {
         )}
 
         {/* Tips */}
-        <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-5">
+        <div className="bg-gradient-to-br from-[#fdf6e3] to-[#f5edd6] rounded-2xl p-5">
           <h3 className="font-medium text-gray-900 mb-2">Tips for success</h3>
           <ul className="space-y-2 text-sm text-gray-600">
             <li className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-4 h-4 text-[#cab172] mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
               Create different links for each platform to track performance
             </li>
             <li className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-4 h-4 text-[#cab172] mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
               Add your link to your bio on social media
             </li>
             <li className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-4 h-4 text-[#cab172] mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
               Use QR codes in stories and videos

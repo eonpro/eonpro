@@ -34,8 +34,8 @@ export default function AffiliateResourcesPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl p-8 text-center"
         >
-          <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Download className="w-8 h-8 text-purple-600" />
+          <div className="w-16 h-16 bg-[#fdf6e3] rounded-full flex items-center justify-center mx-auto mb-4">
+            <Download className="w-8 h-8 text-[#cab172]" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Resources Coming Soon

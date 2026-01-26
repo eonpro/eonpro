@@ -134,7 +134,7 @@ export default function AffiliateTermsPage() {
             <p className="text-gray-600 mb-4">
               For questions about this agreement or the affiliate program, please 
               contact us at{' '}
-              <a href="mailto:affiliates@eonpro.com" className="text-blue-600 hover:underline">
+              <a href="mailto:affiliates@eonpro.com" className="text-[#b5a05a] hover:underline">
                 affiliates@eonpro.com
               </a>
             </p>

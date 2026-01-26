@@ -69,7 +69,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   const styles: Record<string, string> = {
     pending: 'bg-yellow-50 text-yellow-700',
     approved: 'bg-green-50 text-green-700',
-    paid: 'bg-blue-50 text-blue-700',
+    paid: 'bg-[#fdf6e3] text-[#8b7a42]',
     reversed: 'bg-red-50 text-red-700',
     processing: 'bg-yellow-50 text-yellow-700',
     completed: 'bg-green-50 text-green-700',
@@ -327,15 +327,15 @@ export default function EarningsPage() {
         </div>
 
         {/* Info Card */}
-        <div className="bg-blue-50 rounded-2xl p-4">
+        <div className="bg-[#fdf6e3] rounded-2xl p-4">
           <div className="flex gap-3">
-            <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[#cab172] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div className="text-sm">
-              <p className="font-medium text-blue-900 mb-1">How commissions work</p>
-              <p className="text-blue-700">
+              <p className="font-medium text-[#6b5c2e] mb-1">How commissions work</p>
+              <p className="text-[#8b7a42]">
                 Commissions are held for 14 days to account for refunds, then automatically 
                 become available for withdrawal. Payouts are processed weekly.
               </p>
