@@ -74,92 +74,124 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
 
-    // Get affiliate with related data
-    const [affiliate, payoutMethod, taxDocuments] = await Promise.all([
-      prisma.affiliate.findUnique({
-        where: { id: affiliateId },
-        include: {
-          currentTier: true,
-          user: {
-            select: {
-              email: true,
-              phone: true,
-              createdAt: true,
-            },
+    // Get affiliate basic data first
+    const affiliate = await prisma.affiliate.findUnique({
+      where: { id: affiliateId },
+      select: {
+        id: true,
+        displayName: true,
+        createdAt: true,
+        currentTierId: true,
+        user: {
+          select: {
+            email: true,
+            phone: true,
           },
         },
-      }),
-      prisma.affiliatePayoutMethod.findFirst({
-        where: {
-          affiliateId,
-          isDefault: true,
-        },
+      },
+    });
+
+    if (!affiliate) {
+      return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
+    }
+
+    // Get tier name if exists
+    let tierName = 'Standard';
+    if (affiliate.currentTierId) {
+      try {
+        const tier = await prisma.affiliateCommissionTier.findUnique({
+          where: { id: affiliate.currentTierId },
+          select: { name: true },
+        });
+        if (tier) tierName = tier.name;
+      } catch {
+        // Tier lookup failed, use default
+      }
+    }
+
+    // Get payout method (optional, may not exist)
+    let payoutMethod = null;
+    try {
+      const pm = await prisma.affiliatePayoutMethod.findFirst({
+        where: { affiliateId, isDefault: true },
         select: {
-          id: true,
           methodType: true,
           bankAccountLast4: true,
           bankName: true,
           paypalEmail: true,
           isVerified: true,
         },
-      }),
-      prisma.affiliateTaxDocument.findFirst({
+      });
+      if (pm) {
+        payoutMethod = {
+          type: pm.methodType === 'PAYPAL' ? 'paypal' : 'bank',
+          last4: pm.bankAccountLast4,
+          bankName: pm.bankName,
+          email: pm.paypalEmail,
+          isVerified: pm.isVerified,
+        };
+      }
+    } catch {
+      // Payout method lookup failed, leave as null
+    }
+
+    // Get tax documents (optional)
+    let hasValidW9 = false;
+    try {
+      const taxDoc = await prisma.affiliateTaxDocument.findFirst({
         where: {
           affiliateId,
           documentType: 'W9',
-          status: 'APPROVED',
+          status: 'VERIFIED',
         },
-      }),
-    ]);
-
-    if (!affiliate) {
-      return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
+        select: { id: true },
+      });
+      hasValidW9 = !!taxDoc;
+    } catch {
+      // Tax doc lookup failed
     }
 
-    // Calculate year-to-date earnings
-    const startOfYear = new Date(new Date().getFullYear(), 0, 1);
-    const ytdEarnings = await prisma.affiliateCommissionEvent.aggregate({
-      where: {
-        affiliateId,
-        status: { in: ['APPROVED', 'PAID'] },
-        createdAt: { gte: startOfYear },
-      },
-      _sum: { commissionAmountCents: true },
-    });
-
-    // Note: notification preferences may be stored in settings JSON or a separate table
-    // For now, return defaults
-    const preferences = {
-      emailNotifications: true,
-      smsNotifications: false,
-      weeklyReport: true,
-    };
+    // Calculate year-to-date earnings (optional)
+    let ytdEarnings = 0;
+    try {
+      const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+      const result = await prisma.affiliateCommissionEvent.aggregate({
+        where: {
+          affiliateId,
+          status: { in: ['APPROVED', 'PAID'] },
+          createdAt: { gte: startOfYear },
+        },
+        _sum: { commissionAmountCents: true },
+      });
+      ytdEarnings = result._sum.commissionAmountCents || 0;
+    } catch {
+      // YTD calculation failed
+    }
 
     return NextResponse.json({
       profile: {
         displayName: affiliate.displayName,
         email: affiliate.user?.email || '',
         phone: affiliate.user?.phone || '',
-        tier: affiliate.currentTier?.name || 'Standard',
+        tier: tierName,
         joinedAt: affiliate.createdAt.toISOString(),
       },
-      payoutMethod: payoutMethod ? {
-        type: payoutMethod.methodType === 'PAYPAL' ? 'paypal' : 'bank',
-        last4: payoutMethod.bankAccountLast4,
-        bankName: payoutMethod.bankName,
-        email: payoutMethod.paypalEmail,
-        isVerified: payoutMethod.isVerified,
-      } : null,
-      preferences,
+      payoutMethod,
+      preferences: {
+        emailNotifications: true,
+        smsNotifications: false,
+        weeklyReport: true,
+      },
       taxStatus: {
-        hasValidW9: !!taxDocuments,
-        yearToDateEarnings: ytdEarnings._sum.commissionAmountCents || 0,
+        hasValidW9,
+        yearToDateEarnings: ytdEarnings,
         threshold: 60000, // $600 threshold for 1099
       },
     });
   } catch (error) {
     logger.error('[Affiliate Account] GET error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
     });
     return NextResponse.json(
       { error: 'Failed to load account' },
