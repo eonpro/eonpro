@@ -37,15 +37,17 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
             `/api/patient-progress/weight?patientId=${patient.id}&limit=20`
           );
           if (response.ok) {
-            const logs = await response.json();
-            const formattedData = logs.map((log: any) => ({
+            const result = await response.json();
+            // API returns { data: [...], meta: {...} }
+            const logs = result.data || result || [];
+            const formattedData = (Array.isArray(logs) ? logs : []).map((log: any) => ({
               date: new Date(log.recordedAt),
               weight: log.weight,
               id: log.id,
             }));
             setWeightData(formattedData);
             // If patient has weight data, consider them having active treatment
-            if (logs.length > 0) {
+            if (formattedData.length > 0) {
               setHasActiveTreatment(true);
             }
           }
@@ -67,8 +69,9 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
             `/api/patient-progress/medication-reminders?patientId=${patient.id}`
           );
           if (response.ok) {
-            const data = await response.json();
-            setMedicationReminders(data);
+            const result = await response.json();
+            // API returns { data: [...], meta: {...} }
+            setMedicationReminders(result.data || result || []);
           }
         } catch (error) {
           logger.error('Failed to fetch medication reminders:', error);

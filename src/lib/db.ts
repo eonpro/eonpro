@@ -87,13 +87,9 @@ const CLINIC_ISOLATED_MODELS = [
   'ticketworklog',
   'ticketassignment',
 
-  // Patient health tracking
-  'patientwaterlog',
-  'patientexerciselog',
-  'patientsleeplog',
-  'patientnutritionlog',
-  'patientweightlog',
-  'patientmedicationreminder',
+  // NOTE: Patient health tracking models (patientweightlog, patientmedicationreminder, etc.)
+  // are NOT in this list because they don't have a clinicId field directly.
+  // They are already isolated via their Patient relationship (patient->clinicId).
 
   // Affiliate/influencer (clinic-specific programs)
   'influencer',
@@ -424,13 +420,13 @@ class PrismaWithClinicFilter {
   get ticketWorkLog() { return this.createModelProxy('ticketWorkLog'); }
   get ticketAssignment() { return this.createModelProxy('ticketAssignment'); }
 
-  // Patient health tracking
-  get patientWaterLog() { return this.createModelProxy('patientWaterLog'); }
-  get patientExerciseLog() { return this.createModelProxy('patientExerciseLog'); }
-  get patientSleepLog() { return this.createModelProxy('patientSleepLog'); }
-  get patientNutritionLog() { return this.createModelProxy('patientNutritionLog'); }
-  get patientWeightLog() { return this.createModelProxy('patientWeightLog'); }
-  get patientMedicationReminder() { return this.createModelProxy('patientMedicationReminder'); }
+  // Patient health tracking - NOT clinic isolated (isolated via Patient relationship)
+  get patientWaterLog() { return this.client.patientWaterLog; }
+  get patientExerciseLog() { return this.client.patientExerciseLog; }
+  get patientSleepLog() { return this.client.patientSleepLog; }
+  get patientNutritionLog() { return this.client.patientNutritionLog; }
+  get patientWeightLog() { return this.client.patientWeightLog; }
+  get patientMedicationReminder() { return this.client.patientMedicationReminder; }
 
   // Affiliate/influencer
   get influencer() { return this.createModelProxy('influencer'); }
