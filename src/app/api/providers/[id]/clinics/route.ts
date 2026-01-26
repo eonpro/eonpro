@@ -41,8 +41,11 @@ interface RouteContext {
  * Returns clinic assignments with metadata (titleLine, DEA, license per clinic)
  */
 export const GET = withAuth(
-  async (req: NextRequest, user: AuthUser, context: RouteContext) => {
+  async (req: NextRequest, user: AuthUser, context?: RouteContext) => {
     try {
+      if (!context) {
+        return NextResponse.json({ error: 'Missing route context' }, { status: 500 });
+      }
       const { id } = await context.params;
       const providerId = parseInt(id, 10);
 
@@ -88,8 +91,11 @@ export const GET = withAuth(
  * - licenseState: string (optional) - license state
  */
 export const POST = withAuth(
-  async (req: NextRequest, user: AuthUser, context: RouteContext) => {
+  async (req: NextRequest, user: AuthUser, context?: RouteContext) => {
     try {
+      if (!context) {
+        return NextResponse.json({ error: 'Missing route context' }, { status: 500 });
+      }
       const { id } = await context.params;
       const providerId = parseInt(id, 10);
 
@@ -152,8 +158,11 @@ export const POST = withAuth(
  * - clinicId: number (required)
  */
 export const DELETE = withAuth(
-  async (req: NextRequest, user: AuthUser, context: RouteContext) => {
+  async (req: NextRequest, user: AuthUser, context?: RouteContext) => {
     try {
+      if (!context) {
+        return NextResponse.json({ error: 'Missing route context' }, { status: 500 });
+      }
       const { id } = await context.params;
       const providerId = parseInt(id, 10);
 
@@ -213,8 +222,11 @@ export const DELETE = withAuth(
  * - clinicId: number (required)
  */
 export const PATCH = withAuth(
-  async (req: NextRequest, user: AuthUser, context: RouteContext) => {
+  async (req: NextRequest, user: AuthUser, context?: RouteContext) => {
     try {
+      if (!context) {
+        return NextResponse.json({ error: 'Missing route context' }, { status: 500 });
+      }
       const { id } = await context.params;
       const providerId = parseInt(id, 10);
 
