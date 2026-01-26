@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { type Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -198,7 +199,7 @@ export const POST = withSuperAdminAuth(async (
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Create user and link to provider in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create user with PROVIDER role
       const newUser = await tx.user.create({
         data: {
@@ -385,7 +386,7 @@ export const PUT = withSuperAdminAuth(async (
     }
 
     // Link user to provider
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updatedUser = await tx.user.update({
         where: { id: userId },
         data: {
@@ -489,7 +490,7 @@ export const DELETE = withSuperAdminAuth(async (
     const linkedUserEmail = provider.user.email;
 
     // Unlink user from provider
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.user.update({
         where: { id: linkedUserId },
         data: {
