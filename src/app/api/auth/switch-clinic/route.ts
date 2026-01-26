@@ -217,7 +217,7 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
     clinic: { id: number; name: string; subdomain: string | null };
   }> = [];
 
-  if (tokenPayload.providerId) {
+  if (tokenPayload.providerId && prisma.providerClinic) {
     try {
       const assignments = await prisma.providerClinic.findMany({
         where: {
@@ -235,9 +235,9 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
         orderBy: { isPrimary: 'desc' },
       });
       providerClinics = assignments;
-    } catch {
+    } catch (err) {
       // ProviderClinic table may not exist yet (pre-migration)
-      logger.debug('ProviderClinic fetch skipped - table may not exist');
+      logger.debug('ProviderClinic fetch skipped - table may not exist', { error: err });
     }
   }
 

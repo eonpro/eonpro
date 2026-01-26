@@ -114,19 +114,21 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       let hasClinicAccess = false;
 
       // PRIMARY: Check ProviderClinic junction table
-      try {
-        const providerClinicAssignment = await basePrisma.providerClinic.findFirst({
-          where: {
-            providerId: provider.id,
-            clinicId: activeClinicId,
-            isActive: true,
-          },
-          select: { id: true },
-        });
-        hasClinicAccess = !!providerClinicAssignment;
-      } catch {
-        // ProviderClinic table may not exist yet (pre-migration)
-        logger.debug('[PRESCRIPTIONS] ProviderClinic check skipped - table may not exist');
+      if (basePrisma.providerClinic) {
+        try {
+          const providerClinicAssignment = await basePrisma.providerClinic.findFirst({
+            where: {
+              providerId: provider.id,
+              clinicId: activeClinicId,
+              isActive: true,
+            },
+            select: { id: true },
+          });
+          hasClinicAccess = !!providerClinicAssignment;
+        } catch (err) {
+          // ProviderClinic table may not exist yet (pre-migration)
+          logger.debug('[PRESCRIPTIONS] ProviderClinic check skipped - table may not exist', { error: err });
+        }
       }
 
       // LEGACY: Check provider's direct clinic assignment
