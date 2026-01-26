@@ -18,7 +18,7 @@ import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
  *
  * This webhook receives patient intake form submissions from https://intake.wellmedr.com
  * via Airtable automation.
- * 
+ *
  * CRITICAL: ALL data is isolated to the WELLMEDR clinic - no other clinic can access these patients.
  *
  * RELIABILITY FEATURES:
@@ -43,8 +43,8 @@ import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 // These values ensure ALL data goes ONLY to the Wellmedr clinic.
 // DO NOT CHANGE without understanding the security implications.
 const WELLMEDR_CLINIC_SUBDOMAIN = "wellmedr";
-const EXPECTED_WELLMEDR_CLINIC_ID = process.env.WELLMEDR_CLINIC_ID 
-  ? parseInt(process.env.WELLMEDR_CLINIC_ID, 10) 
+const EXPECTED_WELLMEDR_CLINIC_ID = process.env.WELLMEDR_CLINIC_ID
+  ? parseInt(process.env.WELLMEDR_CLINIC_ID, 10)
   : null;
 
 // Startup validation - log warning if env var not set
@@ -147,9 +147,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     clinicId = wellmedrClinic.id;
-    
+
     // ═══════════════════════════════════════════════════════════════════
     // RUNTIME ASSERTION: Validate clinic ID matches expected value
     // This prevents accidental data leaks to wrong clinic
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
         clinicName: wellmedrClinic.name,
         clinicSubdomain: wellmedrClinic.subdomain,
       });
-      recordError("wellmedr-intake", `SECURITY: Clinic ID mismatch - expected ${EXPECTED_WELLMEDR_CLINIC_ID}, got ${clinicId}`, { 
+      recordError("wellmedr-intake", `SECURITY: Clinic ID mismatch - expected ${EXPECTED_WELLMEDR_CLINIC_ID}, got ${clinicId}`, {
         requestId,
         expected: EXPECTED_WELLMEDR_CLINIC_ID,
         found: clinicId,
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     // Validate subdomain matches expected pattern
     if (!wellmedrClinic.subdomain?.toLowerCase().includes('wellmedr')) {
       logger.error(`[WELLMEDR-INTAKE ${requestId}] SECURITY ALERT: Clinic subdomain mismatch!`, {
@@ -184,13 +184,13 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ CLINIC VERIFIED: ID=${clinicId}, Name="${wellmedrClinic.name}", Subdomain="${wellmedrClinic.subdomain}"`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INTAKE ${requestId}] Database error finding clinic:`, { error: errMsg });
     recordError("wellmedr-intake", `Database error: ${err instanceof Error ? err.message : 'Unknown'}`, { requestId });
-    
+
     // Queue to DLQ for retry - get raw body for requeueing
     if (isDLQConfigured()) {
       try {
@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
         logger.error(`[WELLMEDR-INTAKE ${requestId}] Failed to queue to DLQ:`, { error: dlqErrMsg });
       }
     }
-    
+
     return Response.json(
       { error: "Database error", code: "DB_ERROR", requestId, queued: isDLQConfigured() },
       { status: 500 }
@@ -297,41 +297,64 @@ export async function POST(req: NextRequest) {
       parts.push(existing);
     }
     parts.push(`[${new Date().toISOString()}] ${isPartialSubmission ? "PARTIAL" : "COMPLETE"}: ${normalized.submissionId}`);
-    
+
     // Add GLP-1 specific notes if available
     if (payload['glp1-last-30'] === 'Yes' || payload['glp1-last-30'] === 'yes') {
       const glp1Type = payload['glp1-last-30-medication-type'] || 'Unknown';
       const glp1Dose = payload['glp1-last-30-medication-dose-mg'] || 'Unknown';
       parts.push(`Recent GLP-1: ${glp1Type} ${glp1Dose}mg`);
     }
-    
+
     // Add contraindication flags
     if (payload['men2-history'] === 'Yes' || payload['men2-history'] === 'yes') {
       parts.push("⚠️ MEN2 HISTORY - GLP-1 CONTRAINDICATION");
     }
-    
+
     return parts.join("\n");
   };
 
   try {
-    // Find existing patient (with retry)
-    const existingPatient = await withRetry<Patient | null>(() => prisma.patient.findFirst({
-      where: {
-        clinicId: clinicId,
-        OR: [
-          patientData.email !== "unknown@example.com" ? { email: patientData.email } : null,
-          patientData.phone && patientData.phone !== "0000000000" ? { phone: patientData.phone } : null,
-          patientData.firstName !== "Unknown" && patientData.lastName !== "Unknown" ? {
-            firstName: patientData.firstName,
-            lastName: patientData.lastName,
-            dob: patientData.dob,
-          } : null,
-        ].filter(Boolean) as Prisma.PatientWhereInput[],
-      },
-    }));
+    // ═══════════════════════════════════════════════════════════════════
+    // ROBUST PATIENT LOOKUP - Check multiple criteria to avoid duplicates
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Build comprehensive lookup conditions
+    const lookupConditions: Prisma.PatientWhereInput[] = [];
+
+    // 1. By email (strongest match)
+    if (patientData.email && patientData.email !== "unknown@example.com") {
+      lookupConditions.push({ email: { equals: patientData.email, mode: 'insensitive' } });
+    }
+
+    // 2. By phone (normalize and match)
+    if (patientData.phone && patientData.phone !== "0000000000") {
+      lookupConditions.push({ phone: patientData.phone });
+    }
+
+    // 3. By name + DOB (for patients who changed email/phone)
+    if (patientData.firstName !== "Unknown" && patientData.lastName !== "Unknown" && patientData.dob !== "1900-01-01") {
+      lookupConditions.push({
+        firstName: { equals: patientData.firstName, mode: 'insensitive' },
+        lastName: { equals: patientData.lastName, mode: 'insensitive' },
+        dob: patientData.dob,
+      });
+    }
+
+    let existingPatient: Patient | null = null;
+
+    if (lookupConditions.length > 0) {
+      existingPatient = await withRetry<Patient | null>(() => prisma.patient.findFirst({
+        where: {
+          clinicId: clinicId,
+          OR: lookupConditions,
+        },
+      }));
+    }
 
     if (existingPatient) {
-      // Update existing
+      // ═══════════════════════════════════════════════════════════════════
+      // UPDATE EXISTING PATIENT
+      // ═══════════════════════════════════════════════════════════════════
       const existingTags = Array.isArray(existingPatient.tags) ? existingPatient.tags as string[] : [];
       const wasPartial = existingTags.includes("partial-lead");
       const upgradedFromPartial = wasPartial && !isPartialSubmission;
@@ -343,45 +366,99 @@ export async function POST(req: NextRequest) {
       }
 
       patient = await withRetry(() => prisma.patient.update({
-        where: { id: existingPatient.id },
+        where: { id: existingPatient!.id },
         data: {
           ...patientData,
           tags: updatedTags,
-          notes: buildNotes(existingPatient.notes),
+          notes: buildNotes(existingPatient!.notes),
         },
       }));
       logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Updated patient: ${patient.id} → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`);
     } else {
-      // Create new - use Wellmedr clinic-specific counter
-      const patientNumber = await getNextPatientId(clinicId);
-      patient = await withRetry(() => prisma.patient.create({
-        data: {
-          ...patientData,
-          patientId: patientNumber,
-          clinicId: clinicId,
-          tags: submissionTags,
-          notes: buildNotes(null),
-          source: "webhook",
-          sourceMetadata: {
-            type: "wellmedr-intake",
-            submissionId: normalized.submissionId,
-            checkoutCompleted: isComplete,
-            intakeUrl: "https://intake.wellmedr.com",
-            timestamp: new Date().toISOString(),
-            clinicId,
-            clinicName: "Wellmedr",
-          },
-        },
-      }));
-      isNewPatient = true;
-      logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`);
+      // ═══════════════════════════════════════════════════════════════════
+      // CREATE NEW PATIENT - with retry on patientId conflict
+      // ═══════════════════════════════════════════════════════════════════
+      const MAX_RETRIES = 5;
+      let retryCount = 0;
+      let created = false;
+
+      while (!created && retryCount < MAX_RETRIES) {
+        try {
+          const patientNumber = await getNextPatientId(clinicId);
+          patient = await prisma.patient.create({
+            data: {
+              ...patientData,
+              patientId: patientNumber,
+              clinicId: clinicId,
+              tags: submissionTags,
+              notes: buildNotes(null),
+              source: "webhook",
+              sourceMetadata: {
+                type: "wellmedr-intake",
+                submissionId: normalized.submissionId,
+                checkoutCompleted: isComplete,
+                intakeUrl: "https://intake.wellmedr.com",
+                timestamp: new Date().toISOString(),
+                clinicId,
+                clinicName: "Wellmedr",
+              },
+            },
+          });
+          isNewPatient = true;
+          created = true;
+          logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`);
+        } catch (createErr: any) {
+          // Check if this is a unique constraint violation on patientId
+          if (createErr?.code === 'P2002' && createErr?.meta?.target?.includes('patientId')) {
+            retryCount++;
+            logger.warn(`[WELLMEDR-INTAKE ${requestId}] PatientId conflict, retrying (${retryCount}/${MAX_RETRIES})...`);
+
+            // Wait a bit before retrying to avoid race conditions
+            await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+
+            // If this keeps happening, the patient might actually exist - try to find them again
+            if (retryCount >= 3) {
+              const refetchPatient = await prisma.patient.findFirst({
+                where: {
+                  clinicId: clinicId,
+                  OR: lookupConditions.length > 0 ? lookupConditions : [
+                    { email: patientData.email },
+                    { phone: patientData.phone },
+                  ],
+                },
+              });
+
+              if (refetchPatient) {
+                // Found the patient on re-check - update instead
+                patient = await prisma.patient.update({
+                  where: { id: refetchPatient.id },
+                  data: {
+                    ...patientData,
+                    tags: mergeTags(refetchPatient.tags, submissionTags),
+                    notes: buildNotes(refetchPatient.notes),
+                  },
+                });
+                created = true;
+                logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Found and updated patient on retry: ${patient.id}`);
+              }
+            }
+          } else {
+            // Not a patientId conflict - rethrow
+            throw createErr;
+          }
+        }
+      }
+
+      if (!created) {
+        throw new Error(`Failed to create patient after ${MAX_RETRIES} retries due to patientId conflicts`);
+      }
     }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
     const errorStack = err instanceof Error ? err.stack : undefined;
     const prismaError = (err as any)?.code || (err as any)?.meta;
-    
-    logger.error(`[WELLMEDR-INTAKE ${requestId}] CRITICAL: Patient upsert failed:`, { 
+
+    logger.error(`[WELLMEDR-INTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {
       error: errorMsg,
       stack: errorStack,
       prismaCode: (err as any)?.code,
@@ -394,7 +471,7 @@ export async function POST(req: NextRequest) {
       }
     });
     recordError("wellmedr-intake", `Patient creation failed: ${errorMsg}`, { requestId });
-    
+
     // Queue to DLQ for retry
     if (isDLQConfigured()) {
       try {
@@ -412,7 +489,7 @@ export async function POST(req: NextRequest) {
         logger.error(`[WELLMEDR-INTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
       }
     }
-    
+
     return Response.json({
       error: `Failed to create patient: ${errorMsg}`,
       code: "PATIENT_ERROR",
@@ -534,7 +611,7 @@ export async function POST(req: NextRequest) {
       userAgent,
       consentTimestamp,
     };
-    
+
     if (existingDoc) {
       patientDocument = await prisma.patientDocument.update({
         where: { id: existingDoc.id },
@@ -593,7 +670,7 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   // Check for promo code in various possible fields
   const promoCode = payload['promo-code'] || payload['promoCode'] || payload['referral-code'] || payload['referralCode'];
-  
+
   if (promoCode) {
     const code = String(promoCode).trim().toUpperCase();
     try {
@@ -663,7 +740,7 @@ export async function POST(req: NextRequest) {
     eonproPatientId: patient.patientId,  // Formatted ID like "000059"
     eonproDatabaseId: patient.id,        // Database ID
     submissionId: normalized.submissionId,
-    
+
     // Detailed patient info
     patient: {
       id: patient.id,
@@ -726,15 +803,53 @@ function normalizePatientData(patient: any) {
 
 async function getNextPatientId(clinicId: number): Promise<string> {
   try {
-    const counter = await withRetry(() => prisma.patientCounter.upsert({
+    // Use atomic increment to prevent race conditions
+    const counter = await prisma.patientCounter.upsert({
       where: { clinicId },
       create: { clinicId, current: 1 },
       update: { current: { increment: 1 } },
-    }));
-    return (counter as { current: number }).current.toString().padStart(6, "0");
-  } catch {
-    // Fallback: use timestamp-based ID
-    return `WMI${Date.now().toString().slice(-8)}`;
+    });
+
+    const nextId = (counter as { current: number }).current.toString().padStart(6, "0");
+
+    // Verify this ID isn't already in use (sanity check)
+    const existingWithId = await prisma.patient.findFirst({
+      where: { clinicId, patientId: nextId },
+      select: { id: true },
+    });
+
+    if (existingWithId) {
+      // Counter is out of sync - find the highest used patientId and update counter
+      const highestPatient = await prisma.patient.findFirst({
+        where: {
+          clinicId,
+          patientId: { not: null },
+        },
+        orderBy: { patientId: 'desc' },
+        select: { patientId: true },
+      });
+
+      if (highestPatient?.patientId) {
+        const highestNum = parseInt(highestPatient.patientId.replace(/\D/g, ''), 10) || 0;
+        const newCurrent = highestNum + 1;
+
+        // Update counter to be above the highest used value
+        await prisma.patientCounter.update({
+          where: { clinicId },
+          data: { current: newCurrent },
+        });
+
+        logger.warn(`[getNextPatientId] Counter was out of sync. Reset to ${newCurrent} for clinic ${clinicId}`);
+        return newCurrent.toString().padStart(6, "0");
+      }
+    }
+
+    return nextId;
+  } catch (error) {
+    // Fallback: use timestamp-based ID that's unlikely to conflict
+    const fallbackId = `WM${Date.now().toString().slice(-10)}`;
+    logger.warn(`[getNextPatientId] Using fallback ID: ${fallbackId}`, { error });
+    return fallbackId;
   }
 }
 
