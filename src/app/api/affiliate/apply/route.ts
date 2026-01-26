@@ -162,10 +162,18 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('[AffiliateApply] Error submitting application', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
     });
 
+    // Return more specific error in development
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     return NextResponse.json(
-      { error: 'Failed to submit application. Please try again.' },
+      { 
+        error: 'Failed to submit application. Please try again.',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
       { status: 500 }
     );
   }
