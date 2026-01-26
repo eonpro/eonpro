@@ -71,7 +71,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
 
 /**
  * PUT /api/super-admin/clinics/[id]/users/[userId]
- * Update a user (including password reset)
+ * Update a user (including password reset and provider credentials)
  */
 export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, params: { id: string; userId: string }) => {
   try {
@@ -85,12 +85,16 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       );
     }
 
-    // Verify user belongs to this clinic
+    // Verify user belongs to this clinic (including multi-clinic via UserClinic)
     const existingUser = await prisma.user.findFirst({
       where: {
         id: userId,
-        clinicId,
+        OR: [
+          { clinicId },
+          { userClinics: { some: { clinicId, isActive: true } } },
+        ],
       },
+      include: { provider: true },
     });
 
     if (!existingUser) {
@@ -101,7 +105,20 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
     }
 
     const body = await req.json();
-    const { firstName, lastName, role, status, password, phone } = body;
+    const {
+      firstName,
+      lastName,
+      role,
+      status,
+      password,
+      phone,
+      // Provider credentials
+      npi,
+      deaNumber,
+      licenseNumber,
+      licenseState,
+      specialty,
+    } = body;
 
     // Build update data
     const updateData: any = {};
@@ -109,7 +126,7 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
     if (lastName !== undefined) updateData.lastName = lastName;
     if (role !== undefined) updateData.role = role;
     if (status !== undefined) updateData.status = status;
-    if (phone !== undefined) updateData.phone = phone || null; // Allow clearing phone
+    if (phone !== undefined) updateData.phone = phone || null;
 
     // Handle password reset
     if (password) {
@@ -123,6 +140,7 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
       updateData.lastPasswordChange = new Date();
     }
 
+    // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: updateData,
@@ -136,8 +154,107 @@ export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, p
         status: true,
         createdAt: true,
         lastLogin: true,
+        providerId: true,
       },
     });
+
+    // Handle provider credentials for PROVIDER role
+    const effectiveRole = (role || existingUser.role)?.toLowerCase();
+    if (effectiveRole === 'provider' && npi) {
+      // Validate NPI format
+      if (!/^\d{10}$/.test(npi)) {
+        return NextResponse.json(
+          { error: 'NPI must be exactly 10 digits' },
+          { status: 400 }
+        );
+      }
+
+      if (existingUser.provider) {
+        // Update existing provider
+        // Check if NPI is changing and already in use
+        if (npi !== existingUser.provider.npi) {
+          const npiInUse = await prisma.provider.findFirst({
+            where: { npi, id: { not: existingUser.provider.id } },
+          });
+          if (npiInUse) {
+            return NextResponse.json(
+              { error: 'This NPI is already registered to another provider' },
+              { status: 400 }
+            );
+          }
+        }
+
+        await prisma.provider.update({
+          where: { id: existingUser.provider.id },
+          data: {
+            npi,
+            dea: deaNumber || existingUser.provider.dea,
+            licenseNumber: licenseNumber || existingUser.provider.licenseNumber,
+            licenseState: licenseState || existingUser.provider.licenseState,
+            titleLine: specialty || existingUser.provider.titleLine,
+            firstName: firstName || existingUser.provider.firstName,
+            lastName: lastName || existingUser.provider.lastName,
+            // Make provider shared for multi-clinic support
+            clinicId: null,
+          },
+        });
+      } else {
+        // Create new provider and link to user
+        // Check if NPI is already in use
+        const npiInUse = await prisma.provider.findFirst({
+          where: { npi },
+        });
+
+        if (npiInUse) {
+          // Link existing provider to this user if emails match
+          if (npiInUse.email === existingUser.email) {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { providerId: npiInUse.id },
+            });
+            // Make provider shared
+            await prisma.provider.update({
+              where: { id: npiInUse.id },
+              data: { clinicId: null },
+            });
+          } else {
+            return NextResponse.json(
+              { error: 'This NPI is already registered to another provider' },
+              { status: 400 }
+            );
+          }
+        } else {
+          // Create new provider
+          const newProvider = await prisma.provider.create({
+            data: {
+              email: existingUser.email,
+              firstName: firstName || existingUser.firstName,
+              lastName: lastName || existingUser.lastName,
+              npi,
+              dea: deaNumber || null,
+              licenseNumber: licenseNumber || null,
+              licenseState: licenseState || null,
+              titleLine: specialty || null,
+              clinicId: null, // Shared across clinics
+            },
+          });
+
+          // Link provider to user
+          await prisma.user.update({
+            where: { id: userId },
+            data: { providerId: newProvider.id },
+          });
+        }
+      }
+    }
+
+    // Also update UserClinic role if it changed
+    if (role) {
+      await prisma.userClinic.updateMany({
+        where: { userId, clinicId },
+        data: { role: role.toUpperCase() },
+      });
+    }
 
     return NextResponse.json({
       user: updatedUser,

@@ -131,6 +131,22 @@ export default function ClinicDetailPage() {
   const [resetPasswordModal, setResetPasswordModal] = useState<{ show: boolean; userId: number | null; userName: string }>({ show: false, userId: null, userName: '' });
   const [newPassword, setNewPassword] = useState('');
   const [resettingPassword, setResettingPassword] = useState(false);
+
+  // Edit user state
+  const [editUserModal, setEditUserModal] = useState<{ show: boolean; user: ClinicUser | null }>({ show: false, user: null });
+  const [editingUser, setEditingUser] = useState(false);
+  const [editUserData, setEditUserData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    role: '',
+    status: '',
+    npi: '',
+    deaNumber: '',
+    licenseNumber: '',
+    licenseState: '',
+    specialty: '',
+  });
   const [newUser, setNewUser] = useState({
     email: '',
     firstName: '',
@@ -384,6 +400,55 @@ export default function ClinicDetailPage() {
     } catch (error) {
       console.error('Error removing user:', error);
       alert('Failed to remove user');
+    }
+  };
+
+  const openEditUserModal = (user: ClinicUser) => {
+    setEditUserData({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      phone: user.phone || '',
+      role: user.role?.toUpperCase() || 'ADMIN',
+      status: user.status || 'ACTIVE',
+      npi: '',
+      deaNumber: '',
+      licenseNumber: '',
+      licenseState: '',
+      specialty: '',
+    });
+    setEditUserModal({ show: true, user });
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUserModal.user) return;
+
+    setEditingUser(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/users/${editUserModal.user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editUserData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEditUserModal({ show: false, user: null });
+        fetchClinicUsers();
+        alert('User updated successfully');
+      } else {
+        alert(data.error || 'Failed to update user');
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
+      alert('Failed to update user');
+    } finally {
+      setEditingUser(false);
     }
   };
 
@@ -1519,6 +1584,12 @@ export default function ClinicDetailPage() {
                           </td>
                           <td className="py-3 px-4 text-right space-x-2">
                             <button
+                              onClick={() => openEditUserModal(user)}
+                              className="text-amber-600 hover:text-amber-800 text-sm font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
                               onClick={() => setResetPasswordModal({
                                 show: true,
                                 userId: user.id,
@@ -1887,6 +1958,186 @@ export default function ClinicDetailPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {editUserModal.show && editUserModal.user && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-8">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 my-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Edit User: {editUserModal.user.firstName} {editUserModal.user.lastName}
+              </h3>
+              <button
+                onClick={() => setEditUserModal({ show: false, user: null })}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditUser} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Role Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={editUserData.role}
+                  onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="ADMIN">Admin - Full clinic access</option>
+                  <option value="PROVIDER">Provider - Patient care & prescriptions</option>
+                  <option value="STAFF">Staff - Limited administrative access</option>
+                  <option value="SUPPORT">Support - Customer service access</option>
+                </select>
+              </div>
+
+              {/* Provider credentials when role is PROVIDER */}
+              {editUserData.role === 'PROVIDER' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+                  <h4 className="font-medium text-blue-900 flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Provider Credentials
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    Enter NPI to enable prescriptions for this provider in this clinic.
+                  </p>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">NPI Number *</label>
+                    <input
+                      type="text"
+                      value={editUserData.npi}
+                      onChange={(e) => setEditUserData({ ...editUserData, npi: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      placeholder="10-digit NPI"
+                      maxLength={10}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">DEA Number</label>
+                    <input
+                      type="text"
+                      value={editUserData.deaNumber}
+                      onChange={(e) => setEditUserData({ ...editUserData, deaNumber: e.target.value.toUpperCase() })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      placeholder="e.g., AB1234567"
+                      maxLength={9}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">License Number</label>
+                      <input
+                        type="text"
+                        value={editUserData.licenseNumber}
+                        onChange={(e) => setEditUserData({ ...editUserData, licenseNumber: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        placeholder="License #"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                      <select
+                        value={editUserData.licenseState}
+                        onChange={(e) => setEditUserData({ ...editUserData, licenseState: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      >
+                        <option value="">Select State</option>
+                        {['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'].map(state => (
+                          <option key={state} value={state}>{state}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
+                    <input
+                      type="text"
+                      value={editUserData.specialty}
+                      onChange={(e) => setEditUserData({ ...editUserData, specialty: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      placeholder="e.g., Family Medicine"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={editUserData.firstName}
+                    onChange={(e) => setEditUserData({ ...editUserData, firstName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={editUserData.lastName}
+                    onChange={(e) => setEditUserData({ ...editUserData, lastName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={editUserData.phone}
+                  onChange={(e) => setEditUserData({ ...editUserData, phone: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={editUserData.status}
+                  onChange={(e) => setEditUserData({ ...editUserData, status: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="PENDING">Pending</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setEditUserModal({ show: false, user: null })}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editingUser}
+                  className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {editingUser ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
