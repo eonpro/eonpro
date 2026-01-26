@@ -21,6 +21,13 @@ import {
   AlertCircle,
   Pencil,
   Users,
+  Mail,
+  Key,
+  UserPlus,
+  Link,
+  Unlink,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface ClinicAssignment {
@@ -146,6 +153,19 @@ export default function SuperAdminProviderDetailPage() {
     licenseState: '',
   });
   const [addingClinic, setAddingClinic] = useState(false);
+
+  // User account management
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    sendInvite: false,
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [unlinkingUser, setUnlinkingUser] = useState(false);
 
   useEffect(() => {
     if (providerId) {
@@ -354,6 +374,122 @@ export default function SuperAdminProviderDetailPage() {
     } catch (err) {
       setError('Failed to update primary clinic');
     }
+  };
+
+  // User account handlers
+  const handleCreateUserAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!createUserForm.email || !createUserForm.password) {
+      setError('Email and password are required');
+      return;
+    }
+
+    if (createUserForm.password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    setCreatingUser(true);
+    setError(null);
+    const token = getAuthToken();
+
+    try {
+      const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: createUserForm.email,
+          password: createUserForm.password,
+          firstName: createUserForm.firstName || provider?.firstName,
+          lastName: createUserForm.lastName || provider?.lastName,
+          sendInvite: createUserForm.sendInvite,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setShowCreateUserModal(false);
+        setCreateUserForm({
+          email: '',
+          password: '',
+          firstName: '',
+          lastName: '',
+          sendInvite: false,
+        });
+        setShowPassword(false);
+        fetchProvider();
+        setSuccessMessage('User account created successfully');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setError(data.error || 'Failed to create user account');
+      }
+    } catch (err) {
+      setError('Failed to create user account');
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const handleUnlinkUser = async () => {
+    if (!confirm('Are you sure you want to unlink this user account from the provider? The user account will not be deleted, just disconnected.')) {
+      return;
+    }
+
+    setUnlinkingUser(true);
+    setError(null);
+    const token = getAuthToken();
+
+    try {
+      const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        fetchProvider();
+        setSuccessMessage('User account unlinked');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setError(data.error || 'Failed to unlink user account');
+      }
+    } catch (err) {
+      setError('Failed to unlink user account');
+    } finally {
+      setUnlinkingUser(false);
+    }
+  };
+
+  // Initialize create user form with provider data
+  const openCreateUserModal = () => {
+    setCreateUserForm({
+      email: provider?.email || '',
+      password: '',
+      firstName: provider?.firstName || '',
+      lastName: provider?.lastName || '',
+      sendInvite: false,
+    });
+    setShowPassword(false);
+    setShowCreateUserModal(true);
+  };
+
+  // Generate random password
+  const generatePassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCreateUserForm(f => ({ ...f, password }));
+    setShowPassword(true);
   };
 
   useEffect(() => {
@@ -700,26 +836,88 @@ export default function SuperAdminProviderDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Linked User */}
-            {provider.user && (
-              <div className="rounded-xl bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-3">Linked User Account</h3>
-                <div className="space-y-2">
-                  <p className="text-sm">
-                    <span className="text-gray-500">Email:</span>{' '}
-                    <span className="text-gray-900">{provider.user.email}</span>
-                  </p>
-                  <p className="text-sm">
-                    <span className="text-gray-500">Name:</span>{' '}
-                    <span className="text-gray-900">{provider.user.firstName} {provider.user.lastName}</span>
-                  </p>
-                  <p className="text-sm">
-                    <span className="text-gray-500">Role:</span>{' '}
-                    <span className="text-gray-900 uppercase">{provider.user.role}</span>
-                  </p>
-                </div>
+            {/* User Account Management */}
+            <div className="rounded-xl bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">User Account</h3>
+                {provider.user ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                    <Check className="h-3 w-3" />
+                    Linked
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                    <AlertCircle className="h-3 w-3" />
+                    Not Linked
+                  </span>
+                )}
               </div>
-            )}
+
+              {provider.user ? (
+                <>
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="h-10 w-10 rounded-full bg-[#4fa77e] flex items-center justify-center text-white font-semibold">
+                        {provider.user.firstName.charAt(0)}{provider.user.lastName.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
+                          {provider.user.firstName} {provider.user.lastName}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">{provider.user.email}</p>
+                      </div>
+                    </div>
+                    <div className="text-sm space-y-1">
+                      <p className="flex justify-between">
+                        <span className="text-gray-500">Role:</span>
+                        <span className="text-gray-900 uppercase font-medium">{provider.user.role}</span>
+                      </p>
+                      <p className="flex justify-between">
+                        <span className="text-gray-500">Last Login:</span>
+                        <span className="text-gray-900">
+                          {provider.user.lastLogin
+                            ? new Date(provider.user.lastLogin).toLocaleDateString()
+                            : 'Never'}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleUnlinkUser}
+                    disabled={unlinkingUser}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {unlinkingUser ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Unlink className="h-4 w-4" />
+                    )}
+                    {unlinkingUser ? 'Unlinking...' : 'Unlink User Account'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="text-center py-4">
+                    <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                      <UserPlus className="h-6 w-6 text-gray-400" />
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      No user account linked
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Create an account to enable provider login
+                    </p>
+                  </div>
+                  <button
+                    onClick={openCreateUserModal}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-[#4fa77e] hover:bg-[#3d8a66] rounded-lg transition-colors"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Create User Account
+                  </button>
+                </>
+              )}
+            </div>
 
             {/* Audit History */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -977,6 +1175,175 @@ export default function SuperAdminProviderDetailPage() {
                   className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
                 >
                   {addingClinic ? 'Adding...' : 'Add to Clinic'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create User Account Modal */}
+      {showCreateUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Create User Account</h2>
+              <button
+                onClick={() => setShowCreateUserModal(false)}
+                className="p-1 rounded hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Create a login account for <strong>{provider?.firstName} {provider?.lastName}</strong> so they can access the system.
+            </p>
+
+            <form onSubmit={handleCreateUserAccount} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="email"
+                    value={createUserForm.email}
+                    onChange={(e) => setCreateUserForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="provider@clinic.com"
+                    required
+                    className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  This will be used for login
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password *
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={createUserForm.password}
+                      onChange={(e) => setCreateUserForm(f => ({ ...f, password: e.target.value }))}
+                      placeholder="Minimum 8 characters"
+                      required
+                      minLength={8}
+                      className="w-full rounded-lg border border-gray-300 pl-10 pr-10 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generatePassword}
+                    className="px-3 py-2 text-sm font-medium text-[#4fa77e] bg-[#4fa77e]/10 hover:bg-[#4fa77e]/20 rounded-lg whitespace-nowrap"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={createUserForm.firstName}
+                    onChange={(e) => setCreateUserForm(f => ({ ...f, firstName: e.target.value }))}
+                    placeholder={provider?.firstName || 'First name'}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={createUserForm.lastName}
+                    onChange={(e) => setCreateUserForm(f => ({ ...f, lastName: e.target.value }))}
+                    placeholder={provider?.lastName || 'Last name'}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                  />
+                </div>
+              </div>
+
+              {/* Info box about clinic assignment */}
+              {provider && provider.providerClinics.length > 0 && (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                  <p className="text-sm text-blue-800">
+                    <strong>Clinic Access:</strong> The user will automatically have access to:
+                  </p>
+                  <ul className="text-sm text-blue-700 mt-1 space-y-0.5">
+                    {provider.providerClinics.slice(0, 3).map((pc) => (
+                      <li key={pc.clinicId} className="flex items-center gap-1">
+                        <Check className="h-3 w-3" />
+                        {pc.clinic.name}
+                        {pc.isPrimary && <span className="text-xs">(Primary)</span>}
+                      </li>
+                    ))}
+                    {provider.providerClinics.length > 3 && (
+                      <li className="text-xs text-blue-600">
+                        +{provider.providerClinics.length - 3} more clinic(s)
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Warning if no clinics assigned */}
+              {provider && provider.providerClinics.length === 0 && !provider.clinic && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <div className="flex gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">No Clinic Assigned</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        This provider is not assigned to any clinic. Consider assigning them to a clinic first.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateUserModal(false)}
+                  className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingUser || !createUserForm.email || !createUserForm.password}
+                  className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {creatingUser ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      Create Account
+                    </>
+                  )}
                 </button>
               </div>
             </form>
