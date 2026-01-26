@@ -61,6 +61,7 @@ interface Clinic {
 interface ClinicUser {
   id: number;
   email: string;
+  phone?: string;
   firstName: string;
   lastName: string;
   role: string;
