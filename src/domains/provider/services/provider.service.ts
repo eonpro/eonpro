@@ -11,6 +11,7 @@
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 import { lookupNpi } from '@/lib/npi';
+import { prisma } from '@/lib/db';
 import { providerRepository } from '../repositories';
 import {
   createProviderSchema,
@@ -97,7 +98,7 @@ export const providerService = {
    * List providers based on user context
    *
    * - Super admin sees all providers
-   * - Other users see: their linked provider, clinic providers, shared providers
+   * - Other users see: their linked provider, clinic providers (ALL clinics they belong to), shared providers
    */
   async listProviders(userContext: UserContext): Promise<ListProvidersResult> {
     logger.info('[ProviderService] listProviders', {
@@ -112,8 +113,45 @@ export const providerService = {
     if (userContext.role === 'super_admin') {
       providers = await providerRepository.listAll();
     } else {
+      // ENTERPRISE: Fetch ALL clinics the user belongs to (not just active clinic)
+      // This ensures providers working across multiple clinics can see all their providers
+      let allClinicIds: number[] = [];
+
+      // Include user's primary/active clinic
+      if (userContext.clinicId) {
+        allClinicIds.push(userContext.clinicId);
+      }
+
+      // Fetch additional clinics from UserClinic table
+      try {
+        const userClinics = await prisma.userClinic.findMany({
+          where: {
+            userId: userContext.id,
+            isActive: true
+          },
+          select: { clinicId: true },
+        });
+
+        for (const uc of userClinics) {
+          if (!allClinicIds.includes(uc.clinicId)) {
+            allClinicIds.push(uc.clinicId);
+          }
+        }
+      } catch (error) {
+        // UserClinic table might not have data for this user
+        logger.debug('[ProviderService] No UserClinic entries found', { userId: userContext.id });
+      }
+
+      logger.info('[ProviderService] Querying providers for clinics', {
+        userId: userContext.id,
+        clinicIds: allClinicIds,
+        activeClinicId: userContext.clinicId,
+      });
+
       providers = await providerRepository.list({
-        clinicId: userContext.clinicId ?? undefined,
+        clinicIds: allClinicIds.length > 0 ? allClinicIds : undefined,
+        // Keep legacy clinicId for backward compatibility
+        clinicId: allClinicIds.length === 0 ? (userContext.clinicId ?? undefined) : undefined,
         userProviderId: userContext.providerId ?? undefined,
         userEmail: userContext.email,
         includeShared: true,
@@ -382,6 +420,166 @@ export const providerService = {
    */
   async recordLogin(providerId: number): Promise<void> {
     await providerRepository.updateLastLogin(providerId);
+  },
+
+  // ============================================================================
+  // ENTERPRISE: Provider-Clinic Management
+  // ============================================================================
+
+  /**
+   * Assign provider to a clinic
+   *
+   * @throws NotFoundError if provider doesn't exist
+   * @throws ForbiddenError if user doesn't have permission
+   */
+  async assignToClinic(
+    providerId: number,
+    clinicId: number,
+    metadata: {
+      isPrimary?: boolean;
+      titleLine?: string;
+      deaNumber?: string;
+      licenseNumber?: string;
+      licenseState?: string;
+    },
+    userContext: UserContext
+  ) {
+    // Check provider exists and user has access
+    await this.getById(providerId, userContext);
+
+    // Only admin/super_admin can assign providers to clinics
+    if (!['admin', 'super_admin'].includes(userContext.role)) {
+      throw new ForbiddenError('Only administrators can manage provider clinic assignments');
+    }
+
+    const result = await providerRepository.assignToClinic(
+      providerId,
+      clinicId,
+      metadata,
+      userContext.email
+    );
+
+    logger.info('[ProviderService] assigned provider to clinic', {
+      providerId,
+      clinicId,
+      actor: userContext.email,
+    });
+
+    return result;
+  },
+
+  /**
+   * Remove provider from a clinic
+   *
+   * @throws NotFoundError if provider doesn't exist
+   * @throws ForbiddenError if user doesn't have permission
+   */
+  async removeFromClinic(
+    providerId: number,
+    clinicId: number,
+    userContext: UserContext
+  ): Promise<void> {
+    // Check provider exists and user has access
+    await this.getById(providerId, userContext);
+
+    // Only admin/super_admin can remove providers from clinics
+    if (!['admin', 'super_admin'].includes(userContext.role)) {
+      throw new ForbiddenError('Only administrators can manage provider clinic assignments');
+    }
+
+    await providerRepository.removeFromClinic(providerId, clinicId, userContext.email);
+
+    logger.info('[ProviderService] removed provider from clinic', {
+      providerId,
+      clinicId,
+      actor: userContext.email,
+    });
+  },
+
+  /**
+   * Get all clinics a provider is assigned to
+   */
+  async getProviderClinics(providerId: number, userContext?: UserContext) {
+    // Verify provider exists (and access if context provided)
+    if (userContext) {
+      await this.getById(providerId, userContext);
+    }
+
+    return providerRepository.getProviderClinics(providerId);
+  },
+
+  /**
+   * Check if provider has access to a specific clinic
+   */
+  async hasClinicAccess(providerId: number, clinicId: number): Promise<boolean> {
+    return providerRepository.hasClinicAccess(providerId, clinicId);
+  },
+
+  /**
+   * Set a clinic as the provider's primary clinic
+   *
+   * @throws NotFoundError if provider doesn't exist
+   * @throws ForbiddenError if user doesn't have permission
+   */
+  async setPrimaryClinic(
+    providerId: number,
+    clinicId: number,
+    userContext: UserContext
+  ): Promise<void> {
+    // Check provider exists and user has access
+    await this.getById(providerId, userContext);
+
+    // Only admin/super_admin or the provider themselves can set primary clinic
+    const isOwnProfile = userContext.providerId === providerId;
+    if (!isOwnProfile && !['admin', 'super_admin'].includes(userContext.role)) {
+      throw new ForbiddenError('Not authorized to change provider primary clinic');
+    }
+
+    // Verify provider has access to this clinic
+    const hasAccess = await providerRepository.hasClinicAccess(providerId, clinicId);
+    if (!hasAccess) {
+      throw new ForbiddenError('Provider is not assigned to this clinic');
+    }
+
+    await providerRepository.setPrimaryClinic(providerId, clinicId, userContext.email);
+
+    logger.info('[ProviderService] set primary clinic', {
+      providerId,
+      clinicId,
+      actor: userContext.email,
+    });
+  },
+
+  /**
+   * Switch provider's active clinic (for session switching)
+   *
+   * @throws NotFoundError if provider doesn't exist
+   * @throws ForbiddenError if provider doesn't have access to clinic
+   */
+  async switchActiveClinic(
+    providerId: number,
+    clinicId: number,
+    userContext: UserContext
+  ): Promise<void> {
+    // Only the provider themselves or super_admin can switch active clinic
+    const isOwnProfile = userContext.providerId === providerId;
+    if (!isOwnProfile && userContext.role !== 'super_admin') {
+      throw new ForbiddenError('Not authorized to switch provider active clinic');
+    }
+
+    // Verify provider has access to this clinic
+    const hasAccess = await providerRepository.hasClinicAccess(providerId, clinicId);
+    if (!hasAccess) {
+      throw new ForbiddenError('Provider is not assigned to this clinic');
+    }
+
+    await providerRepository.setActiveClinic(providerId, clinicId);
+
+    logger.info('[ProviderService] switched active clinic', {
+      providerId,
+      clinicId,
+      actor: userContext.email,
+    });
   },
 };
 

@@ -15,6 +15,10 @@ export interface Provider {
   createdAt: Date;
   updatedAt: Date;
   clinicId: number | null;
+  /** ENTERPRISE: Provider's primary/default clinic */
+  primaryClinicId: number | null;
+  /** ENTERPRISE: Currently active clinic for this session */
+  activeClinicId: number | null;
   firstName: string;
   lastName: string;
   titleLine: string | null;
@@ -34,6 +38,25 @@ export interface Provider {
 }
 
 /**
+ * Provider clinic assignment (from ProviderClinic junction table)
+ */
+export interface ProviderClinicAssignment {
+  id: number;
+  clinicId: number;
+  isPrimary: boolean;
+  isActive: boolean;
+  titleLine: string | null;
+  deaNumber: string | null;
+  licenseNumber: string | null;
+  licenseState: string | null;
+  clinic: {
+    id: number;
+    name: string;
+    subdomain?: string;
+  };
+}
+
+/**
  * Provider with clinic information
  */
 export interface ProviderWithClinic extends Provider {
@@ -42,6 +65,8 @@ export interface ProviderWithClinic extends Provider {
     name: string;
     subdomain?: string;
   } | null;
+  /** ENTERPRISE: All clinic assignments for multi-clinic support */
+  providerClinics?: ProviderClinicAssignment[];
 }
 
 /**
@@ -82,7 +107,10 @@ export interface UpdateProviderInput {
  * Provider list filters
  */
 export interface ListProvidersFilters {
+  /** @deprecated Use clinicIds instead for multi-clinic support */
   clinicId?: number | null;
+  /** Array of clinic IDs to filter by (supports multi-clinic users) */
+  clinicIds?: number[];
   includeShared?: boolean;
   userId?: number;
   userProviderId?: number;

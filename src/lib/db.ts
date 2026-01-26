@@ -449,6 +449,15 @@ class PrismaWithClinicFilter {
   get integration() { return this.client.integration; }
   get apiKey() { return this.client.apiKey; }
 
+  // Auth tokens (user-scoped, not clinic-scoped)
+  get passwordResetToken() { return this.client.passwordResetToken; }
+  get emailVerificationToken() { return this.client.emailVerificationToken; }
+  get clinicInviteCode() { return this.client.clinicInviteCode; }
+  get phoneOtp() { return this.client.phoneOtp; }
+
+  // Payment reconciliation (system-wide)
+  get paymentReconciliation() { return this.client.paymentReconciliation; }
+
   // Webhook infrastructure (system-wide)
   get webhookConfig() { return this.client.webhookConfig; }
   get webhookDelivery() { return this.client.webhookDelivery; }
@@ -462,6 +471,11 @@ class PrismaWithClinicFilter {
   get providerAudit() { return this.client.providerAudit; }
   get orderEvent() { return this.client.orderEvent; }
   get auditLog() { return this.client.auditLog; }
+  get hIPAAAuditEntry() { return this.client.hIPAAAuditEntry; }
+
+  // Multi-clinic junction tables (provider/user to clinic assignments)
+  get userClinic() { return this.client.userClinic; }
+  get providerClinic() { return this.client.providerClinic; }
 
   // Counters & sequences (clinic-scoped but handled differently)
   get patientCounter() { return this.client.patientCounter; }
@@ -529,12 +543,34 @@ class PrismaWithClinicFilter {
   // Discounts (system-wide promotions)
   get discountCode() { return this.client.discountCode; }
   get discountUsage() { return this.client.discountUsage; }
+  get promotion() { return this.client.promotion; }
 
   // Product bundles (system-wide catalog)
   get productBundle() { return this.client.productBundle; }
   get productBundleItem() { return this.client.productBundleItem; }
   get pricingRule() { return this.client.pricingRule; }
   get invoiceItem() { return this.client.invoiceItem; }
+
+  // Scheduling models (provider-scoped)
+  get appointmentTypeConfig() { return this.client.appointmentTypeConfig; }
+  get providerAvailability() { return this.client.providerAvailability; }
+  get providerTimeOff() { return this.client.providerTimeOff; }
+  get providerCalendarIntegration() { return this.client.providerCalendarIntegration; }
+  get appointmentReminder() { return this.client.appointmentReminder; }
+
+  // Care plan models
+  get carePlanTemplate() { return this.client.carePlanTemplate; }
+  get carePlanGoal() { return this.client.carePlanGoal; }
+  get carePlanActivity() { return this.client.carePlanActivity; }
+  get carePlanProgress() { return this.client.carePlanProgress; }
+
+  // Billing codes
+  get billingCode() { return this.client.billingCode; }
+  get superbillItem() { return this.client.superbillItem; }
+
+  // Subscription actions
+  get subscriptionAction() { return this.client.subscriptionAction; }
+  get retentionOffer() { return this.client.retentionOffer; }
 
   // Expose transaction support
   async $transaction(fn: (tx: any) => Promise<any>) {

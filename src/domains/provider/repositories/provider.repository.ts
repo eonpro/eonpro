@@ -29,6 +29,8 @@ const PROVIDER_WITH_CLINIC_SELECT = {
   createdAt: true,
   updatedAt: true,
   clinicId: true,
+  primaryClinicId: true,
+  activeClinicId: true,
   firstName: true,
   lastName: true,
   titleLine: true,
@@ -49,6 +51,28 @@ const PROVIDER_WITH_CLINIC_SELECT = {
       subdomain: true,
     },
   },
+  // ENTERPRISE: Include multi-clinic assignments
+  providerClinics: {
+    where: { isActive: true },
+    select: {
+      id: true,
+      clinicId: true,
+      isPrimary: true,
+      isActive: true,
+      titleLine: true,
+      deaNumber: true,
+      licenseNumber: true,
+      licenseState: true,
+      clinic: {
+        select: {
+          id: true,
+          name: true,
+          subdomain: true,
+        },
+      },
+    },
+    orderBy: { isPrimary: 'desc' as const },
+  },
 } as const;
 
 /**
@@ -59,6 +83,8 @@ const PROVIDER_BASE_SELECT = {
   createdAt: true,
   updatedAt: true,
   clinicId: true,
+  primaryClinicId: true,
+  activeClinicId: true,
   firstName: true,
   lastName: true,
   titleLine: true,
@@ -144,12 +170,14 @@ export const providerRepository = {
   /**
    * List providers with filtering
    *
+   * ENTERPRISE: Multi-clinic support via ProviderClinic junction table
    * For non-super-admin users:
    * - Include their linked provider (by ID)
    * - Include providers matching their email
-   * - Include providers from their clinic (by Provider.clinicId)
-   * - Include providers whose linked User is in the clinic (via UserClinic) - multi-clinic support
-   * - Include shared providers (clinicId null)
+   * - Include providers via ProviderClinic junction table (PRIMARY method)
+   * - Include providers from their clinics (by Provider.clinicId) - legacy support
+   * - Include providers whose linked User is in the clinics (via UserClinic) - fallback
+   * - Include shared providers (clinicId null or no ProviderClinic entries)
    */
   async list(filters: ListProvidersFilters): Promise<ProviderWithClinic[]> {
     // Build OR conditions based on filters
@@ -165,17 +193,33 @@ export const providerRepository = {
       orConditions.push({ email: filters.userEmail.toLowerCase() });
     }
 
-    // Include providers from user's clinic (direct assignment)
-    if (filters.clinicId) {
-      orConditions.push({ clinicId: filters.clinicId });
+    // ENTERPRISE: Support multiple clinic IDs for multi-clinic users
+    // Priority: clinicIds array > single clinicId (legacy)
+    const clinicIds = filters.clinicIds?.length
+      ? filters.clinicIds
+      : (filters.clinicId ? [filters.clinicId] : []);
 
-      // MULTI-CLINIC SUPPORT: Also include providers whose linked User
-      // is assigned to this clinic via UserClinic table
+    if (clinicIds.length > 0) {
+      // ENTERPRISE: Query via ProviderClinic junction table (PRIMARY method)
+      orConditions.push({
+        providerClinics: {
+          some: {
+            clinicId: { in: clinicIds },
+            isActive: true,
+          },
+        },
+      });
+
+      // Legacy: Include providers directly assigned to any of these clinics
+      orConditions.push({ clinicId: { in: clinicIds } });
+
+      // Fallback: Also include providers whose linked User
+      // is assigned to any of these clinics via UserClinic table
       orConditions.push({
         user: {
           userClinics: {
             some: {
-              clinicId: filters.clinicId,
+              clinicId: { in: clinicIds },
               isActive: true,
               role: 'PROVIDER', // Only if they have provider role in this clinic
             },
@@ -186,12 +230,19 @@ export const providerRepository = {
 
     // Include shared providers (no clinic) if requested
     if (filters.includeShared !== false) {
+      // Shared = clinicId null AND no active ProviderClinic entries
+      // But also include clinicId null for backward compatibility
       orConditions.push({ clinicId: null });
     }
 
     const where = orConditions.length > 0 ? { OR: orConditions } : {};
 
-    logger.debug('[ProviderRepository] list query', { filters, conditions: orConditions });
+    logger.debug('[ProviderRepository] list query', {
+      filters,
+      clinicIds,
+      conditionCount: orConditions.length,
+      usingProviderClinic: clinicIds.length > 0,
+    });
 
     const providers = await prisma.provider.findMany({
       where,
@@ -453,6 +504,214 @@ export const providerRepository = {
         action: entry.action,
         diff: entry.diff ?? {},
       },
+    });
+  },
+
+  // ============================================================================
+  // ENTERPRISE: ProviderClinic Junction Table Operations
+  // ============================================================================
+
+  /**
+   * Assign provider to a clinic
+   * Creates or reactivates a ProviderClinic entry
+   */
+  async assignToClinic(
+    providerId: number,
+    clinicId: number,
+    metadata?: {
+      isPrimary?: boolean;
+      titleLine?: string;
+      deaNumber?: string;
+      licenseNumber?: string;
+      licenseState?: string;
+    },
+    actorEmail?: string
+  ): Promise<{ id: number; providerId: number; clinicId: number; isPrimary: boolean }> {
+    const result = await prisma.providerClinic.upsert({
+      where: {
+        providerId_clinicId: { providerId, clinicId },
+      },
+      create: {
+        providerId,
+        clinicId,
+        isPrimary: metadata?.isPrimary ?? false,
+        isActive: true,
+        titleLine: metadata?.titleLine,
+        deaNumber: metadata?.deaNumber,
+        licenseNumber: metadata?.licenseNumber,
+        licenseState: metadata?.licenseState,
+      },
+      update: {
+        isActive: true,
+        isPrimary: metadata?.isPrimary,
+        titleLine: metadata?.titleLine,
+        deaNumber: metadata?.deaNumber,
+        licenseNumber: metadata?.licenseNumber,
+        licenseState: metadata?.licenseState,
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        providerId: true,
+        clinicId: true,
+        isPrimary: true,
+      },
+    });
+
+    // Create audit entry
+    if (actorEmail) {
+      await prisma.providerAudit.create({
+        data: {
+          providerId,
+          actorEmail,
+          action: 'CLINIC_ASSIGNMENT',
+          diff: { clinicId, action: 'assigned', metadata },
+        },
+      });
+    }
+
+    logger.info('[ProviderRepository] assigned provider to clinic', {
+      providerId,
+      clinicId,
+      isPrimary: result.isPrimary,
+      actor: actorEmail,
+    });
+
+    return result;
+  },
+
+  /**
+   * Remove provider from a clinic (soft delete)
+   */
+  async removeFromClinic(
+    providerId: number,
+    clinicId: number,
+    actorEmail?: string
+  ): Promise<void> {
+    await prisma.providerClinic.update({
+      where: {
+        providerId_clinicId: { providerId, clinicId },
+      },
+      data: {
+        isActive: false,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Create audit entry
+    if (actorEmail) {
+      await prisma.providerAudit.create({
+        data: {
+          providerId,
+          actorEmail,
+          action: 'CLINIC_REMOVAL',
+          diff: { clinicId, action: 'removed' },
+        },
+      });
+    }
+
+    logger.info('[ProviderRepository] removed provider from clinic', {
+      providerId,
+      clinicId,
+      actor: actorEmail,
+    });
+  },
+
+  /**
+   * Get all clinics a provider is assigned to
+   */
+  async getProviderClinics(providerId: number, includeInactive = false) {
+    return prisma.providerClinic.findMany({
+      where: {
+        providerId,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
+      include: {
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+            subdomain: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+    });
+  },
+
+  /**
+   * Check if provider has access to a specific clinic
+   */
+  async hasClinicAccess(providerId: number, clinicId: number): Promise<boolean> {
+    const assignment = await prisma.providerClinic.findFirst({
+      where: {
+        providerId,
+        clinicId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    return assignment !== null;
+  },
+
+  /**
+   * Set a clinic as the provider's primary clinic
+   */
+  async setPrimaryClinic(
+    providerId: number,
+    clinicId: number,
+    actorEmail?: string
+  ): Promise<void> {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Remove primary flag from all other assignments
+      await tx.providerClinic.updateMany({
+        where: { providerId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+
+      // Set the new primary
+      await tx.providerClinic.update({
+        where: {
+          providerId_clinicId: { providerId, clinicId },
+        },
+        data: { isPrimary: true },
+      });
+
+      // Update provider's primaryClinicId
+      await tx.provider.update({
+        where: { id: providerId },
+        data: { primaryClinicId: clinicId },
+      });
+
+      // Create audit entry
+      if (actorEmail) {
+        await tx.providerAudit.create({
+          data: {
+            providerId,
+            actorEmail,
+            action: 'PRIMARY_CLINIC_CHANGE',
+            diff: { clinicId, action: 'set_primary' },
+          },
+        });
+      }
+    });
+
+    logger.info('[ProviderRepository] set primary clinic', {
+      providerId,
+      clinicId,
+      actor: actorEmail,
+    });
+  },
+
+  /**
+   * Update provider's active clinic (for session switching)
+   */
+  async setActiveClinic(providerId: number, clinicId: number): Promise<void> {
+    await prisma.provider.update({
+      where: { id: providerId },
+      data: { activeClinicId: clinicId },
     });
   },
 };

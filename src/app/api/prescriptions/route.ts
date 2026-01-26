@@ -13,19 +13,19 @@ import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
 // Medication-specific clinical difference statements for Lifefile
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
   const upperMedName = medicationName.toUpperCase();
-  
+
   if (upperMedName.includes("TIRZEPATIDE")) {
     return "Beyond Medical Necessary - This individual patient would benefit from Tirzepatide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
   }
-  
+
   if (upperMedName.includes("SEMAGLUTIDE")) {
     return "Beyond Medical Necessary - This individual patient would benefit from Semaglutide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
   }
-  
+
   if (upperMedName.includes("TESTOSTERONE")) {
     return "Beyond medical necessary - This individual patient will benefit from Testosterone with grapeseed oil due to allergic reactions to commercially available one and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
   }
-  
+
   return undefined;
 }
 
@@ -108,6 +108,64 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     // Priority: request clinicId > user's clinicId > provider's clinicId
     const activeClinicId = p.clinicId || user.clinicId || provider.clinicId;
 
+    // ENTERPRISE: Validate provider can prescribe for this clinic
+    // Check order: ProviderClinic (primary) > legacy clinicId > UserClinic (fallback)
+    if (user.role !== 'super_admin' && activeClinicId) {
+      let hasClinicAccess = false;
+
+      // PRIMARY: Check ProviderClinic junction table
+      try {
+        const providerClinicAssignment = await basePrisma.providerClinic.findFirst({
+          where: {
+            providerId: provider.id,
+            clinicId: activeClinicId,
+            isActive: true,
+          },
+          select: { id: true },
+        });
+        hasClinicAccess = !!providerClinicAssignment;
+      } catch {
+        // ProviderClinic table may not exist yet (pre-migration)
+        logger.debug('[PRESCRIPTIONS] ProviderClinic check skipped - table may not exist');
+      }
+
+      // LEGACY: Check provider's direct clinic assignment
+      if (!hasClinicAccess) {
+        hasClinicAccess =
+          provider.clinicId === null || // Shared provider
+          provider.clinicId === activeClinicId; // Direct clinic match
+      }
+
+      // FALLBACK: Check if provider's linked user has access via UserClinic
+      if (!hasClinicAccess) {
+        const providerUser = await basePrisma.user.findFirst({
+          where: { providerId: provider.id },
+          include: {
+            userClinics: {
+              where: {
+                clinicId: activeClinicId,
+                isActive: true
+              }
+            }
+          }
+        });
+        hasClinicAccess = !!(providerUser?.userClinics && providerUser.userClinics.length > 0);
+      }
+
+      if (!hasClinicAccess) {
+        logger.security('Provider not authorized for clinic', {
+          userId: user.id,
+          providerId: provider.id,
+          providerClinicId: provider.clinicId,
+          requestedClinicId: activeClinicId
+        });
+        return NextResponse.json(
+          { error: 'Provider is not authorized to prescribe for this clinic' },
+          { status: 403 }
+        );
+      }
+    }
+
     logger.info(`[PRESCRIPTIONS] User ${user.id} (${user.role}) creating prescription`, {
       requestClinicId: p.clinicId,
       userClinicId: user.clinicId,
@@ -165,7 +223,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       });
     } catch (err: any) {
     // @ts-ignore
-   
+
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json(
         { error: errorMessage ?? "Invalid medication" },
@@ -174,7 +232,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     }
 
     const primary = rxsWithMeds[0];
-    
+
     // Log medications for debugging
     logger.debug(`[PRESCRIPTIONS] Processing ${rxsWithMeds.length} medications:`, rxsWithMeds.map(({ med }) => ({
       name: med.name,
@@ -254,7 +312,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       });
     } catch (err: any) {
     // @ts-ignore
-   
+
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     logger.error("[PRESCRIPTIONS/POST] PDF generation failed:", err);
       return NextResponse.json(
@@ -331,14 +389,14 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             daysSupply: 30,
             clinicalDifferenceStatement: getClinicalDifferenceStatement(med.name),
           };
-          
+
           // Log each prescription being sent
           logger.debug(`[PRESCRIPTIONS] Rx #${index + 1}:`, {
             drugName: rxData.drugName,
             drugStrength: rxData.drugStrength,
             lfProductID: rxData.lfProductID
           });
-          
+
           return rxData;
         }),
         document: {
@@ -369,7 +427,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             { status: 400 }
           );
         }
-        
+
         patientRecord = await prisma.patient.create({
           data: {
             firstName: p.patient.firstName,
@@ -394,6 +452,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           referenceId,
           patientId: patientRecord.id,
           providerId: p.providerId,
+          clinicId: activeClinicId, // ENTERPRISE: Explicit clinic assignment for multi-tenant isolation
           shippingMethod: p.shippingMethod,
           primaryMedName: primary.med.name,
           primaryMedStrength: primary.med.strength,
@@ -436,7 +495,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     } catch (err: any) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     // @ts-ignore
-   
+
       logger.error("[PRESCRIPTIONS/POST] Lifefile createFullOrder failed:", err);
       try {
         await prisma.order.updateMany({

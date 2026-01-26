@@ -118,8 +118,15 @@ model Provider {
   id                   Int                    @id @default(autoincrement())
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
-  clinicId             Int? // Multi-clinic support
+
+  // Legacy single clinic assignment (deprecated, use ProviderClinic)
+  clinicId             Int? // Multi-clinic support - nullable for shared providers
   clinic               Clinic?                @relation(fields: [clinicId], references: [id])
+
+  // ENTERPRISE: Multi-clinic support (like User.clinicId/activeClinicId pattern)
+  primaryClinicId      Int? // Provider's primary/default clinic
+  activeClinicId       Int? // Currently active clinic for this session
+
   firstName            String
   lastName             String
   titleLine            String?
@@ -137,6 +144,8 @@ model Provider {
   passwordHash         String?
   passwordResetExpires DateTime?
   passwordResetToken   String?
+
+  // Relations
   orders               Order[]
   auditEntries         ProviderAudit[]
   approvedSoapNotes    SOAPNote[]
@@ -146,6 +155,9 @@ model Provider {
   timeOff              ProviderTimeOff[]
   superbills           Superbill[]
   carePlans            CarePlan[]
+
+  // ENTERPRISE: Multi-clinic assignments (like UserClinic pattern)
+  providerClinics      ProviderClinic[]
 }
 
 model PatientDocument {
@@ -812,6 +824,32 @@ model UserClinic {
   @@unique([userId, clinicId]) // User can only be assigned once per clinic
   @@index([userId])
   @@index([clinicId])
+}
+
+// ENTERPRISE: Junction table for providers belonging to multiple clinics
+// Mirrors UserClinic pattern for consistent multi-tenant architecture
+model ProviderClinic {
+  id          Int      @id @default(autoincrement())
+  providerId  Int
+  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  clinicId    Int
+  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  // Per-clinic provider metadata
+  isPrimary     Boolean  @default(false) // Is this the provider's primary clinic?
+  isActive      Boolean  @default(true)  // Is this assignment active?
+  titleLine     String?  // Clinic-specific title (e.g., different role per clinic)
+  deaNumber     String?  // State/clinic-specific DEA number
+  licenseNumber String?  // State-specific license number
+  licenseState  String?  // State of license for this clinic
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([providerId, clinicId]) // Provider can only be assigned once per clinic
+  @@index([providerId])
+  @@index([clinicId])
+  @@index([isActive])
 }
 
 model UserSession {
@@ -1756,7 +1794,8 @@ model Clinic {
   apiKeys            ApiKey[]
   webhookConfigs     WebhookConfig[]
   systemSettings     SystemSettings[]
-  userClinics        UserClinic[] // Multi-clinic user assignments
+  userClinics        UserClinic[]     // Multi-clinic user assignments
+  providerClinics    ProviderClinic[] // ENTERPRISE: Multi-clinic provider assignments
   reconciliations    PaymentReconciliation[]
   patientCounter     PatientCounter? // Clinic-specific patient numbering
 

@@ -25,6 +25,7 @@ export { providerRepository, type ProviderRepository } from './repositories';
 export type {
   Provider,
   ProviderWithClinic,
+  ProviderClinicAssignment,
   CreateProviderInput,
   UpdateProviderInput,
   ListProvidersFilters,

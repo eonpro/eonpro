@@ -75,6 +75,8 @@ async function loginHandler(req: NextRequest) {
               lastName: provider.lastName,
               role: "provider",
               status: 'ACTIVE',
+              providerId: provider.id, // Include providerId for token generation
+              clinicId: provider.clinicId, // Include clinicId for multi-tenant support
             } as any;
             passwordHash = provider.passwordHash;
           }
@@ -324,6 +326,38 @@ async function loginHandler(req: NextRequest) {
       });
     }
 
+    // ENTERPRISE: Fetch provider's clinic assignments for multi-clinic support
+    let providerClinics: Array<{
+      id: number;
+      clinicId: number;
+      isPrimary: boolean;
+      clinic: { id: number; name: string; subdomain: string | null };
+    }> = [];
+
+    if (tokenPayload.providerId) {
+      try {
+        const assignments = await prisma.providerClinic.findMany({
+          where: {
+            providerId: tokenPayload.providerId,
+            isActive: true,
+          },
+          select: {
+            id: true,
+            clinicId: true,
+            isPrimary: true,
+            clinic: {
+              select: { id: true, name: true, subdomain: true },
+            },
+          },
+          orderBy: { isPrimary: 'desc' },
+        });
+        providerClinics = assignments;
+      } catch {
+        // ProviderClinic table may not exist yet (pre-migration)
+        logger.debug('ProviderClinic fetch skipped - table may not exist');
+      }
+    }
+
     // Return tokens with clinic information
     const response = NextResponse.json({
       success: true,
@@ -335,6 +369,7 @@ async function loginHandler(req: NextRequest) {
         name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
         role: userRole,
         clinicId: activeClinicId,
+        providerId: tokenPayload.providerId,
         permissions: 'permissions' in user ? user.permissions : undefined,
         features: 'features' in user ? user.features : undefined,
       },
@@ -343,6 +378,9 @@ async function loginHandler(req: NextRequest) {
       hasMultipleClinics: clinics.length > 1,
       // If multi-clinic and no clinic selected, client should show selection UI
       requiresClinicSelection: clinics.length > 1 && !selectedClinicId,
+      // ENTERPRISE: Provider's clinic assignments
+      providerClinics,
+      hasMultipleProviderClinics: providerClinics.length > 1,
       token,
       refreshToken,
     });

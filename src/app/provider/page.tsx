@@ -87,15 +87,20 @@ export default function ProviderDashboard() {
 
       // Fetch appointments for today
       const today = new Date().toISOString().split('T')[0];
-      const appointmentsRes = await fetch(`/api/appointments?date=${today}`, { headers });
-      if (appointmentsRes.ok) {
-        const appointmentsData = await appointmentsRes.json();
-        const todayAppts = appointmentsData.appointments || [];
-        setAppointments(todayAppts);
-        setStats(prev => ({
-          ...prev,
-          todayAppointments: todayAppts.length
-        }));
+      try {
+        const appointmentsRes = await fetch(`/api/scheduling/appointments?date=${today}`, { headers });
+        if (appointmentsRes.ok) {
+          const appointmentsData = await appointmentsRes.json();
+          const todayAppts = appointmentsData.appointments || [];
+          setAppointments(todayAppts);
+          setStats(prev => ({
+            ...prev,
+            todayAppointments: todayAppts.length
+          }));
+        }
+      } catch {
+        // Appointments endpoint may not be fully implemented yet
+        console.log('Appointments fetch skipped - endpoint not available');
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

@@ -166,13 +166,28 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
     clinicId: clinicId,
   };
 
-  // Get user's full name
+  // Get user's full name and provider relation
   const userData = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { firstName: true, lastName: true },
+    select: {
+      firstName: true,
+      lastName: true,
+      providerId: true,
+      provider: { select: { id: true } },
+    },
   });
   if (userData) {
     tokenPayload.name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || user.email;
+
+    // CRITICAL: Preserve providerId for multi-clinic providers
+    // Priority: existing token > user.providerId > user.provider.id
+    const providerId = user.providerId || userData.providerId || userData.provider?.id;
+    if (providerId) {
+      tokenPayload.providerId = providerId;
+    }
+  } else if (user.providerId) {
+    // Fallback: preserve providerId from original token even if user lookup fails
+    tokenPayload.providerId = user.providerId;
   }
 
   const token = await new SignJWT(tokenPayload)
@@ -194,6 +209,38 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
   // Get the active clinic details
   const activeClinic = clinics.find(c => c.id === clinicId) || clinics[0];
 
+  // ENTERPRISE: Fetch provider's clinic assignments for multi-clinic support
+  let providerClinics: Array<{
+    id: number;
+    clinicId: number;
+    isPrimary: boolean;
+    clinic: { id: number; name: string; subdomain: string | null };
+  }> = [];
+
+  if (tokenPayload.providerId) {
+    try {
+      const assignments = await prisma.providerClinic.findMany({
+        where: {
+          providerId: tokenPayload.providerId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          clinicId: true,
+          isPrimary: true,
+          clinic: {
+            select: { id: true, name: true, subdomain: true },
+          },
+        },
+        orderBy: { isPrimary: 'desc' },
+      });
+      providerClinics = assignments;
+    } catch {
+      // ProviderClinic table may not exist yet (pre-migration)
+      logger.debug('ProviderClinic fetch skipped - table may not exist');
+    }
+  }
+
   // Build response
   const response = NextResponse.json({
     success: true,
@@ -202,12 +249,15 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
     activeClinicId: clinicId,
     activeClinic,
     clinics,
+    providerClinics,
+    hasMultipleProviderClinics: providerClinics.length > 1,
     user: {
       id: user.id,
       email: user.email,
       name: tokenPayload.name,
       role: user.role,
       clinicId,
+      providerId: tokenPayload.providerId,
     },
   });
 
