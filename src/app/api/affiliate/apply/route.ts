@@ -214,13 +214,14 @@ export async function POST(request: NextRequest) {
       name: error instanceof Error ? error.name : undefined,
     });
 
-    // Return more specific error in development
+    // Return the actual error message for debugging
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     return NextResponse.json(
       { 
         error: 'Failed to submit application. Please try again.',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+        // Always include details for now to debug
+        debug: errorMessage,
       },
       { status: 500 }
     );
