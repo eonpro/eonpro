@@ -54,7 +54,19 @@ export async function POST(request: NextRequest) {
 
     // Resolve clinic from domain
     const domain = request.headers.get('host') || '';
-    const clinic = await resolveClinicFromDomain(domain);
+    let clinic;
+    try {
+      clinic = await resolveClinicFromDomain(domain);
+    } catch (clinicError) {
+      logger.error('[AffiliateApply] Error resolving clinic', {
+        error: clinicError instanceof Error ? clinicError.message : 'Unknown',
+        domain,
+      });
+      return NextResponse.json(
+        { error: 'Database error resolving clinic.' },
+        { status: 500 }
+      );
+    }
 
     if (!clinic) {
       logger.warn('[AffiliateApply] No clinic found for domain', { domain });
@@ -63,6 +75,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    
+    logger.info('[AffiliateApply] Clinic resolved', { clinicId: clinic.id, domain });
 
     // Rate limiting by email
     const now = Date.now();
@@ -87,16 +101,28 @@ export async function POST(request: NextRequest) {
     const normalizedPhone = data.phone.replace(/\D/g, '');
 
     // Check for existing application (same email or phone, pending)
-    const existingApplication = await prisma.affiliateApplication.findFirst({
-      where: {
-        clinicId: clinic.id,
-        status: 'PENDING',
-        OR: [
-          { email: data.email.toLowerCase() },
-          { phone: normalizedPhone },
-        ],
-      },
-    });
+    let existingApplication;
+    try {
+      existingApplication = await prisma.affiliateApplication.findFirst({
+        where: {
+          clinicId: clinic.id,
+          status: 'PENDING',
+          OR: [
+            { email: data.email.toLowerCase() },
+            { phone: normalizedPhone },
+          ],
+        },
+      });
+    } catch (findError) {
+      logger.error('[AffiliateApply] Error checking existing application', {
+        error: findError instanceof Error ? findError.message : 'Unknown',
+        stack: findError instanceof Error ? findError.stack : undefined,
+      });
+      return NextResponse.json(
+        { error: 'Database error checking existing application.' },
+        { status: 500 }
+      );
+    }
 
     if (existingApplication) {
       return NextResponse.json(
@@ -106,18 +132,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already an active affiliate
-    const existingAffiliate = await prisma.affiliate.findFirst({
-      where: {
-        clinicId: clinic.id,
-        user: {
-          OR: [
-            { email: data.email.toLowerCase() },
-            { phone: { endsWith: normalizedPhone.slice(-10) } },
-          ],
+    let existingAffiliate;
+    try {
+      existingAffiliate = await prisma.affiliate.findFirst({
+        where: {
+          clinicId: clinic.id,
+          user: {
+            OR: [
+              { email: data.email.toLowerCase() },
+              { phone: { endsWith: normalizedPhone.slice(-10) } },
+            ],
+          },
+          status: { in: ['ACTIVE', 'PAUSED'] },
         },
-        status: { in: ['ACTIVE', 'PAUSED'] },
-      },
-    });
+      });
+    } catch (affiliateError) {
+      logger.error('[AffiliateApply] Error checking existing affiliate', {
+        error: affiliateError instanceof Error ? affiliateError.message : 'Unknown',
+      });
+      // Non-fatal, continue
+    }
 
     if (existingAffiliate) {
       return NextResponse.json(
@@ -127,24 +161,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Create application
-    const application = await prisma.affiliateApplication.create({
-      data: {
+    let application;
+    try {
+      application = await prisma.affiliateApplication.create({
+        data: {
+          clinicId: clinic.id,
+          fullName: data.fullName.trim(),
+          email: data.email.toLowerCase().trim(),
+          phone: normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`,
+          addressLine1: data.addressLine1.trim(),
+          addressLine2: data.addressLine2?.trim() || null,
+          city: data.city.trim(),
+          state: data.state.toUpperCase().trim(),
+          zipCode: data.zipCode.trim(),
+          country: data.country,
+          socialProfiles: data.socialProfiles,
+          website: data.website || null,
+          audienceSize: data.audienceSize || null,
+          promotionPlan: data.promotionPlan?.trim() || null,
+        },
+      });
+    } catch (createError) {
+      logger.error('[AffiliateApply] Error creating application', {
+        error: createError instanceof Error ? createError.message : 'Unknown',
+        stack: createError instanceof Error ? createError.stack : undefined,
         clinicId: clinic.id,
-        fullName: data.fullName.trim(),
-        email: data.email.toLowerCase().trim(),
-        phone: normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`,
-        addressLine1: data.addressLine1.trim(),
-        addressLine2: data.addressLine2?.trim() || null,
-        city: data.city.trim(),
-        state: data.state.toUpperCase().trim(),
-        zipCode: data.zipCode.trim(),
-        country: data.country,
-        socialProfiles: data.socialProfiles,
-        website: data.website || null,
-        audienceSize: data.audienceSize || null,
-        promotionPlan: data.promotionPlan?.trim() || null,
-      },
-    });
+        email: data.email,
+      });
+      return NextResponse.json(
+        { error: 'Database error creating application. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     logger.info('[AffiliateApply] Application submitted', {
       applicationId: application.id,
