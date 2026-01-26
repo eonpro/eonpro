@@ -114,12 +114,13 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (findError) {
+      const errMsg = findError instanceof Error ? findError.message : 'Unknown';
       logger.error('[AffiliateApply] Error checking existing application', {
-        error: findError instanceof Error ? findError.message : 'Unknown',
+        error: errMsg,
         stack: findError instanceof Error ? findError.stack : undefined,
       });
       return NextResponse.json(
-        { error: 'Database error checking existing application.' },
+        { error: 'Database error checking existing application.', debug: errMsg },
         { status: 500 }
       );
     }
