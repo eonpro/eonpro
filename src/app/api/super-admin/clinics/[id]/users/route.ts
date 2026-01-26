@@ -219,29 +219,44 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
         );
       }
 
-      // If adding as PROVIDER role and user doesn't have a Provider record, validate first
+      // Handle provider record for PROVIDER role
       let needsProviderRecord = false;
-      if (normalizedRole === 'provider' && !existingUser.provider) {
-        needsProviderRecord = true;
-        
-        // Validate provider credentials are provided
-        if (!npi || !licenseNumber || !licenseState) {
-          return NextResponse.json(
-            { error: 'NPI, license number, and license state are required when adding a user as a provider' },
-            { status: 400 }
-          );
-        }
+      if (normalizedRole === 'provider') {
+        if (!existingUser.provider) {
+          // User has no Provider record - need to create one
+          needsProviderRecord = true;
+          
+          // Validate provider credentials are provided
+          if (!npi || !licenseNumber || !licenseState) {
+            return NextResponse.json(
+              { error: 'NPI, license number, and license state are required when adding a user as a provider' },
+              { status: 400 }
+            );
+          }
 
-        // Check if NPI is already in use by another provider
-        const npiInUse = await prisma.provider.findFirst({
-          where: { npi },
-        });
+          // Check if NPI is already in use by another provider
+          const npiInUse = await prisma.provider.findFirst({
+            where: { npi },
+          });
 
-        if (npiInUse) {
-          return NextResponse.json(
-            { error: 'This NPI is already registered to another provider' },
-            { status: 400 }
-          );
+          if (npiInUse) {
+            return NextResponse.json(
+              { error: 'This NPI is already registered to another provider' },
+              { status: 400 }
+            );
+          }
+        } else if (existingUser.provider.clinicId !== null && existingUser.provider.clinicId !== clinicId) {
+          // User has a Provider from a different clinic - make it shared (clinicId = null)
+          // so it appears in all clinics the provider is assigned to
+          try {
+            await prisma.provider.update({
+              where: { id: existingUser.provider.id },
+              data: { clinicId: null }, // Make provider shared across clinics
+            });
+            console.log(`[CLINIC-USERS] Made Provider ${existingUser.provider.id} shared (clinicId=null) for multi-clinic user ${existingUser.email}`);
+          } catch (updateError: any) {
+            console.error('Error making provider shared:', updateError);
+          }
         }
       }
 
@@ -266,7 +281,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
               firstName: existingUser.firstName || firstName,
               lastName: existingUser.lastName || lastName,
               passwordHash: existingUser.passwordHash || '', // Use existing user's password hash
-              clinicId,
+              clinicId: null, // Make shared by default for multi-clinic support
               npi: npi,
               dea: deaNumber || null,
               licenseNumber: licenseNumber || null,
