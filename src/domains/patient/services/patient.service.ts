@@ -218,9 +218,19 @@ export const createPatientSchema = z.object({
 });
 
 /**
- * Schema for updating a patient (all fields optional)
+ * Schema for updating a patient (all fields optional, empty strings filtered out)
  */
-export const updatePatientSchema = createPatientSchema.partial();
+export const updatePatientSchema = createPatientSchema.partial().transform((data) => {
+  // Filter out empty strings - treat them as "no update" for optional fields
+  const filtered: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    // Keep non-empty values
+    if (value !== undefined && value !== '') {
+      filtered[key] = value;
+    }
+  }
+  return filtered;
+});
 
 // ============================================================================
 // Types (re-export from shared)

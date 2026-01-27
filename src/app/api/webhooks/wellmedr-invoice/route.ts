@@ -27,6 +27,41 @@ import { logger } from '@/lib/logger';
 // WellMedR clinic configuration
 const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
 
+// State name to code mapping for normalization
+const STATE_NAME_TO_CODE: Record<string, string> = {
+  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR',
+  'california': 'CA', 'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE',
+  'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI', 'idaho': 'ID',
+  'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA', 'kansas': 'KS',
+  'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
+  'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV',
+  'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
+  'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK',
+  'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT',
+  'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV',
+  'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC',
+  'puerto rico': 'PR', 'virgin islands': 'VI', 'guam': 'GU',
+  // Also add 2-letter codes as keys
+  'al': 'AL', 'ak': 'AK', 'az': 'AZ', 'ar': 'AR', 'ca': 'CA', 'co': 'CO',
+  'ct': 'CT', 'de': 'DE', 'fl': 'FL', 'ga': 'GA', 'hi': 'HI', 'id': 'ID',
+  'il': 'IL', 'in': 'IN', 'ia': 'IA', 'ks': 'KS', 'ky': 'KY', 'la': 'LA',
+  'me': 'ME', 'md': 'MD', 'ma': 'MA', 'mi': 'MI', 'mn': 'MN', 'ms': 'MS',
+  'mo': 'MO', 'mt': 'MT', 'ne': 'NE', 'nv': 'NV', 'nh': 'NH', 'nj': 'NJ',
+  'nm': 'NM', 'ny': 'NY', 'nc': 'NC', 'nd': 'ND', 'oh': 'OH', 'ok': 'OK',
+  'or': 'OR', 'pa': 'PA', 'ri': 'RI', 'sc': 'SC', 'sd': 'SD', 'tn': 'TN',
+  'tx': 'TX', 'ut': 'UT', 'vt': 'VT', 'va': 'VA', 'wa': 'WA', 'wv': 'WV',
+  'wi': 'WI', 'wy': 'WY', 'dc': 'DC', 'pr': 'PR', 'vi': 'VI', 'gu': 'GU',
+};
+
+// Helper to normalize state input to 2-letter code
+function normalizeState(state: string): string {
+  if (!state) return '';
+  const normalized = state.trim().toLowerCase();
+  return STATE_NAME_TO_CODE[normalized] || state.toUpperCase().slice(0, 2);
+}
+
 // Helper to safely parse payment date from various formats
 function parsePaymentDate(dateValue: string | undefined): Date {
   if (!dateValue) {
@@ -414,6 +449,47 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // STEP 8: Update patient address if provided in payload
+    const hasAddressData = payload.address || payload.address_line1 || payload.city || payload.state || payload.zip || payload.zip_code;
+    if (hasAddressData) {
+      try {
+        const addressUpdate: Record<string, string> = {};
+
+        if (payload.address || payload.address_line1) {
+          addressUpdate.address1 = payload.address || payload.address_line1;
+        }
+        if (payload.address_line2) {
+          addressUpdate.address2 = payload.address_line2;
+        }
+        if (payload.city) {
+          addressUpdate.city = payload.city;
+        }
+        if (payload.state) {
+          // Normalize state to 2-letter code
+          addressUpdate.state = normalizeState(payload.state);
+        }
+        if (payload.zip || payload.zip_code) {
+          addressUpdate.zip = payload.zip || payload.zip_code;
+        }
+
+        if (Object.keys(addressUpdate).length > 0) {
+          await prisma.patient.update({
+            where: { id: patient.id },
+            data: addressUpdate,
+          });
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient address updated`, {
+            patientId: patient.id,
+            updatedFields: Object.keys(addressUpdate),
+          });
+        }
+      } catch (addrErr) {
+        // Don't fail the whole request, just log the error
+        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Failed to update patient address (non-fatal):`, {
+          error: addrErr instanceof Error ? addrErr.message : 'Unknown error',
+        });
+      }
+    }
+
     const duration = Date.now() - startTime;
     logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ SUCCESS in ${duration}ms`, {
       invoiceId: invoice.id,
@@ -425,6 +501,7 @@ export async function POST(req: NextRequest) {
       plan: plan,
       status: 'PAID',
       note: 'Internal EONPRO invoice only - no Stripe invoice created',
+      addressUpdated: !!hasAddressData,
     });
 
     return NextResponse.json({
