@@ -35,12 +35,21 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     // Query paid invoices that haven't been processed yet
+    // Only include patients who have completed intake forms
     const [invoices, totalCount] = await Promise.all([
       prisma.invoice.findMany({
         where: {
           clinicId: clinicId,
           status: 'PAID',
           prescriptionProcessed: false,
+          // Patient must have at least one completed intake submission
+          patient: {
+            intakeSubmissions: {
+              some: {
+                status: 'completed',
+              },
+            },
+          },
         },
         include: {
           patient: {
@@ -52,6 +61,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               email: true,
               phone: true,
               dob: true,
+              intakeSubmissions: {
+                where: { status: 'completed' },
+                orderBy: { completedAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  completedAt: true,
+                },
+              },
             },
           },
         },
@@ -66,6 +84,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           clinicId: clinicId,
           status: 'PAID',
           prescriptionProcessed: false,
+          // Patient must have at least one completed intake submission
+          patient: {
+            intakeSubmissions: {
+              some: {
+                status: 'completed',
+              },
+            },
+          },
         },
       }),
     ]);
@@ -111,6 +137,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         treatmentDisplay += ` - ${plan}`;
       }
 
+      // Get intake completion date if available
+      const intakeCompletedAt = invoice.patient.intakeSubmissions?.[0]?.completedAt || null;
+
       return {
         invoiceId: invoice.id,
         patientId: invoice.patient.id,
@@ -125,6 +154,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         paidAt: invoice.paidAt,
         createdAt: invoice.createdAt,
         invoiceNumber: (metadata?.invoiceNumber as string) || `INV-${invoice.id}`,
+        intakeCompletedAt,
       };
     });
 

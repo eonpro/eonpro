@@ -24,6 +24,14 @@ async function handleGet(_req: NextRequest, user: AuthUser) {
         clinicId: clinicId,
         status: 'PAID',
         prescriptionProcessed: false,
+        // Patient must have at least one completed intake submission
+        patient: {
+          intakeSubmissions: {
+            some: {
+              status: 'completed',
+            },
+          },
+        },
       },
     });
 
