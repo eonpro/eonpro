@@ -8,17 +8,15 @@ import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
-interface RouteContext {
-  params: Promise<{ invoiceId: string }>;
-}
-
 /**
  * GET /api/provider/prescription-queue/[invoiceId]
  * Get detailed patient info and intake data for a queue item
  */
-async function handleGet(req: NextRequest, user: AuthUser, context: RouteContext) {
+async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
   try {
-    const { invoiceId } = await context.params;
+    // Extract invoiceId from context params
+    const params = (context as { params: Promise<{ invoiceId: string }> })?.params;
+    const { invoiceId } = await params;
     const invoiceIdNum = parseInt(invoiceId, 10);
 
     if (isNaN(invoiceIdNum)) {
