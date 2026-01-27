@@ -143,13 +143,40 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         }
       }
 
-      // Build treatment display string
-      let treatmentDisplay = treatment;
-      if (medicationType) {
-        treatmentDisplay += ` (${medicationType})`;
+      // Clean up treatment name - remove "product" suffix and capitalize
+      let cleanTreatment = treatment
+        .replace(/product$/i, '')  // Remove "product" suffix
+        .replace(/\s+/g, ' ')      // Normalize spaces
+        .trim();
+      
+      // Capitalize first letter
+      if (cleanTreatment) {
+        cleanTreatment = cleanTreatment.charAt(0).toUpperCase() + cleanTreatment.slice(1);
       }
-      if (plan) {
-        treatmentDisplay += ` - ${plan}`;
+
+      // Format medication type (capitalize)
+      const formattedMedType = medicationType 
+        ? medicationType.charAt(0).toUpperCase() + medicationType.slice(1).toLowerCase()
+        : '';
+
+      // Map plan to duration info for prescribing
+      const planDurationMap: Record<string, { label: string; months: number }> = {
+        'monthly': { label: 'Monthly', months: 1 },
+        'quarterly': { label: 'Quarterly', months: 3 },
+        'semester': { label: '6-Month', months: 6 },
+        '6-month': { label: '6-Month', months: 6 },
+        '6month': { label: '6-Month', months: 6 },
+        'annual': { label: 'Annual', months: 12 },
+        'yearly': { label: 'Annual', months: 12 },
+      };
+      
+      const planKey = plan.toLowerCase().replace(/[\s-]/g, '');
+      const planInfo = planDurationMap[planKey] || { label: plan || 'Monthly', months: 1 };
+
+      // Build treatment display string: "Tirzepatide Injections"
+      let treatmentDisplay = cleanTreatment;
+      if (formattedMedType) {
+        treatmentDisplay += ` ${formattedMedType}`;
       }
 
       // Get intake completion date if available
@@ -164,6 +191,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         patientPhone: invoice.patient.phone,
         patientDob: invoice.patient.dob,
         treatment: treatmentDisplay,
+        // Plan info for prescribing - tells provider how many months to prescribe
+        plan: planInfo.label,
+        planMonths: planInfo.months,
         amount: invoice.amount || invoice.amountPaid,
         amountFormatted: `$${((invoice.amount || invoice.amountPaid) / 100).toFixed(2)}`,
         paidAt: invoice.paidAt,
