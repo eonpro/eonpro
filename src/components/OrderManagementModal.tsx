@@ -13,7 +13,7 @@ type Order = {
     id: number;
     medName?: string;
     strength?: string;
-    quantity?: string;
+    quantity?: string | number;
   }>;
   provider?: {
     firstName: string;

@@ -161,7 +161,7 @@ export const providerService = {
         logger.debug('[ProviderService] UserClinic entries', { 
           userId: userContext.id, 
           count: userClinics.length,
-          clinicIds: userClinics.map(uc => uc.clinicId)
+          clinicIds: userClinics.map((uc: { clinicId: number }) => uc.clinicId)
         });
       } catch (error) {
         // UserClinic table might not have data for this user
