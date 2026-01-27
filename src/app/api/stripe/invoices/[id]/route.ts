@@ -71,6 +71,12 @@ export async function GET(request: NextRequest, { params }: Params) {
               stripeCustomerId: true,
             },
           },
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           items: {
             include: {
               product: {
@@ -100,6 +106,12 @@ export async function GET(request: NextRequest, { params }: Params) {
               email: true,
               phone: true,
               stripeCustomerId: true,
+            },
+          },
+          clinic: {
+            select: {
+              id: true,
+              name: true,
             },
           },
         },

@@ -4,6 +4,38 @@ import { useState, useEffect, use } from 'react';
 import { formatCurrency } from '@/lib/stripe';
 import Link from 'next/link';
 
+interface InvoiceMetadata {
+  invoiceNumber?: string;
+  source?: string;
+  stripePaymentMethodId?: string;
+  stripePriceId?: string;
+  submissionId?: string;
+  orderStatus?: string;
+  subscriptionStatus?: string;
+  customerName?: string;
+  product?: string;
+  medicationType?: string;
+  plan?: string;
+  address?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  paymentDate?: string;
+  paymentMethod?: string;
+  processedAt?: string;
+  summary?: {
+    subtotal: number;
+    discountAmount: number;
+    taxAmount: number;
+    total: number;
+    amountPaid: number;
+    amountDue: number;
+  };
+}
+
 interface InvoiceDetails {
   id: number;
   stripeInvoiceNumber: string | null;
@@ -19,6 +51,11 @@ interface InvoiceDetails {
   paidAt: string | null;
   createdAt: string;
   lineItems: any[];
+  metadata: InvoiceMetadata | null;
+  clinic: {
+    id: number;
+    name: string;
+  } | null;
   patient: {
     id: number;
     firstName: string;
@@ -170,10 +207,21 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
               <div>
                 <h3 className="text-sm font-medium text-gray-500 uppercase mb-2">Bill To</h3>
                 <p className="font-medium text-gray-900">
-                  {invoice.patient.firstName} {invoice.patient.lastName}
+                  {invoice.metadata?.customerName || `${invoice.patient.firstName} ${invoice.patient.lastName}`}
                 </p>
                 <p className="text-gray-600">{invoice.patient.email}</p>
                 <p className="text-gray-600">{invoice.patient.phone}</p>
+                {/* Address from metadata */}
+                {invoice.metadata?.address && (
+                  <div className="mt-2 text-gray-600">
+                    <p>{invoice.metadata.addressLine1 || invoice.metadata.address}</p>
+                    {invoice.metadata.addressLine2 && <p>{invoice.metadata.addressLine2}</p>}
+                    <p>
+                      {invoice.metadata.city && `${invoice.metadata.city}, `}
+                      {invoice.metadata.state} {invoice.metadata.zipCode}
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="text-right">
                 <div className="mb-4">
@@ -185,13 +233,59 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                   <p className="font-medium">{formatDate(invoice.dueDate)}</p>
                 </div>
                 {invoice.paidAt && (
-                  <div>
+                  <div className="mb-4">
                     <p className="text-sm text-gray-500">Paid On</p>
                     <p className="font-medium text-green-600">{formatDateTime(invoice.paidAt)}</p>
                   </div>
                 )}
+                {invoice.clinic && (
+                  <div>
+                    <p className="text-sm text-gray-500">Clinic</p>
+                    <p className="font-medium">{invoice.clinic.name}</p>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Treatment Details (for WellMedR/Airtable invoices) */}
+            {invoice.metadata?.source === 'wellmedr-airtable' && (
+              <div className="bg-emerald-50 rounded-lg p-4 mb-8">
+                <h3 className="text-sm font-medium text-emerald-800 uppercase mb-3">Treatment Details</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  {invoice.metadata.product && (
+                    <div>
+                      <p className="text-emerald-600">Product</p>
+                      <p className="font-medium text-emerald-900 capitalize">{invoice.metadata.product}</p>
+                    </div>
+                  )}
+                  {invoice.metadata.medicationType && (
+                    <div>
+                      <p className="text-emerald-600">Type</p>
+                      <p className="font-medium text-emerald-900 capitalize">{invoice.metadata.medicationType}</p>
+                    </div>
+                  )}
+                  {invoice.metadata.plan && (
+                    <div>
+                      <p className="text-emerald-600">Plan</p>
+                      <p className="font-medium text-emerald-900 capitalize">{invoice.metadata.plan}</p>
+                    </div>
+                  )}
+                  {invoice.metadata.submissionId && (
+                    <div>
+                      <p className="text-emerald-600">Order ID</p>
+                      <p className="font-medium text-emerald-900 text-xs">{invoice.metadata.submissionId.substring(0, 18)}...</p>
+                    </div>
+                  )}
+                </div>
+                {invoice.metadata.stripePaymentMethodId && (
+                  <div className="mt-3 pt-3 border-t border-emerald-200">
+                    <p className="text-xs text-emerald-600">
+                      Payment Method: <span className="font-mono">{invoice.metadata.stripePaymentMethodId}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Line Items */}
             <table className="w-full mb-8">
