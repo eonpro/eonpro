@@ -9,10 +9,10 @@ import { JWT_SECRET } from './config';
 import { setClinicContext } from '@/lib/db';
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
-import { AuthUser } from './middleware';
+import type { AuthUser } from './middleware';
 
-// Re-export AuthUser for convenience
-export { AuthUser };
+// Re-export AuthUser type for convenience
+export type { AuthUser };
 
 /**
  * Verify JWT token from various sources
