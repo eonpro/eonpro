@@ -455,8 +455,9 @@ export async function POST(req: NextRequest) {
       try {
         const addressUpdate: Record<string, string> = {};
 
-        if (payload.address || payload.address_line1) {
-          addressUpdate.address1 = payload.address || payload.address_line1;
+        const address1Value = payload.address || payload.address_line1;
+        if (address1Value) {
+          addressUpdate.address1 = address1Value;
         }
         if (payload.address_line2) {
           addressUpdate.address2 = payload.address_line2;
@@ -468,8 +469,9 @@ export async function POST(req: NextRequest) {
           // Normalize state to 2-letter code
           addressUpdate.state = normalizeState(payload.state);
         }
-        if (payload.zip || payload.zip_code) {
-          addressUpdate.zip = payload.zip || payload.zip_code;
+        const zipValue = payload.zip || payload.zip_code;
+        if (zipValue) {
+          addressUpdate.zip = zipValue;
         }
 
         if (Object.keys(addressUpdate).length > 0) {
