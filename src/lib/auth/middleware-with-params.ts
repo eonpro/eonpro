@@ -11,6 +11,9 @@ import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { AuthUser } from './middleware';
 
+// Re-export AuthUser for convenience
+export { AuthUser };
+
 /**
  * Verify JWT token from various sources
  * 
