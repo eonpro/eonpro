@@ -142,7 +142,7 @@ export default function PrescriptionQueuePage() {
     sig: "",
     quantity: "1",
     refills: "0",
-    shippingMethod: "standard",
+    shippingMethod: "8117", // UPS Overnight Saver
   });
   const [submittingPrescription, setSubmittingPrescription] = useState(false);
 
@@ -914,11 +914,11 @@ export default function PrescriptionQueuePage() {
                       Shipping Method
                     </h3>
                     <div className="space-y-2">
-                      {Object.entries(SHIPPING_METHODS).map(([key, method]) => (
+                      {SHIPPING_METHODS.map((method) => (
                         <label
-                          key={key}
+                          key={method.id}
                           className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${
-                            prescriptionForm.shippingMethod === key
+                            prescriptionForm.shippingMethod === String(method.id)
                               ? "border-orange-500 bg-orange-50"
                               : "border-gray-200 hover:border-gray-300"
                           }`}
@@ -926,8 +926,8 @@ export default function PrescriptionQueuePage() {
                           <input
                             type="radio"
                             name="shippingMethod"
-                            value={key}
-                            checked={prescriptionForm.shippingMethod === key}
+                            value={String(method.id)}
+                            checked={prescriptionForm.shippingMethod === String(method.id)}
                             onChange={(e) =>
                               setPrescriptionForm((prev) => ({
                                 ...prev,
@@ -936,10 +936,7 @@ export default function PrescriptionQueuePage() {
                             }
                             className="w-4 h-4 text-orange-500 focus:ring-orange-500"
                           />
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{method.label}</p>
-                            <p className="text-xs text-gray-500">{method.description}</p>
-                          </div>
+                          <p className="font-medium text-gray-900">{method.label}</p>
                         </label>
                       ))}
                     </div>
