@@ -298,6 +298,200 @@ Successful response includes EONPRO IDs for bidirectional sync:
 |------|--------|-------------|
 | 2026-01-24 | Initial webhook setup | System |
 | 2026-01-24 | Documented 47 form fields | System |
+| 2026-01-26 | Added invoice webhook for Airtable payment sync | System |
+
+---
+
+## Invoice Webhook (Airtable → EONPRO)
+
+### Purpose
+Creates invoices on patient profiles when a payment is detected in Airtable.
+
+### Webhook Configuration
+
+| Setting | Value |
+|---------|-------|
+| **Endpoint** | `https://app.eonpro.io/api/webhooks/wellmedr-invoice` |
+| **Method** | `POST` |
+| **Headers** | `x-webhook-secret: <your-secret>` |
+| **Trigger** | When `method_payment_id` field has a value like `pm_...` |
+
+### Airtable Automation Script
+
+```javascript
+// WellMedR Invoice Webhook - Airtable Automation Script
+// =====================================================
+// Trigger: When "method_payment_id" field is not empty and matches pm_* pattern
+// Action: Send patient data to EONPRO to create invoice
+
+const WEBHOOK_URL = 'https://app.eonpro.io/api/webhooks/wellmedr-invoice';
+const WEBHOOK_SECRET = 'YOUR_WELLMEDR_INTAKE_WEBHOOK_SECRET'; // Same as intake webhook
+
+// Get the record that triggered this automation
+let inputConfig = input.config();
+let record = inputConfig.record;
+
+// Get field values from the record
+const methodPaymentId = record.getCellValueAsString('method_payment_id');
+
+// Only proceed if method_payment_id looks like a Stripe payment method
+if (!methodPaymentId || !methodPaymentId.startsWith('pm_')) {
+  console.log('Skipping - no valid payment method ID found');
+  output.set('status', 'skipped');
+  output.set('reason', 'No valid pm_* payment method ID');
+  return;
+}
+
+// Build the payload from Airtable record
+const payload = {
+  // Required fields
+  customer_email: record.getCellValueAsString('customer_email'),
+  method_payment_id: methodPaymentId,
+  
+  // Optional fields - adjust field names to match your Airtable
+  customer_name: record.getCellValueAsString('customer_name') || 
+                 record.getCellValueAsString('cardholder_name'),
+  cardholder_name: record.getCellValueAsString('cardholder_name'),
+  product: record.getCellValueAsString('product'),
+  amount: parseAmountToCents(record.getCellValue('amount') || record.getCellValue('amount_paid')),
+  submission_id: record.getCellValueAsString('submission_id'),
+  order_status: record.getCellValueAsString('order_status'),
+  subscription_status: record.getCellValueAsString('subscription_status'),
+};
+
+// Validate required email
+if (!payload.customer_email) {
+  console.error('Missing customer_email - cannot create invoice');
+  output.set('status', 'error');
+  output.set('reason', 'Missing customer_email');
+  return;
+}
+
+console.log('Sending invoice request for:', payload.customer_email);
+console.log('Product:', payload.product);
+console.log('Amount:', payload.amount ? `$${(payload.amount / 100).toFixed(2)}` : 'default');
+
+// Send to EONPRO
+try {
+  const response = await fetch(WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-webhook-secret': WEBHOOK_SECRET,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json();
+  
+  if (response.ok && result.success) {
+    console.log('✅ Invoice created successfully!');
+    console.log('Invoice ID:', result.invoice?.id);
+    console.log('Patient:', result.patient?.name);
+    console.log('Amount:', result.invoice?.amountFormatted);
+    console.log('Status:', result.invoice?.status);
+    
+    output.set('status', 'success');
+    output.set('invoiceId', result.invoice?.id);
+    output.set('eonproPatientId', result.patient?.id);
+    output.set('amount', result.invoice?.amountFormatted);
+  } else {
+    console.error('❌ Invoice creation failed:', result.error || result.message);
+    output.set('status', 'error');
+    output.set('error', result.error || result.message);
+  }
+} catch (error) {
+  console.error('❌ Request failed:', error.message);
+  output.set('status', 'error');
+  output.set('error', error.message);
+}
+
+// Helper function to parse amount to cents
+function parseAmountToCents(amount) {
+  if (!amount) return null;
+  
+  // If it's a number
+  if (typeof amount === 'number') {
+    // If it looks like dollars (less than 1000), convert to cents
+    if (amount < 1000) {
+      return Math.round(amount * 100);
+    }
+    return Math.round(amount);
+  }
+  
+  // If it's a string, parse it
+  if (typeof amount === 'string') {
+    // Remove currency symbols and commas
+    const cleaned = amount.replace(/[$,]/g, '').trim();
+    const parsed = parseFloat(cleaned);
+    if (!isNaN(parsed)) {
+      // If it looks like dollars, convert to cents
+      if (parsed < 1000) {
+        return Math.round(parsed * 100);
+      }
+      return Math.round(parsed);
+    }
+  }
+  
+  return null;
+}
+```
+
+### Airtable Automation Setup
+
+1. **Go to Automations** in your Airtable base
+2. **Create new automation** named "Create EONPRO Invoice on Payment"
+3. **Add Trigger**: "When record matches conditions"
+   - Table: `Orders`
+   - Condition: `method_payment_id` is not empty AND starts with "pm_"
+4. **Add Action**: "Run script"
+   - Paste the script above
+   - Configure input: `record` = the triggering record
+5. **Configure output** (optional):
+   - `status` - success/error/skipped
+   - `invoiceId` - EONPRO invoice ID
+   - `eonproPatientId` - EONPRO patient ID
+   - `amount` - Invoice amount
+   - `error` - Error message if failed
+6. **Test** with a sample record
+7. **Turn on** the automation
+
+### Response Format
+
+Successful response:
+```json
+{
+  "success": true,
+  "requestId": "wellmedr-inv-1706300000000",
+  "message": "Invoice created and marked as paid",
+  "invoice": {
+    "id": 123,
+    "amount": 29900,
+    "amountFormatted": "$299.00",
+    "status": "PAID",
+    "isPaid": true
+  },
+  "patient": {
+    "id": 456,
+    "patientId": "000789",
+    "name": "John Doe",
+    "email": "john@example.com"
+  },
+  "product": "Tirzepatide 5mg",
+  "paymentMethodId": "pm_1StwAHDfH4PWyxxdppqIGipS",
+  "processingTime": "234ms"
+}
+```
+
+### Error Responses
+
+| Status | Error | Resolution |
+|--------|-------|------------|
+| 401 | Unauthorized | Check webhook secret in headers |
+| 404 | Patient not found | Patient must be created via intake webhook first |
+| 400 | Missing customer_email | Ensure email field is mapped correctly |
+| 400 | Invalid payment method format | Only pm_* values are accepted |
+| 500 | Database error | Check EONPRO server logs |
 
 ---
 
@@ -306,7 +500,10 @@ Successful response includes EONPRO IDs for bidirectional sync:
 The following are critical and should not be changed without testing:
 
 1. Environment variables (both platforms)
-2. Webhook endpoint URL
-3. Secret key
+2. Webhook endpoint URLs:
+   - Intake: `/api/webhooks/wellmedr-intake`
+   - Invoice: `/api/webhooks/wellmedr-invoice`
+3. Secret key (shared between both webhooks)
 4. Clinic lookup (subdomain: `wellmedr`)
 5. Field mapping in normalizer
+6. Invoice creation flow (finds patient by email → creates invoice → marks as paid)
