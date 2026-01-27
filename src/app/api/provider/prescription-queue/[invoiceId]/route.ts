@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { decrypt } from '@/lib/security/encryption';
 
 /**
  * GET /api/provider/prescription-queue/[invoiceId]
@@ -167,7 +168,25 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         .map(([section, questions]) => ({ section, questions }));
     }
 
-    // Build response
+    // Helper to safely decrypt a field
+    const safeDecrypt = (value: string | null): string | null => {
+      if (!value) return value;
+      try {
+        // Check if it looks encrypted (3 base64 parts with colons)
+        const parts = value.split(':');
+        if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p))) {
+          return decrypt(value);
+        }
+        return value; // Not encrypted, return as-is
+      } catch (e) {
+        logger.warn('[PRESCRIPTION-QUEUE] Failed to decrypt patient field', {
+          error: e instanceof Error ? e.message : 'Unknown error',
+        });
+        return value; // Return original on error
+      }
+    };
+
+    // Build response with decrypted patient PHI
     const response = {
       invoice: {
         id: invoice.id,
@@ -184,15 +203,16 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         patientId: invoice.patient.patientId,
         firstName: invoice.patient.firstName,
         lastName: invoice.patient.lastName,
-        email: invoice.patient.email,
-        phone: invoice.patient.phone,
-        dob: invoice.patient.dob,
-        gender: invoice.patient.gender,
-        address1: invoice.patient.address1,
-        address2: invoice.patient.address2,
-        city: invoice.patient.city,
-        state: invoice.patient.state,
-        zip: invoice.patient.zip,
+        // Decrypt PHI fields
+        email: safeDecrypt(invoice.patient.email),
+        phone: safeDecrypt(invoice.patient.phone),
+        dob: safeDecrypt(invoice.patient.dob),
+        gender: safeDecrypt(invoice.patient.gender),
+        address1: safeDecrypt(invoice.patient.address1),
+        address2: safeDecrypt(invoice.patient.address2),
+        city: safeDecrypt(invoice.patient.city),
+        state: safeDecrypt(invoice.patient.state),
+        zip: safeDecrypt(invoice.patient.zip),
         allergies: invoice.patient.allergies,
         notes: invoice.patient.notes,
       },

@@ -10,7 +10,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { decrypt } from '@/lib/security/encryption';
 import type { Invoice, Clinic, Patient, IntakeFormSubmission } from '@prisma/client';
+
+// Helper to safely decrypt a field
+const safeDecrypt = (value: string | null): string | null => {
+  if (!value) return value;
+  try {
+    // Check if it looks encrypted (3 base64 parts with colons)
+    const parts = value.split(':');
+    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p))) {
+      return decrypt(value);
+    }
+    return value; // Not encrypted, return as-is
+  } catch (e) {
+    logger.warn('[PRESCRIPTION-QUEUE] Failed to decrypt patient field', {
+      error: e instanceof Error ? e.message : 'Unknown error',
+    });
+    return value; // Return original on error
+  }
+};
 
 // Type for invoice with included relations from our query
 type InvoiceWithRelations = Invoice & {
@@ -187,9 +206,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         patientId: invoice.patient.id,
         patientDisplayId: invoice.patient.patientId,
         patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-        patientEmail: invoice.patient.email,
-        patientPhone: invoice.patient.phone,
-        patientDob: invoice.patient.dob,
+        // Decrypt PHI fields before returning
+        patientEmail: safeDecrypt(invoice.patient.email),
+        patientPhone: safeDecrypt(invoice.patient.phone),
+        patientDob: safeDecrypt(invoice.patient.dob),
         treatment: treatmentDisplay,
         // Plan info for prescribing - tells provider how many months to prescribe
         plan: planInfo.label,
