@@ -474,7 +474,7 @@ export default function PrescriptionQueuePage() {
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: '#efece7' }}>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -599,8 +599,8 @@ export default function PrescriptionQueuePage() {
                               ? 'bg-emerald-100 text-emerald-700' 
                               : item.planMonths >= 3 
                                 ? 'bg-orange-100 text-orange-700'
-                                : 'text-gray-600'
-                          }`} style={item.planMonths < 3 ? { backgroundColor: '#efece7' } : undefined}>
+                                : 'bg-gray-200 text-gray-700'
+                          }`}>
                             {item.plan} ({item.planMonths} {item.planMonths === 1 ? 'mo' : 'mos'})
                           </span>
                         </div>
@@ -956,7 +956,7 @@ export default function PrescriptionQueuePage() {
                   </div>
 
                   {/* Plan Duration Info - Important for prescribing */}
-                  <div className="rounded-xl p-4 border border-gray-200" style={{ backgroundColor: '#efece7' }}>
+                  <div className="rounded-xl p-4 border border-gray-200 bg-orange-50">
                     <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-orange-600" />
                       Prescription Duration
@@ -967,7 +967,7 @@ export default function PrescriptionQueuePage() {
                           ? 'bg-emerald-200 text-emerald-800' 
                           : prescriptionPanel.item.planMonths >= 3 
                             ? 'bg-orange-200 text-orange-800'
-                            : 'bg-white text-gray-800'
+                            : 'bg-gray-200 text-gray-800'
                       }`}>
                         {prescriptionPanel.item.plan}
                       </span>
