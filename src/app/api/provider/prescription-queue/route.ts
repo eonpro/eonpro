@@ -10,6 +10,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import type { Invoice, Clinic, Patient, IntakeFormSubmission } from '@prisma/client';
+
+// Type for invoice with included relations from our query
+type InvoiceWithRelations = Invoice & {
+  clinic: Pick<Clinic, 'id' | 'name' | 'subdomain' | 'lifefileEnabled' | 'lifefilePracticeName'> | null;
+  patient: Pick<Patient, 'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'> & {
+    intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
+  };
+};
 
 /**
  * GET /api/provider/prescription-queue
@@ -109,7 +118,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     ]);
 
     // Transform data for frontend
-    const queueItems = invoices.map((invoice) => {
+    const queueItems = invoices.map((invoice: InvoiceWithRelations) => {
       // Extract treatment info from metadata or line items
       const metadata = invoice.metadata as Record<string, unknown> | null;
       const lineItems = invoice.lineItems as Array<Record<string, unknown>> | null;
