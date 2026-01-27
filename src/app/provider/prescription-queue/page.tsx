@@ -13,6 +13,8 @@ import {
   DollarSign,
   Pill,
   RefreshCw,
+  Building2,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -30,6 +32,16 @@ interface QueueItem {
   paidAt: string;
   createdAt: string;
   invoiceNumber: string;
+  intakeCompletedAt: string | null;
+  // CRITICAL: Clinic context for Lifefile prescriptions
+  clinicId: number | null;
+  clinic: {
+    id: number;
+    name: string;
+    subdomain: string;
+    lifefileEnabled: boolean;
+    practiceName: string | null;
+  } | null;
 }
 
 interface QueueResponse {
@@ -245,6 +257,9 @@ export default function PrescriptionQueuePage() {
                     Treatment
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Clinic
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -268,8 +283,9 @@ export default function PrescriptionQueuePage() {
                         </div>
                         <div>
                           <Link
-                            href={`/patients/${item.patientId}?tab=profile`}
+                            href={`/patients/${item.patientId}?tab=prescriptions${item.clinicId ? `&clinicId=${item.clinicId}` : ''}`}
                             className="font-medium text-gray-900 hover:text-orange-600 transition-colors"
+                            title={`Write prescription for ${item.patientName} at ${item.clinic?.name || 'Unknown Clinic'}`}
                           >
                             {item.patientName}
                           </Link>
@@ -290,6 +306,28 @@ export default function PrescriptionQueuePage() {
                       <p className="text-xs text-gray-400 mt-1">
                         {item.invoiceNumber}
                       </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-gray-400" />
+                        <div>
+                          <span className="text-gray-900 text-sm">
+                            {item.clinic?.name || "Unknown Clinic"}
+                          </span>
+                          {item.clinic?.lifefileEnabled ? (
+                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              Lifefile
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <AlertTriangle className="w-3 h-3 text-amber-500" />
+                              <span className="text-xs text-amber-600">
+                                No Lifefile
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">

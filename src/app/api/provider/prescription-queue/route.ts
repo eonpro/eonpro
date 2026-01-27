@@ -36,6 +36,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Query paid invoices that haven't been processed yet
     // Only include patients who have completed intake forms
+    // CRITICAL: Include clinic info for Lifefile prescription context
     const [invoices, totalCount] = await Promise.all([
       prisma.invoice.findMany({
         where: {
@@ -52,6 +53,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
         },
         include: {
+          // CRITICAL: Include clinic for prescription context (Lifefile API, PDF branding)
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
+            },
+          },
           patient: {
             select: {
               id: true,
@@ -61,6 +72,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               email: true,
               phone: true,
               dob: true,
+              clinicId: true, // Patient's clinic for validation
               intakeSubmissions: {
                 where: { status: 'completed' },
                 orderBy: { completedAt: 'desc' },
@@ -155,6 +167,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         createdAt: invoice.createdAt,
         invoiceNumber: (metadata?.invoiceNumber as string) || `INV-${invoice.id}`,
         intakeCompletedAt,
+        // CRITICAL: Clinic context for Lifefile prescriptions
+        // The prescription MUST use this clinic's API credentials and PDF branding
+        clinicId: invoice.clinicId,
+        clinic: invoice.clinic ? {
+          id: invoice.clinic.id,
+          name: invoice.clinic.name,
+          subdomain: invoice.clinic.subdomain,
+          lifefileEnabled: invoice.clinic.lifefileEnabled,
+          practiceName: invoice.clinic.lifefilePracticeName,
+        } : null,
       };
     });
 
@@ -206,20 +228,33 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       );
     }
 
-    // Verify invoice exists, belongs to clinic, and is in the queue
+    // CRITICAL: Verify invoice exists, belongs to provider's clinic, and is in the queue
+    // This ensures prescriptions use the correct clinic context for:
+    // - Lifefile API credentials (pharmacy routing, billing)
+    // - E-prescription PDF branding (clinic name, address, phone)
+    // - Tracking webhook routing back to correct clinic
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
-        clinicId: clinicId,
+        clinicId: clinicId, // CRITICAL: Must match provider's active clinic
         status: 'PAID',
         prescriptionProcessed: false,
       },
       include: {
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+            subdomain: true,
+            lifefileEnabled: true,
+          },
+        },
         patient: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
+            clinicId: true,
           },
         },
       },
@@ -227,9 +262,20 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 
     if (!invoice) {
       return NextResponse.json(
-        { error: 'Invoice not found or already processed' },
+        { error: 'Invoice not found, does not belong to your clinic, or already processed' },
         { status: 404 }
       );
+    }
+
+    // CRITICAL: Validate clinic context consistency
+    if (invoice.patient.clinicId !== clinicId) {
+      logger.warn('Clinic mismatch: patient clinic differs from invoice clinic', {
+        invoiceId,
+        invoiceClinicId: invoice.clinicId,
+        patientClinicId: invoice.patient.clinicId,
+        providerClinicId: clinicId,
+      });
+      // Allow processing but log the mismatch for audit
     }
 
     // Get provider ID if user is linked to a provider
@@ -258,6 +304,10 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
       processedBy: user.email,
       providerId,
+      // CRITICAL: Log clinic context for audit trail
+      clinicId: invoice.clinicId,
+      clinicName: invoice.clinic?.name,
+      lifefileEnabled: invoice.clinic?.lifefileEnabled,
     });
 
     return NextResponse.json({
@@ -267,6 +317,8 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         id: updatedInvoice.id,
         prescriptionProcessed: updatedInvoice.prescriptionProcessed,
         prescriptionProcessedAt: updatedInvoice.prescriptionProcessedAt,
+        // Return clinic context so frontend can use correct clinic for prescription
+        clinicId: invoice.clinicId,
       },
     });
   } catch (error: unknown) {
