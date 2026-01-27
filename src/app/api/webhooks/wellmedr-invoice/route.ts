@@ -112,15 +112,42 @@ interface WellmedrInvoicePayload {
   plan?: string;
   medication_type?: string;
   stripe_price_id?: string;
-  // Address fields
+  // Address fields - support ALL possible Airtable field name variations
   address?: string;
   address_line1?: string;
+  address_line_1?: string;
+  addressLine1?: string;
+  street_address?: string;
+  streetAddress?: string;
+  shipping_address?: string;
+  shippingAddress?: string;
   address_line2?: string;
+  address_line_2?: string;
+  addressLine2?: string;
+  apartment?: string;
+  apt?: string;
+  suite?: string;
+  unit?: string;
   city?: string;
+  shipping_city?: string;
+  shippingCity?: string;
   state?: string;
+  shipping_state?: string;
+  shippingState?: string;
+  province?: string;
   zip?: string;
   zip_code?: string;
+  zipCode?: string;
+  postal_code?: string;
+  postalCode?: string;
+  shipping_zip?: string;
+  shippingZip?: string;
   country?: string;
+  shipping_country?: string;
+  // Phone (for address completeness)
+  phone?: string;
+  phone_number?: string;
+  phoneNumber?: string;
   // Payment date
   payment_date?: string;
   // Additional fields that might be sent
@@ -352,14 +379,54 @@ export async function POST(req: NextRequest) {
   
   const customerName = payload.customer_name || payload.cardholder_name || `${patient.firstName} ${patient.lastName}`;
 
+  // Extract address from ALL possible field variations
+  const extractedAddress1 = 
+    payload.address || 
+    payload.address_line1 || 
+    payload.address_line_1 ||
+    payload.addressLine1 ||
+    payload.street_address ||
+    payload.streetAddress ||
+    payload.shipping_address ||
+    payload.shippingAddress || '';
+  
+  const extractedAddress2 = 
+    payload.address_line2 ||
+    payload.address_line_2 ||
+    payload.addressLine2 ||
+    payload.apartment ||
+    payload.apt ||
+    payload.suite ||
+    payload.unit || '';
+  
+  const extractedCity = 
+    payload.city ||
+    payload.shipping_city ||
+    payload.shippingCity || '';
+  
+  const extractedState = 
+    payload.state ||
+    payload.shipping_state ||
+    payload.shippingState ||
+    payload.province || '';
+  
+  const extractedZip = 
+    payload.zip ||
+    payload.zip_code ||
+    payload.zipCode ||
+    payload.postal_code ||
+    payload.postalCode ||
+    payload.shipping_zip ||
+    payload.shippingZip || '';
+  
   // Build address string from available fields
   const addressParts = [
-    payload.address || payload.address_line1,
-    payload.address_line2,
-    payload.city,
-    payload.state,
-    payload.zip || payload.zip_code,
-    payload.country,
+    extractedAddress1,
+    extractedAddress2,
+    extractedCity,
+    extractedState,
+    extractedZip,
+    payload.country || payload.shipping_country,
   ].filter(Boolean);
   const fullAddress = addressParts.join(', ') || '';
 
@@ -420,14 +487,14 @@ export async function POST(req: NextRequest) {
           product: product,
           medicationType: medicationType,
           plan: plan,
-          // Address info
+          // Address info (extracted from all possible field variations)
           address: fullAddress,
-          addressLine1: payload.address || payload.address_line1 || '',
-          addressLine2: payload.address_line2 || '',
-          city: payload.city || '',
-          state: payload.state || '',
-          zipCode: payload.zip || payload.zip_code || '',
-          country: payload.country || '',
+          addressLine1: extractedAddress1,
+          addressLine2: extractedAddress2,
+          city: extractedCity,
+          state: extractedState ? normalizeState(String(extractedState)) : '',
+          zipCode: extractedZip,
+          country: payload.country || payload.shipping_country || '',
           // Payment info
           paymentDate: parsePaymentDate(payload.payment_date).toISOString(),
           paymentMethod: 'stripe-airtable',
@@ -450,28 +517,95 @@ export async function POST(req: NextRequest) {
     });
 
     // STEP 8: Update patient address if provided in payload
-    const hasAddressData = payload.address || payload.address_line1 || payload.city || payload.state || payload.zip || payload.zip_code;
+    // Support ALL possible Airtable field name variations
+    const address1Value = 
+      payload.address || 
+      payload.address_line1 || 
+      payload.address_line_1 ||
+      payload.addressLine1 ||
+      payload.street_address ||
+      payload.streetAddress ||
+      payload.shipping_address ||
+      payload.shippingAddress;
+    
+    const address2Value = 
+      payload.address_line2 ||
+      payload.address_line_2 ||
+      payload.addressLine2 ||
+      payload.apartment ||
+      payload.apt ||
+      payload.suite ||
+      payload.unit;
+    
+    const cityValue = 
+      payload.city ||
+      payload.shipping_city ||
+      payload.shippingCity;
+    
+    const stateValue = 
+      payload.state ||
+      payload.shipping_state ||
+      payload.shippingState ||
+      payload.province;
+    
+    const zipValue = 
+      payload.zip ||
+      payload.zip_code ||
+      payload.zipCode ||
+      payload.postal_code ||
+      payload.postalCode ||
+      payload.shipping_zip ||
+      payload.shippingZip;
+    
+    const phoneValue =
+      payload.phone ||
+      payload.phone_number ||
+      payload.phoneNumber;
+    
+    // Log all address-related fields received for debugging
+    logger.info(`[WELLMEDR-INVOICE ${requestId}] Address fields in payload:`, {
+      address1Value: address1Value || 'NOT FOUND',
+      address2Value: address2Value || 'NOT FOUND',
+      cityValue: cityValue || 'NOT FOUND',
+      stateValue: stateValue || 'NOT FOUND',
+      zipValue: zipValue || 'NOT FOUND',
+      phoneValue: phoneValue || 'NOT FOUND',
+      // Log raw keys to help debug what Airtable is sending
+      payloadKeys: Object.keys(payload).filter(k => 
+        k.toLowerCase().includes('address') || 
+        k.toLowerCase().includes('city') || 
+        k.toLowerCase().includes('state') || 
+        k.toLowerCase().includes('zip') ||
+        k.toLowerCase().includes('postal') ||
+        k.toLowerCase().includes('street') ||
+        k.toLowerCase().includes('shipping') ||
+        k.toLowerCase().includes('phone')
+      ),
+    });
+
+    const hasAddressData = address1Value || cityValue || stateValue || zipValue;
     if (hasAddressData) {
       try {
         const addressUpdate: Record<string, string> = {};
 
-        const address1Value = payload.address || payload.address_line1;
         if (address1Value) {
-          addressUpdate.address1 = address1Value;
+          addressUpdate.address1 = String(address1Value);
         }
-        if (payload.address_line2) {
-          addressUpdate.address2 = payload.address_line2;
+        if (address2Value) {
+          addressUpdate.address2 = String(address2Value);
         }
-        if (payload.city) {
-          addressUpdate.city = payload.city;
+        if (cityValue) {
+          addressUpdate.city = String(cityValue);
         }
-        if (payload.state) {
+        if (stateValue) {
           // Normalize state to 2-letter code
-          addressUpdate.state = normalizeState(payload.state);
+          addressUpdate.state = normalizeState(String(stateValue));
         }
-        const zipValue = payload.zip || payload.zip_code;
         if (zipValue) {
-          addressUpdate.zip = zipValue;
+          addressUpdate.zip = String(zipValue);
+        }
+        if (phoneValue) {
+          addressUpdate.phone = String(phoneValue).replace(/\D/g, '').slice(-10);
         }
 
         if (Object.keys(addressUpdate).length > 0) {
@@ -482,6 +616,7 @@ export async function POST(req: NextRequest) {
           logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient address updated`, {
             patientId: patient.id,
             updatedFields: Object.keys(addressUpdate),
+            values: addressUpdate,
           });
         }
       } catch (addrErr) {
@@ -490,6 +625,10 @@ export async function POST(req: NextRequest) {
           error: addrErr instanceof Error ? addrErr.message : 'Unknown error',
         });
       }
+    } else {
+      logger.warn(`[WELLMEDR-INVOICE ${requestId}] ⚠️ No address data found in payload - prescription shipping will fail without an address!`, {
+        payloadKeys: Object.keys(payload),
+      });
     }
 
     const duration = Date.now() - startTime;
