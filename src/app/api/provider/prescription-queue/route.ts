@@ -34,9 +34,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
+    logger.info('[PRESCRIPTION-QUEUE] GET request', {
+      userId: user.id,
+      userEmail: user.email,
+      clinicId: user.clinicId,
+    });
+
     // Get provider's clinic ID
     const clinicId = user.clinicId;
     if (!clinicId) {
+      logger.warn('[PRESCRIPTION-QUEUE] Provider has no clinic', { userId: user.id });
       return NextResponse.json(
         { error: 'Provider must be associated with a clinic' },
         { status: 400 }
@@ -198,12 +205,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error fetching prescription queue', {
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error('[PRESCRIPTION-QUEUE] Error fetching queue', {
       error: errorMessage,
+      stack: errorStack,
       userId: user.id,
+      clinicId: user.clinicId,
     });
     return NextResponse.json(
-      { error: 'Failed to fetch prescription queue' },
+      { error: 'Failed to fetch prescription queue', details: errorMessage },
       { status: 500 }
     );
   }
