@@ -8,6 +8,7 @@ interface FinanceStats {
   monthlyRevenue: number;
   pendingInvoices: number;
   paidInvoices: number;
+  openInvoices: number;
 }
 
 interface RecentTransaction {
@@ -35,24 +36,8 @@ export default function AdminFinancePage() {
                     localStorage.getItem('admin-token') ||
                     localStorage.getItem('token');
 
-      // Fetch dashboard stats
-      const dashResponse = await fetch('/api/admin/dashboard', {
-        credentials: 'include',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      });
-
-      if (dashResponse.ok) {
-        const dashData = await dashResponse.json();
-        setStats({
-          totalRevenue: dashData.stats?.totalRevenue || 0,
-          monthlyRevenue: dashData.stats?.totalRevenue || 0,
-          pendingInvoices: 0,
-          paidInvoices: 0,
-        });
-      }
-
-      // Fetch recent invoices
-      const invoicesResponse = await fetch('/api/invoices?limit=5', {
+      // Fetch ALL invoices to calculate accurate stats
+      const invoicesResponse = await fetch('/api/invoices?limit=1000', {
         credentials: 'include',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
@@ -60,23 +45,67 @@ export default function AdminFinancePage() {
       if (invoicesResponse.ok) {
         const invoicesData = await invoicesResponse.json();
         if (invoicesData.invoices && Array.isArray(invoicesData.invoices)) {
-          const formattedTransactions = invoicesData.invoices.map((inv: any) => ({
+          // Calculate revenue from invoices
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          
+          let totalRevenue = 0;
+          let monthlyRevenue = 0;
+          let paidCount = 0;
+          let pendingCount = 0;
+          let openCount = 0;
+
+          invoicesData.invoices.forEach((inv: any) => {
+            const isPaid = inv.status === 'PAID' || inv.status === 'paid';
+            const isPending = inv.status === 'PENDING' || inv.status === 'pending' || inv.status === 'SENT';
+            const isOpen = inv.status === 'OPEN' || inv.status === 'open';
+            
+            // Get amount in cents (use amountPaid for paid, amount for total)
+            const amount = isPaid 
+              ? (inv.amountPaid || inv.amount || inv.total || 0)
+              : (inv.amount || inv.total || 0);
+            
+            if (isPaid) {
+              paidCount++;
+              totalRevenue += amount;
+              
+              // Check if paid this month
+              const paidAt = inv.paidAt ? new Date(inv.paidAt) : null;
+              if (paidAt && paidAt >= startOfMonth) {
+                monthlyRevenue += amount;
+              }
+            } else if (isPending) {
+              pendingCount++;
+            } else if (isOpen) {
+              openCount++;
+            }
+          });
+
+          // Convert from cents to dollars
+          totalRevenue = totalRevenue / 100;
+          monthlyRevenue = monthlyRevenue / 100;
+
+          setStats({
+            totalRevenue,
+            monthlyRevenue,
+            paidInvoices: paidCount,
+            pendingInvoices: pendingCount,
+            openInvoices: openCount,
+          });
+
+          // Get recent 10 transactions for display
+          const recentInvoices = invoicesData.invoices.slice(0, 10);
+          const formattedTransactions = recentInvoices.map((inv: any) => ({
             id: inv.id,
             patientName: inv.patient?.firstName && inv.patient?.lastName
               ? `${inv.patient.firstName} ${inv.patient.lastName}`
               : inv.patient?.email || 'Unknown Patient',
-            amount: (inv.total || 0) / 100,
+            amount: (inv.amountPaid || inv.amount || inv.total || 0) / 100,
             type: 'Invoice',
             status: inv.status || 'Unknown',
             date: inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : '-',
           }));
           setTransactions(formattedTransactions);
-
-          // Count paid and pending
-          const paid = invoicesData.invoices.filter((i: any) => i.status === 'PAID' || i.status === 'paid').length;
-          const pending = invoicesData.invoices.filter((i: any) => i.status === 'PENDING' || i.status === 'pending' || i.status === 'SENT').length;
-
-          setStats(prev => prev ? { ...prev, paidInvoices: paid, pendingInvoices: pending } : null);
         }
       }
     } catch (error) {
@@ -89,21 +118,21 @@ export default function AdminFinancePage() {
   const statCards = [
     {
       label: 'Total Revenue',
-      value: `$${(stats?.totalRevenue || 0).toLocaleString()}`,
+      value: `$${(stats?.totalRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       change: stats?.totalRevenue ? '+' : '-',
       trend: 'up',
       icon: DollarSign
     },
     {
-      label: 'Monthly Revenue',
-      value: `$${(stats?.monthlyRevenue || 0).toLocaleString()}`,
-      change: '-',
+      label: 'This Month',
+      value: `$${(stats?.monthlyRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      change: stats?.monthlyRevenue ? '+' : '-',
       trend: 'up',
       icon: TrendingUp
     },
     {
-      label: 'Pending Invoices',
-      value: stats?.pendingInvoices?.toString() || '0',
+      label: 'Open Invoices',
+      value: ((stats?.openInvoices || 0) + (stats?.pendingInvoices || 0)).toString(),
       change: '-',
       trend: 'neutral',
       icon: CreditCard
