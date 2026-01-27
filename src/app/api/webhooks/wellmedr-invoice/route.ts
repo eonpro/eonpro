@@ -23,7 +23,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { createInvoiceManager } from '@/services/billing/InvoiceManager';
 
 // WellMedR clinic configuration
 const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
@@ -239,8 +238,9 @@ export async function POST(req: NextRequest) {
     logger.warn(`[WELLMEDR-INVOICE ${requestId}] Error checking for duplicate:`, { error: err });
   }
 
-  // STEP 7: Create invoice
-  const invoiceManager = createInvoiceManager(clinicId);
+  // STEP 7: Create internal EONPRO invoice (NO Stripe for WellMedR)
+  // WellMedR collects payments via their own Stripe account through Airtable
+  // We only need to record the invoice internally for tracking
   
   // Determine amount - use provided amount or price or default
   // Amount should be in cents
@@ -298,73 +298,115 @@ export async function POST(req: NextRequest) {
   const fullAddress = addressParts.join(', ') || '';
 
   try {
-    const result = await invoiceManager.createInvoice({
-      patientId: patient.id,
-      clinicId: clinicId,
-      lineItems: [
-        {
-          description: productName,
-          quantity: 1,
-          unitPrice: amountInCents,
-        },
-      ],
-      description: `Payment for ${productName}`,
-      metadata: {
-        source: 'wellmedr-airtable',
-        stripePaymentMethodId: payload.method_payment_id,
-        stripePriceId: payload.stripe_price_id || '',
-        submissionId: payload.submission_id || '',
-        orderStatus: payload.order_status || '',
-        subscriptionStatus: payload.subscription_status || '',
-        customerName: customerName,
-        // Treatment details
-        product: product,
-        medicationType: medicationType,
-        plan: plan,
-        // Address info
-        address: fullAddress,
-        addressLine1: payload.address || payload.address_line1 || '',
-        addressLine2: payload.address_line2 || '',
-        city: payload.city || '',
-        state: payload.state || '',
-        zipCode: payload.zip || payload.zip_code || '',
-        country: payload.country || '',
-        // Payment date
-        paymentDate: payload.payment_date || '',
-        processedAt: new Date().toISOString(),
+    // Generate a unique invoice number for WellMedR
+    const year = new Date().getFullYear();
+    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    const invoiceCount = await prisma.invoice.count({
+      where: {
+        clinicId: clinicId,
+        createdAt: { gte: new Date(year, new Date().getMonth(), 1) },
       },
     });
+    const invoiceNumber = `WM-${year}${month}-${String(invoiceCount + 1).padStart(4, '0')}`;
 
-    // Since the payment was already collected (we have the payment method ID),
-    // record the payment to mark the invoice as paid
-    const paidInvoice = await invoiceManager.recordPayment(result.invoice.id, {
-      amount: amountInCents,
-      paymentMethod: 'stripe',
-      stripePaymentIntentId: payload.method_payment_id, // Use payment method as reference
-      notes: `Auto-recorded from Airtable webhook. Order: ${payload.submission_id || 'N/A'}`,
+    // Create internal EONPRO invoice (NO Stripe - WellMedR doesn't have Stripe configured)
+    const invoice = await prisma.invoice.create({
+      data: {
+        patientId: patient.id,
+        clinicId: clinicId,
+        // NO Stripe IDs - this is an internal invoice only
+        stripeInvoiceId: null,
+        stripeInvoiceNumber: null,
+        stripeInvoiceUrl: null,
+        stripePdfUrl: null,
+        // Amounts
+        amount: amountInCents,
+        amountDue: 0, // Already paid
+        amountPaid: amountInCents,
+        currency: 'usd',
+        // Status - mark as PAID since payment already collected via Airtable/Stripe
+        status: 'PAID',
+        paidAt: payload.payment_date ? new Date(payload.payment_date) : new Date(),
+        // Details
+        description: `${productName} - Payment received`,
+        dueDate: new Date(),
+        // Store line items and all metadata
+        lineItems: [
+          {
+            description: productName,
+            quantity: 1,
+            unitPrice: amountInCents,
+            product: product,
+            medicationType: medicationType,
+            plan: plan,
+          },
+        ],
+        metadata: {
+          invoiceNumber,
+          source: 'wellmedr-airtable',
+          stripePaymentMethodId: payload.method_payment_id,
+          stripePriceId: payload.stripe_price_id || '',
+          submissionId: payload.submission_id || '',
+          orderStatus: payload.order_status || '',
+          subscriptionStatus: payload.subscription_status || '',
+          customerName: customerName,
+          // Treatment details
+          product: product,
+          medicationType: medicationType,
+          plan: plan,
+          // Address info
+          address: fullAddress,
+          addressLine1: payload.address || payload.address_line1 || '',
+          addressLine2: payload.address_line2 || '',
+          city: payload.city || '',
+          state: payload.state || '',
+          zipCode: payload.zip || payload.zip_code || '',
+          country: payload.country || '',
+          // Payment info
+          paymentDate: payload.payment_date || new Date().toISOString(),
+          paymentMethod: 'stripe-airtable',
+          processedAt: new Date().toISOString(),
+          // Summary
+          summary: {
+            subtotal: amountInCents,
+            discountAmount: 0,
+            taxAmount: 0,
+            total: amountInCents,
+            amountPaid: amountInCents,
+            amountDue: 0,
+          },
+        },
+      },
+      include: {
+        patient: true,
+        clinic: true,
+      },
     });
 
     const duration = Date.now() - startTime;
     logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ SUCCESS in ${duration}ms`, {
-      invoiceId: result.invoice.id,
+      invoiceId: invoice.id,
+      invoiceNumber,
       patientId: patient.id,
       amount: amountInCents,
       product: productName,
       medicationType: medicationType,
       plan: plan,
-      isPaid: paidInvoice.isPaid,
+      status: 'PAID',
+      note: 'Internal EONPRO invoice only - no Stripe invoice created',
     });
 
     return NextResponse.json({
       success: true,
       requestId,
-      message: 'Invoice created and marked as paid',
+      message: 'Internal invoice created and marked as paid (no Stripe)',
       invoice: {
-        id: result.invoice.id,
+        id: invoice.id,
+        invoiceNumber,
         amount: amountInCents,
         amountFormatted: `$${(amountInCents / 100).toFixed(2)}`,
-        status: paidInvoice.invoice.status,
-        isPaid: paidInvoice.isPaid,
+        status: invoice.status,
+        isPaid: true,
       },
       patient: {
         id: patient.id,
@@ -373,6 +415,8 @@ export async function POST(req: NextRequest) {
         email: patient.email,
       },
       product: productName,
+      medicationType: medicationType,
+      plan: plan,
       paymentMethodId: payload.method_payment_id,
       processingTime: `${duration}ms`,
     });
