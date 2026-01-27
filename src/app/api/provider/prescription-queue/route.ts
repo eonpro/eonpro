@@ -50,56 +50,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       );
     }
 
-    // DEBUG: Check what invoices exist for this clinic
-    const debugInvoices = await prisma.invoice.findMany({
-      where: { clinicId },
-      select: {
-        id: true,
-        status: true,
-        prescriptionProcessed: true,
-        patientId: true,
-        patient: {
-          select: {
-            firstName: true,
-            lastName: true,
-            intakeSubmissions: {
-              select: { id: true, status: true },
-            },
-          },
-        },
-      },
-      take: 10,
-    });
-    logger.info('[PRESCRIPTION-QUEUE] Debug - Invoices in clinic', {
-      clinicId,
-      invoiceCount: debugInvoices.length,
-      invoices: debugInvoices.map(inv => ({
-        id: inv.id,
-        status: inv.status,
-        prescriptionProcessed: inv.prescriptionProcessed,
-        patientName: `${inv.patient?.firstName} ${inv.patient?.lastName}`,
-        intakeCount: inv.patient?.intakeSubmissions?.length || 0,
-        intakeStatuses: inv.patient?.intakeSubmissions?.map(s => s.status) || [],
-      })),
-    });
-
     // Query paid invoices that haven't been processed yet
-    // Only include patients who have completed intake forms
     // CRITICAL: Include clinic info for Lifefile prescription context
+    // NOTE: We don't require IntakeFormSubmission because:
+    // - WellMedR/Heyflow patients have intake data in invoice metadata, not IntakeFormSubmission
+    // - EONmeds patients use internal intake forms (IntakeFormSubmission)
+    // The prescription process handles both scenarios
     const [invoices, totalCount] = await Promise.all([
       prisma.invoice.findMany({
         where: {
           clinicId: clinicId,
           status: 'PAID',
           prescriptionProcessed: false,
-          // Patient must have at least one completed intake submission
-          patient: {
-            intakeSubmissions: {
-              some: {
-                status: 'completed',
-              },
-            },
-          },
         },
         include: {
           // CRITICAL: Include clinic for prescription context (Lifefile API, PDF branding)
@@ -145,14 +107,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           clinicId: clinicId,
           status: 'PAID',
           prescriptionProcessed: false,
-          // Patient must have at least one completed intake submission
-          patient: {
-            intakeSubmissions: {
-              some: {
-                status: 'completed',
-              },
-            },
-          },
         },
       }),
     ]);
