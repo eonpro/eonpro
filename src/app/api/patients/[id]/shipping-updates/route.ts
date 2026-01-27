@@ -16,8 +16,8 @@ type RouteContext = {
 
 export const GET = withAuthParams(async (
   req: NextRequest,
-  context: RouteContext,
-  user: any
+  user: any,
+  context: RouteContext
 ) => {
   try {
     const resolvedParams = await context.params;

@@ -48,8 +48,8 @@ const MODIFIABLE_STATUSES = [
 
 export const POST = withAuthParams(async (
   req: NextRequest,
-  context: RouteContext,
-  user: AuthUser
+  user: AuthUser,
+  context: RouteContext
 ) => {
   const startTime = Date.now();
   

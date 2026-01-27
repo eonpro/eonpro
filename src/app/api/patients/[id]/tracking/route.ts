@@ -56,8 +56,8 @@ function generateTrackingUrl(carrier: string, trackingNumber: string): string | 
 // GET - Fetch all tracking entries for a patient
 export const GET = withAuthParams(async (
   req: NextRequest,
-  context: RouteContext,
-  user: AuthUser
+  user: AuthUser,
+  context: RouteContext
 ) => {
   try {
     const resolvedParams = await context.params;
@@ -219,8 +219,8 @@ export const GET = withAuthParams(async (
 // POST - Add manual tracking entry
 export const POST = withAuthParams(async (
   req: NextRequest,
-  context: RouteContext,
-  user: AuthUser
+  user: AuthUser,
+  context: RouteContext
 ) => {
   try {
     const resolvedParams = await context.params;
