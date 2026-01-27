@@ -97,7 +97,10 @@ async function handleGet(req: NextRequest, user: AuthUser, context: RouteContext
       const submission = invoice.patient.intakeSubmissions[0];
       const sectionMap: Record<string, Array<{ question: string; answer: string }>> = {};
 
-      submission.responses.forEach((response) => {
+      submission.responses.forEach((response: {
+        answer: string | null;
+        question: { questionText: string; section: string | null };
+      }) => {
         const section = response.question.section || 'General';
         if (!sectionMap[section]) {
           sectionMap[section] = [];
