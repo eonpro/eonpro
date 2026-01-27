@@ -218,19 +218,36 @@ export const createPatientSchema = z.object({
 });
 
 /**
- * Schema for updating a patient (all fields optional, empty strings filtered out)
+ * Schema for updating a patient (all fields optional)
  */
-export const updatePatientSchema = createPatientSchema.partial().transform((data) => {
-  // Filter out empty strings - treat them as "no update" for optional fields
-  const filtered: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data)) {
-    // Keep non-empty values
-    if (value !== undefined && value !== '') {
-      filtered[key] = value;
+export const updatePatientSchema = createPatientSchema.partial();
+
+/**
+ * Preprocess update data: filter out empty strings for optional address fields
+ * This allows the frontend to send empty strings without triggering validation errors
+ */
+function preprocessUpdateData(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object') return {};
+  
+  const input = data as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  
+  // Fields where empty string should be treated as "no update"
+  const optionalFields = ['address1', 'address2', 'city', 'state', 'zip'];
+  
+  for (const [key, value] of Object.entries(input)) {
+    // Skip empty strings for optional fields
+    if (optionalFields.includes(key) && value === '') {
+      continue;
+    }
+    // Keep all other values (including empty strings for required fields - let validation handle those)
+    if (value !== undefined) {
+      result[key] = value;
     }
   }
-  return filtered;
-});
+  
+  return result;
+}
 
 // ============================================================================
 // Types (re-export from shared)
@@ -437,8 +454,11 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
     },
 
     async updatePatient(id: number, data: unknown, user: UserContext): Promise<PatientEntity> {
+      // Preprocess: filter out empty strings for optional address fields
+      const preprocessed = preprocessUpdateData(data);
+      
       // Validate input
-      const parsed = updatePatientSchema.safeParse(data);
+      const parsed = updatePatientSchema.safeParse(preprocessed);
       if (!parsed.success) {
         throw convertZodToValidationError(parsed.error);
       }
