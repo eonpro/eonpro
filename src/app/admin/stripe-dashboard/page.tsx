@@ -294,6 +294,13 @@ export default function StripeDashboard() {
   const [customerSummary, setCustomerSummary] = useState<any>(null);
   const [connectStatus, setConnectStatus] = useState<any>(null);
 
+  // State to track if current clinic has Stripe connected
+  const [clinicStripeStatus, setClinicStripeStatus] = useState<{
+    hasStripe: boolean;
+    isPlatform: boolean;
+    checked: boolean;
+  }>({ hasStripe: false, isPlatform: false, checked: false });
+
   // Auth check & load clinics
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -314,13 +321,35 @@ export default function StripeDashboard() {
       if (role === 'super_admin') {
         loadClinics();
       } else if (parsedUser.clinicId) {
-        // Admin sees only their clinic
+        // Admin sees only their clinic - check if they have Stripe connected
         setSelectedClinicId(parsedUser.clinicId);
+        checkClinicStripeStatus(parsedUser.clinicId);
       }
     } catch {
       router.push('/login');
     }
   }, [router]);
+
+  // Check if a clinic has Stripe connected
+  const checkClinicStripeStatus = async (clinicId: number) => {
+    try {
+      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const stripe = data.stripe || {};
+        setClinicStripeStatus({
+          hasStripe: stripe.hasConnectedAccount || stripe.isPlatformAccount || false,
+          isPlatform: stripe.isPlatformAccount || false,
+          checked: true,
+        });
+      } else {
+        setClinicStripeStatus({ hasStripe: false, isPlatform: false, checked: true });
+      }
+    } catch (err) {
+      console.error('Failed to check clinic Stripe status:', err);
+      setClinicStripeStatus({ hasStripe: false, isPlatform: false, checked: true });
+    }
+  };
 
   // Load available clinics
   const loadClinics = async () => {
@@ -432,8 +461,17 @@ export default function StripeDashboard() {
   }, [dateRange, customStartDate, customEndDate, selectedClinicId, pageSize]);
 
   useEffect(() => {
+    // For admin users, wait until we've checked their clinic's Stripe status
+    if (userRole === 'admin' && !clinicStripeStatus.checked) {
+      return;
+    }
+    // Don't fetch if admin's clinic doesn't have Stripe
+    if (userRole === 'admin' && !clinicStripeStatus.hasStripe) {
+      setLoading(false);
+      return;
+    }
     fetchData();
-  }, [fetchData, selectedClinicId, dateRange, customStartDate, customEndDate]);
+  }, [fetchData, selectedClinicId, dateRange, customStartDate, customEndDate, userRole, clinicStripeStatus]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -505,6 +543,42 @@ export default function StripeDashboard() {
   };
 
   const selectedClinic = clinics.find(c => c.id === selectedClinicId);
+
+  // For non-super-admin users, check if their clinic has Stripe
+  if (userRole === 'admin' && clinicStripeStatus.checked && !clinicStripeStatus.hasStripe) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md text-center bg-white rounded-xl shadow-lg p-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CreditCard className="w-8 h-8 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Stripe Not Configured</h2>
+          <p className="text-gray-600 mb-6">
+            Your clinic does not have a Stripe account connected. Please contact your administrator
+            to set up payment processing for your clinic.
+          </p>
+          <button
+            onClick={() => router.push('/admin')}
+            className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Wait for Stripe status check for admins
+  if (userRole === 'admin' && !clinicStripeStatus.checked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-4" />
+          <p className="text-gray-500">Checking Stripe configuration...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

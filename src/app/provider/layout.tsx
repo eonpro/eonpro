@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, Calendar, MessageSquare, FileText, TestTube,
   Pill, BookOpen, Settings, LogOut, ChevronRight, Search, Activity,
-  Stethoscope
+  Stethoscope, ClipboardList
 } from 'lucide-react';
 
 const mainNavItems = [
   { icon: Home, path: '/provider', label: 'Dashboard', exact: true },
   { icon: Users, path: '/provider/patients', label: 'My Patients' },
+  { icon: ClipboardList, path: '/provider/prescription-queue', label: 'Rx Queue', hasBadge: true },
   { icon: Calendar, path: '/provider/calendar', label: 'Calendar' },
   { icon: Stethoscope, path: '/provider/consultations', label: 'Consultations' },
   { icon: Pill, path: '/provider/prescriptions', label: 'Prescriptions' },
@@ -34,6 +35,28 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
+  const [rxQueueCount, setRxQueueCount] = useState(0);
+
+  // Fetch prescription queue count
+  const fetchQueueCount = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+      if (!token) return;
+
+      const response = await fetch('/api/provider/prescription-queue/count', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRxQueueCount(data.count || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching queue count:', err);
+    }
+  }, []);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -55,11 +78,25 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         : parsedUser.name || parsedUser.email?.split('@')[0] || '';
       setUserName(`Dr. ${displayName}`.trim());
       setLoading(false);
+
+      // Fetch queue count after auth check
+      fetchQueueCount();
     } catch {
       localStorage.removeItem('user');
       router.push('/login');
     }
-  }, [router]);
+  }, [router, fetchQueueCount]);
+
+  // Refresh queue count periodically and when pathname changes
+  useEffect(() => {
+    if (!loading) {
+      fetchQueueCount();
+    }
+
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchQueueCount, 30000);
+    return () => clearInterval(interval);
+  }, [pathname, loading, fetchQueueCount]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -125,20 +162,33 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           {mainNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path, item.exact);
+            const showBadge = item.hasBadge && rxQueueCount > 0;
             return (
               <Link
                 key={item.path}
                 href={item.path}
-                title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                title={!sidebarExpanded ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}` : undefined}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative ${
                   active
                     ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
               >
-                <Icon className="h-5 w-5 flex-shrink-0" />
+                <div className="relative">
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {showBadge && !sidebarExpanded && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                      {rxQueueCount > 99 ? '99+' : rxQueueCount}
+                    </span>
+                  )}
+                </div>
                 {sidebarExpanded && (
-                  <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                  <span className="text-sm font-medium whitespace-nowrap flex-1">{item.label}</span>
+                )}
+                {sidebarExpanded && showBadge && (
+                  <span className="min-w-[20px] h-[20px] bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1.5">
+                    {rxQueueCount > 99 ? '99+' : rxQueueCount}
+                  </span>
                 )}
               </Link>
             );

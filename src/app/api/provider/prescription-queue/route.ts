@@ -1,0 +1,256 @@
+/**
+ * Prescription Queue API
+ * Manages the prescription processing queue for providers
+ * 
+ * GET  - List patients with paid invoices that need prescription processing
+ * PATCH - Mark a prescription as processed
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
+
+/**
+ * GET /api/provider/prescription-queue
+ * Get list of patients in the prescription processing queue
+ * 
+ * Query params:
+ * - limit: number of records (default 50)
+ * - offset: pagination offset (default 0)
+ */
+async function handleGet(req: NextRequest, user: AuthUser) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Get provider's clinic ID
+    const clinicId = user.clinicId;
+    if (!clinicId) {
+      return NextResponse.json(
+        { error: 'Provider must be associated with a clinic' },
+        { status: 400 }
+      );
+    }
+
+    // Query paid invoices that haven't been processed yet
+    const [invoices, totalCount] = await Promise.all([
+      prisma.invoice.findMany({
+        where: {
+          clinicId: clinicId,
+          status: 'PAID',
+          prescriptionProcessed: false,
+        },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+            },
+          },
+        },
+        orderBy: {
+          paidAt: 'asc', // Oldest paid first (FIFO queue)
+        },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.invoice.count({
+        where: {
+          clinicId: clinicId,
+          status: 'PAID',
+          prescriptionProcessed: false,
+        },
+      }),
+    ]);
+
+    // Transform data for frontend
+    const queueItems = invoices.map((invoice) => {
+      // Extract treatment info from metadata or line items
+      const metadata = invoice.metadata as Record<string, unknown> | null;
+      const lineItems = invoice.lineItems as Array<Record<string, unknown>> | null;
+      
+      let treatment = 'Unknown Treatment';
+      let medicationType = '';
+      let plan = '';
+      
+      if (metadata) {
+        treatment = (metadata.product as string) || treatment;
+        medicationType = (metadata.medicationType as string) || '';
+        plan = (metadata.plan as string) || '';
+      }
+      
+      if (lineItems && lineItems.length > 0) {
+        const firstItem = lineItems[0];
+        if (firstItem.description) {
+          treatment = firstItem.description as string;
+        }
+        if (firstItem.product) {
+          treatment = firstItem.product as string;
+        }
+        if (firstItem.medicationType) {
+          medicationType = firstItem.medicationType as string;
+        }
+        if (firstItem.plan) {
+          plan = firstItem.plan as string;
+        }
+      }
+
+      // Build treatment display string
+      let treatmentDisplay = treatment;
+      if (medicationType) {
+        treatmentDisplay += ` (${medicationType})`;
+      }
+      if (plan) {
+        treatmentDisplay += ` - ${plan}`;
+      }
+
+      return {
+        invoiceId: invoice.id,
+        patientId: invoice.patient.id,
+        patientDisplayId: invoice.patient.patientId,
+        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+        patientEmail: invoice.patient.email,
+        patientPhone: invoice.patient.phone,
+        patientDob: invoice.patient.dob,
+        treatment: treatmentDisplay,
+        amount: invoice.amount || invoice.amountPaid,
+        amountFormatted: `$${((invoice.amount || invoice.amountPaid) / 100).toFixed(2)}`,
+        paidAt: invoice.paidAt,
+        createdAt: invoice.createdAt,
+        invoiceNumber: (metadata?.invoiceNumber as string) || `INV-${invoice.id}`,
+      };
+    });
+
+    return NextResponse.json({
+      items: queueItems,
+      total: totalCount,
+      limit,
+      offset,
+      hasMore: offset + invoices.length < totalCount,
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Error fetching prescription queue', {
+      error: errorMessage,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch prescription queue' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/provider/prescription-queue
+ * Mark a prescription as processed
+ * 
+ * Body:
+ * - invoiceId: ID of the invoice to mark as processed
+ */
+async function handlePatch(req: NextRequest, user: AuthUser) {
+  try {
+    const body = await req.json();
+    const { invoiceId } = body;
+
+    if (!invoiceId) {
+      return NextResponse.json(
+        { error: 'Invoice ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get provider's clinic ID
+    const clinicId = user.clinicId;
+    if (!clinicId) {
+      return NextResponse.json(
+        { error: 'Provider must be associated with a clinic' },
+        { status: 400 }
+      );
+    }
+
+    // Verify invoice exists, belongs to clinic, and is in the queue
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: invoiceId,
+        clinicId: clinicId,
+        status: 'PAID',
+        prescriptionProcessed: false,
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      return NextResponse.json(
+        { error: 'Invoice not found or already processed' },
+        { status: 404 }
+      );
+    }
+
+    // Get provider ID if user is linked to a provider
+    let providerId: number | null = null;
+    if (user.id) {
+      const userData = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { providerId: true },
+      });
+      providerId = userData?.providerId || null;
+    }
+
+    // Mark as processed
+    const updatedInvoice = await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        prescriptionProcessed: true,
+        prescriptionProcessedAt: new Date(),
+        prescriptionProcessedBy: providerId,
+      },
+    });
+
+    logger.info('Prescription marked as processed', {
+      invoiceId,
+      patientId: invoice.patient.id,
+      patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+      processedBy: user.email,
+      providerId,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Prescription marked as processed',
+      invoice: {
+        id: updatedInvoice.id,
+        prescriptionProcessed: updatedInvoice.prescriptionProcessed,
+        prescriptionProcessedAt: updatedInvoice.prescriptionProcessedAt,
+      },
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Error marking prescription as processed', {
+      error: errorMessage,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to mark prescription as processed' },
+      { status: 500 }
+    );
+  }
+}
+
+export const GET = withProviderAuth(handleGet);
+export const PATCH = withProviderAuth(handlePatch);

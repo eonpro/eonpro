@@ -244,11 +244,17 @@ model Invoice {
   commissionGenerated Boolean                 @default(false)
   createSubscription  Boolean                 @default(false) // If true, creates subscription on payment
   subscriptionCreated Boolean                 @default(false) // Was subscription created?
+  // Prescription processing tracking
+  prescriptionProcessed   Boolean             @default(false)
+  prescriptionProcessedAt DateTime?
+  prescriptionProcessedBy Int?                // Provider ID who processed
   patient             Patient                 @relation(fields: [patientId], references: [id])
   commission          Commission?
   payments            Payment[]
   items               InvoiceItem[] // Structured line items
   reconciliations     PaymentReconciliation[]
+
+  @@index([prescriptionProcessed])
 }
 
 model Payment {
