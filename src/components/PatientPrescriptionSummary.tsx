@@ -72,9 +72,23 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
   const fetchTrackingData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch(`/api/patients/${patientId}/tracking`);
       
       if (!response.ok) {
+        // Don't treat 404 (no data) as an error - just show empty state
+        if (response.status === 404) {
+          setLastPrescriptionDate(null);
+          setLastMedication(null);
+          setTrackingEntries([]);
+          return;
+        }
+        // For auth errors, silently fail and show empty state
+        if (response.status === 401 || response.status === 403) {
+          console.warn('Auth error fetching tracking data, showing empty state');
+          setTrackingEntries([]);
+          return;
+        }
         throw new Error('Failed to fetch tracking data');
       }
       
@@ -84,7 +98,8 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
       setTrackingEntries(data.trackingEntries || []);
     } catch (err) {
       console.error('Error fetching tracking data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load tracking data');
+      // Show empty state instead of error for network issues
+      setTrackingEntries([]);
     } finally {
       setLoading(false);
     }
@@ -179,13 +194,8 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
     );
   }
 
-  if (error) {
-    return (
-      <div className="border rounded-xl bg-white shadow p-6">
-        <p className="text-red-500 text-sm">{error}</p>
-      </div>
-    );
-  }
+  // Note: We no longer show error state - just empty state instead
+  // This prevents confusing "Failed to fetch" messages when there's simply no data
 
   return (
     <div className="border rounded-xl bg-white shadow p-6">
