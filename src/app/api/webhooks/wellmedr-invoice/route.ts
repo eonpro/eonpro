@@ -27,6 +27,37 @@ import { logger } from '@/lib/logger';
 // WellMedR clinic configuration
 const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
 
+// Helper to safely parse payment date from various formats
+function parsePaymentDate(dateValue: string | undefined): Date {
+  if (!dateValue) {
+    return new Date();
+  }
+  
+  // Clean up the date string - sometimes Airtable sends "created_at2026-01-26..." 
+  // instead of just the date
+  let cleanDate = dateValue;
+  
+  // Remove any field name prefix (e.g., "created_at" prefix)
+  const isoMatch = cleanDate.match(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/);
+  if (isoMatch) {
+    cleanDate = isoMatch[1];
+  }
+  
+  // Try to parse
+  const parsed = new Date(cleanDate);
+  
+  // If invalid, return current date
+  if (isNaN(parsed.getTime())) {
+    logger.warn('[WELLMEDR-INVOICE] Could not parse payment date, using current date', { 
+      original: dateValue,
+      cleaned: cleanDate 
+    });
+    return new Date();
+  }
+  
+  return parsed;
+}
+
 // Auth configuration - reuses the wellmedr intake webhook secret
 const WEBHOOK_SECRET = process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET || process.env.WELLMEDR_INVOICE_WEBHOOK_SECRET;
 
@@ -326,7 +357,7 @@ export async function POST(req: NextRequest) {
         currency: 'usd',
         // Status - mark as PAID since payment already collected via Airtable/Stripe
         status: 'PAID',
-        paidAt: payload.payment_date ? new Date(payload.payment_date) : new Date(),
+        paidAt: parsePaymentDate(payload.payment_date),
         // Details
         description: `${productName} - Payment received`,
         dueDate: new Date(),
@@ -363,7 +394,7 @@ export async function POST(req: NextRequest) {
           zipCode: payload.zip || payload.zip_code || '',
           country: payload.country || '',
           // Payment info
-          paymentDate: payload.payment_date || new Date().toISOString(),
+          paymentDate: parsePaymentDate(payload.payment_date).toISOString(),
           paymentMethod: 'stripe-airtable',
           processedAt: new Date().toISOString(),
           // Summary
