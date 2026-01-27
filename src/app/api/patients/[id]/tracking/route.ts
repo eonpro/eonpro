@@ -140,7 +140,8 @@ export const GET = withAuthParams(async (
     // Merge and format tracking data
     const trackingEntries = [
       // From PatientShippingUpdate table
-      ...shippingUpdates.map(update => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...shippingUpdates.map((update: any) => ({
         id: `shipping-${update.id}`,
         type: 'shipping_update',
         trackingNumber: update.trackingNumber,
@@ -162,15 +163,17 @@ export const GET = withAuthParams(async (
         refillNumber: (update.rawPayload as any)?.refillNumber,
       })),
       // From Order table (legacy tracking)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...orders
-        .filter(order => {
+        .filter((order: any) => {
           // Don't duplicate if already in shipping updates
-          return !shippingUpdates.some(su => 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return !shippingUpdates.some((su: any) => 
             su.trackingNumber === order.trackingNumber && 
             su.orderId === order.id
           );
         })
-        .map(order => ({
+        .map((order: any) => ({
           id: `order-${order.id}`,
           type: 'order',
           trackingNumber: order.trackingNumber,
