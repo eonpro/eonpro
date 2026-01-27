@@ -116,6 +116,12 @@ interface PrescriptionFormState {
   quantity: string;
   refills: string;
   shippingMethod: string;
+  // Address fields (for editing if missing)
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  zip: string;
 }
 
 export default function PrescriptionQueuePage() {
@@ -143,6 +149,11 @@ export default function PrescriptionQueuePage() {
     quantity: "1",
     refills: "0",
     shippingMethod: "8117", // UPS Overnight Saver
+    address1: "",
+    address2: "",
+    city: "",
+    state: "",
+    zip: "",
   });
   const [submittingPrescription, setSubmittingPrescription] = useState(false);
 
@@ -211,6 +222,15 @@ export default function PrescriptionQueuePage() {
     const details = await fetchPatientDetails(item.invoiceId);
     if (details) {
       setPrescriptionPanel({ item, details });
+      // Pre-populate address from patient data
+      setPrescriptionForm((prev) => ({
+        ...prev,
+        address1: details.patient.address1 || "",
+        address2: details.patient.address2 || "",
+        city: details.patient.city || "",
+        state: details.patient.state || "",
+        zip: details.patient.zip || "",
+      }));
       // Try to auto-select medication based on treatment
       autoSelectMedication(item.treatment, details);
     }
@@ -290,16 +310,27 @@ export default function PrescriptionQueuePage() {
     }));
   };
 
+  // Check if address is complete
+  const isAddressComplete = (form: PrescriptionFormState) => {
+    return form.address1 && form.city && form.state && form.zip;
+  };
+
   const handleSubmitPrescription = async () => {
     if (!prescriptionPanel || !prescriptionForm.medicationKey) return;
+
+    // Validate address
+    if (!isAddressComplete(prescriptionForm)) {
+      setError("Shipping address is required. Please fill in all address fields.");
+      return;
+    }
 
     setSubmittingPrescription(true);
     setError("");
 
     try {
       const { details } = prescriptionPanel;
-      const med = MEDS[prescriptionForm.medicationKey];
 
+      // Use address from form (may have been edited)
       const payload = {
         patient: {
           firstName: details.patient.firstName,
@@ -308,11 +339,11 @@ export default function PrescriptionQueuePage() {
           gender: details.patient.gender || "unknown",
           phone: details.patient.phone,
           email: details.patient.email,
-          address1: details.patient.address1,
-          address2: details.patient.address2 || "",
-          city: details.patient.city,
-          state: details.patient.state,
-          zip: details.patient.zip,
+          address1: prescriptionForm.address1,
+          address2: prescriptionForm.address2,
+          city: prescriptionForm.city,
+          state: prescriptionForm.state,
+          zip: prescriptionForm.zip,
         },
         rx: [
           {
@@ -796,7 +827,7 @@ export default function PrescriptionQueuePage() {
                       </div>
                       <div>
                         <span className="text-gray-500">Phone:</span>
-                        <p className="font-medium">{prescriptionPanel.details.patient.phone}</p>
+                        <p className="font-medium">{prescriptionPanel.details.patient.phone || "Not provided"}</p>
                       </div>
                       <div>
                         <span className="text-gray-500">Gender:</span>
@@ -805,14 +836,109 @@ export default function PrescriptionQueuePage() {
                         </p>
                       </div>
                     </div>
-                    <div className="mt-3 pt-3 border-t border-gray-200 text-sm">
-                      <span className="text-gray-500">Address:</span>
-                      <p className="font-medium">
-                        {prescriptionPanel.details.patient.address1},{" "}
-                        {prescriptionPanel.details.patient.city},{" "}
-                        {prescriptionPanel.details.patient.state}{" "}
-                        {prescriptionPanel.details.patient.zip}
-                      </p>
+                  </div>
+
+                  {/* Shipping Address - Editable */}
+                  <div className={`rounded-xl p-4 ${isAddressComplete(prescriptionForm) ? "bg-gray-50" : "bg-red-50 border border-red-200"}`}>
+                    <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <MapPin className={`w-4 h-4 ${isAddressComplete(prescriptionForm) ? "text-orange-500" : "text-red-500"}`} />
+                      Shipping Address
+                      {!isAddressComplete(prescriptionForm) && (
+                        <span className="text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded-full ml-2">
+                          Required for shipping
+                        </span>
+                      )}
+                    </h3>
+                    
+                    {!isAddressComplete(prescriptionForm) && (
+                      <div className="mb-3 p-2 bg-red-100 rounded-lg text-sm text-red-700 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        Address is missing or incomplete. Please fill in below.
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Street Address *
+                        </label>
+                        <input
+                          type="text"
+                          value={prescriptionForm.address1}
+                          onChange={(e) =>
+                            setPrescriptionForm((prev) => ({ ...prev, address1: e.target.value }))
+                          }
+                          placeholder="123 Main Street"
+                          className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                            !prescriptionForm.address1 ? "border-red-300 bg-red-50" : "border-gray-300"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Apt/Suite/Unit
+                        </label>
+                        <input
+                          type="text"
+                          value={prescriptionForm.address2}
+                          onChange={(e) =>
+                            setPrescriptionForm((prev) => ({ ...prev, address2: e.target.value }))
+                          }
+                          placeholder="Apt 4B (optional)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            City *
+                          </label>
+                          <input
+                            type="text"
+                            value={prescriptionForm.city}
+                            onChange={(e) =>
+                              setPrescriptionForm((prev) => ({ ...prev, city: e.target.value }))
+                            }
+                            placeholder="Miami"
+                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                              !prescriptionForm.city ? "border-red-300 bg-red-50" : "border-gray-300"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            State *
+                          </label>
+                          <input
+                            type="text"
+                            value={prescriptionForm.state}
+                            onChange={(e) =>
+                              setPrescriptionForm((prev) => ({ ...prev, state: e.target.value.toUpperCase().slice(0, 2) }))
+                            }
+                            placeholder="FL"
+                            maxLength={2}
+                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                              !prescriptionForm.state ? "border-red-300 bg-red-50" : "border-gray-300"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            ZIP *
+                          </label>
+                          <input
+                            type="text"
+                            value={prescriptionForm.zip}
+                            onChange={(e) =>
+                              setPrescriptionForm((prev) => ({ ...prev, zip: e.target.value }))
+                            }
+                            placeholder="33101"
+                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                              !prescriptionForm.zip ? "border-red-300 bg-red-50" : "border-gray-300"
+                            }`}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -957,7 +1083,8 @@ export default function PrescriptionQueuePage() {
                       disabled={
                         submittingPrescription ||
                         !prescriptionForm.medicationKey ||
-                        !prescriptionForm.sig
+                        !prescriptionForm.sig ||
+                        !isAddressComplete(prescriptionForm)
                       }
                       className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center gap-2"
                     >
@@ -965,6 +1092,11 @@ export default function PrescriptionQueuePage() {
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
                           Sending...
+                        </>
+                      ) : !isAddressComplete(prescriptionForm) ? (
+                        <>
+                          <AlertCircle className="w-4 h-4" />
+                          Address Required
                         </>
                       ) : (
                         <>
