@@ -471,7 +471,8 @@ export async function POST(req: NextRequest) {
     webhookLogData.errorMessage = errorMessage;
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
-    await prisma.webhookLog.create({ data: webhookLogData }).catch((dbError) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await prisma.webhookLog.create({ data: webhookLogData }).catch((dbError: any) => {
       logger.error('[WELLMEDR SHIPPING] Failed to log webhook error:', dbError);
     });
 
