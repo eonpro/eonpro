@@ -62,9 +62,24 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     }
 
     const body = await req.json();
+
+    // Use authenticated user's providerId as fallback if not specified in request
+    if (!body.providerId && user.providerId) {
+      body.providerId = user.providerId;
+      logger.info(`[PRESCRIPTIONS] Using authenticated user's providerId: ${user.providerId}`);
+    }
+
     const parsed = prescriptionSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(parsed.error, { status: 400 });
+      logger.error('[PRESCRIPTIONS] Validation failed:', { errors: parsed.error.flatten() });
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: parsed.error.flatten().fieldErrors,
+          formErrors: parsed.error.flatten().formErrors
+        },
+        { status: 400 }
+      );
     }
     const p = parsed.data;
 
@@ -76,7 +91,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       },
     });
     if (!provider) {
-      return NextResponse.json({ error: "Invalid providerId" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid providerId. Please ensure a provider profile is configured." }, { status: 400 });
     }
 
     // SECURITY: Verify user can prescribe as this provider

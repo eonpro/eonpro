@@ -150,7 +150,7 @@ export default function PrescriptionQueuePage() {
     sig: "",
     quantity: "1",
     refills: "0",
-    shippingMethod: "8117", // UPS Overnight Saver
+    shippingMethod: "8115", // UPS - OVERNIGHT (numeric string, will be parsed)
     address1: "",
     address2: "",
     city: "",
@@ -333,12 +333,20 @@ export default function PrescriptionQueuePage() {
       const { details } = prescriptionPanel;
 
       // Use address from form (may have been edited)
+      // Normalize gender: validation schema expects 'm', 'f', or 'other'
+      const normalizedGender = (() => {
+        const g = (details.patient.gender || "").toLowerCase().trim();
+        if (["m", "male", "man"].includes(g)) return "m";
+        if (["f", "female", "woman"].includes(g)) return "f";
+        return "other";
+      })();
+
       const payload = {
         patient: {
           firstName: details.patient.firstName,
           lastName: details.patient.lastName,
           dob: details.patient.dob,
-          gender: details.patient.gender || "unknown",
+          gender: normalizedGender,
           phone: details.patient.phone,
           email: details.patient.email,
           address1: prescriptionForm.address1,
@@ -347,7 +355,7 @@ export default function PrescriptionQueuePage() {
           state: prescriptionForm.state,
           zip: prescriptionForm.zip,
         },
-        rx: [
+        rxs: [
           {
             medicationKey: prescriptionForm.medicationKey,
             sig: prescriptionForm.sig,
@@ -355,7 +363,7 @@ export default function PrescriptionQueuePage() {
             refills: prescriptionForm.refills,
           },
         ],
-        shippingMethod: prescriptionForm.shippingMethod,
+        shippingMethod: parseInt(prescriptionForm.shippingMethod, 10),
         clinicId: details.clinic?.id,
         invoiceId: details.invoice.id,
         patientId: details.patient.id,
@@ -384,7 +392,21 @@ export default function PrescriptionQueuePage() {
         setTimeout(() => setSuccessMessage(""), 5000);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || "Failed to submit prescription");
+        // Build a more helpful error message
+        let errorMessage = errorData.error || "Failed to submit prescription";
+        if (errorData.details) {
+          const detailMessages = Object.entries(errorData.details)
+            .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
+            .join('; ');
+          if (detailMessages) {
+            errorMessage += ` (${detailMessages})`;
+          }
+        }
+        if (errorData.detail) {
+          errorMessage += `: ${errorData.detail}`;
+        }
+        console.error('[Prescription Queue] Submission error:', errorData);
+        setError(errorMessage);
       }
     } catch (err) {
       console.error("Error submitting prescription:", err);
