@@ -237,11 +237,15 @@ export const providerRepository = {
 
     const where = orConditions.length > 0 ? { OR: orConditions } : {};
 
-    logger.debug('[ProviderRepository] list query', {
+    logger.info('[ProviderRepository] list query', {
       filters,
       clinicIds,
       conditionCount: orConditions.length,
       usingProviderClinic: clinicIds.length > 0,
+      conditions: orConditions.map((c, i) => ({
+        index: i,
+        keys: Object.keys(c),
+      })),
     });
 
     const providers = await prisma.provider.findMany({
@@ -258,9 +262,12 @@ export const providerRepository = {
       return true;
     });
 
-    logger.debug('[ProviderRepository] list result', {
+    logger.info('[ProviderRepository] list result', {
       found: providers.length,
       afterDedup: deduped.length,
+      providerNames: deduped.slice(0, 10).map((p: { firstName: string; lastName: string; id: number }) => 
+        `${p.firstName} ${p.lastName} (id:${p.id})`
+      ),
     });
 
     return deduped as ProviderWithClinic[];

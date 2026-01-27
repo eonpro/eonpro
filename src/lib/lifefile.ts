@@ -244,6 +244,38 @@ export type LifefileOrderResponse = {
   [key: string]: any;
 };
 
+export type LifefileCancelResponse = {
+  success?: boolean;
+  orderId?: string | number;
+  status?: string;
+  message?: string;
+  [key: string]: any;
+};
+
+export type LifefileModifyResponse = {
+  success?: boolean;
+  orderId?: string | number;
+  status?: string;
+  message?: string;
+  [key: string]: any;
+};
+
+// Supported cancellation reasons
+export const CANCELLATION_REASONS = [
+  'patient_request',
+  'provider_request', 
+  'duplicate_order',
+  'incorrect_medication',
+  'incorrect_dosage',
+  'incorrect_quantity',
+  'incorrect_patient_info',
+  'insurance_issue',
+  'cost_issue',
+  'other'
+] as const;
+
+export type CancellationReason = typeof CANCELLATION_REASONS[number];
+
 /**
  * Create Lifefile API methods with optional clinic-specific credentials
  */
@@ -285,6 +317,77 @@ export function createLifefileClient(credentials?: LifefileCredentials) {
 
     getOrderStatus: (orderId: string | number) =>
       callLifefile((client: any) => client.get(`/order/${orderId}`), "getOrderStatus", credentials),
+
+    /**
+     * Cancel an order that was previously submitted to Lifefile
+     * Note: Orders can only be cancelled before they enter fulfillment
+     * @param orderId - The Lifefile order ID
+     * @param reason - Reason for cancellation
+     * @param notes - Optional additional notes
+     */
+    cancelOrder: (orderId: string | number, reason?: string, notes?: string) =>
+      callLifefile<LifefileCancelResponse>(
+        (client: any) => client.post(`/order/${orderId}/cancel`, { 
+          reason: reason || 'provider_request',
+          notes: notes || '',
+        }),
+        "cancelOrder",
+        credentials
+      ),
+
+    /**
+     * Alternative cancel method using DELETE (some APIs use this)
+     */
+    deleteOrder: (orderId: string | number) =>
+      callLifefile<LifefileCancelResponse>(
+        (client: any) => client.delete(`/order/${orderId}`),
+        "deleteOrder",
+        credentials
+      ),
+
+    /**
+     * Void/cancel a prescription by order ID
+     * Some pharmacy APIs use a "void" endpoint
+     */
+    voidOrder: (orderId: string | number, reason?: string) =>
+      callLifefile<LifefileCancelResponse>(
+        (client: any) => client.post(`/order/${orderId}/void`, { reason }),
+        "voidOrder",
+        credentials
+      ),
+
+    /**
+     * Modify an existing order (if supported by Lifefile)
+     * Note: May require order to be in specific status
+     * @param orderId - The Lifefile order ID  
+     * @param modifications - Fields to update
+     */
+    modifyOrder: (orderId: string | number, modifications: Partial<LifefileOrderPayload>) =>
+      callLifefile<LifefileModifyResponse>(
+        (client: any) => client.patch(`/order/${orderId}`, modifications),
+        "modifyOrder",
+        credentials
+      ),
+
+    /**
+     * Update shipping information for an order
+     */
+    updateOrderShipping: (orderId: string | number, shipping: LifefileOrderPayload['order']['shipping']) =>
+      callLifefile<LifefileModifyResponse>(
+        (client: any) => client.patch(`/order/${orderId}/shipping`, shipping),
+        "updateOrderShipping",
+        credentials
+      ),
+
+    /**
+     * Add notes to an existing order
+     */
+    addOrderNotes: (orderId: string | number, notes: string) =>
+      callLifefile<LifefileModifyResponse>(
+        (client: any) => client.post(`/order/${orderId}/notes`, { notes }),
+        "addOrderNotes",
+        credentials
+      ),
 
     // Return the credentials being used (useful for building payloads)
     getCredentials: () => credentials || getEnvCredentials(),

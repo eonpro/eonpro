@@ -117,9 +117,29 @@ export const providerService = {
       // This ensures providers working across multiple clinics can see all their providers
       let allClinicIds: number[] = [];
 
-      // Include user's primary/active clinic
+      // Include user's primary/active clinic from context
       if (userContext.clinicId) {
         allClinicIds.push(userContext.clinicId);
+      }
+
+      // Also fetch the user's clinicId directly from the database 
+      // (in case it's not in the token/context)
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: userContext.id },
+          select: { clinicId: true },
+        });
+        if (user?.clinicId && !allClinicIds.includes(user.clinicId)) {
+          allClinicIds.push(user.clinicId);
+          logger.debug('[ProviderService] Added user.clinicId from database', { 
+            userId: userContext.id, 
+            clinicId: user.clinicId 
+          });
+        }
+      } catch (error) {
+        logger.debug('[ProviderService] Could not fetch user clinic from database', { 
+          userId: userContext.id 
+        });
       }
 
       // Fetch additional clinics from UserClinic table
@@ -137,6 +157,12 @@ export const providerService = {
             allClinicIds.push(uc.clinicId);
           }
         }
+        
+        logger.debug('[ProviderService] UserClinic entries', { 
+          userId: userContext.id, 
+          count: userClinics.length,
+          clinicIds: userClinics.map(uc => uc.clinicId)
+        });
       } catch (error) {
         // UserClinic table might not have data for this user
         logger.debug('[ProviderService] No UserClinic entries found', { userId: userContext.id });

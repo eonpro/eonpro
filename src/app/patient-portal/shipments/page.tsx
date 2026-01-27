@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import {
   Package,
@@ -11,351 +12,509 @@ import {
   ExternalLink,
   ChevronRight,
   Calendar,
+  AlertTriangle,
+  History,
+  ArrowLeft,
+  RefreshCw,
+  Box,
+  Home,
+  Sparkles,
 } from 'lucide-react';
 
 interface Shipment {
   id: string;
   orderNumber: string;
-  status: 'processing' | 'shipped' | 'in_transit' | 'out_for_delivery' | 'delivered';
+  status: 'processing' | 'shipped' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'exception';
+  statusLabel: string;
+  step: number;
   carrier: string;
   trackingNumber: string;
-  trackingUrl: string;
-  items: Array<{ name: string; quantity: number }>;
+  trackingUrl: string | null;
+  items: Array<{ name: string; strength?: string; quantity: number }>;
   orderedAt: string;
-  shippedAt?: string;
-  estimatedDelivery?: string;
-  deliveredAt?: string;
+  shippedAt: string | null;
+  estimatedDelivery: string | null;
+  deliveredAt: string | null;
   lastUpdate: string;
-  lastLocation?: string;
+  lastLocation: string | null;
+  isRefill: boolean;
+  refillNumber: number | null;
 }
 
 const statusConfig = {
   processing: {
     label: 'Processing',
     color: '#F59E0B',
-    bgColor: '#FEF3C7',
+    bgColor: 'bg-amber-100',
+    textColor: 'text-amber-700',
+    gradient: 'from-amber-400 to-orange-500',
     icon: Clock,
-    step: 1,
   },
   shipped: {
     label: 'Shipped',
     color: '#3B82F6',
-    bgColor: '#DBEAFE',
+    bgColor: 'bg-blue-100',
+    textColor: 'text-blue-700',
+    gradient: 'from-blue-400 to-indigo-500',
     icon: Package,
-    step: 2,
   },
   in_transit: {
     label: 'In Transit',
     color: '#8B5CF6',
-    bgColor: '#EDE9FE',
+    bgColor: 'bg-purple-100',
+    textColor: 'text-purple-700',
+    gradient: 'from-violet-400 to-purple-600',
     icon: Truck,
-    step: 3,
   },
   out_for_delivery: {
     label: 'Out for Delivery',
     color: '#10B981',
-    bgColor: '#D1FAE5',
+    bgColor: 'bg-emerald-100',
+    textColor: 'text-emerald-700',
+    gradient: 'from-emerald-400 to-teal-500',
     icon: Truck,
-    step: 4,
   },
   delivered: {
     label: 'Delivered',
     color: '#059669',
-    bgColor: '#D1FAE5',
+    bgColor: 'bg-green-100',
+    textColor: 'text-green-700',
+    gradient: 'from-green-400 to-emerald-600',
     icon: CheckCircle2,
-    step: 5,
+  },
+  exception: {
+    label: 'Exception',
+    color: '#EF4444',
+    bgColor: 'bg-red-100',
+    textColor: 'text-red-700',
+    gradient: 'from-red-400 to-rose-500',
+    icon: AlertTriangle,
   },
 };
-
-const steps = [
-  { label: 'Ordered', status: 'processing' },
-  { label: 'Shipped', status: 'shipped' },
-  { label: 'In Transit', status: 'in_transit' },
-  { label: 'Out for Delivery', status: 'out_for_delivery' },
-  { label: 'Delivered', status: 'delivered' },
-];
 
 export default function ShipmentsPage() {
   const { branding } = useClinicBranding();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
-  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [activeShipments, setActiveShipments] = useState<Shipment[]>([]);
+  const [deliveredShipments, setDeliveredShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadShipments();
   }, []);
 
   const loadShipments = async () => {
-    // Demo shipments - in production, fetch from API
-    const demoShipments: Shipment[] = [
-      {
-        id: '1',
-        orderNumber: 'ORD-2024-001234',
-        status: 'in_transit',
-        carrier: 'USPS',
-        trackingNumber: '9400111899223033005678',
-        trackingUrl: 'https://tools.usps.com/go/TrackConfirmAction?tLabels=9400111899223033005678',
-        items: [
-          { name: 'Semaglutide 5mg/mL', quantity: 1 },
-          { name: 'Syringes (10 pack)', quantity: 1 },
-        ],
-        orderedAt: '2026-01-15T10:30:00Z',
-        shippedAt: '2026-01-16T14:00:00Z',
-        estimatedDelivery: '2026-01-22',
-        lastUpdate: '2026-01-18T08:45:00Z',
-        lastLocation: 'Miami, FL Distribution Center',
-      },
-      {
-        id: '2',
-        orderNumber: 'ORD-2024-001189',
-        status: 'delivered',
-        carrier: 'FedEx',
-        trackingNumber: '794644790132',
-        trackingUrl: 'https://www.fedex.com/fedextrack/?trknbr=794644790132',
-        items: [{ name: 'Semaglutide 5mg/mL', quantity: 1 }],
-        orderedAt: '2025-12-20T09:00:00Z',
-        shippedAt: '2025-12-21T11:00:00Z',
-        estimatedDelivery: '2025-12-24',
-        deliveredAt: '2025-12-23T15:30:00Z',
-        lastUpdate: '2025-12-23T15:30:00Z',
-        lastLocation: 'Delivered to front door',
-      },
-    ];
+    try {
+      setLoading(true);
+      setError(null);
 
-    setShipments(demoShipments);
-    setSelectedShipment(demoShipments[0]);
-    setLoading(false);
+      const response = await fetch('/api/patient-portal/tracking');
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please log in to view your shipments');
+          return;
+        }
+        throw new Error('Failed to load shipments');
+      }
+
+      const data = await response.json();
+
+      setActiveShipments(data.activeShipments || []);
+      setDeliveredShipments(data.deliveredShipments || []);
+
+      if (data.activeShipments?.length > 0) {
+        setSelectedShipment(data.activeShipments[0]);
+        setActiveTab('active');
+      } else if (data.deliveredShipments?.length > 0) {
+        setSelectedShipment(data.deliveredShipments[0]);
+        setActiveTab('history');
+      }
+    } catch (err) {
+      console.error('Error loading shipments:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load shipments');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getStatusStep = (status: string) => {
-    return statusConfig[status as keyof typeof statusConfig]?.step || 1;
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadShipments();
+    setRefreshing(false);
   };
+
+  const currentShipments = activeTab === 'active' ? activeShipments : deliveredShipments;
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div
-          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
-          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-        />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="relative">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
+          <Package className="absolute inset-0 m-auto h-6 w-6 text-purple-600" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-4 md:p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Shipment Tracking</h1>
-        <p className="mt-1 text-gray-500">Track your medication deliveries</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/patient-portal"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-gray-100 hover:shadow-md transition-all"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Shipment Tracking</h1>
+            <p className="mt-0.5 text-gray-500">Track your medication deliveries</p>
+          </div>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-gray-600 shadow-sm border border-gray-100 hover:shadow-md transition-all disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Shipment List */}
-        <div className="space-y-3 lg:col-span-1">
-          <h2 className="mb-2 text-sm font-medium text-gray-500">Your Orders</h2>
-          {shipments.map((shipment) => {
-            const config = statusConfig[shipment.status];
-            const StatusIcon = config.icon;
-            const isSelected = selectedShipment?.id === shipment.id;
-
-            return (
-              <button
-                key={shipment.id}
-                onClick={() => setSelectedShipment(shipment)}
-                className={`w-full rounded-xl border-2 bg-white p-4 text-left transition-all ${
-                  isSelected ? '' : 'border-transparent hover:border-gray-200'
-                }`}
-                style={isSelected ? { borderColor: primaryColor } : {}}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="rounded-lg p-2" style={{ backgroundColor: config.bgColor }}>
-                    <StatusIcon className="h-5 w-5" style={{ color: config.color }} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-gray-900">{shipment.orderNumber}</p>
-                    <p className="text-sm font-medium" style={{ color: config.color }}>
-                      {config.label}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {shipment.items.length} item{shipment.items.length > 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <ChevronRight
-                    className={`h-5 w-5 transition-colors ${isSelected ? '' : 'text-gray-300'}`}
-                    style={isSelected ? { color: primaryColor } : {}}
-                  />
-                </div>
-              </button>
-            );
-          })}
+      {error && (
+        <div className="mb-6 rounded-2xl bg-red-50 border border-red-100 p-4 text-red-700">
+          {error}
         </div>
+      )}
 
-        {/* Shipment Details */}
-        {selectedShipment && (
-          <div className="space-y-6 lg:col-span-2">
-            {/* Status Card */}
-            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-              <div className="p-6" style={{ backgroundColor: primaryColor }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="mb-1 text-sm text-white/80">Order Status</p>
-                    <p className="text-2xl font-semibold text-white">
-                      {statusConfig[selectedShipment.status].label}
-                    </p>
-                  </div>
-                  <Package className="h-10 w-10 text-white/50" />
-                </div>
+      {/* Tabs */}
+      <div className="mb-6 inline-flex rounded-2xl bg-white p-1.5 shadow-sm border border-gray-100">
+        <button
+          onClick={() => {
+            setActiveTab('active');
+            if (activeShipments.length > 0) setSelectedShipment(activeShipments[0]);
+          }}
+          className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all ${
+            activeTab === 'active'
+              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Truck className="h-4 w-4" />
+          Active ({activeShipments.length})
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('history');
+            if (deliveredShipments.length > 0) setSelectedShipment(deliveredShipments[0]);
+          }}
+          className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all ${
+            activeTab === 'history'
+              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <History className="h-4 w-4" />
+          History ({deliveredShipments.length})
+        </button>
+      </div>
 
-                {selectedShipment.estimatedDelivery && selectedShipment.status !== 'delivered' && (
-                  <div className="mt-4 rounded-xl bg-white/20 p-3">
-                    <p className="text-xs text-white/80">Estimated Delivery</p>
-                    <p className="font-semibold text-white">
-                      {new Date(selectedShipment.estimatedDelivery).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                )}
-              </div>
+      {currentShipments.length === 0 ? (
+        <div className="rounded-3xl bg-white p-12 text-center shadow-sm border border-gray-100">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50">
+            {activeTab === 'active' ? (
+              <Package className="h-10 w-10 text-gray-400" />
+            ) : (
+              <History className="h-10 w-10 text-gray-400" />
+            )}
+          </div>
+          <h3 className="mb-2 text-xl font-bold text-gray-900">
+            {activeTab === 'active' ? 'No Active Shipments' : 'No Delivery History'}
+          </h3>
+          <p className="text-gray-500">
+            {activeTab === 'active'
+              ? 'Your orders will appear here once shipped.'
+              : 'Your past deliveries will be stored here.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Shipment List */}
+          <div className="space-y-3 lg:col-span-1">
+            <h2 className="mb-3 text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              {activeTab === 'active' ? 'Active Orders' : 'Past Deliveries'}
+            </h2>
+            {currentShipments.map((shipment) => {
+              const config = statusConfig[shipment.status];
+              const StatusIcon = config.icon;
+              const isSelected = selectedShipment?.id === shipment.id;
 
-              {/* Progress Timeline */}
-              <div className="p-6">
-                <div className="relative">
-                  {/* Progress Line */}
-                  <div className="absolute left-4 right-4 top-4 h-0.5 bg-gray-200">
-                    <div
-                      className="h-full transition-all duration-500"
-                      style={{
-                        width: `${((getStatusStep(selectedShipment.status) - 1) / 4) * 100}%`,
-                        backgroundColor: primaryColor,
-                      }}
+              return (
+                <button
+                  key={shipment.id}
+                  onClick={() => setSelectedShipment(shipment)}
+                  className={`w-full rounded-2xl bg-white p-4 text-left transition-all border-2 ${
+                    isSelected
+                      ? 'border-purple-500 shadow-lg shadow-purple-500/10'
+                      : 'border-transparent shadow-sm hover:shadow-md hover:border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`rounded-xl p-2.5 ${config.bgColor}`}>
+                      <StatusIcon className="h-5 w-5" style={{ color: config.color }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-semibold text-gray-900">{shipment.orderNumber}</p>
+                        {shipment.isRefill && (
+                          <span className="flex items-center gap-0.5 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                            <Sparkles className="h-3 w-3" />
+                            Refill
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-sm font-medium ${config.textColor}`}>
+                        {shipment.statusLabel}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-400 truncate">
+                        {shipment.items.map(i => i.name).join(', ')}
+                      </p>
+                    </div>
+                    <ChevronRight
+                      className={`h-5 w-5 flex-shrink-0 transition-colors ${
+                        isSelected ? 'text-purple-500' : 'text-gray-300'
+                      }`}
                     />
                   </div>
+                </button>
+              );
+            })}
+          </div>
 
-                  {/* Steps */}
-                  <div className="relative flex justify-between">
-                    {steps.map((step, index) => {
-                      const isCompleted = getStatusStep(selectedShipment.status) > index + 1;
-                      const isCurrent = getStatusStep(selectedShipment.status) === index + 1;
-
-                      return (
-                        <div key={step.status} className="flex flex-col items-center">
-                          <div
-                            className={`z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all ${
-                              isCompleted || isCurrent
-                                ? 'text-white'
-                                : 'border-2 border-gray-200 bg-white text-gray-400'
-                            }`}
-                            style={
-                              isCompleted || isCurrent ? { backgroundColor: primaryColor } : {}
-                            }
-                          >
-                            {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : index + 1}
-                          </div>
-                          <p
-                            className={`mt-2 text-center text-xs ${isCurrent ? 'font-semibold text-gray-900' : 'text-gray-500'}`}
-                          >
-                            {step.label}
-                          </p>
-                        </div>
-                      );
-                    })}
+          {/* Shipment Details */}
+          {selectedShipment && (
+            <div className="space-y-6 lg:col-span-2">
+              {/* Status Hero Card */}
+              <div className="overflow-hidden rounded-3xl bg-white shadow-lg border border-gray-100">
+                <div className={`relative bg-gradient-to-r ${statusConfig[selectedShipment.status].gradient} px-8 py-8`}>
+                  {/* Decorative elements */}
+                  <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
+                    <div className="absolute -left-5 -bottom-5 h-24 w-24 rounded-full bg-white/10" />
                   </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Tracking Info */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 font-semibold text-gray-900">Tracking Information</h3>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-xl bg-gray-50 p-4">
-                  <div>
-                    <p className="mb-1 text-xs text-gray-500">Carrier</p>
-                    <p className="font-semibold text-gray-900">{selectedShipment.carrier}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="mb-1 text-xs text-gray-500">Tracking Number</p>
-                    <p className="font-mono text-sm text-gray-900">
-                      {selectedShipment.trackingNumber}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedShipment.lastLocation && (
-                  <div className="flex items-start gap-3 rounded-xl bg-blue-50 p-4">
-                    <MapPin className="mt-0.5 h-5 w-5 text-blue-600" />
+                  <div className="relative flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-blue-900">Last Location</p>
-                      <p className="text-sm text-blue-700">{selectedShipment.lastLocation}</p>
-                      <p className="mt-1 text-xs text-blue-500">
-                        {new Date(selectedShipment.lastUpdate).toLocaleString('en-US', {
-                          month: 'short',
+                      <p className="mb-1 text-sm font-medium text-white/80">Order Status</p>
+                      <p className="text-3xl font-bold text-white">
+                        {selectedShipment.statusLabel}
+                      </p>
+                      <p className="mt-1 text-white/70">{selectedShipment.orderNumber}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {selectedShipment.isRefill && (
+                        <span className="flex items-center gap-1 rounded-full bg-white/20 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm">
+                          <Sparkles className="h-4 w-4" />
+                          Refill #{selectedShipment.refillNumber || ''}
+                        </span>
+                      )}
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+                        <Package className="h-7 w-7 text-white" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Delivery Info */}
+                  {(selectedShipment.estimatedDelivery || selectedShipment.deliveredAt) && (
+                    <div className="relative mt-6 rounded-2xl bg-white/20 p-4 backdrop-blur-sm">
+                      <p className="text-xs font-medium text-white/80">
+                        {selectedShipment.status === 'delivered' ? 'Delivered On' : 'Expected Delivery'}
+                      </p>
+                      <p className="text-xl font-bold text-white">
+                        {new Date(
+                          selectedShipment.deliveredAt || selectedShipment.estimatedDelivery!
+                        ).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          month: 'long',
                           day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
                         })}
                       </p>
                     </div>
+                  )}
+                </div>
+
+                {/* Visual Timeline */}
+                {selectedShipment.status !== 'exception' && (
+                  <div className="px-8 py-6">
+                    <div className="flex items-center justify-between">
+                      {[
+                        { icon: Box, label: 'Ordered', step: 1 },
+                        { icon: Package, label: 'Shipped', step: 2 },
+                        { icon: Truck, label: 'In Transit', step: 3 },
+                        { icon: Truck, label: 'Out for Delivery', step: 4 },
+                        { icon: Home, label: 'Delivered', step: 5 },
+                      ].map((item, idx) => {
+                        const isCompleted = selectedShipment.step > item.step;
+                        const isCurrent = selectedShipment.step === item.step;
+                        const ItemIcon = item.icon;
+
+                        return (
+                          <div key={idx} className="flex flex-col items-center relative">
+                            {idx < 4 && (
+                              <div className="absolute left-[50%] top-5 w-full h-1 -z-10">
+                                <div
+                                  className={`h-full transition-all duration-500 ${
+                                    isCompleted
+                                      ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+                                      : 'bg-gray-200'
+                                  }`}
+                                />
+                              </div>
+                            )}
+
+                            <div
+                              className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ${
+                                isCompleted
+                                  ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30'
+                                  : isCurrent
+                                  ? 'bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg shadow-purple-500/30 scale-110'
+                                  : 'bg-gray-100 text-gray-400'
+                              }`}
+                            >
+                              {isCurrent && (
+                                <div className="absolute inset-0 rounded-full bg-purple-400 animate-ping opacity-30" />
+                              )}
+                              {isCompleted ? (
+                                <CheckCircle2 className="h-5 w-5" />
+                              ) : (
+                                <ItemIcon className="h-5 w-5" />
+                              )}
+                            </div>
+
+                            <span
+                              className={`mt-2 text-xs font-medium text-center ${
+                                isCurrent
+                                  ? 'text-purple-600'
+                                  : isCompleted
+                                  ? 'text-emerald-600'
+                                  : 'text-gray-400'
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-
-                <a
-                  href={selectedShipment.trackingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-medium text-white"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  Track on {selectedShipment.carrier}
-                  <ExternalLink className="h-4 w-4" />
-                </a>
               </div>
-            </div>
 
-            {/* Order Items */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 font-semibold text-gray-900">Order Items</h3>
+              {/* Tracking Info Card */}
+              <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+                <h3 className="mb-4 font-bold text-gray-900">Tracking Information</h3>
 
-              <div className="space-y-3">
-                {selectedShipment.items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between rounded-xl bg-gray-50 p-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="rounded-lg p-2"
-                        style={{ backgroundColor: `${primaryColor}15` }}
-                      >
-                        <Package className="h-5 w-5" style={{ color: primaryColor }} />
-                      </div>
-                      <span className="font-medium text-gray-900">{item.name}</span>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 border border-blue-100">
+                      <p className="mb-1 text-xs font-medium text-blue-600">Carrier</p>
+                      <p className="text-lg font-bold text-blue-900">{selectedShipment.carrier}</p>
                     </div>
-                    <span className="text-gray-500">Qty: {item.quantity}</span>
+                    <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-slate-50 p-4 border border-gray-100">
+                      <p className="mb-1 text-xs font-medium text-gray-500">Tracking Number</p>
+                      <p className="font-mono text-sm font-semibold text-gray-900 break-all">
+                        {selectedShipment.trackingNumber}
+                      </p>
+                    </div>
                   </div>
-                ))}
+
+                  {selectedShipment.lastLocation && (
+                    <div className="flex items-start gap-3 rounded-2xl bg-gradient-to-r from-violet-50 to-purple-50 p-4 border border-purple-100">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/10">
+                        <MapPin className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-purple-600">Latest Update</p>
+                        <p className="font-semibold text-purple-900">{selectedShipment.lastLocation}</p>
+                        <p className="text-xs text-purple-500 mt-0.5">
+                          {new Date(selectedShipment.lastUpdate).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedShipment.trackingUrl && (
+                    <a
+                      href={selectedShipment.trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:shadow-xl hover:shadow-blue-500/40 hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                      <Truck className="h-5 w-5" />
+                      Track on {selectedShipment.carrier}
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4 text-sm text-gray-500">
-                <Calendar className="h-4 w-4" />
-                Ordered on{' '}
-                {new Date(selectedShipment.orderedAt).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
+              {/* Order Items Card */}
+              <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+                <h3 className="mb-4 font-bold text-gray-900">📦 Package Contents</h3>
+
+                <div className="space-y-3">
+                  {selectedShipment.items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between rounded-2xl bg-gray-50 p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-10 w-10 items-center justify-center rounded-xl"
+                          style={{ backgroundColor: `${primaryColor}15` }}
+                        >
+                          <Package className="h-5 w-5" style={{ color: primaryColor }} />
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-900">{item.name}</span>
+                          {item.strength && (
+                            <span className="ml-2 text-sm text-gray-500">{item.strength}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="rounded-full bg-gray-200 px-3 py-1 text-sm font-medium text-gray-600">
+                        Qty: {item.quantity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4 text-sm text-gray-500">
+                  <Calendar className="h-4 w-4" />
+                  Ordered on{' '}
+                  {new Date(selectedShipment.orderedAt).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

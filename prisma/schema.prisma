@@ -65,6 +65,7 @@ model Patient {
   discountUsages          DiscountUsage[]
   affiliateReferrals      AffiliateReferral[]
   chatMessages            PatientChatMessage[]
+  shippingUpdates         PatientShippingUpdate[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
@@ -94,11 +95,27 @@ model Order {
   shippingStatus     String?
   trackingNumber     String?
   trackingUrl        String?
+  
+  // Cancellation tracking
+  cancelledAt           DateTime? // When the order was cancelled
+  cancelledBy           Int?      // User ID who cancelled
+  cancellationReason    String?   // Reason code (patient_request, provider_request, etc.)
+  cancellationNotes     String?   // Additional notes about cancellation
+  lifefileCancelResponse String?  // JSON response from Lifefile cancel API
+  
+  // Modification tracking  
+  lastModifiedAt        DateTime? // When the order was last modified
+  lastModifiedBy        Int?      // User ID who modified
+  modificationHistory   Json?     // Array of modification records
+  
   provider           Provider     @relation(fields: [providerId], references: [id])
   patient            Patient      @relation(fields: [patientId], references: [id])
   events             OrderEvent[]
   rxs                Rx[]
   tickets            Ticket[]
+  shippingUpdates    PatientShippingUpdate[]
+  
+  @@index([cancelledAt])
 }
 
 model Rx {
@@ -1850,6 +1867,9 @@ model Clinic {
   affiliatePayouts           AffiliatePayout[]
   affiliateFraudAlerts       AffiliateFraudAlert[]
   affiliateFraudConfig       AffiliateFraudConfig?
+
+  // Lifefile Shipping Updates
+  shippingUpdates PatientShippingUpdate[]
 
   @@index([subdomain])
   @@index([status])
@@ -3741,4 +3761,76 @@ model AffiliateFraudConfig {
   autoSuspendOnCritical Boolean @default(false)
 
   @@index([clinicId])
+}
+
+// =============================================================================
+// LIFEFILE SHIPPING INTEGRATION
+// =============================================================================
+
+// Shipping status for prescription tracking at patient level
+enum ShippingStatus {
+  PENDING
+  LABEL_CREATED
+  SHIPPED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RETURNED
+  EXCEPTION
+  CANCELLED
+}
+
+// Patient-level shipping update records from Lifefile
+// Stores prescription shipping/tracking info at the patient profile level
+model PatientShippingUpdate {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenant isolation
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Patient association
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  // Optional order link (may be standalone update)
+  orderId Int?
+  order   Order? @relation(fields: [orderId], references: [id])
+
+  // Tracking Information
+  trackingNumber String
+  carrier        String // UPS, FedEx, USPS, DHL, etc.
+  trackingUrl    String?
+
+  // Shipping Status
+  status     ShippingStatus @default(SHIPPED)
+  statusNote String?
+
+  // Dates
+  shippedAt         DateTime?
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+
+  // Medication Info (for display on patient profile)
+  medicationName     String?
+  medicationStrength String?
+  medicationQuantity String?
+  medicationForm     String? // injection, tablet, etc.
+
+  // External References
+  lifefileOrderId String? // Lifefile's order ID
+  externalRef     String? // Any other external reference
+  brand           String? // Clinic brand name (Wellmedr, NewSelf, etc.)
+
+  // Audit Trail
+  rawPayload  Json? // Full webhook payload for debugging
+  source      String  @default("lifefile") // lifefile, manual, pharmacy, etc.
+  processedAt DateTime?
+
+  @@index([clinicId, patientId])
+  @@index([trackingNumber])
+  @@index([lifefileOrderId])
+  @@index([status])
 }

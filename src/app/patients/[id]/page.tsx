@@ -26,6 +26,7 @@ type Params = {
 
 import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
+import PatientPrescriptionSummary from '@/components/PatientPrescriptionSummary';
 import { Patient, Provider, Order } from '@/types/models';
 
 type PageProps = {
@@ -689,6 +690,9 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                   </div>
                 </div>
               </div>
+
+              {/* Prescription & Tracking Summary */}
+              <PatientPrescriptionSummary patientId={patientWithDecryptedPHI.id} />
 
               {/* Tags and Overview */}
               <div className="rounded-2xl border border-gray-200 bg-white p-6">

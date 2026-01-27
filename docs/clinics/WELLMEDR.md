@@ -299,6 +299,7 @@ Successful response includes EONPRO IDs for bidirectional sync:
 | 2026-01-24 | Initial webhook setup | System |
 | 2026-01-24 | Documented 47 form fields | System |
 | 2026-01-26 | Added invoice webhook for Airtable payment sync | System |
+| 2026-01-27 | Added Lifefile shipping webhook for tracking updates | System |
 
 ---
 
@@ -495,6 +496,176 @@ Successful response:
 
 ---
 
+---
+
+## Lifefile Shipping Webhook (Lifefile → EONPRO)
+
+### Purpose
+Receives shipping/tracking updates from Lifefile and stores them at the patient profile level. This allows providers to see prescription fulfillment history for each patient.
+
+### Webhook Configuration
+
+| Setting | Value |
+|---------|-------|
+| **Endpoint** | `https://app.eonpro.io/api/webhooks/wellmedr-shipping` |
+| **Method** | `POST` |
+| **Authentication** | Basic Auth (username:password) |
+| **Content-Type** | `application/json` |
+
+### Environment Variables
+
+```bash
+# Shipping webhook credentials (for Lifefile to call EONPRO)
+WELLMEDR_SHIPPING_WEBHOOK_USERNAME=wellmedr_shipping
+WELLMEDR_SHIPPING_WEBHOOK_PASSWORD=<secure-password>
+```
+
+### Expected Payload from Lifefile
+
+```json
+{
+  "trackingNumber": "1Z999AA10123456784",
+  "orderId": "LF-12345",
+  "deliveryService": "UPS",
+  "brand": "Wellmedr",
+  "status": "shipped",
+  "estimatedDelivery": "2026-01-30",
+  "trackingUrl": "https://www.ups.com/track?tracknum=1Z999AA10123456784",
+  "medication": {
+    "name": "Semaglutide",
+    "strength": "0.5mg",
+    "quantity": "4",
+    "form": "injection"
+  },
+  "patientEmail": "patient@example.com",
+  "timestamp": "2026-01-27T10:30:00Z",
+  "notes": "Optional notes about the shipment"
+}
+```
+
+### Field Reference
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `trackingNumber` | ✅ Yes | Carrier tracking number |
+| `orderId` | ✅ Yes | Lifefile order ID (LF-xxxxx) |
+| `deliveryService` | ✅ Yes | Carrier name (UPS, FedEx, USPS, etc.) |
+| `brand` | No | Clinic brand name (defaults to "Wellmedr") |
+| `status` | No | Shipping status (defaults to "shipped") |
+| `estimatedDelivery` | No | Expected delivery date (ISO 8601) |
+| `actualDelivery` | No | Actual delivery date (ISO 8601) |
+| `trackingUrl` | No | Direct link to carrier tracking page |
+| `medication` | No | Medication details object |
+| `patientEmail` | No | Patient email for lookup (fallback) |
+| `patientId` | No | EONPRO patient ID (fallback) |
+| `timestamp` | No | Event timestamp |
+| `notes` | No | Additional notes |
+
+### Supported Status Values
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Shipment not yet processed |
+| `label_created` | Shipping label generated |
+| `shipped` | Package picked up by carrier |
+| `in_transit` | Package in transit |
+| `out_for_delivery` | Package out for delivery |
+| `delivered` | Package delivered |
+| `returned` | Package returned to sender |
+| `exception` | Delivery exception occurred |
+| `cancelled` | Shipment cancelled |
+
+### Sample cURL Request (from Lifefile)
+
+```bash
+curl -X POST https://app.eonpro.io/api/webhooks/wellmedr-shipping \
+  -H "Authorization: Basic $(echo -n 'wellmedr_shipping:<password>' | base64)" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "trackingNumber": "1Z999AA10123456784",
+    "orderId": "LF-12345",
+    "deliveryService": "UPS",
+    "brand": "Wellmedr",
+    "status": "shipped",
+    "estimatedDelivery": "2026-01-30",
+    "medication": {
+      "name": "Semaglutide",
+      "strength": "0.5mg",
+      "quantity": "4"
+    }
+  }'
+```
+
+### Response Format
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "requestId": "wellmedr-ship-1706360000000",
+  "message": "Shipping update created",
+  "shippingUpdate": {
+    "id": 123,
+    "trackingNumber": "1Z999AA10123456784",
+    "carrier": "UPS",
+    "status": "SHIPPED",
+    "trackingUrl": null
+  },
+  "patient": {
+    "id": 456,
+    "patientId": "000789",
+    "name": "John Doe"
+  },
+  "order": {
+    "id": 789,
+    "lifefileOrderId": "LF-12345"
+  },
+  "processingTime": "125ms"
+}
+```
+
+**Error Responses:**
+
+| Status | Error | Resolution |
+|--------|-------|------------|
+| 401 | Unauthorized | Check Basic Auth credentials |
+| 400 | Invalid payload | Check required fields (trackingNumber, orderId, deliveryService) |
+| 202 | Patient/order not found | Ensure patient exists before sending shipping updates |
+| 500 | Internal error | Check EONPRO server logs |
+
+### Where Data is Stored
+
+1. **PatientShippingUpdate table**: All shipping updates stored at patient profile level
+2. **Order table**: Also updates `trackingNumber`, `trackingUrl`, `shippingStatus` if order exists
+3. **OrderEvent table**: Creates audit event for order history
+
+### Viewing Shipping History
+
+Shipping updates are visible in the EONPRO patient profile:
+- Navigate to Patient → Prescriptions tab
+- "Shipping History" section shows all updates
+- Click tracking numbers to open carrier tracking pages
+
+### Health Check
+
+```bash
+curl https://app.eonpro.io/api/webhooks/wellmedr-shipping
+```
+
+Expected response:
+```json
+{
+  "status": "ok",
+  "endpoint": "/api/webhooks/wellmedr-shipping",
+  "clinic": "Wellmedr",
+  "lifefileEnabled": true,
+  "configured": true,
+  "authentication": "Basic Auth"
+}
+```
+
+---
+
 ## ⚠️ DO NOT MODIFY
 
 The following are critical and should not be changed without testing:
@@ -503,7 +674,9 @@ The following are critical and should not be changed without testing:
 2. Webhook endpoint URLs:
    - Intake: `/api/webhooks/wellmedr-intake`
    - Invoice: `/api/webhooks/wellmedr-invoice`
-3. Secret key (shared between both webhooks)
+   - Shipping: `/api/webhooks/wellmedr-shipping`
+3. Secret key (shared between webhooks)
 4. Clinic lookup (subdomain: `wellmedr`)
 5. Field mapping in normalizer
 6. Invoice creation flow (finds patient by email → creates invoice → marks as paid)
+7. Shipping webhook Basic Auth credentials

@@ -16,6 +16,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
+import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTracker';
 
 interface WeightEntry {
   dateInput: string;
@@ -177,6 +178,11 @@ export default function PatientPortalDashboard() {
           Hello, {patient?.firstName || 'Patient'}
         </h1>
       </div>
+
+      {/* Active Shipment Tracker - Shows at top when there's an active shipment */}
+      {features.showShipmentTracking && (
+        <ActiveShipmentTracker primaryColor={primaryColor} />
+      )}
 
       {/* Weight Progress Card - Hero */}
       {features.showWeightTracking && (
