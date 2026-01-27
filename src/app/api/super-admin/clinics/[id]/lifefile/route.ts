@@ -66,9 +66,25 @@ export const GET = withAuth(
       return Response.json({ error: 'Clinic not found' }, { status: 404 });
     }
 
+    // Decrypt username for display, mask passwords
+    let decryptedUsername = clinic.lifefileUsername;
+    if (clinic.lifefileUsername) {
+      try {
+        const decrypted = decrypt(clinic.lifefileUsername);
+        if (decrypted) {
+          decryptedUsername = decrypted;
+        }
+      } catch (e) {
+        // If decryption fails, show placeholder - don't expose encrypted value
+        logger.warn(`Failed to decrypt username for clinic ${clinicId}, showing placeholder`);
+        decryptedUsername = '[encrypted - please re-enter]';
+      }
+    }
+
     // Mask sensitive fields (don't send actual passwords)
     const maskedSettings = {
       ...clinic,
+      lifefileUsername: decryptedUsername,
       lifefilePassword: clinic.lifefilePassword ? '••••••••' : null,
       lifefileWebhookSecret: clinic.lifefileWebhookSecret ? '••••••••' : null,
       lifefileDatapushPassword: clinic.lifefileDatapushPassword ? '••••••••' : null,
@@ -134,17 +150,47 @@ export const PUT = withAuth(
     }
 
     if (settings.lifefileUsername !== undefined) {
-      // Encrypt username for extra security
-      updateData.lifefileUsername = settings.lifefileUsername
-        ? encrypt(settings.lifefileUsername)
-        : null;
+      // Skip if placeholder from failed decryption
+      if (settings.lifefileUsername === '[encrypted - please re-enter]') {
+        // Don't update - keep existing value
+      } else if (settings.lifefileUsername) {
+        // Check if value looks already encrypted (3 base64 parts with colons)
+        const parts = settings.lifefileUsername.split(':');
+        const looksEncrypted = parts.length === 3 && 
+          parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
+        
+        if (looksEncrypted) {
+          // Already encrypted - store as-is to prevent double encryption
+          logger.warn(`[LIFEFILE] Username for clinic ${clinicId} appears already encrypted, storing as-is`);
+          updateData.lifefileUsername = settings.lifefileUsername;
+        } else {
+          // Encrypt plaintext username
+          updateData.lifefileUsername = encrypt(settings.lifefileUsername);
+        }
+      } else {
+        updateData.lifefileUsername = null;
+      }
     }
 
     // Only update password if a new one is provided (not masked placeholder)
     if (settings.lifefilePassword !== undefined && settings.lifefilePassword !== '••••••••') {
-      updateData.lifefilePassword = settings.lifefilePassword
-        ? encrypt(settings.lifefilePassword)
-        : null;
+      if (settings.lifefilePassword) {
+        // Check if value looks already encrypted (3 base64 parts with colons)
+        const parts = settings.lifefilePassword.split(':');
+        const looksEncrypted = parts.length === 3 && 
+          parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
+        
+        if (looksEncrypted) {
+          // Already encrypted - store as-is to prevent double encryption
+          logger.warn(`[LIFEFILE] Password for clinic ${clinicId} appears already encrypted, storing as-is`);
+          updateData.lifefilePassword = settings.lifefilePassword;
+        } else {
+          // Encrypt plaintext password
+          updateData.lifefilePassword = encrypt(settings.lifefilePassword);
+        }
+      } else {
+        updateData.lifefilePassword = null;
+      }
     }
 
     if (settings.lifefileVendorId !== undefined) {
