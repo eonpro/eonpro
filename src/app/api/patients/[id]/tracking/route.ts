@@ -264,7 +264,13 @@ export const POST = withAuthParams(async (
         select: { id: true, clinicId: true, firstName: true, lastName: true },
       });
 
-      if (!patient) return null;
+      if (!patient) return { error: 'patient_not_found' };
+      
+      // Get the clinic ID - from patient, or from user context
+      const effectiveClinicId = patient.clinicId || clinicId;
+      if (!effectiveClinicId) {
+        return { error: 'no_clinic' };
+      }
 
       // Generate tracking URL if not provided
       const trackingUrl = data.trackingUrl || generateTrackingUrl(data.carrier, data.trackingNumber);
@@ -272,7 +278,7 @@ export const POST = withAuthParams(async (
       // Create shipping update record
       const shippingUpdate = await prisma.patientShippingUpdate.create({
         data: {
-          clinicId: patient.clinicId,
+          clinicId: effectiveClinicId,
           patientId: patient.id,
           orderId: data.orderId || null,
           trackingNumber: data.trackingNumber,
@@ -300,7 +306,13 @@ export const POST = withAuthParams(async (
       return { patient, shippingUpdate, trackingUrl };
     });
 
-    if (!result) {
+    if (!result || 'error' in result) {
+      if (result?.error === 'no_clinic') {
+        return NextResponse.json(
+          { error: 'Patient must be assigned to a clinic to add tracking' },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         { error: 'Patient not found' },
         { status: 404 }
