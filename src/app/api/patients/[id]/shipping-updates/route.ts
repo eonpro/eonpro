@@ -77,7 +77,8 @@ export const GET = withAuthParams(async (
       success: true,
       patientId,
       count: shippingUpdates.length,
-      shippingUpdates: shippingUpdates.map(update => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      shippingUpdates: shippingUpdates.map((update: any) => ({
         id: update.id,
         trackingNumber: update.trackingNumber,
         carrier: update.carrier,
