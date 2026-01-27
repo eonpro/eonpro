@@ -167,6 +167,30 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
     }
   };
 
+  const handleDeleteInvoice = async (invoiceId: number) => {
+    if (!confirm('Are you sure you want to permanently delete this invoice? This action cannot be undone.')) return;
+    
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers,
+      });
+      
+      if (res.ok) {
+        toast.success('Invoice deleted successfully');
+        fetchBillingData();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to delete invoice');
+      }
+    } catch (err: any) {
+      logger.error('Error deleting invoice:', err);
+      toast.error('Failed to delete invoice');
+    }
+  };
+
   const handleRefund = async (paymentId: number | undefined, amount: number, reason: string, stripeInvoiceId?: string | null) => {
     try {
       const headers = getAuthHeaders();
@@ -389,12 +413,29 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                               <button onClick={() => handleViewInvoice(invoice)} className="text-[#4fa77e] hover:text-[#3f8660] font-medium">View</button>
                               {invoice.stripePdfUrl && <a href={invoice.stripePdfUrl} target="_blank" rel="noopener noreferrer" className="text-[#4fa77e] hover:text-[#3f8660] font-medium">PDF</a>}
                               {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="text-green-600 hover:text-green-800 font-medium">Send</button>}
-                              {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="text-red-600 hover:text-red-800 font-medium">Void</button>}
+                              {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="text-amber-600 hover:text-amber-800 font-medium">Void</button>}
                               {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
                                 <button onClick={() => {
                                   const invoicePayment = payments.find((p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED');
                                   setRefundModal(invoicePayment ? { invoiceId: invoice.id, paymentId: invoicePayment.id, maxAmount: invoice.amountPaid } : { invoiceId: invoice.id, stripeInvoiceId: invoice.stripeInvoiceId, maxAmount: invoice.amountPaid });
                                 }} className="text-purple-600 hover:text-purple-800 font-medium">Refund</button>
+                              )}
+                              {/* Edit and Delete for unpaid invoices */}
+                              {(invoice.status === 'DRAFT' || invoice.status === 'OPEN' || invoice.status === 'VOID') && (
+                                <>
+                                  <button 
+                                    onClick={() => window.open(`/invoices/${invoice.id}?edit=true`, '_blank')} 
+                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteInvoice(invoice.id)} 
+                                    className="text-red-600 hover:text-red-800 font-medium"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -430,15 +471,32 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                     </div>
                     
                     <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
-                      <button onClick={() => handleViewInvoice(invoice)} className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-[#4fa77e] bg-green-50 rounded-lg hover:bg-green-100 transition-colors">View</button>
-                      {invoice.stripePdfUrl && <a href={invoice.stripePdfUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-center text-[#4fa77e] bg-green-50 rounded-lg hover:bg-green-100 transition-colors">PDF</a>}
-                      {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">Send</button>}
-                      {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">Void</button>}
+                      <button onClick={() => handleViewInvoice(invoice)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-[#4fa77e] bg-green-50 rounded-lg hover:bg-green-100 transition-colors">View</button>
+                      {invoice.stripePdfUrl && <a href={invoice.stripePdfUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-center text-[#4fa77e] bg-green-50 rounded-lg hover:bg-green-100 transition-colors">PDF</a>}
+                      {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">Send</button>}
+                      {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors">Void</button>}
                       {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
                         <button onClick={() => {
                           const invoicePayment = payments.find((p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED');
                           setRefundModal(invoicePayment ? { invoiceId: invoice.id, paymentId: invoicePayment.id, maxAmount: invoice.amountPaid } : { invoiceId: invoice.id, stripeInvoiceId: invoice.stripeInvoiceId, maxAmount: invoice.amountPaid });
-                        }} className="flex-1 min-w-[80px] py-2 px-3 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">Refund</button>
+                        }} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">Refund</button>
+                      )}
+                      {/* Edit and Delete for unpaid invoices */}
+                      {(invoice.status === 'DRAFT' || invoice.status === 'OPEN' || invoice.status === 'VOID') && (
+                        <>
+                          <button 
+                            onClick={() => window.open(`/invoices/${invoice.id}?edit=true`, '_blank')} 
+                            className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteInvoice(invoice.id)} 
+                            className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
