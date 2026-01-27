@@ -427,6 +427,9 @@ class PrismaWithClinicFilter {
   get patientNutritionLog() { return this.client.patientNutritionLog; }
   get patientWeightLog() { return this.client.patientWeightLog; }
   get patientMedicationReminder() { return this.client.patientMedicationReminder; }
+  
+  // Shipping updates (clinic-isolated)
+  get patientShippingUpdate() { return this.createModelProxy('patientShippingUpdate'); }
 
   // Affiliate/influencer
   get influencer() { return this.createModelProxy('influencer'); }
