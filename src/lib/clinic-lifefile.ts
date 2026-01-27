@@ -52,15 +52,38 @@ export async function getClinicLifefileCredentials(clinicId: number): Promise<Li
 
       // Try to decrypt if they appear to be encrypted
       try {
-        if (clinic.lifefileUsername.includes(':')) {
-          username = decrypt(clinic.lifefileUsername);
-        }
-        if (clinic.lifefilePassword.includes(':')) {
-          password = decrypt(clinic.lifefilePassword);
+        if (clinic.lifefileUsername && clinic.lifefileUsername.includes(':')) {
+          const decryptedUsername = decrypt(clinic.lifefileUsername);
+          if (decryptedUsername) {
+            username = decryptedUsername;
+            logger.debug(`[CLINIC-LIFEFILE] Decrypted username for clinic ${clinicId}`);
+          } else {
+            logger.error(`[CLINIC-LIFEFILE] Username decryption returned null for clinic ${clinicId}`);
+          }
         }
       } catch (e) {
-        // If decryption fails, assume they're not encrypted
-        logger.warn(`Failed to decrypt Lifefile credentials for clinic ${clinicId}, using raw values`);
+        logger.error(`[CLINIC-LIFEFILE] Failed to decrypt username for clinic ${clinicId}:`, {
+          error: e instanceof Error ? e.message : String(e),
+          usernameLength: clinic.lifefileUsername?.length,
+          hint: 'Check if ENCRYPTION_KEY env var matches the key used when saving credentials'
+        });
+      }
+
+      try {
+        if (clinic.lifefilePassword && clinic.lifefilePassword.includes(':')) {
+          const decryptedPassword = decrypt(clinic.lifefilePassword);
+          if (decryptedPassword) {
+            password = decryptedPassword;
+            logger.debug(`[CLINIC-LIFEFILE] Decrypted password for clinic ${clinicId}`);
+          } else {
+            logger.error(`[CLINIC-LIFEFILE] Password decryption returned null for clinic ${clinicId}`);
+          }
+        }
+      } catch (e) {
+        logger.error(`[CLINIC-LIFEFILE] Failed to decrypt password for clinic ${clinicId}:`, {
+          error: e instanceof Error ? e.message : String(e),
+          hint: 'Check if ENCRYPTION_KEY env var matches the key used when saving credentials'
+        });
       }
 
       return {
