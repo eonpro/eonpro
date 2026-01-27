@@ -596,11 +596,11 @@ export default function PrescriptionQueuePage() {
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
                             item.planMonths >= 6 
-                              ? 'bg-blue-100 text-blue-700' 
+                              ? 'bg-emerald-100 text-emerald-700' 
                               : item.planMonths >= 3 
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-gray-100 text-gray-700'
-                          }`}>
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'text-gray-600'
+                          }`} style={item.planMonths < 3 ? { backgroundColor: '#efece7' } : undefined}>
                             {item.plan} ({item.planMonths} {item.planMonths === 1 ? 'mo' : 'mos'})
                           </span>
                         </div>
@@ -956,18 +956,18 @@ export default function PrescriptionQueuePage() {
                   </div>
 
                   {/* Plan Duration Info - Important for prescribing */}
-                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <div className="rounded-xl p-4 border border-gray-200" style={{ backgroundColor: '#efece7' }}>
                     <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-blue-600" />
+                      <Calendar className="w-4 h-4 text-orange-600" />
                       Prescription Duration
                     </h3>
                     <div className="flex items-center gap-3">
                       <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold ${
                         prescriptionPanel.item.planMonths >= 6 
-                          ? 'bg-blue-200 text-blue-800' 
+                          ? 'bg-emerald-200 text-emerald-800' 
                           : prescriptionPanel.item.planMonths >= 3 
-                            ? 'bg-purple-200 text-purple-800'
-                            : 'bg-gray-200 text-gray-800'
+                            ? 'bg-orange-200 text-orange-800'
+                            : 'bg-white text-gray-800'
                       }`}>
                         {prescriptionPanel.item.plan}
                       </span>
@@ -975,7 +975,7 @@ export default function PrescriptionQueuePage() {
                         Prescribe <strong>{prescriptionPanel.item.planMonths} {prescriptionPanel.item.planMonths === 1 ? 'month' : 'months'}</strong> supply
                       </span>
                     </div>
-                    <p className="text-xs text-blue-600 mt-2">
+                    <p className="text-xs text-gray-600 mt-2">
                       Patient paid for {prescriptionPanel.item.planMonths}-month plan. Adjust quantity accordingly.
                     </p>
                   </div>
