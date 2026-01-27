@@ -476,14 +476,24 @@ export default function PrescriptionQueuePage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#efece7' }}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="border-b border-gray-200 sticky top-0 z-10" style={{ backgroundColor: '#efece7' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-2.5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg shadow-orange-500/20">
-                <ClipboardList className="w-6 h-6 text-white" />
-              </div>
-              <div>
+              {/* MedLink Logo */}
+              <svg width="120" height="32" viewBox="0 0 1975.06 435.89" xmlns="http://www.w3.org/2000/svg">
+                <g>
+                  <path d="M282.71 63.4c-1.5-2.26-4.59-4.65-7.77-4.3-27.14.25-54.41-.43-81.53.49-13.43 1.39-.74 50.12-6.74 60.76-3.5 3.91-34.92 2.46-40.73 1.23-.92-.32-1.3-.77-1.34-1.5-.04-1.8-.03-6.21-.07-11.57.25-11.46-.72-22.1.26-32.58 12.23-57.73 56.69-62.77 107.49-59.33 49.51-2.23 76.7 36.47 74.82 82.82 2.42 2.09 7.94.85 11.35 1.11 22.78-1.67 46.16 10.47 59.35 28.97 16.37 23.14 11.66 52.74 11.49 79.39 3.97 38.98-28.44 72.55-66.91 73.26-28.16-.09-94.79.18-131.52.13-31.2.02-54.5.06-62.97.06-1.42-.04-1.27 2.19-1.63 3.6-1.95 22.22 1.14 46.34.13 68.85-.16 2.66.13 5.54 2.12 7.49 1.21 1.3 3.05 2.39 4.67 2.11 3.16 0 11.13 0 20.92.01 14.22.03 33.28 0 47.24.03 8.95-.78 14.42 2.49 19.49-3.61 1.2-1.78 1.41-3.97 1.41-6.09-.15-14.38.33-28.77.12-43.17.39-3.31-2.1-9.07 2.72-9.8 10.04-1.19 22.86-.99 33.51-.5 3.18.42 7.25-.09 6.39 4.7.02 10.47.03 23.72.05 34.31-.92 33.69-26.83 62.3-60.73 66.47-43.07 3.28-97.71 5.63-116.18-42.62-4.25-10.71-5.07-22.24-5.11-33.65-.17-2.13.64-5-.89-6.72-6.45-2.15-15.88.29-22.72-1.03-32.92-3.6-60.69-33.58-59.46-67.15.12-7-.05-13.99-.22-21.01-5.59-48.16 15.49-90.38 67.79-93.12 15.04.27 157.97-.16 193.71.04.41.04 1.98-.59 1.98-1.51-.44-7.59.84-68.65-.46-76.49l-.06-.08ZM144.3 280.66c.18-4.59.04-66.95.08-74.62-.06-2.03 2.88-2.21 4.58-2.41 9.96-.35 20.06.05 30.07-.08 2.51-.08 5.89-.57 7.82 1.16 1.8 3.76.27 8.18.75 13.32.37 6.63-.77 15.5.49 21.05 26.08.91 163.76-.01 173.58.31 1.7-.37 4.67-3.36 5.47-5.43.59-26.3 1.69-54.36.85-80.59.14-4.31-2.79-9.65-7-10.41-6.49-.04-54.16-.08-70.39-.13-2.05-.03-4.29-.38-5.15 1.91-1.15 16.96-.23 65.47-.64 72.84-1.48 3.86-7.53 1.37-12.37 2.04-8.22 0-20.86.02-28.22-.02-1.95-.03-1.93-2.79-2.14-4.36-.75-9.78 1.48-20.95-.35-30.82-1.28-.57-6.15-.02-14.2-.21-40.8.01-155.45-.02-160.4.02-1.56.9-3.8 3.03-4.38 5.4-1.27 28.27-.95 57.01-.24 85.31 1.04 2.58 2.96 5.4 5.17 5.81 7.22-.1 71.59.17 76.6-.08h.01Z" fill="#d46c7b"/>
+                  <path d="M811.27 356.91h-35.54l-25.56-209.68-87.46 179.72h-31.55L542.9 147.23l-25.16 209.68H482.2l33.55-275.18h32.75l98.25 204.08L744.6 81.73h32.75l33.95 275.18Z" fill="#000000"/>
+                  <path d="M1026.95 278.63H875.18c5.19 33.15 29.15 50.32 61.11 50.32 22.76 0 43.53-10.38 54.32-29.15l29.95 11.98c-15.97 32.35-49.52 49.92-85.47 49.92-53.12 0-95.85-39.54-95.85-98.65s42.73-97.45 95.85-97.45 92.66 38.34 92.66 97.45c0 5.19-.4 10.38-.8 15.58M993 248.68c-4.39-31.95-27.16-50.32-57.91-50.32s-53.92 16.77-59.51 50.32z" fill="#000000"/>
+                  <path d="M1212.66 68.95h34.75v287.96h-34.75v-29.15c-12.38 21.17-39.54 33.95-66.3 33.95-51.12 0-93.46-39.54-93.46-98.25s41.93-97.85 93.06-97.85c27.96 0 54.32 11.98 66.7 33.95zm0 194.1c0-40.34-32.75-64.7-63.5-64.7-33.95 0-61.11 27.16-61.11 64.7s27.16 65.9 61.11 65.9 63.5-25.96 63.5-65.9" fill="#000000"/>
+                  <path d="M1342.46 323.36h112.63v33.55h-148.97V81.73h36.34z" fill="#000000"/>
+                  <path d="M1476.65 101.7c0-13.18 11.18-23.16 24.36-23.16s24.76 9.98 24.76 23.16-11.18 23.16-24.76 23.16-24.36-9.98-24.36-23.16m7.19 255.21V170.4h34.75v186.51z" fill="#000000"/>
+                  <path d="M1740.64 249.08v107.83h-34.75V251.07c0-31.15-19.17-51.12-45.13-51.12s-57.11 15.58-57.11 55.91V356.9h-34.75V170.39h34.75v28.36c11.18-22.77 41.54-33.15 61.9-33.15 46.33 0 75.48 31.15 75.08 83.47Z" fill="#000000"/>
+                  <path d="M1955.91 356.91h-46.73l-85.87-91.06v91.06h-34.75V68.95h34.75v167.34l64.7-65.9h48.33l-79.88 80.68z" fill="#000000"/>
+                </g>
+              </svg>
+              <div className="border-l border-gray-300 pl-4">
                 <h1 className="text-xl font-bold text-gray-900">Rx Queue</h1>
                 <p className="text-sm text-gray-500">
                   {total} patient{total !== 1 ? "s" : ""} awaiting prescriptions
@@ -495,7 +505,7 @@ export default function PrescriptionQueuePage() {
                 setLoading(true);
                 fetchQueue();
               }}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-white/50 rounded-lg transition-all border border-gray-300"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -533,14 +543,14 @@ export default function PrescriptionQueuePage() {
             placeholder="Search by patient name, email, treatment, or invoice..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent shadow-sm"
+            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent shadow-sm"
           />
         </div>
 
         {/* Queue Cards */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
@@ -568,8 +578,8 @@ export default function PrescriptionQueuePage() {
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     {/* Patient Info */}
                     <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center flex-shrink-0">
-                        <User className="w-6 h-6 text-orange-600" />
+                      <div className="w-12 h-12 bg-gradient-to-br from-rose-100 to-rose-200 rounded-full flex items-center justify-center flex-shrink-0">
+                        <User className="w-6 h-6 text-rose-600" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -598,7 +608,7 @@ export default function PrescriptionQueuePage() {
                             item.planMonths >= 6 
                               ? 'bg-emerald-100 text-emerald-700' 
                               : item.planMonths >= 3 
-                                ? 'bg-orange-100 text-orange-700'
+                                ? 'bg-rose-100 text-rose-700'
                                 : 'bg-gray-200 text-gray-700'
                           }`}>
                             {item.plan} ({item.planMonths} {item.planMonths === 1 ? 'mo' : 'mos'})
@@ -648,7 +658,7 @@ export default function PrescriptionQueuePage() {
                       <button
                         onClick={() => handleOpenPrescriptionPanel(item)}
                         disabled={!item.clinic?.lifefileEnabled}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium text-sm"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium text-sm"
                         title={
                           item.clinic?.lifefileEnabled
                             ? "Write and send prescription"
@@ -679,14 +689,14 @@ export default function PrescriptionQueuePage() {
                   <div className="border-t border-gray-100 bg-gray-50 p-5">
                     {loadingDetails ? (
                       <div className="flex items-center justify-center py-8">
-                        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                        <Loader2 className="w-6 h-6 animate-spin text-rose-500" />
                       </div>
                     ) : patientDetails ? (
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Patient Contact Info */}
                         <div className="space-y-4">
                           <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                            <User className="w-4 h-4 text-orange-500" />
+                            <User className="w-4 h-4 text-rose-500" />
                             Patient Information
                           </h4>
                           <div className="space-y-3 text-sm">
@@ -729,7 +739,7 @@ export default function PrescriptionQueuePage() {
                         {/* Intake Data */}
                         <div className="lg:col-span-2 space-y-4">
                           <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-orange-500" />
+                            <FileText className="w-4 h-4 text-rose-500" />
                             Intake Information
                           </h4>
                           {patientDetails.intake.sections.length > 0 ? (
@@ -796,7 +806,7 @@ export default function PrescriptionQueuePage() {
             <div className="w-screen max-w-lg transform transition-transform duration-300 ease-in-out">
               <div className="flex h-full flex-col bg-white shadow-xl">
                 {/* Panel Header */}
-                <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5">
+                <div className="bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-white/20 rounded-lg">
@@ -804,7 +814,7 @@ export default function PrescriptionQueuePage() {
                       </div>
                       <div>
                         <h2 className="text-lg font-semibold text-white">Write Prescription</h2>
-                        <p className="text-sm text-orange-100">
+                        <p className="text-sm text-rose-100">
                           {prescriptionPanel.item.patientName}
                         </p>
                       </div>
@@ -823,7 +833,7 @@ export default function PrescriptionQueuePage() {
                   {/* Patient Summary */}
                   <div className="bg-gray-50 rounded-xl p-4">
                     <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      <User className="w-4 h-4 text-orange-500" />
+                      <User className="w-4 h-4 text-rose-500" />
                       Patient
                     </h3>
                     <div className="grid grid-cols-2 gap-3 text-sm">
@@ -854,7 +864,7 @@ export default function PrescriptionQueuePage() {
                   {/* Shipping Address - Editable */}
                   <div className={`rounded-xl p-4 ${isAddressComplete(prescriptionForm) ? "bg-gray-50" : "bg-red-50 border border-red-200"}`}>
                     <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      <MapPin className={`w-4 h-4 ${isAddressComplete(prescriptionForm) ? "text-orange-500" : "text-red-500"}`} />
+                      <MapPin className={`w-4 h-4 ${isAddressComplete(prescriptionForm) ? "text-rose-500" : "text-red-500"}`} />
                       Shipping Address
                       {!isAddressComplete(prescriptionForm) && (
                         <span className="text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded-full ml-2">
@@ -882,7 +892,7 @@ export default function PrescriptionQueuePage() {
                             setPrescriptionForm((prev) => ({ ...prev, address1: e.target.value }))
                           }
                           placeholder="123 Main Street"
-                          className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                          className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-rose-400 focus:border-transparent ${
                             !prescriptionForm.address1 ? "border-red-300 bg-red-50" : "border-gray-300"
                           }`}
                         />
@@ -898,7 +908,7 @@ export default function PrescriptionQueuePage() {
                             setPrescriptionForm((prev) => ({ ...prev, address2: e.target.value }))
                           }
                           placeholder="Apt 4B (optional)"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-400 focus:border-transparent"
                         />
                       </div>
                       <div className="grid grid-cols-3 gap-2">
@@ -913,7 +923,7 @@ export default function PrescriptionQueuePage() {
                               setPrescriptionForm((prev) => ({ ...prev, city: e.target.value }))
                             }
                             placeholder="Miami"
-                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-rose-400 focus:border-transparent ${
                               !prescriptionForm.city ? "border-red-300 bg-red-50" : "border-gray-300"
                             }`}
                           />
@@ -930,7 +940,7 @@ export default function PrescriptionQueuePage() {
                             }
                             placeholder="FL"
                             maxLength={2}
-                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-rose-400 focus:border-transparent ${
                               !prescriptionForm.state ? "border-red-300 bg-red-50" : "border-gray-300"
                             }`}
                           />
@@ -946,7 +956,7 @@ export default function PrescriptionQueuePage() {
                               setPrescriptionForm((prev) => ({ ...prev, zip: e.target.value }))
                             }
                             placeholder="33101"
-                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-rose-400 focus:border-transparent ${
                               !prescriptionForm.zip ? "border-red-300 bg-red-50" : "border-gray-300"
                             }`}
                           />
@@ -956,9 +966,9 @@ export default function PrescriptionQueuePage() {
                   </div>
 
                   {/* Plan Duration Info - Important for prescribing */}
-                  <div className="rounded-xl p-4 border border-gray-200 bg-orange-50">
+                  <div className="rounded-xl p-4 border border-gray-200 bg-rose-50">
                     <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-orange-600" />
+                      <Calendar className="w-4 h-4 text-rose-600" />
                       Prescription Duration
                     </h3>
                     <div className="flex items-center gap-3">
@@ -966,7 +976,7 @@ export default function PrescriptionQueuePage() {
                         prescriptionPanel.item.planMonths >= 6 
                           ? 'bg-emerald-200 text-emerald-800' 
                           : prescriptionPanel.item.planMonths >= 3 
-                            ? 'bg-orange-200 text-orange-800'
+                            ? 'bg-rose-200 text-rose-800'
                             : 'bg-gray-200 text-gray-800'
                       }`}>
                         {prescriptionPanel.item.plan}
@@ -1010,7 +1020,7 @@ export default function PrescriptionQueuePage() {
                       <select
                         value={prescriptionForm.medicationKey}
                         onChange={(e) => handleMedicationChange(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent"
                       >
                         <option value="">Select a medication...</option>
                         {medicationOptions.map((med) => (
@@ -1031,7 +1041,7 @@ export default function PrescriptionQueuePage() {
                           setPrescriptionForm((prev) => ({ ...prev, sig: e.target.value }))
                         }
                         rows={3}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent resize-none"
                         placeholder="Enter directions for use..."
                       />
                     </div>
@@ -1047,7 +1057,7 @@ export default function PrescriptionQueuePage() {
                           onChange={(e) =>
                             setPrescriptionForm((prev) => ({ ...prev, quantity: e.target.value }))
                           }
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent"
                         />
                       </div>
                       <div>
@@ -1059,7 +1069,7 @@ export default function PrescriptionQueuePage() {
                           onChange={(e) =>
                             setPrescriptionForm((prev) => ({ ...prev, refills: e.target.value }))
                           }
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent"
                         >
                           {[0, 1, 2, 3, 4, 5, 6, 11].map((n) => (
                             <option key={n} value={String(n)}>
@@ -1083,7 +1093,7 @@ export default function PrescriptionQueuePage() {
                           key={method.id}
                           className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${
                             prescriptionForm.shippingMethod === String(method.id)
-                              ? "border-orange-500 bg-orange-50"
+                              ? "border-rose-400 bg-rose-50"
                               : "border-gray-200 hover:border-gray-300"
                           }`}
                         >
@@ -1098,7 +1108,7 @@ export default function PrescriptionQueuePage() {
                                 shippingMethod: e.target.value,
                               }))
                             }
-                            className="w-4 h-4 text-orange-500 focus:ring-orange-500"
+                            className="w-4 h-4 text-rose-500 focus:ring-rose-400"
                           />
                           <p className="font-medium text-gray-900">{method.label}</p>
                         </label>
@@ -1124,7 +1134,7 @@ export default function PrescriptionQueuePage() {
                         !prescriptionForm.sig ||
                         !isAddressComplete(prescriptionForm)
                       }
-                      className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center gap-2"
                     >
                       {submittingPrescription ? (
                         <>
