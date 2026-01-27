@@ -29,6 +29,8 @@ import {
   Scale,
   Ruler,
   ShieldAlert,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
@@ -111,12 +113,18 @@ interface QueueResponse {
   hasMore: boolean;
 }
 
-// Prescription form state
-interface PrescriptionFormState {
+// Single medication item
+interface MedicationItem {
+  id: string; // unique id for React key
   medicationKey: string;
   sig: string;
   quantity: string;
   refills: string;
+}
+
+// Prescription form state
+interface PrescriptionFormState {
+  medications: MedicationItem[];
   shippingMethod: string;
   // Address fields (for editing if missing)
   address1: string;
@@ -125,6 +133,15 @@ interface PrescriptionFormState {
   state: string;
   zip: string;
 }
+
+// Helper to create a new empty medication
+const createEmptyMedication = (): MedicationItem => ({
+  id: crypto.randomUUID(),
+  medicationKey: "",
+  sig: "",
+  quantity: "1",
+  refills: "0",
+});
 
 export default function PrescriptionQueuePage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -146,10 +163,7 @@ export default function PrescriptionQueuePage() {
     details: PatientDetails;
   } | null>(null);
   const [prescriptionForm, setPrescriptionForm] = useState<PrescriptionFormState>({
-    medicationKey: "",
-    sig: "",
-    quantity: "1",
-    refills: "0",
+    medications: [createEmptyMedication()],
     shippingMethod: "8115", // UPS - OVERNIGHT (numeric string, will be parsed)
     address1: "",
     address2: "",
@@ -224,15 +238,16 @@ export default function PrescriptionQueuePage() {
     const details = await fetchPatientDetails(item.invoiceId);
     if (details) {
       setPrescriptionPanel({ item, details });
-      // Pre-populate address from patient data
-      setPrescriptionForm((prev) => ({
-        ...prev,
+      // Reset form with fresh medication and pre-populate address from patient data
+      setPrescriptionForm({
+        medications: [createEmptyMedication()],
+        shippingMethod: "8115",
         address1: details.patient.address1 || "",
         address2: details.patient.address2 || "",
         city: details.patient.city || "",
         state: details.patient.state || "",
         zip: details.patient.zip || "",
-      }));
+      });
       // Try to auto-select medication based on treatment
       autoSelectMedication(item.treatment, details);
     }
@@ -276,16 +291,20 @@ export default function PrescriptionQueuePage() {
       });
     }
 
+    // Update the first medication in the array
     setPrescriptionForm((prev) => ({
       ...prev,
-      medicationKey: matchedKey,
-      sig: matchedSig || prev.sig,
-      quantity: matchedQty,
-      refills: matchedRefills,
+      medications: [{
+        ...prev.medications[0],
+        medicationKey: matchedKey,
+        sig: matchedSig || prev.medications[0].sig,
+        quantity: matchedQty,
+        refills: matchedRefills,
+      }],
     }));
   };
 
-  const handleMedicationChange = (key: string) => {
+  const handleMedicationChange = (index: number, key: string) => {
     const med = MEDS[key];
     let sig = "";
     let qty = "1";
@@ -305,10 +324,32 @@ export default function PrescriptionQueuePage() {
 
     setPrescriptionForm((prev) => ({
       ...prev,
-      medicationKey: key,
-      sig,
-      quantity: qty,
-      refills,
+      medications: prev.medications.map((m, i) =>
+        i === index ? { ...m, medicationKey: key, sig, quantity: qty, refills } : m
+      ),
+    }));
+  };
+
+  const updateMedicationField = (index: number, field: keyof MedicationItem, value: string) => {
+    setPrescriptionForm((prev) => ({
+      ...prev,
+      medications: prev.medications.map((m, i) =>
+        i === index ? { ...m, [field]: value } : m
+      ),
+    }));
+  };
+
+  const addMedication = () => {
+    setPrescriptionForm((prev) => ({
+      ...prev,
+      medications: [...prev.medications, createEmptyMedication()],
+    }));
+  };
+
+  const removeMedication = (index: number) => {
+    setPrescriptionForm((prev) => ({
+      ...prev,
+      medications: prev.medications.filter((_, i) => i !== index),
     }));
   };
 
@@ -317,8 +358,13 @@ export default function PrescriptionQueuePage() {
     return form.address1 && form.city && form.state && form.zip;
   };
 
+  // Check if at least one medication is valid
+  const hasValidMedication = () => {
+    return prescriptionForm.medications.some(m => m.medicationKey && m.sig);
+  };
+
   const handleSubmitPrescription = async () => {
-    if (!prescriptionPanel || !prescriptionForm.medicationKey) return;
+    if (!prescriptionPanel || !hasValidMedication()) return;
 
     // Validate address
     if (!isAddressComplete(prescriptionForm)) {
@@ -355,14 +401,14 @@ export default function PrescriptionQueuePage() {
           state: prescriptionForm.state,
           zip: prescriptionForm.zip,
         },
-        rxs: [
-          {
-            medicationKey: prescriptionForm.medicationKey,
-            sig: prescriptionForm.sig,
-            quantity: prescriptionForm.quantity,
-            refills: prescriptionForm.refills,
-          },
-        ],
+        rxs: prescriptionForm.medications
+          .filter(m => m.medicationKey && m.sig) // Only include medications with data
+          .map(m => ({
+            medicationKey: m.medicationKey,
+            sig: m.sig,
+            quantity: m.quantity,
+            refills: m.refills,
+          })),
         shippingMethod: parseInt(prescriptionForm.shippingMethod, 10),
         clinicId: details.clinic?.id,
         invoiceId: details.invoice.id,
@@ -1028,79 +1074,116 @@ export default function PrescriptionQueuePage() {
                     </p>
                   </div>
 
-                  {/* Medication Selection */}
+                  {/* Medications Selection - Multiple */}
                   <div className="space-y-4">
-                    <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                      <Pill className="w-4 h-4 text-purple-500" />
-                      Medication
-                    </h3>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Select Medication *
-                      </label>
-                      <select
-                        value={prescriptionForm.medicationKey}
-                        onChange={(e) => handleMedicationChange(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent"
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                        <Pill className="w-4 h-4 text-purple-500" />
+                        Medications ({prescriptionForm.medications.length})
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={addMedication}
+                        className="text-sm text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1"
                       >
-                        <option value="">Select a medication...</option>
-                        {medicationOptions.map((med) => (
-                          <option key={med.key} value={med.key}>
-                            {med.label}
-                          </option>
-                        ))}
-                      </select>
+                        <Plus className="w-4 h-4" /> Add Medication
+                      </button>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Sig (Directions) *
-                      </label>
-                      <textarea
-                        value={prescriptionForm.sig}
-                        onChange={(e) =>
-                          setPrescriptionForm((prev) => ({ ...prev, sig: e.target.value }))
-                        }
-                        rows={3}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent resize-none"
-                        placeholder="Enter directions for use..."
-                      />
-                    </div>
+                    {prescriptionForm.medications.map((medication, index) => (
+                      <div
+                        key={medication.id}
+                        className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50 relative"
+                      >
+                        {/* Medication Header */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-600">
+                            Medication #{index + 1}
+                          </span>
+                          {prescriptionForm.medications.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeMedication(index)}
+                              className="text-red-500 hover:text-red-700 p-1.5 rounded hover:bg-red-50 transition-colors"
+                              title="Remove this medication"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quantity *
-                        </label>
-                        <input
-                          type="text"
-                          value={prescriptionForm.quantity}
-                          onChange={(e) =>
-                            setPrescriptionForm((prev) => ({ ...prev, quantity: e.target.value }))
-                          }
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent"
-                        />
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Select Medication *
+                          </label>
+                          <select
+                            value={medication.medicationKey}
+                            onChange={(e) => handleMedicationChange(index, e.target.value)}
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent bg-white"
+                          >
+                            <option value="">Select a medication...</option>
+                            {medicationOptions.map((med) => (
+                              <option key={med.key} value={med.key}>
+                                {med.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Sig (Directions) *
+                          </label>
+                          <textarea
+                            value={medication.sig}
+                            onChange={(e) => updateMedicationField(index, 'sig', e.target.value)}
+                            rows={2}
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent resize-none bg-white"
+                            placeholder="Enter directions for use..."
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Quantity *
+                            </label>
+                            <input
+                              type="text"
+                              value={medication.quantity}
+                              onChange={(e) => updateMedicationField(index, 'quantity', e.target.value)}
+                              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Refills
+                            </label>
+                            <select
+                              value={medication.refills}
+                              onChange={(e) => updateMedicationField(index, 'refills', e.target.value)}
+                              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent bg-white"
+                            >
+                              {[0, 1, 2, 3, 4, 5, 6, 11].map((n) => (
+                                <option key={n} value={String(n)}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Refills
-                        </label>
-                        <select
-                          value={prescriptionForm.refills}
-                          onChange={(e) =>
-                            setPrescriptionForm((prev) => ({ ...prev, refills: e.target.value }))
-                          }
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent"
-                        >
-                          {[0, 1, 2, 3, 4, 5, 6, 11].map((n) => (
-                            <option key={n} value={String(n)}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    ))}
+
+                    {/* Quick Add Another Button at bottom */}
+                    <button
+                      type="button"
+                      onClick={addMedication}
+                      className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-rose-400 hover:text-rose-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Add Another Medication
+                    </button>
                   </div>
 
                   {/* Shipping Method */}
@@ -1152,8 +1235,7 @@ export default function PrescriptionQueuePage() {
                       onClick={handleSubmitPrescription}
                       disabled={
                         submittingPrescription ||
-                        !prescriptionForm.medicationKey ||
-                        !prescriptionForm.sig ||
+                        !hasValidMedication() ||
                         !isAddressComplete(prescriptionForm)
                       }
                       className="flex-1 px-4 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center gap-2"
@@ -1168,10 +1250,15 @@ export default function PrescriptionQueuePage() {
                           <AlertCircle className="w-4 h-4" />
                           Address Required
                         </>
+                      ) : !hasValidMedication() ? (
+                        <>
+                          <AlertCircle className="w-4 h-4" />
+                          Add Medication
+                        </>
                       ) : (
                         <>
                           <Send className="w-4 h-4" />
-                          Send to Pharmacy
+                          Send {prescriptionForm.medications.filter(m => m.medicationKey && m.sig).length} Rx{prescriptionForm.medications.filter(m => m.medicationKey && m.sig).length > 1 ? 's' : ''} to Pharmacy
                         </>
                       )}
                     </button>
