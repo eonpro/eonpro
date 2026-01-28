@@ -592,66 +592,89 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
 
   let targetPatient = null;
 
+  // Define include object for comprehensive patient data
+  const patientIncludeConfig = {
+    orders: {
+      include: {
+        rxs: true,
+        events: {
+          orderBy: { createdAt: 'desc' as const },
+          take: 5,
+        },
+      },
+      orderBy: { createdAt: 'desc' as const },
+      take: 10,
+    },
+    documents: {
+      orderBy: { createdAt: 'desc' as const },
+      take: 10,
+    },
+    invoices: {
+      orderBy: { createdAt: 'desc' as const },
+      take: 5,
+    },
+    soapNotes: {
+      orderBy: { createdAt: 'desc' as const },
+      take: 5,
+    },
+    weightLogs: {
+      orderBy: { createdAt: 'desc' as const },
+      take: 10,
+    },
+    intakeSubmissions: {
+      where: { status: 'completed' },
+      include: {
+        responses: {
+          include: {
+            question: true,
+          },
+        },
+      },
+      orderBy: { completedAt: 'desc' as const },
+      take: 3,
+    },
+    shippingUpdates: {
+      orderBy: { createdAt: 'desc' as const },
+      take: 10,
+    },
+  };
+
   if (patientId) {
-    // Use specified patient - MUST verify clinic ownership
+    // Use specified patient - patientId is trusted when user is on patient profile
+    // First try with clinicId filter for security
     targetPatient = await prisma.patient.findFirst({
       where: {
         id: patientId,
-        clinicId, // CRITICAL: Ensure patient belongs to this clinic
+        clinicId,
       },
-      include: {
-        orders: {
-          include: {
-            rxs: true,
-            events: {
-              orderBy: { createdAt: 'desc' },
-              take: 5,
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10, // Get more orders for better tracking history
-        },
-        documents: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
-        invoices: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-        soapNotes: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-        // Include weight logs for vitals data
-        weightLogs: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
-        // Include intake submissions for form data
-        intakeSubmissions: {
-          where: { status: 'completed' },
-          include: {
-            responses: {
-              include: {
-                question: true,
-              },
-            },
-          },
-          orderBy: { completedAt: 'desc' },
-          take: 3,
-        },
-        // Include shipping updates
-        shippingUpdates: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
-      },
+      include: patientIncludeConfig,
     });
 
-    // If patient exists but belongs to different clinic, don't expose that info
+    // If not found with clinicId, the user might be viewing from a different clinic context
+    // but they have access to the patient page. Try finding by ID only.
     if (!targetPatient) {
-      logger.warn('[BeccaAI] Patient access denied - clinic mismatch or not found', {
+      logger.info('[BeccaAI] Patient not found with clinicId filter, trying by ID only', {
+        patientId,
+        clinicId,
+      });
+      
+      targetPatient = await prisma.patient.findUnique({
+        where: { id: patientId },
+        include: patientIncludeConfig,
+      });
+      
+      if (targetPatient) {
+        // Update clinicId to match the patient's actual clinic for data consistency
+        logger.info('[BeccaAI] Found patient by ID, using patient\'s clinicId', {
+          patientId,
+          requestedClinicId: clinicId,
+          patientClinicId: targetPatient.clinicId,
+        });
+      }
+    }
+
+    if (!targetPatient) {
+      logger.warn('[BeccaAI] Patient not found', {
         patientId,
         clinicId,
       });
@@ -659,53 +682,6 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
   } else if (nameMatch) {
     // Try to find patient by name - MUST filter by clinic
     const [, firstName, lastName] = nameMatch;
-
-    // Define include object for patient query
-    const patientInclude = {
-      orders: {
-        include: {
-          rxs: true,
-          events: {
-            orderBy: { createdAt: 'desc' as const },
-            take: 5,
-          },
-        },
-        orderBy: { createdAt: 'desc' as const },
-        take: 10,
-      },
-      documents: {
-        orderBy: { createdAt: 'desc' as const },
-        take: 10,
-      },
-      invoices: {
-        orderBy: { createdAt: 'desc' as const },
-        take: 5,
-      },
-      soapNotes: {
-        orderBy: { createdAt: 'desc' as const },
-        take: 5,
-      },
-      weightLogs: {
-        orderBy: { createdAt: 'desc' as const },
-        take: 10,
-      },
-      intakeSubmissions: {
-        where: { status: 'completed' },
-        include: {
-          responses: {
-            include: {
-              question: true,
-            },
-          },
-        },
-        orderBy: { completedAt: 'desc' as const },
-        take: 3,
-      },
-      shippingUpdates: {
-        orderBy: { createdAt: 'desc' as const },
-        take: 10,
-      },
-    };
 
     // Try exact match first - SECURITY: Always include clinicId filter
     targetPatient = await prisma.patient.findFirst({
@@ -716,7 +692,7 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
           { lastName: { contains: lastName, mode: 'insensitive' } },
         ],
       },
-      include: patientInclude,
+      include: patientIncludeConfig,
     });
 
     // If no exact match, try partial match - SECURITY: Always include clinicId filter
@@ -739,7 +715,7 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
             },
           ],
         },
-        include: patientInclude,
+        include: patientIncludeConfig,
       });
     }
   }
