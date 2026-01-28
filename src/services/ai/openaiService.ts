@@ -4,6 +4,12 @@ import { logger } from '@/lib/logger';
 import { AppError, ApiResponse } from '@/types/common';
 import { Patient, Provider, Order } from '@/types/models';
 import { anonymizeObject, anonymizeName, logAnonymization } from '@/lib/security/phi-anonymization';
+import {
+  BECCA_SYSTEM_PROMPT,
+  detectQueryCategory,
+  buildKnowledgeContext,
+  type QueryCategory,
+} from './beccaKnowledgeBase';
 
 // Environment configuration
 const envSchema = z.object({
@@ -25,9 +31,9 @@ let openaiClient: OpenAI | null = null;
  */
 function useMaxCompletionTokens(model: string): boolean {
   const modelLower = model.toLowerCase();
-  
+
   // Models that DEFINITELY use old max_tokens parameter
-  const usesMaxTokens = 
+  const usesMaxTokens =
     modelLower.includes('gpt-3.5') ||
     modelLower.includes('gpt-4-turbo') ||
     modelLower === 'gpt-4' ||
@@ -36,7 +42,7 @@ function useMaxCompletionTokens(model: string): boolean {
     modelLower.includes('curie') ||
     modelLower.includes('babbage') ||
     modelLower.includes('ada');
-  
+
   // If it's a known old model, use max_tokens; otherwise use max_completion_tokens
   // This ensures newer models (gpt-4o, gpt-4o-mini, gpt-5, o1, o3, etc.) use the new parameter
   return !usesMaxTokens;
@@ -514,24 +520,30 @@ export async function queryPatientData(input: PatientQueryInput): Promise<QueryR
     OPENAI_MAX_TOKENS: process.env.OPENAI_MAX_TOKENS,
   });
 
-  const systemPrompt = `You are Becca AI, a medical assistant helping healthcare providers access patient information.
-You have access to patient data and can answer questions about demographics, prescriptions, tracking information, and medical history.
+  // Detect query category and build appropriate knowledge context
+  const queryCategory = detectQueryCategory(input.query);
+  const knowledgeContext = buildKnowledgeContext(queryCategory);
 
-IMPORTANT INSTRUCTIONS:
-1. When asked about patient counts or statistics, provide the exact numbers from the data
-2. When asked about a specific patient's information (like date of birth), provide the exact information if found
-3. If a patient is not found by name, suggest checking the spelling or provide similar patients if available
-4. Always be accurate, concise, and helpful
-5. Format dates in a readable way (e.g., "March 15, 1990" instead of ISO format)
-6. Calculate age from date of birth when relevant
-7. Maintain HIPAA compliance and patient privacy at all times
+  logger.debug('[BeccaAI] Query categorized', {
+    query: input.query.substring(0, 50),
+    category: queryCategory,
+  });
 
-Response Guidelines:
-- For patient demographics: Provide name, DOB, age, gender, contact information
-- For statistics: Give exact counts (e.g., "There are 42 patients in the system")
-- For not found: Clearly state the patient wasn't found and suggest alternatives
-- For tracking info: Provide tracking numbers with associated patient names
-- For prescriptions: List medications with dosages and patient names`;
+  // Build the system prompt with relevant knowledge context
+  const systemPrompt = `${BECCA_SYSTEM_PROMPT}
+
+## RELEVANT KNOWLEDGE FOR THIS QUERY
+Category: ${queryCategory}
+
+${knowledgeContext}
+
+## ADDITIONAL INSTRUCTIONS FOR PATIENT DATA QUERIES
+- When asked about patient counts or statistics, provide the exact numbers from the data
+- When asked about a specific patient's information, provide the exact information if found
+- If a patient is not found by name, suggest checking the spelling or provide similar patients
+- Format dates in a readable way (e.g., "March 15, 1990")
+- Calculate age from date of birth when relevant
+- All patient data is scoped to the user's clinic only`;
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },
@@ -621,6 +633,15 @@ Recent Intakes: ${context.recentIntakes}`;
 Total Patients: ${stats?.totalPatients || 0}
 Total Orders: ${stats?.totalOrders || 0}
 Total Providers: ${stats?.totalProviders || 0}`;
+    } else if (context.type === 'knowledge_query') {
+      // Knowledge-based query - no patient data needed
+      contextDescription = `This is a clinical/operational knowledge question.
+Query Category: ${context.category}
+${context.message}
+
+Answer this question using your knowledge base about GLP-1 medications,
+dosing protocols, clinical guidelines, SOAP notes, prescription SIGs,
+and platform operations. No patient data search was performed.`;
     } else {
       contextDescription = JSON.stringify(input.patientContext, null, 2);
     }

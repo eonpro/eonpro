@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { 
+import {
   processAssistantQuery,
   getConversationHistory,
   getUserConversations,
@@ -9,25 +9,67 @@ import {
   chatQuerySchema,
   conversationHistorySchema,
 } from '@/services/ai/assistantService';
+import { getCurrentUser } from '@/lib/auth/middleware';
+import { getClinicIdFromRequest } from '@/lib/clinic/utils';
 
 /**
  * POST /api/ai/chat - Process a chat query
+ *
+ * SECURITY: This endpoint enforces multi-tenant data isolation:
+ * 1. Extracts clinicId from server-side auth (not trusting client)
+ * 2. Validates user has access to the clinic
+ * 3. All data queries are scoped to the user's clinic
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    // Validate input
-    const validated = chatQuerySchema.parse(body);
-    
-    // Process query
+
+    // SECURITY: Get user from server-side auth headers (set by middleware)
+    const user = getCurrentUser(request);
+
+    // SECURITY: Get clinic from server-side context
+    // Priority: 1. User's assigned clinic, 2. Header/cookie clinic
+    let clinicId = user?.clinicId;
+
+    if (!clinicId) {
+      clinicId = await getClinicIdFromRequest(request);
+    }
+
+    // SECURITY: Require clinicId for multi-tenant isolation
+    if (!clinicId) {
+      logger.warn('[BeccaAI] Request rejected - no clinic context', {
+        userEmail: body.userEmail,
+        hasUser: !!user,
+      });
+      return NextResponse.json(
+        { error: 'Clinic context required. Please ensure you are logged in to a clinic.' },
+        { status: 403 }
+      );
+    }
+
+    // Validate input - now includes clinicId validation
+    const validated = chatQuerySchema.parse({
+      ...body,
+      clinicId, // Use server-determined clinicId, not client-sent
+    });
+
+    // SECURITY: Log the query with clinic context for audit
+    logger.info('[BeccaAI] Processing chat request', {
+      userEmail: validated.userEmail,
+      clinicId: validated.clinicId,
+      patientId: validated.patientId,
+      userId: user?.id,
+    });
+
+    // Process query with verified clinic context
     const response = await processAssistantQuery(
       validated.query,
       validated.userEmail,
+      validated.clinicId, // Server-verified clinicId
       validated.sessionId,
       validated.patientId
     );
-    
+
     return NextResponse.json({
       ok: true,
       data: response,
@@ -41,14 +83,14 @@ export async function POST(request: NextRequest) {
       code: error.code,
       stack: error.stack?.split('\n').slice(0, 5).join('\n'),
     });
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
     }
-    
+
     // Check for rate limiting (internal or OpenAI)
     if (errorMessage.toLowerCase().includes('rate limit') || error.status === 429) {
       return NextResponse.json(
@@ -56,7 +98,7 @@ export async function POST(request: NextRequest) {
         { status: 429 }
       );
     }
-    
+
     // Check for OpenAI-related errors
     if (
       errorMessage.includes('OpenAI') ||
@@ -70,7 +112,7 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
-    
+
     // Check for database/connection errors
     if (
       errorMessage.includes('database') ||
@@ -92,32 +134,50 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/ai/chat - Get conversation history or user conversations
+ * SECURITY: All queries filtered by clinic context
  */
 export async function GET(request: NextRequest) {
   try {
+    // SECURITY: Get clinic context from server-side auth
+    const user = getCurrentUser(request);
+    let clinicId = user?.clinicId;
+
+    if (!clinicId) {
+      clinicId = await getClinicIdFromRequest(request);
+    }
+
+    if (!clinicId) {
+      return NextResponse.json(
+        { error: 'Clinic context required' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
     const userEmail = searchParams.get('userEmail');
     const limit = searchParams.get('limit');
-    
+
     if (sessionId) {
-      // Get specific conversation history
+      // Get specific conversation history - filtered by clinic
       const conversation = await getConversationHistory(
         sessionId,
+        clinicId,
         limit ? parseInt(limit, 10) : 20
       );
-      
+
       return NextResponse.json({
         ok: true,
         data: conversation,
       });
     } else if (userEmail) {
-      // Get user's recent conversations
+      // Get user's recent conversations - filtered by clinic
       const conversations = await getUserConversations(
         userEmail,
+        clinicId,
         limit ? parseInt(limit, 10) : 10
       );
-      
+
       return NextResponse.json({
         ok: true,
         data: conversations,
@@ -129,8 +189,6 @@ export async function GET(request: NextRequest) {
       );
     }
   } catch (error: any) {
-    // @ts-ignore
-   
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[API] Error fetching conversation:', error);
     return NextResponse.json(
@@ -142,28 +200,42 @@ export async function GET(request: NextRequest) {
 
 /**
  * DELETE /api/ai/chat - End a conversation session
+ * SECURITY: Requires clinic context to prevent cross-tenant manipulation
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // SECURITY: Get clinic context from server-side auth
+    const user = getCurrentUser(request);
+    let clinicId = user?.clinicId;
+
+    if (!clinicId) {
+      clinicId = await getClinicIdFromRequest(request);
+    }
+
+    if (!clinicId) {
+      return NextResponse.json(
+        { error: 'Clinic context required' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
-    
+
     if (!sessionId) {
       return NextResponse.json(
         { error: 'sessionId is required' },
         { status: 400 }
       );
     }
-    
-    await endConversation(sessionId);
-    
+
+    await endConversation(sessionId, clinicId);
+
     return NextResponse.json({
       ok: true,
       message: 'Conversation ended',
     });
   } catch (error: any) {
-    // @ts-ignore
-   
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[API] Error ending conversation:', error);
     return NextResponse.json(

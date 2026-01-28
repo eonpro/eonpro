@@ -3,10 +3,28 @@ import { prisma } from '@/lib/db';
 import { queryPatientData, type PatientQueryInput } from './openaiService';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import {
+  detectQueryCategory,
+  requiresMedicalDisclaimer,
+  MEDICAL_DISCLAIMER,
+  type QueryCategory,
+} from './beccaKnowledgeBase';
 
 /**
  * Becca AI Assistant Service
- * Handles intelligent querying of patient data and conversation management
+ * Handles intelligent querying of patient data, clinical knowledge, and conversation management
+ *
+ * Query Categories:
+ * - patient_data: Queries about specific patients (requires database search)
+ * - medication_info: Questions about GLP-1 medications, mechanisms, etc.
+ * - dosing_protocol: Titration schedules, dose adjustments
+ * - side_effects: Adverse effects, tolerability issues
+ * - drug_interactions: Medication combinations, safety
+ * - sig_help: Prescription directions/instructions
+ * - soap_note_help: Documentation guidance, ICD-10 codes
+ * - clinical_decision: Eligibility, contraindications, when to hold/stop
+ * - platform_operations: System workflows, features
+ * - general: Other queries
  */
 
 // Input validation schemas
@@ -15,6 +33,12 @@ export const chatQuerySchema = z.object({
   sessionId: z.string().optional(),
   userEmail: z.string().email(),
   patientId: z.number().optional(),
+  // CRITICAL: clinicId is required for multi-tenant data isolation
+  // This prevents data leakage between clinics (e.g., EonMeds vs WellMedR)
+  clinicId: z.number({
+    required_error: 'Clinic ID is required for data isolation',
+    invalid_type_error: 'Clinic ID must be a number',
+  }),
 });
 
 export const conversationHistorySchema = z.object({
@@ -180,15 +204,28 @@ function tryDirectAnswer(
 
 /**
  * Search for patient information based on natural language query
+ * CRITICAL: All queries MUST be filtered by clinicId for multi-tenant isolation
+ * This prevents data leakage between clinics (HIPAA compliance requirement)
  */
-async function searchPatientData(query: string, patientId?: number): Promise<any> {
+async function searchPatientData(query: string, clinicId: number, patientId?: number): Promise<any> {
   const queryLower = query.toLowerCase();
-  
+
+  // SECURITY: Log all AI queries for audit trail
+  logger.info('[BeccaAI] Processing query with clinic isolation', {
+    clinicId,
+    patientId,
+    queryType: 'search',
+  });
+
   // Check for general platform statistics queries
-  if (queryLower.includes('how many patient') || queryLower.includes('total patient') || 
+  // SECURITY: Only count patients for the current clinic
+  if (queryLower.includes('how many patient') || queryLower.includes('total patient') ||
       queryLower.includes('number of patient') || queryLower.includes('patient count')) {
-    const totalPatients = await prisma.patient.count();
+    const totalPatients = await prisma.patient.count({
+      where: { clinicId }, // CRITICAL: Filter by clinic
+    });
     const recentPatients = await prisma.patient.findMany({
+      where: { clinicId }, // CRITICAL: Filter by clinic
       take: 5,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -205,7 +242,7 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
       },
     };
   }
-  
+
   // Extract potential patient name from query - more flexible pattern
   // Matches: "Italo Pignano", "for Italo Pignano", "about Jane Doe", etc.
   const namePatterns = [
@@ -215,7 +252,7 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
     /(?:find|show|get|what is|what's)\s+([A-Z][a-z]+)\s+([A-Z][a-z]+)/i,
     /(?:^|\s)([A-Z][a-z]+)\s+([A-Z][a-z]+)(?:\s|$)/i, // Last resort: any two capitalized words
   ];
-  
+
   let nameMatch = null;
   for (const pattern of namePatterns) {
     const match = query.match(pattern);
@@ -224,13 +261,16 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
       break;
     }
   }
-  
+
   let targetPatient = null;
-  
+
   if (patientId) {
-    // Use specified patient
-    targetPatient = await prisma.patient.findUnique({
-      where: { id: patientId },
+    // Use specified patient - MUST verify clinic ownership
+    targetPatient = await prisma.patient.findFirst({
+      where: {
+        id: patientId,
+        clinicId, // CRITICAL: Ensure patient belongs to this clinic
+      },
       include: {
         orders: {
           include: {
@@ -254,17 +294,25 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
         },
       },
     });
+
+    // If patient exists but belongs to different clinic, don't expose that info
+    if (!targetPatient) {
+      logger.warn('[BeccaAI] Patient access denied - clinic mismatch or not found', {
+        patientId,
+        clinicId,
+      });
+    }
   } else if (nameMatch) {
-    // Try to find patient by name - more flexible search
+    // Try to find patient by name - MUST filter by clinic
     const [, firstName, lastName] = nameMatch;
-    
-    // Try exact match first - using contains for case-insensitive matching in SQLite
-    targetPatient = await // @ts-ignore
-    prisma.patient.findFirst({
+
+    // Try exact match first - SECURITY: Always include clinicId filter
+    targetPatient = await prisma.patient.findFirst({
       where: {
+        clinicId, // CRITICAL: Filter by clinic
         AND: [
-          { firstName: { contains: firstName } },
-          { lastName: { contains: lastName } },
+          { firstName: { contains: firstName, mode: 'insensitive' } },
+          { lastName: { contains: lastName, mode: 'insensitive' } },
         ],
       },
       include: {
@@ -290,23 +338,23 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
         },
       },
     });
-    
-    // If no exact match, try partial match (SQLite is case-insensitive by default for LIKE queries)
+
+    // If no exact match, try partial match - SECURITY: Always include clinicId filter
     if (!targetPatient) {
-      targetPatient = await // @ts-ignore
-    prisma.patient.findFirst({
+      targetPatient = await prisma.patient.findFirst({
         where: {
+          clinicId, // CRITICAL: Filter by clinic
           OR: [
             {
               AND: [
-                { firstName: { contains: firstName } },
-                { lastName: { contains: lastName } },
+                { firstName: { contains: firstName, mode: 'insensitive' } },
+                { lastName: { contains: lastName, mode: 'insensitive' } },
               ],
             },
             {
               AND: [
-                { firstName: { startsWith: firstName } },
-                { lastName: { startsWith: lastName } },
+                { firstName: { startsWith: firstName, mode: 'insensitive' } },
+                { lastName: { startsWith: lastName, mode: 'insensitive' } },
               ],
             },
           ],
@@ -336,7 +384,7 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
       });
     }
   }
-  
+
   // If we found a specific patient by name, return their data
   if (targetPatient) {
     // Parse DOB if it's in MM/DD/YYYY format
@@ -356,11 +404,11 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
         }
       } catch (e: any) {
     // @ts-ignore
-   
+
         // If parsing fails, just use the original string
       }
     }
-    
+
     return {
       type: 'patient_found',
       patient: targetPatient,
@@ -377,19 +425,21 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
       },
     };
   }
-  
+
   // If no specific patient found but searching by name
+  // SECURITY: Only search within the current clinic
   if (nameMatch && !targetPatient) {
     const [, firstName, lastName] = nameMatch;
-    
-    // Try to find similar patients (SQLite is case-insensitive by default for LIKE queries)
+
+    // Try to find similar patients - SECURITY: Filter by clinic
     const similarPatients = await prisma.patient.findMany({
       where: {
+        clinicId, // CRITICAL: Filter by clinic
         OR: [
-          { firstName: { contains: firstName } },
-          { lastName: { contains: lastName } },
-          { firstName: { contains: lastName } },
-          { lastName: { contains: firstName } },
+          { firstName: { contains: firstName, mode: 'insensitive' } },
+          { lastName: { contains: lastName, mode: 'insensitive' } },
+          { firstName: { contains: lastName, mode: 'insensitive' } },
+          { lastName: { contains: firstName, mode: 'insensitive' } },
         ],
       },
       select: {
@@ -401,80 +451,103 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
       },
       take: 5,
     });
-    
+
     return {
       type: 'patient_not_found',
       searchedName: `${firstName} ${lastName}`,
-      similarPatients: similarPatients.length > 0  ? similarPatients  : undefined,
-      message: `No patient found with the exact name "${firstName} ${lastName}"`,
+      similarPatients: similarPatients.length > 0 ? similarPatients : undefined,
+      message: `No patient found with the exact name "${firstName} ${lastName}" in your clinic`,
     };
   }
-  
-  // Search by other criteria
+
+  // Search by other criteria - SECURITY: All queries filtered by clinic
   if (queryLower.includes('tracking')) {
-    // Search for recent orders with tracking
+    // Search for recent orders with tracking - FILTER BY CLINIC
     const recentOrders = await prisma.order.findMany({
       where: {
         trackingNumber: { not: null },
+        patient: { clinicId }, // CRITICAL: Filter by clinic through patient relation
       },
       include: {
-        patient: true,
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            clinicId: true,
+          },
+        },
         rxs: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 5,
     });
-    
+
     return {
       type: 'tracking_search',
       results: recentOrders,
     };
   }
-  
+
   if (queryLower.includes('prescription') || queryLower.includes('medication')) {
-    // Search for recent prescriptions
+    // Search for recent prescriptions - FILTER BY CLINIC
     const recentRx = await prisma.rx.findMany({
+      where: {
+        order: {
+          patient: { clinicId }, // CRITICAL: Filter by clinic through relations
+        },
+      },
       include: {
         order: {
           include: {
-            patient: true,
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                clinicId: true,
+              },
+            },
           },
         },
       },
       orderBy: { id: 'desc' },
       take: 10,
     });
-    
+
     return {
       type: 'prescription_search',
       results: recentRx,
     };
   }
-  
-  // Check for recent activity queries
+
+  // Check for recent activity queries - SECURITY: All counts filtered by clinic
   if (queryLower.includes('recent') || queryLower.includes('today') || queryLower.includes('pending')) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const [todayPatients, pendingOrders, recentIntakes] = await Promise.all([
       prisma.patient.count({
         where: {
+          clinicId, // CRITICAL: Filter by clinic
           createdAt: { gte: today },
         },
       }),
       prisma.order.count({
         where: {
           status: 'PENDING',
+          patient: { clinicId }, // CRITICAL: Filter by clinic
         },
       }),
       prisma.patientDocument.count({
         where: {
+          clinicId, // CRITICAL: Filter by clinic
           createdAt: { gte: today },
           category: 'MEDICAL_INTAKE_FORM',
         },
       }),
     ]);
-    
+
     return {
       type: 'activity_summary',
       todayPatients,
@@ -482,14 +555,26 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
       recentIntakes,
     };
   }
-  
-  // Default: return general platform statistics
+
+  // Default: return clinic-specific statistics
+  // SECURITY: All counts filtered by clinic
   const [totalPatients, totalOrders, totalProviders] = await Promise.all([
-    prisma.patient.count(),
-    prisma.order.count(),
-    prisma.provider.count(),
+    prisma.patient.count({
+      where: { clinicId }, // CRITICAL: Filter by clinic
+    }),
+    prisma.order.count({
+      where: { patient: { clinicId } }, // CRITICAL: Filter by clinic
+    }),
+    prisma.provider.count({
+      where: {
+        OR: [
+          { clinicId }, // Direct clinic assignment
+          { providerClinics: { some: { clinicId } } }, // Multi-clinic providers
+        ],
+      },
+    }),
   ]);
-  
+
   return {
     type: 'general_info',
     statistics: {
@@ -502,10 +587,13 @@ async function searchPatientData(query: string, patientId?: number): Promise<any
 
 /**
  * Process a chat query and return an intelligent response
+ * CRITICAL: clinicId is REQUIRED for multi-tenant data isolation
+ * This ensures a provider can only access data for their own clinic
  */
 export async function processAssistantQuery(
   query: string,
   userEmail: string,
+  clinicId: number,
   sessionId?: string,
   patientId?: number
 ): Promise<{
@@ -514,12 +602,23 @@ export async function processAssistantQuery(
   messageId: number;
   citations?: string[];
 }> {
-  // Create or get conversation
+  // SECURITY: Log all AI queries with clinic context for audit trail
+  logger.info('[BeccaAI] Processing assistant query', {
+    userEmail,
+    clinicId,
+    patientId,
+    hasSession: !!sessionId,
+  });
+  // Create or get conversation - SECURITY: Filter by clinicId
   let conversation;
-  
+
   if (sessionId) {
+    // CRITICAL: Only retrieve conversations for the user's clinic
     conversation = await prisma.aIConversation.findFirst({
-      where: { sessionId },
+      where: {
+        sessionId,
+        clinicId, // SECURITY: Ensure conversation belongs to this clinic
+      },
       include: {
         messages: {
           orderBy: { createdAt: 'desc' },
@@ -528,14 +627,15 @@ export async function processAssistantQuery(
       },
     });
   }
-  
+
   if (!conversation) {
-    // Create new conversation
+    // Create new conversation with clinic context for audit
     const newSessionId = sessionId || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     conversation = await prisma.aIConversation.create({
       data: {
         sessionId: newSessionId,
         userEmail,
+        clinicId, // CRITICAL: Store clinic for multi-tenant isolation
         patientId,
         isActive: true,
       },
@@ -544,7 +644,7 @@ export async function processAssistantQuery(
       },
     });
   }
-  
+
   // Store user message
   const userMessage = await prisma.aIMessage.create({
     data: {
@@ -553,40 +653,77 @@ export async function processAssistantQuery(
       content: query,
     },
   });
-  
+
   try {
-    // Search for relevant patient data
-    const patientContext = await searchPatientData(query, patientId || conversation.patientId || undefined);
+    // Detect query category to determine if we need patient data
+    const queryCategory = detectQueryCategory(query);
+    logger.debug('[BeccaAI] Query category detected', { queryCategory, query: query.substring(0, 50) });
 
-    // Check if this is a simple demographic query that can be answered directly
-    // This avoids sending PHI to OpenAI and provides faster, more accurate responses
-    const directAnswer = tryDirectAnswer(query, patientContext);
-    if (directAnswer) {
-      const startTime = Date.now();
-      const responseTime = Date.now() - startTime;
+    // Knowledge-based queries that don't require patient data lookup
+    const knowledgeOnlyCategories: QueryCategory[] = [
+      'medication_info',
+      'dosing_protocol',
+      'side_effects',
+      'drug_interactions',
+      'sig_help',
+      'soap_note_help',
+      'clinical_decision',
+      'platform_operations',
+    ];
 
-      // Store assistant response
-      const assistantMessage = await prisma.aIMessage.create({
-        data: {
-          conversationId: conversation.id,
-          role: 'assistant',
-          content: directAnswer.answer,
-          queryType: directAnswer.queryType,
-          confidence: 1.0, // Direct answers are always accurate
-          responseTimeMs: responseTime,
-        },
-      });
+    let patientContext: any = null;
 
-      await prisma.aIConversation.update({
-        where: { id: conversation.id },
-        data: { lastMessageAt: new Date() },
-      });
+    // Only search patient data if:
+    // 1. Query is about patient data, OR
+    // 2. A specific patientId was provided (user is on a patient's profile), OR
+    // 3. Query is general but might need clinic statistics
+    if (
+      queryCategory === 'patient_data' ||
+      queryCategory === 'general' ||
+      patientId ||
+      conversation.patientId
+    ) {
+      // Search for relevant patient data - CRITICAL: Pass clinicId for isolation
+      patientContext = await searchPatientData(query, clinicId, patientId || conversation.patientId || undefined);
 
-      return {
-        answer: directAnswer.answer,
-        sessionId: conversation.sessionId,
-        messageId: assistantMessage.id,
+      // Check if this is a simple demographic query that can be answered directly
+      // This avoids sending PHI to OpenAI and provides faster, more accurate responses
+      const directAnswer = tryDirectAnswer(query, patientContext);
+      if (directAnswer) {
+        const startTime = Date.now();
+        const responseTime = Date.now() - startTime;
+
+        // Store assistant response
+        const assistantMessage = await prisma.aIMessage.create({
+          data: {
+            conversationId: conversation.id,
+            role: 'assistant',
+            content: directAnswer.answer,
+            queryType: directAnswer.queryType,
+            confidence: 1.0, // Direct answers are always accurate
+            responseTimeMs: responseTime,
+          },
+        });
+
+        await prisma.aIConversation.update({
+          where: { id: conversation.id },
+          data: { lastMessageAt: new Date() },
+        });
+
+        return {
+          answer: directAnswer.answer,
+          sessionId: conversation.sessionId,
+          messageId: assistantMessage.id,
+        };
+      }
+    } else {
+      // For knowledge-only queries, provide minimal context
+      patientContext = {
+        type: 'knowledge_query',
+        category: queryCategory,
+        message: 'This is a clinical/operational knowledge question. No patient data search was performed.',
       };
+      logger.debug('[BeccaAI] Skipping patient data search for knowledge query', { queryCategory });
     }
 
     // Prepare conversation history for AI
@@ -606,54 +743,51 @@ export async function processAssistantQuery(
       conversationHistory,
     });
     const responseTime = Date.now() - startTime;
-    
-    // Determine query type
-    let queryType = 'general';
-    const queryLower = query.toLowerCase();
-    if (queryLower.includes('tracking') || queryLower.includes('ship')) {
-      queryType = 'tracking_info';
-    } else if (queryLower.includes('prescription') || queryLower.includes('medication')) {
-      queryType = 'prescription_info';
-    } else if (queryLower.includes('birth') || queryLower.includes('dob') || queryLower.includes('age')) {
-      queryType = 'demographics';
-    } else if (queryLower.includes('soap') || queryLower.includes('note')) {
-      queryType = 'clinical_notes';
-    } else if (queryLower.includes('invoice') || queryLower.includes('payment') || queryLower.includes('bill')) {
-      queryType = 'billing';
+
+    // Use detected query category for storage
+    const queryType = queryCategory;
+
+    // Add medical disclaimer for clinical/medical queries
+    let finalAnswer = aiResponse.answer;
+    if (requiresMedicalDisclaimer(queryCategory)) {
+      // Only add disclaimer if it's not already present in the response
+      if (!finalAnswer.includes('not medical advice')) {
+        finalAnswer = `${finalAnswer}${MEDICAL_DISCLAIMER}`;
+      }
     }
-    
+
     // Store assistant response
     const assistantMessage = await prisma.aIMessage.create({
       data: {
         conversationId: conversation.id,
         role: 'assistant',
-        content: aiResponse.answer,
+        content: finalAnswer,
         queryType,
         confidence: aiResponse.confidence,
-        citations: aiResponse.citations  ? JSON.parse(JSON.stringify(aiResponse.citations))  : undefined,
+        citations: aiResponse.citations ? JSON.parse(JSON.stringify(aiResponse.citations)) : undefined,
         promptTokens: aiResponse.usage?.promptTokens,
         completionTokens: aiResponse.usage?.completionTokens,
         estimatedCost: aiResponse.usage?.estimatedCost,
         responseTimeMs: responseTime,
       },
     });
-    
+
     // Update conversation last message time
     await prisma.aIConversation.update({
       where: { id: conversation.id },
       data: { lastMessageAt: new Date() },
     });
-    
+
     return {
-      answer: aiResponse.answer,
+      answer: finalAnswer,
       sessionId: conversation.sessionId,
       messageId: assistantMessage.id,
       citations: aiResponse.citations,
     };
-    
+
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
+
     logger.error('[Assistant] Error processing query:', {
       error: errorMessage,
       query,
@@ -662,7 +796,7 @@ export async function processAssistantQuery(
       status: error.status,
       code: error.code,
     });
-    
+
     // Store error message
     try {
       await prisma.aIMessage.create({
@@ -683,13 +817,18 @@ export async function processAssistantQuery(
 
 /**
  * Get conversation history
+ * SECURITY: Filtered by clinicId for multi-tenant isolation
  */
 export async function getConversationHistory(
   sessionId: string,
+  clinicId: number,
   limit = 20
 ): Promise<any> {
   const conversation: any = await prisma.aIConversation.findFirst({
-    where: { sessionId },
+    where: {
+      sessionId,
+      clinicId, // CRITICAL: Filter by clinic
+    },
     include: {
       messages: {
         orderBy: { createdAt: 'asc' },
@@ -698,23 +837,28 @@ export async function getConversationHistory(
       patient: true,
     },
   });
-  
+
   if (!conversation) {
     throw new Error('Conversation not found');
   }
-  
+
   return conversation;
 }
 
 /**
  * Get user's recent conversations
+ * SECURITY: Filtered by clinicId for multi-tenant isolation
  */
 export async function getUserConversations(
   userEmail: string,
+  clinicId: number,
   limit = 10
 ): Promise<any[]> {
   const conversations = await prisma.aIConversation.findMany({
-    where: { userEmail },
+    where: {
+      userEmail,
+      clinicId, // CRITICAL: Filter by clinic
+    },
     include: {
       messages: {
         orderBy: { createdAt: 'desc' },
@@ -731,16 +875,20 @@ export async function getUserConversations(
     orderBy: { lastMessageAt: 'desc' },
     take: limit,
   });
-  
+
   return conversations;
 }
 
 /**
  * End a conversation session
+ * SECURITY: Filtered by clinicId to prevent cross-tenant manipulation
  */
-export async function endConversation(sessionId: string): Promise<void> {
+export async function endConversation(sessionId: string, clinicId: number): Promise<void> {
   await prisma.aIConversation.updateMany({
-    where: { sessionId },
+    where: {
+      sessionId,
+      clinicId, // CRITICAL: Only end conversations for this clinic
+    },
     data: { isActive: false },
   });
 }
@@ -760,13 +908,13 @@ export async function getAssistantUsageStats(
   const where: any = {
     role: 'assistant',
   };
-  
+
   if (startDate || endDate) {
     where.createdAt = {};
     if (startDate) where.createdAt.gte = startDate;
     if (endDate) where.createdAt.lte = endDate;
   }
-  
+
   const messages = await prisma.aIMessage.findMany({
     where,
     select: {
@@ -775,17 +923,17 @@ export async function getAssistantUsageStats(
       queryType: true,
     },
   });
-  
+
   const stats = {
     totalMessages: messages.length,
     totalCost: 0,
     averageResponseTime: 0,
     queryTypes: {} as Record<string, number>,
   };
-  
+
   let totalResponseTime = 0;
   let responseCount = 0;
-  
+
   messages.forEach((msg: any) => {
     if (msg.estimatedCost) stats.totalCost += msg.estimatedCost;
     if (msg.responseTimeMs) {
@@ -796,10 +944,10 @@ export async function getAssistantUsageStats(
       stats.queryTypes[msg.queryType] = (stats.queryTypes[msg.queryType] || 0) + 1;
     }
   });
-  
+
   if (responseCount > 0) {
     stats.averageResponseTime = Math.round(totalResponseTime / responseCount);
   }
-  
+
   return stats;
 }
