@@ -211,7 +211,7 @@ export const GET = withAuthParams(async (
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // Format medications from rxs array
-    const lastMedications = lastOrder?.rxs?.map(rx => ({
+    const lastMedications = lastOrder?.rxs?.map((rx: { medName: string; strength: string; form: string; quantity: string }) => ({
       name: rx.medName,
       strength: rx.strength,
       form: rx.form,
