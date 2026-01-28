@@ -74,16 +74,9 @@ export async function ensureSoapNoteExists(
       };
     }
 
-    // Step 2: Get patient info and check for intake documents
+    // Step 2: Get patient info
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
-      include: {
-        documents: {
-          where: { category: 'MEDICAL_INTAKE_FORM' },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
     });
 
     if (!patient) {
@@ -96,6 +89,22 @@ export async function ensureSoapNoteExists(
         error: 'Patient not found',
       };
     }
+
+    // Step 2b: Query documents separately to avoid any filtering issues
+    const documents = await prisma.patientDocument.findMany({
+      where: { 
+        patientId,
+        category: 'MEDICAL_INTAKE_FORM',
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+
+    logger.debug('[SOAP-AUTOMATION] Document query result', {
+      ...logContext,
+      documentsFound: documents.length,
+      patientClinicId: patient.clinicId,
+    });
 
     // Skip test/demo patients
     const isTestPatient = 
@@ -120,8 +129,8 @@ export async function ensureSoapNoteExists(
     }
 
     // Step 3: Try to generate from intake document
-    if (patient.documents && patient.documents.length > 0) {
-      const intakeDoc = patient.documents[0];
+    if (documents && documents.length > 0) {
+      const intakeDoc = documents[0];
       
       logger.info('[SOAP-AUTOMATION] Generating SOAP note from intake document', {
         ...logContext,
@@ -152,45 +161,63 @@ export async function ensureSoapNoteExists(
     }
 
     // Step 4: Try to generate from invoice metadata (Heyflow patients)
+    // Look up invoice by ID or by patient's latest paid invoice
+    let invoice = null;
     if (invoiceId) {
-      const invoice = await prisma.invoice.findUnique({
+      invoice = await prisma.invoice.findUnique({
         where: { id: invoiceId },
       });
+    } else {
+      // Try to find latest paid invoice for this patient
+      invoice = await prisma.invoice.findFirst({
+        where: { 
+          patientId,
+          status: 'PAID',
+        },
+        orderBy: { paidAt: 'desc' },
+      });
+    }
 
-      if (invoice?.metadata && typeof invoice.metadata === 'object') {
-        const metadata = invoice.metadata as Record<string, unknown>;
-        
-        // Check if metadata has sufficient intake data
-        const hasIntakeData = metadata.weight || metadata.height || 
-                             metadata.currentMedications || metadata.allergies ||
-                             metadata.medicalConditions || metadata.goals;
+    if (invoice?.metadata && typeof invoice.metadata === 'object') {
+      const metadata = invoice.metadata as Record<string, unknown>;
+      
+      // Check if metadata has sufficient intake data
+      const hasIntakeData = metadata.weight || metadata.height || 
+                           metadata.currentMedications || metadata.allergies ||
+                           metadata.medicalConditions || metadata.goals;
 
-        if (hasIntakeData) {
-          logger.info('[SOAP-AUTOMATION] Generating SOAP note from invoice metadata', {
+      logger.debug('[SOAP-AUTOMATION] Invoice metadata check', {
+        ...logContext,
+        invoiceId: invoice.id,
+        hasIntakeData,
+        metadataKeys: Object.keys(metadata).slice(0, 15).join(', '),
+      });
+
+      if (hasIntakeData) {
+        logger.info('[SOAP-AUTOMATION] Generating SOAP note from invoice metadata', {
+          ...logContext,
+          hasFields: Object.keys(metadata).slice(0, 10).join(', '),
+        });
+
+        try {
+          const soapNote = await generateSoapFromInvoiceMetadata(patient, metadata);
+          
+          logger.info('[SOAP-AUTOMATION] ✓ SOAP note generated from invoice metadata', {
             ...logContext,
-            hasFields: Object.keys(metadata).slice(0, 10).join(', '),
+            soapNoteId: soapNote.id,
           });
 
-          try {
-            const soapNote = await generateSoapFromInvoiceMetadata(patient, metadata);
-            
-            logger.info('[SOAP-AUTOMATION] ✓ SOAP note generated from invoice metadata', {
-              ...logContext,
-              soapNoteId: soapNote.id,
-            });
-
-            return {
-              success: true,
-              soapNoteId: soapNote.id,
-              soapNoteStatus: soapNote.status,
-              action: 'generated',
-            };
-          } catch (metaError: any) {
-            logger.error('[SOAP-AUTOMATION] Failed to generate from invoice metadata', {
-              ...logContext,
-              error: metaError.message,
-            });
-          }
+          return {
+            success: true,
+            soapNoteId: soapNote.id,
+            soapNoteStatus: soapNote.status,
+            action: 'generated',
+          };
+        } catch (metaError: any) {
+          logger.error('[SOAP-AUTOMATION] Failed to generate from invoice metadata', {
+            ...logContext,
+            error: metaError.message,
+          });
         }
       }
     }
