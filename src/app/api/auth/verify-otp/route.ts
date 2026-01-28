@@ -180,7 +180,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     }
     
     // Generate JWT token
-    const tokenPayload = isPatientLogin && patient
+    const tokenPayload: any = isPatientLogin && patient
       ? {
           id: patient.id,
           email: patient.email,
@@ -198,6 +198,32 @@ export async function POST(req: NextRequest): Promise<Response> {
           role: user!.role?.toLowerCase(),
           clinicId: user!.clinicId,
         };
+    
+    // For provider users, add providerId to token
+    if (!isPatientLogin && user && user.role?.toLowerCase() === 'provider') {
+      // Check if user has providerId or linked provider
+      if ('providerId' in user && user.providerId) {
+        tokenPayload.providerId = user.providerId;
+      } else if ('provider' in user && user.provider) {
+        tokenPayload.providerId = (user.provider as any).id;
+      } else {
+        // FALLBACK: Look up provider by email
+        try {
+          const providerByEmail = await prisma.provider.findFirst({
+            where: { email: user.email.toLowerCase() },
+            select: { id: true, clinicId: true },
+          });
+          if (providerByEmail) {
+            tokenPayload.providerId = providerByEmail.id;
+            if (!tokenPayload.clinicId && providerByEmail.clinicId) {
+              tokenPayload.clinicId = providerByEmail.clinicId;
+            }
+          }
+        } catch {
+          // Ignore fallback errors
+        }
+      }
+    }
     
     const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: 'HS256' })

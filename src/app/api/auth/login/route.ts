@@ -275,6 +275,29 @@ async function loginHandler(req: NextRequest) {
       tokenPayload.providerId = user.providerId;
     } else if ('provider' in user && user.provider) {
       tokenPayload.providerId = user.provider.id;
+    } else if (userRole === 'provider') {
+      // FALLBACK: Look up provider by email if not already linked
+      // This handles cases where the User record exists but providerId wasn't set
+      try {
+        const providerByEmail = await prisma.provider.findFirst({
+          where: { email: user.email.toLowerCase() },
+          select: { id: true, clinicId: true },
+        });
+        if (providerByEmail) {
+          tokenPayload.providerId = providerByEmail.id;
+          // Also set clinicId if not already set
+          if (!tokenPayload.clinicId && providerByEmail.clinicId) {
+            tokenPayload.clinicId = providerByEmail.clinicId;
+          }
+          logger.info('[Login] Found provider by email fallback', {
+            userId: user.id,
+            providerId: providerByEmail.id,
+            email: user.email,
+          });
+        }
+      } catch {
+        // Ignore errors in fallback lookup
+      }
     }
 
     // Add permissions and features if available
