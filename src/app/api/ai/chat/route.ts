@@ -29,10 +29,11 @@ export async function POST(request: NextRequest) {
 
     // SECURITY: Get clinic from server-side context
     // Priority: 1. User's assigned clinic, 2. Header/cookie clinic
-    let clinicId = user?.clinicId;
+    let clinicId: number | undefined = user?.clinicId;
 
     if (!clinicId) {
-      clinicId = await getClinicIdFromRequest(request);
+      const requestClinicId = await getClinicIdFromRequest(request);
+      clinicId = requestClinicId ?? undefined;
     }
 
     // SECURITY: Require clinicId for multi-tenant isolation
@@ -140,10 +141,11 @@ export async function GET(request: NextRequest) {
   try {
     // SECURITY: Get clinic context from server-side auth
     const user = getCurrentUser(request);
-    let clinicId = user?.clinicId;
+    let clinicId: number | undefined = user?.clinicId;
 
     if (!clinicId) {
-      clinicId = await getClinicIdFromRequest(request);
+      const requestClinicId = await getClinicIdFromRequest(request);
+      clinicId = requestClinicId ?? undefined;
     }
 
     if (!clinicId) {
@@ -206,10 +208,11 @@ export async function DELETE(request: NextRequest) {
   try {
     // SECURITY: Get clinic context from server-side auth
     const user = getCurrentUser(request);
-    let clinicId = user?.clinicId;
+    let clinicId: number | undefined = user?.clinicId;
 
     if (!clinicId) {
-      clinicId = await getClinicIdFromRequest(request);
+      const requestClinicId = await getClinicIdFromRequest(request);
+      clinicId = requestClinicId ?? undefined;
     }
 
     if (!clinicId) {
