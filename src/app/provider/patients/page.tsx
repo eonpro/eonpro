@@ -49,7 +49,8 @@ export default function ProviderPatientsPage() {
   const fetchPatients = async () => {
     try {
       const token = localStorage.getItem("auth-token") || localStorage.getItem("provider-token");
-      const response = await fetch("/api/patients", {
+      // Include contact info (email, phone, DOB) for display
+      const response = await fetch("/api/patients?includeContact=true", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -57,7 +58,19 @@ export default function ProviderPatientsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setPatients(data.patients || []);
+        // Map API response to component interface
+        const mapped = (data.patients || []).map((p: any) => ({
+          id: p.id,
+          firstName: p.firstName || '',
+          lastName: p.lastName || '',
+          email: p.email || '',
+          phone: p.phone || '',
+          dateOfBirth: p.dateOfBirth || '',
+          gender: p.gender || '',
+          status: p.status || 'active', // Default to active if no status
+          createdAt: p.createdAt || '',
+        }));
+        setPatients(mapped);
       }
     } catch (err) {
       console.error("Error fetching patients:", err);
@@ -271,12 +284,18 @@ export default function ProviderPatientsPage() {
                         <div className="text-sm text-gray-500">ID: {patient.id}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="text-sm">{patient.email}</div>
-                        <div className="text-sm text-gray-500">{patient.phone}</div>
+                        <div className="text-sm">{patient.email || <span className="text-gray-400">No email</span>}</div>
+                        <div className="text-sm text-gray-500">{patient.phone || <span className="text-gray-400">No phone</span>}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <div>{calculateAge(patient.dateOfBirth)} years</div>
-                        <div className="text-sm text-gray-500 capitalize">{patient.gender}</div>
+                        <div>
+                          {calculateAge(patient.dateOfBirth) !== "-" 
+                            ? `${calculateAge(patient.dateOfBirth)} years` 
+                            : "N/A"}
+                        </div>
+                        <div className="text-sm text-gray-500 capitalize">
+                          {patient.gender ? patient.gender.charAt(0).toUpperCase() : "-"}
+                        </div>
                       </td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(patient.status)}`}>
