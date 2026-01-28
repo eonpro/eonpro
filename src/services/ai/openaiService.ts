@@ -37,7 +37,10 @@ function useMaxCompletionTokens(model: string): boolean {
 /**
  * Get the correct token limit parameter for the model
  */
-function getTokenLimitParam(model: string, maxTokens: number): { max_tokens?: number; max_completion_tokens?: number } {
+function getTokenLimitParam(
+  model: string,
+  maxTokens: number
+): { max_tokens?: number; max_completion_tokens?: number } {
   if (useMaxCompletionTokens(model)) {
     return { max_completion_tokens: maxTokens };
   }
@@ -49,20 +52,40 @@ function getTokenLimitParam(model: string, maxTokens: number): { max_tokens?: nu
  */
 function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
-    const env = envSchema.parse({
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-      OPENAI_ORG_ID: process.env.OPENAI_ORG_ID,
-      OPENAI_MODEL: process.env.OPENAI_MODEL,
-      OPENAI_TEMPERATURE: process.env.OPENAI_TEMPERATURE,
-      OPENAI_MAX_TOKENS: process.env.OPENAI_MAX_TOKENS,
-    });
+    // Check for API key before parsing to give better error message
+    if (!process.env.OPENAI_API_KEY) {
+      logger.error('[OpenAI] CRITICAL: OPENAI_API_KEY environment variable is not set');
+      throw new Error(
+        'OpenAI API key is not configured. Please add OPENAI_API_KEY to environment variables.'
+      );
+    }
 
-    openaiClient = new OpenAI({
-      apiKey: env.OPENAI_API_KEY,
-      organization: env.OPENAI_ORG_ID,
-      maxRetries: 3,
-      timeout: 60000, // 60 seconds
-    });
+    try {
+      const env = envSchema.parse({
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+        OPENAI_ORG_ID: process.env.OPENAI_ORG_ID,
+        OPENAI_MODEL: process.env.OPENAI_MODEL,
+        OPENAI_TEMPERATURE: process.env.OPENAI_TEMPERATURE,
+        OPENAI_MAX_TOKENS: process.env.OPENAI_MAX_TOKENS,
+      });
+
+      logger.info('[OpenAI] Initializing client', {
+        model: env.OPENAI_MODEL,
+        hasOrgId: !!env.OPENAI_ORG_ID,
+        temperature: env.OPENAI_TEMPERATURE,
+        maxTokens: env.OPENAI_MAX_TOKENS,
+      });
+
+      openaiClient = new OpenAI({
+        apiKey: env.OPENAI_API_KEY,
+        organization: env.OPENAI_ORG_ID,
+        maxRetries: 3,
+        timeout: 60000, // 60 seconds
+      });
+    } catch (error: any) {
+      logger.error('[OpenAI] Failed to initialize client', { error: error.message });
+      throw new Error(`OpenAI configuration error: ${error.message}`);
+    }
   }
   return openaiClient;
 }
@@ -125,8 +148,10 @@ async function withRetry<T>(
 
       // Exponential backoff: 1s, 2s, 4s
       const delay = baseDelayMs * Math.pow(2, attempt);
-      logger.warn(`[OpenAI] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      logger.warn(
+        `[OpenAI] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 
@@ -179,7 +204,7 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
     intakeData: anonymizeObject(input.intakeData),
     patientName: anonymizeName('Patient', String(Date.now())), // Use generic name
     dateOfBirth: input.dateOfBirth ? '01/01/1970' : undefined, // Use placeholder DOB
-    chiefComplaint: input.chiefComplaint // Chief complaint is generally not PHI
+    chiefComplaint: input.chiefComplaint, // Chief complaint is generally not PHI
   };
 
   // Log the anonymization for audit
@@ -191,7 +216,7 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
 
   logger.info('Generating SOAP note with anonymized data', {
     originalPatient: input.patientName,
-    anonymizedPatient: anonymizedInput.patientName
+    anonymizedPatient: anonymizedInput.patientName,
   });
 
   const client = getOpenAIClient();
@@ -360,18 +385,22 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
 
     // Use retry wrapper for resilience against rate limits
     // 4 retries with exponential backoff: 3s, 6s, 12s, 24s (total ~45s max wait)
-    const completion = await withRetry(async () => {
-      return client.chat.completions.create({
-        model: env.OPENAI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: env.OPENAI_TEMPERATURE,
-        ...getTokenLimitParam(env.OPENAI_MODEL, env.OPENAI_MAX_TOKENS),
-        response_format: { type: 'json_object' },
-      });
-    }, 4, 3000); // 4 retries, starting at 3 second delay
+    const completion = await withRetry(
+      async () => {
+        return client.chat.completions.create({
+          model: env.OPENAI_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: env.OPENAI_TEMPERATURE,
+          ...getTokenLimitParam(env.OPENAI_MODEL, env.OPENAI_MAX_TOKENS),
+          response_format: { type: 'json_object' },
+        });
+      },
+      4,
+      3000
+    ); // 4 retries, starting at 3 second delay
 
     const usage = completion.usage;
     const usageMetrics: UsageMetrics = {
@@ -386,7 +415,9 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
     const content = completion.choices[0].message.content || '{}';
     const parsed = JSON.parse(content);
 
-    logger.debug('[OpenAI] SOAP note generated successfully. Tokens used:', { value: usageMetrics.totalTokens });
+    logger.debug('[OpenAI] SOAP note generated successfully. Tokens used:', {
+      value: usageMetrics.totalTokens,
+    });
 
     // Helper function to ensure fields are strings
     const ensureString = (field: unknown): string => {
@@ -396,7 +427,7 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
         return Object.entries(field)
           .map(([key, value]) => {
             // Convert camelCase to Title Case
-            const title = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            const title = key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
             return `${title}: ${value}`;
           })
           .join('\n');
@@ -418,7 +449,10 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
     };
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('[OpenAI] Error generating SOAP note:', { error: errorMessage, status: error.status });
+    logger.error('[OpenAI] Error generating SOAP note:', {
+      error: errorMessage,
+      status: error.status,
+    });
 
     // Handle specific OpenAI error codes
     if (error.status === 429) {
@@ -428,7 +462,9 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
       throw new Error('Invalid OpenAI API key. Please contact support.');
     }
     if (error.status === 500 || error.status === 502 || error.status === 503) {
-      throw new Error('OpenAI service is temporarily unavailable. Please try again in a few minutes.');
+      throw new Error(
+        'OpenAI service is temporarily unavailable. Please try again in a few minutes.'
+      );
     }
     if (error.code === 'insufficient_quota') {
       throw new Error('OpenAI quota exceeded. Please contact support to upgrade the plan.');
@@ -613,7 +649,9 @@ Please provide a clear, accurate answer based on the available information. If a
 
     const answer = completion.choices[0].message.content || 'Unable to process query';
 
-    logger.debug('[OpenAI] Query processed successfully. Tokens used:', { value: usageMetrics.totalTokens });
+    logger.debug('[OpenAI] Query processed successfully. Tokens used:', {
+      value: usageMetrics.totalTokens,
+    });
 
     return {
       answer,

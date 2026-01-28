@@ -170,32 +170,46 @@ export async function ensureSoapNoteExists(
           action: 'generated',
         };
       } catch (genError: any) {
+        const errorMsg = genError.message || 'Unknown error';
         logger.error('[SOAP-AUTOMATION] Failed to generate from intake', {
           ...logContext,
-          error: genError.message,
+          error: errorMsg,
           status: genError.status,
           code: genError.code,
+          stack: genError.stack?.split('\n').slice(0, 3).join(' | '),
         });
 
-        // If this is an API error (not a data issue), return the error
-        // instead of silently continuing
-        const isApiError =
-          genError.status === 429 || // Rate limit
-          genError.status === 401 || // Auth error
-          genError.status === 500 || // Server error
-          genError.code === 'insufficient_quota' ||
-          genError.message?.includes('OpenAI');
+        // Check if this is a data parsing issue (which we can try to recover from)
+        // vs an API/config error (which we should fail fast on)
+        const isDataParsingIssue =
+          errorMsg.includes('No intake document') ||
+          errorMsg.includes('parse') ||
+          errorMsg.includes('JSON') ||
+          errorMsg.includes('undefined') ||
+          errorMsg.includes('null');
 
-        if (isApiError) {
+        // If NOT a data parsing issue, it's likely an API/config problem - fail immediately
+        if (!isDataParsingIssue) {
+          logger.error(
+            '[SOAP-AUTOMATION] API/config error detected, not continuing to other data sources',
+            {
+              ...logContext,
+              error: errorMsg,
+            }
+          );
           return {
             success: false,
             soapNoteId: null,
             soapNoteStatus: null,
             action: 'failed',
-            error: genError.message || 'API error during SOAP generation',
+            error: errorMsg,
           };
         }
         // Continue to try invoice metadata only if it was a data parsing issue
+        logger.warn('[SOAP-AUTOMATION] Data parsing issue, trying other data sources', {
+          ...logContext,
+          error: errorMsg,
+        });
       }
     }
 
@@ -257,10 +271,29 @@ export async function ensureSoapNoteExists(
             action: 'generated',
           };
         } catch (metaError: any) {
+          const errorMsg = metaError.message || 'Unknown error';
           logger.error('[SOAP-AUTOMATION] Failed to generate from invoice metadata', {
             ...logContext,
-            error: metaError.message,
+            error: errorMsg,
           });
+
+          // Check if this is a data issue vs API/config error
+          const isDataIssue =
+            errorMsg.includes('parse') ||
+            errorMsg.includes('JSON') ||
+            errorMsg.includes('undefined') ||
+            errorMsg.includes('null');
+
+          if (!isDataIssue) {
+            // API/config error - fail immediately
+            return {
+              success: false,
+              soapNoteId: null,
+              soapNoteStatus: null,
+              action: 'failed',
+              error: errorMsg,
+            };
+          }
         }
       }
     }
@@ -308,30 +341,22 @@ export async function ensureSoapNoteExists(
           action: 'generated',
         };
       } catch (submissionError: any) {
+        const errorMsg = submissionError.message || 'Unknown error';
         logger.error('[SOAP-AUTOMATION] Failed to generate from intake submission', {
           ...logContext,
-          error: submissionError.message,
+          error: errorMsg,
           status: submissionError.status,
           code: submissionError.code,
         });
 
-        // If this is an API error (not a data issue), return the error
-        const isApiError =
-          submissionError.status === 429 || // Rate limit
-          submissionError.status === 401 || // Auth error
-          submissionError.status === 500 || // Server error
-          submissionError.code === 'insufficient_quota' ||
-          submissionError.message?.includes('OpenAI');
-
-        if (isApiError) {
-          return {
-            success: false,
-            soapNoteId: null,
-            soapNoteStatus: null,
-            action: 'failed',
-            error: submissionError.message || 'API error during SOAP generation',
-          };
-        }
+        // Always fail on intake submission errors - this is the last data source
+        return {
+          success: false,
+          soapNoteId: null,
+          soapNoteStatus: null,
+          action: 'failed',
+          error: errorMsg,
+        };
       }
     }
 
