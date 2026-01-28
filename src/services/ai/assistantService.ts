@@ -23,6 +23,162 @@ export const conversationHistorySchema = z.object({
 });
 
 /**
+ * Try to answer simple demographic queries directly from patient data
+ * This avoids sending PHI to external AI services and provides instant, accurate responses
+ */
+function tryDirectAnswer(
+  query: string,
+  patientContext: any
+): { answer: string; queryType: string } | null {
+  // Only handle queries when we have a specific patient
+  if (!patientContext || patientContext.type !== 'patient_found') {
+    return null;
+  }
+
+  const queryLower = query.toLowerCase();
+  const summary = patientContext.summary;
+  const patient = patientContext.patient;
+
+  if (!summary) return null;
+
+  // Date of birth queries
+  if (
+    queryLower.includes('date of birth') ||
+    queryLower.includes('birthday') ||
+    queryLower.includes('dob') ||
+    (queryLower.includes('when') && queryLower.includes('born'))
+  ) {
+    if (summary.dateOfBirth) {
+      const ageText = summary.age ? ` (${summary.age} years old)` : '';
+      return {
+        answer: `${summary.name}'s date of birth is ${summary.dateOfBirth}${ageText}.`,
+        queryType: 'demographics',
+      };
+    }
+    return {
+      answer: `I don't have the date of birth on file for ${summary.name}.`,
+      queryType: 'demographics',
+    };
+  }
+
+  // Age queries
+  if (
+    (queryLower.includes('how old') || queryLower.includes('age')) &&
+    !queryLower.includes('medication') &&
+    !queryLower.includes('prescription')
+  ) {
+    if (summary.age !== null && summary.age !== undefined) {
+      return {
+        answer: `${summary.name} is ${summary.age} years old.`,
+        queryType: 'demographics',
+      };
+    }
+    return {
+      answer: `I don't have the age information on file for ${summary.name}.`,
+      queryType: 'demographics',
+    };
+  }
+
+  // Phone number queries
+  if (queryLower.includes('phone') || queryLower.includes('call') || queryLower.includes('contact number')) {
+    if (summary.phone) {
+      return {
+        answer: `${summary.name}'s phone number is ${summary.phone}.`,
+        queryType: 'demographics',
+      };
+    }
+    return {
+      answer: `I don't have a phone number on file for ${summary.name}.`,
+      queryType: 'demographics',
+    };
+  }
+
+  // Email queries
+  if (queryLower.includes('email')) {
+    if (summary.email) {
+      return {
+        answer: `${summary.name}'s email address is ${summary.email}.`,
+        queryType: 'demographics',
+      };
+    }
+    return {
+      answer: `I don't have an email address on file for ${summary.name}.`,
+      queryType: 'demographics',
+    };
+  }
+
+  // Address queries
+  if (queryLower.includes('address') || (queryLower.includes('where') && queryLower.includes('live'))) {
+    if (summary.address && summary.address.trim() !== ', ,') {
+      return {
+        answer: `${summary.name}'s address is ${summary.address}.`,
+        queryType: 'demographics',
+      };
+    }
+    return {
+      answer: `I don't have an address on file for ${summary.name}.`,
+      queryType: 'demographics',
+    };
+  }
+
+  // Gender queries
+  if (queryLower.includes('gender') || queryLower.includes('sex')) {
+    if (summary.gender) {
+      return {
+        answer: `${summary.name}'s gender is ${summary.gender}.`,
+        queryType: 'demographics',
+      };
+    }
+    return {
+      answer: `I don't have gender information on file for ${summary.name}.`,
+      queryType: 'demographics',
+    };
+  }
+
+  // General patient info/summary queries
+  if (
+    (queryLower.includes('tell me about') || queryLower.includes('information') || queryLower.includes('details')) &&
+    !queryLower.includes('prescription') &&
+    !queryLower.includes('order') &&
+    !queryLower.includes('soap')
+  ) {
+    const parts: string[] = [];
+    parts.push(`Here's the information I have for ${summary.name}:`);
+
+    if (summary.dateOfBirth) {
+      const ageText = summary.age ? ` (${summary.age} years old)` : '';
+      parts.push(`• Date of Birth: ${summary.dateOfBirth}${ageText}`);
+    }
+    if (summary.gender) {
+      parts.push(`• Gender: ${summary.gender}`);
+    }
+    if (summary.phone) {
+      parts.push(`• Phone: ${summary.phone}`);
+    }
+    if (summary.email) {
+      parts.push(`• Email: ${summary.email}`);
+    }
+    if (summary.address && summary.address.trim() !== ', ,') {
+      parts.push(`• Address: ${summary.address}`);
+    }
+    if (summary.orderCount > 0) {
+      parts.push(`• Orders: ${summary.orderCount}`);
+    }
+    if (summary.documentCount > 0) {
+      parts.push(`• Documents: ${summary.documentCount}`);
+    }
+
+    return {
+      answer: parts.join('\n'),
+      queryType: 'demographics',
+    };
+  }
+
+  // Not a simple demographic query - let AI handle it
+  return null;
+}
+
+/**
  * Search for patient information based on natural language query
  */
 async function searchPatientData(query: string, patientId?: number): Promise<any> {
