@@ -1,6 +1,6 @@
 /**
  * SOAP Note Automation Service
- * 
+ *
  * Ensures SOAP notes exist for patients who have paid and are ready for prescription.
  * This is a critical clinical documentation requirement.
  */
@@ -42,7 +42,7 @@ export async function getPatientSoapNote(patientId: number): Promise<SOAPNote | 
 
 /**
  * Ensure a SOAP note exists for a patient
- * 
+ *
  * This function:
  * 1. Checks if patient already has a valid SOAP note
  * 2. If not, attempts to generate from intake document
@@ -54,18 +54,18 @@ export async function ensureSoapNoteExists(
   invoiceId?: number
 ): Promise<EnsureSoapNoteResult> {
   const logContext = { patientId, invoiceId };
-  
+
   try {
     // Step 1: Check for existing SOAP note
     const existingSoapNote = await getPatientSoapNote(patientId);
-    
+
     if (existingSoapNote) {
       logger.debug('[SOAP-AUTOMATION] Patient already has SOAP note', {
         ...logContext,
         soapNoteId: existingSoapNote.id,
         status: existingSoapNote.status,
       });
-      
+
       return {
         success: true,
         soapNoteId: existingSoapNote.id,
@@ -92,7 +92,7 @@ export async function ensureSoapNoteExists(
 
     // Step 2b: Query documents separately to avoid any filtering issues
     const documents = await prisma.patientDocument.findMany({
-      where: { 
+      where: {
         patientId,
         category: 'MEDICAL_INTAKE_FORM',
       },
@@ -107,7 +107,7 @@ export async function ensureSoapNoteExists(
     });
 
     // Skip test/demo patients
-    const isTestPatient = 
+    const isTestPatient =
       patient.firstName.toLowerCase() === 'unknown' ||
       patient.lastName.toLowerCase() === 'unknown' ||
       patient.firstName.toLowerCase().includes('test') ||
@@ -131,7 +131,7 @@ export async function ensureSoapNoteExists(
     // Step 3: Try to generate from intake document
     if (documents && documents.length > 0) {
       const intakeDoc = documents[0];
-      
+
       logger.info('[SOAP-AUTOMATION] Generating SOAP note from intake document', {
         ...logContext,
         documentId: intakeDoc.id,
@@ -139,7 +139,7 @@ export async function ensureSoapNoteExists(
 
       try {
         const soapNote = await generateSOAPFromIntake(patientId, intakeDoc.id);
-        
+
         logger.info('[SOAP-AUTOMATION] ✓ SOAP note generated successfully', {
           ...logContext,
           soapNoteId: soapNote.id,
@@ -158,15 +158,16 @@ export async function ensureSoapNoteExists(
           status: genError.status,
           code: genError.code,
         });
-        
+
         // If this is an API error (not a data issue), return the error
         // instead of silently continuing
-        const isApiError = genError.status === 429 || // Rate limit
-                          genError.status === 401 || // Auth error
-                          genError.status === 500 || // Server error
-                          genError.code === 'insufficient_quota' ||
-                          genError.message?.includes('OpenAI');
-        
+        const isApiError =
+          genError.status === 429 || // Rate limit
+          genError.status === 401 || // Auth error
+          genError.status === 500 || // Server error
+          genError.code === 'insufficient_quota' ||
+          genError.message?.includes('OpenAI');
+
         if (isApiError) {
           return {
             success: false,
@@ -190,7 +191,7 @@ export async function ensureSoapNoteExists(
     } else {
       // Try to find latest paid invoice for this patient
       invoice = await prisma.invoice.findFirst({
-        where: { 
+        where: {
           patientId,
           status: 'PAID',
         },
@@ -200,11 +201,15 @@ export async function ensureSoapNoteExists(
 
     if (invoice?.metadata && typeof invoice.metadata === 'object') {
       const metadata = invoice.metadata as Record<string, unknown>;
-      
+
       // Check if metadata has sufficient intake data
-      const hasIntakeData = metadata.weight || metadata.height || 
-                           metadata.currentMedications || metadata.allergies ||
-                           metadata.medicalConditions || metadata.goals;
+      const hasIntakeData =
+        metadata.weight ||
+        metadata.height ||
+        metadata.currentMedications ||
+        metadata.allergies ||
+        metadata.medicalConditions ||
+        metadata.goals;
 
       logger.debug('[SOAP-AUTOMATION] Invoice metadata check', {
         ...logContext,
@@ -221,7 +226,7 @@ export async function ensureSoapNoteExists(
 
         try {
           const soapNote = await generateSoapFromInvoiceMetadata(patient, metadata);
-          
+
           logger.info('[SOAP-AUTOMATION] ✓ SOAP note generated from invoice metadata', {
             ...logContext,
             soapNoteId: soapNote.id,
@@ -242,9 +247,79 @@ export async function ensureSoapNoteExists(
       }
     }
 
-    // Step 5: No data available - flag for manual review
+    // Step 5: Try to generate from IntakeFormSubmission (internal intake forms)
+    const intakeSubmission = await prisma.intakeFormSubmission.findFirst({
+      where: {
+        patientId,
+        status: 'completed',
+      },
+      orderBy: { completedAt: 'desc' },
+      include: {
+        responses: {
+          include: {
+            question: {
+              select: {
+                questionText: true,
+                section: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (intakeSubmission && intakeSubmission.responses.length > 0) {
+      logger.info('[SOAP-AUTOMATION] Generating SOAP note from intake form submission', {
+        ...logContext,
+        submissionId: intakeSubmission.id,
+        responseCount: intakeSubmission.responses.length,
+      });
+
+      try {
+        const soapNote = await generateSoapFromIntakeSubmission(patient, intakeSubmission);
+
+        logger.info('[SOAP-AUTOMATION] ✓ SOAP note generated from intake submission', {
+          ...logContext,
+          soapNoteId: soapNote.id,
+        });
+
+        return {
+          success: true,
+          soapNoteId: soapNote.id,
+          soapNoteStatus: soapNote.status,
+          action: 'generated',
+        };
+      } catch (submissionError: any) {
+        logger.error('[SOAP-AUTOMATION] Failed to generate from intake submission', {
+          ...logContext,
+          error: submissionError.message,
+          status: submissionError.status,
+          code: submissionError.code,
+        });
+
+        // If this is an API error (not a data issue), return the error
+        const isApiError =
+          submissionError.status === 429 || // Rate limit
+          submissionError.status === 401 || // Auth error
+          submissionError.status === 500 || // Server error
+          submissionError.code === 'insufficient_quota' ||
+          submissionError.message?.includes('OpenAI');
+
+        if (isApiError) {
+          return {
+            success: false,
+            soapNoteId: null,
+            soapNoteStatus: null,
+            action: 'failed',
+            error: submissionError.message || 'API error during SOAP generation',
+          };
+        }
+      }
+    }
+
+    // Step 6: No data available - flag for manual review
     logger.warn('[SOAP-AUTOMATION] No intake data available for SOAP generation', logContext);
-    
+
     return {
       success: false,
       soapNoteId: null,
@@ -252,7 +327,6 @@ export async function ensureSoapNoteExists(
       action: 'no_data',
       error: 'No intake data available - requires manual SOAP note creation',
     };
-
   } catch (error: any) {
     logger.error('[SOAP-AUTOMATION] Unexpected error ensuring SOAP note', {
       ...logContext,
@@ -283,32 +357,35 @@ async function generateSoapFromInvoiceMetadata(
     lastName: patient.lastName,
     dateOfBirth: patient.dob,
     gender: patient.gender,
-    
+
     // From metadata
     weight: metadata.weight,
     height: metadata.height,
     bmi: metadata.bmi,
     goalWeight: metadata.goalWeight || metadata.goal_weight,
-    
+
     // Medical history
-    currentMedications: metadata.currentMedications || metadata.current_medications || metadata.medications,
+    currentMedications:
+      metadata.currentMedications || metadata.current_medications || metadata.medications,
     allergies: metadata.allergies,
-    medicalConditions: metadata.medicalConditions || metadata.medical_conditions || metadata.conditions,
+    medicalConditions:
+      metadata.medicalConditions || metadata.medical_conditions || metadata.conditions,
     healthConditions: metadata.healthConditions || metadata.health_conditions,
-    
+
     // GLP-1 specific
     glp1History: metadata.glp1_last_30 || metadata.glp1History,
     glp1Medication: metadata.glp1_last_30_medication_type || metadata.glp1Medication,
     glp1Dose: metadata.glp1_last_30_medication_dose_mg || metadata.glp1Dose,
-    
+
     // Treatment preferences
-    preferredMedication: metadata.preferred_meds || metadata.preferredMedication || metadata.product,
+    preferredMedication:
+      metadata.preferred_meds || metadata.preferredMedication || metadata.product,
     medicationType: metadata.medicationType || metadata.medication_type,
-    
+
     // Goals
     primaryGoal: metadata.primary_fitness_goal || metadata.primaryGoal || metadata.goals,
     motivation: metadata.weight_loss_motivation || metadata.motivation,
-    
+
     // Lifestyle
     activityLevel: metadata.activity_level || metadata.activityLevel,
     sleepQuality: metadata.sleep_quality || metadata.sleepQuality,
@@ -323,9 +400,10 @@ async function generateSoapFromInvoiceMetadata(
     intakeData: cleanedIntakeData,
     patientName: `${patient.firstName} ${patient.lastName}`,
     dateOfBirth: patient.dob || undefined,
-    chiefComplaint: (metadata.goals as string) || 
-                    (metadata.primary_fitness_goal as string) || 
-                    'Weight loss evaluation',
+    chiefComplaint:
+      (metadata.goals as string) ||
+      (metadata.primary_fitness_goal as string) ||
+      'Weight loss evaluation',
   };
 
   const generatedSOAP = await generateSOAPNote(soapInput);
@@ -348,6 +426,173 @@ async function generateSoapFromInvoiceMetadata(
       completionTokens: generatedSOAP.metadata.usage?.completionTokens,
       estimatedCost: generatedSOAP.metadata.usage?.estimatedCost,
     },
+  });
+
+  return soapNote;
+}
+
+/**
+ * Generate SOAP note from IntakeFormSubmission (internal intake forms)
+ */
+interface IntakeSubmissionWithResponses {
+  id: number;
+  responses: Array<{
+    answer: string | null;
+    question: {
+      questionText: string;
+      section: string | null;
+    };
+  }>;
+}
+
+async function generateSoapFromIntakeSubmission(
+  patient: Patient,
+  submission: IntakeSubmissionWithResponses
+): Promise<SOAPNote> {
+  // Convert responses to a structured format
+  const responsesBySection: Record<string, Record<string, string>> = {};
+  const flatResponses: Record<string, string> = {};
+
+  for (const response of submission.responses) {
+    if (!response.answer) continue;
+
+    const section = response.question.section || 'General';
+    const questionKey = response.question.questionText
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '');
+
+    if (!responsesBySection[section]) {
+      responsesBySection[section] = {};
+    }
+    responsesBySection[section][questionKey] = response.answer;
+    flatResponses[questionKey] = response.answer;
+  }
+
+  // Extract key medical data from responses
+  const intakeData: Record<string, unknown> = {
+    // Patient info
+    firstName: patient.firstName,
+    lastName: patient.lastName,
+    dateOfBirth: patient.dob,
+    gender: patient.gender,
+
+    // Physical measurements - try various question formats
+    weight: flatResponses.starting_weight || flatResponses.weight || flatResponses.current_weight,
+    height: flatResponses.height,
+    idealWeight: flatResponses.ideal_weight || flatResponses.goal_weight,
+    bmi: flatResponses.bmi,
+    bloodPressure: flatResponses.blood_pressure,
+    heartRate: flatResponses.resting_heart_rate || flatResponses.heart_rate,
+
+    // Medical history
+    medicalConditions: flatResponses.medical_conditions || flatResponses.health_conditions,
+    secondaryConditions: flatResponses.secondary_health_conditions,
+    currentMedications: flatResponses.current_medications || flatResponses.medications,
+    allergies: flatResponses.allergies,
+    familyHistory: flatResponses.family_medical_history,
+    surgicalHistory: flatResponses.surgical_history,
+
+    // Weight-related
+    weightSymptoms: flatResponses.weight_related_symptoms,
+    weightLossHistory: flatResponses.weight_loss_history,
+
+    // GLP-1 specific
+    glp1History: flatResponses.glp_1_medication_history || flatResponses.used_glp_1_in_last_30_days,
+    glp1Type: flatResponses.recent_glp_1_medication_type,
+    medicationPreference: flatResponses.medication_preference,
+    injectionPreference: flatResponses.injection_vs_tablet_preference,
+    semaglutideDose: flatResponses.semaglutide_dose,
+    tirzepatideDose: flatResponses.tirzepatide_dose,
+    previousSideEffects: flatResponses.previous_side_effects,
+
+    // Medical flags
+    hasDiabetes: flatResponses.has_diabetes,
+    hasGastroparesis: flatResponses.has_gastroparesis,
+    hasPancreatitis: flatResponses.has_pancreatitis,
+    hasThyroidCancer: flatResponses.has_thyroid_cancer,
+    men2History: flatResponses.men2_history_glp_1_contraindication,
+    bariatricSurgery: flatResponses.prior_bariatric_surgery,
+    pregnancyStatus: flatResponses.pregnancy_status,
+    opioidUse: flatResponses.opioid_use,
+
+    // Mental health
+    mentalHealthHistory: flatResponses.mental_health_history,
+
+    // Lifestyle
+    activityLevel: flatResponses.daily_physical_activity,
+    sleepQuality: flatResponses.sleep_quality,
+    alcoholIntake: flatResponses.alcohol_intake,
+    recreationalDrugUse: flatResponses.recreational_drug_use,
+
+    // Goals and preferences
+    healthGoals: flatResponses.health_goals,
+    motivation: flatResponses.weight_loss_motivation,
+    motivationLevel: flatResponses.motivation_level,
+    preferredPace: flatResponses.preferred_weight_loss_pace,
+    budgetPreference: flatResponses.budget_vs_potency_preference,
+
+    // Visit info
+    reasonForVisit: flatResponses.reason_for_visit,
+    chiefComplaint: flatResponses.chief_complaint,
+    additionalInfo: flatResponses.additional_information,
+
+    // Include all responses grouped by section for comprehensive context
+    allResponses: responsesBySection,
+  };
+
+  // Filter out undefined/null values
+  const cleanedIntakeData = Object.fromEntries(
+    Object.entries(intakeData).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  );
+
+  // Determine chief complaint
+  const chiefComplaint =
+    flatResponses.chief_complaint ||
+    flatResponses.reason_for_visit ||
+    flatResponses.health_goals ||
+    'Weight management evaluation';
+
+  const soapInput: SOAPGenerationInput = {
+    intakeData: cleanedIntakeData,
+    patientName: `${patient.firstName} ${patient.lastName}`,
+    dateOfBirth: patient.dob || undefined,
+    chiefComplaint,
+  };
+
+  logger.debug('[SOAP-AUTOMATION] Generating SOAP from intake submission', {
+    patientId: patient.id,
+    submissionId: submission.id,
+    dataFields: Object.keys(cleanedIntakeData).length,
+    chiefComplaint,
+  });
+
+  const generatedSOAP = await generateSOAPNote(soapInput);
+
+  // Store in database
+  const soapNote = await prisma.sOAPNote.create({
+    data: {
+      patientId: patient.id,
+      clinicId: patient.clinicId,
+      subjective: generatedSOAP.subjective,
+      objective: generatedSOAP.objective,
+      assessment: generatedSOAP.assessment,
+      plan: generatedSOAP.plan,
+      medicalNecessity: generatedSOAP.medicalNecessity,
+      sourceType: 'AI_GENERATED', // Using AI_GENERATED for intake form submissions
+      generatedByAI: true,
+      aiModelVersion: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      status: 'DRAFT',
+      promptTokens: generatedSOAP.metadata.usage?.promptTokens,
+      completionTokens: generatedSOAP.metadata.usage?.completionTokens,
+      estimatedCost: generatedSOAP.metadata.usage?.estimatedCost,
+    },
+  });
+
+  logger.info('[SOAP-AUTOMATION] Created SOAP note from intake submission', {
+    patientId: patient.id,
+    soapNoteId: soapNote.id,
+    sourceType: 'AI_GENERATED',
   });
 
   return soapNote;
@@ -396,7 +641,9 @@ export async function processMissingSoapNotes(
     orderBy: { paidAt: 'asc' },
   });
 
-  logger.info(`[SOAP-AUTOMATION] Processing ${paidInvoicesWithoutSoap.length} invoices without SOAP notes`);
+  logger.info(
+    `[SOAP-AUTOMATION] Processing ${paidInvoicesWithoutSoap.length} invoices without SOAP notes`
+  );
 
   const results: EnsureSoapNoteResult[] = [];
   let generated = 0;
@@ -412,7 +659,7 @@ export async function processMissingSoapNotes(
     else if (result.action === 'no_data') noData++;
 
     // Small delay to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   logger.info('[SOAP-AUTOMATION] Batch processing complete', {
