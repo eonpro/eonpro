@@ -1,9 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, KeyboardEvent } from 'react';
-import { format } from 'date-fns';
-import BeccaAIButton from './BeccaAIButton';
-import BeccaAILoader from './BeccaAILoader';
 import { logger } from '@/lib/logger';
 
 interface Message {
@@ -13,6 +10,7 @@ interface Message {
   createdAt?: string;
   confidence?: number;
   queryType?: string;
+  isStreaming?: boolean;
 }
 
 interface BeccaAIChatProps {
@@ -22,11 +20,102 @@ interface BeccaAIChatProps {
   clinicId?: number;
   className?: string;
   embedded?: boolean;
-  customTheme?: {
-    backgroundColor?: string;
-    textColor?: string;
-    borderColor?: string;
+  onClose?: () => void;
+}
+
+// Typing indicator component - ChatGPT style
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-1 px-1">
+      <div className="flex gap-1">
+        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+      </div>
+    </div>
+  );
+}
+
+// Thinking state component
+function ThinkingState({ stage }: { stage: string }) {
+  return (
+    <div className="flex items-center gap-2 text-gray-500 text-sm">
+      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+      </svg>
+      <span className="animate-pulse">{stage}</span>
+    </div>
+  );
+}
+
+// Message bubble component
+function MessageBubble({
+  message,
+  isLast,
+}: {
+  message: Message;
+  isLast: boolean;
+}) {
+  const isUser = message.role === 'user';
+
+  // Parse markdown-style formatting in the message
+  const formatContent = (content: string) => {
+    // Handle the medical disclaimer specially
+    if (content.includes('---\n*For educational')) {
+      const [mainContent, disclaimer] = content.split('---\n');
+      return (
+        <>
+          <div className="whitespace-pre-wrap">{mainContent.trim()}</div>
+          <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500 italic">
+            {disclaimer?.replace(/\*/g, '').trim()}
+          </div>
+        </>
+      );
+    }
+    return <div className="whitespace-pre-wrap">{content}</div>;
   };
+
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
+      <div
+        className={`max-w-[85%] px-4 py-2.5 ${
+          isUser
+            ? 'bg-[#17aa7b] text-white rounded-[20px] rounded-br-[4px]'
+            : 'bg-[#f0f0f0] text-gray-900 rounded-[20px] rounded-bl-[4px]'
+        } ${isLast && !isUser ? 'animate-fadeIn' : ''}`}
+      >
+        <div className="text-[15px] leading-relaxed">
+          {message.isStreaming ? (
+            <TypingIndicator />
+          ) : (
+            formatContent(message.content)
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Quick action chip
+function QuickAction({
+  label,
+  onClick,
+  icon,
+}: {
+  label: string;
+  onClick: () => void;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm"
+    >
+      {icon}
+      <span className="truncate max-w-[200px]">{label}</span>
+    </button>
+  );
 }
 
 export default function BeccaAIChat({
@@ -36,67 +125,68 @@ export default function BeccaAIChat({
   clinicId,
   className = '',
   embedded = false,
-  customTheme,
+  onClose,
 }: BeccaAIChatProps) {
-  const [isOpen, setIsOpen] = useState(embedded);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [thinkingStage, setThinkingStage] = useState<string>('');
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Initialize with welcome message
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
+    if (messages.length === 0) {
       const welcomeMessage: Message = {
         role: 'assistant',
         content: patientName
-          ? `Hello! I'm Becca AI, your medical assistant. I can help you find information about ${patientName}. What would you like to know?`
-          : "Hello! I'm Becca AI, your medical assistant. I can help you find patient information, prescriptions, tracking numbers, and more. How can I assist you today?",
+          ? `Hi! I'm Becca, your AI assistant. I can help you with information about ${patientName}, clinical questions, prescriptions, and more.\n\nWhat would you like to know?`
+          : `Hi! I'm Becca, your AI assistant. I can help you with:\n\n• Patient information & records\n• Clinical questions about GLP-1 medications\n• Prescription directions (SIGs)\n• SOAP note guidance\n• Platform workflows\n\nHow can I help you today?`,
         createdAt: new Date().toISOString(),
       };
       setMessages([welcomeMessage]);
-      
-      // Set suggestions based on context
+
+      // Set initial suggestions
       if (patientName) {
         setSuggestions([
-          `What is the date of birth for ${patientName}?`,
-          `What was the latest prescription for ${patientName}?`,
-          `Show me the tracking information for ${patientName}`,
-          `What are the recent SOAP notes for ${patientName}?`,
+          `Show ${patientName}'s recent orders`,
+          `What prescriptions does ${patientName} have?`,
         ]);
       } else {
         setSuggestions([
-          "What are today's pending prescriptions?",
-          "Show me recent patient intakes",
-          "Find tracking number for Jane Doe",
-          "List patients with upcoming appointments",
+          'What is the semaglutide titration schedule?',
+          'Help me write a prescription SIG',
+          'How many patients are in the system?',
         ]);
       }
     }
-  }, [isOpen, patientName, messages.length]);
+  }, [patientName, messages.length]);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
 
-  // Load conversation history if session exists
-  const loadConversationHistory = async (sessionId: string) => {
-    try {
-      const response = await fetch(`/api/ai/chat?sessionId=${sessionId}`);
-      const data = await response.json();
-      
-      if (data.ok && data.data.messages) {
-        setMessages(data.data.messages);
-      }
-    } catch (err: any) {
-    // @ts-ignore
-   
-      logger.error('Error loading conversation history:', err);
+  // Focus input on mount
+  useEffect(() => {
+    if (embedded) {
+      inputRef.current?.focus();
+    }
+  }, [embedded]);
+
+  // Simulate thinking stages
+  const simulateThinking = async () => {
+    const stages = [
+      'Understanding your question...',
+      'Searching knowledge base...',
+      'Generating response...',
+    ];
+
+    for (const stage of stages) {
+      setThinkingStage(stage);
+      await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 400));
     }
   };
 
@@ -111,11 +201,19 @@ export default function BeccaAIChat({
       createdAt: new Date().toISOString(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
-    setError(null);
     setSuggestions([]);
+
+    // Add streaming placeholder
+    setMessages((prev) => [
+      ...prev,
+      { role: 'assistant', content: '', isStreaming: true },
+    ]);
+
+    // Start thinking animation
+    const thinkingPromise = simulateThinking();
 
     try {
       const response = await fetch('/api/ai/chat', {
@@ -130,79 +228,84 @@ export default function BeccaAIChat({
         }),
       });
 
+      // Wait for thinking animation to complete
+      await thinkingPromise;
+
       const data = await response.json();
 
+      // Remove streaming placeholder and add real message
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => !m.isStreaming);
+        if (data.ok) {
+          return [
+            ...filtered,
+            {
+              id: data.data.messageId,
+              role: 'assistant',
+              content: data.data.answer,
+              createdAt: new Date().toISOString(),
+              confidence: data.data.confidence,
+            },
+          ];
+        } else {
+          return [
+            ...filtered,
+            {
+              role: 'assistant',
+              content:
+                "I'm sorry, I encountered an error processing your request. Please try again.",
+              createdAt: new Date().toISOString(),
+            },
+          ];
+        }
+      });
+
       if (data.ok) {
-        const assistantMessage: Message = {
-          id: data.data.messageId,
-          role: 'assistant',
-          content: data.data.answer,
-          createdAt: new Date().toISOString(),
-          confidence: data.data.confidence,
-        };
-        
-        setMessages(prev => [...prev, assistantMessage]);
         setSessionId(data.data.sessionId);
-        
-        // Generate follow-up suggestions based on response
         generateSuggestions(textToSend, data.data.answer);
-      } else {
-        setError(data.error);
-        const errorMessage: Message = {
-          role: 'assistant',
-          content: 'I apologize, but I encountered an error. Please try again or rephrase your question.',
-          createdAt: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, errorMessage]);
       }
     } catch (err: any) {
-    // @ts-ignore
-   
       logger.error('Error sending message:', err);
-      setError('Failed to send message');
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: "I apologize, but I'm having trouble connecting. Please check your connection and try again.",
-        createdAt: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => !m.isStreaming);
+        return [
+          ...filtered,
+          {
+            role: 'assistant',
+            content:
+              "I'm having trouble connecting right now. Please check your connection and try again.",
+            createdAt: new Date().toISOString(),
+          },
+        ];
+      });
     } finally {
       setIsLoading(false);
+      setThinkingStage('');
     }
   };
 
-  // Generate follow-up suggestions
+  // Generate contextual suggestions
   const generateSuggestions = (query: string, response: string) => {
-    const queryLower = query.toLowerCase();
     const responseLower = response.toLowerCase();
-    
     const newSuggestions: string[] = [];
-    
-    if (responseLower.includes('prescription') || responseLower.includes('medication')) {
-      newSuggestions.push('Show me the prescription history');
-      newSuggestions.push('What are the dosage instructions?');
-    }
-    
-    if (responseLower.includes('tracking') || responseLower.includes('shipping')) {
-      newSuggestions.push('When was this order placed?');
-      newSuggestions.push('Show me all pending shipments');
-    }
-    
-    if (responseLower.includes('patient') && !patientId) {
-      newSuggestions.push('Show me more details about this patient');
-      newSuggestions.push('What are their recent visits?');
-    }
-    
-    if (newSuggestions.length === 0) {
-      // Default suggestions
+
+    if (responseLower.includes('semaglutide') || responseLower.includes('tirzepatide')) {
+      newSuggestions.push('What are the common side effects?');
+      newSuggestions.push('Show me the titration protocol');
+    } else if (responseLower.includes('prescription') || responseLower.includes('sig')) {
+      newSuggestions.push('Generate a different SIG');
+      newSuggestions.push('What quantity should I prescribe?');
+    } else if (responseLower.includes('patient')) {
+      newSuggestions.push('Show more details');
+      newSuggestions.push('Any recent orders?');
+    } else {
       newSuggestions.push('Tell me more');
-      newSuggestions.push('Show related information');
     }
-    
-    setSuggestions(newSuggestions.slice(0, 3));
+
+    setSuggestions(newSuggestions.slice(0, 2));
   };
 
-  // Handle keyboard shortcuts
+  // Handle keyboard
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -210,111 +313,50 @@ export default function BeccaAIChat({
     }
   };
 
-  // Clear conversation
-  const clearConversation = () => {
+  // Auto-resize textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+  };
+
+  // Clear chat
+  const clearChat = () => {
     setMessages([]);
     setSessionId(null);
     setSuggestions([]);
-    setError(null);
   };
 
-  // Chat UI for floating widget
-  const chatContent = (
-    <div className={`flex flex-col h-full ${embedded ? '' : 'max-h-[600px]'}`}>
-      {/* Header - only shown when not embedded or not using custom theme */}
-      {!embedded && !customTheme && (
-        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-green-600 to-green-700 text-white">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-              <span className="text-sm font-bold">AI</span>
-            </div>
-            <div>
-              <h3 className="font-semibold">Becca AI Assistant</h3>
-              <p className="text-xs opacity-90">Your medical data assistant</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="text-white/80 hover:text-white"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* Messages */}
-      <div 
-        className="flex-1 overflow-y-auto p-3 space-y-3" 
-        style={{ 
-          backgroundColor: customTheme?.backgroundColor || 'transparent' 
-        }}>
+  return (
+    <div className={`flex flex-col h-full bg-white ${className}`}>
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.map((message, index) => (
-          <div
+          <MessageBubble
             key={index}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-[14px] px-3 py-2 ${
-                customTheme 
-                  ? message.role === 'user'
-                    ? 'bg-white/30 text-gray-800 backdrop-blur-md'
-                    : 'bg-white/20 text-gray-800 backdrop-blur-md'
-                  : message.role === 'user'
-                    ? 'bg-green-600 text-white shadow-sm'
-                    : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
-              }`}
-            >
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-              {message.createdAt && (
-                <p className={`text-xs mt-1 ${
-                  customTheme 
-                    ? 'text-gray-600'
-                    : message.role === 'user' ? 'text-green-100' : 'text-gray-400'
-                }`}>
-                  {format(new Date(message.createdAt), 'h:mm a')}
-                </p>
-              )}
-              {message.confidence !== undefined && message.confidence < 0.8 && (
-                <p className="text-xs text-yellow-600 mt-1 flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  Low confidence response
-                </p>
-              )}
-            </div>
-          </div>
+            message={message}
+            isLast={index === messages.length - 1}
+          />
         ))}
 
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className={`rounded-[14px] p-2 ${
-              customTheme 
-                ? 'bg-white/20 backdrop-blur-md' 
-                : 'bg-white border border-gray-200'
-            }`}>
-              <BeccaAILoader size="small" text="" />
+        {/* Thinking indicator */}
+        {isLoading && thinkingStage && (
+          <div className="flex justify-start mb-3">
+            <div className="bg-[#f0f0f0] text-gray-900 rounded-[20px] rounded-bl-[4px] px-4 py-3">
+              <ThinkingState stage={thinkingStage} />
             </div>
           </div>
         )}
 
-        {/* Suggestions */}
+        {/* Quick suggestions */}
         {suggestions.length > 0 && !isLoading && (
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 mt-2 mb-2">
             {suggestions.map((suggestion, index) => (
-              <button
+              <QuickAction
                 key={index}
+                label={suggestion}
                 onClick={() => sendMessage(suggestion)}
-                className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
-                  customTheme
-                    ? 'bg-[#4fa77e]/10 text-[#4fa77e] hover:bg-[#4fa77e]/20 backdrop-blur-md border border-[#4fa77e]/30'
-                    : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-                }`}
-              >
-                {suggestion}
-              </button>
+              />
             ))}
           </div>
         )}
@@ -322,97 +364,75 @@ export default function BeccaAIChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Error message */}
-      {error && (
-        <div className={`px-4 py-2 border-t ${
-          customTheme 
-            ? 'bg-red-100/50 border-red-400/30' 
-            : 'bg-red-50 border-red-200'
-        }`}>
-          <p className={`text-sm ${
-            customTheme ? 'text-red-700' : 'text-red-600'
-          }`}>{error}</p>
-        </div>
-      )}
-
-      {/* Input */}
-      <div className={`p-3 ${customTheme ? 'bg-transparent border-none' : 'bg-white border-t'}`}>
-        <div className="flex items-end space-x-2">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e: any) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask me anything about patient data..."
-            className={`flex-1 px-3 py-2 rounded-[16px] resize-none focus:outline-none ${
-              customTheme
-                ? 'bg-white/90 backdrop-blur-md text-gray-800 placeholder-gray-500 focus:bg-white/95 border border-white/30'
-                : 'border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500'
-            }`}
-            rows={1}
-            disabled={isLoading}
-          />
+      {/* Input area - iMessage style */}
+      <div className="border-t border-gray-100 px-4 py-3 bg-white">
+        <div className="flex items-end gap-2">
+          <div className="flex-1 relative">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Message Becca..."
+              className="w-full px-4 py-2.5 text-[15px] bg-[#f0f0f0] rounded-[20px] resize-none focus:outline-none focus:ring-2 focus:ring-[#17aa7b]/30 placeholder-gray-500 max-h-[120px]"
+              rows={1}
+              disabled={isLoading}
+            />
+          </div>
           <button
             onClick={() => sendMessage()}
             disabled={!input.trim() || isLoading}
-            className={`px-3 py-2 rounded-[16px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              customTheme
-                ? 'bg-green-600/80 text-white hover:bg-green-600/90 backdrop-blur-md'
-                : 'bg-green-600 text-white hover:bg-green-700'
+            className={`p-2.5 rounded-full transition-all duration-200 ${
+              input.trim() && !isLoading
+                ? 'bg-[#17aa7b] text-white hover:bg-[#148f68] shadow-sm'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 12h14M12 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>
-        
+
+        {/* Footer actions */}
         {messages.length > 1 && (
-          <div className="flex justify-end mt-2">
+          <div className="flex justify-center mt-2">
             <button
-              onClick={clearConversation}
-              className={`text-xs ${
-                customTheme 
-                  ? 'text-gray-600 hover:text-gray-800' 
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+              onClick={clearChat}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
             >
-              Clear chat
+              Clear conversation
             </button>
           </div>
         )}
       </div>
+
+      {/* Custom styles for animations */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
-  );
-
-  // For embedded mode, return content directly
-  if (embedded) {
-    return (
-      <div className={`bg-white rounded-lg border h-full ${className}`}>
-        {chatContent}
-      </div>
-    );
-  }
-
-  // For floating widget mode
-  return (
-    <>
-      {/* Floating Button with Lottie Animation */}
-      {!isOpen && (
-        <BeccaAIButton
-          onClick={() => setIsOpen(true)}
-          size="medium"
-          showPulse={true}
-          className="fixed bottom-32 left-6 z-40"
-        />
-      )}
-
-      {/* Chat Window */}
-      {isOpen && (
-        <div className={`fixed bottom-0 left-6 w-96 h-[600px] bg-white rounded-t-xl shadow-2xl border border-gray-200 z-50 ${className}`}>
-          {chatContent}
-        </div>
-      )}
-    </>
   );
 }
