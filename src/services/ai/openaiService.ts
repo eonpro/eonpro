@@ -673,10 +673,19 @@ ${JSON.stringify(documents, null, 2)}
 SOAP Notes (${soapNotes.length}):
 ${JSON.stringify(soapNotes, null, 2)}`;
     } else if (context.type === 'patient_not_found') {
-      // HIPAA: Don't send searched names or similar patient details to OpenAI
+      // Include similar patient names so AI can suggest them
+      const suggestions = (context.suggestions as string[]) || [];
+      const searchedName = context.searchedName || 'unknown';
+      const message = context.message || 'Patient not found';
+      
       contextDescription = `Patient Not Found:
-Search query could not be matched to any patient records.
-${context.similarPatients ? `${(context.similarPatients as any[]).length} possible matches found in system.` : 'No similar patients found'}`;
+Searched for: "${searchedName}"
+Result: ${message}
+
+${suggestions.length > 0 ? `Similar patients found that might match:
+${suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}
+
+IMPORTANT: Suggest these similar patients to the user and ask if they meant one of them.` : 'No similar patients found in the system.'}`;
     } else if (context.statistics) {
       const stats = context.statistics as any;
       // HIPAA: Only send aggregate statistics, no individual patient data
