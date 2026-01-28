@@ -118,11 +118,22 @@ export const GET = withAuthParams(async (
         },
       });
 
-      // Get last prescription date
+      // Get last prescription date with all medications
       const lastOrder = await prisma.order.findFirst({
         where: { patientId },
         orderBy: { createdAt: 'desc' },
-        select: { createdAt: true, primaryMedName: true },
+        select: {
+          createdAt: true,
+          primaryMedName: true,
+          rxs: {
+            select: {
+              medName: true,
+              strength: true,
+              form: true,
+              quantity: true,
+            },
+          },
+        },
       });
 
       return { patient, shippingUpdates, orders, lastOrder };
@@ -199,6 +210,15 @@ export const GET = withAuthParams(async (
         })),
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    // Format medications from rxs array
+    const lastMedications = lastOrder?.rxs?.map(rx => ({
+      name: rx.medName,
+      strength: rx.strength,
+      form: rx.form,
+      quantity: rx.quantity,
+      displayName: `${rx.medName}${rx.strength ? ` ${rx.strength}` : ''}${rx.form ? ` (${rx.form})` : ''}`,
+    })) || [];
+
     return NextResponse.json({
       success: true,
       patient: {
@@ -206,7 +226,10 @@ export const GET = withAuthParams(async (
         name: `${patient.firstName} ${patient.lastName}`,
       },
       lastPrescriptionDate: lastOrder?.createdAt || null,
+      // Keep lastMedication for backward compatibility
       lastMedication: lastOrder?.primaryMedName || null,
+      // New: Array of all medications
+      lastMedications,
       totalTrackingEntries: trackingEntries.length,
       trackingEntries,
     });

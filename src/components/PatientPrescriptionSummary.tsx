@@ -24,6 +24,14 @@ type TrackingEntry = {
   refillNumber: number | null;
 };
 
+type Medication = {
+  name: string;
+  strength: string;
+  form: string;
+  quantity: string;
+  displayName: string;
+};
+
 type PatientPrescriptionSummaryProps = {
   patientId: number;
 };
@@ -52,7 +60,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastPrescriptionDate, setLastPrescriptionDate] = useState<string | null>(null);
-  const [lastMedication, setLastMedication] = useState<string | null>(null);
+  const [lastMedications, setLastMedications] = useState<Medication[]>([]);
   const [trackingEntries, setTrackingEntries] = useState<TrackingEntry[]>([]);
   
   // Add tracking form state
@@ -79,7 +87,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
         // Don't treat 404 (no data) as an error - just show empty state
         if (response.status === 404) {
           setLastPrescriptionDate(null);
-          setLastMedication(null);
+          setLastMedications([]);
           setTrackingEntries([]);
           return;
         }
@@ -94,7 +102,21 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
       
       const data = await response.json();
       setLastPrescriptionDate(data.lastPrescriptionDate);
-      setLastMedication(data.lastMedication);
+      // Use new medications array, fallback to legacy single medication
+      if (data.lastMedications && data.lastMedications.length > 0) {
+        setLastMedications(data.lastMedications);
+      } else if (data.lastMedication) {
+        // Backward compatibility: convert single medication to array format
+        setLastMedications([{
+          name: data.lastMedication,
+          strength: '',
+          form: '',
+          quantity: '',
+          displayName: data.lastMedication
+        }]);
+      } else {
+        setLastMedications([]);
+      }
       setTrackingEntries(data.trackingEntries || []);
     } catch (err) {
       console.error('Error fetching tracking data:', err);
@@ -220,7 +242,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
 
       {/* Last Prescription Info */}
       <div className="bg-gray-50 rounded-lg p-4 mb-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wide">Last Prescription</p>
             <p className="text-lg font-semibold text-gray-900">
@@ -228,10 +250,25 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wide">Medication</p>
-            <p className="text-lg font-semibold text-gray-900">
-              {lastMedication || '—'}
+            <p className="text-xs text-gray-500 uppercase tracking-wide">
+              {lastMedications.length > 1 ? `Medications (${lastMedications.length})` : 'Medication'}
             </p>
+            {lastMedications.length === 0 ? (
+              <p className="text-lg font-semibold text-gray-900">—</p>
+            ) : lastMedications.length === 1 ? (
+              <p className="text-lg font-semibold text-gray-900">
+                {lastMedications[0].displayName}
+              </p>
+            ) : (
+              <ul className="space-y-1 mt-1">
+                {lastMedications.map((med, index) => (
+                  <li key={index} className="text-sm font-medium text-gray-900 flex items-start">
+                    <span className="text-[#4fa77e] mr-2">•</span>
+                    <span>{med.displayName}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>

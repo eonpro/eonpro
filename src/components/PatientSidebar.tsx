@@ -108,6 +108,26 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
     return email;
   };
 
+  // Format address with proper title case (first letter of each word capitalized)
+  const toTitleCase = (str: string | null | undefined): string => {
+    if (!str) return '';
+    if (isEncryptedData(str)) return '(encrypted)';
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Format city/state/zip - keeps state abbreviation uppercase
+  const formatCityStateZip = (city: string, state: string, zip: string): string => {
+    const formattedCity = toTitleCase(city);
+    // State abbreviations should stay uppercase (e.g., OR, CA, NY)
+    const formattedState = state ? state.toUpperCase() : '';
+    const parts = [formattedCity, `${formattedState} ${zip}`.trim()].filter(Boolean);
+    return parts.join(' , ');
+  };
+
   const handleSavePatient = async (data: any) => {
     const response = await fetch(`/api/patients/${patient.id}`, {
       method: 'PATCH',
@@ -146,8 +166,10 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
 
   const age = calculateAge(patient.dob);
   const genderLabel = formatGender(patient.gender);
-  const cityStateZip = [patient.city, `${patient.state} ${patient.zip}`].filter(Boolean).join(', ');
-  const fullAddress = [patient.address1, patient.address2, cityStateZip].filter(Boolean).join(', ');
+  const formattedAddress1 = toTitleCase(patient.address1);
+  const formattedAddress2 = toTitleCase(patient.address2);
+  const cityStateZip = formatCityStateZip(patient.city, patient.state, patient.zip);
+  const fullAddress = [patient.address1, patient.address2, patient.city, patient.state, patient.zip].filter(Boolean).join(' ');
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
   return (
@@ -193,8 +215,8 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
           rel="noopener noreferrer"
           className="text-sm text-gray-600 hover:text-[#4fa77e] block mb-6"
         >
-          {patient.address1 && <p>{patient.address1}</p>}
-          {patient.address2 && <p>{patient.address2}</p>}
+          {formattedAddress1 && <p>{formattedAddress1}</p>}
+          {formattedAddress2 && <p>{formattedAddress2}</p>}
           {cityStateZip && <p>{cityStateZip}</p>}
         </a>
 
