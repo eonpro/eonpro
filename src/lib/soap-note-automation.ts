@@ -105,8 +105,8 @@ export async function ensureSoapNoteExists(
       ...logContext,
       documentsFound: documents.length,
       patientClinicId: patient.clinicId,
-      documentIds: documents.map((d) => d.id),
-      documentSources: documents.map((d) => d.source),
+      documentIds: documents.map((d: { id: number }) => d.id),
+      documentSources: documents.map((d: { source: string | null }) => d.source),
     });
 
     // Also check if there are ANY documents for this patient
@@ -117,8 +117,8 @@ export async function ensureSoapNoteExists(
     logger.info('[SOAP-AUTOMATION] All patient documents', {
       ...logContext,
       totalDocs: allDocs.length,
-      categories: allDocs.map((d) => d.category),
-      sources: allDocs.map((d) => d.source),
+      categories: allDocs.map((d: { category: string }) => d.category),
+      sources: allDocs.map((d: { source: string | null }) => d.source),
     });
 
     // Skip test/demo patients
