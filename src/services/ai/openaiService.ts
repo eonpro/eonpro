@@ -537,13 +537,21 @@ Category: ${queryCategory}
 
 ${knowledgeContext}
 
-## ADDITIONAL INSTRUCTIONS FOR PATIENT DATA QUERIES
+ADDITIONAL INSTRUCTIONS FOR PATIENT DATA QUERIES:
 - When asked about patient counts or statistics, provide the exact numbers from the data
 - When asked about a specific patient's information, provide the exact information if found
-- If a patient is not found by name, suggest checking the spelling or provide similar patients
+- If a patient is not found by name, ALWAYS suggest similar patients if any were found
+- If similar patients exist, list them and ask "Did you mean one of these?"
+- Never just say "not found" without offering alternatives or suggestions
 - Format dates in a readable way (e.g., "March 15, 1990")
 - Calculate age from date of birth when relevant
-- All patient data is scoped to the user's clinic only`;
+- All patient data is scoped to the user's clinic only
+
+FORMATTING REMINDER - CRITICAL:
+- DO NOT use any markdown formatting (no ##, **, *, _, etc.)
+- Use plain text with simple dashes (-) for bullets
+- Use numbers (1. 2. 3.) for numbered lists
+- Keep responses clean and readable without special formatting`;
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },

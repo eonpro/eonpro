@@ -11,6 +11,33 @@ import {
 } from './beccaKnowledgeBase';
 
 /**
+ * Strip markdown formatting from response text
+ * Removes ##, **, *, _, etc. while preserving readable content
+ */
+function stripMarkdown(text: string): string {
+  if (!text) return text;
+
+  return text
+    // Remove headers (# ## ### etc.)
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove bold/italic markers
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // Remove markdown links [text](url) -> text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove inline code backticks
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove horizontal rules
+    .replace(/^---+$/gm, '')
+    .replace(/^\*\*\*+$/gm, '')
+    // Clean up multiple blank lines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Becca AI Assistant Service
  * Handles intelligent querying of patient data, clinical knowledge, and conversation management
  *
@@ -171,25 +198,25 @@ function tryDirectAnswer(
 
     if (summary.dateOfBirth) {
       const ageText = summary.age ? ` (${summary.age} years old)` : '';
-      parts.push(`• Date of Birth: ${summary.dateOfBirth}${ageText}`);
+      parts.push(`- Date of Birth: ${summary.dateOfBirth}${ageText}`);
     }
     if (summary.gender) {
-      parts.push(`• Gender: ${summary.gender}`);
+      parts.push(`- Gender: ${summary.gender}`);
     }
     if (summary.phone) {
-      parts.push(`• Phone: ${summary.phone}`);
+      parts.push(`- Phone: ${summary.phone}`);
     }
     if (summary.email) {
-      parts.push(`• Email: ${summary.email}`);
+      parts.push(`- Email: ${summary.email}`);
     }
     if (summary.address && summary.address.trim() !== ', ,') {
-      parts.push(`• Address: ${summary.address}`);
+      parts.push(`- Address: ${summary.address}`);
     }
     if (summary.orderCount > 0) {
-      parts.push(`• Orders: ${summary.orderCount}`);
+      parts.push(`- Orders: ${summary.orderCount}`);
     }
     if (summary.documentCount > 0) {
-      parts.push(`• Documents: ${summary.documentCount}`);
+      parts.push(`- Documents: ${summary.documentCount}`);
     }
 
     return {
@@ -200,6 +227,108 @@ function tryDirectAnswer(
 
   // Not a simple demographic query - let AI handle it
   return null;
+}
+
+/**
+ * Calculate Levenshtein distance between two strings for fuzzy matching
+ */
+function levenshteinDistance(str1: string, str2: string): number {
+  const s1 = str1.toLowerCase();
+  const s2 = str2.toLowerCase();
+  const m = s1.length;
+  const n = s2.length;
+
+  // Create a 2D array to store distances
+  const dp: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0));
+
+  // Initialize base cases
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  // Fill the DP table
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (s1[i - 1] === s2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+
+  return dp[m][n];
+}
+
+/**
+ * Calculate similarity score (0-1) between two strings
+ */
+function similarityScore(str1: string, str2: string): number {
+  const distance = levenshteinDistance(str1, str2);
+  const maxLen = Math.max(str1.length, str2.length);
+  return maxLen === 0 ? 1 : 1 - distance / maxLen;
+}
+
+interface ScoredPatient {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  dob: string | null;
+  email: string | null;
+  score: number;
+  firstNameScore: number;
+  lastNameScore: number;
+}
+
+/**
+ * Find patients with similar names using fuzzy matching
+ */
+async function findSimilarPatients(
+  firstName: string,
+  lastName: string,
+  clinicId: number,
+  limit: number = 5
+): Promise<ScoredPatient[]> {
+  // Get all patients from this clinic for fuzzy matching
+  const allPatients = await prisma.patient.findMany({
+    where: { clinicId },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      dob: true,
+      email: true,
+    },
+  });
+
+  // Calculate similarity scores for each patient
+  const scoredPatients: ScoredPatient[] = allPatients.map((patient: typeof allPatients[0]) => {
+    const firstNameScore = similarityScore(firstName, patient.firstName || '');
+    const lastNameScore = similarityScore(lastName, patient.lastName || '');
+    // Also check if first/last names are swapped
+    const swappedFirstScore = similarityScore(firstName, patient.lastName || '');
+    const swappedLastScore = similarityScore(lastName, patient.firstName || '');
+
+    const normalScore = (firstNameScore + lastNameScore) / 2;
+    const swappedScore = (swappedFirstScore + swappedLastScore) / 2;
+    const bestScore = Math.max(normalScore, swappedScore);
+
+    return {
+      ...patient,
+      score: bestScore,
+      firstNameScore,
+      lastNameScore,
+    };
+  });
+
+  // Filter to patients with reasonable similarity (> 0.4) and sort by score
+  const similarPatients = scoredPatients
+    .filter((p: ScoredPatient) => p.score > 0.4)
+    .sort((a: ScoredPatient, b: ScoredPatient) => b.score - a.score)
+    .slice(0, limit);
+
+  return similarPatients;
 }
 
 /**
@@ -431,32 +560,28 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
   if (nameMatch && !targetPatient) {
     const [, firstName, lastName] = nameMatch;
 
-    // Try to find similar patients - SECURITY: Filter by clinic
-    const similarPatients = await prisma.patient.findMany({
-      where: {
-        clinicId, // CRITICAL: Filter by clinic
-        OR: [
-          { firstName: { contains: firstName, mode: 'insensitive' } },
-          { lastName: { contains: lastName, mode: 'insensitive' } },
-          { firstName: { contains: lastName, mode: 'insensitive' } },
-          { lastName: { contains: firstName, mode: 'insensitive' } },
-        ],
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        dob: true,
-        email: true,
-      },
-      take: 5,
-    });
+    // Use fuzzy matching to find similar patients
+    const similarPatients = await findSimilarPatients(firstName, lastName, clinicId, 5);
+
+    // If we have high-confidence matches, highlight the best one
+    const bestMatch = similarPatients.length > 0 ? similarPatients[0] : null;
+    const highConfidenceMatch = bestMatch && bestMatch.score > 0.8;
+
+    // Build message based on whether we found similar patients
+    let message: string;
+    if (bestMatch) {
+      message = `No exact match for "${firstName} ${lastName}", but found ${similarPatients.length} similar patient(s). Did you mean ${bestMatch.firstName} ${bestMatch.lastName}?`;
+    } else {
+      message = `No patient found with the name "${firstName} ${lastName}" in your clinic. Please check the spelling.`;
+    }
 
     return {
       type: 'patient_not_found',
       searchedName: `${firstName} ${lastName}`,
       similarPatients: similarPatients.length > 0 ? similarPatients : undefined,
-      message: `No patient found with the exact name "${firstName} ${lastName}" in your clinic`,
+      highConfidenceMatch: highConfidenceMatch ? bestMatch : undefined,
+      message,
+      suggestions: similarPatients.map((p: ScoredPatient) => `${p.firstName} ${p.lastName}${p.dob ? ` (DOB: ${p.dob})` : ''}`),
     };
   }
 
@@ -747,12 +872,14 @@ export async function processAssistantQuery(
     // Use detected query category for storage
     const queryType = queryCategory;
 
-    // Add medical disclaimer for clinical/medical queries
-    let finalAnswer = aiResponse.answer;
+    // Strip any markdown formatting from the response
+    let finalAnswer = stripMarkdown(aiResponse.answer);
+
+    // Add medical disclaimer for clinical/medical queries (plain text version)
     if (requiresMedicalDisclaimer(queryCategory)) {
       // Only add disclaimer if it's not already present in the response
       if (!finalAnswer.includes('not medical advice')) {
-        finalAnswer = `${finalAnswer}${MEDICAL_DISCLAIMER}`;
+        finalAnswer = `${finalAnswer}\n\nNote: For educational and informational purposes only. This is not medical advice. Always consult with a qualified healthcare provider for patient-specific decisions.`;
       }
     }
 
