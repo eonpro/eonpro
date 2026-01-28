@@ -100,10 +100,25 @@ export async function ensureSoapNoteExists(
       take: 1,
     });
 
-    logger.debug('[SOAP-AUTOMATION] Document query result', {
+    // CRITICAL: Log document query results for debugging
+    logger.info('[SOAP-AUTOMATION] Document query result', {
       ...logContext,
       documentsFound: documents.length,
       patientClinicId: patient.clinicId,
+      documentIds: documents.map((d) => d.id),
+      documentSources: documents.map((d) => d.source),
+    });
+
+    // Also check if there are ANY documents for this patient
+    const allDocs = await prisma.patientDocument.findMany({
+      where: { patientId },
+      select: { id: true, category: true, source: true, createdAt: true },
+    });
+    logger.info('[SOAP-AUTOMATION] All patient documents', {
+      ...logContext,
+      totalDocs: allDocs.length,
+      categories: allDocs.map((d) => d.category),
+      sources: allDocs.map((d) => d.source),
     });
 
     // Skip test/demo patients
@@ -132,9 +147,12 @@ export async function ensureSoapNoteExists(
     if (documents && documents.length > 0) {
       const intakeDoc = documents[0];
 
-      logger.info('[SOAP-AUTOMATION] Generating SOAP note from intake document', {
+      logger.info('[SOAP-AUTOMATION] Step 3: Generating SOAP note from intake document', {
         ...logContext,
         documentId: intakeDoc.id,
+        documentSource: intakeDoc.source,
+        hasData: !!intakeDoc.data,
+        dataSize: intakeDoc.data ? intakeDoc.data.length : 0,
       });
 
       try {
@@ -318,7 +336,14 @@ export async function ensureSoapNoteExists(
     }
 
     // Step 6: No data available - flag for manual review
-    logger.warn('[SOAP-AUTOMATION] No intake data available for SOAP generation', logContext);
+    logger.warn('[SOAP-AUTOMATION] No intake data available for SOAP generation', {
+      ...logContext,
+      checkedDocuments: documents.length,
+      checkedInvoice: !!invoice,
+      checkedIntakeSubmission: !!intakeSubmission,
+      intakeSubmissionStatus: intakeSubmission?.status,
+      intakeSubmissionResponses: intakeSubmission?.responses?.length,
+    });
 
     return {
       success: false,
