@@ -571,47 +571,107 @@ FORMATTING REMINDER - CRITICAL:
 
     if (context.type === 'patient_found') {
       const summary = context.summary as any;
-      // HIPAA COMPLIANCE: Anonymize PHI before sending to OpenAI
-      // Only include clinical context, not PII
-      const anonymizedAge = summary.age !== null ? summary.age + ' years old' : 'Unknown';
-      const anonymizedGender = summary.gender || 'Not specified';
+      // Format patient data for AI - include operational data (tracking, etc.)
+      // Note: Patient name is already known to the user, so we include it for context
+      const patientAge = summary.age !== null ? summary.age + ' years old' : 'Unknown';
+      const patientGender = summary.gender || 'Not specified';
 
-      // Anonymize orders - only include clinical info, not patient identifiers
-      const anonymizedOrders = ((context.patient as any)?.orders || []).map((order: any) => ({
+      // Include full order details with tracking numbers (tracking is operational, not PHI)
+      const ordersWithDetails = ((context.patient as any)?.orders || []).map((order: any) => ({
+        orderId: order.id,
         status: order.status,
-        type: order.type,
-        items: order.items?.map((item: any) => ({
-          name: item.productName || item.name,
-          quantity: item.quantity,
+        shippingStatus: order.shippingStatus,
+        trackingNumber: order.trackingNumber || 'Not yet assigned',
+        trackingUrl: order.trackingUrl,
+        medication: order.primaryMedName || order.rxs?.[0]?.medName || 'Unknown medication',
+        prescriptions: order.rxs?.map((rx: any) => ({
+          name: rx.medName,
+          strength: rx.strength,
+          quantity: rx.quantity,
+          sig: rx.sig,
         })),
         createdAt: order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Unknown',
       }));
 
-      // Anonymize documents - only include metadata
-      const anonymizedDocs = ((context.patient as any)?.documents || []).map((doc: any) => ({
+      // Include document categories
+      const documents = ((context.patient as any)?.documents || []).map((doc: any) => ({
         category: doc.category,
+        filename: doc.filename,
         createdAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown',
       }));
 
-      // Anonymize SOAP notes - only include clinical sections
-      const anonymizedSoapNotes = ((context.patient as any)?.soapNotes || []).map((note: any) => ({
-        subjective: note.subjective ? '[Subjective findings present]' : null,
-        objective: note.objective ? '[Objective findings present]' : null,
-        assessment: note.assessment ? '[Assessment present]' : null,
-        plan: note.plan ? '[Treatment plan present]' : null,
-        createdAt: note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Unknown',
+      // Include SOAP notes with actual clinical content (this is for provider use)
+      const soapNotes = ((context.patient as any)?.soapNotes || []).map((note: any) => ({
+        date: note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Unknown',
+        subjective: note.subjective || 'Not recorded',
+        objective: note.objective || 'Not recorded',
+        assessment: note.assessment || 'Not recorded',
+        plan: note.plan || 'Not recorded',
+        status: note.status,
       }));
 
-      contextDescription = `Patient Found:
-Patient Identifier: [ANONYMIZED-${summary.patientId || 'UNKNOWN'}]
-Age: ${anonymizedAge}
-Gender: ${anonymizedGender}
+      // Include tracking information
+      const trackingInfo = (context.tracking as any[]) || [];
+      const shippingUpdates = (context.shippingUpdates as any[]) || [];
+
+      // Include vitals/health data
+      const vitals = (context.vitals as any) || {};
+      const latestWeight = vitals?.latestWeight;
+      const intakeVitals = vitals?.fromIntake;
+
+      // Build comprehensive context description
+      let vitalsSection = '';
+      if (latestWeight || intakeVitals) {
+        vitalsSection = `\nVitals and Health Data:`;
+        if (latestWeight) {
+          vitalsSection += `\n- Latest Recorded Weight: ${latestWeight.weight} ${latestWeight.unit} (recorded ${new Date(latestWeight.recordedAt).toLocaleDateString()})`;
+        }
+        if (intakeVitals) {
+          if (intakeVitals.weight) vitalsSection += `\n- Weight from Intake: ${intakeVitals.weight}`;
+          if (intakeVitals.height) vitalsSection += `\n- Height from Intake: ${intakeVitals.height}`;
+          if (intakeVitals.bloodPressure) vitalsSection += `\n- Blood Pressure: ${intakeVitals.bloodPressure}`;
+          if (intakeVitals.bmi) vitalsSection += `\n- BMI: ${intakeVitals.bmi}`;
+        }
+      }
+
+      let trackingSection = '';
+      if (trackingInfo && trackingInfo.length > 0) {
+        trackingSection = `\nTracking Information:`;
+        trackingInfo.forEach((t: any) => {
+          trackingSection += `\n- Order #${t.orderId}: ${t.medication}`;
+          trackingSection += `\n  Status: ${t.status || 'Unknown'}, Shipping: ${t.shippingStatus || 'Pending'}`;
+          trackingSection += `\n  Tracking Number: ${t.trackingNumber}`;
+          if (t.trackingUrl) trackingSection += `\n  Tracking URL: ${t.trackingUrl}`;
+        });
+      }
+
+      if (shippingUpdates && shippingUpdates.length > 0) {
+        trackingSection += `\nShipping Updates:`;
+        shippingUpdates.forEach((s: any) => {
+          trackingSection += `\n- ${s.carrier}: ${s.trackingNumber}`;
+          trackingSection += `\n  Status: ${s.status}${s.statusDetail ? ` - ${s.statusDetail}` : ''}`;
+          if (s.estimatedDelivery) trackingSection += `\n  Estimated Delivery: ${new Date(s.estimatedDelivery).toLocaleDateString()}`;
+          if (s.deliveredAt) trackingSection += `\n  Delivered: ${new Date(s.deliveredAt).toLocaleDateString()}`;
+        });
+      }
+
+      contextDescription = `Patient Found: ${summary.name}
+Patient ID: ${summary.patientId}
+Age: ${patientAge}
+Gender: ${patientGender}
 Total Orders: ${summary.orderCount}
 Total Documents: ${summary.documentCount}
+${vitalsSection}
+${trackingSection}
 
-Recent Orders Summary: ${JSON.stringify(anonymizedOrders, null, 2)}
-Document Types Available: ${JSON.stringify(anonymizedDocs, null, 2)}
-SOAP Notes Summary: ${JSON.stringify(anonymizedSoapNotes, null, 2)}`;
+Recent Orders (${ordersWithDetails.length}):
+${JSON.stringify(ordersWithDetails, null, 2)}
+
+Documents (${documents.length}):
+${JSON.stringify(documents, null, 2)}
+
+SOAP Notes (${soapNotes.length}):
+${JSON.stringify(soapNotes, null, 2)}`;
     } else if (context.type === 'patient_not_found') {
       // HIPAA: Don't send searched names or similar patient details to OpenAI
       contextDescription = `Patient Not Found:

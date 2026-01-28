@@ -186,6 +186,203 @@ function tryDirectAnswer(
     };
   }
 
+  // Tracking number queries
+  if (queryLower.includes('tracking') || queryLower.includes('shipment') || queryLower.includes('shipping') || queryLower.includes('delivery')) {
+    const trackingInfo = patientContext.tracking || [];
+    const shippingUpdates = patientContext.shippingUpdates || [];
+
+    if (trackingInfo.length > 0 || shippingUpdates.length > 0) {
+      const parts: string[] = [];
+      parts.push(`Here's the tracking information for ${summary.name}:`);
+
+      if (trackingInfo.length > 0) {
+        trackingInfo.forEach((t: any) => {
+          parts.push(`\n- ${t.medication || 'Order'}`);
+          parts.push(`  Status: ${t.status || 'Processing'}`);
+          if (t.trackingNumber && t.trackingNumber !== 'Not yet assigned') {
+            parts.push(`  Tracking Number: ${t.trackingNumber}`);
+          }
+          if (t.shippingStatus) {
+            parts.push(`  Shipping Status: ${t.shippingStatus}`);
+          }
+        });
+      }
+
+      if (shippingUpdates.length > 0) {
+        parts.push('\nLatest shipping updates:');
+        shippingUpdates.slice(0, 3).forEach((s: any) => {
+          parts.push(`- ${s.carrier}: ${s.trackingNumber}`);
+          parts.push(`  Status: ${s.status}${s.statusDetail ? ` - ${s.statusDetail}` : ''}`);
+          if (s.estimatedDelivery) {
+            parts.push(`  Estimated Delivery: ${new Date(s.estimatedDelivery).toLocaleDateString()}`);
+          }
+        });
+      }
+
+      return {
+        answer: parts.join('\n'),
+        queryType: 'tracking',
+      };
+    }
+
+    // Check orders directly for tracking
+    const orders = patient?.orders || [];
+    const ordersWithTracking = orders.filter((o: any) => o.trackingNumber);
+
+    if (ordersWithTracking.length > 0) {
+      const parts: string[] = [];
+      parts.push(`Here's the tracking information for ${summary.name}:`);
+      ordersWithTracking.forEach((order: any) => {
+        const medication = order.primaryMedName || order.rxs?.[0]?.medName || 'Prescription';
+        parts.push(`\n- ${medication}`);
+        parts.push(`  Tracking Number: ${order.trackingNumber}`);
+        if (order.shippingStatus) {
+          parts.push(`  Status: ${order.shippingStatus}`);
+        }
+        if (order.trackingUrl) {
+          parts.push(`  Track at: ${order.trackingUrl}`);
+        }
+      });
+      return {
+        answer: parts.join('\n'),
+        queryType: 'tracking',
+      };
+    }
+
+    return {
+      answer: `I don't see any tracking numbers on file for ${summary.name}. The order may still be processing, or tracking hasn't been assigned yet.`,
+      queryType: 'tracking',
+    };
+  }
+
+  // Weight queries
+  if (queryLower.includes('weight') && !queryLower.includes('goal')) {
+    const vitals = patientContext.vitals || {};
+    const latestWeight = vitals.latestWeight;
+    const intakeVitals = vitals.fromIntake;
+
+    // Check weight logs first
+    if (latestWeight) {
+      return {
+        answer: `${summary.name}'s latest recorded weight is ${latestWeight.weight} ${latestWeight.unit} (recorded on ${new Date(latestWeight.recordedAt).toLocaleDateString()}).`,
+        queryType: 'vitals',
+      };
+    }
+
+    // Check intake form data
+    if (intakeVitals?.weight) {
+      return {
+        answer: `${summary.name}'s weight from the intake form is ${intakeVitals.weight}.`,
+        queryType: 'vitals',
+      };
+    }
+
+    // Check SOAP notes for weight
+    const soapNotes = patient?.soapNotes || [];
+    for (const note of soapNotes) {
+      if (note.objective) {
+        // Try to find weight in objective section
+        const weightMatch = note.objective.match(/weight[:\s]*(\d+\.?\d*)\s*(lbs?|pounds?|kg)?/i);
+        if (weightMatch) {
+          return {
+            answer: `According to the SOAP note from ${new Date(note.createdAt).toLocaleDateString()}, ${summary.name}'s weight was ${weightMatch[1]} ${weightMatch[2] || 'lbs'}.`,
+            queryType: 'vitals',
+          };
+        }
+      }
+    }
+
+    return {
+      answer: `I don't have current weight information on file for ${summary.name}. The weight may be recorded in the intake documents or needs to be updated.`,
+      queryType: 'vitals',
+    };
+  }
+
+  // Height queries
+  if (queryLower.includes('height') || queryLower.includes('how tall')) {
+    const intakeVitals = patientContext.vitals?.fromIntake;
+
+    if (intakeVitals?.height) {
+      return {
+        answer: `${summary.name}'s height from the intake form is ${intakeVitals.height}.`,
+        queryType: 'vitals',
+      };
+    }
+
+    return {
+      answer: `I don't have height information on file for ${summary.name}.`,
+      queryType: 'vitals',
+    };
+  }
+
+  // BMI queries
+  if (queryLower.includes('bmi') || queryLower.includes('body mass')) {
+    const intakeVitals = patientContext.vitals?.fromIntake;
+
+    if (intakeVitals?.bmi) {
+      return {
+        answer: `${summary.name}'s BMI from the intake form is ${intakeVitals.bmi}.`,
+        queryType: 'vitals',
+      };
+    }
+
+    return {
+      answer: `I don't have BMI information on file for ${summary.name}. If height and weight are available, I can help calculate it.`,
+      queryType: 'vitals',
+    };
+  }
+
+  // Blood pressure queries
+  if (queryLower.includes('blood pressure') || queryLower.includes('bp')) {
+    const intakeVitals = patientContext.vitals?.fromIntake;
+
+    if (intakeVitals?.bloodPressure) {
+      return {
+        answer: `${summary.name}'s blood pressure from the intake form is ${intakeVitals.bloodPressure}.`,
+        queryType: 'vitals',
+      };
+    }
+
+    return {
+      answer: `I don't have blood pressure information on file for ${summary.name}.`,
+      queryType: 'vitals',
+    };
+  }
+
+  // Prescription/medication queries
+  if (queryLower.includes('prescription') || queryLower.includes('medication') || queryLower.includes('rx') || queryLower.includes('medicine')) {
+    const orders = patient?.orders || [];
+    if (orders.length > 0) {
+      const parts: string[] = [];
+      parts.push(`Here are ${summary.name}'s recent prescriptions:`);
+
+      orders.slice(0, 5).forEach((order: any) => {
+        const rxs = order.rxs || [];
+        if (rxs.length > 0) {
+          rxs.forEach((rx: any) => {
+            parts.push(`\n- ${rx.medName} ${rx.strength}`);
+            parts.push(`  Form: ${rx.form}, Quantity: ${rx.quantity}`);
+            parts.push(`  Directions: ${rx.sig}`);
+            parts.push(`  Order Status: ${order.status || 'Processing'}`);
+          });
+        } else if (order.primaryMedName) {
+          parts.push(`\n- ${order.primaryMedName} ${order.primaryMedStrength || ''}`);
+          parts.push(`  Status: ${order.status || 'Processing'}`);
+        }
+      });
+
+      return {
+        answer: parts.join('\n'),
+        queryType: 'prescription',
+      };
+    }
+
+    return {
+      answer: `I don't see any prescriptions on file for ${summary.name}.`,
+      queryType: 'prescription',
+    };
+  }
+
   // General patient info/summary queries
   if (
     (queryLower.includes('tell me about') || queryLower.includes('information') || queryLower.includes('details')) &&
@@ -404,14 +601,17 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
         orders: {
           include: {
             rxs: true,
-            events: true,
+            events: {
+              orderBy: { createdAt: 'desc' },
+              take: 5,
+            },
           },
           orderBy: { createdAt: 'desc' },
-          take: 5,
+          take: 10, // Get more orders for better tracking history
         },
         documents: {
           orderBy: { createdAt: 'desc' },
-          take: 5,
+          take: 10,
         },
         invoices: {
           orderBy: { createdAt: 'desc' },
@@ -419,7 +619,30 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
         },
         soapNotes: {
           orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
+        // Include weight logs for vitals data
+        weightLogs: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+        // Include intake submissions for form data
+        intakeSubmissions: {
+          where: { status: 'completed' },
+          include: {
+            responses: {
+              include: {
+                question: true,
+              },
+            },
+          },
+          orderBy: { completedAt: 'desc' },
           take: 3,
+        },
+        // Include shipping updates
+        shippingUpdates: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
         },
       },
     });
@@ -435,6 +658,53 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
     // Try to find patient by name - MUST filter by clinic
     const [, firstName, lastName] = nameMatch;
 
+    // Define include object for patient query
+    const patientInclude = {
+      orders: {
+        include: {
+          rxs: true,
+          events: {
+            orderBy: { createdAt: 'desc' as const },
+            take: 5,
+          },
+        },
+        orderBy: { createdAt: 'desc' as const },
+        take: 10,
+      },
+      documents: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 10,
+      },
+      invoices: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 5,
+      },
+      soapNotes: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 5,
+      },
+      weightLogs: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 10,
+      },
+      intakeSubmissions: {
+        where: { status: 'completed' },
+        include: {
+          responses: {
+            include: {
+              question: true,
+            },
+          },
+        },
+        orderBy: { completedAt: 'desc' as const },
+        take: 3,
+      },
+      shippingUpdates: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 10,
+      },
+    };
+
     // Try exact match first - SECURITY: Always include clinicId filter
     targetPatient = await prisma.patient.findFirst({
       where: {
@@ -444,28 +714,7 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
           { lastName: { contains: lastName, mode: 'insensitive' } },
         ],
       },
-      include: {
-        orders: {
-          include: {
-            rxs: true,
-            events: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-        documents: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-        invoices: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-        soapNotes: {
-          orderBy: { createdAt: 'desc' },
-          take: 3,
-        },
-      },
+      include: patientInclude,
     });
 
     // If no exact match, try partial match - SECURITY: Always include clinicId filter
@@ -488,28 +737,7 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
             },
           ],
         },
-        include: {
-          orders: {
-            include: {
-              rxs: true,
-              events: true,
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-          },
-          documents: {
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-          },
-          invoices: {
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-          },
-          soapNotes: {
-            orderBy: { createdAt: 'desc' },
-            take: 3,
-          },
-        },
+        include: patientInclude,
       });
     }
   }
@@ -532,16 +760,66 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
           formattedDob = dobDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         }
       } catch (e: any) {
-    // @ts-ignore
-
         // If parsing fails, just use the original string
       }
     }
+
+    // Extract tracking information from orders
+    const ordersWithTracking = ((targetPatient as any).orders || [])
+      .filter((order: any) => order.trackingNumber)
+      .map((order: any) => ({
+        orderId: order.id,
+        status: order.status,
+        shippingStatus: order.shippingStatus,
+        trackingNumber: order.trackingNumber,
+        trackingUrl: order.trackingUrl,
+        medication: order.primaryMedName || (order.rxs?.[0]?.medName),
+        createdAt: order.createdAt,
+      }));
+
+    // Extract latest weight from weight logs
+    const latestWeight = (targetPatient as any).weightLogs?.[0];
+
+    // Extract vitals/health data from intake submissions
+    let intakeVitals: any = null;
+    const intakeSubmissions = (targetPatient as any).intakeSubmissions || [];
+    if (intakeSubmissions.length > 0) {
+      const latestIntake = intakeSubmissions[0];
+      const responses = latestIntake.responses || [];
+      intakeVitals = {};
+
+      for (const response of responses) {
+        const questionText = response.question?.questionText?.toLowerCase() || '';
+        const answer = response.answer;
+
+        if (questionText.includes('weight') && !questionText.includes('goal')) {
+          intakeVitals.weight = answer;
+        } else if (questionText.includes('height')) {
+          intakeVitals.height = answer;
+        } else if (questionText.includes('blood pressure') || questionText.includes('bp')) {
+          intakeVitals.bloodPressure = answer;
+        } else if (questionText.includes('bmi')) {
+          intakeVitals.bmi = answer;
+        }
+      }
+    }
+
+    // Get shipping updates
+    const shippingUpdates = ((targetPatient as any).shippingUpdates || []).map((update: any) => ({
+      trackingNumber: update.trackingNumber,
+      carrier: update.carrier,
+      status: update.status,
+      statusDetail: update.statusDetail,
+      estimatedDelivery: update.estimatedDelivery,
+      deliveredAt: update.deliveredAt,
+      lastUpdate: update.lastUpdatedAt,
+    }));
 
     return {
       type: 'patient_found',
       patient: targetPatient,
       summary: {
+        patientId: targetPatient.id,
         name: `${targetPatient.firstName} ${targetPatient.lastName}`,
         dateOfBirth: formattedDob,
         age: age,
@@ -549,9 +827,24 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
         phone: targetPatient.phone,
         email: targetPatient.email,
         address: `${targetPatient.address1}${targetPatient.address2 ? ' ' + targetPatient.address2 : ''}, ${targetPatient.city}, ${targetPatient.state} ${targetPatient.zip}`,
-        orderCount: targetPatient.orders?.length || 0,
-        documentCount: targetPatient.documents?.length || 0,
+        orderCount: (targetPatient as any).orders?.length || 0,
+        documentCount: (targetPatient as any).documents?.length || 0,
       },
+      // Include detailed tracking information
+      tracking: ordersWithTracking.length > 0 ? ordersWithTracking : null,
+      shippingUpdates: shippingUpdates.length > 0 ? shippingUpdates : null,
+      // Include vitals/health data
+      vitals: {
+        latestWeight: latestWeight ? {
+          weight: latestWeight.weight,
+          unit: latestWeight.unit,
+          recordedAt: latestWeight.createdAt,
+        } : null,
+        fromIntake: intakeVitals,
+      },
+      // Include intake form data summary
+      hasIntakeData: intakeSubmissions.length > 0,
+      intakeCount: intakeSubmissions.length,
     };
   }
 
