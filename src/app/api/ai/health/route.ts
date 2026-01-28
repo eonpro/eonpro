@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
             { role: 'system', content: 'You are a health check assistant. Reply with exactly: OK' },
             { role: 'user', content: 'Health check' },
           ],
-          max_tokens: 10,
+          max_completion_tokens: 10,
           temperature: 0,
         });
 
