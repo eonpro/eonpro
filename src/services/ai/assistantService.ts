@@ -401,7 +401,38 @@ export async function processAssistantQuery(
   try {
     // Search for relevant patient data
     const patientContext = await searchPatientData(query, patientId || conversation.patientId || undefined);
-    
+
+    // Check if this is a simple demographic query that can be answered directly
+    // This avoids sending PHI to OpenAI and provides faster, more accurate responses
+    const directAnswer = tryDirectAnswer(query, patientContext);
+    if (directAnswer) {
+      const startTime = Date.now();
+      const responseTime = Date.now() - startTime;
+
+      // Store assistant response
+      const assistantMessage = await prisma.aIMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: directAnswer.answer,
+          queryType: directAnswer.queryType,
+          confidence: 1.0, // Direct answers are always accurate
+          responseTimeMs: responseTime,
+        },
+      });
+
+      await prisma.aIConversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date() },
+      });
+
+      return {
+        answer: directAnswer.answer,
+        sessionId: conversation.sessionId,
+        messageId: assistantMessage.id,
+      };
+    }
+
     // Prepare conversation history for AI
     const conversationHistory = conversation.messages
       .reverse()
@@ -410,7 +441,7 @@ export async function processAssistantQuery(
         role: msg.role,
         content: msg.content,
       }));
-    
+
     // Query AI with context
     const startTime = Date.now();
     const aiResponse = await queryPatientData({
@@ -465,20 +496,31 @@ export async function processAssistantQuery(
     };
     
   } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[Assistant] Error processing query:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     
-    // Store error message
-    await prisma.aIMessage.create({
-      data: {
-        conversationId: conversation.id,
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error processing your request. Please try again or contact support if the issue persists.',
-        queryType: 'error',
-      },
+    logger.error('[Assistant] Error processing query:', {
+      error: errorMessage,
+      query,
+      patientId: patientId || conversation.patientId,
+      userEmail,
+      status: error.status,
+      code: error.code,
     });
     
+    // Store error message
+    try {
+      await prisma.aIMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: 'I apologize, but I encountered an error processing your request. Please try again or contact support if the issue persists.',
+          queryType: 'error',
+        },
+      });
+    } catch (dbError: any) {
+      logger.error('[Assistant] Failed to store error message:', dbError);
+    }
+
     throw error;
   }
 }

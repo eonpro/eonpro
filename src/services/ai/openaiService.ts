@@ -20,18 +20,26 @@ let openaiClient: OpenAI | null = null;
 
 /**
  * Check if model requires max_completion_tokens instead of max_tokens
- * Newer models (o1, o1-mini, o1-preview, gpt-4o reasoning models) use max_completion_tokens
+ * Newer models (o1, o3, gpt-4o, gpt-5, etc.) use max_completion_tokens
+ * Only older models like gpt-4-turbo, gpt-3.5-turbo use max_tokens
  */
 function useMaxCompletionTokens(model: string): boolean {
   const modelLower = model.toLowerCase();
-  return (
-    modelLower.startsWith('o1') ||
-    modelLower.startsWith('o3') ||
-    modelLower.includes('o1-') ||
-    modelLower.includes('o3-') ||
-    // Some gpt-4o variants also require this
-    (modelLower.includes('gpt-4o') && !modelLower.includes('gpt-4o-mini'))
-  );
+  
+  // Models that DEFINITELY use old max_tokens parameter
+  const usesMaxTokens = 
+    modelLower.includes('gpt-3.5') ||
+    modelLower.includes('gpt-4-turbo') ||
+    modelLower === 'gpt-4' ||
+    modelLower.includes('gpt-4-0') || // gpt-4-0613, gpt-4-0314, etc.
+    modelLower.includes('davinci') ||
+    modelLower.includes('curie') ||
+    modelLower.includes('babbage') ||
+    modelLower.includes('ada');
+  
+  // If it's a known old model, use max_tokens; otherwise use max_completion_tokens
+  // This ensures newer models (gpt-4o, gpt-4o-mini, gpt-5, o1, o3, etc.) use the new parameter
+  return !usesMaxTokens;
 }
 
 /**
@@ -659,12 +667,30 @@ Please provide a clear, accurate answer based on the available information. If a
       usage: usageMetrics,
     };
   } catch (error: any) {
-    // @ts-ignore
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[OpenAI] Error processing query:', error);
+    logger.error('[OpenAI] Error processing query:', {
+      error: errorMessage,
+      status: error.status,
+      code: error.code,
+      type: error.type,
+    });
 
-    throw new Error(`Failed to process query: ${errorMessage}`);
+    // Preserve OpenAI context in error message for proper handling upstream
+    if (error.status === 429) {
+      throw new Error('OpenAI rate limit exceeded. Please wait a moment and try again.');
+    }
+    if (error.status === 401) {
+      throw new Error('OpenAI API key is invalid or not configured.');
+    }
+    if (error.status === 500 || error.status === 502 || error.status === 503) {
+      throw new Error('OpenAI service is temporarily unavailable. Please try again later.');
+    }
+    if (error.code === 'insufficient_quota') {
+      throw new Error('OpenAI quota exceeded. Please contact support.');
+    }
+
+    // Include OpenAI in message so route handler can identify the source
+    throw new Error(`OpenAI query failed: ${errorMessage}`);
   }
 }
 

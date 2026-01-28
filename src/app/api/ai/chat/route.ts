@@ -34,9 +34,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // @ts-ignore
-   
-    logger.error('[API] Error processing chat query:', error);
+
+    logger.error('[API] Error processing chat query:', {
+      error: errorMessage,
+      status: error.status,
+      code: error.code,
+      stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+    });
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -45,22 +49,40 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check for rate limiting
-    if (errorMessage.includes('Rate limit')) {
+    // Check for rate limiting (internal or OpenAI)
+    if (errorMessage.toLowerCase().includes('rate limit') || error.status === 429) {
       return NextResponse.json(
-        { error: errorMessage },
+        { error: 'Too many requests. Please wait a moment and try again.' },
         { status: 429 }
       );
     }
     
-    // Check for OpenAI errors
-    if (errorMessage.includes('OpenAI')) {
+    // Check for OpenAI-related errors
+    if (
+      errorMessage.includes('OpenAI') ||
+      errorMessage.includes('API key') ||
+      errorMessage.includes('quota') ||
+      error.status === 401 ||
+      error.code === 'insufficient_quota'
+    ) {
       return NextResponse.json(
         { error: 'AI service temporarily unavailable. Please try again later.' },
         { status: 503 }
       );
     }
     
+    // Check for database/connection errors
+    if (
+      errorMessage.includes('database') ||
+      errorMessage.includes('Prisma') ||
+      errorMessage.includes('ECONNREFUSED')
+    ) {
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable. Please try again.' },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to process query. Please try again.' },
       { status: 500 }
