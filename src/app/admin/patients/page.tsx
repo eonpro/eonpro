@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Filter, Eye, Edit, MoreVertical, Users } from 'lucide-react';
+import { Search, Plus, Filter, Eye, Edit, MoreVertical, Users, GitMerge } from 'lucide-react';
+import MergePatientModal from '@/components/MergePatientModal';
 
 interface Patient {
   id: number;
+  patientId?: string | null;
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
+  dob?: string;
   dateOfBirth: string;
   status: string;
   createdAt: string;
@@ -37,9 +40,23 @@ export default function AdminPatientsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [mergePatient, setMergePatient] = useState<Patient | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchPatients();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdownId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const fetchPatients = async () => {
@@ -116,6 +133,28 @@ export default function AdminPatientsPage() {
           </div>
         </div>
       </div>
+
+      {/* Merge Patient Modal */}
+      {mergePatient && (
+        <MergePatientModal
+          sourcePatient={{
+            id: mergePatient.id,
+            patientId: mergePatient.patientId || null,
+            firstName: mergePatient.firstName,
+            lastName: mergePatient.lastName,
+            email: mergePatient.email,
+            phone: mergePatient.phone,
+            dob: mergePatient.dob || mergePatient.dateOfBirth,
+            createdAt: mergePatient.createdAt,
+          }}
+          onClose={() => setMergePatient(null)}
+          onMergeComplete={(mergedPatientId) => {
+            setMergePatient(null);
+            fetchPatients();
+            router.push(`/patients/${mergedPatientId}`);
+          }}
+        />
+      )}
 
       {/* Patients Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -211,9 +250,28 @@ export default function AdminPatientsPage() {
                       >
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
+                      <div className="relative" ref={openDropdownId === patient.id ? dropdownRef : null}>
+                        <button
+                          onClick={() => setOpenDropdownId(openDropdownId === patient.id ? null : patient.id)}
+                          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                        {openDropdownId === patient.id && (
+                          <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                            <button
+                              onClick={() => {
+                                setOpenDropdownId(null);
+                                setMergePatient(patient);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              <GitMerge className="h-4 w-4" />
+                              Merge with another patient
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

@@ -14,3 +14,15 @@ export {
   createPatientSchema,
   updatePatientSchema,
 } from './patient.service';
+
+export {
+  type PatientMergeService,
+  type MergeOptions,
+  type MergePreview,
+  type MergeResult,
+  type MergeConflict,
+  type RelationCounts,
+  type PatientMergeFields,
+  createPatientMergeService,
+  patientMergeService,
+} from './patient-merge.service';

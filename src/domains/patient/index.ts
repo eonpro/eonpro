@@ -54,6 +54,18 @@ export {
   type ListPatientsOptions,
 } from './services/patient.service';
 
+export {
+  patientMergeService,
+  createPatientMergeService,
+  type PatientMergeService,
+  type MergeOptions,
+  type MergePreview,
+  type MergeResult,
+  type MergeConflict,
+  type RelationCounts,
+  type PatientMergeFields,
+} from './services/patient-merge.service';
+
 // ============================================================================
 // Re-export shared errors for convenience
 // ============================================================================

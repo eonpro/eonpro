@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Trash2 } from 'lucide-react';
+import { Trash2, GitMerge } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
+import MergePatientModal from './MergePatientModal';
 
 interface PatientSidebarProps {
   patient: {
@@ -42,6 +43,7 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
   const router = useRouter();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
   const formatDob = (dob: string | null) => {
     if (!dob) return "—";
@@ -245,8 +247,15 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
           })}
         </nav>
 
-        {/* Delete Button */}
-        <div className="pt-4 border-t">
+        {/* Actions */}
+        <div className="pt-4 border-t space-y-1">
+          <button
+            onClick={() => setShowMergeModal(true)}
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors w-full text-sm"
+          >
+            <GitMerge className="w-4 h-4" />
+            Merge with another patient
+          </button>
           <button
             onClick={() => setShowDeleteModal(true)}
             className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors w-full text-sm"
@@ -272,6 +281,28 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
           patient={patient}
           onClose={() => setShowDeleteModal(false)}
           onDelete={handleDeletePatient}
+        />
+      )}
+
+      {/* Merge Modal */}
+      {showMergeModal && (
+        <MergePatientModal
+          sourcePatient={{
+            id: patient.id,
+            patientId: patient.patientId || null,
+            firstName: patient.firstName,
+            lastName: patient.lastName,
+            email: patient.email,
+            phone: patient.phone,
+            dob: patient.dob,
+            createdAt: new Date().toISOString(), // Will be fetched in preview
+          }}
+          onClose={() => setShowMergeModal(false)}
+          onMergeComplete={(mergedPatientId) => {
+            setShowMergeModal(false);
+            router.push(`/patients/${mergedPatientId}`);
+            router.refresh();
+          }}
         />
       )}
     </>
