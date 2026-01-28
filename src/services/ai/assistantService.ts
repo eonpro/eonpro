@@ -261,7 +261,7 @@ function tryDirectAnswer(
     const latestWeight = vitals.latestWeight;
     const intakeVitals = vitals.fromIntake;
 
-    // Check weight logs first
+    // Check weight logs first (most accurate, timestamped)
     if (latestWeight) {
       return {
         answer: `${summary.name}'s latest recorded weight is ${latestWeight.weight} ${latestWeight.unit} (recorded on ${new Date(latestWeight.recordedAt).toLocaleDateString()}).`,
@@ -269,15 +269,17 @@ function tryDirectAnswer(
       };
     }
 
-    // Check intake form data
+    // Check intake form/document data
     if (intakeVitals?.weight) {
+      // Clean up the weight value (remove "lbs" if already present to avoid duplication)
+      const weightValue = String(intakeVitals.weight).replace(/\s*(lbs?|pounds?)$/i, '').trim();
       return {
-        answer: `${summary.name}'s weight from the intake form is ${intakeVitals.weight}.`,
+        answer: `${summary.name}'s weight is ${weightValue} lbs.`,
         queryType: 'vitals',
       };
     }
 
-    // Check SOAP notes for weight
+    // Check SOAP notes for weight in objective section
     const soapNotes = patient?.soapNotes || [];
     for (const note of soapNotes) {
       if (note.objective) {
@@ -293,7 +295,7 @@ function tryDirectAnswer(
     }
 
     return {
-      answer: `I don't have current weight information on file for ${summary.name}. The weight may be recorded in the intake documents or needs to be updated.`,
+      answer: `I don't have current weight information on file for ${summary.name}. The weight may need to be recorded in an intake form or updated by a provider.`,
       queryType: 'vitals',
     };
   }
@@ -780,29 +782,105 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
     // Extract latest weight from weight logs
     const latestWeight = (targetPatient as any).weightLogs?.[0];
 
-    // Extract vitals/health data from intake submissions
-    let intakeVitals: any = null;
-    const intakeSubmissions = (targetPatient as any).intakeSubmissions || [];
-    if (intakeSubmissions.length > 0) {
-      const latestIntake = intakeSubmissions[0];
-      const responses = latestIntake.responses || [];
-      intakeVitals = {};
+    // Extract vitals/health data from multiple sources:
+    // 1. Document data (JSON with sections array) - from eonpro-intake, heyflow-intake-v2
+    // 2. IntakeSubmissions responses - from intake form system
+    // 3. weightLogs table
+    let intakeVitals: any = {};
 
-      for (const response of responses) {
-        const questionText = response.question?.questionText?.toLowerCase() || '';
-        const answer = response.answer;
+    // Helper to find value by label in various data sources
+    const findVitalValue = (...labels: string[]): string | null => {
+      // Source 1: Document data (most common in production)
+      const documents = (targetPatient as any).documents || [];
+      for (const doc of documents) {
+        if (doc.data) {
+          try {
+            // Handle both Buffer and string data
+            let docData: any;
+            if (Buffer.isBuffer(doc.data)) {
+              const jsonStr = doc.data.toString('utf8');
+              docData = JSON.parse(jsonStr);
+            } else if (typeof doc.data === 'string') {
+              docData = JSON.parse(doc.data);
+            } else {
+              docData = doc.data;
+            }
 
-        if (questionText.includes('weight') && !questionText.includes('goal')) {
-          intakeVitals.weight = answer;
-        } else if (questionText.includes('height')) {
-          intakeVitals.height = answer;
-        } else if (questionText.includes('blood pressure') || questionText.includes('bp')) {
-          intakeVitals.bloodPressure = answer;
-        } else if (questionText.includes('bmi')) {
-          intakeVitals.bmi = answer;
+            // Check sections array format
+            if (docData.sections && Array.isArray(docData.sections)) {
+              for (const section of docData.sections) {
+                if (section.fields && Array.isArray(section.fields)) {
+                  for (const field of section.fields) {
+                    const fieldLabel = (field.label || '').toLowerCase();
+                    for (const label of labels) {
+                      if (fieldLabel.includes(label.toLowerCase()) && field.value) {
+                        return String(field.value);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // Check flat key-value format
+            for (const [key, value] of Object.entries(docData)) {
+              if (value && typeof value === 'string') {
+                const keyLower = key.toLowerCase();
+                for (const label of labels) {
+                  if (keyLower.includes(label.toLowerCase())) {
+                    return value;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            // Skip unparseable documents
+          }
         }
       }
+
+      // Source 2: IntakeSubmissions responses
+      const intakeSubmissions = (targetPatient as any).intakeSubmissions || [];
+      for (const submission of intakeSubmissions) {
+        if (submission.responses && Array.isArray(submission.responses)) {
+          for (const response of submission.responses) {
+            const questionText = (
+              response.question?.questionText ||
+              response.question?.text ||
+              response.question?.label ||
+              ''
+            ).toLowerCase();
+
+            for (const label of labels) {
+              if (questionText.includes(label.toLowerCase()) && response.answer) {
+                return response.answer;
+              }
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    // Extract height - try separate feet/inches first, then combined
+    const heightFeet = findVitalValue('height (feet)', 'height feet', 'heightfeet');
+    const heightInches = findVitalValue('height (inches)', 'height inches', 'heightinches');
+    if (heightFeet) {
+      intakeVitals.height = heightInches ? `${heightFeet}'${heightInches}"` : `${heightFeet}'0"`;
+    } else {
+      intakeVitals.height = findVitalValue('height');
     }
+
+    // Extract weight
+    intakeVitals.weight = findVitalValue('starting weight', 'current weight', 'weight');
+
+    // Extract BMI
+    intakeVitals.bmi = findVitalValue('bmi');
+
+    // Extract blood pressure
+    const bp = findVitalValue('blood pressure', 'bloodpressure');
+    intakeVitals.bloodPressure = bp && bp.toLowerCase() !== 'unknown' ? bp : null;
 
     // Get shipping updates
     const shippingUpdates = ((targetPatient as any).shippingUpdates || []).map((update: any) => ({
@@ -843,8 +921,8 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
         fromIntake: intakeVitals,
       },
       // Include intake form data summary
-      hasIntakeData: intakeSubmissions.length > 0,
-      intakeCount: intakeSubmissions.length,
+      hasIntakeData: ((targetPatient as any).intakeSubmissions?.length || 0) > 0,
+      intakeCount: (targetPatient as any).intakeSubmissions?.length || 0,
     };
   }
 
