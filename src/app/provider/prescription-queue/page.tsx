@@ -878,20 +878,20 @@ export default function PrescriptionQueuePage() {
                 <div className="p-4 sm:p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     {/* Patient Info */}
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex items-center gap-4 min-w-[200px]">
                       <div className="w-12 h-12 bg-gradient-to-br from-rose-100 to-rose-200 rounded-full flex items-center justify-center flex-shrink-0">
                         <User className="w-6 h-6 text-rose-600" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-gray-900 truncate">
-                            {item.patientName}
-                          </h3>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          {item.patientName}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                             {item.patientDisplayId}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-500 truncate">{item.patientEmail}</p>
+                        <p className="text-sm text-gray-500 truncate max-w-[180px]">{item.patientEmail}</p>
                       </div>
                     </div>
 
@@ -935,63 +935,6 @@ export default function PrescriptionQueuePage() {
                           </span>
                         )}
                       </div>
-                    </div>
-
-                    {/* SOAP Note Status - CRITICAL */}
-                    <div className="hidden md:flex items-center gap-2 min-w-[140px]">
-                      {item.hasSoapNote ? (
-                        <div className="flex items-center gap-2">
-                          <ClipboardCheck className={`w-4 h-4 ${
-                            item.soapNote?.isApproved ? 'text-green-500' : 'text-amber-500'
-                          }`} />
-                          <div>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              item.soapNote?.isApproved
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              {item.soapNoteStatus}
-                            </span>
-                            <p className="text-xs text-gray-400 mt-0.5">SOAP Note</p>
-                            {/* Show Approve button for providers when SOAP is DRAFT */}
-                            {!item.soapNote?.isApproved && canApprove && item.soapNote?.id && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleApproveSoapNote(item.soapNote!.id, item);
-                                }}
-                                disabled={approvingSoapNote === item.soapNote.id}
-                                className="mt-1 flex items-center gap-1 px-2 py-0.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
-                                title="Approve this SOAP note"
-                              >
-                                {approvingSoapNote === item.soapNote.id ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <Check className="w-3 h-3" />
-                                )}
-                                Approve
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleGenerateSoapNote(item);
-                          }}
-                          disabled={generatingSoapNote === item.invoiceId}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors text-xs font-medium disabled:opacity-50"
-                          title="Generate SOAP note for this patient"
-                        >
-                          {generatingSoapNote === item.invoiceId ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-3.5 h-3.5" />
-                          )}
-                          <span>Gen SOAP</span>
-                        </button>
-                      )}
                     </div>
 
                     {/* Amount & Date */}
