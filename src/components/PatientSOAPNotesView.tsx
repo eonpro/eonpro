@@ -133,14 +133,20 @@ export default function PatientSOAPNotesView({
           }
         }
       } else {
-        // Provide helpful error message
+        // Show the actual error from the API
+        console.error('[SOAP Generation Error]', data);
+        const errorMessage = data.error || data.message || 'Failed to generate SOAP note';
+        
+        // Provide helpful context based on action
         if (data.action === 'no_data') {
-          setError('No intake data available. Please add intake form data first.');
+          setError(`No intake data available. ${errorMessage}`);
         } else if (data.action === 'existing') {
           setError('A SOAP note already exists for this patient.');
           await fetchSOAPNotes(); // Refresh to show existing note
+        } else if (data.action === 'failed') {
+          setError(`Generation failed: ${errorMessage}`);
         } else {
-          setError(data.error || data.message || 'Failed to generate SOAP note');
+          setError(errorMessage);
         }
       }
     } catch (err: any) {
