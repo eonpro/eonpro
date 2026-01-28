@@ -195,7 +195,18 @@ export default function PrescriptionForm({
     patientContext?.id ?? null
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const selectedProvider = providers.find((p: any) => p.id === form.providerId);
+  
+  // Role-based provider management
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [selfProvider, setSelfProvider] = useState<ProviderOption | null>(null);
+  const [providerLoadError, setProviderLoadError] = useState<string | null>(null);
+  const [isLoadingProvider, setIsLoadingProvider] = useState(true);
+  
+  // Determine if user is a provider (uses their own profile) or admin (selects from dropdown)
+  const isProviderRole = userRole === 'provider';
+  const selectedProvider = isProviderRole 
+    ? selfProvider 
+    : providers.find((p: any) => p.id === form.providerId);
   const filteredPatients = useMemo(() => {
     const query = patientQuery.trim().toLowerCase();
     if (!query) {
@@ -211,32 +222,94 @@ export default function PrescriptionForm({
       .slice(0, 10);
   }, [patientQuery, patients]);
 
+  // Load provider(s) based on user role
   useEffect(() => {
-    async function loadProviders() {
+    async function loadProviderData() {
+      setIsLoadingProvider(true);
+      setProviderLoadError(null);
+      
       try {
-        // Get auth token from localStorage - include provider-token
+        // Get auth token from localStorage
         const token = localStorage.getItem('token') || 
                       localStorage.getItem('auth-token') || 
                       localStorage.getItem('provider-token') ||
                       localStorage.getItem('admin-token') ||
                       localStorage.getItem('super_admin-token');
         
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
+        if (!token) {
+          setProviderLoadError('No authentication token found');
+          setIsLoadingProvider(false);
+          return;
         }
         
-        const res = await fetch("/api/providers", { headers });
-        const data = await res.json();
-        setProviders(data.providers ?? []);
-        if (!form.providerId && data.providers?.length) {
-          setForm((f: any) => ({ ...f, providerId: data.providers[0].id }));
+        const headers: Record<string, string> = {
+          'Authorization': `Bearer ${token}`,
+        };
+        
+        // Decode JWT to get user role (basic decode - not verification)
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const role = payload.role?.toLowerCase() || 'admin';
+          setUserRole(role);
+          logger.info(`[PrescriptionForm] User role: ${role}`);
+          
+          if (role === 'provider') {
+            // PROVIDER ROLE: Fetch own profile via /api/providers/me
+            const res = await fetch("/api/providers/me", { headers });
+            const data = await res.json();
+            
+            if (res.ok && data.provider) {
+              const myProvider: ProviderOption = {
+                id: data.provider.id,
+                firstName: data.provider.firstName,
+                lastName: data.provider.lastName,
+                titleLine: data.provider.titleLine,
+                npi: data.provider.npi,
+                signatureDataUrl: data.provider.signatureDataUrl,
+              };
+              setSelfProvider(myProvider);
+              setForm((f: any) => ({ ...f, providerId: myProvider.id }));
+              logger.info(`[PrescriptionForm] Provider self-loaded: ${myProvider.firstName} ${myProvider.lastName}`);
+              
+              // Check if provider profile is complete
+              if (!data.isComplete) {
+                const missing = [];
+                if (data.missing?.npi) missing.push('NPI');
+                if (data.missing?.dea) missing.push('DEA');
+                if (missing.length > 0) {
+                  setProviderLoadError(`Missing credentials: ${missing.join(', ')}`);
+                }
+              }
+            } else {
+              setProviderLoadError(data.message || 'Could not find your provider profile');
+              logger.warn('[PrescriptionForm] Provider profile not found', { error: data.error });
+            }
+          } else {
+            // ADMIN/STAFF ROLE: Fetch all providers for dropdown selection
+            const res = await fetch("/api/providers", { headers });
+            const data = await res.json();
+            setProviders(data.providers ?? []);
+            if (!form.providerId && data.providers?.length) {
+              setForm((f: any) => ({ ...f, providerId: data.providers[0].id }));
+            }
+            logger.info(`[PrescriptionForm] Loaded ${data.providers?.length || 0} providers for admin`);
+          }
+        } catch (decodeErr) {
+          logger.error('[PrescriptionForm] Failed to decode token', decodeErr);
+          // Fallback: try loading providers list
+          const res = await fetch("/api/providers", { headers });
+          const data = await res.json();
+          setProviders(data.providers ?? []);
+          setUserRole('admin');
         }
       } catch (err: any) {
-        logger.error("Failed to load providers", err);
+        logger.error("Failed to load provider data", err);
+        setProviderLoadError('Failed to load provider information');
+      } finally {
+        setIsLoadingProvider(false);
       }
     }
-    loadProviders();
+    loadProviderData();
   }, []);
 
   useEffect(() => {
@@ -821,35 +894,68 @@ export default function PrescriptionForm({
       )}
 
       <label className="block text-sm font-medium mt-4 mb-1">Provider</label>
-      {providers.length === 0 ? (
+      {isLoadingProvider ? (
+        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <p className="text-sm text-gray-600">Loading provider information...</p>
+        </div>
+      ) : providerLoadError ? (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-sm text-amber-800 font-medium">Provider Profile Required</p>
-          <p className="text-sm text-amber-700 mt-1">
-            To send prescriptions, you need to complete your provider profile with NPI and DEA credentials.
-          </p>
+          <p className="text-sm text-amber-800 font-medium">Provider Profile Issue</p>
+          <p className="text-sm text-amber-700 mt-1">{providerLoadError}</p>
           <a
             href="/provider/settings"
             className="inline-block mt-2 px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700"
           >
-            Complete Provider Profile
+            {isProviderRole ? 'Update Provider Profile' : 'Complete Provider Profile'}
           </a>
         </div>
+      ) : isProviderRole && selfProvider ? (
+        // PROVIDER ROLE: Show their own profile (read-only, no dropdown)
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">
+              {selfProvider.firstName?.[0]}{selfProvider.lastName?.[0]}
+            </div>
+            <div>
+              <p className="font-medium text-green-900">
+                {selfProvider.firstName} {selfProvider.lastName}
+                {selfProvider.titleLine && <span className="text-green-700">, {selfProvider.titleLine}</span>}
+              </p>
+              <p className="text-sm text-green-700">NPI: {selfProvider.npi}</p>
+            </div>
+          </div>
+          <p className="text-xs text-green-600 mt-2">
+            Prescribing as yourself. Your signature will be used automatically.
+          </p>
+        </div>
+      ) : providers.length === 0 ? (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm text-amber-800 font-medium">No Providers Available</p>
+          <p className="text-sm text-amber-700 mt-1">
+            No providers found for your clinic. Please ensure provider profiles are set up.
+          </p>
+        </div>
       ) : (
-        <select
-          className="border p-2 w-full"
-          value={form.providerId ?? ""}
-          onChange={(e: any) => {
-            const id = Number(e.target.value);
-            updateRoot("providerId", id);
-            // Don't reset signature - will use provider's stored signature
-          }}
-        >
-          {providers.map((provider: any) => (
-            <option key={provider.id} value={provider.id}>
-              {provider.firstName} {provider.lastName} (NPI {provider.npi})
-            </option>
-          ))}
-        </select>
+        // ADMIN/STAFF ROLE: Show provider dropdown
+        <div>
+          <select
+            className="border p-2 w-full"
+            value={form.providerId ?? ""}
+            onChange={(e: any) => {
+              const id = Number(e.target.value);
+              updateRoot("providerId", id);
+            }}
+          >
+            {providers.map((provider: any) => (
+              <option key={provider.id} value={provider.id}>
+                {provider.firstName} {provider.lastName} (NPI {provider.npi})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Select the provider who will sign this prescription.
+          </p>
+        </div>
       )}
 
       <h2 className="text-2xl font-bold mt-6 mb-2">Medications</h2>
