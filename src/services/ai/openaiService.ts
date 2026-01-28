@@ -214,10 +214,23 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
 
   // CRITICAL: Anonymize PHI before sending to OpenAI
   // OpenAI does not have a BAA for HIPAA compliance
+  // Use a CONSISTENT placeholder name that we can find-and-replace after generation
+  const PLACEHOLDER_NAME = 'PATIENT_NAME_PLACEHOLDER';
+  const PLACEHOLDER_AGE = 'PATIENT_AGE_PLACEHOLDER';
+  
+  // Calculate real patient age from DOB for post-processing
+  let realAge: number | null = null;
+  if (input.dateOfBirth) {
+    const dob = new Date(input.dateOfBirth);
+    const today = new Date();
+    realAge = Math.floor((today.getTime() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+  }
+  
   const anonymizedInput = {
     intakeData: anonymizeObject(input.intakeData),
-    patientName: anonymizeName('Patient', String(Date.now())), // Use generic name
-    dateOfBirth: input.dateOfBirth ? '01/01/1970' : undefined, // Use placeholder DOB
+    patientName: PLACEHOLDER_NAME, // Consistent placeholder we can replace
+    patientAge: PLACEHOLDER_AGE, // Explicit age placeholder
+    dateOfBirth: '01/01/1990', // Use placeholder DOB (AI needs something to calculate from)
     chiefComplaint: input.chiefComplaint, // Chief complaint is generally not PHI
   };
 
@@ -231,6 +244,7 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
   logger.info('Generating SOAP note with anonymized data', {
     originalPatient: input.patientName,
     anonymizedPatient: anonymizedInput.patientName,
+    realAge,
   });
 
   const client = getOpenAIClient();
@@ -271,7 +285,12 @@ DO NOT return nested objects. Each field must be a comprehensive plain text stri
 
   const userPrompt = `Create a professional TELEHEALTH WEIGHT MANAGEMENT SOAP note for this patient evaluation.
 
-Patient Reference: ${anonymizedInput.patientName}
+IMPORTANT: Use these EXACT placeholders in your response - they will be replaced with real data:
+- For patient name, use exactly: ${PLACEHOLDER_NAME}
+- For patient age, use exactly: ${PLACEHOLDER_AGE}
+
+Patient Reference: ${PLACEHOLDER_NAME}
+Patient Age: ${PLACEHOLDER_AGE}
 DOB Reference: ${anonymizedInput.dateOfBirth || 'See intake data'}
 
 INTAKE FORM DATA:
@@ -283,7 +302,7 @@ Generate a comprehensive clinical SOAP note following this exact structure:
 
 S – SUBJECTIVE:
 Write a detailed narrative paragraph covering:
-- Patient's age, sex, and presentation reason (medical weight management evaluation)
+- Start with: "${PLACEHOLDER_NAME}, a ${PLACEHOLDER_AGE}-year-old [sex from intake], presents for..."
 - Long-standing struggle with excess body weight
 - Difficulty achieving sustained weight loss through lifestyle measures alone
 - Interest in medically supervised weight loss and personalized compounded GLP-1 therapy
@@ -449,12 +468,75 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
       return field?.toString() || '';
     };
 
+    // POST-PROCESS: Replace placeholders with REAL patient data
+    // This is CRITICAL - without this, AI-hallucinated names would appear in medical records!
+    const replacePatientPlaceholders = (text: string): string => {
+      let result = text;
+      
+      // Replace name placeholder with real patient name
+      result = result.replace(new RegExp(PLACEHOLDER_NAME, 'gi'), input.patientName);
+      
+      // Replace age placeholder with real calculated age
+      if (realAge !== null) {
+        result = result.replace(new RegExp(PLACEHOLDER_AGE, 'gi'), String(realAge));
+      }
+      
+      // SAFETY: Also catch common AI hallucinations - generic names the AI might use
+      // if it ignores our placeholder instructions
+      const commonHallucinatedNames = [
+        'Lisa', 'John', 'Jane', 'Patient', 'Mr.', 'Mrs.', 'Ms.', 
+        'the patient', 'This patient', 'The individual'
+      ];
+      
+      // Extract patient first name for targeted replacement
+      const patientFirstName = input.patientName.split(' ')[0];
+      
+      // Only replace at the START of subjective narratives to avoid over-replacement
+      // Pattern: "Name, a XX-year-old" at the start of text
+      const nameAgePattern = /^([A-Z][a-z]+),?\s+a\s+(\d{1,3})-year-old/i;
+      const match = result.match(nameAgePattern);
+      if (match) {
+        const foundName = match[1];
+        const foundAge = match[2];
+        
+        // If the found name is NOT our patient's name, replace it
+        if (foundName.toLowerCase() !== patientFirstName.toLowerCase()) {
+          logger.warn('[SOAP] Detected AI-hallucinated name, replacing', {
+            hallucinated: foundName,
+            correct: patientFirstName,
+          });
+          result = result.replace(
+            nameAgePattern,
+            `${patientFirstName}, a ${realAge !== null ? realAge : foundAge}-year-old`
+          );
+        }
+        // If the age is wrong but name is right, fix the age
+        else if (realAge !== null && foundAge !== String(realAge)) {
+          logger.warn('[SOAP] Detected wrong age, correcting', {
+            wrong: foundAge,
+            correct: realAge,
+          });
+          result = result.replace(
+            nameAgePattern,
+            `${foundName}, a ${realAge}-year-old`
+          );
+        }
+      }
+      
+      return result;
+    };
+
+    logger.info('[SOAP] Post-processing to inject real patient data', {
+      patientName: input.patientName,
+      age: realAge,
+    });
+
     return {
-      subjective: ensureString(parsed.subjective) || '',
-      objective: ensureString(parsed.objective) || '',
-      assessment: ensureString(parsed.assessment) || '',
-      plan: ensureString(parsed.plan) || '',
-      medicalNecessity: ensureString(parsed.medicalNecessity) || '',
+      subjective: replacePatientPlaceholders(ensureString(parsed.subjective) || ''),
+      objective: replacePatientPlaceholders(ensureString(parsed.objective) || ''),
+      assessment: replacePatientPlaceholders(ensureString(parsed.assessment) || ''),
+      plan: replacePatientPlaceholders(ensureString(parsed.plan) || ''),
+      medicalNecessity: replacePatientPlaceholders(ensureString(parsed.medicalNecessity) || ''),
       metadata: {
         generatedAt: new Date(),
         intakeId: input.intakeData.submissionId,
