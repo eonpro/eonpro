@@ -31,6 +31,9 @@ import {
   ShieldAlert,
   Plus,
   Trash2,
+  Sparkles,
+  ClipboardCheck,
+  FileWarning,
 } from "lucide-react";
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
@@ -59,6 +62,16 @@ interface QueueItem {
     subdomain: string;
     lifefileEnabled: boolean;
     practiceName: string | null;
+  } | null;
+  // SOAP Note status - CRITICAL for clinical documentation
+  hasSoapNote: boolean;
+  soapNoteStatus: 'DRAFT' | 'APPROVED' | 'LOCKED' | 'MISSING';
+  soapNote: {
+    id: number;
+    status: string;
+    createdAt: string;
+    approvedAt: string | null;
+    isApproved: boolean;
   } | null;
 }
 
@@ -103,6 +116,30 @@ interface PatientDetails {
       questions: Array<{ question: string; answer: string }>;
     }>;
   };
+  // SOAP Note for clinical documentation
+  hasSoapNote: boolean;
+  soapNoteStatus: string;
+  soapNote: {
+    id: number;
+    status: string;
+    createdAt: string;
+    approvedAt: string | null;
+    isApproved: boolean;
+    sourceType: string;
+    generatedByAI: boolean;
+    content: {
+      subjective: string;
+      objective: string;
+      assessment: string;
+      plan: string;
+      medicalNecessity: string | null;
+    };
+    approvedByProvider: {
+      id: number;
+      firstName: string;
+      lastName: string;
+    } | null;
+  } | null;
 }
 
 interface QueueResponse {
@@ -173,6 +210,29 @@ export default function PrescriptionQueuePage() {
   });
   const [submittingPrescription, setSubmittingPrescription] = useState(false);
 
+  // SOAP Note generation state
+  const [generatingSoapNote, setGeneratingSoapNote] = useState<number | null>(null);
+  const [approvingSoapNote, setApprovingSoapNote] = useState<number | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Check user role on mount (for showing/hiding approve button)
+  useEffect(() => {
+    const checkUserRole = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${getAuthToken()}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUserRole(data.user?.role || null);
+        }
+      } catch (err) {
+        console.error("Error checking user role:", err);
+      }
+    };
+    checkUserRole();
+  }, []);
+
   const getAuthToken = () => {
     return localStorage.getItem("auth-token") || localStorage.getItem("provider-token");
   };
@@ -233,6 +293,130 @@ export default function PrescriptionQueuePage() {
       await fetchPatientDetails(invoiceId);
     }
   };
+
+  // Generate SOAP note for a patient
+  const handleGenerateSoapNote = async (item: QueueItem) => {
+    setGeneratingSoapNote(item.invoiceId);
+    setError("");
+
+    try {
+      const response = await fetch("/api/soap-notes/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify({
+          patientId: item.patientId,
+          invoiceId: item.invoiceId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.ok) {
+        // Update the queue item with the new SOAP note
+        setQueueItems((prev) =>
+          prev.map((qi) =>
+            qi.invoiceId === item.invoiceId
+              ? {
+                  ...qi,
+                  hasSoapNote: true,
+                  soapNoteStatus: data.soapNote?.status || 'DRAFT',
+                  soapNote: data.soapNote,
+                }
+              : qi
+          )
+        );
+        setSuccessMessage(`SOAP note generated for ${item.patientName}`);
+        setTimeout(() => setSuccessMessage(""), 4000);
+
+        // Refresh patient details if expanded
+        if (expandedItem === item.invoiceId) {
+          await fetchPatientDetails(item.invoiceId);
+        }
+
+        // Refresh prescription panel if open for this item
+        if (prescriptionPanel && prescriptionPanel.item.invoiceId === item.invoiceId) {
+          const updatedDetails = await fetchPatientDetails(item.invoiceId);
+          if (updatedDetails) {
+            setPrescriptionPanel({ item: prescriptionPanel.item, details: updatedDetails });
+          }
+        }
+      } else {
+        setError(data.error || data.message || "Failed to generate SOAP note");
+      }
+    } catch (err) {
+      console.error("Error generating SOAP note:", err);
+      setError("Failed to generate SOAP note. Please try again.");
+    } finally {
+      setGeneratingSoapNote(null);
+    }
+  };
+
+  // Approve SOAP note (provider only)
+  const handleApproveSoapNote = async (soapNoteId: number, item: QueueItem) => {
+    if (!soapNoteId) return;
+    
+    setApprovingSoapNote(soapNoteId);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/soap-notes/${soapNoteId}/approve`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.ok) {
+        // Update the queue item with approved status
+        setQueueItems((prev) =>
+          prev.map((qi) =>
+            qi.invoiceId === item.invoiceId && qi.soapNote
+              ? {
+                  ...qi,
+                  soapNoteStatus: 'APPROVED',
+                  soapNote: {
+                    ...qi.soapNote,
+                    status: 'APPROVED',
+                    isApproved: true,
+                    approvedAt: new Date().toISOString(),
+                  },
+                }
+              : qi
+          )
+        );
+        setSuccessMessage(`SOAP note approved for ${item.patientName}`);
+        setTimeout(() => setSuccessMessage(""), 4000);
+
+        // Refresh patient details if expanded
+        if (expandedItem === item.invoiceId) {
+          await fetchPatientDetails(item.invoiceId);
+        }
+
+        // Refresh prescription panel if open
+        if (prescriptionPanel && prescriptionPanel.item.invoiceId === item.invoiceId) {
+          const updatedDetails = await fetchPatientDetails(item.invoiceId);
+          if (updatedDetails) {
+            setPrescriptionPanel({ item: prescriptionPanel.item, details: updatedDetails });
+          }
+        }
+      } else {
+        setError(data.error || "Failed to approve SOAP note");
+      }
+    } catch (err) {
+      console.error("Error approving SOAP note:", err);
+      setError("Failed to approve SOAP note. Please try again.");
+    } finally {
+      setApprovingSoapNote(null);
+    }
+  };
+
+  // Check if current user can approve (provider or super_admin)
+  const canApprove = userRole === 'provider' || userRole === 'super_admin';
 
   const handleOpenPrescriptionPanel = async (item: QueueItem) => {
     const details = await fetchPatientDetails(item.invoiceId);
@@ -704,6 +888,63 @@ export default function PrescriptionQueuePage() {
                       </div>
                     </div>
 
+                    {/* SOAP Note Status - CRITICAL */}
+                    <div className="hidden md:flex items-center gap-2 min-w-[140px]">
+                      {item.hasSoapNote ? (
+                        <div className="flex items-center gap-2">
+                          <ClipboardCheck className={`w-4 h-4 ${
+                            item.soapNote?.isApproved ? 'text-green-500' : 'text-amber-500'
+                          }`} />
+                          <div>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              item.soapNote?.isApproved
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {item.soapNoteStatus}
+                            </span>
+                            <p className="text-xs text-gray-400 mt-0.5">SOAP Note</p>
+                            {/* Show Approve button for providers when SOAP is DRAFT */}
+                            {!item.soapNote?.isApproved && canApprove && item.soapNote?.id && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleApproveSoapNote(item.soapNote!.id, item);
+                                }}
+                                disabled={approvingSoapNote === item.soapNote.id}
+                                className="mt-1 flex items-center gap-1 px-2 py-0.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                                title="Approve this SOAP note"
+                              >
+                                {approvingSoapNote === item.soapNote.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Check className="w-3 h-3" />
+                                )}
+                                Approve
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleGenerateSoapNote(item);
+                          }}
+                          disabled={generatingSoapNote === item.invoiceId}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors text-xs font-medium disabled:opacity-50"
+                          title="Generate SOAP note for this patient"
+                        >
+                          {generatingSoapNote === item.invoiceId ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5" />
+                          )}
+                          <span>Gen SOAP</span>
+                        </button>
+                      )}
+                    </div>
+
                     {/* Amount & Date */}
                     <div className="hidden md:block text-right min-w-[100px]">
                       <p className="text-sm font-semibold text-green-600">{item.amountFormatted}</p>
@@ -760,7 +1001,7 @@ export default function PrescriptionQueuePage() {
                         <Loader2 className="w-6 h-6 animate-spin text-rose-500" />
                       </div>
                     ) : patientDetails ? (
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                         {/* Patient Contact Info */}
                         <div className="space-y-4">
                           <h4 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -802,6 +1043,86 @@ export default function PrescriptionQueuePage() {
                               </div>
                             )}
                           </div>
+                        </div>
+
+                        {/* SOAP Note Section */}
+                        <div className="space-y-4">
+                          <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                            <ClipboardCheck className="w-4 h-4 text-rose-500" />
+                            SOAP Note
+                            {patientDetails.soapNote && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                patientDetails.soapNote.isApproved
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {patientDetails.soapNoteStatus}
+                              </span>
+                            )}
+                          </h4>
+                          {patientDetails.soapNote ? (
+                            <div className="space-y-3">
+                              {patientDetails.soapNote.generatedByAI && (
+                                <div className="flex items-center gap-2 text-xs text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg w-fit">
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                  AI Generated
+                                </div>
+                              )}
+                              <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-3 text-sm">
+                                <div>
+                                  <span className="font-semibold text-rose-600">S - Subjective:</span>
+                                  <p className="text-gray-700 mt-1 line-clamp-3">{patientDetails.soapNote.content.subjective}</p>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-blue-600">O - Objective:</span>
+                                  <p className="text-gray-700 mt-1 line-clamp-3">{patientDetails.soapNote.content.objective}</p>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-green-600">A - Assessment:</span>
+                                  <p className="text-gray-700 mt-1 line-clamp-3">{patientDetails.soapNote.content.assessment}</p>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-purple-600">P - Plan:</span>
+                                  <p className="text-gray-700 mt-1 line-clamp-3">{patientDetails.soapNote.content.plan}</p>
+                                </div>
+                              </div>
+                              <a
+                                href={`/patients/${patientDetails.patient.id}?tab=soap`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-rose-600 hover:text-rose-700 font-medium"
+                              >
+                                View Full SOAP Note →
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                              <div className="flex items-start gap-3">
+                                <FileWarning className="w-5 h-5 text-amber-500 mt-0.5" />
+                                <div>
+                                  <p className="font-medium text-amber-800">No SOAP Note</p>
+                                  <p className="text-sm text-amber-700 mt-1">
+                                    Clinical documentation is required before prescribing.
+                                  </p>
+                                  <button
+                                    onClick={() => {
+                                      const queueItem = queueItems.find(qi => qi.invoiceId === expandedItem);
+                                      if (queueItem) handleGenerateSoapNote(queueItem);
+                                    }}
+                                    disabled={generatingSoapNote === expandedItem}
+                                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
+                                  >
+                                    {generatingSoapNote === expandedItem ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Sparkles className="w-4 h-4" />
+                                    )}
+                                    Generate SOAP Note
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Intake Data */}
@@ -928,6 +1249,122 @@ export default function PrescriptionQueuePage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* SOAP Note Status - CRITICAL */}
+                  {prescriptionPanel.details.hasSoapNote ? (
+                    <div className={`rounded-xl p-4 border ${
+                      prescriptionPanel.details.soapNote?.isApproved
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-amber-50 border-amber-200'
+                    }`}>
+                      <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                        <ClipboardCheck className={`w-4 h-4 ${
+                          prescriptionPanel.details.soapNote?.isApproved ? 'text-green-600' : 'text-amber-600'
+                        }`} />
+                        Clinical Documentation
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          prescriptionPanel.details.soapNote?.isApproved
+                            ? 'bg-green-200 text-green-800'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {prescriptionPanel.details.soapNoteStatus}
+                        </span>
+                      </h3>
+                      
+                      {/* Show approval warning for draft notes */}
+                      {!prescriptionPanel.details.soapNote?.isApproved && (
+                        <div className="mb-3 p-2 bg-amber-100 rounded-lg text-sm text-amber-800 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span>SOAP note requires provider approval before prescribing.</span>
+                        </div>
+                      )}
+                      
+                      <p className={`text-sm ${prescriptionPanel.details.soapNote?.isApproved ? 'text-green-700' : 'text-amber-700'}`}>
+                        SOAP note available for this patient.
+                        {prescriptionPanel.details.soapNote?.generatedByAI && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-purple-600">
+                            <Sparkles className="w-3 h-3" /> AI Generated
+                          </span>
+                        )}
+                      </p>
+                      
+                      {/* Provider Approve Button */}
+                      {!prescriptionPanel.details.soapNote?.isApproved && canApprove && prescriptionPanel.details.soapNote?.id && (
+                        <button
+                          onClick={() => handleApproveSoapNote(
+                            prescriptionPanel.details.soapNote!.id, 
+                            prescriptionPanel.item
+                          )}
+                          disabled={approvingSoapNote === prescriptionPanel.details.soapNote.id}
+                          className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+                        >
+                          {approvingSoapNote === prescriptionPanel.details.soapNote.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                          Approve SOAP Note
+                        </button>
+                      )}
+                      
+                      {/* Approved badge */}
+                      {prescriptionPanel.details.soapNote?.isApproved && prescriptionPanel.details.soapNote?.approvedByProvider && (
+                        <p className="mt-2 text-xs text-green-600">
+                          Approved by {prescriptionPanel.details.soapNote.approvedByProvider.firstName} {prescriptionPanel.details.soapNote.approvedByProvider.lastName}
+                        </p>
+                      )}
+                      
+                      <details className="mt-3">
+                        <summary className={`text-sm cursor-pointer font-medium ${
+                          prescriptionPanel.details.soapNote?.isApproved ? 'text-green-800 hover:text-green-900' : 'text-amber-800 hover:text-amber-900'
+                        }`}>
+                          View SOAP Note Summary
+                        </summary>
+                        <div className={`mt-3 space-y-2 text-sm bg-white rounded-lg p-3 border ${
+                          prescriptionPanel.details.soapNote?.isApproved ? 'border-green-200' : 'border-amber-200'
+                        }`}>
+                          <div>
+                            <span className="font-semibold text-rose-600">S:</span>{" "}
+                            <span className="text-gray-700 line-clamp-2">{prescriptionPanel.details.soapNote?.content.subjective}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-blue-600">O:</span>{" "}
+                            <span className="text-gray-700 line-clamp-2">{prescriptionPanel.details.soapNote?.content.objective}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-green-600">A:</span>{" "}
+                            <span className="text-gray-700 line-clamp-2">{prescriptionPanel.details.soapNote?.content.assessment}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-purple-600">P:</span>{" "}
+                            <span className="text-gray-700 line-clamp-2">{prescriptionPanel.details.soapNote?.content.plan}</span>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                      <h3 className="font-medium text-amber-800 mb-2 flex items-center gap-2">
+                        <FileWarning className="w-4 h-4 text-amber-600" />
+                        Missing SOAP Note
+                      </h3>
+                      <p className="text-sm text-amber-700 mb-3">
+                        Clinical documentation is recommended before prescribing.
+                      </p>
+                      <button
+                        onClick={() => handleGenerateSoapNote(prescriptionPanel.item)}
+                        disabled={generatingSoapNote === prescriptionPanel.item.invoiceId}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
+                      >
+                        {generatingSoapNote === prescriptionPanel.item.invoiceId ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                        Generate SOAP Note
+                      </button>
+                    </div>
+                  )}
 
                   {/* Shipping Address - Editable */}
                   <div className={`rounded-xl p-4 ${isAddressComplete(prescriptionForm) ? "bg-gray-50" : "bg-red-50 border border-red-200"}`}>

@@ -5,6 +5,7 @@ import type Stripe from 'stripe';
 import type { InvoiceStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { triggerAutomation, AutomationTrigger } from '@/lib/email/automations';
+import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
 
 export interface InvoiceLineItem {
   description: string;
@@ -285,6 +286,27 @@ export class StripeInvoiceService {
     // If invoice just became paid, check if we need to create subscriptions
     if (wasPaid && wasNotPaidBefore && invoice.createSubscription && !invoice.subscriptionCreated) {
       await this.createSubscriptionsFromInvoice(invoice);
+    }
+
+    // CRITICAL: Ensure SOAP note exists for paid invoices ready for prescription
+    // This ensures clinical documentation is complete before providers prescribe
+    if (wasPaid && wasNotPaidBefore) {
+      try {
+        const soapResult = await ensureSoapNoteExists(invoice.patientId, invoice.id);
+        logger.info(`[STRIPE] SOAP note check for paid invoice`, {
+          invoiceId: invoice.id,
+          patientId: invoice.patientId,
+          soapAction: soapResult.action,
+          soapNoteId: soapResult.soapNoteId,
+        });
+      } catch (soapError: any) {
+        // Log but don't fail - SOAP note can be generated manually if needed
+        logger.warn(`[STRIPE] SOAP note generation failed for paid invoice`, {
+          invoiceId: invoice.id,
+          patientId: invoice.patientId,
+          error: soapError.message,
+        });
+      }
     }
   }
 

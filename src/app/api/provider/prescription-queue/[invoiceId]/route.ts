@@ -1,6 +1,8 @@
 /**
  * Prescription Queue Item Details API
- * Fetches detailed patient info and intake data for a specific queue item
+ * Fetches detailed patient info, intake data, and SOAP note for a specific queue item
+ *
+ * CRITICAL: Includes SOAP note status for clinical documentation compliance
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -8,6 +10,7 @@ import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { decrypt } from '@/lib/security/encryption';
+import { getPatientSoapNote } from '@/lib/soap-note-automation';
 
 /**
  * GET /api/provider/prescription-queue/[invoiceId]
@@ -186,6 +189,37 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       }
     };
 
+    // CRITICAL: Get SOAP note for clinical documentation compliance
+    const soapNote = await getPatientSoapNote(invoice.patient.id);
+    let fullSoapNote = null;
+
+    if (soapNote) {
+      fullSoapNote = await prisma.sOAPNote.findUnique({
+        where: { id: soapNote.id },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          approvedAt: true,
+          approvedBy: true,
+          subjective: true,
+          objective: true,
+          assessment: true,
+          plan: true,
+          medicalNecessity: true,
+          sourceType: true,
+          generatedByAI: true,
+          approvedByProvider: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      });
+    }
+
     // Build response with decrypted patient PHI
     const response = {
       invoice: {
@@ -221,6 +255,26 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         data: intakeData,
         sections: intakeSections,
       },
+      // CRITICAL: SOAP note for clinical documentation
+      soapNote: fullSoapNote ? {
+        id: fullSoapNote.id,
+        status: fullSoapNote.status,
+        createdAt: fullSoapNote.createdAt,
+        approvedAt: fullSoapNote.approvedAt,
+        isApproved: fullSoapNote.status === 'APPROVED' || fullSoapNote.status === 'LOCKED',
+        sourceType: fullSoapNote.sourceType,
+        generatedByAI: fullSoapNote.generatedByAI,
+        approvedByProvider: fullSoapNote.approvedByProvider,
+        content: {
+          subjective: fullSoapNote.subjective,
+          objective: fullSoapNote.objective,
+          assessment: fullSoapNote.assessment,
+          plan: fullSoapNote.plan,
+          medicalNecessity: fullSoapNote.medicalNecessity,
+        },
+      } : null,
+      hasSoapNote: fullSoapNote !== null,
+      soapNoteStatus: fullSoapNote?.status || 'MISSING',
     };
 
     return NextResponse.json(response);

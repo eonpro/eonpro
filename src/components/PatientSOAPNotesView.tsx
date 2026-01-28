@@ -96,21 +96,21 @@ export default function PatientSOAPNotesView({
     }
   };
 
-  // Generate SOAP note from intake
+  // Generate SOAP note from intake or invoice metadata
   const handleGenerateFromIntake = async () => {
     setIsGenerating(true);
     setError(null);
     
     try {
       const headers = getAuthHeaders();
-      const response = await fetch('/api/soap-notes', {
+      // Use the new /api/soap-notes/generate endpoint which has better logic
+      // for handling both intake forms and invoice metadata (Heyflow patients)
+      const response = await fetch('/api/soap-notes/generate', {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
-          generateFromIntake: true,
-          // Don't send intakeDocumentId since we want to use the latest intake
         }),
       });
       
@@ -118,14 +118,33 @@ export default function PatientSOAPNotesView({
       
       if (data.ok) {
         await fetchSOAPNotes();
-        setSelectedNote(data.data);
+        // Find the newly created note to display
+        if (data.soapNote?.id) {
+          const notesResponse = await fetch(`/api/soap-notes?patientId=${patientId}&includeRevisions=false`, {
+            credentials: 'include',
+            headers,
+          });
+          const notesData = await notesResponse.json();
+          if (notesData.ok && notesData.data?.length > 0) {
+            const newNote = notesData.data.find((n: SOAPNote) => n.id === data.soapNote.id);
+            if (newNote) {
+              setSelectedNote(newNote);
+            }
+          }
+        }
       } else {
-        setError(data.error);
+        // Provide helpful error message
+        if (data.action === 'no_data') {
+          setError('No intake data available. Please add intake form data first.');
+        } else if (data.action === 'existing') {
+          setError('A SOAP note already exists for this patient.');
+          await fetchSOAPNotes(); // Refresh to show existing note
+        } else {
+          setError(data.error || data.message || 'Failed to generate SOAP note');
+        }
       }
     } catch (err: any) {
-    // @ts-ignore
-   
-      setError('Failed to generate SOAP note');
+      setError('Failed to generate SOAP note. Please try again.');
       logger.error('Error generating SOAP note:', err);
     } finally {
       setIsGenerating(false);
@@ -266,6 +285,29 @@ export default function PatientSOAPNotesView({
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">SOAP Notes</h2>
         <div className="flex items-center space-x-4">
+          {/* Generate Button */}
+          <button
+            onClick={handleGenerateFromIntake}
+            disabled={isGenerating}
+            className="inline-flex items-center px-4 py-2 bg-[#4fa77e] text-white text-sm font-medium rounded-lg hover:bg-[#3f8660] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGenerating ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Generate SOAP Note
+              </>
+            )}
+          </button>
           {/* Filter Toggle */}
           <label className="flex items-center space-x-2 text-sm">
             <input
@@ -305,10 +347,39 @@ export default function PatientSOAPNotesView({
           
           if (filteredNotes.length === 0) {
             return (
-              <div className="text-center py-8 text-gray-500">
-                {showOnlyApproved 
-                  ? 'No approved SOAP notes available. Provider approval is required.'
-                  : 'No SOAP notes available. SOAP notes are automatically generated when an intake form is submitted.'}
+              <div className="text-center py-12 text-gray-500">
+                <svg className="mx-auto h-12 w-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="mb-4">
+                  {showOnlyApproved 
+                    ? 'No approved SOAP notes available. Provider approval is required.'
+                    : 'No SOAP notes available for this patient.'}
+                </p>
+                {!showOnlyApproved && (
+                  <button
+                    onClick={handleGenerateFromIntake}
+                    disabled={isGenerating}
+                    className="inline-flex items-center px-4 py-2 bg-[#4fa77e] text-white text-sm font-medium rounded-lg hover:bg-[#3f8660] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Generate SOAP Note
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             );
           }

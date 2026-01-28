@@ -701,6 +701,7 @@ enum SOAPSourceType {
   MEDLINK_INTAKE
   AI_GENERATED
   IMPORTED
+  INVOICE_METADATA
 }
 
 enum SubscriptionStatus {

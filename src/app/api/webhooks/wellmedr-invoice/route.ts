@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
 
 // WellMedR clinic configuration
 const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
@@ -631,6 +632,30 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // CRITICAL: Ensure SOAP note exists for paid invoices ready for prescription
+    // This ensures clinical documentation is complete before providers prescribe
+    let soapNoteId: number | null = null;
+    let soapNoteAction: string = 'skipped';
+    try {
+      const soapResult = await ensureSoapNoteExists(patient.id, invoice.id);
+      soapNoteId = soapResult.soapNoteId;
+      soapNoteAction = soapResult.action;
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] SOAP note check completed`, {
+        patientId: patient.id,
+        invoiceId: invoice.id,
+        soapAction: soapResult.action,
+        soapNoteId: soapResult.soapNoteId,
+        soapSuccess: soapResult.success,
+      });
+    } catch (soapError: any) {
+      // Log but don't fail - SOAP note can be generated manually if needed
+      logger.warn(`[WELLMEDR-INVOICE ${requestId}] SOAP note generation failed (non-fatal)`, {
+        patientId: patient.id,
+        invoiceId: invoice.id,
+        error: soapError.message,
+      });
+    }
+
     const duration = Date.now() - startTime;
     logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ SUCCESS in ${duration}ms`, {
       invoiceId: invoice.id,
@@ -643,6 +668,8 @@ export async function POST(req: NextRequest) {
       status: 'PAID',
       note: 'Internal EONPRO invoice only - no Stripe invoice created',
       addressUpdated: !!hasAddressData,
+      soapNoteId,
+      soapNoteAction,
     });
 
     return NextResponse.json({
@@ -668,6 +695,10 @@ export async function POST(req: NextRequest) {
       plan: plan,
       paymentMethodId: payload.method_payment_id,
       processingTime: `${duration}ms`,
+      soapNote: {
+        id: soapNoteId,
+        action: soapNoteAction,
+      },
     });
 
   } catch (err) {

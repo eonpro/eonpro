@@ -1,9 +1,11 @@
 /**
  * Prescription Queue API
  * Manages the prescription processing queue for providers
- * 
+ *
  * GET  - List patients with paid invoices that need prescription processing
  * PATCH - Mark a prescription as processed
+ *
+ * CRITICAL: Each item includes SOAP note status for clinical documentation compliance
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,7 +13,8 @@ import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { decrypt } from '@/lib/security/encryption';
-import type { Invoice, Clinic, Patient, IntakeFormSubmission } from '@prisma/client';
+import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
+import type { Invoice, Clinic, Patient, IntakeFormSubmission, SOAPNote } from '@prisma/client';
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
@@ -36,6 +39,7 @@ type InvoiceWithRelations = Invoice & {
   clinic: Pick<Clinic, 'id' | 'name' | 'subdomain' | 'lifefileEnabled' | 'lifefilePracticeName'> | null;
   patient: Pick<Patient, 'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'> & {
     intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
+    soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
   };
 };
 
@@ -110,6 +114,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                 select: {
                   id: true,
                   completedAt: true,
+                },
+              },
+              // CRITICAL: Include SOAP notes for clinical documentation compliance
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
                 },
               },
             },
@@ -201,6 +217,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       // Get intake completion date if available
       const intakeCompletedAt = invoice.patient.intakeSubmissions?.[0]?.completedAt || null;
 
+      // Get SOAP note status - CRITICAL for clinical documentation
+      const soapNote = invoice.patient.soapNotes?.[0] || null;
+      const hasSoapNote = soapNote !== null && soapNote.id !== undefined;
+      const soapNoteApproved = soapNote?.status === 'APPROVED' || soapNote?.status === 'LOCKED';
+
       return {
         invoiceId: invoice.id,
         patientId: invoice.patient.id,
@@ -220,6 +241,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         createdAt: invoice.createdAt,
         invoiceNumber: (metadata?.invoiceNumber as string) || `INV-${invoice.id}`,
         intakeCompletedAt,
+        // CRITICAL: SOAP Note status for clinical documentation compliance
+        // Providers should review/approve SOAP notes before prescribing
+        soapNote: soapNote ? {
+          id: soapNote.id,
+          status: soapNote.status,
+          createdAt: soapNote.createdAt,
+          approvedAt: soapNote.approvedAt,
+          isApproved: soapNoteApproved,
+        } : null,
+        hasSoapNote,
+        soapNoteStatus: soapNote?.status || 'MISSING',
         // CRITICAL: Clinic context for Lifefile prescriptions
         // The prescription MUST use this clinic's API credentials and PDF branding
         clinicId: invoice.clinicId,
