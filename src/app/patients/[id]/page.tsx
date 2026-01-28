@@ -69,6 +69,14 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         return prisma.patient.findUnique({
           where: { id },
           include: {
+            // Include clinic for subdomain (used for clinic-specific intake sections)
+            clinic: {
+              select: {
+                id: true,
+                subdomain: true,
+                name: true,
+              },
+            },
             orders: {
               orderBy: { createdAt: 'desc' },
               include: {
@@ -770,6 +778,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
               patient={patientWithDecryptedPHI}
               documents={documentsWithParsedData}
               intakeFormSubmissions={patientWithDecryptedPHI.intakeSubmissions}
+              clinicSubdomain={patientWithDecryptedPHI.clinic?.subdomain}
             />
           ) : currentTab === 'soap-notes' ? (
             <PatientSOAPNotesView patientId={patientWithDecryptedPHI.id} currentProviderId={1} />

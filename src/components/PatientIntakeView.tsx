@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
 import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2, Check, Shield } from 'lucide-react';
+import { WELLMEDR_INTAKE_SECTIONS, hasCustomIntakeSections } from '@/lib/wellmedr/intakeSections';
 
 /**
- * Intake display sections - maps fields from WeightLossIntake
+ * Default intake display sections - maps fields from WeightLossIntake (eonmeds and other clinics)
+ *
+ * NOTE: For clinic-specific customization, see:
+ * - Wellmedr: src/lib/wellmedr/intakeSections.ts
  */
-const INTAKE_SECTIONS = [
+const DEFAULT_INTAKE_SECTIONS = [
   {
     title: "Patient Profile",
     icon: User,
@@ -255,6 +259,12 @@ type Props = {
       };
     }>;
   }>;
+  /**
+   * Clinic subdomain for clinic-specific field mappings
+   * - 'wellmedr': Uses Wellmedr-specific sections from src/lib/wellmedr/intakeSections.ts
+   * - Other clinics: Uses default sections (eonmeds structure)
+   */
+  clinicSubdomain?: string | null;
 };
 
 // Helper to normalize keys for matching
@@ -309,9 +319,19 @@ const formatConsentValue = (value: boolean | string, timestamp?: string): string
   return String(value);
 };
 
-export default function PatientIntakeView({ patient, documents, intakeFormSubmissions = [] }: Props) {
+export default function PatientIntakeView({ patient, documents, intakeFormSubmissions = [], clinicSubdomain }: Props) {
   const router = useRouter();
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(INTAKE_SECTIONS.map(s => s.title)));
+
+  // Select the appropriate intake sections based on clinic
+  // Wellmedr uses custom field mappings; other clinics use default
+  const activeSections = useMemo(() => {
+    if (hasCustomIntakeSections(clinicSubdomain)) {
+      return WELLMEDR_INTAKE_SECTIONS;
+    }
+    return DEFAULT_INTAKE_SECTIONS;
+  }, [clinicSubdomain]);
+
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(DEFAULT_INTAKE_SECTIONS.map(s => s.title)));
   const [showSendModal, setShowSendModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -581,7 +601,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   const startEditing = () => {
     // Pre-populate edited values with current values
     const currentValues: Record<string, string> = {};
-    for (const section of INTAKE_SECTIONS) {
+    for (const section of activeSections) {
       if (section.editable) {
         for (const field of section.fields) {
           const value = findAnswer(field);
@@ -636,10 +656,11 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   };
 
   // Collect any additional answers not in our predefined sections
+  // Uses activeSections which is clinic-specific (Wellmedr vs default)
   const getAdditionalAnswers = () => {
     const usedKeys = new Set<string>();
 
-    for (const section of INTAKE_SECTIONS) {
+    for (const section of activeSections) {
       for (const field of section.fields) {
         usedKeys.add(normalizeKey(field.id));
         usedKeys.add(normalizeKey(field.label));
@@ -850,8 +871,8 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         </div>
       ) : (
         <>
-          {/* Predefined Sections */}
-          {INTAKE_SECTIONS.map((section) => {
+          {/* Predefined Sections - uses clinic-specific configuration for Wellmedr */}
+          {activeSections.map((section) => {
             const Icon = section.icon;
             const isExpanded = expandedSections.has(section.title);
             const isPatientProfile = section.title === "Patient Profile";
