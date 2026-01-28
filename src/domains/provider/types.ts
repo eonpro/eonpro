@@ -115,6 +115,10 @@ export interface ListProvidersFilters {
   userId?: number;
   userProviderId?: number;
   userEmail?: string;
+  /** User's first name for fallback name matching */
+  userFirstName?: string;
+  /** User's last name for fallback name matching */
+  userLastName?: string;
 }
 
 /**

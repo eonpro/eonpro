@@ -193,6 +193,17 @@ export const providerRepository = {
       orConditions.push({ email: filters.userEmail.toLowerCase() });
     }
 
+    // FALLBACK: If user name provided, also search by name match
+    // This helps when User.providerId isn't set and Provider.email differs from User.email
+    if (filters.userFirstName && filters.userLastName) {
+      orConditions.push({
+        AND: [
+          { firstName: { equals: filters.userFirstName, mode: 'insensitive' as const } },
+          { lastName: { equals: filters.userLastName, mode: 'insensitive' as const } },
+        ],
+      });
+    }
+
     // ENTERPRISE: Support multiple clinic IDs for multi-clinic users
     // Priority: clinicIds array > single clinicId (legacy)
     const clinicIds = filters.clinicIds?.length

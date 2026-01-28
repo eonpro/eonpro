@@ -122,12 +122,13 @@ export const providerService = {
         allClinicIds.push(userContext.clinicId);
       }
 
-      // Also fetch the user's clinicId directly from the database 
+      // Also fetch the user's clinicId and name directly from the database 
       // (in case it's not in the token/context)
+      let userName: { firstName?: string; lastName?: string } = {};
       try {
         const user = await prisma.user.findUnique({
           where: { id: userContext.id },
-          select: { clinicId: true },
+          select: { clinicId: true, firstName: true, lastName: true },
         });
         if (user?.clinicId && !allClinicIds.includes(user.clinicId)) {
           allClinicIds.push(user.clinicId);
@@ -136,8 +137,12 @@ export const providerService = {
             clinicId: user.clinicId 
           });
         }
+        // Store name for fallback matching
+        if (user?.firstName && user?.lastName) {
+          userName = { firstName: user.firstName, lastName: user.lastName };
+        }
       } catch (error) {
-        logger.debug('[ProviderService] Could not fetch user clinic from database', { 
+        logger.debug('[ProviderService] Could not fetch user from database', { 
           userId: userContext.id 
         });
       }
@@ -180,6 +185,8 @@ export const providerService = {
         clinicId: allClinicIds.length === 0 ? (userContext.clinicId ?? undefined) : undefined,
         userProviderId: userContext.providerId ?? undefined,
         userEmail: userContext.email,
+        userFirstName: userName.firstName,
+        userLastName: userName.lastName,
         includeShared: true,
       });
     }
