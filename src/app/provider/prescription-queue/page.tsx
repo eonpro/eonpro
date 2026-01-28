@@ -215,6 +215,13 @@ export default function PrescriptionQueuePage() {
   const [approvingSoapNote, setApprovingSoapNote] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
 
+  // Decline modal state
+  const [declineModal, setDeclineModal] = useState<{
+    item: QueueItem;
+  } | null>(null);
+  const [declineReason, setDeclineReason] = useState("");
+  const [declining, setDeclining] = useState(false);
+
   // Check user role on mount (for showing/hiding approve button)
   useEffect(() => {
     const checkUserRole = async () => {
@@ -683,6 +690,48 @@ export default function PrescriptionQueuePage() {
     }
   };
 
+  const handleDecline = async () => {
+    if (!declineModal || !declineReason.trim()) return;
+
+    setDeclining(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/provider/prescription-queue", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify({
+          invoiceId: declineModal.item.invoiceId,
+          reason: declineReason.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        setQueueItems((prev) =>
+          prev.filter((item) => item.invoiceId !== declineModal.item.invoiceId)
+        );
+        setTotal((prev) => prev - 1);
+        setSuccessMessage(
+          `Prescription for ${declineModal.item.patientName} has been declined`
+        );
+        setTimeout(() => setSuccessMessage(""), 4000);
+        setDeclineModal(null);
+        setDeclineReason("");
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to decline prescription");
+      }
+    } catch (err) {
+      console.error("Error declining prescription:", err);
+      setError("Failed to decline prescription");
+    } finally {
+      setDeclining(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
@@ -989,6 +1038,14 @@ export default function PrescriptionQueuePage() {
                         )}
                         <span className="hidden sm:inline">Done</span>
                       </button>
+                      <button
+                        onClick={() => setDeclineModal({ item })}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all font-medium text-sm border border-red-200"
+                        title="Decline prescription request"
+                      >
+                        <X className="w-4 h-4" />
+                        <span className="hidden sm:inline">Decline</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1186,6 +1243,121 @@ export default function PrescriptionQueuePage() {
           </div>
         )}
       </div>
+
+      {/* Decline Modal */}
+      {declineModal && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => {
+              setDeclineModal(null);
+              setDeclineReason("");
+            }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+              {/* Modal Header */}
+              <div className="bg-red-50 px-6 py-4 rounded-t-2xl border-b border-red-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <X className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      Decline Prescription
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      {declineModal.item.patientName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium">This action cannot be undone.</p>
+                    <p className="mt-1">
+                      The patient will be removed from the prescription queue. Please provide a
+                      clear reason for declining.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason for Declining *
+                  </label>
+                  <textarea
+                    value={declineReason}
+                    onChange={(e) => setDeclineReason(e.target.value)}
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none"
+                    placeholder="Please explain why you are declining this prescription request (e.g., medical contraindication, incomplete information, patient needs evaluation, etc.)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Minimum 10 characters required
+                  </p>
+                </div>
+
+                {/* Patient Info Summary */}
+                <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-gray-500">Treatment:</span>
+                      <p className="font-medium">{declineModal.item.treatment}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Plan:</span>
+                      <p className="font-medium">{declineModal.item.plan}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Amount:</span>
+                      <p className="font-medium">{declineModal.item.amountFormatted}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Invoice:</span>
+                      <p className="font-medium text-xs">{declineModal.item.invoiceNumber}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-gray-50 rounded-b-2xl border-t border-gray-100 flex gap-3">
+                <button
+                  onClick={() => {
+                    setDeclineModal(null);
+                    setDeclineReason("");
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDecline}
+                  disabled={declining || declineReason.trim().length < 10}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center gap-2"
+                >
+                  {declining ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Declining...
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-4 h-4" />
+                      Decline Prescription
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Prescription Slide-Over Panel */}
       {prescriptionPanel && (

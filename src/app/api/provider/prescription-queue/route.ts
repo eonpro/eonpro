@@ -422,5 +422,155 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
   }
 }
 
+/**
+ * POST /api/provider/prescription-queue
+ * Decline a prescription request
+ * 
+ * Body:
+ * - invoiceId: ID of the invoice to decline
+ * - reason: Reason for declining the prescription
+ */
+async function handlePost(req: NextRequest, user: AuthUser) {
+  try {
+    const body = await req.json();
+    const { invoiceId, reason } = body;
+
+    if (!invoiceId) {
+      return NextResponse.json(
+        { error: 'Invoice ID is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 10) {
+      return NextResponse.json(
+        { error: 'A reason for declining is required (minimum 10 characters)' },
+        { status: 400 }
+      );
+    }
+
+    // Get provider's clinic ID
+    const clinicId = user.clinicId;
+    if (!clinicId) {
+      return NextResponse.json(
+        { error: 'Provider must be associated with a clinic' },
+        { status: 400 }
+      );
+    }
+
+    // Verify invoice exists, belongs to provider's clinic, and is in the queue
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: invoiceId,
+        clinicId: clinicId,
+        status: 'PAID',
+        prescriptionProcessed: false,
+      },
+      include: {
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      return NextResponse.json(
+        { error: 'Invoice not found, does not belong to your clinic, or already processed' },
+        { status: 404 }
+      );
+    }
+
+    // Get provider ID if user is linked to a provider
+    let providerId: number | null = null;
+    let providerName = user.email;
+    if (user.id) {
+      const userData = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { 
+          providerId: true,
+          provider: {
+            select: {
+              firstName: true,
+              lastName: true,
+            }
+          }
+        },
+      });
+      providerId = userData?.providerId || null;
+      if (userData?.provider) {
+        providerName = `${userData.provider.firstName} ${userData.provider.lastName}`;
+      }
+    }
+
+    // Update invoice: mark as processed but with decline info in metadata
+    const existingMetadata = (invoice.metadata as Record<string, unknown>) || {};
+    const updatedInvoice = await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        prescriptionProcessed: true,
+        prescriptionProcessedAt: new Date(),
+        prescriptionProcessedBy: providerId,
+        metadata: {
+          ...existingMetadata,
+          prescriptionDeclined: true,
+          prescriptionDeclinedAt: new Date().toISOString(),
+          prescriptionDeclinedBy: user.email,
+          prescriptionDeclinedByName: providerName,
+          prescriptionDeclinedReason: reason.trim(),
+        },
+      },
+    });
+
+    logger.info('[PRESCRIPTION-QUEUE] Prescription declined', {
+      invoiceId,
+      patientId: invoice.patient.id,
+      patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+      declinedBy: user.email,
+      providerName,
+      providerId,
+      reason: reason.trim(),
+      clinicId: invoice.clinicId,
+      clinicName: invoice.clinic?.name,
+    });
+
+    // TODO: Optional - Send notification email to patient about declined prescription
+    // Could integrate with email service here
+
+    return NextResponse.json({
+      success: true,
+      message: 'Prescription declined',
+      invoice: {
+        id: updatedInvoice.id,
+        prescriptionProcessed: updatedInvoice.prescriptionProcessed,
+        prescriptionDeclined: true,
+        declinedBy: providerName,
+        declinedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[PRESCRIPTION-QUEUE] Error declining prescription', {
+      error: errorMessage,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to decline prescription' },
+      { status: 500 }
+    );
+  }
+}
+
 export const GET = withProviderAuth(handleGet);
 export const PATCH = withProviderAuth(handlePatch);
+export const POST = withProviderAuth(handlePost);
