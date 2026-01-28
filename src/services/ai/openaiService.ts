@@ -9,9 +9,9 @@ import { anonymizeObject, anonymizeName, logAnonymization } from '@/lib/security
 const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_ORG_ID: z.string().optional(),
-  // Use gpt-5-mini for better rate limits and lower cost
+  // Use gpt-4o-mini for better rate limits and lower cost
   // Can be overridden with OPENAI_MODEL env var for higher quality
-  OPENAI_MODEL: z.string().default('gpt-5-mini'),
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   OPENAI_TEMPERATURE: z.coerce.number().default(0.7),
   OPENAI_MAX_TOKENS: z.coerce.number().default(4000),
 });

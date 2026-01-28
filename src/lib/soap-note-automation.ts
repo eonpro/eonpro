@@ -155,8 +155,28 @@ export async function ensureSoapNoteExists(
         logger.error('[SOAP-AUTOMATION] Failed to generate from intake', {
           ...logContext,
           error: genError.message,
+          status: genError.status,
+          code: genError.code,
         });
-        // Continue to try invoice metadata
+        
+        // If this is an API error (not a data issue), return the error
+        // instead of silently continuing
+        const isApiError = genError.status === 429 || // Rate limit
+                          genError.status === 401 || // Auth error
+                          genError.status === 500 || // Server error
+                          genError.code === 'insufficient_quota' ||
+                          genError.message?.includes('OpenAI');
+        
+        if (isApiError) {
+          return {
+            success: false,
+            soapNoteId: null,
+            soapNoteStatus: null,
+            action: 'failed',
+            error: genError.message || 'API error during SOAP generation',
+          };
+        }
+        // Continue to try invoice metadata only if it was a data parsing issue
       }
     }
 

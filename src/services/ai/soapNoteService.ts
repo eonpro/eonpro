@@ -167,6 +167,7 @@ export async function generateSOAPFromIntake(
     const soapNote = await prisma.sOAPNote.create({
       data: {
         patientId: patient.id,
+        clinicId: patient.clinicId, // Include clinic for multi-tenant isolation
         subjective: generatedSOAP.subjective,
         objective: generatedSOAP.objective,
         assessment: generatedSOAP.assessment,
@@ -175,7 +176,7 @@ export async function generateSOAPFromIntake(
         sourceType: 'MEDLINK_INTAKE',
         intakeDocumentId: intakeDocument.id,
         generatedByAI: true,
-        aiModelVersion: process.env.OPENAI_MODEL || 'gpt-5-mini',
+        aiModelVersion: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         status: 'DRAFT',
         promptTokens: generatedSOAP.metadata.usage?.promptTokens,
         completionTokens: generatedSOAP.metadata.usage?.completionTokens,
