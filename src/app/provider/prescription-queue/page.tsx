@@ -1197,8 +1197,11 @@ export default function PrescriptionQueuePage() {
               setDeclineReason("");
             }}
           />
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+          <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <div 
+              className="bg-white rounded-2xl shadow-xl max-w-md w-full pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               {/* Modal Header */}
               <div className="bg-red-50 px-6 py-4 rounded-t-2xl border-b border-red-100">
                 <div className="flex items-center gap-3">
