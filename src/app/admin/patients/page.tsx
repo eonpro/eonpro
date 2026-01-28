@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Filter, Eye, Edit, MoreVertical, Users, GitMerge } from 'lucide-react';
+import { Search, Plus, Filter, Eye, Edit, MoreVertical, Users, GitMerge, Trash2 } from 'lucide-react';
 import MergePatientModal from '@/components/MergePatientModal';
+import DeletePatientModal from '@/components/DeletePatientModal';
 
 interface Patient {
   id: number;
@@ -41,6 +42,7 @@ export default function AdminPatientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [mergePatient, setMergePatient] = useState<Patient | null>(null);
+  const [deletePatient, setDeletePatient] = useState<Patient | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +90,26 @@ export default function AdminPatientsPage() {
     const matchesStatus = statusFilter === 'all' || patient.status?.toLowerCase() === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const handleDeletePatient = async () => {
+    if (!deletePatient) return;
+    
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+    const response = await fetch(`/api/patients/${deletePatient.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete patient');
+    }
+
+    setDeletePatient(null);
+    fetchPatients();
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -153,6 +175,15 @@ export default function AdminPatientsPage() {
             fetchPatients();
             router.push(`/patients/${mergedPatientId}`);
           }}
+        />
+      )}
+
+      {/* Delete Patient Modal */}
+      {deletePatient && (
+        <DeletePatientModal
+          patient={deletePatient}
+          onClose={() => setDeletePatient(null)}
+          onDelete={handleDeletePatient}
         />
       )}
 
@@ -258,16 +289,27 @@ export default function AdminPatientsPage() {
                           <MoreVertical className="h-4 w-4" />
                         </button>
                         {openDropdownId === patient.id && (
-                          <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                          <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
                             <button
                               onClick={() => {
                                 setOpenDropdownId(null);
                                 setMergePatient(patient);
                               }}
-                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
                             >
-                              <GitMerge className="h-4 w-4" />
+                              <GitMerge className="h-4 w-4 text-gray-500" />
                               Merge with another patient
+                            </button>
+                            <div className="border-t border-gray-100 my-1" />
+                            <button
+                              onClick={() => {
+                                setOpenDropdownId(null);
+                                setDeletePatient(patient);
+                              }}
+                              className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete patient
                             </button>
                           </div>
                         )}
