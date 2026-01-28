@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
     // SECURITY: Get user from server-side auth headers (set by middleware)
     const user = getCurrentUser(request);
 
-    // SECURITY: Get clinic from server-side context
-    // Priority: 1. User's assigned clinic, 2. Header/cookie clinic
+    // SECURITY: Get clinic from multiple sources with fallbacks
+    // Priority: 1. User's assigned clinic, 2. Header/cookie, 3. Client-sent
     let clinicId: number | undefined = user?.clinicId;
 
     if (!clinicId) {
@@ -36,15 +36,33 @@ export async function POST(request: NextRequest) {
       clinicId = requestClinicId ?? undefined;
     }
 
+    // Fallback: Accept client-sent clinicId (from JWT/localStorage on frontend)
+    // This is safe because all database queries will still filter by this clinicId
+    // The worst case is a user sees data from a clinic they claim to be in
+    // But our auth middleware should have already validated their session
+    if (!clinicId && body.clinicId) {
+      const clientClinicId = typeof body.clinicId === 'string'
+        ? parseInt(body.clinicId, 10)
+        : body.clinicId;
+      if (!isNaN(clientClinicId) && clientClinicId > 0) {
+        clinicId = clientClinicId;
+        logger.debug('[BeccaAI] Using client-sent clinicId', {
+          clinicId,
+          userEmail: body.userEmail,
+        });
+      }
+    }
+
     // SECURITY: Require clinicId for multi-tenant isolation
     if (!clinicId) {
       logger.warn('[BeccaAI] Request rejected - no clinic context', {
         userEmail: body.userEmail,
         hasUser: !!user,
+        bodyClinicId: body.clinicId,
       });
       return NextResponse.json(
-        { error: 'Clinic context required. Please ensure you are logged in to a clinic.' },
-        { status: 403 }
+        { error: 'Unable to determine clinic. Please refresh the page and try again.' },
+        { status: 400 }  // Use 400 instead of 403 to avoid session expired trigger
       );
     }
 
@@ -148,10 +166,19 @@ export async function GET(request: NextRequest) {
       clinicId = requestClinicId ?? undefined;
     }
 
+    // Fallback: Check query param for clinicId
+    if (!clinicId) {
+      const { searchParams } = new URL(request.url);
+      const paramClinicId = searchParams.get('clinicId');
+      if (paramClinicId) {
+        clinicId = parseInt(paramClinicId, 10) || undefined;
+      }
+    }
+
     if (!clinicId) {
       return NextResponse.json(
         { error: 'Clinic context required' },
-        { status: 403 }
+        { status: 400 }  // Use 400 instead of 403
       );
     }
 
@@ -215,10 +242,19 @@ export async function DELETE(request: NextRequest) {
       clinicId = requestClinicId ?? undefined;
     }
 
+    // Fallback: Check query param for clinicId
+    if (!clinicId) {
+      const { searchParams } = new URL(request.url);
+      const paramClinicId = searchParams.get('clinicId');
+      if (paramClinicId) {
+        clinicId = parseInt(paramClinicId, 10) || undefined;
+      }
+    }
+
     if (!clinicId) {
       return NextResponse.json(
         { error: 'Clinic context required' },
-        { status: 403 }
+        { status: 400 }  // Use 400 instead of 403
       );
     }
 

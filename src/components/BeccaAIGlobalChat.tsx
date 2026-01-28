@@ -100,14 +100,42 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
         }
       }
 
-      if (!role) {
+      if (!role || !clinic) {
         try {
           const payload = JSON.parse(atob(authToken.split('.')[1]));
-          role = payload.role?.toLowerCase();
-          email = payload.email || email;
-          clinic = payload.clinicId || clinic;
+          role = role || payload.role?.toLowerCase();
+          email = email || payload.email;
+          clinic = clinic || payload.clinicId;
         } catch (e) {
           // Can't decode token
+        }
+      }
+
+      // Fallback: Check for selected-clinic cookie
+      if (!clinic) {
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'selected-clinic' && value) {
+            const parsedClinic = parseInt(value, 10);
+            if (!isNaN(parsedClinic) && parsedClinic > 0) {
+              clinic = parsedClinic;
+              break;
+            }
+          }
+        }
+      }
+
+      // Fallback: Try to get clinic from subdomain
+      if (!clinic) {
+        const hostname = window.location.hostname;
+        // If it's a subdomain like wellmedr.eonpro.io, we might need to resolve it
+        // For now, we'll try to fetch the clinic ID from the server
+        const parts = hostname.split('.');
+        if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'app') {
+          // This is likely a clinic subdomain - the middleware should have set the clinic
+          // As a last resort, we'll just proceed and let the server handle it
+          console.debug('[BeccaAI] On subdomain, clinic should be resolved by middleware');
         }
       }
 

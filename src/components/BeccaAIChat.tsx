@@ -216,15 +216,28 @@ export default function BeccaAIChat({
     const thinkingPromise = simulateThinking();
 
     try {
+      // Try to get clinicId from cookie as fallback
+      let effectiveClinicId = clinicId;
+      if (!effectiveClinicId) {
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'selected-clinic' && value) {
+            effectiveClinicId = parseInt(value, 10) || undefined;
+            break;
+          }
+        }
+      }
+
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: textToSend,
           userEmail,
-          ...(sessionId && { sessionId }),
-          ...(patientId && { patientId }),
-          ...(clinicId && { clinicId }),
+          sessionId: sessionId || undefined,
+          patientId: patientId || undefined,
+          clinicId: effectiveClinicId || undefined,
         }),
       });
 
