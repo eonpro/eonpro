@@ -164,11 +164,11 @@ export default function MergePatientModal({
 
     setSearching(true);
     try {
-      const response = await fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10`);
+      const response = await fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10&includeContact=true`);
       if (!response.ok) throw new Error('Failed to search patients');
       const data = await response.json();
-      // Filter out the source patient from results
-      const filtered = (data.data || []).filter((p: PatientSummary) => p.id !== sourcePatient.id);
+      // Filter out the source patient from results (API returns 'patients' not 'data')
+      const filtered = (data.patients || []).filter((p: PatientSummary) => p.id !== sourcePatient.id);
       setSearchResults(filtered);
     } catch (err) {
       console.error('Search error:', err);
