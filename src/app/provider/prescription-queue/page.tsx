@@ -1189,18 +1189,20 @@ export default function PrescriptionQueuePage() {
 
       {/* Decline Modal */}
       {declineModal && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          <div
-            className="absolute inset-0 bg-black/50"
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-50 bg-black/50"
             onClick={() => {
               setDeclineModal(null);
               setDeclineReason("");
             }}
           />
-          <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+          {/* Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
             <div 
-              className="bg-white rounded-2xl shadow-xl max-w-md w-full pointer-events-auto"
-              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl max-w-md w-full"
+              style={{ pointerEvents: 'auto' }}
             >
               {/* Modal Header */}
               <div className="bg-red-50 px-6 py-4 rounded-t-2xl border-b border-red-100">
@@ -1274,15 +1276,17 @@ export default function PrescriptionQueuePage() {
               {/* Modal Footer */}
               <div className="px-6 py-4 bg-gray-50 rounded-b-2xl border-t border-gray-100 flex gap-3">
                 <button
+                  type="button"
                   onClick={() => {
                     setDeclineModal(null);
                     setDeclineReason("");
                   }}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-medium"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleDecline}
                   disabled={declining || declineReason.trim().length < 10}
                   className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center gap-2"
@@ -1302,7 +1306,7 @@ export default function PrescriptionQueuePage() {
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Prescription Slide-Over Panel */}
