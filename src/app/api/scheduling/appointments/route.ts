@@ -64,19 +64,29 @@ export const GET = withAuth(
       const clinicId = searchParams.get('clinicId');
       const providerId = searchParams.get('providerId');
       const patientId = searchParams.get('patientId');
-      const startDate = searchParams.get('startDate');
-      const endDate = searchParams.get('endDate');
       const status = searchParams.get('status');
+      
+      // Support both 'date' (single day) and 'startDate/endDate' (range)
+      let startDate = searchParams.get('startDate');
+      let endDate = searchParams.get('endDate');
+      const singleDate = searchParams.get('date');
+      
+      // If single date provided, convert to start/end of that day
+      if (singleDate && !startDate && !endDate) {
+        const date = new Date(singleDate);
+        startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0).toISOString();
+        endDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
+      }
 
       if (!startDate || !endDate) {
         return NextResponse.json(
-          { error: 'startDate and endDate are required' },
+          { error: 'Either date or startDate/endDate are required' },
           { status: 400 }
         );
       }
 
       const appointments = await getAppointments({
-        clinicId: clinicId ? parseInt(clinicId) : undefined,
+        clinicId: clinicId ? parseInt(clinicId) : (user.clinicId || undefined),
         providerId: providerId ? parseInt(providerId) : undefined,
         patientId: patientId ? parseInt(patientId) : undefined,
         startDate: new Date(startDate),
