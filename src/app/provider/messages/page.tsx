@@ -1,26 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { MessageSquare, Search, Send, Paperclip, Phone, Video, Star, Archive } from "lucide-react";
+import { useState, useEffect } from "react";
+import { MessageSquare, Search, Send, Paperclip, Phone, Video, Star, Archive, Plus, Inbox } from "lucide-react";
 
 interface Message {
-  id: string;
+  id: number;
+  patientId: number;
   patientName: string;
   lastMessage: string;
   timestamp: string;
   unread: boolean;
   priority: "normal" | "urgent";
-  avatar?: string;
 }
 
-interface MessageThread {
-  id: string;
-  messages: {
-    id: string;
-    sender: "provider" | "patient";
-    content: string;
-    timestamp: string;
-  }[];
+interface ChatMessage {
+  id: number;
+  sender: "provider" | "patient";
+  content: string;
+  timestamp: string;
 }
 
 export default function ProviderMessagesPage() {
@@ -28,68 +25,75 @@ export default function ProviderMessagesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [messageContent, setMessageContent] = useState("");
   const [filter, setFilter] = useState<"all" | "unread" | "urgent">("all");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock messages
-  const messages: Message[] = [
-    {
-      id: "1",
-      patientName: "Sarah Johnson",
-      lastMessage: "Thank you for the prescription refill, Doctor.",
-      timestamp: "10 min ago",
-      unread: true,
-      priority: "normal"
-    },
-    {
-      id: "2",
-      patientName: "Michael Chen",
-      lastMessage: "I'm experiencing chest pain again. Should I come in?",
-      timestamp: "1 hour ago",
-      unread: true,
-      priority: "urgent"
-    },
-    {
-      id: "3",
-      patientName: "Emily Davis",
-      lastMessage: "The new anxiety medication is working well.",
-      timestamp: "3 hours ago",
-      unread: false,
-      priority: "normal"
-    },
-    {
-      id: "4",
-      patientName: "James Wilson",
-      lastMessage: "Can we schedule a follow-up for my diabetes?",
-      timestamp: "Yesterday",
-      unread: false,
-      priority: "normal"
-    },
-    {
-      id: "5",
-      patientName: "Lisa Anderson",
-      lastMessage: "Lab results received. Everything looks good!",
-      timestamp: "2 days ago",
-      unread: false,
-      priority: "normal"
+  // Fetch conversations from API
+  useEffect(() => {
+    async function fetchMessages() {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token') || 
+                      localStorage.getItem('auth-token') || 
+                      localStorage.getItem('provider-token');
+        
+        const response = await fetch('/api/messages/conversations', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setMessages(data.conversations || []);
+        } else {
+          setMessages([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch messages:', err);
+        setMessages([]);
+      } finally {
+        setLoading(false);
+      }
     }
-  ];
+    
+    fetchMessages();
+  }, []);
 
-  // Mock thread for selected message
-  const messageThreads: { [key: string]: MessageThread } = {
-    "1": {
-      id: "1",
-      messages: [
-        { id: "1-1", sender: "patient", content: "Hi Doctor, my prescription is running low.", timestamp: "2 hours ago" },
-        { id: "1-2", sender: "provider", content: "I'll send a refill to your pharmacy right away.", timestamp: "1 hour ago" },
-        { id: "1-3", sender: "patient", content: "Thank you for the prescription refill, Doctor.", timestamp: "10 min ago" }
-      ]
-    },
-    "2": {
-      id: "2",
-      messages: [
-        { id: "2-1", sender: "patient", content: "I'm experiencing chest pain again. Should I come in?", timestamp: "1 hour ago" }
-      ]
+  // Fetch chat thread when conversation selected
+  useEffect(() => {
+    if (!selectedMessage) {
+      setChatMessages([]);
+      return;
     }
-  };
+
+    async function fetchThread() {
+      try {
+        const token = localStorage.getItem('token') || 
+                      localStorage.getItem('auth-token') || 
+                      localStorage.getItem('provider-token');
+        
+        const response = await fetch(`/api/messages/conversations/${selectedMessage?.patientId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setChatMessages(data.messages || []);
+        } else {
+          setChatMessages([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch thread:', err);
+        setChatMessages([]);
+      }
+    }
+    
+    fetchThread();
+  }, [selectedMessage]);
 
   const filteredMessages = messages.filter(msg => {
     const matchesSearch = msg.patientName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -100,12 +104,35 @@ export default function ProviderMessagesPage() {
     return matchesSearch && matchesFilter;
   });
 
-  const handleSendMessage = () => {
-    if (messageContent.trim()) {
-      // Handle sending message
+  const handleSendMessage = async () => {
+    if (!messageContent.trim() || !selectedMessage) return;
+    
+    try {
+      const token = localStorage.getItem('token') || 
+                    localStorage.getItem('auth-token') || 
+                    localStorage.getItem('provider-token');
+      
+      await fetch(`/api/messages/send`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patientId: selectedMessage.patientId,
+          content: messageContent,
+        }),
+      });
+      
       setMessageContent("");
+      // Refresh thread
+      // ... would refetch here
+    } catch (err) {
+      console.error('Failed to send message:', err);
     }
   };
+
+  const unreadCount = messages.filter(m => m.unread).length;
 
   return (
     <div className="h-[calc(100vh-12rem)]">
@@ -139,7 +166,7 @@ export default function ProviderMessagesPage() {
                   filter === "unread" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"
                 }`}
               >
-                Unread ({messages.filter(m => m.unread).length})
+                Unread ({unreadCount})
               </button>
               <button
                 onClick={() => setFilter("urgent")}
@@ -152,29 +179,44 @@ export default function ProviderMessagesPage() {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {filteredMessages.map((message) => (
-              <div
-                key={message.id}
-                onClick={() => setSelectedMessage(message)}
-                className={`p-4 border-b hover:bg-gray-50 cursor-pointer ${
-                  selectedMessage?.id === message.id ? "bg-indigo-50" : ""
-                } ${message.unread ? "bg-blue-50" : ""}`}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-medium">{message.patientName}</span>
-                  <span className="text-xs text-gray-500">{message.timestamp}</span>
-                </div>
-                <div className="text-sm text-gray-600 truncate">{message.lastMessage}</div>
-                <div className="flex items-center gap-2 mt-2">
-                  {message.unread && (
-                    <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                  )}
-                  {message.priority === "urgent" && (
-                    <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">Urgent</span>
-                  )}
-                </div>
+            {loading ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                Loading messages...
               </div>
-            ))}
+            ) : filteredMessages.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <Inbox className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-sm font-medium text-gray-900 mb-1">No messages</h3>
+                <p className="text-sm text-gray-500">
+                  {searchTerm ? "No messages match your search." : "Patient messages will appear here."}
+                </p>
+              </div>
+            ) : (
+              filteredMessages.map((message) => (
+                <div
+                  key={message.id}
+                  onClick={() => setSelectedMessage(message)}
+                  className={`p-4 border-b hover:bg-gray-50 cursor-pointer ${
+                    selectedMessage?.id === message.id ? "bg-indigo-50" : ""
+                  } ${message.unread ? "bg-blue-50" : ""}`}
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="font-medium">{message.patientName}</span>
+                    <span className="text-xs text-gray-500">{message.timestamp}</span>
+                  </div>
+                  <div className="text-sm text-gray-600 truncate">{message.lastMessage}</div>
+                  <div className="flex items-center gap-2 mt-2">
+                    {message.unread && (
+                      <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                    )}
+                    {message.priority === "urgent" && (
+                      <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">Urgent</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -186,7 +228,7 @@ export default function ProviderMessagesPage() {
               <div className="p-4 border-b flex justify-between items-center">
                 <div>
                   <h3 className="font-semibold">{selectedMessage.patientName}</h3>
-                  <p className="text-sm text-gray-500">Patient ID: #12345</p>
+                  <p className="text-sm text-gray-500">Patient ID: #{selectedMessage.patientId}</p>
                 </div>
                 <div className="flex gap-2">
                   <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
@@ -206,29 +248,36 @@ export default function ProviderMessagesPage() {
 
               {/* Messages */}
               <div className="flex-1 p-4 overflow-y-auto">
-                {messageThreads[selectedMessage.id]?.messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`mb-4 flex ${
-                      msg.sender === "provider" ? "justify-end" : "justify-start"
-                    }`}
-                  >
+                {chatMessages.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No messages in this conversation yet.</p>
+                  </div>
+                ) : (
+                  chatMessages.map((msg) => (
                     <div
-                      className={`max-w-[70%] p-3 rounded-lg ${
-                        msg.sender === "provider"
-                          ? "bg-indigo-600 text-white"
-                          : "bg-gray-100 text-gray-900"
+                      key={msg.id}
+                      className={`mb-4 flex ${
+                        msg.sender === "provider" ? "justify-end" : "justify-start"
                       }`}
                     >
-                      <p>{msg.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        msg.sender === "provider" ? "text-indigo-200" : "text-gray-500"
-                      }`}>
-                        {msg.timestamp}
-                      </p>
+                      <div
+                        className={`max-w-[70%] p-3 rounded-lg ${
+                          msg.sender === "provider"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-100 text-gray-900"
+                        }`}
+                      >
+                        <p>{msg.content}</p>
+                        <p className={`text-xs mt-1 ${
+                          msg.sender === "provider" ? "text-indigo-200" : "text-gray-500"
+                        }`}>
+                          {msg.timestamp}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               {/* Message Input */}
