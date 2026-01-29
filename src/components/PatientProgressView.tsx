@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { logger } from '../lib/logger';
 
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, Activity, Calendar, FileText, Play } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Calendar, FileText, Play, Plus, Scale, Check, X } from 'lucide-react';
 
 interface PatientProgressViewProps {
   patient: {
@@ -20,6 +20,14 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
   const [medicationReminders, setMedicationReminders] = useState<any[]>([]);
   const [hasActiveTreatment, setHasActiveTreatment] = useState(false);
 
+  // Weight entry form state
+  const [showWeightForm, setShowWeightForm] = useState(false);
+  const [newWeight, setNewWeight] = useState('');
+  const [weightDate, setWeightDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [weightNotes, setWeightNotes] = useState('');
+  const [savingWeight, setSavingWeight] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   // Check if patient has active treatment (has tracking number on any order)
   useEffect(() => {
     const hasTracking = patient.orders?.some((order: any) =>
@@ -28,37 +36,82 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
     setHasActiveTreatment(hasTracking || false);
   }, [patient.orders]);
 
-  // Fetch weight data from API - always fetch if patient has ID
-  useEffect(() => {
-    const fetchWeightData = async () => {
-      if (patient.id) {
-        try {
-          const response = await fetch(
-            `/api/patient-progress/weight?patientId=${patient.id}&limit=20`
-          );
-          if (response.ok) {
-            const result = await response.json();
-            // API returns { data: [...], meta: {...} }
-            const logs = result.data || result || [];
-            const formattedData = (Array.isArray(logs) ? logs : []).map((log: any) => ({
-              date: new Date(log.recordedAt),
-              weight: log.weight,
-              id: log.id,
-            }));
-            setWeightData(formattedData);
-            // If patient has weight data, consider them having active treatment
-            if (formattedData.length > 0) {
-              setHasActiveTreatment(true);
-            }
+  // Fetch weight data from API
+  const fetchWeightData = async () => {
+    if (patient.id) {
+      try {
+        const response = await fetch(
+          `/api/patient-progress/weight?patientId=${patient.id}&limit=20`
+        );
+        if (response.ok) {
+          const result = await response.json();
+          // API returns { data: [...], meta: {...} }
+          const logs = result.data || result || [];
+          const formattedData = (Array.isArray(logs) ? logs : []).map((log: any) => ({
+            date: new Date(log.recordedAt),
+            weight: log.weight,
+            id: log.id,
+            notes: log.notes,
+            source: log.source,
+          }));
+          setWeightData(formattedData);
+          // If patient has weight data, consider them having active treatment
+          if (formattedData.length > 0) {
+            setHasActiveTreatment(true);
           }
-        } catch (error) {
-          logger.error('Failed to fetch weight data:', error);
         }
+      } catch (error) {
+        logger.error('Failed to fetch weight data:', error);
       }
-    };
+    }
+  };
 
+  // Fetch weight data on mount
+  useEffect(() => {
     fetchWeightData();
   }, [patient.id]);
+
+  // Handle adding new weight entry
+  const handleAddWeight = async () => {
+    if (!newWeight || isNaN(parseFloat(newWeight))) return;
+
+    setSavingWeight(true);
+    try {
+      const response = await fetch('/api/patient-progress/weight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: patient.id,
+          weight: parseFloat(newWeight),
+          unit: 'lbs',
+          notes: weightNotes || `Entered by provider`,
+          recordedAt: new Date(weightDate).toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh weight data
+        await fetchWeightData();
+        // Reset form
+        setNewWeight('');
+        setWeightNotes('');
+        setWeightDate(format(new Date(), 'yyyy-MM-dd'));
+        setShowWeightForm(false);
+        // Show success briefly
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        const error = await response.json();
+        logger.error('Failed to save weight:', error);
+        alert('Failed to save weight. Please try again.');
+      }
+    } catch (error) {
+      logger.error('Failed to save weight:', error);
+      alert('Failed to save weight. Please try again.');
+    } finally {
+      setSavingWeight(false);
+    }
+  };
 
   // Fetch medication reminders from API
   useEffect(() => {
@@ -162,12 +215,110 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Weight Tracker</h2>
-            <p className="mt-1 text-sm text-gray-600">Track your weight loss journey</p>
+            <p className="mt-1 text-sm text-gray-600">Track patient's weight loss journey</p>
           </div>
-          <span className="rounded-full bg-white/80 px-3 py-1 text-xs text-green-700">
-            {weightData.length} entries
-          </span>
+          <div className="flex items-center gap-2">
+            {saveSuccess && (
+              <span className="flex items-center gap-1 rounded-full bg-green-500 px-3 py-1 text-xs text-white">
+                <Check className="h-3 w-3" /> Saved!
+              </span>
+            )}
+            <span className="rounded-full bg-white/80 px-3 py-1 text-xs text-green-700">
+              {weightData.length} entries
+            </span>
+            <button
+              onClick={() => setShowWeightForm(!showWeightForm)}
+              className="flex items-center gap-1 rounded-full bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700"
+            >
+              <Plus className="h-3 w-3" />
+              Add Weight
+            </button>
+          </div>
         </div>
+
+        {/* Add Weight Form */}
+        {showWeightForm && (
+          <div className="mb-6 rounded-lg border border-green-300 bg-white p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-medium text-gray-900">
+                <Scale className="h-4 w-4" />
+                Add Weight Entry
+              </h3>
+              <button
+                onClick={() => setShowWeightForm(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  Weight (lbs)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={newWeight}
+                  onChange={(e) => setNewWeight(e.target.value)}
+                  placeholder="e.g., 185.5"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={weightDate}
+                  onChange={(e) => setWeightDate(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  Notes (optional)
+                </label>
+                <input
+                  type="text"
+                  value={weightNotes}
+                  onChange={(e) => setWeightNotes(e.target.value)}
+                  placeholder="e.g., Weekly check-in"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                onClick={() => setShowWeightForm(false)}
+                className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddWeight}
+                disabled={!newWeight || savingWeight}
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingWeight ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Save Weight
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              This weight entry will appear in the patient's portal dashboard.
+            </p>
+          </div>
+        )}
 
         {/* Chart Container */}
         <div className="relative h-64 overflow-hidden rounded-lg bg-black/90 p-4">
@@ -241,10 +392,24 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                     <div
                       className={`h-2 w-2 rounded-full ${idx === 0 ? 'bg-green-500' : 'bg-gray-300'}`}
                     />
-                    <span className="text-sm font-medium">{format(entry.date, 'MMM d, yyyy')}</span>
+                    <div>
+                      <span className="text-sm font-medium">{format(entry.date, 'MMM d, yyyy')}</span>
+                      {entry.notes && (
+                        <p className="text-xs text-gray-500">{entry.notes}</p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold">{entry.weight} lbs</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        entry.source === 'provider'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {entry.source === 'provider' ? 'Provider' : 'Patient'}
+                    </span>
                     {idx === 0 && progress && (
                       <span
                         className={`rounded-full px-2 py-1 text-xs ${
@@ -264,7 +429,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               <div className="rounded-lg bg-gray-50 py-4 text-center">
                 <p className="text-sm text-gray-500">No weight data logged yet</p>
                 <p className="mt-1 text-xs text-gray-400">
-                  Patient can log weight from their dashboard
+                  Click "Add Weight" above or patient can log from their dashboard
                 </p>
               </div>
             )}
