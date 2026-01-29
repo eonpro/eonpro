@@ -26,45 +26,61 @@ import {
   HeartPulse,
   Activity,
 } from 'lucide-react';
-import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { ClinicBrandingProvider, useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { PWAUpdateBanner, OfflineBanner, InstallPrompt } from '@/components/PWAUpdateBanner';
 
 // Default EONPRO logo
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
 
-const mainNavItems = [
-  { icon: Home, path: '/patient-portal', label: 'Home', exact: true },
-  { icon: Calendar, path: '/patient-portal/appointments', label: 'Appointments' },
-  { icon: HeartPulse, path: '/patient-portal/care-plan', label: 'My Care Plan' },
-  { icon: Scale, path: '/patient-portal/progress', label: 'Progress' },
-  { icon: Trophy, path: '/patient-portal/achievements', label: 'Achievements' },
-  { icon: Pill, path: '/patient-portal/medications', label: 'Medications' },
-  { icon: Package, path: '/patient-portal/shipments', label: 'Shipments' },
-  { icon: Activity, path: '/patient-portal/symptom-checker', label: 'Symptom Checker' },
-  { icon: Calculator, path: '/patient-portal/calculators', label: 'Tools' },
-  { icon: BookOpen, path: '/patient-portal/resources', label: 'Resources' },
-  { icon: CreditCard, path: '/patient-portal/subscription', label: 'Billing' },
-  { icon: Settings, path: '/patient-portal/settings', label: 'Settings' },
+// All possible nav items with their feature flag requirements
+const allNavItems = [
+  { icon: Home, path: '/patient-portal', label: 'Home', exact: true, feature: null }, // Always show
+  { icon: Calendar, path: '/patient-portal/appointments', label: 'Appointments', feature: 'showAppointments' },
+  { icon: HeartPulse, path: '/patient-portal/care-plan', label: 'My Care Plan', feature: 'showCarePlan' },
+  { icon: Scale, path: '/patient-portal/progress', label: 'Progress', feature: 'showWeightTracking' },
+  { icon: Trophy, path: '/patient-portal/achievements', label: 'Achievements', feature: 'showAchievements' },
+  { icon: Pill, path: '/patient-portal/medications', label: 'Medications', feature: null }, // Always show
+  { icon: Package, path: '/patient-portal/shipments', label: 'Shipments', feature: 'showShipmentTracking' },
+  { icon: Activity, path: '/patient-portal/symptom-checker', label: 'Symptom Checker', feature: 'showSymptomChecker' },
+  { icon: Calculator, path: '/patient-portal/calculators', label: 'Tools', feature: null }, // Always show
+  { icon: BookOpen, path: '/patient-portal/resources', label: 'Resources', feature: 'showResources' },
+  { icon: CreditCard, path: '/patient-portal/subscription', label: 'Billing', feature: 'showBilling' },
+  { icon: Settings, path: '/patient-portal/settings', label: 'Settings', feature: null }, // Always show
 ];
 
-const mobileNavItems = [
-  { icon: Home, path: '/patient-portal', label: 'Home', exact: true },
-  { icon: Calendar, path: '/patient-portal/appointments', label: 'Appts' },
-  { icon: Scale, path: '/patient-portal/progress', label: 'Progress' },
-  { icon: Pill, path: '/patient-portal/medications', label: 'Meds' },
-  { icon: User, path: '/patient-portal/settings', label: 'Profile' },
+const allMobileNavItems = [
+  { icon: Home, path: '/patient-portal', label: 'Home', exact: true, feature: null },
+  { icon: Calendar, path: '/patient-portal/appointments', label: 'Appts', feature: 'showAppointments' },
+  { icon: Scale, path: '/patient-portal/progress', label: 'Progress', feature: 'showWeightTracking' },
+  { icon: Pill, path: '/patient-portal/medications', label: 'Meds', feature: null },
+  { icon: User, path: '/patient-portal/settings', label: 'Profile', feature: null },
 ];
 
 function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
+  const features = usePortalFeatures();
 
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState(3);
+
+  // Filter nav items based on clinic feature flags
+  const mainNavItems = allNavItems.filter(item => {
+    if (item.feature === null) return true; // Always show items without feature requirement
+    return features[item.feature as keyof typeof features] === true;
+  });
+
+  const mobileNavItems = allMobileNavItems.filter(item => {
+    if (item.feature === null) return true;
+    return features[item.feature as keyof typeof features] === true;
+  });
+
+  // Check if chat should be shown
+  const showChat = features.showChat !== false;
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -345,19 +361,21 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="safe-bottom bg-white/95" />
       </nav>
 
-      {/* Floating Chat Button - Above bottom nav on mobile */}
-      <Link
-        href="/patient-portal/chat"
-        className="fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all active:scale-95 lg:bottom-6 lg:right-6"
-        style={{
-          backgroundColor: primaryColor,
-          bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
-          right: '16px',
-          boxShadow: `0 4px 20px ${primaryColor}50`,
-        }}
-      >
-        <MessageCircle className="h-7 w-7" />
-      </Link>
+      {/* Floating Chat Button - Above bottom nav on mobile (conditional on feature flag) */}
+      {showChat && (
+        <Link
+          href="/patient-portal/chat"
+          className="fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all active:scale-95 lg:bottom-6 lg:right-6"
+          style={{
+            backgroundColor: primaryColor,
+            bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+            right: '16px',
+            boxShadow: `0 4px 20px ${primaryColor}50`,
+          }}
+        >
+          <MessageCircle className="h-7 w-7" />
+        </Link>
+      )}
     </div>
   );
 }

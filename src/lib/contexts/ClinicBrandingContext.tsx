@@ -2,6 +2,39 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
 
+// Treatment types supported by clinics
+export type TreatmentType =
+  | 'weight_loss'
+  | 'hormone_therapy'
+  | 'mens_health'
+  | 'womens_health'
+  | 'sexual_health'
+  | 'anti_aging'
+  | 'general_wellness'
+  | 'custom';
+
+// Medication categories
+export type MedicationCategory =
+  | 'glp1' // Semaglutide, Tirzepatide
+  | 'testosterone'
+  | 'hcg'
+  | 'peptides'
+  | 'vitamins'
+  | 'compounded'
+  | 'other';
+
+export interface TreatmentProtocol {
+  id: string;
+  name: string;
+  description: string;
+  medicationCategories: MedicationCategory[];
+  durationWeeks: number;
+  checkInFrequency: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  requiresWeightTracking: boolean;
+  requiresPhotos: boolean;
+  requiresLabWork: boolean;
+}
+
 export interface ClinicBranding {
   clinicId: number;
   clinicName: string;
@@ -13,8 +46,16 @@ export interface ClinicBranding {
   accentColor: string;
   buttonTextColor: 'auto' | 'light' | 'dark'; // Controls text color on buttons
   customCss: string | null;
+
+  // Treatment configuration
+  treatmentTypes: TreatmentType[];
+  primaryTreatment: TreatmentType;
+  treatmentProtocols: TreatmentProtocol[];
+  medicationCategories: MedicationCategory[];
+
   // Feature flags for patient portal
   features: {
+    // Core features
     showBMICalculator: boolean;
     showCalorieCalculator: boolean;
     showDoseCalculator: boolean;
@@ -23,7 +64,28 @@ export interface ClinicBranding {
     showWeightTracking: boolean;
     showResources: boolean;
     showBilling: boolean;
+    // Treatment-specific features
+    showProgressPhotos: boolean;
+    showLabResults: boolean;
+    showDietaryPlans: boolean;
+    showExerciseTracking: boolean;
+    showWaterTracking: boolean;
+    showSleepTracking: boolean;
+    showSymptomChecker: boolean;
+    showHealthScore: boolean;
+    showAchievements: boolean;
+    showCommunityChat: boolean;
+    showAppointments: boolean;
+    showTelehealth: boolean;
+    showChat: boolean;
+    showCarePlan: boolean;
+    showCareTeam: boolean;
   };
+
+  // Content customization
+  welcomeMessage: string | null;
+  dashboardMessage: string | null;
+
   // Resource videos configurable per clinic
   resourceVideos: Array<{
     id: string;
@@ -33,9 +95,21 @@ export interface ClinicBranding {
     thumbnail: string;
     category: string;
   }>;
+
+  // Dietary plans configurable per clinic
+  dietaryPlans: Array<{
+    id: string;
+    name: string;
+    description: string;
+    calorieTarget: number;
+    pdfUrl: string | null;
+  }>;
+
   // Contact info
   supportEmail: string | null;
   supportPhone: string | null;
+  supportHours: string | null;
+  emergencyContact: string | null;
 }
 
 interface ClinicBrandingContextValue {
@@ -48,6 +122,7 @@ interface ClinicBrandingContextValue {
 }
 
 const defaultFeatures = {
+  // Core features
   showBMICalculator: true,
   showCalorieCalculator: true,
   showDoseCalculator: true,
@@ -56,6 +131,22 @@ const defaultFeatures = {
   showWeightTracking: true,
   showResources: true,
   showBilling: true,
+  // Treatment-specific features
+  showProgressPhotos: false,
+  showLabResults: false,
+  showDietaryPlans: true,
+  showExerciseTracking: true,
+  showWaterTracking: true,
+  showSleepTracking: true,
+  showSymptomChecker: true,
+  showHealthScore: true,
+  showAchievements: true,
+  showCommunityChat: false,
+  showAppointments: true,
+  showTelehealth: false,
+  showChat: true,
+  showCarePlan: true,
+  showCareTeam: true,
 };
 
 const defaultBranding: ClinicBranding = {
@@ -69,10 +160,22 @@ const defaultBranding: ClinicBranding = {
   accentColor: '#d3f931',
   buttonTextColor: 'auto',
   customCss: null,
+  // Treatment configuration
+  treatmentTypes: ['weight_loss'],
+  primaryTreatment: 'weight_loss',
+  treatmentProtocols: [],
+  medicationCategories: ['glp1'],
   features: defaultFeatures,
+  // Content
+  welcomeMessage: null,
+  dashboardMessage: null,
   resourceVideos: [],
+  dietaryPlans: [],
+  // Contact
   supportEmail: null,
   supportPhone: null,
+  supportHours: null,
+  emergencyContact: null,
 };
 
 /**

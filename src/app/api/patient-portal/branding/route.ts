@@ -63,6 +63,7 @@ const getBrandingHandler = async (request: NextRequest) => {
     // Parse settings JSON for features and resources
     const settings = (clinic.settings as any) || {};
     const patientPortalSettings = settings.patientPortal || {};
+    const treatmentSettings = settings.treatment || {};
 
     // buttonTextColor defaults to 'auto' until migration is deployed
     const branding = {
@@ -76,6 +77,14 @@ const getBrandingHandler = async (request: NextRequest) => {
       accentColor: clinic.accentColor || patientPortalSettings.accentColor || '#d3f931',
       buttonTextColor: (clinic as any).buttonTextColor || 'auto',
       customCss: clinic.customCss,
+      
+      // Treatment configuration
+      treatmentTypes: treatmentSettings.treatmentTypes || ['weight_loss'],
+      primaryTreatment: treatmentSettings.primaryTreatment || 'weight_loss',
+      treatmentProtocols: treatmentSettings.protocols || [],
+      medicationCategories: treatmentSettings.medicationCategories || ['glp1'],
+      
+      // Feature flags - core features
       features: {
         showBMICalculator: patientPortalSettings.showBMICalculator ?? true,
         showCalorieCalculator: patientPortalSettings.showCalorieCalculator ?? true,
@@ -85,7 +94,29 @@ const getBrandingHandler = async (request: NextRequest) => {
         showWeightTracking: patientPortalSettings.showWeightTracking ?? true,
         showResources: patientPortalSettings.showResources ?? true,
         showBilling: patientPortalSettings.showBilling ?? true,
+        // Treatment-specific features
+        showProgressPhotos: patientPortalSettings.showProgressPhotos ?? false,
+        showLabResults: patientPortalSettings.showLabResults ?? false,
+        showDietaryPlans: patientPortalSettings.showDietaryPlans ?? true,
+        showExerciseTracking: patientPortalSettings.showExerciseTracking ?? true,
+        showWaterTracking: patientPortalSettings.showWaterTracking ?? true,
+        showSleepTracking: patientPortalSettings.showSleepTracking ?? true,
+        showSymptomChecker: patientPortalSettings.showSymptomChecker ?? true,
+        showHealthScore: patientPortalSettings.showHealthScore ?? true,
+        showAchievements: patientPortalSettings.showAchievements ?? true,
+        showCommunityChat: patientPortalSettings.showCommunityChat ?? false,
+        showAppointments: patientPortalSettings.showAppointments ?? true,
+        showTelehealth: patientPortalSettings.showTelehealth ?? false,
+        showChat: patientPortalSettings.showChat ?? true,
+        showCarePlan: patientPortalSettings.showCarePlan ?? true,
+        showCareTeam: patientPortalSettings.showCareTeam ?? true,
       },
+      
+      // Content customization
+      welcomeMessage: patientPortalSettings.welcomeMessage || null,
+      dashboardMessage: patientPortalSettings.dashboardMessage || null,
+      
+      // Resource videos configurable per clinic
       resourceVideos: patientPortalSettings.resourceVideos || [
         {
           id: 'injection-guide',
@@ -104,8 +135,15 @@ const getBrandingHandler = async (request: NextRequest) => {
           category: 'nutrition',
         },
       ],
+      
+      // Dietary plans configurable per clinic
+      dietaryPlans: patientPortalSettings.dietaryPlans || [],
+      
+      // Contact info
       supportEmail: clinic.adminEmail,
       supportPhone: clinic.phone,
+      supportHours: patientPortalSettings.supportHours || null,
+      emergencyContact: patientPortalSettings.emergencyContact || null,
     };
 
     return NextResponse.json(branding);

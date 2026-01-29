@@ -177,7 +177,23 @@ export default function PatientPortalDashboard() {
         <h1 className="text-2xl font-semibold text-gray-900">
           Hello, {patient?.firstName || 'Patient'}
         </h1>
+        {/* Custom welcome message from clinic settings */}
+        {branding?.welcomeMessage && (
+          <p className="mt-2 text-gray-600">{branding.welcomeMessage}</p>
+        )}
       </div>
+
+      {/* Custom dashboard message from clinic (e.g., announcements) */}
+      {branding?.dashboardMessage && (
+        <div
+          className="mb-6 rounded-xl p-4 border"
+          style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}30` }}
+        >
+          <p className="text-sm font-medium" style={{ color: primaryColor }}>
+            {branding.dashboardMessage}
+          </p>
+        </div>
+      )}
 
       {/* Active Shipment Tracker - Shows at top when there's an active shipment */}
       {features.showShipmentTracking && (
