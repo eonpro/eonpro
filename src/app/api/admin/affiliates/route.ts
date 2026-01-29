@@ -59,6 +59,11 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
                 planType: true,
                 flatAmountCents: true,
                 percentBps: true,
+                // Separate initial/recurring rates
+                initialPercentBps: true,
+                initialFlatAmountCents: true,
+                recurringPercentBps: true,
+                recurringFlatAmountCents: true,
               }
             }
           },

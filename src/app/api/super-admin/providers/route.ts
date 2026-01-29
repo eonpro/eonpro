@@ -22,6 +22,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.toLowerCase();
     const status = searchParams.get('status'); // 'assigned' | 'unassigned' | 'all'
+    const providerStatus = searchParams.get('providerStatus'); // 'ACTIVE' | 'ARCHIVED' | 'SUSPENDED' | 'all'
     const clinicId = searchParams.get('clinicId');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
@@ -30,11 +31,25 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       userEmail: user.email,
       search,
       status,
+      providerStatus,
       clinicId,
     });
 
     // Build where clause
     const whereConditions: any[] = [];
+
+    // Provider status filter (ACTIVE, ARCHIVED, SUSPENDED)
+    // Default to showing only ACTIVE providers unless explicitly set to 'all'
+    if (providerStatus === 'ARCHIVED') {
+      whereConditions.push({ status: 'ARCHIVED' });
+    } else if (providerStatus === 'SUSPENDED') {
+      whereConditions.push({ status: 'SUSPENDED' });
+    } else if (providerStatus === 'ACTIVE') {
+      whereConditions.push({ status: 'ACTIVE' });
+    } else if (providerStatus !== 'all') {
+      // Default: show only active providers
+      whereConditions.push({ status: 'ACTIVE' });
+    }
 
     // Search filter
     if (search) {
@@ -58,7 +73,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       });
     }
 
-    // Status filter (assigned/unassigned)
+    // Assignment status filter (assigned/unassigned)
     if (status === 'assigned') {
       whereConditions.push({
         OR: [
@@ -100,6 +115,9 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         lastLogin: true,
         createdAt: true,
         updatedAt: true,
+        status: true,
+        archivedAt: true,
+        archivedBy: true,
         clinic: {
           select: {
             id: true,

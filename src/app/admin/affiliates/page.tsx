@@ -40,6 +40,10 @@ interface Affiliate {
     planType: string;
     flatAmountCents: number | null;
     percentBps: number | null;
+    initialPercentBps?: number | null;
+    initialFlatAmountCents?: number | null;
+    recurringPercentBps?: number | null;
+    recurringFlatAmountCents?: number | null;
   } | null;
   stats: {
     totalConversions: number;
@@ -54,6 +58,12 @@ interface CommissionPlan {
   planType: string;
   flatAmountCents: number | null;
   percentBps: number | null;
+  // Separate initial/recurring rates
+  initialPercentBps: number | null;
+  initialFlatAmountCents: number | null;
+  recurringPercentBps: number | null;
+  recurringFlatAmountCents: number | null;
+  recurringEnabled: boolean;
   isActive: boolean;
 }
 
@@ -212,6 +222,13 @@ export default function AdminAffiliatesPage() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => router.push('/admin/affiliates/commission-plans')}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <DollarSign className="h-5 w-5" />
+            Plans
+          </button>
+          <button
             onClick={() => router.push('/admin/affiliates/applications')}
             className="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 font-medium text-violet-600 hover:bg-violet-50"
           >
@@ -347,11 +364,29 @@ export default function AdminAffiliatesPage() {
                         {affiliate.currentPlan.name}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {affiliate.currentPlan.planType === 'PERCENT' && affiliate.currentPlan.percentBps
-                          ? formatPercent(affiliate.currentPlan.percentBps)
-                          : affiliate.currentPlan.flatAmountCents
-                            ? formatCurrency(affiliate.currentPlan.flatAmountCents)
-                            : 'N/A'}
+                        {(() => {
+                          const plan = affiliate.currentPlan!;
+                          const hasSeperateRates = plan.initialPercentBps !== null || 
+                            plan.initialFlatAmountCents !== null ||
+                            plan.recurringPercentBps !== null ||
+                            plan.recurringFlatAmountCents !== null;
+                          
+                          if (hasSeperateRates) {
+                            const initialRate = plan.planType === 'PERCENT' 
+                              ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                              : formatCurrency(plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                            const recurringRate = plan.planType === 'PERCENT'
+                              ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                              : formatCurrency(plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                            return `${initialRate} / ${recurringRate}`;
+                          }
+                          
+                          return plan.planType === 'PERCENT' && plan.percentBps
+                            ? formatPercent(plan.percentBps)
+                            : plan.flatAmountCents
+                              ? formatCurrency(plan.flatAmountCents)
+                              : 'N/A';
+                        })()}
                       </p>
                     </div>
                   ) : (
@@ -474,15 +509,36 @@ export default function AdminAffiliatesPage() {
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 >
                   <option value="">Select a plan...</option>
-                  {plans.map((plan) => (
-                    <option key={plan.id} value={plan.id}>
-                      {plan.name} ({plan.planType === 'PERCENT' && plan.percentBps
+                  {plans.map((plan) => {
+                    // Check if plan has separate initial/recurring rates
+                    const hasSeperateRates = plan.initialPercentBps !== null || 
+                      plan.initialFlatAmountCents !== null ||
+                      plan.recurringPercentBps !== null ||
+                      plan.recurringFlatAmountCents !== null;
+                    
+                    let rateDisplay = '';
+                    if (hasSeperateRates) {
+                      const initialRate = plan.planType === 'PERCENT' 
+                        ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                        : formatCurrency(plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                      const recurringRate = plan.planType === 'PERCENT'
+                        ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                        : formatCurrency(plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                      rateDisplay = `${initialRate} initial / ${recurringRate} recurring`;
+                    } else {
+                      rateDisplay = plan.planType === 'PERCENT' && plan.percentBps
                         ? formatPercent(plan.percentBps)
                         : plan.flatAmountCents
                           ? formatCurrency(plan.flatAmountCents)
-                          : 'N/A'})
-                    </option>
-                  ))}
+                          : 'N/A';
+                    }
+                    
+                    return (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name} ({rateDisplay})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

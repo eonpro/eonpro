@@ -14,6 +14,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { getProviderForUser } from '@/lib/auth/get-provider-for-user';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -87,11 +88,8 @@ export const POST = withAuth(
         });
       }
 
-      // Get provider record for the approving user
-      const provider = await prisma.provider.findFirst({
-        where: { userId: user.id },
-        select: { id: true, firstName: true, lastName: true },
-      });
+      // Get provider record for the approving user (correct lookup via providerId or email)
+      const provider = await getProviderForUser(user, { includeClinicId: false });
 
       if (!provider) {
         return NextResponse.json(

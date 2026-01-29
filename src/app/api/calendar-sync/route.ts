@@ -20,7 +20,7 @@ import {
   CalendarProvider,
   SyncDirection,
 } from '@/lib/calendar-sync';
-import { prisma } from '@/lib/db';
+import { getProviderForUser } from '@/lib/auth/get-provider-for-user';
 
 const connectSchema = z.object({
   provider: z.enum(['google', 'outlook']),
@@ -47,11 +47,8 @@ export const GET = withProviderAuth(
       const searchParams = req.nextUrl.searchParams;
       const action = searchParams.get('action');
 
-      // Get provider ID from user
-      const provider = await prisma.provider.findFirst({
-        where: { userId: user.id },
-        select: { id: true, clinicId: true },
-      });
+      // Get provider ID from user (correct lookup via providerId or email)
+      const provider = await getProviderForUser(user);
 
       if (!provider) {
         return NextResponse.json(
@@ -117,11 +114,8 @@ export const POST = withProviderAuth(
       const body = await req.json();
       const action = body.action;
 
-      // Get provider ID from user
-      const provider = await prisma.provider.findFirst({
-        where: { userId: user.id },
-        select: { id: true, clinicId: true },
-      });
+      // Get provider ID from user (correct lookup via providerId or email)
+      const provider = await getProviderForUser(user);
 
       if (!provider) {
         return NextResponse.json(
@@ -230,11 +224,8 @@ export const PATCH = withProviderAuth(
         );
       }
 
-      // Get provider ID from user
-      const provider = await prisma.provider.findFirst({
-        where: { userId: user.id },
-        select: { id: true },
-      });
+      // Get provider ID from user (correct lookup via providerId or email)
+      const provider = await getProviderForUser(user);
 
       if (!provider) {
         return NextResponse.json(
@@ -288,11 +279,8 @@ export const DELETE = withProviderAuth(
         );
       }
 
-      // Get provider ID from user
-      const provider = await prisma.provider.findFirst({
-        where: { userId: user.id },
-        select: { id: true },
-      });
+      // Get provider ID from user (correct lookup via providerId or email)
+      const provider = await getProviderForUser(user);
 
       if (!provider) {
         return NextResponse.json(

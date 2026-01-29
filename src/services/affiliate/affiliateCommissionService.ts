@@ -302,6 +302,7 @@ function calculateRecurringMultiplier(
 
 /**
  * Calculate full commission with tiers, product rates, and promotions
+ * Supports separate commission rates for initial vs recurring payments
  */
 export async function calculateEnhancedCommission(
   affiliateId: number,
@@ -311,6 +312,11 @@ export async function calculateEnhancedCommission(
     planType: CommissionPlanType;
     flatAmountCents: number | null;
     percentBps: number | null;
+    // Separate initial/recurring rates (new fields)
+    initialPercentBps?: number | null;
+    initialFlatAmountCents?: number | null;
+    recurringPercentBps?: number | null;
+    recurringFlatAmountCents?: number | null;
     tierEnabled: boolean;
     recurringEnabled: boolean;
     recurringMonths: number | null;
@@ -318,6 +324,7 @@ export async function calculateEnhancedCommission(
   },
   eventAmountCents: number,
   options: {
+    isFirstPayment?: boolean;
     isRecurring?: boolean;
     recurringMonth?: number;
     productSku?: string;
@@ -334,9 +341,24 @@ export async function calculateEnhancedCommission(
   let promotionName: string | undefined;
   let appliedProductRule: string | undefined;
 
-  // 1. Calculate base commission
-  let effectivePercentBps = plan.percentBps;
-  let effectiveFlatCents = plan.flatAmountCents;
+  // 1. Determine which rates to use based on payment type
+  // Priority: Initial/Recurring specific rates > Default rates
+  let effectivePercentBps: number | null;
+  let effectiveFlatCents: number | null;
+
+  if (options.isRecurring) {
+    // Use recurring-specific rates if available, otherwise fall back to default
+    effectivePercentBps = plan.recurringPercentBps ?? plan.percentBps;
+    effectiveFlatCents = plan.recurringFlatAmountCents ?? plan.flatAmountCents;
+  } else if (options.isFirstPayment || !options.isRecurring) {
+    // Use initial-specific rates if available, otherwise fall back to default
+    effectivePercentBps = plan.initialPercentBps ?? plan.percentBps;
+    effectiveFlatCents = plan.initialFlatAmountCents ?? plan.flatAmountCents;
+  } else {
+    // Fallback to default rates
+    effectivePercentBps = plan.percentBps;
+    effectiveFlatCents = plan.flatAmountCents;
+  }
 
   // 2. Check for tier override
   if (plan.tierEnabled) {
@@ -651,6 +673,7 @@ export async function processPaymentForCommission(
     }
 
     // Calculate enhanced commission with tiers, products, promotions
+    // Pass initial/recurring specific rates for differentiated commission
     const breakdown = await calculateEnhancedCommission(
       affiliateId,
       clinicId,
@@ -659,6 +682,11 @@ export async function processPaymentForCommission(
         planType: commissionPlan.planType,
         flatAmountCents: commissionPlan.flatAmountCents,
         percentBps: commissionPlan.percentBps,
+        // Support separate initial/recurring rates
+        initialPercentBps: commissionPlan.initialPercentBps,
+        initialFlatAmountCents: commissionPlan.initialFlatAmountCents,
+        recurringPercentBps: commissionPlan.recurringPercentBps,
+        recurringFlatAmountCents: commissionPlan.recurringFlatAmountCents,
         tierEnabled: commissionPlan.tierEnabled,
         recurringEnabled: commissionPlan.recurringEnabled,
         recurringMonths: commissionPlan.recurringMonths,
@@ -666,6 +694,7 @@ export async function processPaymentForCommission(
       },
       amountCents,
       {
+        isFirstPayment,
         isRecurring,
         recurringMonth,
         productSku,

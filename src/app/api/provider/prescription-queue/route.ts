@@ -2,10 +2,14 @@
  * Prescription Queue API
  * Manages the prescription processing queue for providers
  *
- * GET  - List patients with paid invoices that need prescription processing
+ * GET  - List patients with paid invoices AND approved refills that need prescription processing
  * PATCH - Mark a prescription as processed
  *
  * CRITICAL: Each item includes SOAP note status for clinical documentation compliance
+ * 
+ * Queue sources:
+ * 1. Paid invoices (prescriptionProcessed = false) - original queue
+ * 2. Approved refills (status = APPROVED or PENDING_PROVIDER) - refill queue
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,7 +18,7 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { decrypt } from '@/lib/security/encryption';
 import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
-import type { Invoice, Clinic, Patient, IntakeFormSubmission, SOAPNote } from '@prisma/client';
+import type { Invoice, Clinic, Patient, IntakeFormSubmission, SOAPNote, RefillQueue, Subscription } from '@prisma/client';
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
@@ -41,6 +45,16 @@ type InvoiceWithRelations = Invoice & {
     intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
     soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
   };
+};
+
+// Type for refill queue with included relations
+type RefillWithRelations = RefillQueue & {
+  clinic: Pick<Clinic, 'id' | 'name' | 'subdomain' | 'lifefileEnabled' | 'lifefilePracticeName'> | null;
+  patient: Pick<Patient, 'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'> & {
+    intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
+    soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
+  };
+  subscription: Pick<Subscription, 'id' | 'planName' | 'status'> | null;
 };
 
 /**
@@ -79,7 +93,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // - WellMedR/Heyflow patients have intake data in invoice metadata, not IntakeFormSubmission
     // - EONmeds patients use internal intake forms (IntakeFormSubmission)
     // The prescription process handles both scenarios
-    const [invoices, totalCount] = await Promise.all([
+    const [invoices, invoiceCount, refills, refillCount] = await Promise.all([
       prisma.invoice.findMany({
         where: {
           clinicId: clinicId,
@@ -144,10 +158,80 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           prescriptionProcessed: false,
         },
       }),
+      // Query approved refills from RefillQueue
+      prisma.refillQueue.findMany({
+        where: {
+          clinicId: clinicId,
+          status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
+            },
+          },
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+              clinicId: true,
+              intakeSubmissions: {
+                where: { status: 'completed' },
+                orderBy: { completedAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  completedAt: true,
+                },
+              },
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
+                },
+              },
+            },
+          },
+          subscription: {
+            select: {
+              id: true,
+              planName: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: {
+          providerQueuedAt: 'asc', // Oldest queued first (FIFO)
+        },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.refillQueue.count({
+        where: {
+          clinicId: clinicId,
+          status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+        },
+      }),
     ]);
+    
+    const totalCount = invoiceCount + refillCount;
 
-    // Transform data for frontend
-    const queueItems = invoices.map((invoice: InvoiceWithRelations) => {
+    // Transform invoice data for frontend
+    const invoiceItems = invoices.map((invoice: InvoiceWithRelations) => {
       // Extract treatment info from metadata or line items
       const metadata = invoice.metadata as Record<string, unknown> | null;
       const lineItems = invoice.lineItems as Array<Record<string, unknown>> | null;
@@ -223,7 +307,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const soapNoteApproved = soapNote?.status === 'APPROVED' || soapNote?.status === 'LOCKED';
 
       return {
+        // Queue item identification
+        queueType: 'invoice' as const,
         invoiceId: invoice.id,
+        refillId: null,
+        // Patient info
         patientId: invoice.patient.id,
         patientDisplayId: invoice.patient.patientId,
         patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
@@ -235,10 +323,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // Plan info for prescribing - tells provider how many months to prescribe
         plan: planInfo.label,
         planMonths: planInfo.months,
+        // Refill info (not applicable for invoice-based queue)
+        vialCount: planInfo.months === 6 ? 6 : planInfo.months === 3 ? 3 : 1,
+        isRefill: false,
+        lastOrderId: null,
+        // Amount info
         amount: invoice.amount || invoice.amountPaid,
         amountFormatted: `$${((invoice.amount || invoice.amountPaid) / 100).toFixed(2)}`,
         paidAt: invoice.paidAt,
         createdAt: invoice.createdAt,
+        queuedAt: invoice.paidAt, // Use paidAt for sorting
         invoiceNumber: (metadata?.invoiceNumber as string) || `INV-${invoice.id}`,
         intakeCompletedAt,
         // CRITICAL: SOAP Note status for clinical documentation compliance
@@ -264,13 +358,101 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         } : null,
       };
     });
+    
+    // Transform refill data for frontend
+    const refillItems = refills.map((refill: RefillWithRelations) => {
+      // Get intake completion date if available
+      const intakeCompletedAt = refill.patient.intakeSubmissions?.[0]?.completedAt || null;
+
+      // Get SOAP note status - CRITICAL for clinical documentation
+      const soapNote = refill.patient.soapNotes?.[0] || null;
+      const hasSoapNote = soapNote !== null && soapNote.id !== undefined;
+      const soapNoteApproved = soapNote?.status === 'APPROVED' || soapNote?.status === 'LOCKED';
+
+      // Build treatment display from refill medication info
+      const treatmentDisplay = refill.medicationName 
+        ? `${refill.medicationName}${refill.medicationStrength ? ` ${refill.medicationStrength}` : ''}`
+        : 'Refill Prescription';
+
+      // Map vial count to plan months
+      const planMonths = refill.vialCount === 6 ? 6 : refill.vialCount === 3 ? 3 : 1;
+      const planLabel = planMonths === 6 ? '6-Month' : planMonths === 3 ? 'Quarterly' : 'Monthly';
+
+      return {
+        // Queue item identification
+        queueType: 'refill' as const,
+        invoiceId: refill.invoiceId,
+        refillId: refill.id,
+        // Patient info
+        patientId: refill.patient.id,
+        patientDisplayId: refill.patient.patientId,
+        patientName: `${refill.patient.firstName} ${refill.patient.lastName}`,
+        patientEmail: safeDecrypt(refill.patient.email),
+        patientPhone: safeDecrypt(refill.patient.phone),
+        patientDob: safeDecrypt(refill.patient.dob),
+        treatment: treatmentDisplay,
+        // Plan info for prescribing
+        plan: refill.planName || planLabel,
+        planMonths,
+        // Refill info
+        vialCount: refill.vialCount,
+        isRefill: true,
+        lastOrderId: refill.lastOrderId,
+        refillIntervalDays: refill.refillIntervalDays,
+        nextRefillDate: refill.nextRefillDate,
+        requestedEarly: refill.requestedEarly,
+        patientNotes: refill.patientNotes,
+        // Amount info (from linked invoice if available)
+        amount: null,
+        amountFormatted: '-',
+        paidAt: refill.paymentVerifiedAt,
+        createdAt: refill.createdAt,
+        queuedAt: refill.providerQueuedAt || refill.adminApprovedAt || refill.createdAt, // Use providerQueuedAt for sorting
+        invoiceNumber: refill.invoiceId ? `INV-${refill.invoiceId}` : `REFILL-${refill.id}`,
+        intakeCompletedAt,
+        // SOAP Note status
+        soapNote: soapNote ? {
+          id: soapNote.id,
+          status: soapNote.status,
+          createdAt: soapNote.createdAt,
+          approvedAt: soapNote.approvedAt,
+          isApproved: soapNoteApproved,
+        } : null,
+        hasSoapNote,
+        soapNoteStatus: soapNote?.status || 'MISSING',
+        // Clinic context
+        clinicId: refill.clinicId,
+        clinic: refill.clinic ? {
+          id: refill.clinic.id,
+          name: refill.clinic.name,
+          subdomain: refill.clinic.subdomain,
+          lifefileEnabled: refill.clinic.lifefileEnabled,
+          practiceName: refill.clinic.lifefilePracticeName,
+        } : null,
+        // Subscription info
+        subscription: refill.subscription ? {
+          id: refill.subscription.id,
+          planName: refill.subscription.planName,
+          status: refill.subscription.status,
+        } : null,
+      };
+    });
+    
+    // Combine and sort by queuedAt (oldest first - FIFO)
+    const queueItems = [...invoiceItems, ...refillItems].sort((a, b) => {
+      const dateA = new Date(a.queuedAt || a.createdAt).getTime();
+      const dateB = new Date(b.queuedAt || b.createdAt).getTime();
+      return dateA - dateB;
+    });
 
     return NextResponse.json({
       items: queueItems,
       total: totalCount,
+      invoiceCount,
+      refillCount,
       limit,
       offset,
-      hasMore: offset + invoices.length < totalCount,
+      hasMore: offset + queueItems.length < totalCount,
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

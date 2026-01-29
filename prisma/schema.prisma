@@ -72,17 +72,18 @@ model Patient {
   points                  PatientPoints?
   pointsHistory           PointsHistory[]
   challengeParticipations ChallengeParticipant[]
+  refillQueue             RefillQueue[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
 }
 
 model Order {
-  id                 Int          @id @default(autoincrement())
-  createdAt          DateTime     @default(now())
+  id                 Int       @id @default(autoincrement())
+  createdAt          DateTime  @default(now())
   clinicId           Int? // Multi-clinic support
-  clinic             Clinic?      @relation(fields: [clinicId], references: [id])
-  updatedAt          DateTime     @updatedAt
+  clinic             Clinic?   @relation(fields: [clinicId], references: [id])
+  updatedAt          DateTime  @updatedAt
   messageId          String
   referenceId        String
   lifefileOrderId    String?
@@ -101,26 +102,28 @@ model Order {
   shippingStatus     String?
   trackingNumber     String?
   trackingUrl        String?
-  
+
   // Cancellation tracking
-  cancelledAt           DateTime? // When the order was cancelled
-  cancelledBy           Int?      // User ID who cancelled
-  cancellationReason    String?   // Reason code (patient_request, provider_request, etc.)
-  cancellationNotes     String?   // Additional notes about cancellation
-  lifefileCancelResponse String?  // JSON response from Lifefile cancel API
-  
+  cancelledAt            DateTime? // When the order was cancelled
+  cancelledBy            Int? // User ID who cancelled
+  cancellationReason     String? // Reason code (patient_request, provider_request, etc.)
+  cancellationNotes      String? // Additional notes about cancellation
+  lifefileCancelResponse String? // JSON response from Lifefile cancel API
+
   // Modification tracking  
-  lastModifiedAt        DateTime? // When the order was last modified
-  lastModifiedBy        Int?      // User ID who modified
-  modificationHistory   Json?     // Array of modification records
-  
-  provider           Provider     @relation(fields: [providerId], references: [id])
-  patient            Patient      @relation(fields: [patientId], references: [id])
-  events             OrderEvent[]
-  rxs                Rx[]
-  tickets            Ticket[]
-  shippingUpdates    PatientShippingUpdate[]
-  
+  lastModifiedAt      DateTime? // When the order was last modified
+  lastModifiedBy      Int? // User ID who modified
+  modificationHistory Json? // Array of modification records
+
+  provider          Provider                @relation(fields: [providerId], references: [id])
+  patient           Patient                 @relation(fields: [patientId], references: [id])
+  events            OrderEvent[]
+  rxs               Rx[]
+  tickets           Ticket[]
+  shippingUpdates   PatientShippingUpdate[]
+  refillAsLastOrder RefillQueue[]           @relation("RefillLastOrder")
+  refillAsNewOrder  RefillQueue?            @relation("RefillNewOrder")
+
   @@index([cancelledAt])
 }
 
@@ -138,22 +141,27 @@ model Rx {
 }
 
 model Provider {
-  id                   Int                    @id @default(autoincrement())
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Provider status for archive/suspend functionality
+  status     ProviderStatus @default(ACTIVE)
+  archivedAt DateTime?      // When the provider was archived
+  archivedBy Int?           // User ID who archived the provider
 
   // Legacy single clinic assignment (deprecated, use ProviderClinic)
-  clinicId             Int? // Multi-clinic support - nullable for shared providers
-  clinic               Clinic?                @relation(fields: [clinicId], references: [id])
+  clinicId Int? // Multi-clinic support - nullable for shared providers
+  clinic   Clinic? @relation(fields: [clinicId], references: [id])
 
   // ENTERPRISE: Multi-clinic support (like User.clinicId/activeClinicId pattern)
-  primaryClinicId      Int? // Provider's primary/default clinic
-  activeClinicId       Int? // Currently active clinic for this session
+  primaryClinicId Int? // Provider's primary/default clinic
+  activeClinicId  Int? // Currently active clinic for this session
 
   firstName            String
   lastName             String
   titleLine            String?
-  npi                  String                 @unique
+  npi                  String    @unique
   licenseState         String?
   licenseNumber        String?
   dea                  String?
@@ -169,18 +177,20 @@ model Provider {
   passwordResetToken   String?
 
   // Relations
-  orders               Order[]
-  auditEntries         ProviderAudit[]
-  approvedSoapNotes    SOAPNote[]
-  intakeFormTemplates  IntakeFormTemplate[]
-  appointments         Appointment[]
-  availability         ProviderAvailability[]
-  timeOff              ProviderTimeOff[]
-  superbills           Superbill[]
-  carePlans            CarePlan[]
+  orders              Order[]
+  auditEntries        ProviderAudit[]
+  approvedSoapNotes   SOAPNote[]
+  intakeFormTemplates IntakeFormTemplate[]
+  appointments        Appointment[]
+  availability        ProviderAvailability[]
+  timeOff             ProviderTimeOff[]
+  superbills          Superbill[]
+  carePlans           CarePlan[]
 
   // ENTERPRISE: Multi-clinic assignments (like UserClinic pattern)
-  providerClinics      ProviderClinic[]
+  providerClinics ProviderClinic[]
+
+  @@index([status])
 }
 
 model PatientDocument {
@@ -243,39 +253,40 @@ model PatientAudit {
 }
 
 model Invoice {
-  id                  Int                     @id @default(autoincrement())
-  createdAt           DateTime                @default(now())
-  clinicId            Int? // Multi-clinic support
-  clinic              Clinic?                 @relation(fields: [clinicId], references: [id])
-  updatedAt           DateTime                @updatedAt
-  stripeInvoiceId     String?                 @unique // Optional for demo mode
-  stripeInvoiceNumber String?
-  stripeInvoiceUrl    String?
-  stripePdfUrl        String?
-  patientId           Int
-  description         String?
-  amount              Int? // Total amount for demo mode
-  amountDue           Int?
-  amountPaid          Int                     @default(0)
-  currency            String                  @default("usd")
-  status              InvoiceStatus           @default(DRAFT)
-  dueDate             DateTime?
-  paidAt              DateTime?
-  lineItems           Json?
-  metadata            Json?
-  orderId             Int?
-  commissionGenerated Boolean                 @default(false)
-  createSubscription  Boolean                 @default(false) // If true, creates subscription on payment
-  subscriptionCreated Boolean                 @default(false) // Was subscription created?
+  id                      Int                     @id @default(autoincrement())
+  createdAt               DateTime                @default(now())
+  clinicId                Int? // Multi-clinic support
+  clinic                  Clinic?                 @relation(fields: [clinicId], references: [id])
+  updatedAt               DateTime                @updatedAt
+  stripeInvoiceId         String?                 @unique // Optional for demo mode
+  stripeInvoiceNumber     String?
+  stripeInvoiceUrl        String?
+  stripePdfUrl            String?
+  patientId               Int
+  description             String?
+  amount                  Int? // Total amount for demo mode
+  amountDue               Int?
+  amountPaid              Int                     @default(0)
+  currency                String                  @default("usd")
+  status                  InvoiceStatus           @default(DRAFT)
+  dueDate                 DateTime?
+  paidAt                  DateTime?
+  lineItems               Json?
+  metadata                Json?
+  orderId                 Int?
+  commissionGenerated     Boolean                 @default(false)
+  createSubscription      Boolean                 @default(false) // If true, creates subscription on payment
+  subscriptionCreated     Boolean                 @default(false) // Was subscription created?
   // Prescription processing tracking
-  prescriptionProcessed   Boolean             @default(false)
+  prescriptionProcessed   Boolean                 @default(false)
   prescriptionProcessedAt DateTime?
-  prescriptionProcessedBy Int?                // Provider ID who processed
-  patient             Patient                 @relation(fields: [patientId], references: [id])
-  commission          Commission?
-  payments            Payment[]
-  items               InvoiceItem[] // Structured line items
-  reconciliations     PaymentReconciliation[]
+  prescriptionProcessedBy Int? // Provider ID who processed
+  patient                 Patient                 @relation(fields: [patientId], references: [id])
+  commission              Commission?
+  payments                Payment[]
+  items                   InvoiceItem[] // Structured line items
+  reconciliations         PaymentReconciliation[]
+  refillQueue             RefillQueue[]
 
   @@index([prescriptionProcessed])
 }
@@ -473,37 +484,44 @@ model AIMessage {
 }
 
 model Subscription {
-  id                   Int                  @id @default(autoincrement())
-  createdAt            DateTime             @default(now())
+  id                   Int                @id @default(autoincrement())
+  createdAt            DateTime           @default(now())
   clinicId             Int? // Multi-clinic support
-  clinic               Clinic?              @relation(fields: [clinicId], references: [id])
-  updatedAt            DateTime             @updatedAt
+  clinic               Clinic?            @relation(fields: [clinicId], references: [id])
+  updatedAt            DateTime           @updatedAt
   patientId            Int
   planId               String
   planName             String
   planDescription      String
-  status               SubscriptionStatus   @default(ACTIVE)
+  status               SubscriptionStatus @default(ACTIVE)
   amount               Int
-  currency             String               @default("usd")
-  interval             String               @default("month")
-  intervalCount        Int                  @default(1)
-  startDate            DateTime             @default(now())
-  currentPeriodStart   DateTime             @default(now())
-  currentPeriodEnd     DateTime             @default(now())
+  currency             String             @default("usd")
+  interval             String             @default("month")
+  intervalCount        Int                @default(1)
+  startDate            DateTime           @default(now())
+  currentPeriodStart   DateTime           @default(now())
+  currentPeriodEnd     DateTime           @default(now())
   nextBillingDate      DateTime?
   canceledAt           DateTime?
   pausedAt             DateTime?
   resumeAt             DateTime?
   endedAt              DateTime?
   paymentMethodId      Int?
-  stripeSubscriptionId String?              @unique
+  stripeSubscriptionId String?            @unique
   metadata             Json?
   lastPaymentId        Int?
-  failedAttempts       Int                  @default(0)
-  patient              Patient              @relation(fields: [patientId], references: [id])
-  paymentMethod        PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
-  payments             Payment[]
-  actions              SubscriptionAction[]
+  failedAttempts       Int                @default(0)
+
+  // Refill scheduling
+  vialCount          Int  @default(1) // 1 = monthly, 3 = quarterly, 6 = semi-annual
+  refillIntervalDays Int? // Calculated from vialCount: 30, 90, or 180
+  lastRefillQueueId  Int? // Most recent refill queue entry
+
+  patient       Patient              @relation(fields: [patientId], references: [id])
+  paymentMethod PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
+  payments      Payment[]
+  actions       SubscriptionAction[]
+  refillQueue   RefillQueue[]
 
   @@index([patientId])
   @@index([status])
@@ -859,19 +877,19 @@ model UserClinic {
 // ENTERPRISE: Junction table for providers belonging to multiple clinics
 // Mirrors UserClinic pattern for consistent multi-tenant architecture
 model ProviderClinic {
-  id          Int      @id @default(autoincrement())
-  providerId  Int
-  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  clinicId    Int
-  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  clinicId   Int
+  clinic     Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   // Per-clinic provider metadata
-  isPrimary     Boolean  @default(false) // Is this the provider's primary clinic?
-  isActive      Boolean  @default(true)  // Is this assignment active?
-  titleLine     String?  // Clinic-specific title (e.g., different role per clinic)
-  deaNumber     String?  // State/clinic-specific DEA number
-  licenseNumber String?  // State-specific license number
-  licenseState  String?  // State of license for this clinic
+  isPrimary     Boolean @default(false) // Is this the provider's primary clinic?
+  isActive      Boolean @default(true) // Is this assignment active?
+  titleLine     String? // Clinic-specific title (e.g., different role per clinic)
+  deaNumber     String? // State/clinic-specific DEA number
+  licenseNumber String? // State-specific license number
+  licenseState  String? // State of license for this clinic
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1061,6 +1079,12 @@ enum UserStatus {
   SUSPENDED
   PENDING_VERIFICATION
   LOCKED
+}
+
+enum ProviderStatus {
+  ACTIVE
+  ARCHIVED
+  SUSPENDED
 }
 
 // Settings & Configuration System
@@ -1824,7 +1848,7 @@ model Clinic {
   apiKeys            ApiKey[]
   webhookConfigs     WebhookConfig[]
   systemSettings     SystemSettings[]
-  userClinics        UserClinic[]     // Multi-clinic user assignments
+  userClinics        UserClinic[] // Multi-clinic user assignments
   providerClinics    ProviderClinic[] // ENTERPRISE: Multi-clinic provider assignments
   reconciliations    PaymentReconciliation[]
   patientCounter     PatientCounter? // Clinic-specific patient numbering
@@ -1880,6 +1904,9 @@ model Clinic {
 
   // Gamification
   challenges Challenge[]
+
+  // Prescription Refill Queue
+  refillQueue RefillQueue[]
 
   @@index([subdomain])
   @@index([status])
@@ -2396,7 +2423,7 @@ model PushSubscription {
   patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   // Web Push subscription data
-  endpoint String  @unique
+  endpoint String @unique
   p256dh   String // Public key
   auth     String // Auth secret
 
@@ -2418,10 +2445,10 @@ model PatientStreak {
   patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   // Streak tracking
-  streakType     StreakType // DAILY_CHECK_IN, WEIGHT_LOG, WATER_LOG, EXERCISE, etc.
-  currentStreak  Int        @default(0)
-  longestStreak  Int        @default(0)
-  lastActivityAt DateTime?
+  streakType      StreakType // DAILY_CHECK_IN, WEIGHT_LOG, WATER_LOG, EXERCISE, etc.
+  currentStreak   Int        @default(0)
+  longestStreak   Int        @default(0)
+  lastActivityAt  DateTime?
   streakStartedAt DateTime?
 
   // Streak freeze (one per month)
@@ -2444,27 +2471,27 @@ enum StreakType {
 }
 
 model Achievement {
-  id          Int      @id @default(autoincrement())
-  createdAt   DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
 
   // Achievement definition
-  code        String   @unique // e.g., "first_weigh_in", "streak_7_day"
+  code        String              @unique // e.g., "first_weigh_in", "streak_7_day"
   name        String
   description String
   category    AchievementCategory
-  icon        String?  // Icon name or URL
-  points      Int      @default(10)
+  icon        String? // Icon name or URL
+  points      Int                 @default(10)
 
   // Unlock criteria
-  criteria    Json     // { type: "streak", streakType: "WEIGHT_LOG", value: 7 }
-  isSecret    Boolean  @default(false) // Hidden until unlocked
+  criteria Json // { type: "streak", streakType: "WEIGHT_LOG", value: 7 }
+  isSecret Boolean @default(false) // Hidden until unlocked
 
   // Display
-  tier        AchievementTier @default(BRONZE)
-  sortOrder   Int             @default(0)
+  tier      AchievementTier @default(BRONZE)
+  sortOrder Int             @default(0)
 
   // Relations
-  unlockedBy  PatientAchievement[]
+  unlockedBy PatientAchievement[]
 }
 
 enum AchievementCategory {
@@ -2499,7 +2526,7 @@ model PatientAchievement {
   seen       Boolean  @default(false) // Has patient seen the notification?
 
   // Progress toward achievement (for partial progress display)
-  progress   Int      @default(100) // 0-100
+  progress Int @default(100) // 0-100
 
   @@unique([patientId, achievementId])
   @@index([patientId])
@@ -2510,12 +2537,12 @@ model PatientPoints {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patientId    Int     @unique
-  patient      Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId Int     @unique
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  totalPoints  Int     @default(0)
-  currentLevel Int     @default(1)
-  levelName    String  @default("Beginner")
+  totalPoints  Int    @default(0)
+  currentLevel Int    @default(1)
+  levelName    String @default("Beginner")
 
   // Points breakdown
   achievementPoints Int @default(0)
@@ -2531,9 +2558,9 @@ model PointsHistory {
   patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   points      Int
-  reason      String       // "achievement_unlocked", "streak_bonus", "daily_log"
+  reason      String // "achievement_unlocked", "streak_bonus", "daily_log"
   description String?
-  referenceId String?      // Achievement ID, etc.
+  referenceId String? // Achievement ID, etc.
 
   @@index([patientId])
   @@index([createdAt])
@@ -2544,8 +2571,8 @@ model Challenge {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinicId  Int?
-  clinic    Clinic?  @relation(fields: [clinicId], references: [id])
+  clinicId Int?
+  clinic   Clinic? @relation(fields: [clinicId], references: [id])
 
   // Challenge details
   name        String
@@ -2554,29 +2581,29 @@ model Challenge {
   imageUrl    String?
 
   // Duration
-  startDate   DateTime
-  endDate     DateTime
+  startDate DateTime
+  endDate   DateTime
 
   // Goals
-  targetValue Int            // e.g., 30 days, 100 oz water
-  targetUnit  String         // "days", "oz", "minutes", etc.
+  targetValue Int // e.g., 30 days, 100 oz water
+  targetUnit  String // "days", "oz", "minutes", etc.
 
   // Rewards
-  points      Int            @default(100)
-  badge       String?        // Achievement code to unlock
+  points Int     @default(100)
+  badge  String? // Achievement code to unlock
 
   // Status
-  isActive    Boolean        @default(true)
-  isPublic    Boolean        @default(true) // Visible to all patients
+  isActive Boolean @default(true)
+  isPublic Boolean @default(true) // Visible to all patients
 
   participants ChallengeParticipant[]
 }
 
 enum ChallengeType {
-  STREAK       // Complete X consecutive days
-  CUMULATIVE   // Accumulate X total
-  MILESTONE    // Reach specific goal
-  COMPETITION  // Compare with others
+  STREAK // Complete X consecutive days
+  CUMULATIVE // Accumulate X total
+  MILESTONE // Reach specific goal
+  COMPETITION // Compare with others
 }
 
 model ChallengeParticipant {
@@ -2590,7 +2617,7 @@ model ChallengeParticipant {
   patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   // Progress
-  currentValue Int      @default(0)
+  currentValue Int       @default(0)
   completedAt  DateTime?
   rank         Int?
 
@@ -3321,12 +3348,20 @@ model AffiliateCommissionPlan {
   name            String // e.g., "Standard 10%", "VIP Partner 15%"
   description     String?
   planType        CommissionPlanType  @default(PERCENT)
-  flatAmountCents Int? // For flat-rate commissions (in cents)
-  percentBps      Int? // For percentage commissions (basis points: 1000 = 10%)
+  flatAmountCents Int? // Default flat-rate commission (in cents), used as fallback
+  percentBps      Int? // Default percentage commission (basis points: 1000 = 10%), used as fallback
   appliesTo       CommissionAppliesTo @default(FIRST_PAYMENT_ONLY)
   holdDays        Int                 @default(0) // Days to hold before commission is approved
   clawbackEnabled Boolean             @default(false) // If true, refund/chargeback reverses commission
   isActive        Boolean             @default(true)
+
+  // Initial/First Payment Commission (overrides default if set)
+  initialPercentBps      Int? // e.g., 1000 = 10% for first payment
+  initialFlatAmountCents Int? // e.g., 5000 = $50 for first payment
+
+  // Recurring Payment Commission (overrides default if set)
+  recurringPercentBps      Int? // e.g., 500 = 5% for recurring payments
+  recurringFlatAmountCents Int? // e.g., 2500 = $25 for recurring payments
 
   // Tier-based commission
   tierEnabled Boolean @default(false)
@@ -4049,11 +4084,109 @@ model PatientShippingUpdate {
 
   // Audit Trail
   rawPayload  Json? // Full webhook payload for debugging
-  source      String  @default("lifefile") // lifefile, manual, pharmacy, etc.
+  source      String    @default("lifefile") // lifefile, manual, pharmacy, etc.
   processedAt DateTime?
 
   @@index([clinicId, patientId])
   @@index([trackingNumber])
   @@index([lifefileOrderId])
   @@index([status])
+}
+
+// =============================================================================
+// PRESCRIPTION REFILL QUEUE SYSTEM
+// =============================================================================
+
+// Status flow for prescription refills
+enum RefillStatus {
+  SCHEDULED // Future refill, not yet due
+  PENDING_PAYMENT // Due, awaiting payment verification
+  PENDING_ADMIN // Payment verified, awaiting admin approval
+  APPROVED // Admin approved, ready for provider
+  PENDING_PROVIDER // Queued for provider prescription
+  PRESCRIBED // Provider submitted to Lifefile
+  COMPLETED // Order fulfilled/delivered
+  REJECTED // Admin rejected the refill
+  CANCELLED // Patient or admin cancelled
+  ON_HOLD // Temporarily paused (e.g., patient request)
+}
+
+// How payment was verified for the refill
+enum PaymentVerificationMethod {
+  STRIPE_AUTO // Auto-matched via Stripe payment
+  MANUAL_VERIFIED // Admin manually verified payment
+  EXTERNAL_REFERENCE // External payment method (Venmo, check, etc.)
+  PAYMENT_SKIPPED // Admin skipped verification (for non-Stripe clinics)
+}
+
+// Tracks prescription refill schedules and approval workflow
+// Flow: Patient subscription → Scheduled refill → Payment check → Admin approval → Provider queue → Lifefile
+model RefillQueue {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenant isolation
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Patient association
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  // Subscription link (optional - may be one-time refill)
+  subscriptionId Int?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  // Previous order reference (for refill continuity)
+  lastOrderId Int?
+  lastOrder   Order? @relation("RefillLastOrder", fields: [lastOrderId], references: [id])
+
+  // Refill Schedule
+  vialCount          Int       @default(1) // 1 = monthly, 3 = quarterly, 6 = semi-annual
+  refillIntervalDays Int       @default(30) // 30, 90, or 180 days
+  nextRefillDate     DateTime // When the refill becomes due
+  lastRefillDate     DateTime? // When the previous refill was completed
+
+  // Status Flow
+  status RefillStatus @default(SCHEDULED)
+
+  // Payment Verification
+  paymentVerified   Boolean                    @default(false)
+  paymentVerifiedAt DateTime?
+  paymentVerifiedBy Int? // User ID who verified
+  paymentMethod     PaymentVerificationMethod?
+  paymentReference  String? // External payment reference (check #, Venmo ID, etc.)
+  stripePaymentId   String? // Stripe payment intent ID if auto-matched
+  invoiceId         Int? // Linked invoice if applicable
+  invoice           Invoice?                   @relation(fields: [invoiceId], references: [id])
+
+  // Admin Approval
+  adminApproved   Boolean?
+  adminApprovedAt DateTime?
+  adminApprovedBy Int? // Admin user ID who approved/rejected
+  adminNotes      String? // Notes from admin (reason for rejection, etc.)
+
+  // Provider Queue
+  providerQueuedAt DateTime? // When moved to provider queue
+  prescribedAt     DateTime? // When provider submitted prescription
+  prescribedBy     Int? // Provider user ID
+  orderId          Int?      @unique // New order created for this refill
+  order            Order?    @relation("RefillNewOrder", fields: [orderId], references: [id])
+
+  // Patient Request Metadata
+  requestedEarly Boolean @default(false) // Patient requested early refill
+  patientNotes   String? // Notes from patient request
+
+  // Medication Info (cached from subscription/last order for quick reference)
+  medicationName     String?
+  medicationStrength String?
+  medicationForm     String?
+  planName           String? // e.g., "Semaglutide 3 Month"
+
+  @@index([clinicId, status])
+  @@index([patientId])
+  @@index([subscriptionId])
+  @@index([nextRefillDate])
+  @@index([status, nextRefillDate])
 }

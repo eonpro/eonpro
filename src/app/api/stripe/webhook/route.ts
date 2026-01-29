@@ -54,6 +54,9 @@ export async function POST(request: NextRequest) {
       reverseCommissionForRefund,
       checkIfFirstPayment,
     } = await import('@/services/affiliate/affiliateCommissionService');
+    
+    // Import refill queue service for payment auto-matching
+    const { autoMatchPendingRefillsForPatient } = await import('@/services/refill/refillQueueService');
 
     const stripeClient = getStripe();
     const body = await request.text();
@@ -98,6 +101,7 @@ export async function POST(request: NextRequest) {
       processPaymentForCommission,
       reverseCommissionForRefund,
       checkIfFirstPayment,
+      autoMatchPendingRefillsForPatient,
     });
 
     const duration = Date.now() - startTime;
@@ -182,6 +186,7 @@ interface ProcessingServices {
   processPaymentForCommission?: any;
   reverseCommissionForRefund?: any;
   checkIfFirstPayment?: any;
+  autoMatchPendingRefillsForPatient?: any;
 }
 
 interface ProcessingResult {
@@ -204,6 +209,7 @@ async function processWebhookEvent(
     processPaymentForCommission,
     reverseCommissionForRefund,
     checkIfFirstPayment,
+    autoMatchPendingRefillsForPatient,
   } = services;
 
   try {
@@ -289,6 +295,24 @@ async function processWebhookEvent(
           }
         }
 
+        // Auto-match pending refills for this patient
+        let refillsMatched: number[] = [];
+        if (result.patient?.id && result.patient?.clinicId && autoMatchPendingRefillsForPatient) {
+          try {
+            refillsMatched = await autoMatchPendingRefillsForPatient(
+              result.patient.id,
+              result.patient.clinicId,
+              paymentIntent.id,
+              result.invoice?.id
+            );
+          } catch (e) {
+            logger.warn('[STRIPE WEBHOOK] Failed to auto-match refills', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              patientId: result.patient.id,
+            });
+          }
+        }
+
         return {
           success: true,
           details: {
@@ -298,6 +322,7 @@ async function processWebhookEvent(
             patientCreated: result.patientCreated,
             matchedBy: result.matchResult.matchedBy,
             commissionCreated: commissionResult?.commissionEventId ? true : false,
+            refillsMatched: refillsMatched.length,
           },
         };
       }
@@ -339,6 +364,24 @@ async function processWebhookEvent(
           };
         }
 
+        // Auto-match pending refills for this patient
+        let refillsMatched: number[] = [];
+        if (result.patient?.id && result.patient?.clinicId && autoMatchPendingRefillsForPatient) {
+          try {
+            refillsMatched = await autoMatchPendingRefillsForPatient(
+              result.patient.id,
+              result.patient.clinicId,
+              charge.id,
+              result.invoice?.id
+            );
+          } catch (e) {
+            logger.warn('[STRIPE WEBHOOK] Failed to auto-match refills', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              patientId: result.patient.id,
+            });
+          }
+        }
+
         return {
           success: true,
           details: {
@@ -347,6 +390,7 @@ async function processWebhookEvent(
             invoiceId: result.invoice?.id,
             patientCreated: result.patientCreated,
             matchedBy: result.matchResult.matchedBy,
+            refillsMatched: refillsMatched.length,
           },
         };
       }
@@ -460,6 +504,24 @@ async function processWebhookEvent(
           }
         }
 
+        // Auto-match pending refills for this patient
+        let refillsMatched: number[] = [];
+        if (result.patient?.id && result.patient?.clinicId && autoMatchPendingRefillsForPatient) {
+          try {
+            refillsMatched = await autoMatchPendingRefillsForPatient(
+              result.patient.id,
+              result.patient.clinicId,
+              session.payment_intent as string || undefined,
+              result.invoice?.id
+            );
+          } catch (e) {
+            logger.warn('[STRIPE WEBHOOK] Failed to auto-match refills', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              patientId: result.patient.id,
+            });
+          }
+        }
+
         return {
           success: true,
           details: {
@@ -469,6 +531,7 @@ async function processWebhookEvent(
             patientCreated: result.patientCreated,
             matchedBy: result.matchResult.matchedBy,
             commissionCreated: commissionResult?.commissionEventId ? true : false,
+            refillsMatched: refillsMatched.length,
           },
         };
       }

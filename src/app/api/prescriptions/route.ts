@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { NextRequest, NextResponse } from 'next/server';
 import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
+import { markPrescribed, queueForProvider } from '@/services/refill';
 
 // Medication-specific clinical difference statements for Lifefile
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
@@ -504,10 +505,94 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         },
       });
 
+      // Handle refill queue if this prescription is from a refill request
+      let refillResult = null;
+      if (p.refillId) {
+        try {
+          // Get provider ID from the user
+          let providerId: number | null = null;
+          if (user.providerId) {
+            providerId = user.providerId;
+          } else {
+            const userData = await basePrisma.user.findUnique({
+              where: { id: user.id },
+              select: { providerId: true },
+            });
+            providerId = userData?.providerId || null;
+          }
+
+          refillResult = await markPrescribed(
+            p.refillId,
+            providerId || user.id, // Use provider ID or user ID as fallback
+            order.id
+          );
+
+          logger.info('[PRESCRIPTIONS] Refill marked as prescribed', {
+            refillId: p.refillId,
+            orderId: order.id,
+            nextRefillId: refillResult.next?.id,
+          });
+        } catch (refillError) {
+          // Log but don't fail the prescription - refill tracking is secondary
+          logger.error('[PRESCRIPTIONS] Failed to update refill queue', {
+            refillId: p.refillId,
+            error: refillError instanceof Error ? refillError.message : 'Unknown error',
+          });
+        }
+      }
+
+      // Also check if there's an invoice with a linked refill
+      if (p.invoiceId && !p.refillId) {
+        try {
+          // Find any refill linked to this invoice
+          const linkedRefill = await prisma.refillQueue.findFirst({
+            where: {
+              invoiceId: p.invoiceId,
+              status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+            },
+          });
+
+          if (linkedRefill) {
+            let providerId: number | null = null;
+            if (user.providerId) {
+              providerId = user.providerId;
+            } else {
+              const userData = await basePrisma.user.findUnique({
+                where: { id: user.id },
+                select: { providerId: true },
+              });
+              providerId = userData?.providerId || null;
+            }
+
+            refillResult = await markPrescribed(
+              linkedRefill.id,
+              providerId || user.id,
+              order.id
+            );
+
+            logger.info('[PRESCRIPTIONS] Linked refill marked as prescribed', {
+              refillId: linkedRefill.id,
+              invoiceId: p.invoiceId,
+              orderId: order.id,
+            });
+          }
+        } catch (refillError) {
+          logger.error('[PRESCRIPTIONS] Failed to update linked refill', {
+            invoiceId: p.invoiceId,
+            error: refillError instanceof Error ? refillError.message : 'Unknown error',
+          });
+        }
+      }
+
       return NextResponse.json({
         success: true,
         order: updated,
         lifefile: orderResponse,
+        refill: refillResult ? {
+          currentId: refillResult.current.id,
+          nextId: refillResult.next?.id,
+          nextRefillDate: refillResult.next?.nextRefillDate,
+        } : null,
       });
     } catch (err: any) {
     const errorMessage = err instanceof Error ? err.message : String(err);

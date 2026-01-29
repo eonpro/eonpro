@@ -82,4 +82,6 @@ export const prescriptionSchema = z.object({
   signatureDataUrl: z.string().nullable().optional(),
   providerId: z.number().default(1),
   clinicId: z.number().nullable().optional(), // User's active clinic for multi-tenant support
+  refillId: z.number().nullable().optional(), // Link to refill queue item if this is a refill prescription
+  invoiceId: z.number().nullable().optional(), // Link to invoice (for refill auto-linking)
 });

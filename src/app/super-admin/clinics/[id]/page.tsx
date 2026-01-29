@@ -8,7 +8,8 @@ import {
   ArrowLeft, Building2, Globe, Palette, Save, Trash2,
   Users, Activity, Calendar, Settings, AlertTriangle, Plus,
   UserPlus, Mail, Shield, X, Eye, EyeOff, Pill, FileText,
-  CheckCircle2, XCircle, ExternalLink, Zap, Image as ImageIcon
+  CheckCircle2, XCircle, ExternalLink, Zap, Image as ImageIcon,
+  Key, Copy, Check
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 
@@ -148,6 +149,28 @@ export default function ClinicDetailPage() {
     licenseState: '',
     specialty: '',
   });
+
+  // Invite Codes state
+  interface InviteCode {
+    id: number;
+    code: string;
+    description: string | null;
+    usageLimit: number | null;
+    usageCount: number;
+    expiresAt: string | null;
+    isActive: boolean;
+    createdAt: string;
+  }
+  const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([]);
+  const [loadingInviteCodes, setLoadingInviteCodes] = useState(false);
+  const [showAddInviteCodeModal, setShowAddInviteCodeModal] = useState(false);
+  const [addingInviteCode, setAddingInviteCode] = useState(false);
+  const [newInviteCode, setNewInviteCode] = useState({
+    code: '',
+    description: '',
+    usageLimit: '',
+  });
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({
     email: '',
     firstName: '',
@@ -498,6 +521,125 @@ export default function ClinicDetailPage() {
       fetchClinicUsers();
     }
   }, [activeTab]);
+
+  // Fetch invite codes when switching to settings tab
+  useEffect(() => {
+    if (activeTab === 'settings' && inviteCodes.length === 0) {
+      fetchInviteCodes();
+    }
+  }, [activeTab]);
+
+  const fetchInviteCodes = async () => {
+    setLoadingInviteCodes(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/invite-codes`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInviteCodes(data.inviteCodes || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch invite codes:', error);
+    } finally {
+      setLoadingInviteCodes(false);
+    }
+  };
+
+  const handleAddInviteCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddingInviteCode(true);
+
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/invite-codes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          code: newInviteCode.code.toUpperCase(),
+          description: newInviteCode.description || null,
+          usageLimit: newInviteCode.usageLimit ? parseInt(newInviteCode.usageLimit) : null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setShowAddInviteCodeModal(false);
+        setNewInviteCode({ code: '', description: '', usageLimit: '' });
+        fetchInviteCodes();
+        alert('Invite code created successfully!');
+      } else {
+        alert(data.error || 'Failed to create invite code');
+      }
+    } catch (error) {
+      console.error('Error creating invite code:', error);
+      alert('Failed to create invite code');
+    } finally {
+      setAddingInviteCode(false);
+    }
+  };
+
+  const handleToggleInviteCode = async (codeId: number, isActive: boolean) => {
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isActive: !isActive }),
+      });
+
+      if (response.ok) {
+        fetchInviteCodes();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to update invite code');
+      }
+    } catch (error) {
+      console.error('Error updating invite code:', error);
+    }
+  };
+
+  const handleDeleteInviteCode = async (codeId: number) => {
+    if (!confirm('Are you sure you want to delete this invite code?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        fetchInviteCodes();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to delete invite code');
+      }
+    } catch (error) {
+      console.error('Error deleting invite code:', error);
+    }
+  };
+
+  const copyToClipboard = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
 
   // Fetch Lifefile settings when switching to pharmacy tab
   useEffect(() => {
@@ -1645,6 +1787,117 @@ export default function ClinicDetailPage() {
               </div>
             </div>
 
+            {/* Patient Registration Codes */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Key className="h-5 w-5 text-teal-600" />
+                    Patient Registration Codes
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Codes patients use to register at <span className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">app.eonpro.io/register</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAddInviteCodeModal(true)}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Code
+                </button>
+              </div>
+
+              {loadingInviteCodes ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                </div>
+              ) : inviteCodes.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                  <Key className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                  <h4 className="font-medium text-gray-900 mb-1">No invite codes yet</h4>
+                  <p className="text-sm text-gray-500 mb-4">Create a code so patients can register for this clinic</p>
+                  <button
+                    onClick={() => setShowAddInviteCodeModal(true)}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors inline-flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create First Code
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {inviteCodes.map((code) => (
+                    <div
+                      key={code.id}
+                      className={`flex items-center justify-between p-4 rounded-lg border ${
+                        code.isActive ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-mono text-lg font-bold ${code.isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {code.code}
+                          </span>
+                          <button
+                            onClick={() => copyToClipboard(code.code)}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            title="Copy code"
+                          >
+                            {copiedCode === code.code ? (
+                              <Check className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                        <div>
+                          {code.description && (
+                            <p className="text-sm text-gray-600">{code.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                            <span>
+                              Used: {code.usageCount}{code.usageLimit ? `/${code.usageLimit}` : ' (unlimited)'}
+                            </span>
+                            {code.expiresAt && (
+                              <span>
+                                Expires: {new Date(code.expiresAt).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          code.isActive
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {code.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={code.isActive}
+                            onChange={() => handleToggleInviteCode(code.id, code.isActive)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                        <button
+                          onClick={() => handleDeleteInviteCode(code.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Delete code"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="bg-white rounded-xl p-6 border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Danger Zone</h3>
               <div className="p-4 border border-red-200 rounded-lg bg-red-50">
@@ -1959,6 +2212,117 @@ export default function ClinicDetailPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Invite Code Modal */}
+      {showAddInviteCodeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Key className="h-5 w-5 text-teal-600" />
+                Create Registration Code
+              </h3>
+              <button
+                onClick={() => setShowAddInviteCodeModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddInviteCode} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Code *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newInviteCode.code}
+                  onChange={(e) => setNewInviteCode({
+                    ...newInviteCode,
+                    code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+                  })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono uppercase"
+                  placeholder="e.g., EONMEDS, WELCOME2026"
+                  minLength={3}
+                  maxLength={20}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Uppercase letters and numbers only. Patients will enter this at registration.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description (optional)
+                </label>
+                <input
+                  type="text"
+                  value={newInviteCode.description}
+                  onChange={(e) => setNewInviteCode({ ...newInviteCode, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  placeholder="e.g., Website registration, Marketing campaign"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Usage Limit (optional)
+                </label>
+                <input
+                  type="number"
+                  value={newInviteCode.usageLimit}
+                  onChange={(e) => setNewInviteCode({ ...newInviteCode, usageLimit: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  placeholder="Leave empty for unlimited"
+                  min={1}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Maximum number of times this code can be used
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Registration URL:</strong>{' '}
+                  <span className="font-mono text-xs">app.eonpro.io/register</span>
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Share this URL along with the code for patient registration
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAddInviteCodeModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingInviteCode || !newInviteCode.code}
+                  className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {addingInviteCode ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" />
+                      Create Code
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -96,6 +96,9 @@ const CLINIC_ISOLATED_MODELS = [
 
   // Products (clinic-specific catalog)
   'product',
+
+  // Refill queue (prescription refill scheduling)
+  'refillqueue',
 ];
 
 /**
@@ -436,6 +439,9 @@ class PrismaWithClinicFilter {
 
   // Products
   get product() { return this.createModelProxy('product'); }
+
+  // Refill queue (clinic-isolated)
+  get refillQueue() { return this.createModelProxy('refillQueue'); }
 
   // ============================================================================
   // NON-ISOLATED MODELS (global or user-scoped, not clinic-scoped)

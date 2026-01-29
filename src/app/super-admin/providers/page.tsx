@@ -20,6 +20,8 @@ import {
   Calendar,
   FileText,
   Users,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react';
 
 interface Clinic {
@@ -39,6 +41,8 @@ interface ProviderClinicAssignment {
   };
 }
 
+type ProviderStatus = 'ACTIVE' | 'ARCHIVED' | 'SUSPENDED';
+
 interface Provider {
   id: number;
   firstName: string;
@@ -56,6 +60,9 @@ interface Provider {
   lastLogin: string | null;
   createdAt: string;
   updatedAt: string;
+  status: ProviderStatus;
+  archivedAt: string | null;
+  archivedBy: number | null;
   clinic: {
     id: number;
     name: string;
@@ -84,6 +91,7 @@ export default function SuperAdminProvidersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClinic, setSelectedClinic] = useState<number | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
+  const [providerStatusFilter, setProviderStatusFilter] = useState<'ACTIVE' | 'ARCHIVED' | 'all'>('ACTIVE');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -114,13 +122,19 @@ export default function SuperAdminProvidersPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Archive state
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archivingProvider, setArchivingProvider] = useState<Provider | null>(null);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchClinics();
   }, []);
 
   useEffect(() => {
     fetchProviders();
-  }, [page, statusFilter, selectedClinic]);
+  }, [page, statusFilter, selectedClinic, providerStatusFilter]);
 
   const getAuthToken = () => {
     return localStorage.getItem('auth-token') ||
@@ -154,6 +168,7 @@ export default function SuperAdminProvidersPage() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (selectedClinic !== 'all') params.set('clinicId', selectedClinic.toString());
       if (searchQuery) params.set('search', searchQuery);
+      params.set('providerStatus', providerStatusFilter);
 
       const res = await fetch(`/api/super-admin/providers?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -268,6 +283,45 @@ export default function SuperAdminProvidersPage() {
     }
   };
 
+  const handleOpenArchive = (provider: Provider) => {
+    setArchivingProvider(provider);
+    setArchiveError(null);
+    setShowArchiveModal(true);
+  };
+
+  const handleArchiveProvider = async () => {
+    if (!archivingProvider) return;
+
+    setArchiving(true);
+    setArchiveError(null);
+
+    const token = getAuthToken();
+
+    try {
+      const isArchived = archivingProvider.status === 'ARCHIVED';
+      const response = await fetch(
+        `/api/super-admin/providers/${archivingProvider.id}/archive`,
+        {
+          method: isArchived ? 'DELETE' : 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || `Failed to ${isArchived ? 'unarchive' : 'archive'} provider`);
+      }
+
+      setShowArchiveModal(false);
+      setArchivingProvider(null);
+      fetchProviders();
+    } catch (error) {
+      setArchiveError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const toggleClinicSelection = (clinicId: number) => {
     setCreateForm(f => ({
       ...f,
@@ -280,6 +334,7 @@ export default function SuperAdminProvidersPage() {
   // Calculate stats
   const assignedCount = providers.filter(p => p.clinicCount > 0).length;
   const unassignedCount = providers.filter(p => p.clinicCount === 0).length;
+  const archivedCount = providers.filter(p => p.status === 'ARCHIVED').length;
 
   if (loading) {
     return (
@@ -327,7 +382,7 @@ export default function SuperAdminProvidersPage() {
       )}
 
       {/* Stats Summary */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-4">
+      <div className="mb-6 grid gap-4 sm:grid-cols-5">
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-[#4fa77e]/10 p-2 text-[#4fa77e]">
@@ -374,6 +429,27 @@ export default function SuperAdminProvidersPage() {
             </div>
           </div>
         </div>
+        <button
+          onClick={() => {
+            setProviderStatusFilter(providerStatusFilter === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED');
+            setPage(1);
+          }}
+          className="rounded-xl bg-white p-4 shadow-sm hover:bg-gray-50 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-gray-100 p-2 text-gray-600">
+              <Archive className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {providerStatusFilter === 'ARCHIVED' ? 'View Active' : 'View Archived'}
+              </p>
+              <p className="text-sm text-gray-500">
+                {providerStatusFilter === 'ARCHIVED' ? 'Show active providers' : 'Show archived providers'}
+              </p>
+            </div>
+          </div>
+        </button>
       </div>
 
       {/* Filters */}
@@ -416,13 +492,36 @@ export default function SuperAdminProvidersPage() {
             }}
             className="appearance-none rounded-lg border border-gray-200 py-2 pl-4 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
           >
-            <option value="all">All Status</option>
+            <option value="all">All Assignment</option>
             <option value="assigned">Assigned</option>
             <option value="unassigned">Unassigned</option>
           </select>
           <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
+        <div className="relative">
+          <select
+            value={providerStatusFilter}
+            onChange={(e) => {
+              setProviderStatusFilter(e.target.value as 'ACTIVE' | 'ARCHIVED' | 'all');
+              setPage(1);
+            }}
+            className="appearance-none rounded-lg border border-gray-200 py-2 pl-4 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+          >
+            <option value="ACTIVE">Active Only</option>
+            <option value="ARCHIVED">Archived Only</option>
+            <option value="all">All Providers</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
       </div>
+
+      {/* Status Banner */}
+      {providerStatusFilter === 'ARCHIVED' && (
+        <div className="mb-4 rounded-lg bg-gray-100 border border-gray-200 p-3 flex items-center gap-3">
+          <Archive className="h-5 w-5 text-gray-500" />
+          <span className="text-gray-700">Viewing archived providers. These providers are inactive and hidden from normal views.</span>
+        </div>
+      )}
 
       {/* Providers Table */}
       <div className="overflow-hidden rounded-xl bg-white shadow-sm">
@@ -519,7 +618,12 @@ export default function SuperAdminProvidersPage() {
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
                   <div className="flex flex-col gap-1">
-                    {provider.hasLinkedUser ? (
+                    {provider.status === 'ARCHIVED' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                        <Archive className="h-3 w-3" />
+                        Archived
+                      </span>
+                    ) : provider.hasLinkedUser ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
                         <Users className="h-3 w-3" />
                         User Linked
@@ -529,7 +633,12 @@ export default function SuperAdminProvidersPage() {
                         No User
                       </span>
                     )}
-                    {provider.lastLogin && (
+                    {provider.archivedAt && (
+                      <span className="text-xs text-gray-400">
+                        Archived: {new Date(provider.archivedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                    {!provider.archivedAt && provider.lastLogin && (
                       <span className="text-xs text-gray-400">
                         Last: {new Date(provider.lastLogin).toLocaleDateString()}
                       </span>
@@ -545,13 +654,30 @@ export default function SuperAdminProvidersPage() {
                     >
                       <Eye className="h-4 w-4" />
                     </Link>
-                    <Link
-                      href={`/super-admin/providers/${provider.id}?tab=clinics`}
-                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#4fa77e]"
-                      title="Manage clinics"
+                    {provider.status !== 'ARCHIVED' && (
+                      <Link
+                        href={`/super-admin/providers/${provider.id}?tab=clinics`}
+                        className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#4fa77e]"
+                        title="Manage clinics"
+                      >
+                        <Building2 className="h-4 w-4" />
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => handleOpenArchive(provider)}
+                      className={`rounded p-1.5 text-gray-400 hover:bg-gray-100 ${
+                        provider.status === 'ARCHIVED'
+                          ? 'hover:text-green-600'
+                          : 'hover:text-amber-600'
+                      }`}
+                      title={provider.status === 'ARCHIVED' ? 'Unarchive provider' : 'Archive provider'}
                     >
-                      <Building2 className="h-4 w-4" />
-                    </Link>
+                      {provider.status === 'ARCHIVED' ? (
+                        <ArchiveRestore className="h-4 w-4" />
+                      ) : (
+                        <Archive className="h-4 w-4" />
+                      )}
+                    </button>
                     <button
                       onClick={() => handleOpenDelete(provider)}
                       className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600"
@@ -807,8 +933,9 @@ export default function SuperAdminProvidersPage() {
             </h2>
 
             <p className="text-gray-600 text-center mb-4">
-              Are you sure you want to delete{' '}
+              Are you sure you want to <strong>permanently delete</strong>{' '}
               <strong>{deletingProvider.firstName} {deletingProvider.lastName}</strong>?
+              This action cannot be undone.
             </p>
 
             {(deletingProvider._count.orders > 0 || deletingProvider._count.appointments > 0) && (
@@ -820,6 +947,12 @@ export default function SuperAdminProvidersPage() {
                 </p>
               </div>
             )}
+
+            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>Tip:</strong> Consider archiving instead if you want to keep the historical data.
+              </p>
+            </div>
 
             {deleteError && (
               <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">
@@ -841,7 +974,88 @@ export default function SuperAdminProvidersPage() {
                 disabled={deleting}
                 className="flex-1 rounded-lg bg-red-600 py-2 font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archive Confirmation Modal */}
+      {showArchiveModal && archivingProvider && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <div className="flex items-center justify-center mb-4">
+              <div className={`rounded-full p-3 ${
+                archivingProvider.status === 'ARCHIVED'
+                  ? 'bg-green-100'
+                  : 'bg-amber-100'
+              }`}>
+                {archivingProvider.status === 'ARCHIVED' ? (
+                  <ArchiveRestore className="h-6 w-6 text-green-600" />
+                ) : (
+                  <Archive className="h-6 w-6 text-amber-600" />
+                )}
+              </div>
+            </div>
+
+            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
+              {archivingProvider.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'} Provider?
+            </h2>
+
+            <p className="text-gray-600 text-center mb-4">
+              {archivingProvider.status === 'ARCHIVED' ? (
+                <>
+                  Are you sure you want to restore{' '}
+                  <strong>{archivingProvider.firstName} {archivingProvider.lastName}</strong>?
+                  They will be able to access the system again.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to archive{' '}
+                  <strong>{archivingProvider.firstName} {archivingProvider.lastName}</strong>?
+                  They will be hidden from normal views and unable to access the system.
+                </>
+              )}
+            </p>
+
+            {archivingProvider.status !== 'ARCHIVED' && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Archiving preserves all historical data (orders, appointments, notes).
+                  You can unarchive this provider at any time.
+                </p>
+              </div>
+            )}
+
+            {archiveError && (
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">
+                {archiveError}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowArchiveModal(false)}
+                className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleArchiveProvider}
+                disabled={archiving}
+                className={`flex-1 rounded-lg py-2 font-medium text-white disabled:opacity-50 ${
+                  archivingProvider.status === 'ARCHIVED'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                {archiving
+                  ? (archivingProvider.status === 'ARCHIVED' ? 'Restoring...' : 'Archiving...')
+                  : (archivingProvider.status === 'ARCHIVED' ? 'Unarchive' : 'Archive')
+                }
               </button>
             </div>
           </div>

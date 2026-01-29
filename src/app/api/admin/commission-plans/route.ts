@@ -42,9 +42,17 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         planType: plan.planType,
         flatAmountCents: plan.flatAmountCents,
         percentBps: plan.percentBps,
+        // Initial/First payment commission rates
+        initialPercentBps: plan.initialPercentBps,
+        initialFlatAmountCents: plan.initialFlatAmountCents,
+        // Recurring payment commission rates
+        recurringPercentBps: plan.recurringPercentBps,
+        recurringFlatAmountCents: plan.recurringFlatAmountCents,
         appliesTo: plan.appliesTo,
         holdDays: plan.holdDays,
         clawbackEnabled: plan.clawbackEnabled,
+        recurringEnabled: plan.recurringEnabled,
+        recurringMonths: plan.recurringMonths,
         isActive: plan.isActive,
         createdAt: plan.createdAt,
         assignmentCount: plan._count.assignments,
@@ -68,9 +76,16 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       planType,
       flatAmountCents,
       percentBps,
+      // New: Separate initial/recurring rates
+      initialPercentBps,
+      initialFlatAmountCents,
+      recurringPercentBps,
+      recurringFlatAmountCents,
       appliesTo,
       holdDays,
       clawbackEnabled,
+      recurringEnabled,
+      recurringMonths,
     } = body;
 
     // Determine clinic ID
@@ -104,6 +119,33 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       }
     }
 
+    // Validate initial/recurring specific rates if provided
+    const validateBps = (value: number | undefined, fieldName: string) => {
+      if (value !== undefined && (value < 0 || value > 10000)) {
+        return `${fieldName} must be between 0 and 10000 (100%)`;
+      }
+      return null;
+    };
+
+    const validateCents = (value: number | undefined, fieldName: string) => {
+      if (value !== undefined && value < 0) {
+        return `${fieldName} must be >= 0`;
+      }
+      return null;
+    };
+
+    // Validate new fields
+    const validationErrors = [
+      validateBps(initialPercentBps, 'initialPercentBps'),
+      validateBps(recurringPercentBps, 'recurringPercentBps'),
+      validateCents(initialFlatAmountCents, 'initialFlatAmountCents'),
+      validateCents(recurringFlatAmountCents, 'recurringFlatAmountCents'),
+    ].filter(Boolean);
+
+    if (validationErrors.length > 0) {
+      return NextResponse.json({ error: validationErrors[0] }, { status: 400 });
+    }
+
     const plan = await prisma.affiliateCommissionPlan.create({
       data: {
         clinicId,
@@ -112,9 +154,16 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
         planType: planType as 'FLAT' | 'PERCENT',
         flatAmountCents: planType === 'FLAT' ? flatAmountCents : null,
         percentBps: planType === 'PERCENT' ? percentBps : null,
+        // Separate initial/recurring rates (optional)
+        initialPercentBps: initialPercentBps ?? null,
+        initialFlatAmountCents: initialFlatAmountCents ?? null,
+        recurringPercentBps: recurringPercentBps ?? null,
+        recurringFlatAmountCents: recurringFlatAmountCents ?? null,
         appliesTo: appliesTo || 'FIRST_PAYMENT_ONLY',
         holdDays: holdDays || 0,
         clawbackEnabled: clawbackEnabled || false,
+        recurringEnabled: recurringEnabled || false,
+        recurringMonths: recurringMonths ?? null,
         isActive: true,
       }
     });

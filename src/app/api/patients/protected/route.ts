@@ -19,9 +19,10 @@ export const GET = withProviderAuth(async (req, user) => {
     logger.debug(`Authenticated request from user: ${user.email} (${user.role})`);
 
     // Get patients based on user role
+    // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
     const patients = await prisma.patient.findMany({
-      where: (user.role === 'provider' 
-        ? { providerId: user.id } // Providers see only their patients
+      where: (user.role === 'provider' && user.providerId
+        ? { providerId: user.providerId } // Providers see only their patients
         : {}) as any, // Admins see all patients
       select: {
         id: true,
@@ -76,22 +77,23 @@ export const POST = withProviderAuth(async (req, user) => {
     }
 
     // Create patient with audit trail
+    // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
     const patient = await prisma.$transaction(async (tx: any) => {
       // Create patient
       const newPatient = await tx.patient.create({
         data: {
           ...body,
           createdById: user.id,
-          providerId: user.role === 'provider' ? user.id : body.providerId,
+          providerId: user.role === 'provider' && user.providerId ? user.providerId : body.providerId,
         },
       });
 
-      // Create audit log
+      // Create audit log (actorId uses user.id, but providerId should use the actual provider ID)
       await tx.patientAudit.create({
         data: {
           patientId: newPatient.id,
           action: 'CREATE',
-          providerId: user.id,
+          providerId: user.providerId || body.providerId,
           actorEmail: user.email,
           diff: JSON.stringify(body),
         },

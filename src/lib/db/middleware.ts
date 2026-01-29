@@ -61,6 +61,7 @@ export function createSecurityMiddleware(): unknown {
 
 /**
  * Filter patient data based on user role
+ * IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
  */
 async function filterPatientAccess(params: any, user: any): Promise<any> {
   if ((user.role as string) === "admin") {
@@ -68,19 +69,19 @@ async function filterPatientAccess(params: any, user: any): Promise<any> {
     return params;
   }
 
-  if (user.role === 'provider') {
+  if (user.role === 'provider' && user.providerId) {
     // Providers only see their assigned patients
     if (params.action === 'findMany' || params.action === 'count') {
       params.args.where = {
         ...params.args.where,
-        providerId: user.id,
+        providerId: user.providerId,
       };
     } else if (params.action === 'findUnique' || params.action === 'findFirst') {
       // For single record queries, we'll check after fetch
       const originalNext = params.next;
       params.next = async (modifiedParams: any) => {
         const result = await originalNext(modifiedParams);
-        if (result && result.providerId !== user.id) {
+        if (result && result.providerId !== user.providerId) {
           logger.warn(`Provider ${user.email} attempted to access patient not assigned to them`);
           return null; // Return null if not authorized
         }
@@ -90,7 +91,7 @@ async function filterPatientAccess(params: any, user: any): Promise<any> {
       // Ensure provider can only modify their patients
       params.args.where = {
         ...params.args.where,
-        providerId: user.id,
+        providerId: user.providerId,
       };
     }
   }
@@ -131,24 +132,25 @@ async function filterPatientAccess(params: any, user: any): Promise<any> {
 
 /**
  * Filter order data based on user role
+ * IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
  */
 async function filterOrderAccess(params: any, user: any): Promise<any> {
   if ((user.role as string) === "admin") {
     return params;
   }
 
-  if (user.role === 'provider') {
+  if (user.role === 'provider' && user.providerId) {
     // Providers see orders for their patients
     if (params.action === 'findMany' || params.action === 'count') {
       params.args.where = {
         ...params.args.where,
-        providerId: user.id,
+        providerId: user.providerId,
       };
     } else if (params.action === 'findUnique' || params.action === 'findFirst') {
       const originalNext = params.next;
       params.next = async (modifiedParams: any) => {
         const result = await originalNext(modifiedParams);
-        if (result && result.providerId !== user.id) {
+        if (result && result.providerId !== user.providerId) {
           return null;
         }
         return result;
@@ -171,20 +173,21 @@ async function filterOrderAccess(params: any, user: any): Promise<any> {
 
 /**
  * Filter SOAP note data based on user role
+ * IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
  */
 async function filterSOAPNoteAccess(params: any, user: any): Promise<any> {
   if ((user.role as string) === "admin") {
     return params;
   }
 
-  if (user.role === 'provider') {
+  if (user.role === 'provider' && user.providerId) {
     // Providers see SOAP notes they created or for their patients
     if (params.action === 'findMany' || params.action === 'count') {
       params.args.where = {
         ...params.args.where,
         OR: [
-          { providerId: user.id },
-          { patient: { providerId: user.id } },
+          { providerId: user.providerId },
+          { patient: { providerId: user.providerId } },
         ],
       };
     }
@@ -220,6 +223,7 @@ async function filterProviderAccess(params: any, user: any): Promise<any> {
 
   if (user.role === 'provider') {
     // Providers can only see their own full data
+    // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
     if (params.action === 'findMany') {
       // For listing, show limited info about other providers
       params.args.select = params.args.select || {
@@ -241,7 +245,7 @@ async function filterProviderAccess(params: any, user: any): Promise<any> {
       const originalNext = params.next;
       params.next = async (modifiedParams: any) => {
         const result = await originalNext(modifiedParams);
-        if (result && result.id !== user.id) {
+        if (result && result.id !== user.providerId) {
           // Return limited info for other providers
           return {
             id: result.id,
@@ -316,13 +320,14 @@ async function filterBillingAccess(params: any, user: any): Promise<any> {
     return params;
   }
 
-  if (user.role === 'provider') {
+  if (user.role === 'provider' && user.providerId) {
     // Providers can see billing for their patients
+    // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
     if (params.action === 'findMany' || params.action === 'count') {
       params.args.where = {
         ...params.args.where,
         patient: {
-          providerId: user.id,
+          providerId: user.providerId,
         },
       };
     }

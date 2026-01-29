@@ -61,6 +61,9 @@ export const GET = withSuperAdminAuth(async (
         lastLogin: true,
         createdAt: true,
         updatedAt: true,
+        status: true,
+        archivedAt: true,
+        archivedBy: true,
         clinic: {
           select: {
             id: true,
