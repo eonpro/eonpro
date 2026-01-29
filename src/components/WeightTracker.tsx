@@ -86,9 +86,19 @@ export default function WeightTracker({
               id: log.id.toString(),
             }));
             setWeightData(formattedData);
+            // Cache to localStorage as backup
+            localStorage.setItem(`weightData_${patientId}`, JSON.stringify(formattedData));
+          } else if (response.status === 401 || response.status === 403) {
+            // Auth issue - try loading from localStorage cache
+            logger.warn('Auth issue loading weight data, using cache');
+            const stored = localStorage.getItem(`weightData_${patientId}`);
+            if (stored) {
+              setWeightData(JSON.parse(stored));
+            }
           }
         } catch (error) {
           logger.error('Failed to fetch weight data:', error);
+          // Fallback to localStorage cache on network error
           const stored = localStorage.getItem(`weightData_${patientId}`);
           if (stored) {
             try {

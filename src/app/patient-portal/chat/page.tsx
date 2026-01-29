@@ -65,9 +65,18 @@ export default function PatientChatPage() {
     if (!patientId) return;
 
     fetchMessages();
-    // Poll for new messages every 10 seconds
-    const interval = setInterval(fetchMessages, 10000);
+    // Poll more frequently for real-time feel: 5 seconds
+    const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
+  }, [patientId]);
+
+  // Refresh messages when window regains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (patientId) fetchMessages();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [patientId]);
 
   useEffect(() => {
@@ -82,9 +91,22 @@ export default function PatientChatPage() {
       if (response.ok) {
         const result = await response.json();
         setMessages(result.data || []);
+        setError(''); // Clear any previous errors on success
+      } else if (response.status === 401) {
+        // Session expired - redirect to login
+        setError('Session expired. Please log in again.');
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      } else if (response.status === 403) {
+        setError('Access denied. Please contact support.');
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
+      // Only show error if we haven't loaded messages yet
+      if (messages.length === 0) {
+        setError('Unable to load messages. Please check your connection.');
+      }
     } finally {
       setLoading(false);
     }
