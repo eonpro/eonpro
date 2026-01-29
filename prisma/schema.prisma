@@ -66,6 +66,12 @@ model Patient {
   affiliateReferrals      AffiliateReferral[]
   chatMessages            PatientChatMessage[]
   shippingUpdates         PatientShippingUpdate[]
+  pushSubscriptions       PushSubscription[]
+  streaks                 PatientStreak[]
+  achievements            PatientAchievement[]
+  points                  PatientPoints?
+  pointsHistory           PointsHistory[]
+  challengeParticipations ChallengeParticipant[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
@@ -1872,6 +1878,9 @@ model Clinic {
   // Lifefile Shipping Updates
   shippingUpdates PatientShippingUpdate[]
 
+  // Gamification
+  challenges Challenge[]
+
   @@index([subdomain])
   @@index([status])
   @@index([customDomain])
@@ -2374,6 +2383,219 @@ enum MessageStatus {
   DELIVERED // Confirmed delivered
   READ // Read by recipient
   FAILED // Delivery failed
+}
+
+// ===== PUSH NOTIFICATIONS =====
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Web Push subscription data
+  endpoint String  @unique
+  p256dh   String // Public key
+  auth     String // Auth secret
+
+  // Metadata
+  userAgent  String?
+  deviceType String? // mobile, desktop, tablet
+
+  @@index([patientId])
+}
+
+// ===== GAMIFICATION SYSTEM =====
+
+model PatientStreak {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Streak tracking
+  streakType     StreakType // DAILY_CHECK_IN, WEIGHT_LOG, WATER_LOG, EXERCISE, etc.
+  currentStreak  Int        @default(0)
+  longestStreak  Int        @default(0)
+  lastActivityAt DateTime?
+  streakStartedAt DateTime?
+
+  // Streak freeze (one per month)
+  freezesUsed    Int       @default(0)
+  freezesAllowed Int       @default(1) // Resets monthly
+  lastFreezeAt   DateTime?
+
+  @@unique([patientId, streakType])
+  @@index([patientId])
+}
+
+enum StreakType {
+  DAILY_CHECK_IN
+  WEIGHT_LOG
+  WATER_LOG
+  EXERCISE_LOG
+  MEAL_LOG
+  MEDICATION_TAKEN
+  SLEEP_LOG
+}
+
+model Achievement {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+
+  // Achievement definition
+  code        String   @unique // e.g., "first_weigh_in", "streak_7_day"
+  name        String
+  description String
+  category    AchievementCategory
+  icon        String?  // Icon name or URL
+  points      Int      @default(10)
+
+  // Unlock criteria
+  criteria    Json     // { type: "streak", streakType: "WEIGHT_LOG", value: 7 }
+  isSecret    Boolean  @default(false) // Hidden until unlocked
+
+  // Display
+  tier        AchievementTier @default(BRONZE)
+  sortOrder   Int             @default(0)
+
+  // Relations
+  unlockedBy  PatientAchievement[]
+}
+
+enum AchievementCategory {
+  GETTING_STARTED
+  CONSISTENCY
+  WEIGHT_LOSS
+  HEALTH_TRACKING
+  ENGAGEMENT
+  MILESTONES
+  SPECIAL
+}
+
+enum AchievementTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  DIAMOND
+}
+
+model PatientAchievement {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  patientId     Int
+  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  achievementId Int
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+
+  // When earned
+  unlockedAt DateTime @default(now())
+  seen       Boolean  @default(false) // Has patient seen the notification?
+
+  // Progress toward achievement (for partial progress display)
+  progress   Int      @default(100) // 0-100
+
+  @@unique([patientId, achievementId])
+  @@index([patientId])
+}
+
+model PatientPoints {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId    Int     @unique
+  patient      Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  totalPoints  Int     @default(0)
+  currentLevel Int     @default(1)
+  levelName    String  @default("Beginner")
+
+  // Points breakdown
+  achievementPoints Int @default(0)
+  streakPoints      Int @default(0)
+  activityPoints    Int @default(0)
+}
+
+model PointsHistory {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  points      Int
+  reason      String       // "achievement_unlocked", "streak_bonus", "daily_log"
+  description String?
+  referenceId String?      // Achievement ID, etc.
+
+  @@index([patientId])
+  @@index([createdAt])
+}
+
+model Challenge {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicId  Int?
+  clinic    Clinic?  @relation(fields: [clinicId], references: [id])
+
+  // Challenge details
+  name        String
+  description String
+  type        ChallengeType
+  imageUrl    String?
+
+  // Duration
+  startDate   DateTime
+  endDate     DateTime
+
+  // Goals
+  targetValue Int            // e.g., 30 days, 100 oz water
+  targetUnit  String         // "days", "oz", "minutes", etc.
+
+  // Rewards
+  points      Int            @default(100)
+  badge       String?        // Achievement code to unlock
+
+  // Status
+  isActive    Boolean        @default(true)
+  isPublic    Boolean        @default(true) // Visible to all patients
+
+  participants ChallengeParticipant[]
+}
+
+enum ChallengeType {
+  STREAK       // Complete X consecutive days
+  CUMULATIVE   // Accumulate X total
+  MILESTONE    // Reach specific goal
+  COMPETITION  // Compare with others
+}
+
+model ChallengeParticipant {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  challengeId Int
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  patientId   Int
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Progress
+  currentValue Int      @default(0)
+  completedAt  DateTime?
+  rank         Int?
+
+  @@unique([challengeId, patientId])
+  @@index([patientId])
 }
 
 // ===== PRODUCT CATALOG =====

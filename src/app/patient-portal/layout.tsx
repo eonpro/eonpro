@@ -22,8 +22,12 @@ import {
   Menu,
   X,
   Calendar,
+  Trophy,
+  HeartPulse,
+  Activity,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { PWAUpdateBanner, OfflineBanner, InstallPrompt } from '@/components/PWAUpdateBanner';
 
 // Default EONPRO logo
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
@@ -31,9 +35,12 @@ const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c20
 const mainNavItems = [
   { icon: Home, path: '/patient-portal', label: 'Home', exact: true },
   { icon: Calendar, path: '/patient-portal/appointments', label: 'Appointments' },
+  { icon: HeartPulse, path: '/patient-portal/care-plan', label: 'My Care Plan' },
   { icon: Scale, path: '/patient-portal/progress', label: 'Progress' },
+  { icon: Trophy, path: '/patient-portal/achievements', label: 'Achievements' },
   { icon: Pill, path: '/patient-portal/medications', label: 'Medications' },
   { icon: Package, path: '/patient-portal/shipments', label: 'Shipments' },
+  { icon: Activity, path: '/patient-portal/symptom-checker', label: 'Symptom Checker' },
   { icon: Calculator, path: '/patient-portal/calculators', label: 'Tools' },
   { icon: BookOpen, path: '/patient-portal/resources', label: 'Resources' },
   { icon: CreditCard, path: '/patient-portal/subscription', label: 'Billing' },
@@ -358,7 +365,10 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 export default function PatientPortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClinicBrandingProvider>
+      <OfflineBanner />
       <PatientPortalLayoutInner>{children}</PatientPortalLayoutInner>
+      <PWAUpdateBanner />
+      <InstallPrompt />
     </ClinicBrandingProvider>
   );
 }

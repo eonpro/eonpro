@@ -1,0 +1,107 @@
+/**
+ * Patient Care Plan API
+ * Fetches patient's care plan with goals and activities
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+
+/**
+ * GET /api/patient-portal/care-plan
+ * Get patient's active care plan
+ */
+export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
+  try {
+    if (!user.patientId) {
+      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+    }
+
+    const carePlan = await prisma.carePlan.findFirst({
+      where: {
+        patientId: user.patientId,
+        status: 'ACTIVE',
+      },
+      include: {
+        goals: {
+          orderBy: { createdAt: 'asc' },
+        },
+        activities: {
+          orderBy: { createdAt: 'asc' },
+        },
+        template: {
+          select: { name: true },
+        },
+      },
+    });
+
+    if (!carePlan) {
+      return NextResponse.json({ carePlan: null });
+    }
+
+    // Calculate progress for each goal
+    const goalsWithProgress = carePlan.goals.map((goal: { id: number; name: string; description: string | null; targetValue: number | null; currentValue: number | null; unit: string | null; targetDate: Date | null; status: string }) => {
+      const progress =
+        goal.targetValue && goal.currentValue
+          ? Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
+          : goal.status === 'COMPLETED'
+          ? 100
+          : 0;
+
+      return {
+        id: goal.id,
+        name: goal.name,
+        description: goal.description,
+        targetValue: goal.targetValue,
+        currentValue: goal.currentValue,
+        unit: goal.unit,
+        targetDate: goal.targetDate,
+        status: goal.status,
+        progress,
+      };
+    });
+
+    // Determine current phase based on goals completed
+    const completedGoals = goalsWithProgress.filter((g: { status: string }) => g.status === 'COMPLETED').length;
+    const totalGoals = goalsWithProgress.length;
+    let phase = 'Getting Started';
+    if (totalGoals > 0) {
+      const percentComplete = completedGoals / totalGoals;
+      if (percentComplete >= 0.75) phase = 'Final Phase';
+      else if (percentComplete >= 0.5) phase = 'Making Progress';
+      else if (percentComplete >= 0.25) phase = 'Building Momentum';
+      else if (completedGoals > 0) phase = 'Early Wins';
+    }
+
+    // Find next milestone
+    const nextGoal = goalsWithProgress.find((g: { status: string }) => g.status === 'IN_PROGRESS');
+    const nextMilestone = nextGoal ? `Complete: ${nextGoal.name}` : null;
+
+    return NextResponse.json({
+      carePlan: {
+        id: carePlan.id,
+        name: carePlan.name || carePlan.template?.name || 'Your Care Plan',
+        description: carePlan.description || 'Your personalized treatment plan',
+        status: carePlan.status,
+        startDate: carePlan.startDate,
+        endDate: carePlan.endDate,
+        phase,
+        goals: goalsWithProgress,
+        activities: carePlan.activities.map((a: { id: number; name: string; description: string | null; frequency: string | null; status: string; completedAt: Date | null }) => ({
+          id: a.id,
+          name: a.name,
+          description: a.description,
+          frequency: a.frequency || 'As needed',
+          status: a.status,
+          lastCompletedAt: a.completedAt,
+        })),
+        nextMilestone,
+        providerNotes: carePlan.notes,
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to fetch care plan:', error);
+    return NextResponse.json({ error: 'Failed to fetch care plan' }, { status: 500 });
+  }
+});
