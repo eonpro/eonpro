@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-11-20.acacia',
+  apiVersion: '2025-11-17.clover',
 });
 
 /**
@@ -77,13 +77,13 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
             amount: price.unit_amount || 0,
             interval: price.recurring?.interval || 'month',
             status: sub.status,
-            currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+            currentPeriodEnd: new Date((sub as any).current_period_end * 1000).toISOString(),
             cancelAtPeriodEnd: sub.cancel_at_period_end,
           };
 
           // Get upcoming invoice
           try {
-            const upcoming = await stripe.invoices.retrieveUpcoming({
+            const upcoming = await (stripe.invoices as any).retrieveUpcoming({
               customer: patient.stripeCustomerId,
             });
             upcomingInvoice = {
@@ -136,7 +136,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     // Use local payment methods if no Stripe data
     if (paymentMethods.length === 0 && patient.paymentMethods.length > 0) {
-      paymentMethods = patient.paymentMethods.map((pm) => ({
+      paymentMethods = patient.paymentMethods.map((pm: any) => ({
         id: pm.id.toString(),
         brand: pm.brand || 'card',
         last4: pm.last4 || '****',
@@ -147,7 +147,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     // Format invoices from local data
-    const invoices = patient.invoices.map((inv) => ({
+    const invoices = patient.invoices.map((inv: any) => ({
       id: inv.id.toString(),
       number: inv.invoiceNumber || `INV-${inv.id}`,
       amount: inv.amount ? inv.amount * 100 : 0,

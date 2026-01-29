@@ -190,17 +190,16 @@ export async function showLocalNotification(payload: NotificationPayload): Promi
   try {
     const registration = await navigator.serviceWorker.ready;
 
-    const options: NotificationOptions & { vibrate?: number[] } = {
+    const options: NotificationOptions & { vibrate?: number[]; actions?: Array<{ action: string; title: string }> } = {
       body: payload.body,
       icon: payload.icon || '/icons/icon-192x192.png',
       badge: payload.badge || '/icons/badge-72x72.png',
       tag: payload.tag,
       data: payload.data,
-      actions: payload.actions,
+      actions: payload.actions as Array<{ action: string; title: string }>,
       requireInteraction: payload.requireInteraction,
+      vibrate: [100, 50, 100],
     };
-    // vibrate is valid but not always in TS types
-    (options as Record<string, unknown>).vibrate = [100, 50, 100];
 
     await registration.showNotification(payload.title, options);
   } catch (error) {

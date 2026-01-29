@@ -438,7 +438,7 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
     }
 
     // Hydration insight
-    const totalWater = patient.waterLogs.reduce((sum, log) => sum + log.amount, 0);
+    const totalWater = patient.waterLogs.reduce((sum: number, log: any) => sum + log.amount, 0);
     const avgDailyWater = totalWater / 7;
     if (avgDailyWater < 64) {
       insights.push({
@@ -452,7 +452,7 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
     }
 
     // Exercise encouragement
-    const totalExercise = patient.exerciseLogs.reduce((sum, log) => sum + log.duration, 0);
+    const totalExercise = patient.exerciseLogs.reduce((sum: number, log: any) => sum + log.duration, 0);
     if (totalExercise >= 150) {
       insights.push({
         id: 'exercise_achievement',
@@ -572,13 +572,13 @@ export async function generateWeeklySummary(patientId: number): Promise<string> 
     }
 
     // Water
-    const totalWater = patient.waterLogs.reduce((sum, log) => sum + log.amount, 0);
-    const avgWater = Math.round(totalWater / 7);
+    const totalWaterSummary = patient.waterLogs.reduce((sum: number, log: any) => sum + log.amount, 0);
+    const avgWater = Math.round(totalWaterSummary / 7);
     summary.push(`💧 Hydration: ${avgWater}oz average daily`);
 
     // Exercise
-    const totalExercise = patient.exerciseLogs.reduce((sum, log) => sum + log.duration, 0);
-    summary.push(`🏃 Exercise: ${totalExercise} minutes total`);
+    const totalExerciseSummary = patient.exerciseLogs.reduce((sum: number, log: any) => sum + log.duration, 0);
+    summary.push(`🏃 Exercise: ${totalExerciseSummary} minutes total`);
 
     // Best streak
     const bestStreak = patient.streaks.reduce(

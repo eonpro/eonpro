@@ -214,12 +214,12 @@ export async function getPatientAchievements(patientId: number): Promise<Achieve
     }),
   ]);
 
-  const unlockedMap = new Map(
-    patientAchievements.map((pa: { achievementId: number; unlockedAt: Date }) => [pa.achievementId, pa])
+  const unlockedMap = new Map<number, { achievementId: number; unlockedAt: Date }>(
+    patientAchievements.map((pa: { achievementId: number; unlockedAt: Date }) => [pa.achievementId, pa] as [number, { achievementId: number; unlockedAt: Date }])
   );
 
-  const streakMap = new Map(
-    streaks.map((s: { streakType: StreakType; currentStreak: number; longestStreak: number }) => [s.streakType, s])
+  const streakMap = new Map<StreakType, { currentStreak: number; longestStreak: number }>(
+    streaks.map((s: { streakType: StreakType; currentStreak: number; longestStreak: number }) => [s.streakType, s] as [StreakType, { currentStreak: number; longestStreak: number }])
   );
 
   return allAchievements.map((achievement: { id: number; code: string; name: string; description: string; category: AchievementCategory; tier: AchievementTier; icon: string | null; points: number; criteria: unknown }) => {

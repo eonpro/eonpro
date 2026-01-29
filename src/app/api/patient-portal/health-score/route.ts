@@ -113,9 +113,9 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     // Hydration (0-100)
-    const totalWater = waterLogs.reduce((sum, log) => sum + log.amount, 0);
+    const totalWater = waterLogs.reduce((sum: number, log: any) => sum + log.amount, 0);
     const avgWater = waterLogs.length > 0 ? totalWater / 7 : 0;
-    const previousTotalWater = previousWaterLogs.reduce((sum, log) => sum + log.amount, 0);
+    const previousTotalWater = previousWaterLogs.reduce((sum: number, log: any) => sum + log.amount, 0);
     const previousAvgWater = previousWaterLogs.length > 0 ? previousTotalWater / 7 : 0;
     const waterScore = Math.min(100, (avgWater / 64) * 100);
     const waterTrend: 'up' | 'down' | 'stable' =
@@ -139,8 +139,8 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     // Exercise (0-100)
-    const totalExercise = exerciseLogs.reduce((sum, log) => sum + log.duration, 0);
-    const previousTotalExercise = previousExerciseLogs.reduce((sum, log) => sum + log.duration, 0);
+    const totalExercise = exerciseLogs.reduce((sum: number, log: any) => sum + log.duration, 0);
+    const previousTotalExercise = previousExerciseLogs.reduce((sum: number, log: any) => sum + log.duration, 0);
     const exerciseScore = Math.min(100, (totalExercise / 150) * 100);
     const exerciseTrend: 'up' | 'down' | 'stable' =
       totalExercise > previousTotalExercise + 15
@@ -165,10 +165,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     // Sleep (0-100)
-    const totalSleep = sleepLogs.reduce((sum, log) => sum + (log.duration || 0), 0);
+    const totalSleep = sleepLogs.reduce((sum: number, log: any) => sum + (log.duration || 0), 0);
     const avgSleep = sleepLogs.length > 0 ? totalSleep / sleepLogs.length : 0;
     const sleepScore = Math.min(100, (avgSleep / 8) * 100);
-    const previousTotalSleep = previousSleepLogs.reduce((sum, log) => sum + (log.duration || 0), 0);
+    const previousTotalSleep = previousSleepLogs.reduce((sum: number, log: any) => sum + (log.duration || 0), 0);
     const previousAvgSleep = previousSleepLogs.length > 0 ? previousTotalSleep / previousSleepLogs.length : 0;
     const sleepTrend: 'up' | 'down' | 'stable' =
       avgSleep > previousAvgSleep + 0.5 ? 'up' : avgSleep < previousAvgSleep - 0.5 ? 'down' : 'stable';

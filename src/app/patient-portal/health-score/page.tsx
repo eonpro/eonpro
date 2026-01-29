@@ -293,7 +293,7 @@ export default function HealthScorePage() {
               className={`bg-white rounded-xl p-4 shadow-sm text-left transition-all ${
                 selectedMetric === metric.id ? 'ring-2 ring-offset-2' : ''
               }`}
-              style={selectedMetric === metric.id ? { ringColor: metric.color } : {}}
+              style={selectedMetric === metric.id ? { '--tw-ring-color': metric.color } as React.CSSProperties : {}}
             >
               <div className="flex items-center gap-2 mb-2">
                 <div
