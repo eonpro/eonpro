@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Users, Search, UserPlus, X, Loader2, ChevronDown } from "lucide-react";
@@ -415,7 +414,11 @@ export default function ProviderPatientsPage() {
                 </thead>
                 <tbody>
                   {filteredPatients.map((patient) => (
-                    <tr key={patient.id} className="border-b hover:bg-gray-50">
+                    <tr
+                      key={patient.id}
+                      className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => { router.push(`/patients/${patient.id}`); }}
+                    >
                       <td className="py-3 px-4">
                         <div className="font-medium">{patient.firstName} {patient.lastName}</div>
                         <div className="text-sm text-gray-500">ID: {patient.id}</div>
@@ -444,14 +447,14 @@ export default function ProviderPatientsPage() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex gap-2">
-                          <Link
-                            href={`/patients/${patient.id}`}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); router.push(`/patients/${patient.id}`); }}
                             className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
                           >
                             View
-                          </Link>
+                          </button>
                           <button
-                            onClick={() => { router.push(`/patients/${patient.id}?tab=chat`); }}
+                            onClick={(e) => { e.stopPropagation(); router.push(`/patients/${patient.id}?tab=chat`); }}
                             className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                           >
                             Message
