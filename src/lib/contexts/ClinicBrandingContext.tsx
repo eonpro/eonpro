@@ -159,13 +159,33 @@ export function ClinicBrandingProvider({
       setIsLoading(true);
       setError(null);
 
-      // Get clinic ID from localStorage user data if not provided
+      // Get clinic ID from multiple sources (in priority order):
+      // 1. Prop passed directly
+      // 2. User data in localStorage
+      // 3. Resolve from subdomain (for white-labeled portals)
       let cId = clinicId;
+
       if (!cId) {
         const user = localStorage.getItem('user');
         if (user) {
           const userData = JSON.parse(user);
           cId = userData.clinicId;
+        }
+      }
+
+      // If still no clinicId, try resolving from subdomain
+      if (!cId && typeof window !== 'undefined') {
+        try {
+          const domain = window.location.hostname;
+          const resolveResponse = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
+          if (resolveResponse.ok) {
+            const resolveData = await resolveResponse.json();
+            if (resolveData.clinicId && !resolveData.isMainApp) {
+              cId = resolveData.clinicId;
+            }
+          }
+        } catch (resolveErr) {
+          console.log('Could not resolve clinic from domain');
         }
       }
 

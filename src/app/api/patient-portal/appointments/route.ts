@@ -61,7 +61,8 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       const providerId = searchParams.get('providerId');
       const date = searchParams.get('date');
       const duration = searchParams.get('duration');
-      const clinicId = searchParams.get('clinicId');
+      // Use user's clinicId for multi-tenant isolation
+      const clinicId = user.clinicId;
 
       if (!providerId || !date) {
         return NextResponse.json({ error: 'providerId and date are required' }, { status: 400 });
@@ -71,7 +72,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
         parseInt(providerId),
         new Date(date),
         duration ? parseInt(duration) : 30,
-        clinicId ? parseInt(clinicId) : undefined
+        clinicId || undefined
       );
 
       // Filter to only available slots
@@ -82,13 +83,14 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     // Get available appointment types for self-scheduling
     if (action === 'appointment-types') {
-      const clinicId = searchParams.get('clinicId');
+      // Use user's clinicId for multi-tenant isolation
+      const clinicId = user.clinicId;
 
       const types = await prisma.appointmentTypeConfig.findMany({
         where: {
           isActive: true,
           allowSelfScheduling: true,
-          ...(clinicId && { clinicId: parseInt(clinicId) }),
+          ...(clinicId && { clinicId }),
         },
         select: {
           id: true,
@@ -106,11 +108,12 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     // Get available providers
     if (action === 'providers') {
-      const clinicId = searchParams.get('clinicId');
+      // Use user's clinicId for multi-tenant isolation
+      const clinicId = user.clinicId;
 
       const providers = await prisma.provider.findMany({
         where: {
-          ...(clinicId && { clinicId: parseInt(clinicId) }),
+          ...(clinicId && { clinicId }),
           availability: {
             some: {
               isActive: true,
