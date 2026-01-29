@@ -53,9 +53,10 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       });
 
       // Filter to only patients with messages and transform
+      type PatientWithMessages = typeof patients[number];
       return patients
-        .filter(p => p.chatMessages.length > 0)
-        .map(p => ({
+        .filter((p: PatientWithMessages) => p.chatMessages.length > 0)
+        .map((p: PatientWithMessages) => ({
           id: p.chatMessages[0]?.id || p.id,
           patientId: p.id,
           patientName: `${p.firstName} ${p.lastName}`.trim(),
