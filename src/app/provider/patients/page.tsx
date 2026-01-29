@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Users, Search, Filter, UserPlus, Activity, Calendar, FileText, AlertCircle, X, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { Users, Search, UserPlus, X, Loader2, ChevronDown } from "lucide-react";
 
 interface Patient {
   id: number;
@@ -17,15 +19,28 @@ interface Patient {
   createdAt: string;
 }
 
+interface PaginationMeta {
+  count: number;
+  total: number;
+  hasMore: boolean;
+}
+
+const PAGE_SIZE = 50; // Load 50 at a time for better UX
+
 export default function ProviderPatientsPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [meta, setMeta] = useState<PaginationMeta>({ count: 0, total: 0, hasMore: false });
+  const [offset, setOffset] = useState(0);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // New patient form
   const [newPatient, setNewPatient] = useState({
@@ -42,15 +57,45 @@ export default function ProviderPatientsPage() {
     zip: "",
   });
 
+  // Debounce search input
   useEffect(() => {
-    fetchPatients();
-  }, []);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchTerm]);
 
-  const fetchPatients = async () => {
+  // Fetch patients function
+  const fetchPatients = useCallback(async (currentOffset: number, isNewSearch = false, searchQuery = "") => {
     try {
+      if (isNewSearch) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
       const token = localStorage.getItem("auth-token") || localStorage.getItem("provider-token");
-      // Include contact info (email, phone, DOB) for display
-      const response = await fetch("/api/patients?includeContact=true", {
+
+      // Build query params with server-side search and pagination
+      const params = new URLSearchParams({
+        includeContact: "true",
+        limit: PAGE_SIZE.toString(),
+        offset: currentOffset.toString(),
+      });
+
+      // Add server-side search if present
+      if (searchQuery.trim()) {
+        params.set("search", searchQuery.trim());
+      }
+
+      const response = await fetch(`/api/patients?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -70,12 +115,102 @@ export default function ProviderPatientsPage() {
           status: p.status || 'active', // Default to active if no status
           createdAt: p.createdAt || '',
         }));
-        setPatients(mapped);
+
+        if (isNewSearch) {
+          setPatients(mapped);
+        } else {
+          setPatients(prev => [...prev, ...mapped]);
+        }
+
+        setMeta({
+          count: data.meta?.count || mapped.length,
+          total: data.meta?.total || mapped.length,
+          hasMore: data.meta?.hasMore || false,
+        });
+        setOffset(currentOffset + mapped.length);
       }
     } catch (err) {
       console.error("Error fetching patients:", err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
+
+  // Fetch patients when search changes (including initial load)
+  useEffect(() => {
+    setOffset(0);
+    setPatients([]);
+    fetchPatients(0, true, debouncedSearch);
+  }, [debouncedSearch, fetchPatients]);
+
+  const loadMore = () => {
+    if (!loadingMore && meta.hasMore) {
+      fetchPatients(offset, false, debouncedSearch);
+    }
+  };
+
+  const loadAll = async () => {
+    // Load all remaining patients
+    let currentOffset = offset;
+    setLoadingMore(true);
+    
+    try {
+      const token = localStorage.getItem("auth-token") || localStorage.getItem("provider-token");
+      let hasMore = true;
+      let allNewPatients: Patient[] = [];
+      
+      while (hasMore) {
+        const params = new URLSearchParams({
+          includeContact: "true",
+          limit: "500", // Max limit to load faster
+          offset: currentOffset.toString(),
+        });
+        
+        if (debouncedSearch.trim()) {
+          params.set("search", debouncedSearch.trim());
+        }
+
+        const response = await fetch(`/api/patients?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const mapped = (data.patients || []).map((p: any) => ({
+            id: p.id,
+            firstName: p.firstName || '',
+            lastName: p.lastName || '',
+            email: p.email || '',
+            phone: p.phone || '',
+            dateOfBirth: p.dateOfBirth || '',
+            gender: p.gender || '',
+            status: p.status || 'active',
+            createdAt: p.createdAt || '',
+          }));
+          
+          allNewPatients = [...allNewPatients, ...mapped];
+          currentOffset += mapped.length;
+          hasMore = data.meta?.hasMore || false;
+          
+          setMeta({
+            count: data.meta?.count || 0,
+            total: data.meta?.total || 0,
+            hasMore: false,
+          });
+        } else {
+          break;
+        }
+      }
+      
+      setPatients(prev => [...prev, ...allNewPatients]);
+      setOffset(currentOffset);
+    } catch (err) {
+      console.error("Error loading all patients:", err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -112,7 +247,12 @@ export default function ProviderPatientsPage() {
           state: "",
           zip: "",
         });
-        fetchPatients();
+        // Reset search and refresh the patient list
+        setSearchTerm("");
+        setDebouncedSearch("");
+        setOffset(0);
+        setPatients([]);
+        fetchPatients(0, true, "");
       } else {
         // Parse validation errors if present
         if (data.issues) {
@@ -130,7 +270,7 @@ export default function ProviderPatientsPage() {
   };
 
   const calculateAge = (dob: string) => {
-    if (!dob) return "-";
+    if (!dob) {return "-";}
     // Check if the value looks like encrypted data (contains colons and base64-like characters)
     if (dob.includes(':') && dob.length > 50) {
       return "-"; // Encrypted data, can't calculate age
@@ -158,12 +298,9 @@ export default function ProviderPatientsPage() {
     }
   };
 
+  // Client-side filtering only for status (search is now server-side)
   const filteredPatients = patients.filter(patient => {
-    const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
-    const matchesSearch = fullName.includes(searchTerm.toLowerCase()) ||
-      patient.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === "all" || patient.status?.toLowerCase() === filterStatus;
-    return matchesSearch && matchesFilter;
+    return filterStatus === "all" || patient.status?.toLowerCase() === filterStatus;
   });
 
   if (loading) {
@@ -184,7 +321,7 @@ export default function ProviderPatientsPage() {
             My Patients
           </h1>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => { setShowAddModal(true); }}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
           >
             <UserPlus className="h-4 w-4" />
@@ -200,13 +337,13 @@ export default function ProviderPatientsPage() {
               type="text"
               placeholder="Search patients by name or email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); }}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
             />
           </div>
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => { setFilterStatus(e.target.value); }}
             className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
           >
             <option value="all">All Patients</option>
@@ -219,14 +356,14 @@ export default function ProviderPatientsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-gray-900">{patients.length}</div>
+          <div className="text-2xl font-bold text-gray-900">{meta.total}</div>
           <div className="text-sm text-gray-600">Total Patients</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-green-600">
-            {patients.filter(p => p.status?.toLowerCase() === "active").length}
+          <div className="text-2xl font-bold text-green-600">{patients.length}</div>
+          <div className="text-sm text-gray-600">
+            Loaded {meta.hasMore && <span className="text-xs text-gray-400">(of {meta.total})</span>}
           </div>
-          <div className="text-sm text-gray-600">Active</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-2xl font-bold text-gray-600">
@@ -257,7 +394,7 @@ export default function ProviderPatientsPage() {
                 {searchTerm ? "No patients match your search" : "No patients yet"}
               </p>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={() => { setShowAddModal(true); }}
                 className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
                 Add Your First Patient
@@ -314,7 +451,7 @@ export default function ProviderPatientsPage() {
                             View
                           </Link>
                           <button
-                            onClick={() => router.push(`/patients/${patient.id}?tab=chat`)}
+                            onClick={() => { router.push(`/patients/${patient.id}?tab=chat`); }}
                             className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                           >
                             Message
@@ -325,6 +462,37 @@ export default function ProviderPatientsPage() {
                   ))}
                 </tbody>
               </table>
+              
+              {/* Load More / Load All */}
+              {meta.hasMore && (
+                <div className="flex items-center justify-center gap-4 py-6 border-t mt-4">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {loadingMore ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                    Load More
+                  </button>
+                  <button
+                    onClick={loadAll}
+                    disabled={loadingMore}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    Load All ({meta.total - patients.length} remaining)
+                  </button>
+                </div>
+              )}
+              
+              {/* Pagination info */}
+              <div className="text-center text-sm text-gray-500 py-4">
+                Showing {filteredPatients.length} of {meta.total} patients
+                {debouncedSearch && ` matching "${debouncedSearch}"`}
+              </div>
             </div>
           )}
         </div>
@@ -336,7 +504,7 @@ export default function ProviderPatientsPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 my-auto">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="text-lg font-semibold">Add New Patient</h3>
-              <button onClick={() => setShowAddModal(false)}>
+              <button onClick={() => { setShowAddModal(false); }}>
                 <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
               </button>
             </div>
@@ -358,7 +526,7 @@ export default function ProviderPatientsPage() {
                     type="text"
                     required
                     value={newPatient.firstName}
-                    onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, firstName: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -370,7 +538,7 @@ export default function ProviderPatientsPage() {
                     type="text"
                     required
                     value={newPatient.lastName}
-                    onChange={(e) => setNewPatient({ ...newPatient, lastName: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, lastName: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -386,7 +554,7 @@ export default function ProviderPatientsPage() {
                     type="email"
                     required
                     value={newPatient.email}
-                    onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, email: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -398,7 +566,7 @@ export default function ProviderPatientsPage() {
                     type="tel"
                     required
                     value={newPatient.phone}
-                    onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, phone: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                     placeholder="(555) 123-4567"
                   />
@@ -415,7 +583,7 @@ export default function ProviderPatientsPage() {
                     type="date"
                     required
                     value={newPatient.dob}
-                    onChange={(e) => setNewPatient({ ...newPatient, dob: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, dob: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -426,7 +594,7 @@ export default function ProviderPatientsPage() {
                   <select
                     required
                     value={newPatient.gender}
-                    onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, gender: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   >
                     <option value="male">Male</option>
@@ -445,7 +613,7 @@ export default function ProviderPatientsPage() {
                   type="text"
                   required
                   value={newPatient.address1}
-                  onChange={(e) => setNewPatient({ ...newPatient, address1: e.target.value })}
+                  onChange={(e) => { setNewPatient({ ...newPatient, address1: e.target.value }); }}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   placeholder="Street address"
                 />
@@ -458,7 +626,7 @@ export default function ProviderPatientsPage() {
                 <input
                   type="text"
                   value={newPatient.address2}
-                  onChange={(e) => setNewPatient({ ...newPatient, address2: e.target.value })}
+                  onChange={(e) => { setNewPatient({ ...newPatient, address2: e.target.value }); }}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   placeholder="Apt, suite, etc. (optional)"
                 />
@@ -473,7 +641,7 @@ export default function ProviderPatientsPage() {
                     type="text"
                     required
                     value={newPatient.city}
-                    onChange={(e) => setNewPatient({ ...newPatient, city: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, city: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -484,7 +652,7 @@ export default function ProviderPatientsPage() {
                   <select
                     required
                     value={newPatient.state}
-                    onChange={(e) => setNewPatient({ ...newPatient, state: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, state: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Select</option>
@@ -548,7 +716,7 @@ export default function ProviderPatientsPage() {
                     type="text"
                     required
                     value={newPatient.zip}
-                    onChange={(e) => setNewPatient({ ...newPatient, zip: e.target.value })}
+                    onChange={(e) => { setNewPatient({ ...newPatient, zip: e.target.value }); }}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                     placeholder="12345"
                   />
@@ -558,7 +726,7 @@ export default function ProviderPatientsPage() {
               <div className="flex justify-end gap-3 pt-4 border-t mt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => { setShowAddModal(false); }}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
                   Cancel
