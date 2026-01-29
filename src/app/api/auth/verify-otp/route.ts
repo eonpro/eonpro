@@ -188,6 +188,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           lastName: patient.lastName,
           role: 'patient',
           clinicId: patient.clinicId,
+          patientId: patient.id, // CRITICAL: Include patientId for patient portal API access
           isPatient: true,
         }
       : {
@@ -197,6 +198,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           lastName: user!.lastName,
           role: user!.role?.toLowerCase(),
           clinicId: user!.clinicId,
+          patientId: ('patientId' in user! && user!.patientId) ? user!.patientId : undefined,
         };
     
     // For provider users, add providerId to token
@@ -265,6 +267,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           lastName: patient.lastName,
           role: 'patient',
           clinicId: patient.clinicId,
+          patientId: patient.id, // CRITICAL: Include patientId for patient portal
         }
       : {
           id: user!.id,
@@ -273,6 +276,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           lastName: user!.lastName,
           role: user!.role,
           clinicId: user!.clinicId,
+          patientId: ('patientId' in user! && user!.patientId) ? user!.patientId : undefined,
         };
 
     const response = NextResponse.json({

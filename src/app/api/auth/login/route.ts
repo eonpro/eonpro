@@ -300,6 +300,32 @@ async function loginHandler(req: NextRequest) {
       }
     }
 
+    // Add patientId if user is a patient or has a linked patient record
+    if ('patientId' in user && user.patientId) {
+      tokenPayload.patientId = user.patientId;
+    } else if (userRole === 'patient') {
+      // FALLBACK: Look up patient by email if not already linked
+      try {
+        const patientByEmail = await prisma.patient.findFirst({
+          where: { 
+            email: user.email.toLowerCase(),
+            clinicId: activeClinicId,
+          },
+          select: { id: true },
+        });
+        if (patientByEmail) {
+          tokenPayload.patientId = patientByEmail.id;
+          logger.info('[Login] Found patient by email fallback', {
+            userId: user.id,
+            patientId: patientByEmail.id,
+            email: user.email,
+          });
+        }
+      } catch {
+        // Ignore errors in fallback lookup
+      }
+    }
+
     // Add permissions and features if available
     if ('permissions' in user && user.permissions) {
       tokenPayload.permissions = user.permissions;
@@ -393,6 +419,7 @@ async function loginHandler(req: NextRequest) {
         role: userRole,
         clinicId: activeClinicId,
         providerId: tokenPayload.providerId,
+        patientId: tokenPayload.patientId,
         permissions: 'permissions' in user ? user.permissions : undefined,
         features: 'features' in user ? user.features : undefined,
       },
