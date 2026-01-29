@@ -10,17 +10,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAuthParams, AuthUser } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
 // GET - Get commission plan details
-export const GET = withAuthParams(async (
+export const GET = withAuth(async (
   req: NextRequest, 
   user: AuthUser, 
-  params: { id: string }
+  context?: RouteContext
 ) => {
   try {
-    const planId = parseInt(params.id);
+    const { id } = await context!.params;
+    const planId = parseInt(id);
     
     if (isNaN(planId)) {
       return NextResponse.json({ error: 'Invalid plan ID' }, { status: 400 });
@@ -76,13 +81,14 @@ export const GET = withAuthParams(async (
 }, { roles: ['super_admin', 'admin'] });
 
 // PATCH - Update commission plan
-export const PATCH = withAuthParams(async (
+export const PATCH = withAuth(async (
   req: NextRequest, 
   user: AuthUser, 
-  params: { id: string }
+  context?: RouteContext
 ) => {
   try {
-    const planId = parseInt(params.id);
+    const { id } = await context!.params;
+    const planId = parseInt(id);
     
     if (isNaN(planId)) {
       return NextResponse.json({ error: 'Invalid plan ID' }, { status: 400 });
@@ -191,13 +197,14 @@ export const PATCH = withAuthParams(async (
 }, { roles: ['super_admin', 'admin'] });
 
 // DELETE - Delete commission plan
-export const DELETE = withAuthParams(async (
+export const DELETE = withAuth(async (
   req: NextRequest, 
   user: AuthUser, 
-  params: { id: string }
+  context?: RouteContext
 ) => {
   try {
-    const planId = parseInt(params.id);
+    const { id } = await context!.params;
+    const planId = parseInt(id);
     
     if (isNaN(planId)) {
       return NextResponse.json({ error: 'Invalid plan ID' }, { status: 400 });
