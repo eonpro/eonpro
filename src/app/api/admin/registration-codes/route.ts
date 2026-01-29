@@ -84,7 +84,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     // Get usage stats
-    const codesWithStats = codes.map(code => ({
+    const codesWithStats = codes.map((code: typeof codes[number]) => ({
       ...code,
       remainingUses: code.usageLimit ? code.usageLimit - code.usageCount : null,
       isExpired: code.expiresAt ? new Date() > code.expiresAt : false,
