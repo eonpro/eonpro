@@ -65,41 +65,60 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (!user) {
-      router.push('/login');
-      return;
-    }
+    const checkAuthAndRedirect = async () => {
+      const user = localStorage.getItem('user');
+      if (!user) {
+        router.push('/login');
+        return;
+      }
 
-    try {
-      const parsedUser = JSON.parse(user);
-      
-      // Redirect based on user role - this page is for admins only
-      const role = parsedUser.role?.toLowerCase();
-      if (role === 'affiliate' || role === 'influencer') {
-        router.push('/affiliate');
-        return;
+      try {
+        const parsedUser = JSON.parse(user);
+        const role = parsedUser.role?.toLowerCase();
+        
+        // For affiliate/influencer roles, verify auth is still valid before redirecting
+        // This prevents redirect loops when session is expired but localStorage persists
+        if (role === 'affiliate' || role === 'influencer') {
+          try {
+            const res = await fetch('/api/affiliate/auth/me', { credentials: 'include' });
+            if (res.ok) {
+              router.push('/affiliate');
+            } else {
+              // Session expired - clear localStorage and go to main login
+              localStorage.removeItem('user');
+              localStorage.removeItem('auth-token');
+              router.push('/login');
+            }
+          } catch {
+            localStorage.removeItem('user');
+            localStorage.removeItem('auth-token');
+            router.push('/login');
+          }
+          return;
+        }
+        if (role === 'patient') {
+          router.push('/patient-portal');
+          return;
+        }
+        if (role === 'provider') {
+          router.push('/provider');
+          return;
+        }
+        if (role === 'staff') {
+          router.push('/staff');
+          return;
+        }
+        
+        setUserData(parsedUser);
+        setLoading(false);
+        loadDashboardData();
+      } catch {
+        localStorage.removeItem('user');
+        router.push('/login');
       }
-      if (role === 'patient') {
-        router.push('/patient-portal');
-        return;
-      }
-      if (role === 'provider') {
-        router.push('/provider');
-        return;
-      }
-      if (role === 'staff') {
-        router.push('/staff');
-        return;
-      }
-      
-      setUserData(parsedUser);
-      setLoading(false);
-      loadDashboardData();
-    } catch {
-      localStorage.removeItem('user');
-      router.push('/login');
-    }
+    };
+    
+    checkAuthAndRedirect();
   }, [router]);
 
   const loadDashboardData = async () => {
