@@ -48,6 +48,7 @@ const ROUTE_PERMISSIONS = {
   '/influencer': ['admin', 'influencer'],
   '/billing': ['admin'],
   '/soap-notes': ['admin', 'provider'],
+  '/patient-portal': ['patient', 'admin', 'provider'],
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -164,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.push('/influencer/dashboard');
             break;
           case 'patient':
-            router.push('/patient/portal');
+            router.push('/patient-portal');
             break;
           default:
             router.push('/');
