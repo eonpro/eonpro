@@ -8,6 +8,7 @@ import {
   Pill, BookOpen, Settings, LogOut, ChevronRight, Search, Activity,
   Stethoscope, ClipboardList
 } from 'lucide-react';
+import InternalChat from '@/components/InternalChat';
 
 const mainNavItems = [
   { icon: Home, path: '/provider', label: 'Dashboard', exact: true },
@@ -35,6 +36,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
+  const [userId, setUserId] = useState<number | null>(null);
   const [rxQueueCount, setRxQueueCount] = useState(0);
 
   // Fetch prescription queue count
@@ -77,6 +79,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         ? `${parsedUser.firstName} ${parsedUser.lastName}`
         : parsedUser.name || parsedUser.email?.split('@')[0] || '';
       setUserName(`Dr. ${displayName}`.trim());
+      setUserId(parsedUser.id || null);
       setLoading(false);
 
       // Fetch queue count after auth check
@@ -270,6 +273,11 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
         {children}
       </main>
+
+      {/* Internal Team Chat */}
+      {userId && (
+        <InternalChat currentUserId={userId} currentUserRole="provider" />
+      )}
     </div>
   );
 }

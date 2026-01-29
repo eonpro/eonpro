@@ -507,9 +507,13 @@ export default function PrescriptionForm({
 
   const medicationOptions = useMemo(
     () =>
-      [...LOGOS_PRODUCTS].sort((a, b) =>
-        `${a.name} ${a.strength}`.localeCompare(`${b.name} ${b.strength}`)
-      ),
+      [...LOGOS_PRODUCTS].sort((a, b) => {
+        // Primary sort by name (case-insensitive)
+        const nameCompare = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        if (nameCompare !== 0) return nameCompare;
+        // Secondary sort by strength (numeric-aware for proper ordering: 5mg < 10mg < 100mg)
+        return a.strength.localeCompare(b.strength, undefined, { numeric: true, sensitivity: 'base' });
+      }),
     []
   );
 

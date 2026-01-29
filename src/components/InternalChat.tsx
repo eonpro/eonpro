@@ -99,16 +99,19 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   const fetchUsers = async () => {
     try {
-      // For now, mock users - in production, fetch from API
-      const mockUsers: User[] = [
-        { id: 1, firstName: 'Admin', lastName: 'User', email: 'admin@example.com', role: 'admin' },
-        { id: 2, firstName: 'Dr. John', lastName: 'Smith', email: 'doctor@example.com', role: 'provider' },
-        { id: 3, firstName: 'Support', lastName: 'Team', email: 'support@example.com', role: 'admin' },
-      ].filter(u => u.id !== currentUserId);
-      
-      setUsers(mockUsers);
+      const response = await fetch('/api/internal/users?excludeSelf=true');
+      if (response.ok) {
+        const data = await response.json();
+        // Handle both direct array and { data: [...] } response formats
+        const userList = Array.isArray(data) ? data : (data.data || []);
+        setUsers(userList.filter((u: User) => u.id !== currentUserId));
+      } else {
+        logger.error('Failed to fetch users:', response.status);
+        setUsers([]);
+      }
     } catch (error) {
       logger.error('Error fetching users:', error);
+      setUsers([]);
     }
   };
 
@@ -117,13 +120,19 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/internal/messages?userId=${currentUserId}`);
+      const response = await fetch('/api/internal/messages');
       if (response.ok) {
         const data = await response.json();
+        // Handle both direct array and { data: [...] } response formats
+        const messageList = Array.isArray(data) ? data : (data.data || []);
         // Filter messages for selected conversation
-        const filteredMessages = data.filter((m: Message) => 
+        const filteredMessages = messageList.filter((m: Message) => 
           (m.senderId === currentUserId && m.recipientId === selectedRecipient.id) ||
           (m.senderId === selectedRecipient.id && m.recipientId === currentUserId)
+        );
+        // Sort by date ascending for display
+        filteredMessages.sort((a: Message, b: Message) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
         setMessages(filteredMessages);
       }
@@ -136,10 +145,12 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch(`/api/internal/messages?userId=${currentUserId}&unreadOnly=true`);
+      const response = await fetch('/api/internal/messages?unreadOnly=true');
       if (response.ok) {
         const data = await response.json();
-        setUnreadCount(data.length);
+        // Handle both direct array and { data: [...] } response formats
+        const messageList = Array.isArray(data) ? data : (data.data || []);
+        setUnreadCount(messageList.length);
       }
     } catch (error) {
       logger.error('Error fetching unread count:', error);
@@ -154,7 +165,6 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderId: currentUserId,
           recipientId: selectedRecipient.id,
           message: newMessage,
           messageType: 'DIRECT'

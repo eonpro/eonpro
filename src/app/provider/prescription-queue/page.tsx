@@ -767,12 +767,21 @@ export default function PrescriptionQueuePage() {
     );
   });
 
-  // Group medications by category for the dropdown
-  const medicationOptions = Object.entries(MEDS).map(([key, med]) => ({
-    key,
-    label: `${med.name} ${med.strength} (${med.formLabel})`,
-    name: med.name,
-  }));
+  // Group medications by category for the dropdown, sorted alphabetically
+  const medicationOptions = Object.entries(MEDS)
+    .map(([key, med]) => ({
+      key,
+      label: `${med.name} ${med.strength} (${med.formLabel})`,
+      name: med.name,
+      strength: med.strength,
+    }))
+    .sort((a, b) => {
+      // Primary sort by name (case-insensitive)
+      const nameCompare = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      if (nameCompare !== 0) return nameCompare;
+      // Secondary sort by strength (numeric-aware)
+      return a.strength.localeCompare(b.strength, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#efece7' }}>

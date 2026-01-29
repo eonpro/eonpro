@@ -7,6 +7,7 @@ import {
   Home, Users, Building2, ShoppingCart, Store, TrendingUp,
   DollarSign, Settings, LogOut, ChevronRight, ClipboardList, CreditCard
 } from 'lucide-react';
+import InternalChat from '@/components/InternalChat';
 
 const navItems = [
   { icon: Home, path: '/', label: 'Home' },
@@ -26,6 +27,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [userRole, setUserRole] = useState<string>('admin');
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -41,6 +44,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         router.push('/login');
         return;
       }
+      setUserId(parsedUser.id || null);
+      setUserRole(role);
       setLoading(false);
     } catch {
       localStorage.removeItem('user');
@@ -148,6 +153,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
         {children}
       </main>
+
+      {/* Internal Team Chat */}
+      {userId && (
+        <InternalChat currentUserId={userId} currentUserRole={userRole} />
+      )}
     </div>
   );
 }
