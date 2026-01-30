@@ -419,20 +419,33 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
       // Extract GLP-1 history info from PatientDocument or invoice metadata
       // Find the MEDICAL_INTAKE_FORM document from the patient's documents
+      // Use case-insensitive comparison and check for partial match
       const intakeDoc = invoice.patient.documents?.find(
-        (doc: { category: string }) => doc.category === 'MEDICAL_INTAKE_FORM'
+        (doc: { category: string }) =>
+          doc.category === 'MEDICAL_INTAKE_FORM' ||
+          doc.category?.toUpperCase() === 'MEDICAL_INTAKE_FORM' ||
+          doc.category?.includes('INTAKE')
       );
       const documentData = intakeDoc?.data || null;
 
-      // Debug: Log document info
-      logger.info('[PRESCRIPTION-QUEUE] Patient document lookup', {
-        patientId: invoice.patient.id,
-        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-        documentCount: invoice.patient.documents?.length || 0,
-        categories: invoice.patient.documents?.map((d: { category: string }) => d.category) || [],
-        hasIntakeDoc: !!intakeDoc,
-        intakeDocId: intakeDoc?.id,
-      });
+      // Debug: Log document info for troubleshooting
+      if (invoice.patient.documents && invoice.patient.documents.length > 0) {
+        logger.info('[PRESCRIPTION-QUEUE] Patient has documents', {
+          patientId: invoice.patient.id,
+          patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+          documentCount: invoice.patient.documents.length,
+          categories: invoice.patient.documents.map((d: { category: string }) => d.category),
+          foundIntakeDoc: !!intakeDoc,
+          intakeDocId: intakeDoc?.id,
+          hasData: !!documentData,
+          dataLength: documentData?.length,
+        });
+      } else {
+        logger.warn('[PRESCRIPTION-QUEUE] Patient has NO documents', {
+          patientId: invoice.patient.id,
+          patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+        });
+      }
 
       const glp1Info = extractGlp1Info(
         metadata,
