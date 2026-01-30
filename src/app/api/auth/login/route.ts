@@ -18,7 +18,7 @@ const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
   role: z.enum(['patient', 'provider', 'admin', 'super_admin', 'influencer', 'staff', 'support']).default('patient'),
-  clinicId: z.number().optional(),
+  clinicId: z.number().nullable().optional(), // Accept null, undefined, or number
 });
 
 /**
