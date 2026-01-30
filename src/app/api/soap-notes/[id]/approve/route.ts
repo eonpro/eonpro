@@ -88,13 +88,21 @@ export const POST = withAuth(
         });
       }
 
-      // Get provider record for the approving user (correct lookup via providerId or email)
-      const provider = await getProviderForUser(user, { includeClinicId: false });
+      // Get provider record for the approving user (try all strategies including name match)
+      const provider = await getProviderForUser(user, {
+        includeClinicId: false,
+        tryNameMatch: true,  // Enable name matching as fallback for provider users
+      });
 
       if (!provider) {
+        // Return 400 instead of 403 to avoid triggering session expiration
+        // This is a data/configuration issue, not an auth issue
         return NextResponse.json(
-          { error: 'Provider record not found. Only providers can approve SOAP notes.' },
-          { status: 403 }
+          {
+            error: 'Provider record not found. Only providers can approve SOAP notes.',
+            code: 'PROVIDER_NOT_FOUND',
+          },
+          { status: 400 }
         );
       }
 

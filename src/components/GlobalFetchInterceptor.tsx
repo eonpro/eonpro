@@ -44,15 +44,38 @@ export default function GlobalFetchInterceptor() {
             // Clone response to read the body without consuming it
             const clonedResponse = response.clone();
             let errorMessage = 'Session expired';
+            let errorCode = '';
 
             try {
               const errorData = await clonedResponse.json();
               errorMessage = errorData.error || errorData.message || errorMessage;
+              errorCode = errorData.code || '';
             } catch {
               // Ignore JSON parse errors
             }
 
-            // Clear tokens and dispatch expiration event
+            // Don't treat permission/authorization errors as session expiration
+            // These are valid 403s that indicate the user lacks permission, not that their session expired
+            const isPermissionError =
+              errorCode === 'PROVIDER_NOT_FOUND' ||
+              errorCode === 'ACCESS_DENIED' ||
+              errorCode === 'PERMISSION_DENIED' ||
+              errorMessage.toLowerCase().includes('access denied') ||
+              errorMessage.toLowerCase().includes('permission denied') ||
+              errorMessage.toLowerCase().includes('not authorized') ||
+              (response.status === 403 && errorMessage.toLowerCase().includes('only providers'));
+
+            if (isPermissionError) {
+              console.warn('[GlobalFetchInterceptor] Permission denied (not session expiration)', {
+                url,
+                status: response.status,
+                errorCode,
+              });
+              // Don't clear tokens or dispatch session expired - just return the response
+              return response;
+            }
+
+            // Clear tokens and dispatch expiration event for actual session issues
             clearAuthTokens();
             dispatchSessionExpired(errorMessage);
 

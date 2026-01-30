@@ -213,17 +213,36 @@ async function handleResponseError(response: Response): Promise<Response> {
     // Check if this is an auth-related error
     const contentType = response.headers.get('content-type');
     let errorMessage = 'Session expired';
+    let errorCode = '';
 
     try {
       if (contentType?.includes('application/json')) {
         const errorData = await response.clone().json();
         errorMessage = errorData.error || errorData.message || errorMessage;
+        errorCode = errorData.code || '';
       }
     } catch {
       // Ignore JSON parse errors
     }
 
-    // Clear tokens and dispatch event
+    // Don't treat permission/authorization errors as session expiration
+    // These are valid 403s that indicate the user lacks permission, not that their session expired
+    const isPermissionError =
+      errorCode === 'PROVIDER_NOT_FOUND' ||
+      errorCode === 'ACCESS_DENIED' ||
+      errorCode === 'PERMISSION_DENIED' ||
+      errorMessage.toLowerCase().includes('access denied') ||
+      errorMessage.toLowerCase().includes('permission denied') ||
+      errorMessage.toLowerCase().includes('not authorized') ||
+      (response.status === 403 && errorMessage.toLowerCase().includes('only providers'));
+
+    if (isPermissionError) {
+      // Return the response without treating it as session expiration
+      // Let the caller handle the permission error appropriately
+      return response;
+    }
+
+    // Clear tokens and dispatch event for actual session issues
     clearAuthTokens();
     dispatchSessionExpired(errorMessage);
 
