@@ -407,6 +407,42 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return { usedGlp1, glp1Type, lastDose };
     };
 
+    // Fetch documents separately for patients that might not have them in the relation
+    // This handles cases where the Patient -> Document link might not be populated
+    const patientIds = invoices.map((inv: InvoiceWithRelations) => inv.patient.id);
+    const patientDocsMap = new Map<number, PatientDocumentWithData[]>();
+    
+    if (patientIds.length > 0) {
+      const allPatientDocs = await prisma.patientDocument.findMany({
+        where: {
+          patientId: { in: patientIds },
+          category: 'MEDICAL_INTAKE_FORM',
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          patientId: true,
+          data: true,
+          sourceSubmissionId: true,
+          category: true,
+        },
+      });
+      
+      // Group docs by patientId
+      for (const doc of allPatientDocs) {
+        if (!patientDocsMap.has(doc.patientId)) {
+          patientDocsMap.set(doc.patientId, []);
+        }
+        patientDocsMap.get(doc.patientId)!.push(doc);
+      }
+      
+      logger.info('[PRESCRIPTION-QUEUE] Fetched intake documents', {
+        patientCount: patientIds.length,
+        docsFound: allPatientDocs.length,
+        patientsWithDocs: patientDocsMap.size,
+      });
+    }
+
     // Transform invoice data for frontend
     const invoiceItems = invoices.map((invoice: InvoiceWithRelations) => {
       // Extract treatment info from metadata or line items
@@ -417,35 +453,21 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       let medicationType = '';
       let plan = '';
 
-      // Extract GLP-1 history info from PatientDocument or invoice metadata
-      // Find the MEDICAL_INTAKE_FORM document from the patient's documents
-      // Use case-insensitive comparison and check for partial match
-      const intakeDoc = invoice.patient.documents?.find(
-        (doc: { category: string }) =>
-          doc.category === 'MEDICAL_INTAKE_FORM' ||
-          doc.category?.toUpperCase() === 'MEDICAL_INTAKE_FORM' ||
-          doc.category?.includes('INTAKE')
-      );
+      // Get documents from our separate query (more reliable than relation)
+      const patientDocs = patientDocsMap.get(invoice.patient.id) || [];
+      const intakeDoc = patientDocs[0] || null; // Most recent intake doc
       const documentData = intakeDoc?.data || null;
 
-      // Debug: Log document info for troubleshooting
-      if (invoice.patient.documents && invoice.patient.documents.length > 0) {
-        logger.info('[PRESCRIPTION-QUEUE] Patient has documents', {
-          patientId: invoice.patient.id,
-          patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-          documentCount: invoice.patient.documents.length,
-          categories: invoice.patient.documents.map((d: { category: string }) => d.category),
-          foundIntakeDoc: !!intakeDoc,
-          intakeDocId: intakeDoc?.id,
-          hasData: !!documentData,
-          dataLength: documentData?.length,
-        });
-      } else {
-        logger.warn('[PRESCRIPTION-QUEUE] Patient has NO documents', {
-          patientId: invoice.patient.id,
-          patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-        });
-      }
+      // Debug: Log document info
+      logger.info('[PRESCRIPTION-QUEUE] Patient document lookup', {
+        patientId: invoice.patient.id,
+        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+        docsFromRelation: invoice.patient.documents?.length || 0,
+        docsFromQuery: patientDocs.length,
+        hasIntakeDoc: !!intakeDoc,
+        hasData: !!documentData,
+        dataLength: documentData ? (documentData as Buffer).length : 0,
+      });
 
       const glp1Info = extractGlp1Info(
         metadata,
