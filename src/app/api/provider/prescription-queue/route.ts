@@ -43,6 +43,7 @@ type PatientDocumentWithData = {
   id: number;
   data: Buffer | null;
   sourceSubmissionId: string | null;
+  category: string;
 };
 
 // Type for invoice with included relations from our query
@@ -151,15 +152,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                   approvedBy: true,
                 },
               },
-              // Include intake documents for GLP-1 history
+              // Include ALL documents for GLP-1 history (filter by category in code)
               documents: {
-                where: { category: 'MEDICAL_INTAKE_FORM' },
                 orderBy: { createdAt: 'desc' },
-                take: 1,
+                take: 5,
                 select: {
                   id: true,
                   data: true,
                   sourceSubmissionId: true,
+                  category: true,
                 },
               },
             },
@@ -224,15 +225,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                   approvedBy: true,
                 },
               },
-              // Include intake documents for GLP-1 history
+              // Include ALL documents for GLP-1 history (filter by category in code)
               documents: {
-                where: { category: 'MEDICAL_INTAKE_FORM' },
                 orderBy: { createdAt: 'desc' },
-                take: 1,
+                take: 5,
                 select: {
                   id: true,
                   data: true,
                   sourceSubmissionId: true,
+                  category: true,
                 },
               },
             },
@@ -408,7 +409,23 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       let plan = '';
 
       // Extract GLP-1 history info from PatientDocument or invoice metadata
-      const documentData = invoice.patient.documents?.[0]?.data || null;
+      // Find the MEDICAL_INTAKE_FORM document from the patient's documents
+      const intakeDoc = invoice.patient.documents?.find(
+        (doc: { category: string }) => doc.category === 'MEDICAL_INTAKE_FORM'
+      );
+      const documentData = intakeDoc?.data || null;
+
+      // Debug: Log document info
+      if (invoice.patient.documents && invoice.patient.documents.length > 0) {
+        logger.debug('[PRESCRIPTION-QUEUE] Patient documents found', {
+          patientId: invoice.patient.id,
+          patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+          documentCount: invoice.patient.documents.length,
+          categories: invoice.patient.documents.map((d: { category: string }) => d.category),
+          hasIntakeDoc: !!intakeDoc,
+        });
+      }
+
       const glp1Info = extractGlp1Info(metadata, documentData);
 
       if (metadata) {
