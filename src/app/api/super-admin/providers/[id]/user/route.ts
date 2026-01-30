@@ -440,6 +440,138 @@ export const PUT = withSuperAdminAuth(async (
 });
 
 /**
+ * PATCH /api/super-admin/providers/[id]/user
+ * Reset password for linked user account
+ *
+ * Body: {
+ *   password: string;
+ *   sendNotification?: boolean; // Optional - send email notification to user
+ * }
+ */
+export const PATCH = withSuperAdminAuth(async (
+  req: NextRequest,
+  user: AuthUser,
+  context: { params: Promise<{ id: string }> }
+) => {
+  try {
+    const { id } = await context.params;
+    const providerId = parseInt(id);
+
+    if (isNaN(providerId)) {
+      return NextResponse.json({ error: 'Invalid provider ID' }, { status: 400 });
+    }
+
+    const body = await req.json();
+    const { password, sendNotification } = body;
+
+    // Validate password
+    if (!password) {
+      return NextResponse.json(
+        { error: 'Password is required' },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      );
+    }
+
+    logger.info('[SUPER-ADMIN/PROVIDERS/USER] Resetting password for provider user', {
+      providerId,
+      userEmail: user.email,
+    });
+
+    // Check provider exists and has a linked user
+    const provider = await prisma.provider.findUnique({
+      where: { id: providerId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!provider) {
+      return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
+    }
+
+    if (!provider.user) {
+      return NextResponse.json(
+        { error: 'Provider does not have a linked user account' },
+        { status: 404 }
+      );
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Update user password
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.user.update({
+        where: { id: provider.user!.id },
+        data: {
+          passwordHash,
+          lastPasswordChange: new Date(),
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
+      });
+
+      // Create audit log
+      await tx.providerAudit.create({
+        data: {
+          providerId,
+          actorEmail: user.email,
+          action: 'PASSWORD_RESET',
+          diff: {
+            userId: provider.user!.id,
+            email: provider.user!.email,
+            resetBy: user.email,
+            timestamp: new Date().toISOString(),
+          },
+        },
+      });
+    });
+
+    logger.info('[SUPER-ADMIN/PROVIDERS/USER] Password reset successful', {
+      providerId,
+      userId: provider.user.id,
+      email: provider.user.email,
+    });
+
+    // TODO: Send notification email if requested
+    if (sendNotification) {
+      logger.info('[SUPER-ADMIN/PROVIDERS/USER] Would send password reset notification', {
+        email: provider.user.email,
+      });
+      // Email sending would go here
+    }
+
+    return NextResponse.json({
+      message: 'Password reset successfully',
+      userId: provider.user.id,
+    });
+  } catch (error: any) {
+    logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error resetting password:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to reset password' },
+      { status: 500 }
+    );
+  }
+});
+
+/**
  * DELETE /api/super-admin/providers/[id]/user
  * Unlink user from provider (does not delete the user)
  */

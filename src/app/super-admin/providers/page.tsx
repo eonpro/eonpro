@@ -77,7 +77,7 @@ interface Provider {
   } | null;
   clinicCount: number;
   hasLinkedUser: boolean;
-  _count: {
+  _count?: {
     orders: number;
     appointments: number;
   };
@@ -115,6 +115,27 @@ export default function SuperAdminProvidersPage() {
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // NPI Verification state
+  const [verifyingNpi, setVerifyingNpi] = useState(false);
+  const [npiVerified, setNpiVerified] = useState(false);
+  const [npiVerificationResult, setNpiVerificationResult] = useState<{
+    valid: boolean;
+    basic?: {
+      firstName?: string;
+      lastName?: string;
+      first_name?: string;
+      last_name?: string;
+      credential?: string;
+      namePrefix?: string;
+    };
+    addresses?: Array<{
+      addressPurpose?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+    }>;
+  } | null>(null);
 
   // Delete state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -236,6 +257,8 @@ export default function SuperAdminProvidersPage() {
         dea: '',
         clinicIds: [],
       });
+      setNpiVerified(false);
+      setNpiVerificationResult(null);
       fetchProviders();
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'An error occurred');
@@ -259,7 +282,9 @@ export default function SuperAdminProvidersPage() {
     const token = getAuthToken();
 
     try {
-      const hasData = deletingProvider._count.orders > 0 || deletingProvider._count.appointments > 0;
+      const ordersCount = deletingProvider._count?.orders ?? 0;
+      const appointmentsCount = deletingProvider._count?.appointments ?? 0;
+      const hasData = ordersCount > 0 || appointmentsCount > 0;
       const response = await fetch(
         `/api/super-admin/providers/${deletingProvider.id}${hasData ? '?force=true' : ''}`,
         {
@@ -329,6 +354,66 @@ export default function SuperAdminProvidersPage() {
         ? f.clinicIds.filter(id => id !== clinicId)
         : [...f.clinicIds, clinicId],
     }));
+  };
+
+  // NPI Verification
+  const handleVerifyNpi = async () => {
+    if (!createForm.npi || createForm.npi.length !== 10) {
+      setCreateError('Please enter a valid 10-digit NPI number');
+      return;
+    }
+
+    setVerifyingNpi(true);
+    setCreateError(null);
+    setNpiVerificationResult(null);
+    setNpiVerified(false);
+
+    try {
+      const res = await fetch('/api/providers/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ npi: createForm.npi }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to verify NPI');
+      }
+
+      setNpiVerificationResult(data.result);
+      setNpiVerified(data.result?.valid);
+
+      // Auto-fill name from registry if fields are empty
+      if (data.result?.valid && data.result?.basic) {
+        const registryFirst = data.result.basic.firstName || data.result.basic.first_name || '';
+        const registryLast = data.result.basic.lastName || data.result.basic.last_name || '';
+
+        setCreateForm(f => ({
+          ...f,
+          firstName: f.firstName || registryFirst,
+          lastName: f.lastName || registryLast,
+          titleLine: f.titleLine || data.result.basic.credential || '',
+          // Auto-fill license state from primary address
+          licenseState: f.licenseState || data.result.addresses?.[0]?.state || '',
+        }));
+      }
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to verify NPI');
+      setNpiVerified(false);
+    } finally {
+      setVerifyingNpi(false);
+    }
+  };
+
+  // Reset NPI verification when NPI changes
+  const handleNpiChange = (value: string) => {
+    const numericValue = value.replace(/\D/g, '');
+    setCreateForm(f => ({ ...f, npi: numericValue }));
+    setNpiVerified(false);
+    setNpiVerificationResult(null);
   };
 
   // Calculate stats
@@ -608,11 +693,11 @@ export default function SuperAdminProvidersPage() {
                   <div className="text-sm">
                     <div className="flex items-center gap-1 text-gray-600">
                       <FileText className="h-3 w-3" />
-                      {provider._count.orders} orders
+                      {provider._count?.orders ?? 0} orders
                     </div>
                     <div className="flex items-center gap-1 text-gray-600">
                       <Calendar className="h-3 w-3" />
-                      {provider._count.appointments} appts
+                      {provider._count?.appointments ?? 0} appts
                     </div>
                   </div>
                 </td>
@@ -738,7 +823,12 @@ export default function SuperAdminProvidersPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Create Provider</h2>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNpiVerified(false);
+                  setNpiVerificationResult(null);
+                  setCreateError(null);
+                }}
                 className="p-1 rounded hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-500" />
@@ -771,16 +861,82 @@ export default function SuperAdminProvidersPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">NPI *</label>
-                <input
-                  type="text"
-                  required
-                  pattern="[0-9]{10}"
-                  maxLength={10}
-                  value={createForm.npi}
-                  onChange={(e) => setCreateForm(f => ({ ...f, npi: e.target.value.replace(/\D/g, '') }))}
-                  placeholder="10-digit NPI number"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
-                />
+                <div className="mt-1 flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      required
+                      pattern="[0-9]{10}"
+                      maxLength={10}
+                      value={createForm.npi}
+                      onChange={(e) => handleNpiChange(e.target.value)}
+                      placeholder="10-digit NPI number"
+                      className={`w-full rounded-lg border px-3 py-2 font-mono focus:outline-none focus:ring-1 ${
+                        npiVerified
+                          ? 'border-green-500 focus:border-green-500 focus:ring-green-500 bg-green-50'
+                          : 'border-gray-300 focus:border-[#4fa77e] focus:ring-[#4fa77e]'
+                      }`}
+                    />
+                    {npiVerified && (
+                      <Shield className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleVerifyNpi}
+                    disabled={verifyingNpi || createForm.npi.length !== 10}
+                    className="px-3 py-2 text-sm font-medium rounded-lg bg-[#4fa77e]/10 text-[#4fa77e] hover:bg-[#4fa77e]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    {verifyingNpi ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="h-4 w-4" />
+                        Verify
+                      </>
+                    )}
+                  </button>
+                </div>
+                {npiVerificationResult && (
+                  <div className={`mt-2 p-3 rounded-lg text-sm ${
+                    npiVerified
+                      ? 'bg-green-50 border border-green-200'
+                      : 'bg-red-50 border border-red-200'
+                  }`}>
+                    {npiVerified ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-green-800 font-medium">
+                          <Check className="h-4 w-4" />
+                          NPI Verified - Provider Found
+                        </div>
+                        {npiVerificationResult.basic && (
+                          <p className="text-green-700 text-xs">
+                            Registry Name: {npiVerificationResult.basic.namePrefix && `${npiVerificationResult.basic.namePrefix} `}
+                            {npiVerificationResult.basic.firstName || npiVerificationResult.basic.first_name}{' '}
+                            {npiVerificationResult.basic.lastName || npiVerificationResult.basic.last_name}
+                            {npiVerificationResult.basic.credential && `, ${npiVerificationResult.basic.credential}`}
+                          </p>
+                        )}
+                        {npiVerificationResult.addresses?.[0] && (
+                          <p className="text-green-600 text-xs">
+                            Location: {npiVerificationResult.addresses[0].city}, {npiVerificationResult.addresses[0].state}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-800">
+                        <AlertCircle className="h-4 w-4" />
+                        NPI not found in national registry
+                      </div>
+                    )}
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Click &quot;Verify&quot; to check NPI with the national registry and auto-fill provider details
+                </p>
               </div>
 
               <div>
@@ -900,7 +1056,12 @@ export default function SuperAdminProvidersPage() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setNpiVerified(false);
+                    setNpiVerificationResult(null);
+                    setCreateError(null);
+                  }}
                   className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
@@ -938,11 +1099,11 @@ export default function SuperAdminProvidersPage() {
               This action cannot be undone.
             </p>
 
-            {(deletingProvider._count.orders > 0 || deletingProvider._count.appointments > 0) && (
+            {((deletingProvider._count?.orders ?? 0) > 0 || (deletingProvider._count?.appointments ?? 0) > 0) && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
                 <p className="text-sm text-amber-800">
-                  <strong>Warning:</strong> This provider has {deletingProvider._count.orders} order(s)
-                  and {deletingProvider._count.appointments} appointment(s). Deleting will remove
+                  <strong>Warning:</strong> This provider has {deletingProvider._count?.orders ?? 0} order(s)
+                  and {deletingProvider._count?.appointments ?? 0} appointment(s). Deleting will remove
                   all associated data.
                 </p>
               </div>

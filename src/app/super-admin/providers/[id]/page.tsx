@@ -8,6 +8,8 @@ import {
   UserCog,
   Building2,
   Shield,
+  ShieldCheck,
+  ShieldAlert,
   Clock,
   FileText,
   Calendar,
@@ -27,6 +29,7 @@ import {
   Unlink,
   Eye,
   EyeOff,
+  ExternalLink,
 } from 'lucide-react';
 
 interface ClinicAssignment {
@@ -93,7 +96,7 @@ interface Provider {
     role: string;
     lastLogin: string | null;
   } | null;
-  _count: {
+  _count?: {
     orders: number;
     appointments: number;
     approvedSoapNotes: number;
@@ -165,6 +168,38 @@ export default function SuperAdminProviderDetailPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
   const [unlinkingUser, setUnlinkingUser] = useState(false);
+
+  // Password reset
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [resetPasswordForm, setResetPasswordForm] = useState({
+    password: '',
+    sendNotification: false,
+  });
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+
+  // NPI Verification
+  const [showNpiModal, setShowNpiModal] = useState(false);
+  const [verifyingNpi, setVerifyingNpi] = useState(false);
+  const [npiVerificationResult, setNpiVerificationResult] = useState<{
+    valid: boolean;
+    basic?: {
+      firstName?: string;
+      lastName?: string;
+      first_name?: string;
+      last_name?: string;
+      credential?: string;
+      namePrefix?: string;
+    };
+    addresses?: Array<{
+      addressPurpose?: string;
+      addressType?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+    }>;
+  } | null>(null);
+  const [npiError, setNpiError] = useState<string | null>(null);
 
   useEffect(() => {
     if (providerId) {
@@ -491,6 +526,106 @@ export default function SuperAdminProviderDetailPage() {
     setShowPassword(true);
   };
 
+  // Generate random password for reset
+  const generateResetPassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setResetPasswordForm(f => ({ ...f, password }));
+    setShowResetPassword(true);
+  };
+
+  // Reset password handler
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!resetPasswordForm.password) {
+      setError('Password is required');
+      return;
+    }
+
+    if (resetPasswordForm.password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    setResettingPassword(true);
+    setError(null);
+    const token = getAuthToken();
+
+    try {
+      const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          password: resetPasswordForm.password,
+          sendNotification: resetPasswordForm.sendNotification,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setShowResetPasswordModal(false);
+        setResetPasswordForm({ password: '', sendNotification: false });
+        setShowResetPassword(false);
+        setSuccessMessage('Password reset successfully');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setError(data.error || 'Failed to reset password');
+      }
+    } catch (err) {
+      setError('Failed to reset password');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  // Open reset password modal
+  const openResetPasswordModal = () => {
+    setResetPasswordForm({ password: '', sendNotification: false });
+    setShowResetPassword(false);
+    setShowResetPasswordModal(true);
+  };
+
+  // Verify NPI with national registry
+  const handleVerifyNpi = async () => {
+    if (!provider?.npi) return;
+
+    setVerifyingNpi(true);
+    setNpiError(null);
+    setNpiVerificationResult(null);
+
+    try {
+      const res = await fetch('/api/providers/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ npi: provider.npi }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to verify NPI');
+      }
+
+      setNpiVerificationResult(data.result);
+      setShowNpiModal(true);
+    } catch (err) {
+      setNpiError(err instanceof Error ? err.message : 'Failed to verify NPI');
+      setShowNpiModal(true);
+    } finally {
+      setVerifyingNpi(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'clinics' && provider) {
       fetchClinicAssignments();
@@ -541,11 +676,29 @@ export default function SuperAdminProviderDetailPage() {
           </h1>
           <div className="flex items-center gap-3 mt-1">
             <span className="font-mono text-sm text-gray-500">NPI: {provider.npi}</span>
-            {provider.npiVerifiedAt && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                <Shield className="h-3 w-3" />
+            {provider.npiVerifiedAt ? (
+              <button
+                onClick={() => setShowNpiModal(true)}
+                className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 hover:bg-green-200 transition-colors"
+                title="View NPI verification details"
+              >
+                <ShieldCheck className="h-3 w-3" />
                 Verified
-              </span>
+              </button>
+            ) : (
+              <button
+                onClick={handleVerifyNpi}
+                disabled={verifyingNpi}
+                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-200 transition-colors disabled:opacity-50"
+                title="Verify NPI with national registry"
+              >
+                {verifyingNpi ? (
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                ) : (
+                  <ShieldAlert className="h-3 w-3" />
+                )}
+                {verifyingNpi ? 'Verifying...' : 'Verify NPI'}
+              </button>
             )}
             {provider.user && (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
@@ -601,7 +754,7 @@ export default function SuperAdminProviderDetailPage() {
               <FileText className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{provider._count.orders}</p>
+              <p className="text-2xl font-bold text-gray-900">{provider._count?.orders ?? 0}</p>
               <p className="text-sm text-gray-500">Orders</p>
             </div>
           </div>
@@ -612,7 +765,7 @@ export default function SuperAdminProviderDetailPage() {
               <Calendar className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{provider._count.appointments}</p>
+              <p className="text-2xl font-bold text-gray-900">{provider._count?.appointments ?? 0}</p>
               <p className="text-sm text-gray-500">Appointments</p>
             </div>
           </div>
@@ -881,18 +1034,27 @@ export default function SuperAdminProviderDetailPage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={handleUnlinkUser}
-                    disabled={unlinkingUser}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {unlinkingUser ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Unlink className="h-4 w-4" />
-                    )}
-                    {unlinkingUser ? 'Unlinking...' : 'Unlink User Account'}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={openResetPasswordModal}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                    >
+                      <Key className="h-4 w-4" />
+                      Reset Password
+                    </button>
+                    <button
+                      onClick={handleUnlinkUser}
+                      disabled={unlinkingUser}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {unlinkingUser ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Unlink className="h-4 w-4" />
+                      )}
+                      {unlinkingUser ? 'Unlinking...' : 'Unlink User Account'}
+                    </button>
+                  </div>
                 </>
               ) : (
                 <>
@@ -1181,6 +1343,210 @@ export default function SuperAdminProviderDetailPage() {
         </div>
       )}
 
+      {/* NPI Verification Modal */}
+      {showNpiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">NPI Verification</h2>
+              <button
+                onClick={() => {
+                  setShowNpiModal(false);
+                  setNpiError(null);
+                  setNpiVerificationResult(null);
+                }}
+                className="p-1 rounded hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* NPI Number */}
+            <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex-1">
+                <p className="text-sm text-gray-500">NPI Number</p>
+                <p className="font-mono text-lg font-semibold text-gray-900">{provider?.npi}</p>
+              </div>
+              <a
+                href={`https://npiregistry.cms.hhs.gov/provider-view/${provider?.npi}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-[#4fa77e] hover:text-[#3d8a66]"
+              >
+                View on CMS
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+
+            {/* Error State */}
+            {npiError && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 mb-4">
+                <div className="flex gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-red-800">Verification Failed</p>
+                    <p className="text-sm text-red-700 mt-1">{npiError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Already Verified State */}
+            {provider?.npiVerifiedAt && !npiVerificationResult && !npiError && (
+              <div className="rounded-lg bg-green-50 border border-green-200 p-4 mb-4">
+                <div className="flex gap-3">
+                  <ShieldCheck className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-green-800">NPI Verified</p>
+                    <p className="text-sm text-green-700 mt-1">
+                      Verified on {new Date(provider.npiVerifiedAt).toLocaleDateString()} at {new Date(provider.npiVerifiedAt).toLocaleTimeString()}
+                    </p>
+                    {provider.npiRawResponse && (
+                      <div className="mt-3 pt-3 border-t border-green-200">
+                        <p className="text-xs text-green-600 font-medium mb-2">Registry Information:</p>
+                        <div className="space-y-1 text-sm">
+                          {provider.npiRawResponse.basic && (
+                            <>
+                              <p>
+                                <span className="text-green-600">Name:</span>{' '}
+                                <span className="text-green-800">
+                                  {provider.npiRawResponse.basic.namePrefix && `${provider.npiRawResponse.basic.namePrefix} `}
+                                  {provider.npiRawResponse.basic.firstName || provider.npiRawResponse.basic.first_name}{' '}
+                                  {provider.npiRawResponse.basic.lastName || provider.npiRawResponse.basic.last_name}
+                                  {provider.npiRawResponse.basic.credential && `, ${provider.npiRawResponse.basic.credential}`}
+                                </span>
+                              </p>
+                            </>
+                          )}
+                          {provider.npiRawResponse.addresses?.[0] && (
+                            <p>
+                              <span className="text-green-600">Location:</span>{' '}
+                              <span className="text-green-800">
+                                {provider.npiRawResponse.addresses[0].city}, {provider.npiRawResponse.addresses[0].state} {provider.npiRawResponse.addresses[0].postalCode}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Fresh Verification Result */}
+            {npiVerificationResult && (
+              <div className={`rounded-lg ${npiVerificationResult.valid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border p-4 mb-4`}>
+                <div className="flex gap-3">
+                  {npiVerificationResult.valid ? (
+                    <ShieldCheck className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <ShieldAlert className="h-5 w-5 text-red-500 flex-shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <p className={`font-medium ${npiVerificationResult.valid ? 'text-green-800' : 'text-red-800'}`}>
+                      {npiVerificationResult.valid ? 'Valid NPI - Provider Found' : 'Invalid NPI'}
+                    </p>
+                    {npiVerificationResult.basic && (
+                      <div className="mt-3 space-y-2 text-sm">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-gray-500 text-xs">Registry Name</p>
+                            <p className="text-gray-900 font-medium">
+                              {npiVerificationResult.basic.namePrefix && `${npiVerificationResult.basic.namePrefix} `}
+                              {npiVerificationResult.basic.firstName || npiVerificationResult.basic.first_name}{' '}
+                              {npiVerificationResult.basic.lastName || npiVerificationResult.basic.last_name}
+                            </p>
+                          </div>
+                          {npiVerificationResult.basic.credential && (
+                            <div>
+                              <p className="text-gray-500 text-xs">Credential</p>
+                              <p className="text-gray-900 font-medium">{npiVerificationResult.basic.credential}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Compare names */}
+                        {provider && (
+                          <div className="mt-2 p-2 bg-white/50 rounded-lg">
+                            <p className="text-xs text-gray-500 mb-1">Name Comparison:</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-700">System: <strong>{provider.firstName} {provider.lastName}</strong></span>
+                              {(npiVerificationResult.basic.firstName || npiVerificationResult.basic.first_name)?.toLowerCase() === provider.firstName.toLowerCase() &&
+                               (npiVerificationResult.basic.lastName || npiVerificationResult.basic.last_name)?.toLowerCase() === provider.lastName.toLowerCase() ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-700">
+                                  <Check className="h-3 w-3" />
+                                  Match
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs text-amber-700">
+                                  <AlertCircle className="h-3 w-3" />
+                                  Different
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {npiVerificationResult.addresses && npiVerificationResult.addresses.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 font-medium mb-2">Practice Locations:</p>
+                        <div className="space-y-2">
+                          {npiVerificationResult.addresses.map((addr, idx) => (
+                            <div key={idx} className="text-sm">
+                              <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-200 text-gray-700 rounded mr-2">
+                                {addr.addressPurpose}
+                              </span>
+                              {addr.city}, {addr.state} {addr.postalCode}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNpiModal(false);
+                  setNpiError(null);
+                  setNpiVerificationResult(null);
+                }}
+                className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              {!provider?.npiVerifiedAt && (
+                <button
+                  type="button"
+                  onClick={handleVerifyNpi}
+                  disabled={verifyingNpi}
+                  className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {verifyingNpi ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-4 w-4" />
+                      Verify with Registry
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create User Account Modal */}
       {showCreateUserModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -1341,6 +1707,100 @@ export default function SuperAdminProviderDetailPage() {
                     <>
                       <UserPlus className="h-4 w-4" />
                       Create Account
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Reset Password</h2>
+              <button
+                onClick={() => setShowResetPasswordModal(false)}
+                className="p-1 rounded hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Set a new password for <strong>{provider?.user?.firstName} {provider?.user?.lastName}</strong> ({provider?.user?.email}).
+            </p>
+
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
+              <div className="flex gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800">
+                  <strong>Important:</strong> The user will need to use this new password to login.
+                  Consider sending them the credentials securely.
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password *
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={resetPasswordForm.password}
+                      onChange={(e) => setResetPasswordForm(f => ({ ...f, password: e.target.value }))}
+                      placeholder="Minimum 8 characters"
+                      required
+                      minLength={8}
+                      className="w-full rounded-lg border border-gray-300 pl-10 pr-10 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(!showResetPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generateResetPassword}
+                    className="px-3 py-2 text-sm font-medium text-[#4fa77e] bg-[#4fa77e]/10 hover:bg-[#4fa77e]/20 rounded-lg whitespace-nowrap"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowResetPasswordModal(false)}
+                  className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resettingPassword || !resetPasswordForm.password}
+                  className="flex-1 rounded-lg bg-amber-600 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {resettingPassword ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    <>
+                      <Key className="h-4 w-4" />
+                      Reset Password
                     </>
                   )}
                 </button>
