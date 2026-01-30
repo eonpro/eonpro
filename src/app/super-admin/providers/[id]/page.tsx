@@ -593,7 +593,7 @@ export default function SuperAdminProviderDetailPage() {
     setShowResetPasswordModal(true);
   };
 
-  // Verify NPI with national registry
+  // Verify NPI with national registry (just lookup, no save)
   const handleVerifyNpi = async () => {
     if (!provider?.npi) return;
 
@@ -621,6 +621,47 @@ export default function SuperAdminProviderDetailPage() {
     } catch (err) {
       setNpiError(err instanceof Error ? err.message : 'Failed to verify NPI');
       setShowNpiModal(true);
+    } finally {
+      setVerifyingNpi(false);
+    }
+  };
+
+  // Verify NPI AND save to provider profile
+  const handleVerifyAndSaveNpi = async () => {
+    if (!provider?.npi) return;
+
+    setVerifyingNpi(true);
+    setNpiError(null);
+    setError(null);
+
+    const token = getAuthToken();
+
+    try {
+      const res = await fetch(`/api/super-admin/providers/${providerId}/verify-npi`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to verify NPI');
+      }
+
+      // Update local state with verified data
+      setNpiVerificationResult(data.result);
+      
+      // Refresh provider data to get updated npiVerifiedAt
+      await fetchProvider();
+      
+      setShowNpiModal(false);
+      setSuccessMessage('NPI verified and saved to provider profile');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setNpiError(err instanceof Error ? err.message : 'Failed to verify NPI');
     } finally {
       setVerifyingNpi(false);
     }
@@ -1525,19 +1566,19 @@ export default function SuperAdminProviderDetailPage() {
               {!provider?.npiVerifiedAt && (
                 <button
                   type="button"
-                  onClick={handleVerifyNpi}
+                  onClick={handleVerifyAndSaveNpi}
                   disabled={verifyingNpi}
                   className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {verifyingNpi ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      Verifying...
+                      Saving...
                     </>
                   ) : (
                     <>
-                      <Shield className="h-4 w-4" />
-                      Verify with Registry
+                      <ShieldCheck className="h-4 w-4" />
+                      Save Verification
                     </>
                   )}
                 </button>
