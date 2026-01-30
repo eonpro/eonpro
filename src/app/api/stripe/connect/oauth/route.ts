@@ -96,9 +96,12 @@ async function getOAuthHandler(request: NextRequest, user: AuthUser) {
       scope: 'read_write',
       redirect_uri: redirectUri,
       state: state,
-      // Pre-fill email if available
-      ...(clinic.adminEmail && { stripe_user: JSON.stringify({ email: clinic.adminEmail }) }),
     });
+    
+    // Add stripe_user with bracket notation (Stripe expects stripe_user[email], not JSON)
+    if (clinic.adminEmail) {
+      params.append('stripe_user[email]', clinic.adminEmail);
+    }
 
     const authorizeUrl = `https://connect.stripe.com/oauth/authorize?${params.toString()}`;
 
