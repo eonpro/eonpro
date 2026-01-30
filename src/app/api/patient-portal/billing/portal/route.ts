@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -20,7 +21,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!user.patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     // Get patient's Stripe customer ID
@@ -30,7 +34,10 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     if (!patient?.stripeCustomerId) {
-      return NextResponse.json({ error: 'No billing account found' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'No billing account found', code: 'NO_BILLING_ACCOUNT' },
+        { status: 400 }
+      );
     }
 
     // Create portal session
@@ -41,7 +48,15 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    logger.error('Failed to create portal session:', error);
-    return NextResponse.json({ error: 'Failed to create portal session' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[BILLING_PORTAL_POST] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to create portal session', errorId, code: 'PORTAL_SESSION_ERROR' },
+      { status: 500 }
+    );
   }
 });

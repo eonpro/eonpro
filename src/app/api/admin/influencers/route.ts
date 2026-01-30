@@ -3,8 +3,9 @@ import { prisma } from "@/lib/db";
 import { CommissionStatus, InfluencerStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { logger } from '@/lib/logger';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 
-export async function GET() {
+export const GET = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     const influencers = await prisma.influencer.findMany({
       include: {
@@ -56,17 +57,15 @@ export async function GET() {
 
     return NextResponse.json(influencersWithStats);
   } catch (error: any) {
-    // @ts-ignore
-   
     logger.error("[Admin Influencers API] Error fetching influencers:", error);
     return NextResponse.json(
       { error: "Failed to fetch influencers" },
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     const { name, email, promoCode, password, commissionRate, status } = await req.json();
 
@@ -130,12 +129,10 @@ export async function POST(req: NextRequest) {
       }
     });
   } catch (error: any) {
-    // @ts-ignore
-   
     logger.error("[Admin Influencers API] Error creating influencer:", error);
     return NextResponse.json(
       { error: "Failed to create influencer" },
       { status: 500 }
     );
   }
-}
+});

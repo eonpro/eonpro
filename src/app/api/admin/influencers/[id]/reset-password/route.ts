@@ -2,12 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { logger } from '@/lib/logger';
+import { verifyAuth } from '@/lib/auth/middleware';
 
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // CRITICAL: Verify admin authentication - this endpoint resets passwords!
+    const auth = await verifyAuth(req);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!allowedRoles.includes(auth.user.role)) {
+      logger.security('Unauthorized password reset attempt', {
+        attemptedBy: auth.user.email,
+        role: auth.user.role,
+      });
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const params = await context.params;
     const { password } = await req.json();
     const influencerId = parseInt(params.id);
@@ -37,8 +53,15 @@ export async function POST(
     // Update the influencer's password
     await prisma.influencer.update({
       where: { id: influencerId },
-      data: { passwordHash: hashedPassword,
-      },
+      data: { passwordHash: hashedPassword },
+    });
+
+    // Log the password reset for audit trail
+    logger.security('Influencer password reset', {
+      influencerId,
+      influencerEmail: influencer.email,
+      resetBy: auth.user.email,
+      resetByUserId: auth.user.id,
     });
 
     return NextResponse.json({
@@ -46,8 +69,6 @@ export async function POST(
       message: "Password reset successfully",
     });
   } catch (error: any) {
-    // @ts-ignore
-   
     logger.error("[Admin Reset Password] Error:", error);
     return NextResponse.json(
       { error: "Failed to reset password" },

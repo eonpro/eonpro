@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '../../../../../lib/logger';
-
 import { prisma } from '@/lib/db';
+import { verifyAuth, canAccessClinic } from '@/lib/auth/middleware';
 
 /**
  * GET /api/admin/clinics/[id]
@@ -12,16 +12,32 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify admin authentication
+    const auth = await verifyAuth(request);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!allowedRoles.includes(auth.user.role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const resolvedParams = await params;
     const clinicId = parseInt(resolvedParams.id);
-    
+
     if (isNaN(clinicId)) {
       return NextResponse.json(
         { error: 'Invalid clinic ID' },
         { status: 400 }
       );
     }
-    
+
+    // Non-super-admins can only access their own clinic
+    if (auth.user.role !== 'super_admin' && !canAccessClinic(auth.user, clinicId)) {
+      return NextResponse.json({ error: 'Access denied to this clinic' }, { status: 403 });
+    }
+
     // Use explicit select for backwards compatibility with schema changes
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
@@ -89,17 +105,33 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify admin authentication
+    const auth = await verifyAuth(request);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!allowedRoles.includes(auth.user.role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const resolvedParams = await params;
     const clinicId = parseInt(resolvedParams.id);
     const body = await request.json();
-    
+
     if (isNaN(clinicId)) {
       return NextResponse.json(
         { error: 'Invalid clinic ID' },
         { status: 400 }
       );
     }
-    
+
+    // Non-super-admins can only update their own clinic
+    if (auth.user.role !== 'super_admin' && !canAccessClinic(auth.user, clinicId)) {
+      return NextResponse.json({ error: 'Access denied to this clinic' }, { status: 403 });
+    }
+
     // Check if clinic exists (select only needed fields)
     const existing = await prisma.clinic.findUnique({
       where: { id: clinicId },
@@ -197,8 +229,9 @@ export async function PATCH(
       data: {
         clinicId: clinicId,
         action: 'UPDATE',
+        userId: auth.user.id,
         details: {
-          updatedBy: 'admin', // TODO: Get from auth
+          updatedBy: auth.user.email,
           changes: body,
         }
       }
@@ -216,16 +249,26 @@ export async function PATCH(
 
 /**
  * DELETE /api/admin/clinics/[id]
- * Delete a clinic (admin only)
+ * Delete a clinic (super_admin only - destructive operation)
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify super_admin authentication (only super_admin can delete clinics)
+    const auth = await verifyAuth(request);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (auth.user.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden - Super Admin access required for clinic deletion' }, { status: 403 });
+    }
+
     const resolvedParams = await params;
     const clinicId = parseInt(resolvedParams.id);
-    
+
     if (isNaN(clinicId)) {
       return NextResponse.json(
         { error: 'Invalid clinic ID' },
@@ -276,8 +319,9 @@ export async function DELETE(
       data: {
         clinicId: clinicId,
         action: 'DELETE',
+        userId: auth.user.id,
         details: {
-          deletedBy: 'admin', // TODO: Get from auth
+          deletedBy: auth.user.email,
           clinicName: clinic.name,
           subdomain: clinic.subdomain,
         }

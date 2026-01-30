@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -21,7 +22,10 @@ const activitySchema = z.object({
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!user.patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     const body = await req.json();
@@ -47,7 +51,10 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     if (!activity) {
-      return NextResponse.json({ error: 'Activity not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Activity not found', code: 'ACTIVITY_NOT_FOUND' },
+        { status: 404 }
+      );
     }
 
     // Update activity status
@@ -74,7 +81,15 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to update activity:', error);
-    return NextResponse.json({ error: 'Failed to update activity' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[CARE_PLAN_ACTIVITY_POST] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to update activity', errorId, code: 'ACTIVITY_UPDATE_ERROR' },
+      { status: 500 }
+    );
   }
 });

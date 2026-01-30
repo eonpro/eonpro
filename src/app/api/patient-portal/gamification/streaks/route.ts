@@ -3,6 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { getPatientStreaks, recordStreakActivity, StreakType } from '@/lib/gamification/streaks';
 import { logger } from '@/lib/logger';
@@ -24,15 +25,26 @@ const VALID_STREAK_TYPES: StreakType[] = [
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!user.patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     const streaks = await getPatientStreaks(user.patientId);
 
     return NextResponse.json({ streaks });
   } catch (error) {
-    logger.error('Failed to fetch streaks:', error);
-    return NextResponse.json({ error: 'Failed to fetch streaks' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[STREAKS_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch streaks', errorId, code: 'STREAKS_FETCH_ERROR' },
+      { status: 500 }
+    );
   }
 });
 
@@ -43,14 +55,20 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!user.patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     const body = await req.json();
     const { streakType } = body;
 
     if (!streakType || !VALID_STREAK_TYPES.includes(streakType)) {
-      return NextResponse.json({ error: 'Invalid streak type' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid streak type', code: 'INVALID_STREAK_TYPE' },
+        { status: 400 }
+      );
     }
 
     const streak = await recordStreakActivity({
@@ -60,7 +78,15 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ streak });
   } catch (error) {
-    logger.error('Failed to record streak:', error);
-    return NextResponse.json({ error: 'Failed to record streak' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[STREAKS_POST] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to record streak', errorId, code: 'STREAK_RECORD_ERROR' },
+      { status: 500 }
+    );
   }
 });

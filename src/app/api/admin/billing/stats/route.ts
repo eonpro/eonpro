@@ -2,17 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { PaymentStatus, SubscriptionStatus } from "@prisma/client";
 import { logger } from '@/lib/logger';
+import { verifyAuth } from '@/lib/auth/middleware';
 
 export async function GET(req: NextRequest) {
   try {
+    // Verify admin authentication - billing data is sensitive
+    const auth = await verifyAuth(req);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!allowedRoles.includes(auth.user.role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     // Get current month start
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Build clinic filter for non-super-admin users
+    const clinicFilter = auth.user.role !== 'super_admin' && auth.user.clinicId
+      ? { clinicId: auth.user.clinicId }
+      : {};
 
     // Fetch total revenue (all successful payments)
     const totalRevenueData = await prisma.payment.aggregate({
       where: {
         status: PaymentStatus.SUCCEEDED,
+        ...clinicFilter,
       },
       _sum: {
         amount: true,
@@ -27,6 +45,7 @@ export async function GET(req: NextRequest) {
         createdAt: {
           gte: monthStart,
         },
+        ...clinicFilter,
       },
       _sum: {
         amount: true,
@@ -38,16 +57,20 @@ export async function GET(req: NextRequest) {
     const activeSubscriptions = await prisma.subscription.count({
       where: {
         status: SubscriptionStatus.ACTIVE,
+        ...clinicFilter,
       },
     });
 
     // Count total patients
-    const totalPatients = await prisma.patient.count();
+    const totalPatients = await prisma.patient.count({
+      where: clinicFilter,
+    });
 
     // Fetch recent payments with patient info
     const recentPayments = await prisma.payment.findMany({
       where: {
         status: PaymentStatus.SUCCEEDED,
+        ...clinicFilter,
       },
       orderBy: {
         createdAt: "desc",
@@ -86,6 +109,7 @@ export async function GET(req: NextRequest) {
     const pendingInvoices = await prisma.invoice.findMany({
       where: {
         status: "DRAFT", // Assuming DRAFT means pending payment
+        ...clinicFilter,
       },
       orderBy: {
         createdAt: "desc",
@@ -123,8 +147,6 @@ export async function GET(req: NextRequest) {
       pendingInvoices: formattedInvoices,
     });
   } catch (error: any) {
-    // @ts-ignore
-   
     logger.error("[Admin Billing Stats API] Error fetching stats:", error);
     return NextResponse.json(
       { error: "Failed to fetch billing statistics" },

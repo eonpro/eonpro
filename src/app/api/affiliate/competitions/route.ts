@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -25,11 +26,17 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     if (!affiliate) {
-      return NextResponse.json({ error: 'Affiliate profile not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Affiliate profile not found', code: 'AFFILIATE_NOT_FOUND' },
+        { status: 404 }
+      );
     }
 
     if (affiliate.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Affiliate account is not active' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Affiliate account is not active', code: 'AFFILIATE_INACTIVE' },
+        { status: 403 }
+      );
     }
 
     // Get active and upcoming competitions for this clinic
@@ -128,7 +135,15 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
   } catch (error) {
-    logger.error('[Affiliate Competitions] Error fetching competitions', error);
-    return NextResponse.json({ error: 'Failed to fetch competitions' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[AFFILIATE_COMPETITIONS_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch competitions', errorId, code: 'COMPETITIONS_FETCH_ERROR' },
+      { status: 500 }
+    );
   }
 }, { roles: ['affiliate', 'super_admin', 'admin'] });

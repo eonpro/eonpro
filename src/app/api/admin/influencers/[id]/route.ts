@@ -3,12 +3,24 @@ import { prisma } from "@/lib/db";
 import { InfluencerStatus, CommissionStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { logger } from '@/lib/logger';
+import { verifyAuth } from '@/lib/auth/middleware';
 
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify admin authentication
+    const auth = await verifyAuth(req);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!allowedRoles.includes(auth.user.role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const params = await context.params;
     const influencerId = parseInt(params.id);
     const updates = await req.json();
@@ -79,6 +91,17 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify admin authentication
+    const auth = await verifyAuth(req);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!allowedRoles.includes(auth.user.role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const resolvedParams = await params;
     const influencerId = parseInt(resolvedParams.id);
     const updates = await req.json();
@@ -97,13 +120,13 @@ export async function PATCH(
 
     // Build update data
     const updateData: any = {};
-    
+
     if (updates.name) updateData.name = updates.name;
     if (updates.commissionRate !== undefined) {
       updateData.commissionRate = updates.commissionRate;
     }
     if (updates.status) updateData.status = updates.status;
-    
+
     // If password is provided, hash it
     if (updates.password) {
       updateData.passwordHash = await bcrypt.hash(updates.password, 12);
@@ -127,8 +150,6 @@ export async function PATCH(
       }
     });
   } catch (error: any) {
-    // @ts-ignore
-   
     logger.error("[Admin Influencer Update API] Error:", error);
     return NextResponse.json(
       { error: "Failed to update influencer" },
@@ -142,6 +163,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify admin authentication
+    const auth = await verifyAuth(req);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!allowedRoles.includes(auth.user.role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const resolvedParams = await params;
     const influencerId = parseInt(resolvedParams.id);
 

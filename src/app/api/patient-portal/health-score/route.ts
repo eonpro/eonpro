@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -15,7 +16,10 @@ import { logger } from '@/lib/logger';
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!user.patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     const now = new Date();
@@ -248,8 +252,16 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       weeklyTrend,
     });
   } catch (error) {
-    logger.error('Failed to calculate health score:', error);
-    return NextResponse.json({ error: 'Failed to calculate health score' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[HEALTH_SCORE_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to calculate health score', errorId, code: 'HEALTH_SCORE_CALC_ERROR' },
+      { status: 500 }
+    );
   }
 });
 

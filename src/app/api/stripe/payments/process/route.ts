@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     const encryptionKeyId = crypto.randomBytes(16).toString('hex');
 
     // Wrap all database operations in a transaction for atomicity
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: typeof prisma) => {
       let paymentMethodId: number | null = null;
       let subscriptionId: number | null = null;
 

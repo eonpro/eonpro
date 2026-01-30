@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -19,7 +20,10 @@ export async function GET(request: NextRequest) {
     const domain = searchParams.get('domain');
 
     if (!domain) {
-      return NextResponse.json({ error: 'domain parameter is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'domain parameter is required', code: 'DOMAIN_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     logger.info('[ClinicResolve] Resolving clinic for domain', { domain });
@@ -59,7 +63,10 @@ export async function GET(request: NextRequest) {
         });
       }
       
-      return NextResponse.json({ error: 'Clinic not found for this domain' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Clinic not found for this domain', code: 'CLINIC_NOT_FOUND' },
+        { status: 404 }
+      );
     }
 
     logger.info('[ClinicResolve] Clinic resolved', { domain, clinicId: clinic.id, clinicName: clinic.name });
@@ -90,9 +97,16 @@ export async function GET(request: NextRequest) {
         phone: clinic.phone,
       },
     });
-  } catch (error: any) {
-    logger.error('[ClinicResolve] Error resolving clinic', { error: error.message });
-    return NextResponse.json({ error: 'Failed to resolve clinic' }, { status: 500 });
+  } catch (error) {
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[CLINIC_RESOLVE_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    return NextResponse.json(
+      { error: 'Failed to resolve clinic', errorId, code: 'CLINIC_RESOLVE_ERROR' },
+      { status: 500 }
+    );
   }
 }
 

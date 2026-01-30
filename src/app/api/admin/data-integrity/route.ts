@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { validateDatabaseSchema, SchemaValidationResult } from '@/lib/database/schema-validator';
+import { verifyAuth } from '@/lib/auth/middleware';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -70,13 +71,20 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
   
   try {
-    // Optional: Add authentication for production
-    // const auth = await verifyAuth(request);
-    // if (!auth || auth.user?.role !== 'admin') {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
+    // Verify admin authentication - data integrity checks expose database structure
+    const auth = await verifyAuth(request);
+    if (!auth.success || !auth.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    logger.info('[DataIntegrity] Starting comprehensive data integrity check');
+    const allowedRoles = ['super_admin', 'admin'];
+    if (!allowedRoles.includes(auth.user.role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
+    logger.info('[DataIntegrity] Starting comprehensive data integrity check', {
+      initiatedBy: auth.user.email,
+    });
 
     // 1. Schema Validation
     const schemaResult = await validateDatabaseSchema(prisma);

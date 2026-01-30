@@ -3,6 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { getPatientPoints, getPointsHistory, getLeaderboard } from '@/lib/gamification/points';
 import { logger } from '@/lib/logger';
@@ -14,7 +15,10 @@ import { logger } from '@/lib/logger';
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!user.patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     const searchParams = req.nextUrl.searchParams;
@@ -36,7 +40,15 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json(points);
   } catch (error) {
-    logger.error('Failed to fetch points:', error);
-    return NextResponse.json({ error: 'Failed to fetch points' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[POINTS_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch points', errorId, code: 'POINTS_FETCH_ERROR' },
+      { status: 500 }
+    );
   }
 });

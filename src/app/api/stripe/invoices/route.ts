@@ -202,7 +202,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       };
 
       // Wrap invoice and invoice items creation in a transaction for atomicity
-      const invoice = await prisma.$transaction(async (tx) => {
+      const invoice = await prisma.$transaction(async (tx: typeof prisma) => {
         const newInvoice = await tx.invoice.create({
           data: {
             patientId: validatedData.patientId,
@@ -261,7 +261,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       } as any);
 
       // Wrap invoice update and invoice items creation in a transaction for atomicity
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: typeof prisma) => {
         // Update invoice with subscription flag
         await tx.invoice.update({
           where: { id: result.invoice.id },

@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -20,7 +21,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!user.patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     // Get patient with Stripe customer ID
@@ -43,7 +47,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     if (!patient) {
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Patient not found', code: 'PATIENT_NOT_FOUND' },
+        { status: 404 }
+      );
     }
 
     let subscription = null;
@@ -166,8 +173,16 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       upcomingInvoice,
     });
   } catch (error) {
-    logger.error('Failed to fetch billing data:', error);
-    return NextResponse.json({ error: 'Failed to fetch billing data' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[BILLING_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch billing data', errorId, code: 'BILLING_FETCH_ERROR' },
+      { status: 500 }
+    );
   }
 });
 

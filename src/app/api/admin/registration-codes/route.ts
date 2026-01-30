@@ -93,8 +93,16 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ codes: codesWithStats });
   } catch (error) {
-    logger.error('Failed to fetch registration codes', { error });
-    return NextResponse.json({ error: 'Failed to fetch registration codes' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[REGISTRATION_CODES_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch registration codes', errorId, code: 'REG_CODES_FETCH_ERROR' },
+      { status: 500 }
+    );
   }
 });
 
@@ -142,7 +150,12 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       } while (attempts < 10);
 
       if (attempts >= 10) {
-        return NextResponse.json({ error: 'Failed to generate unique code' }, { status: 500 });
+        const errorId = crypto.randomUUID().slice(0, 8);
+        logger.error(`[REGISTRATION_CODES_POST] Error ${errorId}: Failed to generate unique code after 10 attempts`);
+        return NextResponse.json(
+          { error: 'Failed to generate unique code', errorId, code: 'CODE_GENERATION_ERROR' },
+          { status: 500 }
+        );
       }
     } else {
       // Check if code already exists
@@ -182,8 +195,16 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ code: newCode }, { status: 201 });
   } catch (error) {
-    logger.error('Failed to create registration code', { error });
-    return NextResponse.json({ error: 'Failed to create registration code' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[REGISTRATION_CODES_POST] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to create registration code', errorId, code: 'REG_CODE_CREATE_ERROR' },
+      { status: 500 }
+    );
   }
 });
 
@@ -246,8 +267,16 @@ export const PATCH = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ code: updatedCode });
   } catch (error) {
-    logger.error('Failed to update registration code', { error });
-    return NextResponse.json({ error: 'Failed to update registration code' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[REGISTRATION_CODES_PATCH] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to update registration code', errorId, code: 'REG_CODE_UPDATE_ERROR' },
+      { status: 500 }
+    );
   }
 });
 
@@ -292,7 +321,15 @@ export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Failed to delete registration code', { error });
-    return NextResponse.json({ error: 'Failed to delete registration code' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[REGISTRATION_CODES_DELETE] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to delete registration code', errorId, code: 'REG_CODE_DELETE_ERROR' },
+      { status: 500 }
+    );
   }
 });

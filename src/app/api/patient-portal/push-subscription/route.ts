@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -40,7 +41,10 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     const patientId = user.patientId;
 
     if (!patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     // Upsert the subscription
@@ -65,8 +69,16 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Failed to register push subscription:', error);
-    return NextResponse.json({ error: 'Failed to register subscription' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[PUSH_SUBSCRIPTION_POST] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to register subscription', errorId, code: 'SUBSCRIPTION_REGISTER_ERROR' },
+      { status: 500 }
+    );
   }
 });
 
@@ -80,7 +92,10 @@ export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
     const { endpoint } = body;
 
     if (!endpoint) {
-      return NextResponse.json({ error: 'Endpoint required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Endpoint required', code: 'ENDPOINT_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     await prisma.pushSubscription.deleteMany({
@@ -94,8 +109,16 @@ export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Failed to unregister push subscription:', error);
-    return NextResponse.json({ error: 'Failed to unregister subscription' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[PUSH_SUBSCRIPTION_DELETE] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to unregister subscription', errorId, code: 'SUBSCRIPTION_UNREGISTER_ERROR' },
+      { status: 500 }
+    );
   }
 });
 
@@ -108,7 +131,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const patientId = user.patientId;
 
     if (!patientId) {
-      return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     const subscriptions = await prisma.pushSubscription.findMany({
@@ -125,7 +151,15 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       count: subscriptions.length,
     });
   } catch (error) {
-    logger.error('Failed to check push subscription:', error);
-    return NextResponse.json({ error: 'Failed to check subscription' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[PUSH_SUBSCRIPTION_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      patientId: user.patientId,
+    });
+    return NextResponse.json(
+      { error: 'Failed to check subscription', errorId, code: 'SUBSCRIPTION_CHECK_ERROR' },
+      { status: 500 }
+    );
   }
 });

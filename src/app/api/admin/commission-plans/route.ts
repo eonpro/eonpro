@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -21,7 +22,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       : user.clinicId;
 
     if (!clinicId && user.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Clinic ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Clinic ID required', code: 'CLINIC_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     const plans = await prisma.affiliateCommissionPlan.findMany({
@@ -60,8 +64,16 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
   } catch (error) {
-    logger.error('[Admin Commission Plans] Error listing plans', error);
-    return NextResponse.json({ error: 'Failed to list plans' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[COMMISSION_PLANS_GET] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to list plans', errorId, code: 'PLANS_LIST_ERROR' },
+      { status: 500 }
+    );
   }
 }, { roles: ['super_admin', 'admin'] });
 
@@ -94,28 +106,34 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       : user.clinicId;
 
     if (!clinicId) {
-      return NextResponse.json({ error: 'Clinic ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Clinic ID required', code: 'CLINIC_ID_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     // Validate required fields
     if (!name || !planType) {
-      return NextResponse.json({ 
-        error: 'Name and planType are required' 
-      }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Name and planType are required', code: 'MISSING_REQUIRED_FIELDS' },
+        { status: 400 }
+      );
     }
 
     // Validate plan type specific fields
     if (planType === 'FLAT' && (!flatAmountCents || flatAmountCents < 0)) {
-      return NextResponse.json({ 
-        error: 'flatAmountCents must be >= 0 for FLAT plan type' 
-      }, { status: 400 });
+      return NextResponse.json(
+        { error: 'flatAmountCents must be >= 0 for FLAT plan type', code: 'INVALID_FLAT_AMOUNT' },
+        { status: 400 }
+      );
     }
 
     if (planType === 'PERCENT') {
       if (percentBps === undefined || percentBps < 0 || percentBps > 10000) {
-        return NextResponse.json({ 
-          error: 'percentBps must be between 0 and 10000 (100%)' 
-        }, { status: 400 });
+        return NextResponse.json(
+          { error: 'percentBps must be between 0 and 10000 (100%)', code: 'INVALID_PERCENT_BPS' },
+          { status: 400 }
+        );
       }
     }
 
@@ -181,7 +199,15 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     }, { status: 201 });
 
   } catch (error) {
-    logger.error('[Admin Commission Plans] Error creating plan', error);
-    return NextResponse.json({ error: 'Failed to create plan' }, { status: 500 });
+    const errorId = crypto.randomUUID().slice(0, 8);
+    logger.error(`[COMMISSION_PLANS_POST] Error ${errorId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to create plan', errorId, code: 'PLAN_CREATE_ERROR' },
+      { status: 500 }
+    );
   }
 }, { roles: ['super_admin', 'admin'] });

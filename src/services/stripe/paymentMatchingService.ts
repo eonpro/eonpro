@@ -302,7 +302,7 @@ export async function createPatientFromStripePayment(
     : { firstName: 'Unknown', lastName: 'Customer' };
 
   // Wrap counter update and patient creation in a transaction for atomicity
-  const patient = await prisma.$transaction(async (tx) => {
+  const patient = await prisma.$transaction(async (tx: typeof prisma) => {
     // Generate next patient ID - clinic-specific counter
     const counter = await tx.patientCounter.upsert({
       where: { clinicId },
@@ -392,7 +392,7 @@ export async function createPaidInvoiceFromStripe(
   const description = paymentData.description || 'Payment received via Stripe';
 
   // Wrap invoice and payment creation in a transaction for atomicity
-  const invoice = await prisma.$transaction(async (tx) => {
+  const invoice = await prisma.$transaction(async (tx: typeof prisma) => {
     // Create the invoice as PAID
     const newInvoice = await tx.invoice.create({
       data: {

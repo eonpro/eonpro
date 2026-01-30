@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '../../../../lib/logger';
 import { basePrisma as prisma } from '@/lib/db';
 import { UserRole } from '@prisma/client';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 
 /**
  * GET /api/admin/clinics
  * Get all clinics (admin only)
  */
-export async function GET(request: NextRequest) {
+export const GET = withAdminAuth(async (request: NextRequest, user: AuthUser) => {
   try {
-    // TODO: Add admin authentication check
-
     // Use explicit select for backwards compatibility with schema changes
     const clinics = await prisma.clinic.findMany({
       select: {
@@ -84,13 +83,13 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * POST /api/admin/clinics
  * Create a new clinic (admin only)
  */
-export async function POST(request: NextRequest) {
+export const POST = withAdminAuth(async (request: NextRequest, user: AuthUser) => {
   try {
     const body = await request.json();
 
@@ -158,8 +157,9 @@ export async function POST(request: NextRequest) {
       data: {
         clinicId: clinic.id,
         action: 'CREATE',
+        userId: user.id,
         details: {
-          createdBy: 'admin', // TODO: Get from auth
+          createdBy: user.email,
           initialPlan: clinic.billingPlan,
         }
       }
@@ -173,4 +173,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
