@@ -109,23 +109,23 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         }
       }),
       
-      // Total revenue from paid invoices
-      prisma.invoice.aggregate({
+      // Total revenue from paid invoices (get both amountPaid and amount)
+      prisma.invoice.findMany({
         where: {
           ...clinicFilter,
           status: 'PAID'
         },
-        _sum: { amountPaid: true }
+        select: { amountPaid: true, amount: true }
       }),
       
       // Recent revenue (24h)
-      prisma.invoice.aggregate({
+      prisma.invoice.findMany({
         where: {
           ...clinicFilter,
           status: 'PAID',
           paidAt: { gte: twentyFourHoursAgo }
         },
-        _sum: { amountPaid: true }
+        select: { amountPaid: true, amount: true }
       }),
       
       // Recurring revenue from active subscriptions
@@ -150,9 +150,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       ? Math.round((totalConverted / totalPatientsCount) * 100 * 10) / 10 
       : 0;
     
-    // Revenue in cents, convert to dollars
-    const totalRevenue = (paidInvoices._sum.amountPaid || 0) / 100;
-    const recentRevenue = (recentPaidInvoices._sum.amountPaid || 0) / 100;
+    // Revenue in cents - use amountPaid if set, otherwise fall back to amount
+    const sumInvoices = (invoices: Array<{ amountPaid: number; amount: number | null }>) => {
+      return invoices.reduce((sum, inv) => {
+        // Use amountPaid if > 0, otherwise use amount
+        const invoiceAmount = inv.amountPaid > 0 ? inv.amountPaid : (inv.amount || 0);
+        return sum + invoiceAmount;
+      }, 0);
+    };
+    
+    const totalRevenue = sumInvoices(paidInvoices) / 100;
+    const recentRevenue = sumInvoices(recentPaidInvoices) / 100;
     
     // Calculate monthly recurring revenue (MRR)
     let recurringRevenue = 0;
