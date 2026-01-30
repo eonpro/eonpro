@@ -70,7 +70,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       });
     }
 
-    const refCodeList = refCodes.map(r => r.refCode);
+    const refCodeList = refCodes.map((r: { refCode: string }) => r.refCode);
 
     // Get clicks per ref code (from AffiliateTouch)
     const clicksData = await prisma.affiliateTouch.groupBy({
@@ -132,7 +132,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     // Combine data for each ref code
-    const refCodeStats: RefCodeStats[] = refCodes.map(rc => {
+    const refCodeStats: RefCodeStats[] = refCodes.map((rc: { refCode: string; description: string | null }) => {
       const clicks = clickMap.get(rc.refCode) || 0;
       const convData = conversionMap.get(rc.refCode) || {
         conversions: 0,

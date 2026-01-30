@@ -61,7 +61,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     ]);
 
     // Format response
-    const formattedCompetitions = competitions.map(comp => ({
+    const formattedCompetitions = competitions.map((comp: typeof competitions[number]) => ({
       id: comp.id,
       name: comp.name,
       description: comp.description,
@@ -74,7 +74,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       minParticipants: comp.minParticipants,
       isPublic: comp.isPublic,
       participantCount: comp._count.entries,
-      topParticipants: comp.entries.map(e => ({
+      topParticipants: comp.entries.map((e: typeof comp.entries[number]) => ({
         affiliateId: e.affiliateId,
         displayName: e.affiliate.displayName,
         currentValue: e.currentValue,
@@ -178,7 +178,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
 
       if (activeAffiliates.length > 0) {
         await prisma.affiliateCompetitionEntry.createMany({
-          data: activeAffiliates.map(a => ({
+          data: activeAffiliates.map((a: { id: number }) => ({
             competitionId: competition.id,
             affiliateId: a.id,
             currentValue: 0,

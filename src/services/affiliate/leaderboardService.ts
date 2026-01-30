@@ -381,8 +381,9 @@ export async function updateAllActiveCompetitionScores(): Promise<{
         }
 
         // Recalculate ranks
-        const sortedEntries = competition.entries
-          .sort((a, b) => b.currentValue - a.currentValue);
+        type EntryType = typeof competition.entries[number];
+        const sortedEntries = [...competition.entries]
+          .sort((a: EntryType, b: EntryType) => b.currentValue - a.currentValue);
 
         for (let i = 0; i < sortedEntries.length; i++) {
           await prisma.affiliateCompetitionEntry.update({
@@ -454,7 +455,7 @@ export async function getCompetitionStandings(
     throw new Error('Competition not found');
   }
 
-  return competition.entries.map((entry, index) => ({
+  return competition.entries.map((entry: typeof competition.entries[number], index: number) => ({
     rank: entry.rank || index + 1,
     affiliateId: entry.affiliateId,
     displayName: entry.affiliate.displayName,

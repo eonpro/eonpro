@@ -56,7 +56,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     // Get top 3 for each competition
     const competitionsWithStandings = await Promise.all(
-      competitions.map(async (comp) => {
+      competitions.map(async (comp: typeof competitions[number]) => {
         const topEntries = await prisma.affiliateCompetitionEntry.findMany({
           where: { competitionId: comp.id },
           orderBy: [
@@ -104,7 +104,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
             : null,
           timeRemainingMs: comp.status === 'ACTIVE' ? Math.max(0, timeRemaining) : null,
           timeToStartMs: comp.status === 'SCHEDULED' ? Math.max(0, timeToStart) : null,
-          topParticipants: topEntries.map((entry, index) => ({
+          topParticipants: topEntries.map((entry: typeof topEntries[number], index: number) => ({
             rank: entry.rank || index + 1,
             displayName: entry.affiliate.leaderboardOptIn 
               ? (entry.affiliate.leaderboardAlias || entry.affiliate.displayName)

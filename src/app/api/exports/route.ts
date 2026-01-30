@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Return file as response
-    return new NextResponse(result.buffer, {
+    return new NextResponse(new Uint8Array(result.buffer), {
       headers: {
         'Content-Type': result.mimeType,
         'Content-Disposition': `attachment; filename="${result.filename}"`,
