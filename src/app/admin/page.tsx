@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import {
-  Search, Clock, UserPlus, CreditCard, RefreshCw, FileText, Building2
+  Search, Clock, UserPlus, CreditCard, RefreshCw, FileText, Building2, TrendingUp, Users, Pill
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -36,10 +36,15 @@ interface PatientIntake {
 }
 
 interface DashboardStats {
-  newIntakes: number;
-  newRevenue: number;
+  totalIntakes: number;
+  totalPatients: number;
+  totalPrescriptions: number;
+  conversionRate: number;
+  totalRevenue: number;
   recurringRevenue: number;
-  newPrescriptions: number;
+  recentIntakes: number;
+  recentPrescriptions: number;
+  recentRevenue: number;
 }
 
 interface ClinicInfo {
@@ -60,10 +65,15 @@ export default function AdminPage() {
   const [intakesLoading, setIntakesLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
-    newIntakes: 0,
-    newRevenue: 0,
+    totalIntakes: 0,
+    totalPatients: 0,
+    totalPrescriptions: 0,
+    conversionRate: 0,
+    totalRevenue: 0,
     recurringRevenue: 0,
-    newPrescriptions: 0,
+    recentIntakes: 0,
+    recentPrescriptions: 0,
+    recentRevenue: 0,
   });
 
   useEffect(() => {
@@ -103,47 +113,22 @@ export default function AdminPage() {
 
   const loadDashboardData = async () => {
     try {
-      // Include contact info to show DOB, email, and phone
-      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h&includeContact=true');
+      // Fetch dashboard stats from our comprehensive API
+      const statsResponse = await apiFetch('/api/admin/dashboard');
+      if (statsResponse.ok) {
+        const data = await statsResponse.json();
+        if (data.stats) {
+          setStats(data.stats);
+        }
+      }
 
+      // Fetch recent intakes for the table (last 24h with contact info)
+      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h&includeContact=true');
       if (intakesResponse.ok) {
         const intakesData = await intakesResponse.json();
         const patients = intakesData.patients || [];
         setRecentIntakes(patients);
-        setStats(prev => ({ ...prev, newIntakes: patients.length }));
       }
-
-      // Fetch revenue stats
-      try {
-        const revenueResponse = await apiFetch('/api/stripe/transactions?limit=100&type=charges&status=succeeded');
-        if (revenueResponse.ok) {
-          const revenueData = await revenueResponse.json();
-          const transactions = revenueData.transactions || [];
-          const newRevenue = transactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0) / 100;
-          setStats(prev => ({ ...prev, newRevenue }));
-        }
-      } catch (e: any) { if (!e.isAuthError) { /* ignore */ } }
-
-      // Fetch subscription/recurring revenue
-      try {
-        const subsResponse = await apiFetch('/api/stripe/subscriptions?status=active');
-        if (subsResponse.ok) {
-          const subsData = await subsResponse.json();
-          const subs = subsData.subscriptions || [];
-          const recurringRevenue = subs.reduce((sum: number, s: any) => sum + (s.plan?.amount || 0), 0) / 100;
-          setStats(prev => ({ ...prev, recurringRevenue }));
-        }
-      } catch (e: any) { if (!e.isAuthError) { /* ignore */ } }
-
-      // Fetch prescriptions count
-      try {
-        const ordersResponse = await apiFetch('/api/orders?limit=100&recent=24h');
-        if (ordersResponse.ok) {
-          const ordersData = await ordersResponse.json();
-          const orders = ordersData.orders || [];
-          setStats(prev => ({ ...prev, newPrescriptions: orders.length }));
-        }
-      } catch (e: any) { if (!e.isAuthError) { /* ignore */ } }
 
       setIntakesLoading(false);
       setPageLoading(false);
@@ -255,35 +240,68 @@ export default function AdminPage() {
         Welcome, <span className="text-gray-900">{displayName}</span>
       </h1>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Stats Cards - Row 1: Counts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#4fa77e]/10 flex items-center justify-center">
-            <UserPlus className="h-6 w-6 text-[#4fa77e]" />
+          <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
+            <UserPlus className="h-6 w-6 text-blue-500" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-gray-900">{stats.newIntakes}</p>
-            <p className="text-sm text-gray-500">New Intakes</p>
+            <p className="text-3xl font-bold text-gray-900">{stats.totalIntakes}</p>
+            <p className="text-sm text-gray-500">Total Intakes</p>
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#4fa77e]/10 flex items-center justify-center">
-            <CreditCard className="h-6 w-6 text-[#4fa77e]" />
+            <Users className="h-6 w-6 text-[#4fa77e]" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.newRevenue)}</p>
-            <p className="text-sm text-gray-500">New Revenue</p>
+            <p className="text-3xl font-bold text-gray-900">{stats.totalPatients}</p>
+            <p className="text-sm text-gray-500">Converted Patients</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
+            <Pill className="h-6 w-6 text-purple-500" />
+          </div>
+          <div>
+            <p className="text-3xl font-bold text-gray-900">{stats.totalPrescriptions}</p>
+            <p className="text-sm text-gray-500">Total Prescriptions</p>
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-            <RefreshCw className="h-6 w-6 text-amber-500" />
+            <TrendingUp className="h-6 w-6 text-amber-500" />
+          </div>
+          <div>
+            <p className="text-3xl font-bold text-gray-900">{stats.conversionRate}%</p>
+            <p className="text-sm text-gray-500">Conversion Rate</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards - Row 2: Revenue */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <CreditCard className="h-6 w-6 text-green-500" />
+          </div>
+          <div>
+            <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+            <p className="text-sm text-gray-500">Total Revenue</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <RefreshCw className="h-6 w-6 text-emerald-500" />
           </div>
           <div>
             <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.recurringRevenue)}</p>
-            <p className="text-sm text-gray-500">Recurring</p>
+            <p className="text-sm text-gray-500">Monthly Recurring</p>
           </div>
         </div>
 
@@ -292,8 +310,8 @@ export default function AdminPage() {
             <FileText className="h-6 w-6 text-rose-500" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-gray-900">{stats.newPrescriptions}</p>
-            <p className="text-sm text-gray-500">New Scripts</p>
+            <p className="text-3xl font-bold text-green-600">{formatCurrency(stats.recentRevenue)}</p>
+            <p className="text-sm text-gray-500">Revenue (24h)</p>
           </div>
         </div>
       </div>
@@ -301,12 +319,12 @@ export default function AdminPage() {
       {/* Patient Intakes Card */}
       <div className="bg-white rounded-2xl border border-gray-200">
         <div className="px-6 py-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">New Patient Intakes</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Recent Patient Intakes</h2>
           <Link
-            href="/admin/patients"
+            href="/admin/intakes"
             className="text-sm text-gray-500 hover:text-[#4fa77e] font-medium"
           >
-            Load More
+            View All Intakes
           </Link>
         </div>
 

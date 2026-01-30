@@ -1,363 +1,220 @@
 /**
- * ADMIN DASHBOARD API
- * ====================
- * Returns real-time statistics for the admin dashboard
+ * Admin Dashboard Stats API
+ * =========================
  * 
- * GET /api/admin/dashboard
+ * Provides comprehensive dashboard statistics including:
+ * - Total intakes (patients without payment/order)
+ * - Total converted patients (with payment/order)
+ * - Total prescriptions/orders
+ * - Conversion rate
+ * - Revenue from paid invoices
+ * 
+ * @module api/admin/dashboard
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-export async function GET(req: NextRequest) {
+interface DashboardStats {
+  // Counts
+  totalIntakes: number;
+  totalPatients: number;
+  totalPrescriptions: number;
+  
+  // Conversion
+  conversionRate: number;
+  
+  // Revenue
+  totalRevenue: number;
+  recurringRevenue: number;
+  
+  // Recent activity (24h)
+  recentIntakes: number;
+  recentPrescriptions: number;
+  recentRevenue: number;
+}
+
+/**
+ * GET /api/admin/dashboard
+ * Get comprehensive dashboard statistics
+ */
+async function handleGet(req: NextRequest, user: AuthUser) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuth(req);
-    
-    // Allow development mode fallback
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    let clinicId: number | undefined | null = undefined;
-    let role: string = 'admin';
-    
-    if (authResult.success && authResult.user) {
-      clinicId = authResult.user.clinicId;
-      role = authResult.user.role || 'admin';
-    } else if (isDevelopment) {
-      // Development fallback
-      logger.warn('[Dashboard API] Using development fallback');
-      clinicId = undefined; // Show all data in dev
-      role = 'super_admin';
-    } else {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    // Get date ranges
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    const startOfLastWeek = new Date(startOfWeek);
-    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+    // Get clinic context for non-super-admin users
+    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+    const clinicFilter = clinicId ? { clinicId } : {};
 
-    // Build clinic filter - handle both undefined and null clinicId
-    const isSuperAdmin = role.toLowerCase() === 'super_admin';
-    const clinicFilter = isSuperAdmin || !clinicId ? {} : { clinicId };
+    // Calculate 24 hours ago
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    // Get total patients (current month) - with error handling
-    let totalPatients = 0;
-    let lastMonthPatients = 0;
-    try {
-      totalPatients = await prisma.patient.count({
-        where: clinicFilter,
-      });
-
-      // Get patients from last month for comparison
-      lastMonthPatients = await prisma.patient.count({
+    // Get all patient IDs that have successful payments or orders (converted patients)
+    const [patientsWithPayments, patientsWithOrders] = await Promise.all([
+      prisma.payment.findMany({
         where: {
-          ...clinicFilter,
-          createdAt: {
-            lt: startOfMonth,
-          },
+          status: 'SUCCEEDED',
+          ...(clinicId && { patient: { clinicId } })
         },
-      });
-    } catch (patientError) {
-      logger.warn('[Dashboard] Patient count failed', { error: patientError });
-    }
-
-    // Calculate patient change percentage
-    const patientsChange = lastMonthPatients > 0 
-      ? (((totalPatients - lastMonthPatients) / lastMonthPatients) * 100).toFixed(1)
-      : totalPatients > 0 ? 100 : 0;
-
-    // Get active providers - count all providers (PostgreSQL doesn't support isSet)
-    let activeProviders = 0;
-    try {
-      activeProviders = await prisma.provider.count({
-        where: clinicFilter,
-      });
-    } catch (providerError) {
-      logger.warn('[Dashboard] Provider count failed', { error: providerError });
-      activeProviders = 0;
-    }
-
-    // Get provider count from last month
-    let lastMonthProviders = 0;
-    try {
-      lastMonthProviders = await prisma.provider.count({
+        select: { patientId: true },
+        distinct: ['patientId']
+      }),
+      prisma.order.findMany({
         where: {
-          ...clinicFilter,
-          createdAt: {
-            lt: startOfMonth,
-          },
+          ...(clinicId && { patient: { clinicId } })
         },
-      });
-    } catch {
-      lastMonthProviders = 0;
+        select: { patientId: true },
+        distinct: ['patientId']
+      })
+    ]);
+
+    // Combine to get all converted patient IDs
+    const convertedIds = new Set<number>();
+    for (const p of patientsWithPayments) {
+      convertedIds.add(p.patientId);
+    }
+    for (const o of patientsWithOrders) {
+      convertedIds.add(o.patientId);
     }
 
-    const providersChange = lastMonthProviders > 0
-      ? (((activeProviders - lastMonthProviders) / lastMonthProviders) * 100).toFixed(1)
-      : activeProviders > 0 ? 100 : 0;
-
-    // Get pending orders (this week) - with error handling
-    let pendingOrders = 0;
-    let lastWeekOrders = 0;
-    try {
-      pendingOrders = await prisma.order.count({
-        where: {
-          ...clinicFilter,
-          OR: [
-            { status: 'PENDING' },
-            { status: 'pending' },
-            { status: 'PROCESSING' },
-            { status: 'processing' },
-          ],
-        },
-      });
-
-      // Get orders from last week
-      lastWeekOrders = await prisma.order.count({
-        where: {
-          ...clinicFilter,
-          OR: [
-            { status: 'PENDING' },
-            { status: 'pending' },
-            { status: 'PROCESSING' },
-            { status: 'processing' },
-          ],
-          createdAt: {
-            gte: startOfLastWeek,
-            lt: startOfWeek,
-          },
-        },
-      });
-    } catch (orderError) {
-      logger.warn('[Dashboard] Order count failed', { error: orderError });
-    }
-
-    const ordersChange = lastWeekOrders > 0
-      ? (((pendingOrders - lastWeekOrders) / lastWeekOrders) * 100).toFixed(1)
-      : pendingOrders > 0 ? 100 : 0;
-
-    // Get monthly revenue from invoices - with error handling
-    let totalRevenue = 0;
-    let lastMonthRevenue = 0;
-    try {
-      const monthlyInvoices = await prisma.invoice.aggregate({
-        where: {
-          ...clinicFilter,
-          OR: [
-            { status: 'PAID' },
-            { status: 'paid' },
-          ],
-          paidAt: {
-            gte: startOfMonth,
-          },
-        },
-        _sum: {
-          amountPaid: true,
-        },
-      });
-
-      const lastMonthInvoices = await prisma.invoice.aggregate({
-        where: {
-          ...clinicFilter,
-          OR: [
-            { status: 'PAID' },
-            { status: 'paid' },
-          ],
-          paidAt: {
-            gte: startOfLastMonth,
-            lt: startOfMonth,
-          },
-        },
-        _sum: {
-          amountPaid: true,
-        },
-      });
-
-      totalRevenue = (monthlyInvoices._sum.amountPaid || 0) / 100; // Convert from cents
-      lastMonthRevenue = (lastMonthInvoices._sum.amountPaid || 0) / 100;
-    } catch (invoiceError) {
-      logger.warn('[Dashboard] Invoice aggregate failed', { error: invoiceError });
-    }
-
-    const revenueChange = lastMonthRevenue > 0
-      ? (((totalRevenue - lastMonthRevenue) / lastMonthRevenue) * 100).toFixed(1)
-      : totalRevenue > 0 ? 100 : 0;
-
-    // Get recent activity from audit logs
-    let recentAuditLogs: any[] = [];
-    try {
-      recentAuditLogs = await prisma.auditLog.findMany({
-        where: clinicFilter,
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: {
-          user: {
-            select: { firstName: true, lastName: true, email: true },
-          },
-        },
-      });
-    } catch (auditLogError) {
-      logger.warn('[Dashboard] Audit log fetch failed', { error: auditLogError });
-      recentAuditLogs = [];
-    }
-
-    // Transform audit logs to activity items
-    const recentActivities = recentAuditLogs.map((log: any) => {
-      const userName = log.user 
-        ? `${log.user.firstName || ''} ${log.user.lastName || ''}`.trim() || log.user.email
-        : 'System';
+    // Get counts
+    const [
+      totalPatientsCount,
+      totalOrdersCount,
+      recentPatientsCount,
+      recentOrdersCount,
+      paidInvoices,
+      recentPaidInvoices,
+      activeSubscriptions
+    ] = await Promise.all([
+      // Total patients (all in database)
+      prisma.patient.count({ where: clinicFilter }),
       
-      let type: 'patient' | 'order' | 'payment' | 'staff' = 'staff';
-      let message = log.action;
+      // Total orders/prescriptions
+      prisma.order.count({ where: clinicFilter }),
+      
+      // Recent patients (24h)
+      prisma.patient.count({
+        where: {
+          ...clinicFilter,
+          createdAt: { gte: twentyFourHoursAgo }
+        }
+      }),
+      
+      // Recent orders (24h)
+      prisma.order.count({
+        where: {
+          ...clinicFilter,
+          createdAt: { gte: twentyFourHoursAgo }
+        }
+      }),
+      
+      // Total revenue from paid invoices
+      prisma.invoice.aggregate({
+        where: {
+          ...clinicFilter,
+          status: 'PAID'
+        },
+        _sum: { amountPaid: true }
+      }),
+      
+      // Recent revenue (24h)
+      prisma.invoice.aggregate({
+        where: {
+          ...clinicFilter,
+          status: 'PAID',
+          paidAt: { gte: twentyFourHoursAgo }
+        },
+        _sum: { amountPaid: true }
+      }),
+      
+      // Recurring revenue from active subscriptions
+      prisma.subscription.findMany({
+        where: {
+          ...clinicFilter,
+          status: 'ACTIVE'
+        },
+        select: {
+          amount: true,
+          interval: true
+        }
+      })
+    ]);
 
-      if (log.action.includes('PATIENT') || log.action.includes('patient')) {
-        type = 'patient';
-        message = log.action.replace(/_/g, ' ').toLowerCase();
-      } else if (log.action.includes('ORDER') || log.action.includes('order')) {
-        type = 'order';
-        message = log.action.replace(/_/g, ' ').toLowerCase();
-      } else if (log.action.includes('PAYMENT') || log.action.includes('payment') || log.action.includes('INVOICE')) {
-        type = 'payment';
-        message = log.action.replace(/_/g, ' ').toLowerCase();
-      }
-
-      // Calculate relative time
-      const diff = now.getTime() - new Date(log.createdAt).getTime();
-      const minutes = Math.floor(diff / 60000);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-
-      let time = '';
-      if (days > 0) time = `${days} day${days > 1 ? 's' : ''} ago`;
-      else if (hours > 0) time = `${hours} hour${hours > 1 ? 's' : ''} ago`;
-      else if (minutes > 0) time = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-      else time = 'Just now';
-
-      return {
-        id: log.id.toString(),
-        type,
-        message: message.charAt(0).toUpperCase() + message.slice(1),
-        time,
-        user: userName,
-      };
-    });
-
-    // Get monthly revenue data for chart (last 6 months)
-    const monthlyRevenueData: { month: string; revenue: number }[] = [];
-    try {
-      for (let i = 5; i >= 0; i--) {
-        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-        
-        const monthRevenue = await prisma.invoice.aggregate({
-          where: {
-            ...clinicFilter,
-            status: { in: ['PAID', 'paid'] },
-            paidAt: {
-              gte: monthStart,
-              lte: monthEnd,
-            },
-          },
-          _sum: {
-            amountPaid: true,
-          },
-        });
-
-        monthlyRevenueData.push({
-          month: monthStart.toLocaleString('default', { month: 'short' }),
-          revenue: (monthRevenue._sum.amountPaid || 0) / 100,
-        });
-      }
-    } catch (chartError) {
-      logger.warn('[Dashboard] Monthly revenue chart failed', { error: chartError });
-    }
-
-    // Get daily patient activity for the week
-    const dailyPatientData: { day: string; newPatients: number; returningPatients: number }[] = [];
-    try {
-      for (let i = 6; i >= 0; i--) {
-        const dayStart = new Date(now);
-        dayStart.setDate(now.getDate() - i);
-        dayStart.setHours(0, 0, 0, 0);
-        
-        const dayEnd = new Date(dayStart);
-        dayEnd.setHours(23, 59, 59, 999);
-
-        const newPatients = await prisma.patient.count({
-          where: {
-            ...clinicFilter,
-            createdAt: {
-              gte: dayStart,
-              lte: dayEnd,
-            },
-          },
-        });
-
-        const dayName = dayStart.toLocaleString('default', { weekday: 'short' });
-        dailyPatientData.push({
-          day: dayName,
-          newPatients,
-          returningPatients: 0, // We don't track returning patients separately yet
-        });
-      }
-    } catch (patientChartError) {
-      logger.warn('[Dashboard] Daily patient chart failed', { error: patientChartError });
-    }
-
-    return NextResponse.json({
-      stats: {
-        totalPatients,
-        patientsChange: parseFloat(patientsChange as string),
-        totalRevenue,
-        revenueChange: parseFloat(revenueChange as string),
-        activeProviders,
-        providersChange: parseFloat(providersChange as string),
-        pendingOrders,
-        ordersChange: parseFloat(ordersChange as string),
-      },
-      recentActivities: recentActivities.length > 0 ? recentActivities : [],
-      charts: {
-        monthlyRevenue: monthlyRevenueData,
-        dailyPatients: dailyPatientData,
-      },
-    });
-
-  } catch (error: any) {
-    logger.error('Error fetching dashboard stats', { 
-      error: error.message, 
-      name: error.name 
-    });
+    // Calculate stats
+    const totalConverted = convertedIds.size;
+    const totalIntakes = totalPatientsCount - totalConverted;
     
-    // Return partial data with error indicator
+    // Conversion rate: converted / total * 100
+    const conversionRate = totalPatientsCount > 0 
+      ? Math.round((totalConverted / totalPatientsCount) * 100 * 10) / 10 
+      : 0;
+    
+    // Revenue in cents, convert to dollars
+    const totalRevenue = (paidInvoices._sum.amountPaid || 0) / 100;
+    const recentRevenue = (recentPaidInvoices._sum.amountPaid || 0) / 100;
+    
+    // Calculate monthly recurring revenue (MRR)
+    let recurringRevenue = 0;
+    for (const sub of activeSubscriptions) {
+      const amount = sub.amount || 0;
+      // Normalize to monthly
+      switch (sub.interval) {
+        case 'year':
+        case 'yearly':
+        case 'annual':
+          recurringRevenue += amount / 12;
+          break;
+        case 'quarter':
+        case 'quarterly':
+          recurringRevenue += amount / 3;
+          break;
+        case 'week':
+        case 'weekly':
+          recurringRevenue += amount * 4;
+          break;
+        default: // monthly
+          recurringRevenue += amount;
+      }
+    }
+    recurringRevenue = recurringRevenue / 100; // Convert cents to dollars
+
+    const stats: DashboardStats = {
+      totalIntakes,
+      totalPatients: totalConverted,
+      totalPrescriptions: totalOrdersCount,
+      conversionRate,
+      totalRevenue,
+      recurringRevenue,
+      recentIntakes: recentPatientsCount,
+      recentPrescriptions: recentOrdersCount,
+      recentRevenue
+    };
+
+    logger.info('[ADMIN-DASHBOARD] Stats fetched', {
+      userId: user.id,
+      clinicId,
+      stats: {
+        totalIntakes: stats.totalIntakes,
+        totalPatients: stats.totalPatients,
+        totalPrescriptions: stats.totalPrescriptions,
+        conversionRate: stats.conversionRate,
+        totalRevenue: stats.totalRevenue
+      }
+    });
+
+    return NextResponse.json({ stats });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[ADMIN-DASHBOARD] Error fetching stats', {
+      error: errorMessage,
+      userId: user.id
+    });
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch dashboard data',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        stats: {
-          totalPatients: 0,
-          patientsChange: 0,
-          totalRevenue: 0,
-          revenueChange: 0,
-          activeProviders: 0,
-          providersChange: 0,
-          pendingOrders: 0,
-          ordersChange: 0,
-        },
-        recentActivities: [],
-        charts: {
-          monthlyRevenue: [],
-          dailyPatients: [],
-        },
-      },
+      { error: 'Failed to fetch dashboard stats', details: errorMessage },
       { status: 500 }
     );
   }
 }
+
+export const GET = withAdminAuth(handleGet);
