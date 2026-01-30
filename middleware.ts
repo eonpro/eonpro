@@ -4,12 +4,20 @@ import clinicMiddleware from '@/middleware/clinic';
 /**
  * Security Headers Configuration
  * HIPAA-compliant Content Security Policy
+ * 
+ * NOTE: 'unsafe-inline' for styles is required by many UI frameworks (Tailwind, etc.)
+ * For scripts, we use strict-dynamic where possible and whitelist specific domains
  */
 const securityHeaders = {
   // Content Security Policy - Prevents XSS attacks
+  // SECURITY: Removed 'unsafe-eval' - not needed for production
+  // SECURITY: 'unsafe-inline' for styles kept for Tailwind/Next.js compatibility
+  // TODO: Consider implementing nonce-based CSP for stricter security
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://lottie.host https://maps.googleapis.com https://*.googleapis.com",
+    // Scripts: Removed unsafe-eval, kept unsafe-inline for Next.js hydration
+    // In production, consider using nonce-based CSP instead
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com https://lottie.host https://maps.googleapis.com https://*.googleapis.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https: http:",
     "font-src 'self' https://fonts.gstatic.com data:",
@@ -129,11 +137,12 @@ export async function middleware(request: NextRequest) {
     ];
 
     // Check if origin is allowed (static list, *.eonpro.io pattern, or development)
+    // SECURITY: Removed overly permissive portal.*.com pattern
+    // Custom domains should be explicitly added to allowedOrigins
     const isAllowed =
       allowedOrigins.includes(origin) ||
       /^https:\/\/[a-z0-9-]+\.eonpro\.io$/.test(origin) || // Allow all *.eonpro.io subdomains
-      /^https:\/\/portal\.[a-z0-9-]+\.com$/.test(origin) || // Allow portal.*.com custom domains
-      process.env.NODE_ENV === 'development';
+      (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost'));
 
     // Only set CORS headers if origin is allowed
     if (isAllowed) {

@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
       const activities: Activity[] = [];
 
       // Add payments
-      payments.forEach((payment) => {
+      payments.forEach((payment: typeof payments[number]) => {
         const patientName = payment.patient 
           ? `${payment.patient.firstName} ${payment.patient.lastName}`
           : 'Unknown';
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
       });
 
       // Add invoices
-      invoices.forEach((invoice) => {
+      invoices.forEach((invoice: typeof invoices[number]) => {
         const patientName = invoice.patient 
           ? `${invoice.patient.firstName} ${invoice.patient.lastName}`
           : 'Unknown';
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
       });
 
       // Add subscription actions
-      subscriptionActions.forEach((action) => {
+      subscriptionActions.forEach((action: typeof subscriptionActions[number]) => {
         const patientName = action.subscription?.patient 
           ? `${action.subscription.patient.firstName} ${action.subscription.patient.lastName}`
           : 'Unknown';

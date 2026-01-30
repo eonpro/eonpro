@@ -129,7 +129,7 @@ export class SubscriptionAnalyticsService {
         EXPIRED: 0,
       };
 
-      subscriptions.forEach(sub => {
+      subscriptions.forEach((sub: typeof subscriptions[number]) => {
         if (sub.status in statusCounts) {
           statusCounts[sub.status as keyof typeof statusCounts]++;
         }
@@ -147,9 +147,9 @@ export class SubscriptionAnalyticsService {
         }
       };
 
-      const activeSubscriptions = subscriptions.filter(s => s.status === 'ACTIVE');
+      const activeSubscriptions = subscriptions.filter((s: { status: string }) => s.status === 'ACTIVE');
       const totalMrr = activeSubscriptions.reduce(
-        (sum, sub) => sum + calculateMonthlyAmount(sub.amount, sub.interval),
+        (sum: number, sub: { amount: number; interval: string | null }) => sum + calculateMonthlyAmount(sub.amount, sub.interval),
         0
       );
 
@@ -159,7 +159,7 @@ export class SubscriptionAnalyticsService {
 
       // Group by plan
       const planMap = new Map<string, { count: number; mrr: number }>();
-      activeSubscriptions.forEach(sub => {
+      activeSubscriptions.forEach((sub: { planName?: string; amount: number; interval: string | null }) => {
         const planName = sub.planName || 'Unknown Plan';
         const existing = planMap.get(planName);
         const monthlyAmount = calculateMonthlyAmount(sub.amount, sub.interval);
@@ -240,17 +240,17 @@ export class SubscriptionAnalyticsService {
 
       const churnedCount = churnedSubscriptions.length;
       const churnedMrr = churnedSubscriptions.reduce(
-        (sum, sub) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
       // Calculate average lifetime before churn
       const lifetimes = churnedSubscriptions
-        .filter(sub => sub.canceledAt && sub.createdAt)
-        .map(sub => differenceInDays(sub.canceledAt!, sub.createdAt));
+        .filter((sub: { canceledAt: Date | null; createdAt: Date }) => sub.canceledAt && sub.createdAt)
+        .map((sub: { canceledAt: Date | null; createdAt: Date }) => differenceInDays(sub.canceledAt!, sub.createdAt));
       
       const avgLifetime = lifetimes.length > 0
-        ? Math.round(lifetimes.reduce((a, b) => a + b, 0) / lifetimes.length)
+        ? Math.round(lifetimes.reduce((a: number, b: number) => a + b, 0) / lifetimes.length)
         : 0;
 
       // Get active subscriptions at start of period for churn rate calculation
@@ -274,7 +274,7 @@ export class SubscriptionAnalyticsService {
 
       // Group by cancel reason
       const reasonMap = new Map<string, { count: number; mrr: number }>();
-      churnedSubscriptions.forEach(sub => {
+      churnedSubscriptions.forEach((sub: { cancelReason?: string; amount: number; interval?: string }) => {
         const reason = sub.cancelReason || 'Not specified';
         const existing = reasonMap.get(reason);
         const mrr = calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY');
@@ -525,7 +525,7 @@ export class SubscriptionAnalyticsService {
         },
       });
 
-      return subscriptions.map(sub => ({
+      return subscriptions.map((sub: typeof subscriptions[number]) => ({
         id: sub.id,
         patientId: sub.patientId,
         patientName: sub.patient 
@@ -578,7 +578,7 @@ export class SubscriptionAnalyticsService {
       const daysPastDue = { under7: 0, under30: 0, over30: 0 };
       const now = new Date();
 
-      const details = subscriptions.map(sub => {
+      const details = subscriptions.map((sub: typeof subscriptions[number]) => {
         totalAmount += sub.amount;
         
         // Check last payment attempt to determine days past due
@@ -661,7 +661,7 @@ export class SubscriptionAnalyticsService {
       },
     });
 
-    return actions.map(action => ({
+    return actions.map((action: typeof actions[number]) => ({
       id: action.id,
       subscriptionId: action.subscriptionId,
       action: action.actionType,

@@ -116,16 +116,17 @@ const CRITICAL_SCHEMA = {
  * Validates the database schema matches expected structure
  * Should be called at startup and before deployments
  */
-export async function validateDatabaseSchema(prisma?: PrismaClient): Promise<SchemaValidationResult> {
+export async function validateDatabaseSchema(providedPrisma?: PrismaClient): Promise<SchemaValidationResult> {
   const startTime = Date.now();
   const errors: SchemaError[] = [];
   const warnings: SchemaWarning[] = [];
   let tablesChecked = 0;
   let columnsChecked = 0;
 
-  // Use provided prisma or create new connection
-  const db = prisma || new PrismaClient();
-  const shouldDisconnect = !prisma;
+  // Use provided prisma or import singleton
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { prisma: singletonPrisma } = require('@/lib/db');
+  const db = providedPrisma || singletonPrisma;
 
   try {
     logger.info('[SchemaValidator] Starting database schema validation...');
@@ -233,11 +234,8 @@ export async function validateDatabaseSchema(prisma?: PrismaClient): Promise<Sch
       tablesChecked: 0,
       columnsChecked: 0,
     };
-  } finally {
-    if (shouldDisconnect) {
-      await db.$disconnect();
-    }
   }
+  // Note: Don't disconnect singleton PrismaClient - it's managed globally
 }
 
 /**

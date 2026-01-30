@@ -155,7 +155,7 @@ export class PatientAnalyticsService {
         },
       });
 
-      const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+      const totalRevenue = payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
       const firstPayment = payments[0]?.createdAt || null;
       const lastPayment = payments[payments.length - 1]?.createdAt || null;
       
@@ -229,7 +229,7 @@ export class PatientAnalyticsService {
         payments: Array<{ patientId: number; amount: number; date: Date }>;
       }>();
 
-      patients.forEach(patient => {
+      patients.forEach((patient: typeof patients[number]) => {
         if (patient.payments.length === 0) return;
 
         const cohortDate = cohortBy === 'signup' 
@@ -242,7 +242,7 @@ export class PatientAnalyticsService {
         const cohortKey = format(cohortDate, 'yyyy-MM');
         const existing = cohortMap.get(cohortKey);
 
-        const patientPayments = patient.payments.map(p => ({
+        const patientPayments = patient.payments.map((p: { amount: number; createdAt: Date }) => ({
           patientId: patient.id,
           amount: p.amount,
           date: new Date(p.createdAt),
@@ -277,8 +277,8 @@ export class PatientAnalyticsService {
           // Find unique patients with payments in this month
           const activePatients = new Set(
             data.payments
-              .filter(p => p.date >= monthStart && p.date <= monthEnd)
-              .map(p => p.patientId)
+              .filter((p: { date: Date }) => p.date >= monthStart && p.date <= monthEnd)
+              .map((p: { patientId: number }) => p.patientId)
           );
 
           retention[month] = data.patientIds.length > 0
@@ -286,11 +286,11 @@ export class PatientAnalyticsService {
             : 0;
 
           revenue[month] = data.payments
-            .filter(p => p.date >= monthStart && p.date <= monthEnd)
-            .reduce((sum, p) => sum + p.amount, 0);
+            .filter((p: { date: Date }) => p.date >= monthStart && p.date <= monthEnd)
+            .reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
         }
 
-        const totalRevenue = data.payments.reduce((sum, p) => sum + p.amount, 0);
+        const totalRevenue = data.payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
         cohorts.push({
           cohort: cohortKey,
@@ -335,7 +335,7 @@ export class PatientAnalyticsService {
         .filter(v => v > 0);
       
       return retentionValues.length > 0
-        ? Math.round(retentionValues.reduce((a, b) => a + b, 0) / retentionValues.length)
+        ? Math.round(retentionValues.reduce((a: number, b: number) => a + b, 0) / retentionValues.length)
         : 0;
     });
 
@@ -382,7 +382,7 @@ export class PatientAnalyticsService {
       let totalDelay = 0;
       let delayCount = 0;
 
-      payments.forEach(payment => {
+      payments.forEach((payment: typeof payments[number]) => {
         if (payment.status === 'FAILED') {
           failed++;
           return;
@@ -574,8 +574,8 @@ export class PatientAnalyticsService {
       let totalPatients = 0;
       let totalRevenue = 0;
 
-      patients.forEach(patient => {
-        const revenue = patient.payments.reduce((sum, p) => sum + p.amount, 0);
+      patients.forEach((patient: typeof patients[number]) => {
+        const revenue = patient.payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
         totalPatients++;
         totalRevenue += revenue;
 
@@ -698,14 +698,14 @@ export class PatientAnalyticsService {
       if (!patient) return null;
 
       // Calculate summary metrics
-      const successfulPayments = patient.payments.filter(p => p.status === 'SUCCEEDED');
-      const totalRevenue = successfulPayments.reduce((sum, p) => sum + p.amount, 0);
+      const successfulPayments = patient.payments.filter((p: { status: string }) => p.status === 'SUCCEEDED');
+      const totalRevenue = successfulPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
       
       const outstandingInvoices = patient.invoices.filter(
-        inv => inv.status === 'OPEN' || inv.status === 'DRAFT'
+        (inv: { status: string }) => inv.status === 'OPEN' || inv.status === 'DRAFT'
       );
       const outstandingBalance = outstandingInvoices.reduce(
-        (sum, inv) => sum + inv.total, 0
+        (sum: number, inv: { total: number }) => sum + inv.total, 0
       );
 
       const monthsActive = differenceInMonths(new Date(), patient.createdAt) || 1;
@@ -728,14 +728,14 @@ export class PatientAnalyticsService {
           lifetimeValue,
           averageOrderValue: avgOrderValue,
         },
-        payments: patient.payments.map(p => ({
+        payments: patient.payments.map((p: typeof patient.payments[number]) => ({
           id: p.id,
           amount: p.amount,
           status: p.status,
           date: p.createdAt,
           method: p.paymentMethod,
         })),
-        subscriptions: patient.subscriptions.map(s => ({
+        subscriptions: patient.subscriptions.map((s: typeof patient.subscriptions[number]) => ({
           id: s.id,
           status: s.status,
           planName: s.planName,
@@ -743,7 +743,7 @@ export class PatientAnalyticsService {
           startDate: s.createdAt,
           endDate: s.canceledAt,
         })),
-        invoices: patient.invoices.map(inv => ({
+        invoices: patient.invoices.map((inv: typeof patient.invoices[number]) => ({
           id: inv.id,
           status: inv.status,
           amount: inv.total,
@@ -783,12 +783,12 @@ export class PatientAnalyticsService {
         },
       });
 
-      const ltvs = patients.map(p => 
-        p.payments.reduce((sum, pay) => sum + pay.amount, 0)
+      const ltvs = patients.map((p: typeof patients[number]) => 
+        p.payments.reduce((sum: number, pay: { amount: number }) => sum + pay.amount, 0)
       );
       
-      const patientsWithPayments = ltvs.filter(ltv => ltv > 0).length;
-      const totalLTV = ltvs.reduce((a, b) => a + b, 0);
+      const patientsWithPayments = ltvs.filter((ltv: number) => ltv > 0).length;
+      const totalLTV = ltvs.reduce((a: number, b: number) => a + b, 0);
       const averageLTV = patients.length > 0 
         ? Math.round(totalLTV / patients.length)
         : 0;

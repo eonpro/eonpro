@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      reports: reports.map(r => ({
+      reports: reports.map((r: typeof reports[number]) => ({
         ...r,
         createdByName: r.user ? `${r.user.firstName} ${r.user.lastName}` : 'Unknown',
       })),

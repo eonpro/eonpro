@@ -1,5 +1,9 @@
+import * as crypto from 'crypto';
+
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 export async function GET(request: Request) {
@@ -8,58 +12,64 @@ export async function GET(request: Request) {
     logger.security('[INIT-DB] Blocked attempt in production');
     return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
   }
-  
+
   // Security check - Requires DB_INIT_KEY env var, no fallback
   const expectedKey = process.env.DB_INIT_KEY;
   if (!expectedKey) {
     logger.error('[INIT-DB] DB_INIT_KEY not configured');
     return NextResponse.json({ error: 'Endpoint not configured' }, { status: 500 });
   }
-  
+
   const { searchParams } = new URL(request.url);
   const initKey = searchParams.get('key');
-  
+
   if (initKey !== expectedKey) {
     logger.warn('[INIT-DB] Invalid init key provided');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const prisma = new PrismaClient();
-  
+  // Use singleton PrismaClient from lib/db
+
   try {
     logger.db('INIT', 'database');
-    
+
     // Test connection
     await prisma.$connect();
     logger.db('CONNECT', 'database');
-    
+
     // Check existing tables
     const tables = await prisma.$queryRaw`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
       AND table_type = 'BASE TABLE'
     ` as { table_name: string }[];
-    
+
     logger.db('SELECT', 'information_schema.tables', { count: tables.length });
-    
+
     // Create admin user if no users exist
     const userCount = await prisma.user.count();
     logger.db('COUNT', 'users', { count: userCount });
-    
+
+    let generatedPassword: string | null = null;
     if (userCount === 0) {
+      // SECURITY: Generate a random secure password instead of hardcoded one
+      generatedPassword = crypto.randomBytes(16).toString('base64').slice(0, 20);
+      const passwordHash = await bcrypt.hash(generatedPassword, 10);
+
       const admin = await prisma.user.create({
         data: {
           email: 'admin@eonpro.com',
           firstName: 'Admin',
           lastName: 'User',
-          passwordHash: '$2b$10$r5fNQ9W.9tKuYSYwO5zTb.9htYrx2OLWM8oaR3Qz4klTN7AsWp7O.', // password: admin123
+          passwordHash,
           role: 'ADMIN',
         }
       });
       logger.db('INSERT', 'users', { email: admin.email });
+      logger.info('[INIT-DB] Generated secure admin password - save it now, it will not be shown again');
     }
-    
+
     // Create test clinic if none exists
     const clinicCount = await prisma.clinic.count();
     if (clinicCount === 0) {
@@ -76,7 +86,7 @@ export async function GET(request: Request) {
       });
       logger.db('INSERT', 'clinics', { name: clinic.name });
     }
-    
+
     // Create PhoneOtp table for SMS authentication
     try {
       await prisma.$executeRaw`
@@ -94,18 +104,19 @@ export async function GET(request: Request) {
         )
       `;
       await prisma.$executeRaw`
-        CREATE INDEX IF NOT EXISTS "PhoneOtp_phone_code_expiresAt_idx" 
+        CREATE INDEX IF NOT EXISTS "PhoneOtp_phone_code_expiresAt_idx"
         ON "PhoneOtp"("phone", "code", "expiresAt")
       `;
       await prisma.$executeRaw`
-        CREATE INDEX IF NOT EXISTS "PhoneOtp_phone_idx" 
+        CREATE INDEX IF NOT EXISTS "PhoneOtp_phone_idx"
         ON "PhoneOtp"("phone")
       `;
       logger.db('CREATE', 'PhoneOtp table');
-    } catch (phoneOtpError: any) {
-      logger.warn('PhoneOtp table creation warning:', phoneOtpError.message);
+    } catch (phoneOtpError: unknown) {
+      const errorMsg = phoneOtpError instanceof Error ? phoneOtpError.message : 'Unknown error';
+      logger.warn('[INIT-DB] PhoneOtp table creation warning:', { error: errorMsg });
     }
-    
+
     return NextResponse.json({
       success: true,
       message: 'Database initialized successfully!',
@@ -117,16 +128,21 @@ export async function GET(request: Request) {
       loginInfo: {
         url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/login`,
         email: 'admin@eonpro.com',
-        password: 'admin123',
+        // SECURITY: Only show password once when newly created
+        password: generatedPassword || '(existing user - password not changed)',
+        note: generatedPassword ? 'IMPORTANT: Save this password now! It will not be shown again.' : undefined,
         demoUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/demo/login`
       }
     });
-    
-  } catch (error: any) {
-    console.error('Database initialization failed:', error);
-    
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorName = error instanceof Error ? error.constructor.name : 'UnknownError';
+
+    logger.error('[INIT-DB] Database initialization failed:', error);
+
     // Check if it's a connection issue
-    if (error.message?.includes("Can't reach database")) {
+    if (errorMessage.includes("Can't reach database")) {
       return NextResponse.json({
         success: false,
         error: 'Database connection failed',
@@ -138,14 +154,12 @@ export async function GET(request: Request) {
         ],
       }, { status: 500 });
     }
-    
+
     return NextResponse.json({
       success: false,
-      error: error.message || 'Unknown error',
-      type: error.constructor.name
+      error: errorMessage,
+      type: errorName
     }, { status: 500 });
-    
-  } finally {
-    await prisma.$disconnect();
   }
+  // Note: Don't disconnect singleton PrismaClient - it's managed globally
 }

@@ -7,8 +7,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (key !== setupKey) {
+      logger.warn('[CREATE-ADMIN] Invalid setup key attempt');
       return NextResponse.json(
         { error: 'Invalid setup key' },
         { status: 401 }
@@ -46,9 +48,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prisma = new PrismaClient();
-
-    try {
+    // Use singleton PrismaClient from lib/db
       // Check if user already exists
       const existingUser = await prisma.user.findUnique({
         where: { email: email.toLowerCase() },
@@ -114,15 +114,12 @@ export async function POST(req: NextRequest) {
         clinicId: clinic.id,
       });
 
-    } finally {
-      await prisma.$disconnect();
-    }
-
   } catch (error) {
-    console.error('Setup error:', error);
+    logger.error('[CREATE-ADMIN] Setup error:', error);
     return NextResponse.json(
       { error: 'Setup failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
+  // Note: Don't disconnect singleton PrismaClient - it's managed globally
 }

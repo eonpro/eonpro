@@ -20,11 +20,11 @@ import { Patient, Provider, Order } from '@/types/models';
 async function loginHandler(req: NextRequest) {
   const startTime = Date.now();
   let debugInfo: any = { step: 'start' };
-  
+
   try {
     const body = await req.json();
     const { email, password, role = 'patient', clinicId: selectedClinicId } = body;
-    
+
     debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
     console.log('[LOGIN_DEBUG] Starting login', debugInfo);
 
@@ -38,7 +38,7 @@ async function loginHandler(req: NextRequest) {
 
     debugInfo.step = 'finding_user';
     console.log('[LOGIN_DEBUG] Finding user by email');
-    
+
     // Find user from unified User table first
     let user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
@@ -48,7 +48,7 @@ async function loginHandler(req: NextRequest) {
         patient: true,
       },
     });
-    
+
     debugInfo.step = 'user_found';
     debugInfo.userFound = !!user;
     debugInfo.userRole = user?.role;
@@ -63,22 +63,29 @@ async function loginHandler(req: NextRequest) {
       // Fallback to legacy tables for backward compatibility
       switch (role) {
         case 'provider':
-          const provider: any = await // @ts-ignore
-    prisma.provider.findFirst({
+          // Legacy provider lookup - provider table may have different schema
+          const provider = await prisma.provider.findFirst({
             where: { email: email.toLowerCase() },
           });
           if (provider) {
+            // Map provider to user-like structure for token generation
+            const providerData = provider as typeof provider & {
+              passwordHash?: string;
+              firstName?: string;
+              lastName?: string;
+              clinicId?: number;
+            };
             user = {
-              id: provider.id,
-              email: provider.email || '',
-              firstName: provider.firstName,
-              lastName: provider.lastName,
+              id: providerData.id,
+              email: providerData.email || '',
+              firstName: providerData.firstName || providerData.name?.split(' ')[0] || '',
+              lastName: providerData.lastName || providerData.name?.split(' ').slice(1).join(' ') || '',
               role: "provider",
               status: 'ACTIVE',
-              providerId: provider.id, // Include providerId for token generation
-              clinicId: provider.clinicId, // Include clinicId for multi-tenant support
-            } as any;
-            passwordHash = provider.passwordHash;
+              providerId: providerData.id,
+              clinicId: providerData.clinicId,
+            } as typeof user;
+            passwordHash = providerData.passwordHash || null;
           }
           break;
 
@@ -123,7 +130,7 @@ async function loginHandler(req: NextRequest) {
           // SECURITY: Admin users must exist in the database
           // No hardcoded credentials - all admins must be created via proper user management
           const adminUser = await prisma.user.findFirst({
-            where: { 
+            where: {
               email: email.toLowerCase(),
               role: { in: ['ADMIN', 'SUPER_ADMIN'] }
             },
@@ -141,7 +148,7 @@ async function loginHandler(req: NextRequest) {
         case 'support':
           // Staff and support users
           const staffUser = await prisma.user.findFirst({
-            where: { 
+            where: {
               email: email.toLowerCase(),
               role: { in: ['STAFF', 'SUPPORT'] }
             },
@@ -151,7 +158,7 @@ async function loginHandler(req: NextRequest) {
             passwordHash = staffUser.passwordHash;
           }
           break;
-        
+
         default:
           // For any unrecognized role, try to find user by email only
           // This provides fallback compatibility
@@ -207,7 +214,7 @@ async function loginHandler(req: NextRequest) {
       role: string;
       isPrimary: boolean;
     }> = [];
-    
+
     // Primary clinic from user record
     if (user.clinicId) {
       const primaryClinic = await prisma.clinic.findUnique({
@@ -247,8 +254,12 @@ async function loginHandler(req: NextRequest) {
           });
         }
       }
-    } catch {
-      // UserClinic might not exist, continue with primary clinic
+    } catch (error: unknown) {
+      // UserClinic might not exist (pre-migration), continue with primary clinic
+      logger.debug('[Login] UserClinic lookup skipped', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        userId: user.id
+      });
     }
 
     // Determine active clinic - use selected, primary, or first available
@@ -260,7 +271,7 @@ async function loginHandler(req: NextRequest) {
         activeClinicId = user.clinicId || clinics[0]?.id;
       }
     }
-    
+
     // Create JWT token
     const tokenPayload: any = {
       id: user.id,
@@ -295,8 +306,12 @@ async function loginHandler(req: NextRequest) {
             email: user.email,
           });
         }
-      } catch {
-        // Ignore errors in fallback lookup
+      } catch (error: unknown) {
+        // Log but don't fail on fallback lookup errors
+        logger.debug('[Login] Provider fallback lookup failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          email: user.email
+        });
       }
     }
 
@@ -307,7 +322,7 @@ async function loginHandler(req: NextRequest) {
       // FALLBACK: Look up patient by email if not already linked
       try {
         const patientByEmail = await prisma.patient.findFirst({
-          where: { 
+          where: {
             email: user.email.toLowerCase(),
             clinicId: activeClinicId,
           },
@@ -321,8 +336,12 @@ async function loginHandler(req: NextRequest) {
             email: user.email,
           });
         }
-      } catch {
-        // Ignore errors in fallback lookup
+      } catch (error: unknown) {
+        // Log but don't fail on fallback lookup errors
+        logger.debug('[Login] Patient fallback lookup failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          email: user.email
+        });
       }
     }
 
@@ -357,12 +376,12 @@ async function loginHandler(req: NextRequest) {
     if (user && 'lastLogin' in user) {
       await prisma.user.update({
         where: { id: user.id },
-        data: { 
+        data: {
           lastLogin: new Date(),
           failedLoginAttempts: 0,
         },
       });
-      
+
       // Create audit log
       await prisma.userAuditLog.create({ data: {
           userId: user.id,
@@ -442,7 +461,7 @@ async function loginHandler(req: NextRequest) {
       ...AUTH_CONFIG.cookie,
       maxAge: 60 * 60 * 24, // 24 hours
     });
-    
+
     // Also set a generic auth-token cookie for broader compatibility
     response.cookies.set({
       name: 'auth-token',
@@ -457,7 +476,7 @@ async function loginHandler(req: NextRequest) {
     const errorStack = error instanceof Error ? error.stack : undefined;
     const prismaError = (error as any)?.code;
     const duration = Date.now() - startTime;
-    
+
     // Log detailed error for debugging
     console.error('[LOGIN_ERROR]', {
       message: errorMessage,
@@ -467,12 +486,12 @@ async function loginHandler(req: NextRequest) {
       debugInfo,
       duration,
     });
-    
+
     logger.error('Login error:', error instanceof Error ? error : new Error(errorMessage));
-    
+
     // Return error details (safe to show in production for debugging login issues)
     return NextResponse.json(
-      { 
+      {
         error: 'An error occurred during login',
         details: errorMessage,
         code: prismaError || 'UNKNOWN',

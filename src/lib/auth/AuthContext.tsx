@@ -105,10 +105,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         influencerId: payload.influencerId as number | undefined,
         permissions: payload.permissions as string[] | undefined,
       };
-    } catch (error: any) {
-    // @ts-ignore
-   
-      logger.error('Token verification failed:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Token verification failed:', { error: errorMessage });
       return null;
     }
   }, []);

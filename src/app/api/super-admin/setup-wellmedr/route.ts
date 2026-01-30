@@ -2,6 +2,17 @@
  * Setup Wellmedr Lifefile Credentials
  * POST /api/super-admin/setup-wellmedr
  * Super Admin only
+ *
+ * SECURITY: All credentials must be provided via environment variables
+ * Required env vars:
+ *   - WELLMEDR_LIFEFILE_BASE_URL
+ *   - WELLMEDR_LIFEFILE_USERNAME
+ *   - WELLMEDR_LIFEFILE_PASSWORD
+ *   - WELLMEDR_LIFEFILE_VENDOR_ID
+ *   - WELLMEDR_LIFEFILE_PRACTICE_ID
+ *   - WELLMEDR_LIFEFILE_LOCATION_ID
+ *   - WELLMEDR_LIFEFILE_NETWORK_ID
+ *   - WELLMEDR_LIFEFILE_PRACTICE_NAME
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,8 +24,34 @@ async function handler(req: NextRequest) {
   try {
     logger.info('[SETUP-WELLMEDR] Starting Wellmedr Lifefile configuration...');
 
+    // SECURITY: Validate all required environment variables
+    const requiredEnvVars = {
+      WELLMEDR_LIFEFILE_BASE_URL: process.env.WELLMEDR_LIFEFILE_BASE_URL,
+      WELLMEDR_LIFEFILE_USERNAME: process.env.WELLMEDR_LIFEFILE_USERNAME,
+      WELLMEDR_LIFEFILE_PASSWORD: process.env.WELLMEDR_LIFEFILE_PASSWORD,
+      WELLMEDR_LIFEFILE_VENDOR_ID: process.env.WELLMEDR_LIFEFILE_VENDOR_ID,
+      WELLMEDR_LIFEFILE_PRACTICE_ID: process.env.WELLMEDR_LIFEFILE_PRACTICE_ID,
+      WELLMEDR_LIFEFILE_LOCATION_ID: process.env.WELLMEDR_LIFEFILE_LOCATION_ID,
+      WELLMEDR_LIFEFILE_NETWORK_ID: process.env.WELLMEDR_LIFEFILE_NETWORK_ID,
+      WELLMEDR_LIFEFILE_PRACTICE_NAME: process.env.WELLMEDR_LIFEFILE_PRACTICE_NAME,
+    };
+
+    const missingVars = Object.entries(requiredEnvVars)
+      .filter(([, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingVars.length > 0) {
+      logger.error('[SETUP-WELLMEDR] Missing required environment variables', { missingVars });
+      return NextResponse.json({
+        success: false,
+        error: 'Missing required environment variables',
+        missingVars,
+        hint: 'Configure these variables in your environment before running setup'
+      }, { status: 400 });
+    }
+
     // Find Wellmedr clinic
-    let wellmedr = await prisma.clinic.findFirst({
+    const wellmedr = await prisma.clinic.findFirst({
       where: {
         OR: [
           { name: { contains: 'Wellmedr', mode: 'insensitive' } },
@@ -29,7 +66,7 @@ async function handler(req: NextRequest) {
       const clinics = await prisma.clinic.findMany({
         select: { id: true, name: true, subdomain: true }
       });
-      
+
       return NextResponse.json({
         success: false,
         error: 'Wellmedr clinic not found',
@@ -40,19 +77,19 @@ async function handler(req: NextRequest) {
 
     logger.info(`[SETUP-WELLMEDR] Found Wellmedr clinic: ID=${wellmedr.id}, Name="${wellmedr.name}"`);
 
-    // Update with Lifefile credentials
+    // Update with Lifefile credentials from environment
     const updated = await prisma.clinic.update({
       where: { id: wellmedr.id },
       data: {
         lifefileEnabled: true,
-        lifefileBaseUrl: 'https://host47a.lifefile.net:10165/lfapi/v1',
-        lifefileUsername: 'api11596-4',
-        lifefilePassword: '8+?QEFGWA(,TUP?[ZWZK',
-        lifefileVendorId: '11596',
-        lifefilePracticeId: '1270306',
-        lifefileLocationId: '110396',
-        lifefileNetworkId: '1594',
-        lifefilePracticeName: 'WELLMEDR LLC',
+        lifefileBaseUrl: requiredEnvVars.WELLMEDR_LIFEFILE_BASE_URL,
+        lifefileUsername: requiredEnvVars.WELLMEDR_LIFEFILE_USERNAME,
+        lifefilePassword: requiredEnvVars.WELLMEDR_LIFEFILE_PASSWORD,
+        lifefileVendorId: requiredEnvVars.WELLMEDR_LIFEFILE_VENDOR_ID,
+        lifefilePracticeId: requiredEnvVars.WELLMEDR_LIFEFILE_PRACTICE_ID,
+        lifefileLocationId: requiredEnvVars.WELLMEDR_LIFEFILE_LOCATION_ID,
+        lifefileNetworkId: requiredEnvVars.WELLMEDR_LIFEFILE_NETWORK_ID,
+        lifefilePracticeName: requiredEnvVars.WELLMEDR_LIFEFILE_PRACTICE_NAME,
       }
     });
 
@@ -74,7 +111,7 @@ async function handler(req: NextRequest) {
       },
       nextSteps: [
         'Add Practice Address in Super Admin → Clinics → Wellmedr → Pharmacy',
-        'Add Practice Phone in Super Admin → Clinics → Wellmedr → Pharmacy', 
+        'Add Practice Phone in Super Admin → Clinics → Wellmedr → Pharmacy',
         'Add Practice Fax in Super Admin → Clinics → Wellmedr → Pharmacy',
         'Add Dr. Sigle to Wellmedr clinic in Super Admin → Users',
         'Test by logging in as Dr. Sigle and switching to Wellmedr'

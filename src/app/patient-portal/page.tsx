@@ -38,14 +38,29 @@ export default function PatientPortalDashboard() {
   const accentColor = branding?.accentColor || '#d3f931';
 
   useEffect(() => {
-    // Load patient data
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      setPatient(userData);
-      loadPatientData(userData.patientId || userData.id);
-    } else {
-      // Demo patient
+    // SSR guard - only access localStorage on client
+    if (typeof window === 'undefined') return;
+
+    // Load patient data safely
+    try {
+      const userJson = localStorage.getItem('user');
+      if (userJson) {
+        const userData = JSON.parse(userJson);
+        setPatient(userData);
+        loadPatientData(userData.patientId || userData.id);
+      } else {
+        // Demo patient
+        setPatient({
+          id: 1,
+          firstName: 'Patient',
+          lastName: 'User',
+          patientId: 'P12345',
+        });
+        loadDemoData();
+      }
+    } catch (error) {
+      console.error('[PatientPortal] Failed to load user data:', error);
+      // Fallback to demo on parse error
       setPatient({
         id: 1,
         firstName: 'Patient',

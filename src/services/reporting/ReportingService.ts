@@ -14,12 +14,11 @@
  * @version 1.0.0
  */
 
-import { PrismaClient } from '@prisma/client';
-import { getClinicContext } from '@/lib/db';
+import { prisma, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-// Use direct Prisma client for reporting (bypasses clinic filter for super admin)
-const prisma = new PrismaClient();
+// Use singleton Prisma client for reporting
+// Note: For super admin reporting across clinics, use getClinicContext() to control filtering
 
 // ============================================================================
 // TYPES & INTERFACES

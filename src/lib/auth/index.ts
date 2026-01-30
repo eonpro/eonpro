@@ -32,10 +32,10 @@ export { JWT_SECRET, AUTH_CONFIG } from './config';
 export { validateSession } from './session-manager';
 
 // Re-export from registration
-export { validatePassword, hashPassword, comparePassword } from './registration';
+export { validatePassword } from './registration';
 
 // Re-export from permissions
-export { checkPermission, getPermissionsForRole } from './permissions';
+export { hasPermission as checkPermission, getRolePermissions as getPermissionsForRole, PERMISSIONS, ROLE_PERMISSIONS } from './permissions';
 
 // Convenience aliases for common patterns
 import { NextRequest } from 'next/server';

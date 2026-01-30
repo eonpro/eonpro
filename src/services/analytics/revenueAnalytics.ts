@@ -7,7 +7,7 @@
 
 import { prisma, withClinicContext } from '@/lib/db';
 import { stripe, getStripe } from '@/lib/stripe';
-import { getStripeForClinic } from '@/lib/stripe/clinic-stripe';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 import { logger } from '@/lib/logger';
 import { 
   startOfDay, 
@@ -131,11 +131,11 @@ export class RevenueAnalyticsService {
       });
 
       // Calculate metrics
-      const successfulPayments = payments.filter(p => p.status === 'SUCCEEDED');
-      const failedPayments = payments.filter(p => p.status === 'FAILED');
+      const successfulPayments = payments.filter((p: { status: string }) => p.status === 'SUCCEEDED');
+      const failedPayments = payments.filter((p: { status: string }) => p.status === 'FAILED');
       
-      const grossRevenue = successfulPayments.reduce((sum, p) => sum + p.amount, 0);
-      const fees = successfulPayments.reduce((sum, p) => sum + (p.fee || 0), 0);
+      const grossRevenue = successfulPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
+      const fees = successfulPayments.reduce((sum: number, p: { fee?: number }) => sum + (p.fee || 0), 0);
       const netRevenue = grossRevenue - fees;
       
       // Get refunds
@@ -258,17 +258,17 @@ export class RevenueAnalyticsService {
           ? new Date(intervals[index + 1].getTime() - 1) 
           : end;
 
-        const intervalPayments = payments.filter(p => {
+        const intervalPayments = payments.filter((p: { createdAt: Date }) => {
           const date = new Date(p.createdAt);
           return date >= intervalStart && date <= intervalEnd;
         });
 
-        const successful = intervalPayments.filter(p => p.status === 'SUCCEEDED');
-        const refunded = intervalPayments.filter(p => p.status === 'REFUNDED');
+        const successful = intervalPayments.filter((p: { status: string }) => p.status === 'SUCCEEDED');
+        const refunded = intervalPayments.filter((p: { status: string }) => p.status === 'REFUNDED');
 
-        const grossRevenue = successful.reduce((sum, p) => sum + p.amount, 0);
-        const fees = successful.reduce((sum, p) => sum + (p.fee || 0), 0);
-        const refunds = refunded.reduce((sum, p) => sum + p.amount, 0);
+        const grossRevenue = successful.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
+        const fees = successful.reduce((sum: number, p: { fee?: number }) => sum + (p.fee || 0), 0);
+        const refunds = refunded.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
         return {
           date: format(intervalStart, dateFormat),
@@ -321,16 +321,16 @@ export class RevenueAnalyticsService {
       };
 
       const totalMrr = activeSubscriptions.reduce(
-        (sum, sub) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
       // Get new subscriptions this month
       const newSubscriptions = activeSubscriptions.filter(
-        sub => sub.createdAt >= startOfCurrentMonth
+        (sub: { createdAt: Date }) => sub.createdAt >= startOfCurrentMonth
       );
       const newMrr = newSubscriptions.reduce(
-        (sum, sub) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
@@ -350,7 +350,7 @@ export class RevenueAnalyticsService {
       });
 
       const churnedMrr = churnedSubscriptions.reduce(
-        (sum, sub) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
@@ -407,7 +407,7 @@ export class RevenueAnalyticsService {
       const productMap = new Map<number, { name: string; revenue: number; quantity: number }>();
       let totalRevenue = 0;
 
-      invoiceItems.forEach(item => {
+      invoiceItems.forEach((item: typeof invoiceItems[number]) => {
         if (!item.productId) return;
 
         const existing = productMap.get(item.productId);
@@ -472,7 +472,7 @@ export class RevenueAnalyticsService {
       const methodMap = new Map<string, { revenue: number; count: number }>();
       let totalRevenue = 0;
 
-      payments.forEach(payment => {
+      payments.forEach((payment: typeof payments[number]) => {
         const method = payment.paymentMethod || 'unknown';
         const existing = methodMap.get(method);
         totalRevenue += payment.amount;
@@ -555,12 +555,12 @@ export class RevenueAnalyticsService {
       }
       
       const avgGrowthRate = growthRates.length > 0 
-        ? growthRates.reduce((a, b) => a + b, 0) / growthRates.length
+        ? growthRates.reduce((a: number, b: number) => a + b, 0) / growthRates.length
         : 0;
       
       // Calculate standard deviation for confidence bounds
-      const mean = historicalRevenue.reduce((a, b) => a + b, 0) / historicalRevenue.length;
-      const variance = historicalRevenue.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / historicalRevenue.length;
+      const mean = historicalRevenue.reduce((a: number, b: number) => a + b, 0) / historicalRevenue.length;
+      const variance = historicalRevenue.reduce((sum: number, val: number) => sum + Math.pow(val - mean, 2), 0) / historicalRevenue.length;
       const stdDev = Math.sqrt(variance);
       
       const lastMonthRevenue = historicalRevenue[historicalRevenue.length - 1] || mean;
@@ -660,7 +660,7 @@ export class RevenueAnalyticsService {
     };
 
     return subscriptions.reduce(
-      (sum, sub) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+      (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
       0
     );
   }

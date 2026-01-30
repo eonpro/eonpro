@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      const outstandingAmount = outstandingInvoices.reduce((sum, inv) => sum + inv.total, 0);
+      const outstandingAmount = outstandingInvoices.reduce((sum: number, inv: typeof outstandingInvoices[number]) => sum + inv.total, 0);
 
       // Get pending payouts (from Stripe if connected)
       // This would need Stripe API integration for real data
