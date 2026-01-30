@@ -1578,7 +1578,7 @@ export default function SuperAdminProviderDetailPage() {
                   ) : (
                     <>
                       <ShieldCheck className="h-4 w-4" />
-                      Save Verification
+                      Save as Verified
                     </>
                   )}
                 </button>
