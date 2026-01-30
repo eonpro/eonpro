@@ -230,16 +230,76 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     
     const totalCount = invoiceCount + refillCount;
 
+    // Helper function to extract GLP-1 info from metadata
+    const extractGlp1Info = (metadata: Record<string, unknown> | null) => {
+      if (!metadata) return { usedGlp1: false, glp1Type: null, lastDose: null };
+
+      // Check various field names for GLP-1 usage
+      const glp1UsedKeys = [
+        'glp1Last30Days', 'glp1-last-30', 'usedglp1inlast30days',
+        'used glp-1 in last 30 days', 'glp1last30'
+      ];
+      const glp1TypeKeys = [
+        'glp1Type', 'glp1-last-30-medication-type', 'glp1last30medicationtype',
+        'recent glp-1 medication type', 'currentglp1medication', 'currentglp1'
+      ];
+      const semaDoseKeys = [
+        'semaglutideDosage', 'semaglutideDose', 'semaglutidedosage', 'semaglutidedose',
+        'glp1-last-30-medication-dose-mg', 'glp1last30medicationdosemg'
+      ];
+      const tirzDoseKeys = [
+        'tirzepatideDosage', 'tirzepatideDose', 'tirzepatidedosage', 'tirzepatidedose'
+      ];
+
+      // Find GLP-1 usage (check if any of the keys indicate "yes")
+      let usedGlp1 = false;
+      for (const key of glp1UsedKeys) {
+        const val = metadata[key];
+        if (val && typeof val === 'string' && val.toLowerCase() === 'yes') {
+          usedGlp1 = true;
+          break;
+        }
+      }
+
+      // Find GLP-1 type
+      let glp1Type: string | null = null;
+      for (const key of glp1TypeKeys) {
+        const val = metadata[key];
+        if (val && typeof val === 'string' && val.toLowerCase() !== 'none' && val.trim() !== '') {
+          glp1Type = val;
+          break;
+        }
+      }
+
+      // Find last dose (check semaglutide first, then tirzepatide based on type)
+      let lastDose: string | null = null;
+      const isTirzepatide = glp1Type?.toLowerCase().includes('tirzepatide');
+      const doseKeys = isTirzepatide ? [...tirzDoseKeys, ...semaDoseKeys] : [...semaDoseKeys, ...tirzDoseKeys];
+
+      for (const key of doseKeys) {
+        const val = metadata[key];
+        if (val && String(val).trim() !== '' && String(val) !== '-' && String(val) !== '0') {
+          lastDose = String(val);
+          break;
+        }
+      }
+
+      return { usedGlp1, glp1Type, lastDose };
+    };
+
     // Transform invoice data for frontend
     const invoiceItems = invoices.map((invoice: InvoiceWithRelations) => {
       // Extract treatment info from metadata or line items
       const metadata = invoice.metadata as Record<string, unknown> | null;
       const lineItems = invoice.lineItems as Array<Record<string, unknown>> | null;
-      
+
       let treatment = 'Unknown Treatment';
       let medicationType = '';
       let plan = '';
-      
+
+      // Extract GLP-1 history info
+      const glp1Info = extractGlp1Info(metadata);
+
       if (metadata) {
         treatment = (metadata.product as string) || treatment;
         medicationType = (metadata.medicationType as string) || '';
@@ -335,6 +395,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         queuedAt: invoice.paidAt, // Use paidAt for sorting
         invoiceNumber: (metadata?.invoiceNumber as string) || `INV-${invoice.id}`,
         intakeCompletedAt,
+        // GLP-1 history info for prescribing decisions
+        glp1Info: {
+          usedGlp1: glp1Info.usedGlp1,
+          glp1Type: glp1Info.glp1Type,
+          lastDose: glp1Info.lastDose,
+        },
         // CRITICAL: SOAP Note status for clinical documentation compliance
         // Providers should review/approve SOAP notes before prescribing
         soapNote: soapNote ? {
@@ -378,6 +444,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const planMonths = refill.vialCount === 6 ? 6 : refill.vialCount === 3 ? 3 : 1;
       const planLabel = planMonths === 6 ? '6-Month' : planMonths === 3 ? 'Quarterly' : 'Monthly';
 
+      // Refill patients are already GLP-1 users - extract type from medication name
+      const istirzepatide = treatmentDisplay.toLowerCase().includes('tirzepatide');
+      const isSemaglutide = treatmentDisplay.toLowerCase().includes('semaglutide');
+
       return {
         // Queue item identification
         queueType: 'refill' as const,
@@ -410,6 +480,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         queuedAt: refill.providerQueuedAt || refill.adminApprovedAt || refill.createdAt, // Use providerQueuedAt for sorting
         invoiceNumber: refill.invoiceId ? `INV-${refill.invoiceId}` : `REFILL-${refill.id}`,
         intakeCompletedAt,
+        // GLP-1 history info - refill patients are existing GLP-1 users
+        glp1Info: {
+          usedGlp1: true, // Refill = they've used it before
+          glp1Type: istirzepatide ? 'Tirzepatide' : isSemaglutide ? 'Semaglutide' : refill.medicationName,
+          lastDose: refill.medicationStrength || null,
+        },
         // SOAP Note status
         soapNote: soapNote ? {
           id: soapNote.id,
