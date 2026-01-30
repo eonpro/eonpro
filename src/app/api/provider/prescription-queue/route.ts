@@ -38,12 +38,20 @@ const safeDecrypt = (value: string | null): string | null => {
   }
 };
 
+// Type for PatientDocument with intake data
+type PatientDocumentWithData = {
+  id: number;
+  data: Buffer | null;
+  sourceSubmissionId: string | null;
+};
+
 // Type for invoice with included relations from our query
 type InvoiceWithRelations = Invoice & {
   clinic: Pick<Clinic, 'id' | 'name' | 'subdomain' | 'lifefileEnabled' | 'lifefilePracticeName'> | null;
   patient: Pick<Patient, 'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'> & {
     intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
     soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
+    documents: PatientDocumentWithData[];
   };
 };
 
@@ -53,6 +61,7 @@ type RefillWithRelations = RefillQueue & {
   patient: Pick<Patient, 'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'> & {
     intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
     soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
+    documents: PatientDocumentWithData[];
   };
   subscription: Pick<Subscription, 'id' | 'planName' | 'status'> | null;
 };
@@ -142,6 +151,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                   approvedBy: true,
                 },
               },
+              // Include intake documents for GLP-1 history
+              documents: {
+                where: { category: 'MEDICAL_INTAKE_FORM' },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  data: true,
+                  sourceSubmissionId: true,
+                },
+              },
             },
           },
         },
@@ -204,6 +224,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                   approvedBy: true,
                 },
               },
+              // Include intake documents for GLP-1 history
+              documents: {
+                where: { category: 'MEDICAL_INTAKE_FORM' },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  data: true,
+                  sourceSubmissionId: true,
+                },
+              },
             },
           },
           subscription: {
@@ -233,8 +264,69 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Helper function to normalize keys for comparison (lowercase, remove spaces/dashes/underscores)
     const normalizeKey = (key: string) => key.toLowerCase().replace(/[-_\s]/g, '');
 
-    // Helper function to extract GLP-1 info from metadata
-    const extractGlp1Info = (metadata: Record<string, unknown> | null) => {
+    // Helper function to extract GLP-1 info from metadata and/or document data
+    const extractGlp1Info = (
+      metadata: Record<string, unknown> | null,
+      documentData: Buffer | null
+    ) => {
+      // First try to get GLP-1 info from PatientDocument (intake form data)
+      if (documentData) {
+        try {
+          const docJson = JSON.parse(documentData.toString('utf8'));
+
+          // Check for glp1History structure (WellMedR intake format)
+          if (docJson.glp1History) {
+            const history = docJson.glp1History;
+            const usedLast30 = history.usedLast30Days;
+            const medType = history.medicationType;
+            const doseMg = history.doseMg;
+
+            if (usedLast30 && (usedLast30.toLowerCase() === 'yes' || usedLast30 === true)) {
+              return {
+                usedGlp1: true,
+                glp1Type: medType || null,
+                lastDose: doseMg ? String(doseMg) : null,
+              };
+            }
+          }
+
+          // Also check the answers array for GLP-1 fields
+          if (docJson.answers && Array.isArray(docJson.answers)) {
+            let usedGlp1 = false;
+            let glp1Type: string | null = null;
+            let lastDose: string | null = null;
+
+            for (const answer of docJson.answers) {
+              const key = normalizeKey(answer.question || answer.field || '');
+              const val = answer.answer || answer.value || '';
+
+              if (key.includes('glp1last30') || key.includes('usedglp1')) {
+                if (String(val).toLowerCase() === 'yes') {
+                  usedGlp1 = true;
+                }
+              }
+              if (key.includes('glp1type') || key.includes('medicationtype') || key.includes('recentglp1')) {
+                if (val && String(val).toLowerCase() !== 'none') {
+                  glp1Type = String(val);
+                }
+              }
+              if (key.includes('semaglutidedose') || key.includes('tirzepatidedose') || key.includes('dosemg')) {
+                if (val && String(val) !== '-' && String(val) !== '0') {
+                  lastDose = String(val).replace(/[^\d.]/g, '');
+                }
+              }
+            }
+
+            if (usedGlp1) {
+              return { usedGlp1, glp1Type, lastDose };
+            }
+          }
+        } catch (e) {
+          // Document data not JSON or malformed, fall through to metadata check
+        }
+      }
+
+      // Fall back to checking invoice metadata
       if (!metadata) return { usedGlp1: false, glp1Type: null, lastDose: null };
 
       // Patterns to match (will be normalized for comparison)
@@ -315,8 +407,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       let medicationType = '';
       let plan = '';
 
-      // Extract GLP-1 history info
-      const glp1Info = extractGlp1Info(metadata);
+      // Extract GLP-1 history info from PatientDocument or invoice metadata
+      const documentData = invoice.patient.documents?.[0]?.data || null;
+      const glp1Info = extractGlp1Info(metadata, documentData);
 
       if (metadata) {
         treatment = (metadata.product as string) || treatment;
