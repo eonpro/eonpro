@@ -230,57 +230,75 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     
     const totalCount = invoiceCount + refillCount;
 
+    // Helper function to normalize keys for comparison (lowercase, remove spaces/dashes/underscores)
+    const normalizeKey = (key: string) => key.toLowerCase().replace(/[-_\s]/g, '');
+
     // Helper function to extract GLP-1 info from metadata
     const extractGlp1Info = (metadata: Record<string, unknown> | null) => {
       if (!metadata) return { usedGlp1: false, glp1Type: null, lastDose: null };
 
-      // Check various field names for GLP-1 usage
-      const glp1UsedKeys = [
-        'glp1Last30Days', 'glp1-last-30', 'usedglp1inlast30days',
-        'used glp-1 in last 30 days', 'glp1last30'
+      // Patterns to match (will be normalized for comparison)
+      const glp1UsedPatterns = [
+        'glp1last30days', 'glp1last30', 'usedglp1inlast30days',
+        'usedglp1inlast30', 'glp1usage', 'usedglp1'
       ];
-      const glp1TypeKeys = [
-        'glp1Type', 'glp1-last-30-medication-type', 'glp1last30medicationtype',
-        'recent glp-1 medication type', 'currentglp1medication', 'currentglp1'
+      const glp1TypePatterns = [
+        'glp1type', 'glp1last30medicationtype', 'recentglp1medicationtype',
+        'currentglp1medication', 'currentglp1', 'glp1medication',
+        'recentglp1type', 'glp1medicationtype'
       ];
-      const semaDoseKeys = [
-        'semaglutideDosage', 'semaglutideDose', 'semaglutidedosage', 'semaglutidedose',
-        'glp1-last-30-medication-dose-mg', 'glp1last30medicationdosemg'
+      const semaDosePatterns = [
+        'semaglutidedosage', 'semaglutidedose', 'semadose',
+        'glp1last30medicationdosemg', 'glp1dose', 'glp1dosage'
       ];
-      const tirzDoseKeys = [
-        'tirzepatideDosage', 'tirzepatideDose', 'tirzepatidedosage', 'tirzepatidedose'
+      const tirzDosePatterns = [
+        'tirzepatidedosage', 'tirzepatidedose', 'tirzdose'
       ];
 
-      // Find GLP-1 usage (check if any of the keys indicate "yes")
-      let usedGlp1 = false;
-      for (const key of glp1UsedKeys) {
-        const val = metadata[key];
-        if (val && typeof val === 'string' && val.toLowerCase() === 'yes') {
-          usedGlp1 = true;
-          break;
+      // Helper to find a value by matching patterns against all metadata keys
+      const findValueByPatterns = (patterns: string[]): string | null => {
+        for (const [key, val] of Object.entries(metadata)) {
+          const normalizedKey = normalizeKey(key);
+          for (const pattern of patterns) {
+            if (normalizedKey.includes(pattern) || pattern.includes(normalizedKey)) {
+              if (val && String(val).trim() !== '' && String(val) !== '-') {
+                return String(val);
+              }
+            }
+          }
         }
+        return null;
+      };
+
+      // Find GLP-1 usage
+      let usedGlp1 = false;
+      const glp1UsedValue = findValueByPatterns(glp1UsedPatterns);
+      if (glp1UsedValue && glp1UsedValue.toLowerCase() === 'yes') {
+        usedGlp1 = true;
       }
 
       // Find GLP-1 type
       let glp1Type: string | null = null;
-      for (const key of glp1TypeKeys) {
-        const val = metadata[key];
-        if (val && typeof val === 'string' && val.toLowerCase() !== 'none' && val.trim() !== '') {
-          glp1Type = val;
-          break;
-        }
+      const typeValue = findValueByPatterns(glp1TypePatterns);
+      if (typeValue && typeValue.toLowerCase() !== 'none' && typeValue.toLowerCase() !== 'no') {
+        glp1Type = typeValue;
       }
 
-      // Find last dose (check semaglutide first, then tirzepatide based on type)
+      // Find last dose - check based on medication type
       let lastDose: string | null = null;
       const isTirzepatide = glp1Type?.toLowerCase().includes('tirzepatide');
-      const doseKeys = isTirzepatide ? [...tirzDoseKeys, ...semaDoseKeys] : [...semaDoseKeys, ...tirzDoseKeys];
 
-      for (const key of doseKeys) {
-        const val = metadata[key];
-        if (val && String(val).trim() !== '' && String(val) !== '-' && String(val) !== '0') {
-          lastDose = String(val);
-          break;
+      if (isTirzepatide) {
+        lastDose = findValueByPatterns(tirzDosePatterns) || findValueByPatterns(semaDosePatterns);
+      } else {
+        lastDose = findValueByPatterns(semaDosePatterns) || findValueByPatterns(tirzDosePatterns);
+      }
+
+      // Clean up dose value - remove non-numeric except decimal
+      if (lastDose && lastDose !== '0') {
+        const numericDose = lastDose.replace(/[^\d.]/g, '');
+        if (numericDose && parseFloat(numericDose) > 0) {
+          lastDose = numericDose;
         }
       }
 

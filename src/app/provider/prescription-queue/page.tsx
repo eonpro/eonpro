@@ -935,34 +935,34 @@ export default function PrescriptionQueuePage() {
                     </div>
 
                     {/* GLP-1 History */}
-                    <div className="hidden md:flex items-center gap-2 min-w-[160px]">
-                      <div className={`p-2 rounded-lg ${item.glp1Info?.usedGlp1 ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                        <Activity className={`w-4 h-4 ${item.glp1Info?.usedGlp1 ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <div className="hidden lg:flex items-center gap-2 min-w-[130px]">
+                      <div className={`p-1.5 rounded-lg ${item.glp1Info?.usedGlp1 ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                        <Activity className={`w-3.5 h-3.5 ${item.glp1Info?.usedGlp1 ? 'text-blue-600' : 'text-gray-400'}`} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs text-gray-500">GLP-1 History</p>
                         {item.glp1Info?.usedGlp1 ? (
                           <>
-                            <p className="text-sm font-medium text-blue-700 truncate max-w-[120px]">
-                              {item.glp1Info.glp1Type || 'Used GLP-1'}
+                            <p className="text-xs font-semibold text-blue-700 truncate max-w-[100px]">
+                              {item.glp1Info.glp1Type || 'Prior GLP-1'}
                             </p>
-                            {item.glp1Info.lastDose && (
-                              <p className="text-xs text-blue-600">
-                                Last: {item.glp1Info.lastDose}mg
-                              </p>
-                            )}
+                            <p className="text-xs text-blue-600">
+                              {item.glp1Info.lastDose ? `${item.glp1Info.lastDose}mg` : 'Has history'}
+                            </p>
                           </>
                         ) : (
-                          <p className="text-sm text-gray-500">New to GLP-1</p>
+                          <>
+                            <p className="text-xs font-medium text-gray-600">New Patient</p>
+                            <p className="text-xs text-gray-400">No GLP-1 history</p>
+                          </>
                         )}
                       </div>
                     </div>
 
                     {/* Clinic */}
-                    <div className="hidden lg:flex items-center gap-2 min-w-[140px]">
+                    <div className="hidden xl:flex items-center gap-2 min-w-[120px]">
                       <Building2 className="w-4 h-4 text-gray-400" />
                       <div>
-                        <p className="text-sm text-gray-700">{item.clinic?.name || "Unknown"}</p>
+                        <p className="text-xs text-gray-700 truncate max-w-[90px]">{item.clinic?.name || "Unknown"}</p>
                         {item.clinic?.lifefileEnabled ? (
                           <span className="inline-flex items-center text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
                             Lifefile ✓
@@ -983,10 +983,10 @@ export default function PrescriptionQueuePage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
                       <button
                         onClick={() => handleExpandItem(item.invoiceId)}
-                        className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                         title="View patient details"
                       >
                         {expandedItem === item.invoiceId ? (
@@ -998,35 +998,35 @@ export default function PrescriptionQueuePage() {
                       <button
                         onClick={() => handleOpenPrescriptionPanel(item)}
                         disabled={!item.clinic?.lifefileEnabled}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium text-sm whitespace-nowrap flex-shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm font-medium text-sm whitespace-nowrap"
                         title={
                           item.clinic?.lifefileEnabled
                             ? "Write and send prescription"
                             : "Lifefile not configured for this clinic"
                         }
                       >
-                        <Send className="w-4 h-4 flex-shrink-0" />
-                        <span className="hidden sm:inline">Write Rx</span>
+                        <Send className="w-4 h-4" />
+                        <span>Write Rx</span>
                       </button>
                       <button
                         onClick={() => handleMarkProcessed(item.invoiceId, item.patientName)}
                         disabled={processing === item.invoiceId}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 disabled:opacity-50 transition-all font-medium text-sm whitespace-nowrap flex-shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all font-medium text-sm whitespace-nowrap"
                       >
                         {processing === item.invoiceId ? (
-                          <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <Check className="w-4 h-4 flex-shrink-0" />
+                          <Check className="w-4 h-4" />
                         )}
-                        <span className="hidden sm:inline">Done</span>
+                        <span>Done</span>
                       </button>
                       <button
                         onClick={() => setDeclineModal({ item })}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all font-medium text-sm border border-red-200 whitespace-nowrap flex-shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-medium text-sm border border-red-200 whitespace-nowrap"
                         title="Decline prescription request"
                       >
-                        <X className="w-4 h-4 flex-shrink-0" />
-                        <span className="hidden sm:inline">Decline</span>
+                        <X className="w-4 h-4" />
+                        <span className="hidden xl:inline">Decline</span>
                       </button>
                     </div>
                   </div>
