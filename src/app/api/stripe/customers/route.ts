@@ -79,8 +79,9 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
             totalSpent = charges.reduce((sum, c) => sum + c.amount, 0);
             chargeCount = charges.length;
             totalLifetimeValue += totalSpent;
-          } catch (e) {
+          } catch (error: unknown) {
             // Charges might fail for some customers
+            logger.warn('[STRIPE CUSTOMERS] Failed to fetch charges for customer', { customerId: customer.id, error: error instanceof Error ? error.message : 'Unknown error' });
           }
         }
         
@@ -117,8 +118,9 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
             if (subscriptions.some(s => s.status === 'active')) {
               customersWithSubscription++;
             }
-          } catch (e) {
+          } catch (error: unknown) {
             // Subscriptions might fail
+            logger.warn('[STRIPE CUSTOMERS] Failed to fetch subscriptions for customer', { customerId: customer.id, error: error instanceof Error ? error.message : 'Unknown error' });
           }
         }
         

@@ -239,11 +239,9 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         }
         return { rx, med };
       });
-    } catch (err: any) {
-    // @ts-ignore
-
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json(
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      return NextResponse.json(
         { error: errorMessage ?? "Invalid medication" },
         { status: 400 }
       );
@@ -328,11 +326,9 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         },
         signatureDataUrl: p.signatureDataUrl ?? provider.signatureDataUrl ?? null,
       });
-    } catch (err: any) {
-    // @ts-ignore
-
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    logger.error("[PRESCRIPTIONS/POST] PDF generation failed:", err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      logger.error("[PRESCRIPTIONS/POST] PDF generation failed:", err);
       return NextResponse.json(
         { error: "Failed to generate prescription PDF", detail: errorMessage },
         { status: 500 }
@@ -424,8 +420,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     };
 
     try {
-      let patientRecord = await // @ts-ignore
-    prisma.patient.findFirst({
+      let patientRecord = await prisma.patient.findFirst({
         where: {
           firstName: p.patient.firstName,
           lastName: p.patient.lastName,
@@ -594,10 +589,8 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           nextRefillDate: refillResult.next?.nextRefillDate,
         } : null,
       });
-    } catch (err: any) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    // @ts-ignore
-
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       logger.error("[PRESCRIPTIONS/POST] Lifefile createFullOrder failed:", err);
       try {
         await prisma.order.updateMany({

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { WebhookStatus } from "@prisma/client";
 import { logger } from '@/lib/logger';
+import { isBrowser } from '@/lib/utils/ssr-safe';
 
 interface WebhookStats {
   total: number;
@@ -69,7 +70,7 @@ export default function WebhookMonitorPage() {
   useEffect(() => {
     setTestPayload(JSON.stringify(samplePayload, null, 2));
     // Set the webhook URL after mount to avoid hydration issues
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       setWebhookUrl(`${window.location.origin}/api/webhooks/heyflow-intake-v2`);
     }
   }, []);

@@ -149,8 +149,9 @@ async function getUserClinics(userId: number, primaryClinicId?: number | null) {
         });
       }
     }
-  } catch {
+  } catch (error: unknown) {
     // UserClinic might not exist
+    logger.warn('[Switch Clinic] UserClinic lookup failed', { error: error instanceof Error ? error.message : 'Unknown error', userId });
   }
 
   return clinics;

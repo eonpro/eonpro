@@ -26,10 +26,10 @@ export class StripePaymentService {
     clientSecret: string;
   }> {
     const stripeClient = getStripe();
-    
+
     // Get or create Stripe customer
     const customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
-    
+
     // Create payment intent
     const paymentIntent = await stripeClient.paymentIntents.create({
       amount: options.amount,
@@ -46,7 +46,7 @@ export class StripePaymentService {
         ...options.metadata,
       } as any,
     });
-    
+
     // Store payment in database
     const payment = await prisma.payment.create({
       data: {
@@ -60,28 +60,28 @@ export class StripePaymentService {
         metadata: options.metadata,
       },
     });
-    
+
     logger.debug(`[STRIPE] Created payment intent ${paymentIntent.id} for patient ${options.patientId}`);
-    
+
     return {
       payment,
       clientSecret: paymentIntent.client_secret!,
     };
   }
-  
+
   /**
    * Process a payment with a saved payment method
    */
   static async processPayment(options: ProcessPaymentOptions): Promise<any> {
     const stripeClient = getStripe();
-    
+
     if (!options.paymentMethodId) {
       throw new Error('Payment method ID is required');
     }
-    
+
     // Create payment intent
     const { payment, clientSecret } = await this.createPaymentIntent(options);
-    
+
     // Confirm the payment
     const paymentIntent = await stripeClient.paymentIntents.confirm(
       payment.stripePaymentIntentId!,
@@ -89,55 +89,59 @@ export class StripePaymentService {
         payment_method: options.paymentMethodId,
       }
     );
-    
+
     // Update payment status
     await this.updatePaymentFromIntent(paymentIntent);
-    
+
     return payment;
   }
-  
+
   /**
    * Update payment from Stripe webhook
+   * Uses a transaction to ensure payment and invoice updates are atomic
    */
   static async updatePaymentFromIntent(paymentIntent: Stripe.PaymentIntent): Promise<void> {
     // Find payment in database
     const payment = await prisma.payment.findUnique({
       where: { stripePaymentIntentId: paymentIntent.id },
     });
-    
+
     if (!payment) {
       logger.warn(`[STRIPE] Payment intent ${paymentIntent.id} not found in database`);
       return;
     }
-    
-    // Update payment
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: this.mapStripeStatus(paymentIntent.status),
-        stripeChargeId: paymentIntent.latest_charge?.toString(),
-        paymentMethod: paymentIntent.payment_method?.toString(),
-        failureReason: paymentIntent.last_payment_error?.message,
-      },
-    });
-    
-    // If payment succeeded and linked to an invoice, update invoice
-    if (paymentIntent.status === 'succeeded' && payment.invoiceId) {
-      await prisma.invoice.update({
-        where: { id: payment.invoiceId },
+
+    // Wrap payment and invoice updates in a transaction for atomicity
+    await prisma.$transaction(async (tx) => {
+      // Update payment
+      await tx.payment.update({
+        where: { id: payment.id },
         data: {
-          amountPaid: {
-            increment: payment.amount,
-          },
-          status: 'PAID',
-          paidAt: new Date(),
+          status: this.mapStripeStatus(paymentIntent.status),
+          stripeChargeId: paymentIntent.latest_charge?.toString(),
+          paymentMethod: paymentIntent.payment_method?.toString(),
+          failureReason: paymentIntent.last_payment_error?.message,
         },
       });
-    }
-    
+
+      // If payment succeeded and linked to an invoice, update invoice
+      if (paymentIntent.status === 'succeeded' && payment.invoiceId) {
+        await tx.invoice.update({
+          where: { id: payment.invoiceId },
+          data: {
+            amountPaid: {
+              increment: payment.amount,
+            },
+            status: 'PAID',
+            paidAt: new Date(),
+          },
+        });
+      }
+    });
+
     logger.debug(`[STRIPE] Updated payment ${paymentIntent.id} from webhook`);
   }
-  
+
   /**
    * Refund a payment
    */
@@ -147,27 +151,27 @@ export class StripePaymentService {
     reason?: string
   ): Promise<Stripe.Refund> {
     const stripeClient = getStripe();
-    
+
     // Get payment from database
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
     });
-    
+
     if (!payment) {
       throw new Error(`Payment with ID ${paymentId} not found`);
     }
-    
+
     if (!payment.stripeChargeId) {
       throw new Error('Payment has no charge ID');
     }
-    
+
     // Create refund in Stripe
     const refund = await stripeClient.refunds.create({
       charge: payment.stripeChargeId,
       amount: amount || payment.amount,
       reason: reason as Stripe.RefundCreateParams.Reason || 'requested_by_customer',
     });
-    
+
     // Update payment status
     await prisma.payment.update({
       where: { id: paymentId },
@@ -175,30 +179,30 @@ export class StripePaymentService {
         status: amount && amount < payment.amount ? 'REFUNDED' : 'REFUNDED',
       },
     });
-    
+
     logger.debug(`[STRIPE] Refunded payment ${payment.stripePaymentIntentId}`);
-    
+
     return refund;
   }
-  
+
   /**
    * Get payment methods for a patient
    */
   static async getPaymentMethods(patientId: number): Promise<Stripe.PaymentMethod[]> {
     const stripeClient = getStripe();
-    
+
     // Get or create customer
     const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
-    
+
     // List payment methods
     const paymentMethods = await stripeClient.paymentMethods.list({
       customer: customer.id,
       type: 'card',
     });
-    
+
     return paymentMethods.data;
   }
-  
+
   /**
    * Save a payment method for future use
    */
@@ -207,21 +211,21 @@ export class StripePaymentService {
     paymentMethodId: string
   ): Promise<Stripe.PaymentMethod> {
     const stripeClient = getStripe();
-    
+
     // Get or create customer
     const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
-    
+
     // Attach payment method to customer
     const paymentMethod = await stripeClient.paymentMethods.attach(
       paymentMethodId,
       { customer: customer.id }
     );
-    
+
     logger.debug(`[STRIPE] Attached payment method ${paymentMethodId} to customer ${customer.id}`);
-    
+
     return paymentMethod;
   }
-  
+
   /**
    * Remove a payment method
    */
@@ -229,14 +233,14 @@ export class StripePaymentService {
     paymentMethodId: string
   ): Promise<Stripe.PaymentMethod> {
     const stripeClient = getStripe();
-    
+
     const paymentMethod = await stripeClient.paymentMethods.detach(paymentMethodId);
-    
+
     logger.debug(`[STRIPE] Detached payment method ${paymentMethodId}`);
-    
+
     return paymentMethod;
   }
-  
+
   /**
    * Get payment history for a patient
    */
@@ -249,7 +253,7 @@ export class StripePaymentService {
       orderBy: { createdAt: 'desc' },
     });
   }
-  
+
   /**
    * Map Stripe payment intent status to our enum
    */

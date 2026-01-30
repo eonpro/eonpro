@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
 
 // Helper to extract userId from URL path
 function extractUserId(req: NextRequest): number | null {
@@ -169,8 +170,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           userId_clinicId: { userId, clinicId },
         },
       });
-    } catch (e) {
+    } catch (error: unknown) {
       // Table might not exist, continue
+      logger.warn('[SUPER-ADMIN-CLINICS] UserClinic lookup failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     if (existingAssignment) {
@@ -187,8 +189,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           where: { userId, isPrimary: true },
           data: { isPrimary: false },
         });
-      } catch (e) {
+      } catch (error: unknown) {
         // Ignore if table doesn't exist
+        logger.warn('[SUPER-ADMIN-CLINICS] Failed to update primary clinic', { error: error instanceof Error ? error.message : 'Unknown error' });
       }
     }
 

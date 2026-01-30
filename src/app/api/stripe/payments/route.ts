@@ -41,10 +41,8 @@ export async function POST(request: NextRequest) {
         clientSecret: result.clientSecret,
       });
     }
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[API] Error creating payment:', error);
+  } catch (error: unknown) {
+    logger.error('[API] Error creating payment:', error instanceof Error ? error : new Error(String(error)));
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -84,10 +82,8 @@ export async function GET(request: NextRequest) {
       success: true,
       payments,
     });
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[API] Error fetching payments:', error);
+  } catch (error: unknown) {
+    logger.error('[API] Error fetching payments:', error instanceof Error ? error : new Error(String(error)));
     
     return NextResponse.json(
       { error: 'Failed to fetch payments' },

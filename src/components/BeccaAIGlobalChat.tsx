@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import BeccaAIChat from './BeccaAIChat';
+import { isBrowser, getLocalStorageItem } from '@/lib/utils/ssr-safe';
 
 interface BeccaAIGlobalChatProps {
   userEmail?: string;
@@ -73,9 +74,12 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
 
   // Check authentication and user role
   useEffect(() => {
+    // SSR guard - only run on client
+    if (!isBrowser) return;
+
     const checkAuth = () => {
-      const authToken = localStorage.getItem('auth-token');
-      const user = localStorage.getItem('user');
+      const authToken = getLocalStorageItem('auth-token');
+      const user = getLocalStorageItem('user');
 
       if (!authToken) {
         setIsAuthenticated(false);
@@ -111,8 +115,8 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
         }
       }
 
-      // Fallback: Check for selected-clinic cookie
-      if (!clinic) {
+      // Fallback: Check for selected-clinic cookie (with SSR guard)
+      if (!clinic && isBrowser && document?.cookie) {
         const cookies = document.cookie.split(';');
         for (const cookie of cookies) {
           const [name, value] = cookie.trim().split('=');
@@ -127,7 +131,7 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
       }
 
       // Fallback: Try to get clinic from subdomain
-      if (!clinic) {
+      if (!clinic && isBrowser) {
         const hostname = window.location.hostname;
         // If it's a subdomain like wellmedr.eonpro.io, we might need to resolve it
         // For now, we'll try to fetch the clinic ID from the server
@@ -164,7 +168,7 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
   // Fetch patient name
   const fetchPatientName = async (patientId: number) => {
     try {
-      const token = localStorage.getItem('auth-token');
+      const token = getLocalStorageItem('auth-token');
       if (!token) return;
 
       const response = await fetch(`/api/patients/${patientId}`, {

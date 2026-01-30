@@ -132,10 +132,8 @@ export async function generateSOAPFromIntake(
       
       logger.debug('[SOAP Service] Parsed intake data with fields:', { fields: Object.keys(intakeData).slice(0, 10).join(', ') });
     }
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Error parsing intake data:', { error });
+  } catch (error: unknown) {
+    logger.error('Error parsing intake data:', { error: error instanceof Error ? error.message : String(error) });
     // Fallback to basic patient info
     intakeData = {
       firstName: patient.firstName,
@@ -187,20 +185,21 @@ export async function generateSOAPFromIntake(
     logger.debug('[SOAP Service] SOAP note created successfully:', { value: soapNote.id });
     
     return soapNote;
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStatus = error && typeof error === 'object' && 'status' in error ? (error as { status: number }).status : undefined;
+    const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string }).code : undefined;
+
     logger.error('[SOAP Service] Error generating SOAP note:', { 
       error: errorMessage,
-      status: error.status,
-      code: error.code,
+      status: errorStatus,
+      code: errorCode,
     });
     
     // Preserve the original error status for proper handling upstream
-    const newError = new Error(`Failed to generate SOAP note: ${errorMessage}`);
-    // @ts-ignore - Preserve status code for rate limit detection
-    newError.status = error.status;
-    // @ts-ignore
-    newError.code = error.code;
+    const newError = new Error(`Failed to generate SOAP note: ${errorMessage}`) as Error & { status?: number; code?: string };
+    newError.status = errorStatus;
+    newError.code = errorCode;
     throw newError;
   }
 }

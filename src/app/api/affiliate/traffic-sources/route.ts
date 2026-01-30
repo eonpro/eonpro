@@ -132,8 +132,9 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         try {
           const url = new URL(touch.landingPage);
           page = url.pathname;
-        } catch {
+        } catch (error: unknown) {
           // Keep original if not a valid URL
+          logger.warn('[Affiliate Traffic Sources] URL parse failed', { error: error instanceof Error ? error.message : 'Unknown error', landingPage: touch.landingPage });
         }
         
         const pageData = landingPageMap.get(page) || { clicks: 0, conversions: 0 };

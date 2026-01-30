@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isBrowser } from '@/lib/utils/ssr-safe';
 
 interface RefCode {
   id: string;
@@ -134,9 +135,9 @@ export default function LinksPage() {
     }
   };
 
-  // Use real data or empty state
+  // Use real data or empty state - use SSR-safe fallback for window.location.origin
   const displayData: LinksData = data || {
-    baseUrl: window.location.origin,
+    baseUrl: isBrowser ? window.location.origin : '',
     refCodes: [],
     canCreateMore: true,
     maxCodes: 10,

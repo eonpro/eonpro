@@ -110,10 +110,8 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
         }).then((r: { diff: string } | null) => r  ? JSON.parse(r.diff as string).code  : undefined)) }),
       }),
     });
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Error sending password reset:', error);
+  } catch (error: unknown) {
+    logger.error('Error sending password reset:', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to process password reset request' },
       { status: 500 }
@@ -235,15 +233,15 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
     
     // Create audit log
     if (role === 'provider') {
-      const user: any = await // @ts-ignore
-    prisma.provider.findFirst({ where: { email: email.toLowerCase() },
+      const providerUser = await prisma.provider.findFirst({
+        where: { email: email.toLowerCase() },
       });
-      if (user) {
+      if (providerUser) {
         await prisma.providerAudit.create({
           data: {
-            providerId: user.id,
+            providerId: providerUser.id,
             action: 'PASSWORD_RESET',
-            actorEmail: user.email,
+            actorEmail: providerUser.email || email.toLowerCase(),
             diff: JSON.stringify({ timestamp: new Date().toISOString() }),
           },
         });
@@ -254,10 +252,8 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
       success: true,
       message: 'Password reset successfully',
     });
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Error resetting password:', error);
+  } catch (error: unknown) {
+    logger.error('Error resetting password:', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to reset password' },
       { status: 500 }

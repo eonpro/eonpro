@@ -186,8 +186,9 @@ export async function GET(req: NextRequest) {
         ...results,
         errors: [`Fatal error: ${errorMessage}`],
       });
-    } catch (e) {
+    } catch (error: unknown) {
       // Ignore alert errors
+      logger.warn('[Reconciliation Cron] Alert failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     return NextResponse.json(
@@ -235,7 +236,8 @@ async function alertReconciliationFailures(results: {
         body: JSON.stringify(alertPayload),
       });
     }
-  } catch (e) {
-    // Ignore
+  } catch (error: unknown) {
+    // Ignore external webhook errors
+    logger.warn('[Reconciliation Alert] External webhook failed', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 }

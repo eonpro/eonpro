@@ -1,8 +1,8 @@
 /**
  * STRIPE REFUNDS API
- * 
+ *
  * Handles full and partial refunds for payments
- * 
+ *
  * PROTECTED: Requires admin authentication
  */
 
@@ -32,10 +32,10 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
+
     const body = await request.json();
     const validated = refundSchema.parse(body);
-    
+
     // Need either paymentId or stripeInvoiceId
     if (!validated.paymentId && !validated.stripeInvoiceId) {
       return NextResponse.json(
@@ -43,38 +43,38 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         { status: 400 }
       );
     }
-    
+
     let payment: any = null;
     let invoice: any = null;
     let refundAmount: number;
-    
+
     // If we have a paymentId, use that
     if (validated.paymentId) {
       payment = await prisma.payment.findUnique({
         where: { id: validated.paymentId },
         include: { patient: true, invoice: true },
       });
-      
+
       if (!payment) {
         return NextResponse.json(
           { error: 'Payment not found' },
           { status: 404 }
         );
       }
-      
+
       if (payment.status !== 'SUCCEEDED') {
         return NextResponse.json(
           { error: 'Can only refund successful payments' },
           { status: 400 }
         );
       }
-      
+
       refundAmount = validated.amount || payment.amount;
     } else if (validated.stripeInvoiceId) {
       // Invoice-based refund - find the invoice and its payments
       invoice = await prisma.invoice.findFirst({
         where: { stripeInvoiceId: validated.stripeInvoiceId },
-        include: { 
+        include: {
           patient: true,
           payments: {
             where: { status: 'SUCCEEDED' },
@@ -82,14 +82,14 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
           },
         },
       });
-      
+
       if (!invoice) {
         return NextResponse.json(
           { error: 'Invoice not found' },
           { status: 404 }
         );
       }
-      
+
       // Use the first successful payment for refund
       payment = invoice.payments[0];
       refundAmount = validated.amount || invoice.amountPaid;
@@ -99,14 +99,14 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         { status: 400 }
       );
     }
-    
+
     if (!refundAmount || refundAmount <= 0) {
       return NextResponse.json(
         { error: 'Invalid refund amount' },
         { status: 400 }
       );
     }
-    
+
     const maxRefundable = payment ? payment.amount : (invoice?.amountPaid || 0);
     if (refundAmount > maxRefundable) {
       return NextResponse.json(
@@ -114,62 +114,65 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         { status: 400 }
       );
     }
-    
+
     // Check if Stripe is configured
     const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
-    
+
     if (!stripeConfigured) {
       // Demo mode - just update database
       logger.warn('[Refunds] Processing refund in demo mode');
-      
+
       const isFullRefund = refundAmount >= maxRefundable;
-      
-      // Update payment status if we have a payment
-      if (payment) {
-        await prisma.payment.update({
-          where: { id: payment.id },
+      const invoiceId = payment?.invoiceId || invoice?.id;
+
+      // Wrap all database updates in a transaction for atomicity
+      await prisma.$transaction(async (tx) => {
+        // Update payment status if we have a payment
+        if (payment) {
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+              refundedAmount: refundAmount,
+              refundedAt: new Date(),
+              metadata: {
+                ...(payment.metadata as object || {}),
+                refundReason: validated.reason,
+                refundedBy: 'demo_mode',
+              },
+            },
+          });
+        }
+
+        // Update invoice if exists
+        if (invoiceId) {
+          await tx.invoice.update({
+            where: { id: invoiceId },
+            data: {
+              amountPaid: { decrement: refundAmount },
+              status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+            },
+          });
+        }
+
+        // Create audit log
+        await tx.auditLog.create({
           data: {
-            status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-            refundedAmount: refundAmount,
-            refundedAt: new Date(),
-            metadata: {
-              ...(payment.metadata as object || {}),
-              refundReason: validated.reason,
-              refundedBy: 'demo_mode',
+            userId: 0, // TODO: Get from auth
+            action: 'REFUND_PROCESSED',
+            entityType: payment ? 'Payment' : 'Invoice',
+            entityId: (payment?.id || invoice?.id || 0).toString(),
+            details: {
+              paymentId: payment?.id,
+              invoiceId: invoiceId,
+              amount: refundAmount,
+              reason: validated.reason,
+              demoMode: true,
             },
           },
         });
-      }
-      
-      // Update invoice if exists
-      const invoiceId = payment?.invoiceId || invoice?.id;
-      if (invoiceId) {
-        await prisma.invoice.update({
-          where: { id: invoiceId },
-          data: {
-            amountPaid: { decrement: refundAmount },
-            status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-          },
-        });
-      }
-      
-      // Create audit log
-      await prisma.auditLog.create({
-        data: {
-          userId: 0, // TODO: Get from auth
-          action: 'REFUND_PROCESSED',
-          entityType: payment ? 'Payment' : 'Invoice',
-          entityId: (payment?.id || invoice?.id || 0).toString(),
-          details: {
-            paymentId: payment?.id,
-            invoiceId: invoiceId,
-            amount: refundAmount,
-            reason: validated.reason,
-            demoMode: true,
-          },
-        },
       });
-      
+
       return NextResponse.json({
         success: true,
         refund: {
@@ -183,21 +186,21 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         message: 'Refund processed in demo mode',
       });
     }
-    
+
     // Production mode - use Stripe
     try {
       const { getStripe } = await import('@/lib/stripe');
       const stripe = getStripe();
-      
+
       let refund;
       const isFullRefund = refundAmount >= maxRefundable;
-      
+
       // Try payment intent refund first
       if (payment?.stripePaymentIntentId) {
         refund = await stripe.refunds.create({
           payment_intent: payment.stripePaymentIntentId,
           amount: refundAmount,
-          reason: validated.reason === 'fraudulent' ? 'fraudulent' 
+          reason: validated.reason === 'fraudulent' ? 'fraudulent'
                 : validated.reason === 'duplicate' ? 'duplicate'
                 : 'requested_by_customer',
           metadata: {
@@ -210,33 +213,33 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         // Try invoice-based refund via charge or payment_intent lookup
         const stripeInvoice = await stripe.invoices.retrieve(validated.stripeInvoiceId, {
           expand: ['payment_intent', 'charge'],
-        }) as Stripe.Invoice & { 
+        }) as Stripe.Invoice & {
           charge?: string | Stripe.Charge | null;
           payment_intent?: string | Stripe.PaymentIntent | null;
         };
-        
+
         logger.info('[Refunds] Invoice retrieved:', {
           invoiceId: validated.stripeInvoiceId,
           status: stripeInvoice.status,
           paymentIntent: stripeInvoice.payment_intent,
           charge: stripeInvoice.charge,
         });
-        
+
         // Try different payment methods in order:
         // 1. Direct charge on invoice
         // 2. Payment Intent on invoice
         // 3. Look up charge from payment intent
-        
+
         if (stripeInvoice.charge) {
           // Invoice has a direct charge
-          const chargeId = typeof stripeInvoice.charge === 'string' 
-            ? stripeInvoice.charge 
+          const chargeId = typeof stripeInvoice.charge === 'string'
+            ? stripeInvoice.charge
             : stripeInvoice.charge.id;
-          
+
           refund = await stripe.refunds.create({
             charge: chargeId,
             amount: refundAmount,
-            reason: validated.reason === 'fraudulent' ? 'fraudulent' 
+            reason: validated.reason === 'fraudulent' ? 'fraudulent'
                   : validated.reason === 'duplicate' ? 'duplicate'
                   : 'requested_by_customer',
             metadata: {
@@ -249,11 +252,11 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
           const paymentIntentId = typeof stripeInvoice.payment_intent === 'string'
             ? stripeInvoice.payment_intent
             : stripeInvoice.payment_intent.id;
-          
+
           refund = await stripe.refunds.create({
             payment_intent: paymentIntentId,
             amount: refundAmount,
-            reason: validated.reason === 'fraudulent' ? 'fraudulent' 
+            reason: validated.reason === 'fraudulent' ? 'fraudulent'
                   : validated.reason === 'duplicate' ? 'duplicate'
                   : 'requested_by_customer',
             metadata: {
@@ -269,37 +272,37 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
             status: stripeInvoice.status,
             customerId: stripeInvoice.customer,
           });
-          
+
           // Try to find payment via Stripe API - search for charges with this invoice
           try {
-            const customerId = typeof stripeInvoice.customer === 'string' 
-              ? stripeInvoice.customer 
+            const customerId = typeof stripeInvoice.customer === 'string'
+              ? stripeInvoice.customer
               : stripeInvoice.customer?.id;
-            
+
             if (customerId) {
               // List recent charges for this customer
               const charges = await stripe.charges.list({
                 customer: customerId,
                 limit: 20,
               });
-              
+
               // Find a charge that matches the invoice amount
-              const matchingCharge = charges.data.find(charge => 
-                charge.amount === stripeInvoice.amount_paid && 
+              const matchingCharge = charges.data.find(charge =>
+                charge.amount === stripeInvoice.amount_paid &&
                 charge.status === 'succeeded' &&
                 !charge.refunded
               );
-              
+
               if (matchingCharge) {
                 logger.info('[Refunds] Found matching charge via customer lookup', {
                   chargeId: matchingCharge.id,
                   amount: matchingCharge.amount,
                 });
-                
+
                 refund = await stripe.refunds.create({
                   charge: matchingCharge.id,
                   amount: refundAmount,
-                  reason: validated.reason === 'fraudulent' ? 'fraudulent' 
+                  reason: validated.reason === 'fraudulent' ? 'fraudulent'
                         : validated.reason === 'duplicate' ? 'duplicate'
                         : 'requested_by_customer',
                   metadata: {
@@ -313,22 +316,22 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
                   customer: customerId,
                   limit: 20,
                 });
-                
-                const matchingPI = paymentIntents.data.find(pi => 
-                  pi.amount === stripeInvoice.amount_paid && 
+
+                const matchingPI = paymentIntents.data.find(pi =>
+                  pi.amount === stripeInvoice.amount_paid &&
                   pi.status === 'succeeded'
                 );
-                
+
                 if (matchingPI) {
                   logger.info('[Refunds] Found matching payment intent via customer lookup', {
                     paymentIntentId: matchingPI.id,
                     amount: matchingPI.amount,
                   });
-                  
+
                   refund = await stripe.refunds.create({
                     payment_intent: matchingPI.id,
                     amount: refundAmount,
-                    reason: validated.reason === 'fraudulent' ? 'fraudulent' 
+                    reason: validated.reason === 'fraudulent' ? 'fraudulent'
                           : validated.reason === 'duplicate' ? 'duplicate'
                           : 'requested_by_customer',
                     metadata: {
@@ -342,7 +345,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
           } catch (lookupError: any) {
             logger.error('[Refunds] Failed to lookup charges', { error: lookupError.message });
           }
-          
+
           // If we still don't have a refund, return error
           if (!refund) {
             logger.error('[Refunds] Invoice has no charge or payment_intent and lookup failed', {
@@ -350,9 +353,9 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               status: stripeInvoice.status,
               amountPaid: stripeInvoice.amount_paid,
             });
-            
+
             return NextResponse.json(
-              { 
+              {
                 error: 'No charge found for this invoice. Please refund directly from Stripe dashboard.',
                 invoiceStatus: stripeInvoice.status,
                 amountPaid: stripeInvoice.amount_paid,
@@ -367,57 +370,59 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
           { status: 400 }
         );
       }
-      
+
       // Stripe refund succeeded - now update our database
-      // Wrap in try-catch so we return success even if DB updates fail
+      // Wrap all updates in a transaction for atomicity
       const invoiceId = payment?.invoiceId || invoice?.id;
       let dbUpdateSuccess = true;
-      
+
       try {
-        // Update payment in database if we have one
-        if (payment) {
-          await prisma.payment.update({
-            where: { id: payment.id },
-            data: {
-              status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-              refundedAmount: refundAmount,
-              refundedAt: new Date(),
-              stripeRefundId: refund.id,
-              metadata: {
-                ...(payment.metadata as object || {}),
-                refundReason: validated.reason,
+        await prisma.$transaction(async (tx) => {
+          // Update payment in database if we have one
+          if (payment) {
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: {
+                status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+                refundedAmount: refundAmount,
+                refundedAt: new Date(),
                 stripeRefundId: refund.id,
+                metadata: {
+                  ...(payment.metadata as object || {}),
+                  refundReason: validated.reason,
+                  stripeRefundId: refund.id,
+                },
+              },
+            });
+          }
+
+          // Update invoice if exists
+          if (invoiceId) {
+            await tx.invoice.update({
+              where: { id: invoiceId },
+              data: {
+                amountPaid: { decrement: refundAmount },
+                status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+              },
+            });
+          }
+
+          // Create audit log
+          await tx.auditLog.create({
+            data: {
+              userId: 0, // TODO: Get from auth
+              action: 'REFUND_PROCESSED',
+              entityType: payment ? 'Payment' : 'Invoice',
+              entityId: (payment?.id || invoice?.id || 0).toString(),
+              details: {
+                paymentId: payment?.id,
+                invoiceId: invoiceId,
+                stripeRefundId: refund.id,
+                amount: refundAmount,
+                reason: validated.reason,
               },
             },
           });
-        }
-        
-        // Update invoice if exists
-        if (invoiceId) {
-          await prisma.invoice.update({
-            where: { id: invoiceId },
-            data: {
-              amountPaid: { decrement: refundAmount },
-              status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-            },
-          });
-        }
-        
-        // Create audit log
-        await prisma.auditLog.create({
-          data: {
-            userId: 0, // TODO: Get from auth
-            action: 'REFUND_PROCESSED',
-            entityType: payment ? 'Payment' : 'Invoice',
-            entityId: (payment?.id || invoice?.id || 0).toString(),
-            details: {
-              paymentId: payment?.id,
-              invoiceId: invoiceId,
-              stripeRefundId: refund.id,
-              amount: refundAmount,
-              reason: validated.reason,
-            },
-          },
         });
       } catch (dbError: any) {
         // Log DB error but don't fail - the Stripe refund already succeeded
@@ -429,7 +434,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         });
         dbUpdateSuccess = false;
       }
-      
+
       logger.info('[Refunds] Refund processed successfully', {
         paymentId: payment?.id,
         invoiceId: invoiceId,
@@ -437,7 +442,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         amount: refundAmount,
         dbUpdateSuccess,
       });
-      
+
       return NextResponse.json({
         success: true,
         refund: {
@@ -449,29 +454,29 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         },
         dbUpdateSuccess, // Let frontend know if DB update failed
       });
-      
+
     } catch (stripeError: any) {
       logger.error('[Refunds] Stripe error:', stripeError);
-      
+
       return NextResponse.json(
-        { 
+        {
           error: stripeError.message || 'Failed to process refund',
           code: stripeError.code,
         },
         { status: 500 }
       );
     }
-    
+
   } catch (error: any) {
     logger.error('[Refunds] Error processing refund:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
     }
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to process refund' },
       { status: 500 }
@@ -486,26 +491,26 @@ async function getRefundsHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
+
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patientId');
     const paymentId = searchParams.get('paymentId');
-    
+
     const where: any = {
       OR: [
         { status: 'REFUNDED' },
         { status: 'PARTIALLY_REFUNDED' },
       ],
     };
-    
+
     if (patientId) {
       where.patientId = parseInt(patientId, 10);
     }
-    
+
     if (paymentId) {
       where.id = parseInt(paymentId, 10);
     }
-    
+
     const refundedPayments = await prisma.payment.findMany({
       where,
       include: {
@@ -518,7 +523,7 @@ async function getRefundsHandler(request: NextRequest, user: AuthUser) {
       },
       orderBy: { refundedAt: 'desc' },
     });
-    
+
     return NextResponse.json({
       success: true,
       refunds: refundedPayments.map((p: { stripeRefundId: string | null; id: number; refundedAmount: number | null; status: string; refundedAt: Date | null; patient: unknown; invoice: unknown }) => ({
@@ -531,10 +536,10 @@ async function getRefundsHandler(request: NextRequest, user: AuthUser) {
         invoice: p.invoice,
       })),
     });
-    
+
   } catch (error: any) {
     logger.error('[Refunds] Error fetching refunds:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to fetch refunds' },
       { status: 500 }

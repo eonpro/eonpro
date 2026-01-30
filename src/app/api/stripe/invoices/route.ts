@@ -32,14 +32,14 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin', 'provider'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
-    
+
     const body = await request.json();
-    
+
     // Validate request body
     const validatedData = createInvoiceSchema.parse(body);
-    
+
     const { prisma } = await import('@/lib/db');
-    
+
     // ============================================
     // DUPLICATE PREVENTION
     // ============================================
@@ -54,13 +54,13 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
             },
           },
         });
-        
+
         if (existingByKey) {
           logger.info('[API] Duplicate invoice prevented by idempotency key', {
             idempotencyKey: validatedData.idempotencyKey,
             existingInvoiceId: existingByKey.id,
           });
-          
+
           return NextResponse.json({
             success: true,
             invoice: existingByKey,
@@ -70,7 +70,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
           });
         }
       }
-      
+
       // Check 2: Same patient + order within last 5 minutes (prevents accidental double-clicks)
       if (validatedData.orderId) {
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -81,14 +81,14 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
             createdAt: { gte: fiveMinutesAgo },
           },
         });
-        
+
         if (existingByOrder) {
           logger.info('[API] Duplicate invoice prevented - same order within 5 minutes', {
             patientId: validatedData.patientId,
             orderId: validatedData.orderId,
             existingInvoiceId: existingByOrder.id,
           });
-          
+
           return NextResponse.json({
             success: true,
             invoice: existingByOrder,
@@ -98,11 +98,11 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
           });
         }
       }
-      
+
       // Check 3: Same patient + same amount within last 2 minutes (prevents double-clicks on same form)
       const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
       const totalAmount = validatedData.lineItems?.reduce((sum, item) => sum + item.amount, 0) || 0;
-      
+
       if (totalAmount > 0) {
         const existingByAmount = await prisma.invoice.findFirst({
           where: {
@@ -112,14 +112,14 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
             status: { in: ['DRAFT', 'OPEN'] },
           },
         });
-        
+
         if (existingByAmount) {
           logger.info('[API] Duplicate invoice prevented - same amount within 2 minutes', {
             patientId: validatedData.patientId,
             amount: totalAmount,
             existingInvoiceId: existingByAmount.id,
           });
-          
+
           return NextResponse.json({
             success: true,
             invoice: existingByAmount,
@@ -130,21 +130,21 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         }
       }
     }
-    
+
     // ============================================
     // END DUPLICATE PREVENTION
     // ============================================
-    
+
     // If productIds provided, fetch products and build line items
     let lineItems = validatedData.lineItems || [];
     let hasRecurringProducts = false;
     let productRecords: any[] = [];
-    
+
     if (validatedData.productIds && validatedData.productIds.length > 0) {
       productRecords = await prisma.product.findMany({
         where: { id: { in: validatedData.productIds }, isActive: true },
       });
-      
+
       lineItems = productRecords.map(product => ({
         description: product.shortDescription || product.name,
         amount: product.price,
@@ -152,7 +152,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         productId: product.id,
         metadata: { productId: product.id.toString() },
       }));
-      
+
       hasRecurringProducts = productRecords.some(p => p.billingType === 'RECURRING');
     } else {
       // Check existing lineItems for product references
@@ -165,12 +165,12 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         }
       }
     }
-    
+
     const createSubscription = validatedData.createSubscription ?? hasRecurringProducts;
-    
+
     // Check if Stripe is configured using the config service
     const stripeConfigured = isStripeConfigured();
-    
+
     // Detailed logging for debugging
     const configStatus = {
       stripeConfigured,
@@ -179,9 +179,9 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV,
     };
-    
+
     logger.info('[API] Invoice creation - Stripe configuration', configStatus);
-    
+
     if (!stripeConfigured) {
       // Development/Demo mode - create invoice without Stripe
       logger.warn('[API] Stripe not configured - creating demo invoice', {
@@ -189,52 +189,57 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         hint: 'Check Vercel Environment Variables',
         ...configStatus,
       });
-      
+
       // Calculate total (amount is the total for each line item, not per-unit)
       const total = lineItems.reduce((sum, item) => {
         return sum + item.amount;
       }, 0);
-      
+
       // Create invoice in database only (demo mode)
       const invoiceMetadata = {
         ...(validatedData.metadata || {}),
         ...(validatedData.idempotencyKey ? { idempotencyKey: validatedData.idempotencyKey } : {}),
       };
-      
-      const invoice = await prisma.invoice.create({
-        data: {
-          patientId: validatedData.patientId,
-          amount: total,
-          amountDue: total,
-          status: 'DRAFT',
-          dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
-          description: validatedData.description || 'Medical Services',
-          metadata: invoiceMetadata,
-          lineItems: lineItems,
-          orderId: validatedData.orderId,
-          createSubscription,
-        },
-      });
-      
-      // Try to create invoice items records (optional - table might not exist)
-      try {
-        for (const item of lineItems) {
-          await prisma.invoiceItem.create({
-            data: {
-              invoiceId: invoice.id,
-              productId: item.productId || null,
-              description: item.description,
-              quantity: item.quantity || 1,
-              unitPrice: item.amount,
-              amount: item.amount * (item.quantity || 1),
-              metadata: item.metadata || {},
-            },
-          });
+
+      // Wrap invoice and invoice items creation in a transaction for atomicity
+      const invoice = await prisma.$transaction(async (tx) => {
+        const newInvoice = await tx.invoice.create({
+          data: {
+            patientId: validatedData.patientId,
+            amount: total,
+            amountDue: total,
+            status: 'DRAFT',
+            dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
+            description: validatedData.description || 'Medical Services',
+            metadata: invoiceMetadata,
+            lineItems: lineItems,
+            orderId: validatedData.orderId,
+            createSubscription,
+          },
+        });
+
+        // Try to create invoice items records (optional - table might not exist)
+        try {
+          for (const item of lineItems) {
+            await tx.invoiceItem.create({
+              data: {
+                invoiceId: newInvoice.id,
+                productId: item.productId || null,
+                description: item.description,
+                quantity: item.quantity || 1,
+                unitPrice: item.amount,
+                amount: item.amount * (item.quantity || 1),
+                metadata: item.metadata || {},
+              },
+            });
+          }
+        } catch (itemError: any) {
+          logger.warn('[API] Could not create InvoiceItem records (demo mode):', itemError.message);
         }
-      } catch (itemError: any) {
-        logger.warn('[API] Could not create InvoiceItem records (demo mode):', itemError.message);
-      }
-      
+
+        return newInvoice;
+      });
+
       return NextResponse.json({
         success: true,
         invoice,
@@ -244,43 +249,46 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         message: 'Invoice created in demo mode (Stripe not configured)',
       });
     }
-    
+
     // Production mode - use Stripe
     try {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-      
+
       // Create invoice with subscription flag
       const result = await StripeInvoiceService.createInvoice({
         ...validatedData,
         lineItems,
       } as any);
-      
-      // Update invoice with subscription flag
-      await prisma.invoice.update({
-        where: { id: result.invoice.id },
-        data: { createSubscription },
-      });
-      
-      // Try to create invoice items records (optional - table might not exist yet)
-      try {
-        for (const item of lineItems) {
-          await prisma.invoiceItem.create({
-            data: {
-              invoiceId: result.invoice.id,
-              productId: item.productId || null,
-              description: item.description,
-              quantity: item.quantity || 1,
-              unitPrice: item.amount,
-              amount: item.amount * (item.quantity || 1),
-              metadata: item.metadata || {},
-            },
-          });
+
+      // Wrap invoice update and invoice items creation in a transaction for atomicity
+      await prisma.$transaction(async (tx) => {
+        // Update invoice with subscription flag
+        await tx.invoice.update({
+          where: { id: result.invoice.id },
+          data: { createSubscription },
+        });
+
+        // Try to create invoice items records (optional - table might not exist yet)
+        try {
+          for (const item of lineItems) {
+            await tx.invoiceItem.create({
+              data: {
+                invoiceId: result.invoice.id,
+                productId: item.productId || null,
+                description: item.description,
+                quantity: item.quantity || 1,
+                unitPrice: item.amount,
+                amount: item.amount * (item.quantity || 1),
+                metadata: item.metadata || {},
+              },
+            });
+          }
+        } catch (itemError: any) {
+          // InvoiceItem table might not exist - not critical for invoice creation
+          logger.warn('[API] Could not create InvoiceItem records:', itemError.message);
         }
-      } catch (itemError: any) {
-        // InvoiceItem table might not exist - not critical for invoice creation
-        logger.warn('[API] Could not create InvoiceItem records:', itemError.message);
-      }
-      
+      });
+
       return NextResponse.json({
         success: true,
         invoice: result.invoice,
@@ -288,17 +296,17 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         willCreateSubscription: createSubscription,
       });
     } catch (stripeError: any) {
-      logger.error('[API] Stripe service error:', { 
-        message: stripeError.message, 
+      logger.error('[API] Stripe service error:', {
+        message: stripeError.message,
         code: stripeError.code,
-        type: stripeError.type 
+        type: stripeError.type
       });
-      
+
       // If Stripe fails, try demo mode
       logger.warn('[API] Falling back to demo mode due to Stripe error');
-      
+
       const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
-      
+
       const invoice = await prisma.invoice.create({
         data: {
           patientId: validatedData.patientId,
@@ -313,7 +321,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
           orderId: validatedData.orderId,
         },
       });
-      
+
       return NextResponse.json({
         success: true,
         invoice,
@@ -323,35 +331,34 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         message: 'Invoice created in database (Stripe error - using fallback)',
       });
     }
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[API] Error creating invoice:', error);
-    
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error('[API] Error creating invoice:', err);
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
     }
-    
+
     // More helpful error message for Stripe configuration issues
-    if (error.message?.includes('Stripe is not configured')) {
+    if (err.message?.includes('Stripe is not configured')) {
       return NextResponse.json(
-        { 
-          error: 'Billing system not configured', 
+        {
+          error: 'Billing system not configured',
           details: 'Stripe API key is missing. Invoices can still be created in demo mode.',
-          demoMode: true 
+          demoMode: true
         },
         { status: 503 }
       );
     }
-    
+
     return NextResponse.json(
-      { 
-        error: error.message || 'Failed to create invoice',
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-        type: error.constructor?.name 
+      {
+        error: err.message || 'Failed to create invoice',
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+        type: err.constructor?.name
       },
       { status: 500 }
     );
@@ -363,17 +370,17 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
   if (!['admin', 'super_admin', 'provider', 'staff'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
-  
+
   const { searchParams } = new URL(request.url);
   const patientId = searchParams.get('patientId');
-  
+
   if (!patientId) {
     return NextResponse.json(
       { error: 'Patient ID is required' },
       { status: 400 }
     );
   }
-  
+
   const parsedPatientId = parseInt(patientId, 10);
   if (isNaN(parsedPatientId)) {
     return NextResponse.json(
@@ -381,11 +388,11 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
       { status: 400 }
     );
   }
-  
+
   try {
     const { prisma } = await import('@/lib/db');
     const { safeInvoiceQuery } = await import('@/lib/database/safe-query');
-    
+
     // Use safe query wrapper for critical billing data
     const result = await safeInvoiceQuery(
       () => prisma.invoice.findMany({
@@ -400,14 +407,14 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
       }),
       `Fetch invoices for patient ${parsedPatientId}`
     );
-    
+
     if (!result.success) {
       // Safe query failed - try simpler query without relations
-      logger.warn('[API] Safe query failed, trying simple query', { 
+      logger.warn('[API] Safe query failed, trying simple query', {
         error: result.error?.message,
-        patientId: parsedPatientId 
+        patientId: parsedPatientId
       });
-      
+
       const simpleResult = await safeInvoiceQuery(
         () => prisma.invoice.findMany({
           where: { patientId: parsedPatientId },
@@ -415,14 +422,14 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
         }),
         `Fetch invoices (simple) for patient ${parsedPatientId}`
       );
-      
+
       if (!simpleResult.success) {
         // Both queries failed - this is a critical error
         logger.error('[API] CRITICAL: Both invoice queries failed', {
           error: simpleResult.error,
           patientId: parsedPatientId,
         });
-        
+
         return NextResponse.json({
           error: 'Failed to fetch invoices',
           errorType: simpleResult.error?.type || 'UNKNOWN',
@@ -431,7 +438,7 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
           timestamp: new Date().toISOString(),
         }, { status: 503 });
       }
-      
+
       // Simple query succeeded
       const simpleData = simpleResult.data as unknown[];
       return NextResponse.json({
@@ -442,7 +449,7 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
         warning: 'Relations could not be loaded',
       });
     }
-    
+
     // Full query succeeded
     const fullData = result.data as unknown[];
     return NextResponse.json({
@@ -451,7 +458,7 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
       count: fullData?.length || 0,
       timestamp: new Date().toISOString(),
     });
-    
+
   } catch (error: any) {
     // Log and return detailed error
     const errorInfo = {
@@ -461,9 +468,9 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
       errorCode: error?.code || null,
       timestamp: new Date().toISOString(),
     };
-    
+
     logger.error('[API] Invoice fetch error:', errorInfo);
-    
+
     return NextResponse.json(errorInfo, { status: 500 });
   }
 }

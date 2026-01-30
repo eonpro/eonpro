@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
+import { isBrowser } from '@/lib/utils/ssr-safe';
 
 type LoginStep = 'identifier' | 'password' | 'otp' | 'clinic' | 'forgot' | 'reset';
 type LoginMethod = 'email' | 'phone';
@@ -92,6 +93,9 @@ export default function LoginPage() {
 
   // Resolve clinic from domain and load branding
   useEffect(() => {
+    // SSR guard
+    if (!isBrowser) return;
+
     const resolveClinic = async () => {
       try {
         const domain = window.location.hostname;

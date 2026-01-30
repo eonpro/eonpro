@@ -68,8 +68,9 @@ export async function GET(request: NextRequest) {
               amountFormatted: formatCurrency(item.amount_total),
             };
           });
-        } catch (e) {
+        } catch (error: unknown) {
           // Line items might not be accessible
+          logger.warn('[STRIPE PAYMENT LINKS] Failed to fetch line items', { linkId: link.id, error: error instanceof Error ? error.message : 'Unknown error' });
         }
         
         return {

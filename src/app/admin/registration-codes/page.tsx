@@ -18,6 +18,7 @@ import {
   Link2,
   ExternalLink,
 } from 'lucide-react';
+import { isBrowser } from '@/lib/utils/ssr-safe';
 
 interface RegistrationCode {
   id: number;
@@ -88,6 +89,7 @@ export default function RegistrationCodesPage() {
   };
 
   const handleCopyLink = (code: RegistrationCode) => {
+    if (!isBrowser) return;
     const baseUrl = window.location.origin;
     const link = `${baseUrl}/register?code=${code.code}`;
     navigator.clipboard.writeText(link);
@@ -495,7 +497,7 @@ export default function RegistrationCodesPage() {
             <p className="mt-1 text-sm text-blue-700">
               Share your registration code with patients. They can enter it at{' '}
               <code className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-xs">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/register
+                {isBrowser ? window.location.origin : ''}/register
               </code>{' '}
               to create an account linked to your clinic. You can set usage limits and expiration
               dates to control access.

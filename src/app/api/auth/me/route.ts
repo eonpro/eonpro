@@ -98,8 +98,9 @@ export const GET = withAuth(
             isPrimary: true,
           });
         }
-      } catch {
+      } catch (error: unknown) {
         // UserClinic table might not have entries
+        logger.warn('[Auth/Me] UserClinic lookup failed', { error: error instanceof Error ? error.message : 'Unknown error', userId: user.id });
         if (userData.clinic) {
           clinics = [{
             ...userData.clinic,

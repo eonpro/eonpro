@@ -35,10 +35,8 @@ export async function findOrCreateInfluencer(promoCode: string, influencerData?:
     }
 
     return influencer;
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[Influencer Service] Error finding/creating influencer:', error);
+  } catch (error: unknown) {
+    logger.error('[Influencer Service] Error finding/creating influencer:', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
 }
@@ -108,10 +106,8 @@ export async function trackReferral(
     });
 
     return referral;
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[Influencer Service] Error tracking referral:', error);
+  } catch (error: unknown) {
+    logger.error('[Influencer Service] Error tracking referral:', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
 }
@@ -184,10 +180,8 @@ export async function processCommission(invoiceId: number): Promise<Commission |
 
     logger.debug(`[Influencer Service] Commission created: $${commissionAmount / 100} for influencer ${referral.influencer.name}`);
     return commission;
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[Influencer Service] Error processing commission:', error);
+  } catch (error: unknown) {
+    logger.error('[Influencer Service] Error processing commission:', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
 }
@@ -285,10 +279,8 @@ export async function getInfluencerStats(influencerId: number) {
       recentReferrals,
       recentCommissions
     };
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[Influencer Service] Error getting stats:', error);
+  } catch (error: unknown) {
+    logger.error('[Influencer Service] Error getting stats:', error instanceof Error ? error : new Error(String(error)));
     throw error;
   }
 }
@@ -347,10 +339,8 @@ export async function createPayout(
     });
 
     return payout;
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[Influencer Service] Error creating payout:', error);
+  } catch (error: unknown) {
+    logger.error('[Influencer Service] Error creating payout:', error instanceof Error ? error : new Error(String(error)));
     throw error;
   }
 }

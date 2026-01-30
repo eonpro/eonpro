@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Building2, ChevronDown, Check, RefreshCw } from 'lucide-react';
+import { isBrowser, getLocalStorageItem, setLocalStorageItem } from '@/lib/utils/ssr-safe';
 
 interface Clinic {
   id: number;
@@ -44,11 +45,17 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
   }, []);
 
   const fetchClinics = async () => {
+    // SSR guard
+    if (!isBrowser) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('admin-token') || 
-                    localStorage.getItem('provider-token');
-      
+      const token = getLocalStorageItem('auth-token') ||
+                    getLocalStorageItem('admin-token') ||
+                    getLocalStorageItem('provider-token');
+
       if (!token) {
         setLoading(false);
         return;
@@ -67,7 +74,7 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
         
         // Store active clinic in localStorage for other components
         if (data.activeClinicId) {
-          localStorage.setItem('activeClinicId', data.activeClinicId.toString());
+          setLocalStorageItem('activeClinicId', data.activeClinicId.toString());
         }
       }
     } catch (error) {
@@ -82,9 +89,9 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
 
     setSwitching(true);
     try {
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('admin-token') || 
-                    localStorage.getItem('provider-token');
+      const token = getLocalStorageItem('auth-token') ||
+                    getLocalStorageItem('admin-token') ||
+                    getLocalStorageItem('provider-token');
 
       const response = await fetch('/api/user/clinics', {
         method: 'PUT',
@@ -98,11 +105,13 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
       if (response.ok) {
         const data = await response.json();
         setActiveClinicId(clinicId);
-        localStorage.setItem('activeClinicId', clinicId.toString());
+        setLocalStorageItem('activeClinicId', clinicId.toString());
         setIsOpen(false);
         
-        // Refresh the page to load new clinic data
-        window.location.reload();
+        // Refresh the page to load new clinic data (with SSR guard)
+        if (isBrowser) {
+          window.location.reload();
+        }
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to switch clinic');

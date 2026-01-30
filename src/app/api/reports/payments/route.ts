@@ -51,7 +51,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
       case 'yesterday':
         const yesterdayPayments = await reportingService.getYesterdayPayments();
         
-        const yesterdayDetails = yesterdayPayments.map(p => ({
+        const yesterdayDetails = yesterdayPayments.map((p: typeof yesterdayPayments[number]) => ({
           id: p.id,
           patient: {
             id: p.patient.id,
@@ -71,7 +71,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
           paidAt: p.createdAt
         }));
 
-        const yesterdayTotal = yesterdayPayments.reduce((sum, p) => sum + p.amount, 0);
+        const yesterdayTotal = yesterdayPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
         return NextResponse.json({
           payments: yesterdayDetails,
@@ -266,7 +266,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
         });
 
         const byPatient = Array.from(patientMap.values())
-          .map(p => ({
+          .map((p: { total: number; payments: number; [key: string]: unknown }) => ({
             ...p,
             formattedTotal: formatCurrency(p.total),
             averagePayment: formatCurrency(Math.round(p.total / p.payments))

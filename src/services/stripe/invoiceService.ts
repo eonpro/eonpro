@@ -312,6 +312,7 @@ export class StripeInvoiceService {
 
   /**
    * Create subscriptions from paid invoice items that have recurring products
+   * Uses a transaction to ensure all subscription records and invoice update are atomic
    */
   static async createSubscriptionsFromInvoice(invoice: any): Promise<void> {
     try {
@@ -332,11 +333,14 @@ export class StripeInvoiceService {
       // Also check legacy lineItems JSON for product references
       const lineItems = invoice.lineItems || [];
 
+      // Collect all Stripe subscriptions to create
+      const stripeSubscriptions: Array<{ subscription: any; product: any }> = [];
+
       for (const item of recurringItems) {
         const product = item.product;
 
         try {
-          // Create Stripe subscription
+          // Create Stripe subscription first (external API call)
           const subscription = await stripeClient.subscriptions.create({
             customer: patient.stripeCustomerId,
             items: [{ price: product.stripePriceId }],
@@ -349,7 +353,22 @@ export class StripeInvoiceService {
             },
           });
 
-          // Create subscription record in database
+          stripeSubscriptions.push({ subscription, product });
+
+          logger.info(
+            `[STRIPE] Created Stripe subscription ${subscription.id} for patient ${patient.id}, product ${product.name}`
+          );
+        } catch (subError: any) {
+          logger.error(
+            `[STRIPE] Failed to create Stripe subscription for product ${product.id}:`,
+            subError.message
+          );
+        }
+      }
+
+      // Wrap all database operations in a transaction for atomicity
+      if (stripeSubscriptions.length > 0) {
+        await prisma.$transaction(async (tx) => {
           const intervalMap: Record<string, string> = {
             WEEKLY: 'week',
             MONTHLY: 'month',
@@ -358,49 +377,49 @@ export class StripeInvoiceService {
             ANNUAL: 'year',
           };
 
-          await prisma.subscription.create({
-            data: {
-              clinicId: invoice.clinicId,
-              patientId: patient.id,
-              planId: product.id.toString(),
-              planName: product.name,
-              planDescription: product.description || product.shortDescription || '',
-              status: 'ACTIVE',
-              amount: product.price,
-              currency: product.currency || 'usd',
-              interval: intervalMap[product.billingInterval || 'MONTHLY'] || 'month',
-              intervalCount: product.billingIntervalCount || 1,
-              startDate: new Date(),
-              currentPeriodStart: new Date(),
-              currentPeriodEnd: new Date(
-                (subscription as unknown as { current_period_end: number }).current_period_end *
-                  1000
-              ),
-              nextBillingDate: new Date(
-                (subscription as unknown as { current_period_end: number }).current_period_end *
-                  1000
-              ),
-              stripeSubscriptionId: subscription.id,
-              metadata: { productId: product.id, invoiceId: invoice.id },
-            },
+          for (const { subscription, product } of stripeSubscriptions) {
+            // Create subscription record in database
+            await tx.subscription.create({
+              data: {
+                clinicId: invoice.clinicId,
+                patientId: patient.id,
+                planId: product.id.toString(),
+                planName: product.name,
+                planDescription: product.description || product.shortDescription || '',
+                status: 'ACTIVE',
+                amount: product.price,
+                currency: product.currency || 'usd',
+                interval: intervalMap[product.billingInterval || 'MONTHLY'] || 'month',
+                intervalCount: product.billingIntervalCount || 1,
+                startDate: new Date(),
+                currentPeriodStart: new Date(),
+                currentPeriodEnd: new Date(
+                  (subscription as unknown as { current_period_end: number }).current_period_end *
+                    1000
+                ),
+                nextBillingDate: new Date(
+                  (subscription as unknown as { current_period_end: number }).current_period_end *
+                    1000
+                ),
+                stripeSubscriptionId: subscription.id,
+                metadata: { productId: product.id, invoiceId: invoice.id },
+              },
+            });
+          }
+
+          // Mark invoice as having created subscriptions
+          await tx.invoice.update({
+            where: { id: invoice.id },
+            data: { subscriptionCreated: true },
           });
-
-          logger.info(
-            `[STRIPE] Created subscription ${subscription.id} for patient ${patient.id}, product ${product.name}`
-          );
-        } catch (subError: any) {
-          logger.error(
-            `[STRIPE] Failed to create subscription for product ${product.id}:`,
-            subError.message
-          );
-        }
+        });
+      } else {
+        // No subscriptions created, still mark invoice
+        await prisma.invoice.update({
+          where: { id: invoice.id },
+          data: { subscriptionCreated: true },
+        });
       }
-
-      // Mark invoice as having created subscriptions
-      await prisma.invoice.update({
-        where: { id: invoice.id },
-        data: { subscriptionCreated: true },
-      });
     } catch (error: any) {
       logger.error(`[STRIPE] Error creating subscriptions from invoice:`, error.message);
     }

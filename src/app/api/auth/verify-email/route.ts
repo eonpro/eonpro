@@ -121,10 +121,8 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       // In development only, include the code for testing
       ...(process.env.NODE_ENV === 'development' && { code }),
     });
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Error sending verification email:', error);
+  } catch (error: unknown) {
+    logger.error('Error sending verification email:', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to send verification email' },
       { status: 500 }
@@ -170,10 +168,8 @@ export const PUT = standardRateLimit(async (req: NextRequest) => {
       message: result.message,
       email: result.email,
     });
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Error verifying email:', error);
+  } catch (error: unknown) {
+    logger.error('Error verifying email:', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to verify email' },
       { status: 500 }

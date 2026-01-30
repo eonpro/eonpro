@@ -138,10 +138,8 @@ async function loadLogo(): Promise<Uint8Array | null> {
     const arrayBuffer = await res.arrayBuffer();
     cachedLogo = new Uint8Array(arrayBuffer);
     return cachedLogo;
-  } catch (err: any) {
-    // @ts-ignore
-   
-    logger.warn("Intake PDF: failed to fetch logo", { error: err });
+  } catch (err: unknown) {
+    logger.warn("Intake PDF: failed to fetch logo", { error: err instanceof Error ? err.message : String(err) });
     cachedLogo = null;
     return null;
   }

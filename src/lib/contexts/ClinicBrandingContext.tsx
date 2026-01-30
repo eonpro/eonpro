@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
+import { isBrowser, getLocalStorageItem } from '@/lib/utils/ssr-safe';
 
 // Treatment types supported by clinics
 export type TreatmentType =
@@ -268,16 +269,20 @@ export function ClinicBrandingProvider({
       // 3. Resolve from subdomain (for white-labeled portals)
       let cId = clinicId;
 
-      if (!cId) {
-        const user = localStorage.getItem('user');
+      if (!cId && isBrowser) {
+        const user = getLocalStorageItem('user');
         if (user) {
-          const userData = JSON.parse(user);
-          cId = userData.clinicId;
+          try {
+            const userData = JSON.parse(user);
+            cId = userData.clinicId;
+          } catch {
+            // Invalid JSON in localStorage
+          }
         }
       }
 
       // If still no clinicId, try resolving from subdomain
-      if (!cId && typeof window !== 'undefined') {
+      if (!cId && isBrowser) {
         try {
           const domain = window.location.hostname;
           const resolveResponse = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);

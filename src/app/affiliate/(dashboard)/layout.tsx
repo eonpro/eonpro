@@ -10,6 +10,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ReactNode, useEffect, useState } from 'react';
+import { isBrowser } from '@/lib/utils/ssr-safe';
 
 interface NavItem {
   href: string;
@@ -108,7 +109,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
         return;
       }
 
-      // Load clinic branding
+      // Load clinic branding (with SSR guard)
+      if (!isBrowser) return;
       try {
         const domain = window.location.hostname;
         const brandingRes = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);

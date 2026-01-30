@@ -39,10 +39,8 @@ export class StripeCustomerService {
         }
         
         return customer as Stripe.Customer;
-      } catch (error: any) {
-    // @ts-ignore
-   
-        logger.error(`Error retrieving Stripe customer ${patient.stripeCustomerId}:`, error);
+      } catch (error: unknown) {
+        logger.error(`Error retrieving Stripe customer ${patient.stripeCustomerId}:`, error instanceof Error ? error : new Error(String(error)));
         // Customer doesn't exist, create a new one
         return await this.createNewCustomer(patient);
       }
@@ -184,10 +182,8 @@ export class StripeCustomerService {
     for (const patient of patients) {
       try {
         await this.createNewCustomer(patient);
-      } catch (error: any) {
-    // @ts-ignore
-   
-        logger.error(`[STRIPE] Failed to sync patient ${patient.id}:`, error);
+      } catch (error: unknown) {
+        logger.error(`[STRIPE] Failed to sync patient ${patient.id}:`, error instanceof Error ? error : new Error(String(error)));
       }
     }
     

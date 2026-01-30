@@ -106,8 +106,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           select: { name: true },
         });
         if (tier) tierName = tier.name;
-      } catch {
+      } catch (error: unknown) {
         // Tier lookup failed, use default
+        logger.warn('[Affiliate Account] Tier lookup failed', { error: error instanceof Error ? error.message : 'Unknown error' });
       }
     }
 
@@ -133,8 +134,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           isVerified: pm.isVerified,
         };
       }
-    } catch {
+    } catch (error: unknown) {
       // Payout method lookup failed, leave as null
+      logger.warn('[Affiliate Account] Payout method lookup failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     // Get tax documents (optional)
@@ -149,8 +151,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         select: { id: true },
       });
       hasValidW9 = !!taxDoc;
-    } catch {
+    } catch (error: unknown) {
       // Tax doc lookup failed
+      logger.warn('[Affiliate Account] Tax document lookup failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     // Calculate year-to-date earnings (optional)
@@ -166,8 +169,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         _sum: { commissionAmountCents: true },
       });
       ytdEarnings = result._sum.commissionAmountCents || 0;
-    } catch {
+    } catch (error: unknown) {
       // YTD calculation failed
+      logger.warn('[Affiliate Account] YTD earnings calculation failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     return NextResponse.json({

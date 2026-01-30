@@ -189,8 +189,8 @@ async function loginHandler(req: NextRequest) {
     }
 
     // Check if email is verified for patients
-    // @ts-ignore - emailVerified is a new field
-    if (user.role === 'PATIENT' && user.emailVerified === false) {
+    const userWithEmail = user as typeof user & { emailVerified?: boolean };
+    if (user.role === 'PATIENT' && userWithEmail.emailVerified === false) {
       logger.warn(`Unverified email login attempt for ${email}`);
       return NextResponse.json(
         {

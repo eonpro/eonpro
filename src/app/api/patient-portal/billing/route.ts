@@ -90,8 +90,9 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
               amount: upcoming.amount_due,
               date: new Date(upcoming.next_payment_attempt! * 1000).toISOString(),
             };
-          } catch {
+          } catch (error: unknown) {
             // No upcoming invoice
+            logger.warn('[Patient Billing] Failed to fetch upcoming invoice', { error: error instanceof Error ? error.message : 'Unknown error' });
           }
         }
 

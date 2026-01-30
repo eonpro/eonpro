@@ -37,7 +37,8 @@ async function getPatientFromSession(): Promise<{ id: number; clinicId: number }
     }
 
     return null;
-  } catch {
+  } catch (error: unknown) {
+    logger.warn('[Patient Tracking] Session verification failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     return null;
   }
 }

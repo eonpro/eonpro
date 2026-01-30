@@ -31,9 +31,7 @@ export async function POST(req: NextRequest) {
     try {
       const result = await jwtVerify(refreshToken, JWT_SECRET);
       payload = result.payload;
-    } catch (error: any) {
-    // @ts-ignore
-   
+    } catch (error: unknown) {
       logger.warn('Invalid refresh token attempt');
       return NextResponse.json(
         { error: 'Invalid or expired refresh token' },
@@ -181,10 +179,8 @@ export async function POST(req: NextRequest) {
       { error: 'User not found' },
       { status: 404 }
     );
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Token refresh error:', error);
+  } catch (error: unknown) {
+    logger.error('Token refresh error:', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to refresh token' },
       { status: 500 }

@@ -136,7 +136,8 @@ function parseDate(dateStr: string | undefined): Date | undefined {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return undefined;
     return date;
-  } catch {
+  } catch (error: unknown) {
+    logger.warn('[WELLMEDR SHIPPING] Date parse failed', { error: error instanceof Error ? error.message : 'Unknown error', dateStr });
     return undefined;
   }
 }

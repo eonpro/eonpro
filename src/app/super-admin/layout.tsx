@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   Shield, Building2, Settings, LogOut, ChevronRight, Users, DollarSign, UserCog
 } from 'lucide-react';
+import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
 
 const navItems = [
   { icon: Shield, path: '/super-admin', label: 'Dashboard', exact: true },
@@ -46,14 +47,17 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('auth-token');
-    localStorage.removeItem('admin-token');
-    localStorage.removeItem('provider-token');
-    localStorage.removeItem('super_admin-token');
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
+    safeLocalStorage.removeItem('user');
+    safeLocalStorage.removeItem('auth-token');
+    safeLocalStorage.removeItem('admin-token');
+    safeLocalStorage.removeItem('provider-token');
+    safeLocalStorage.removeItem('super_admin-token');
+    // Clear cookies (only on client-side)
+    if (isBrowser && document?.cookie) {
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+    }
     router.push('/login');
   };
 

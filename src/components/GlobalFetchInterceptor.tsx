@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { dispatchSessionExpired, clearAuthTokens } from '@/lib/api/fetch';
+import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
 
 /**
  * Global Fetch Interceptor
@@ -12,6 +13,9 @@ import { dispatchSessionExpired, clearAuthTokens } from '@/lib/api/fetch';
  */
 export default function GlobalFetchInterceptor() {
   useEffect(() => {
+    // SSR guard - only run on client
+    if (!isBrowser || !safeWindow) return;
+
     // Store original fetch
     const originalFetch = window.fetch;
 

@@ -320,8 +320,9 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
         try {
           await prisma.patientMedicationReminder.create({ data: reminder });
           createdCount++;
-        } catch (e) {
+        } catch (error: unknown) {
           // Skip if already exists (unique constraint)
+          logger.warn('[PATIENT-PROGRESS-TEST] Reminder creation skipped (duplicate)', { error: error instanceof Error ? error.message : 'Unknown error' });
         }
       }
 

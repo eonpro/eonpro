@@ -111,8 +111,9 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
           delayDays: account.settings.payouts.schedule.delay_days,
         };
       }
-    } catch (e) {
+    } catch (error: unknown) {
       // Account settings might not be accessible
+      logger.warn('[STRIPE PAYOUTS] Failed to fetch account settings', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
     
     const summary = {

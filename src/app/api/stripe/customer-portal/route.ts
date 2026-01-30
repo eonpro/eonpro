@@ -28,10 +28,8 @@ async function createPortalHandler(request: NextRequest, user: AuthUser) {
       success: true,
       url: portalUrl,
     });
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[API] Error creating customer portal session:', error);
+  } catch (error: unknown) {
+    logger.error('[API] Error creating customer portal session:', error instanceof Error ? error : new Error(String(error)));
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(

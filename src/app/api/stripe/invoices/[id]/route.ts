@@ -1,6 +1,6 @@
 /**
  * COMPREHENSIVE INVOICE MANAGEMENT API
- * 
+ *
  * GET    - Fetch invoice details
  * POST   - Perform actions (send, void, mark paid, finalize, add items, add credit, duplicate)
  * PATCH  - Edit invoice (description, due date, line items, memo)
@@ -47,14 +47,14 @@ export async function GET(request: NextRequest, { params }: Params) {
   try {
     const resolvedParams = await params;
     const id = parseInt(resolvedParams.id, 10);
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid invoice ID' },
         { status: 400 }
       );
     }
-    
+
     // Try full query first, fall back to simpler query if InvoiceItem table doesn't exist
     let invoice;
     try {
@@ -117,22 +117,22 @@ export async function GET(request: NextRequest, { params }: Params) {
         },
       });
     }
-    
+
     if (!invoice) {
       return NextResponse.json(
         { error: 'Invoice not found' },
         { status: 404 }
       );
     }
-    
+
     return NextResponse.json({
       success: true,
       invoice,
     });
-    
+
   } catch (error: any) {
     logger.error('[API] Error fetching invoice:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to fetch invoice' },
       { status: 500 }
@@ -144,29 +144,29 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     const resolvedParams = await params;
     const id = parseInt(resolvedParams.id, 10);
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid invoice ID' },
         { status: 400 }
       );
     }
-    
+
     const body = await request.json();
     const { action } = body;
-    
+
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: { patient: true },
     });
-    
+
     if (!invoice) {
       return NextResponse.json(
         { error: 'Invoice not found' },
         { status: 404 }
       );
     }
-    
+
     switch (action) {
       case 'send': {
         // Send invoice via Stripe or email
@@ -175,12 +175,12 @@ export async function POST(request: NextRequest, { params }: Params) {
             const { getStripe } = await import('@/lib/stripe');
             const stripe = getStripe();
             await stripe.invoices.sendInvoice(invoice.stripeInvoiceId);
-            
+
             await prisma.invoice.update({
               where: { id },
               data: { status: 'OPEN' },
             });
-            
+
             return NextResponse.json({
               success: true,
               message: 'Invoice sent via Stripe',
@@ -193,20 +193,20 @@ export async function POST(request: NextRequest, { params }: Params) {
             );
           }
         }
-        
+
         // Fallback: Update status and send via email
         await prisma.invoice.update({
           where: { id },
           data: { status: 'OPEN' },
         });
-        
+
         // TODO: Send email notification
         return NextResponse.json({
           success: true,
           message: 'Invoice marked as sent',
         });
       }
-      
+
       case 'void': {
         if (invoice.status === 'PAID') {
           return NextResponse.json(
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             { status: 400 }
           );
         }
-        
+
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
             const { getStripe } = await import('@/lib/stripe');
@@ -224,18 +224,18 @@ export async function POST(request: NextRequest, { params }: Params) {
             logger.warn('[API] Stripe void invoice error:', stripeError);
           }
         }
-        
+
         await prisma.invoice.update({
           where: { id },
           data: { status: 'VOID' },
         });
-        
+
         return NextResponse.json({
           success: true,
           message: 'Invoice voided',
         });
       }
-      
+
       case 'mark_paid': {
         await prisma.invoice.update({
           where: { id },
@@ -245,13 +245,13 @@ export async function POST(request: NextRequest, { params }: Params) {
             paidAt: new Date(),
           },
         });
-        
+
         return NextResponse.json({
           success: true,
           message: 'Invoice marked as paid',
         });
       }
-      
+
       case 'finalize': {
         // Finalize a draft invoice (locks it for payment)
         if (invoice.status !== 'DRAFT') {
@@ -260,22 +260,22 @@ export async function POST(request: NextRequest, { params }: Params) {
             { status: 400 }
           );
         }
-        
+
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
             const { getStripe } = await import('@/lib/stripe');
             const stripe = getStripe();
             const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.stripeInvoiceId);
-            
+
             await prisma.invoice.update({
               where: { id },
-              data: { 
+              data: {
                 status: 'OPEN',
                 stripeInvoiceUrl: finalizedInvoice.hosted_invoice_url,
                 stripePdfUrl: finalizedInvoice.invoice_pdf,
               },
             });
-            
+
             return NextResponse.json({
               success: true,
               message: 'Invoice finalized',
@@ -290,41 +290,41 @@ export async function POST(request: NextRequest, { params }: Params) {
             );
           }
         }
-        
+
         await prisma.invoice.update({
           where: { id },
           data: { status: 'OPEN' },
         });
-        
+
         return NextResponse.json({
           success: true,
           message: 'Invoice finalized (local)',
         });
       }
-      
+
       case 'add_credit': {
         // Add a credit/discount to the invoice
         const { amount, description: creditDescription } = body;
-        
+
         if (!amount || amount <= 0) {
           return NextResponse.json(
             { error: 'Credit amount must be positive' },
             { status: 400 }
           );
         }
-        
+
         if (invoice.status === 'PAID' || invoice.status === 'VOID') {
           return NextResponse.json(
             { error: 'Cannot add credit to a paid or voided invoice' },
             { status: 400 }
           );
         }
-        
+
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
             const { getStripe } = await import('@/lib/stripe');
             const stripe = getStripe();
-            
+
             // Add a negative line item (credit)
             await stripe.invoiceItems.create({
               customer: invoice.patient.stripeCustomerId!,
@@ -333,17 +333,17 @@ export async function POST(request: NextRequest, { params }: Params) {
               currency: 'usd',
               description: creditDescription || 'Credit/Discount',
             });
-            
+
             // Refresh invoice to get updated total
             const updatedStripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId);
-            
+
             await prisma.invoice.update({
               where: { id },
-              data: { 
+              data: {
                 amountDue: updatedStripeInvoice.amount_due,
               },
             });
-            
+
             return NextResponse.json({
               success: true,
               message: 'Credit added',
@@ -357,31 +357,31 @@ export async function POST(request: NextRequest, { params }: Params) {
             );
           }
         }
-        
+
         // Local mode - update amount
         const currentLineItems = (invoice.lineItems as any[]) || [];
         currentLineItems.push({
           description: creditDescription || 'Credit/Discount',
           amount: -amount,
         });
-        
+
         const newTotal = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
-        
+
         await prisma.invoice.update({
           where: { id },
-          data: { 
+          data: {
             amountDue: Math.max(0, newTotal),
             lineItems: currentLineItems,
           },
         });
-        
+
         return NextResponse.json({
           success: true,
           message: 'Credit added (local)',
           newAmountDue: Math.max(0, newTotal),
         });
       }
-      
+
       case 'duplicate': {
         // Create a copy of this invoice
         const newInvoice = await prisma.invoice.create({
@@ -394,21 +394,21 @@ export async function POST(request: NextRequest, { params }: Params) {
             status: 'DRAFT',
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             lineItems: invoice.lineItems,
-            metadata: { 
+            metadata: {
               ...(invoice.metadata as any || {}),
               duplicatedFrom: invoice.id,
             },
             createSubscription: invoice.createSubscription,
           },
         });
-        
+
         return NextResponse.json({
           success: true,
           message: 'Invoice duplicated',
           newInvoice,
         });
       }
-      
+
       case 'mark_uncollectible': {
         if (invoice.status === 'PAID') {
           return NextResponse.json(
@@ -416,7 +416,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             { status: 400 }
           );
         }
-        
+
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
             const { getStripe } = await import('@/lib/stripe');
@@ -426,18 +426,18 @@ export async function POST(request: NextRequest, { params }: Params) {
             logger.warn('[API] Stripe mark uncollectible error:', stripeError);
           }
         }
-        
+
         await prisma.invoice.update({
           where: { id },
           data: { status: 'UNCOLLECTIBLE' },
         });
-        
+
         return NextResponse.json({
           success: true,
           message: 'Invoice marked as uncollectible',
         });
       }
-      
+
       case 'resend': {
         // Resend invoice email
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
@@ -445,7 +445,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             const { getStripe } = await import('@/lib/stripe');
             const stripe = getStripe();
             await stripe.invoices.sendInvoice(invoice.stripeInvoiceId);
-            
+
             return NextResponse.json({
               success: true,
               message: 'Invoice resent via Stripe',
@@ -458,23 +458,23 @@ export async function POST(request: NextRequest, { params }: Params) {
             );
           }
         }
-        
+
         return NextResponse.json({
           success: true,
           message: 'Invoice resend queued (email service)',
         });
       }
-      
+
       default:
         return NextResponse.json(
           { error: `Unknown action: ${action}. Available actions: send, void, mark_paid, finalize, add_credit, duplicate, mark_uncollectible, resend` },
           { status: 400 }
         );
     }
-    
+
   } catch (error: any) {
     logger.error('[API] Error processing invoice action:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to process invoice action' },
       { status: 500 }
@@ -484,36 +484,36 @@ export async function POST(request: NextRequest, { params }: Params) {
 
 /**
  * PATCH - Edit invoice before payment
- * 
+ *
  * Can edit: description, due date, memo, line items (for DRAFT invoices)
  */
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const resolvedParams = await params;
     const id = parseInt(resolvedParams.id, 10);
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid invoice ID' },
         { status: 400 }
       );
     }
-    
+
     const body = await request.json();
     const validatedData = updateInvoiceSchema.parse(body);
-    
+
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: { patient: true },
     });
-    
+
     if (!invoice) {
       return NextResponse.json(
         { error: 'Invoice not found' },
         { status: 404 }
       );
     }
-    
+
     // Check if invoice can be edited
     if (invoice.status === 'PAID') {
       return NextResponse.json(
@@ -521,52 +521,52 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         { status: 400 }
       );
     }
-    
+
     if (invoice.status === 'VOID') {
       return NextResponse.json(
         { error: 'Cannot edit a voided invoice' },
         { status: 400 }
       );
     }
-    
+
     // Prepare update data
     const updateData: any = {};
-    
+
     if (validatedData.description !== undefined) {
       updateData.description = validatedData.description;
     }
-    
+
     if (validatedData.dueDate) {
       updateData.dueDate = new Date(validatedData.dueDate);
     } else if (validatedData.dueInDays !== undefined) {
       updateData.dueDate = new Date(Date.now() + validatedData.dueInDays * 24 * 60 * 60 * 1000);
     }
-    
+
     if (validatedData.metadata) {
       updateData.metadata = {
         ...(invoice.metadata as any || {}),
         ...validatedData.metadata,
       };
     }
-    
+
     // Handle line items update (only for DRAFT invoices)
     if (invoice.status === 'DRAFT') {
       let currentLineItems = (invoice.lineItems as any[]) || [];
-      
+
       // Full line items replacement
       if (validatedData.lineItems) {
         currentLineItems = validatedData.lineItems;
         updateData.lineItems = currentLineItems;
         updateData.amountDue = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
       }
-      
+
       // Add single line item
       if (validatedData.addLineItem) {
         currentLineItems.push(validatedData.addLineItem);
         updateData.lineItems = currentLineItems;
         updateData.amountDue = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
       }
-      
+
       // Remove line item by index
       if (validatedData.removeLineItemId !== undefined) {
         const indexToRemove = parseInt(validatedData.removeLineItemId, 10);
@@ -582,35 +582,35 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         { status: 400 }
       );
     }
-    
+
     // Update Stripe invoice if applicable
     if (invoice.stripeInvoiceId && isStripeConfigured() && invoice.status === 'DRAFT') {
       try {
         const { getStripe } = await import('@/lib/stripe');
         const stripe = getStripe();
-        
+
         const stripeUpdateData: any = {};
-        
+
         if (validatedData.description) {
           stripeUpdateData.description = validatedData.description;
         }
-        
+
         if (updateData.dueDate) {
           stripeUpdateData.due_date = Math.floor(updateData.dueDate.getTime() / 1000);
         }
-        
+
         if (validatedData.memo) {
           stripeUpdateData.custom_fields = [{ name: 'Memo', value: validatedData.memo }];
         }
-        
+
         if (validatedData.footer) {
           stripeUpdateData.footer = validatedData.footer;
         }
-        
+
         if (Object.keys(stripeUpdateData).length > 0) {
           await stripe.invoices.update(invoice.stripeInvoiceId, stripeUpdateData);
         }
-        
+
         // Handle line item changes in Stripe
         if (validatedData.addLineItem) {
           await stripe.invoiceItems.create({
@@ -621,46 +621,46 @@ export async function PATCH(request: NextRequest, { params }: Params) {
             currency: 'usd',
           });
         }
-        
+
         logger.info('[API] Updated Stripe invoice', { invoiceId: invoice.stripeInvoiceId });
       } catch (stripeError: any) {
         logger.error('[API] Stripe update error:', stripeError);
         // Continue with local update even if Stripe fails
       }
     }
-    
+
     // Update local database
     if (Object.keys(updateData).length > 0) {
       const updatedInvoice = await prisma.invoice.update({
         where: { id },
         data: updateData,
       });
-      
+
       logger.info('[API] Invoice updated', { invoiceId: id, updates: Object.keys(updateData) });
-      
+
       return NextResponse.json({
         success: true,
         invoice: updatedInvoice,
         message: 'Invoice updated successfully',
       });
     }
-    
+
     return NextResponse.json({
       success: true,
       invoice,
       message: 'No changes applied',
     });
-    
+
   } catch (error: any) {
     logger.error('[API] Error updating invoice:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
     }
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to update invoice' },
       { status: 500 }
@@ -670,33 +670,33 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 /**
  * DELETE - Delete an unpaid invoice
- * 
+ *
  * Can only delete DRAFT or OPEN invoices that haven't been paid
  */
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const resolvedParams = await params;
     const id = parseInt(resolvedParams.id, 10);
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid invoice ID' },
         { status: 400 }
       );
     }
-    
+
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: { payments: true },
     });
-    
+
     if (!invoice) {
       return NextResponse.json(
         { error: 'Invoice not found' },
         { status: 404 }
       );
     }
-    
+
     // Check if invoice can be deleted
     if (invoice.status === 'PAID') {
       return NextResponse.json(
@@ -704,7 +704,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         { status: 400 }
       );
     }
-    
+
     if (invoice.payments && invoice.payments.length > 0) {
       const paidPayments = invoice.payments.filter((p: any) => p.status === 'COMPLETED');
       if (paidPayments.length > 0) {
@@ -714,13 +714,13 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         );
       }
     }
-    
+
     // Delete/void in Stripe if applicable
     if (invoice.stripeInvoiceId && isStripeConfigured()) {
       try {
         const { getStripe } = await import('@/lib/stripe');
         const stripe = getStripe();
-        
+
         // Try to delete if draft, otherwise void
         if (invoice.status === 'DRAFT') {
           await stripe.invoices.del(invoice.stripeInvoiceId);
@@ -734,32 +734,36 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         // Continue with local deletion
       }
     }
-    
-    // Delete related invoice items first (if table exists)
-    try {
-      await prisma.invoiceItem.deleteMany({
-        where: { invoiceId: id },
+
+    // Wrap deletion of invoice items and invoice in a transaction for atomicity
+    await prisma.$transaction(async (tx) => {
+      // Delete related invoice items first (if table exists)
+      try {
+        await tx.invoiceItem.deleteMany({
+          where: { invoiceId: id },
+        });
+      } catch (error: unknown) {
+        // Table might not exist - continue with invoice deletion
+        logger.warn('[API] InvoiceItem table may not exist', { error: error instanceof Error ? error.message : 'Unknown error' });
+      }
+
+      // Delete the invoice from database
+      await tx.invoice.delete({
+        where: { id },
       });
-    } catch (e) {
-      // Table might not exist
-    }
-    
-    // Delete the invoice from database
-    await prisma.invoice.delete({
-      where: { id },
     });
-    
+
     logger.info('[API] Invoice deleted', { invoiceId: id });
-    
+
     return NextResponse.json({
       success: true,
       message: 'Invoice deleted successfully',
       deletedId: id,
     });
-    
+
   } catch (error: any) {
     logger.error('[API] Error deleting invoice:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to delete invoice' },
       { status: 500 }

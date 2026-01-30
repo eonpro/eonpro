@@ -168,10 +168,8 @@ export class PaymentMethodService {
         cardholderName: method.cardholderName,
         billingZip: method.billingZip
       };
-    } catch (error: any) {
-    // @ts-ignore
-   
-      logger.error('Failed to decrypt card:', error);
+    } catch (error: unknown) {
+      logger.error('Failed to decrypt card:', error instanceof Error ? error : new Error(String(error)));
       throw new Error('Failed to decrypt payment method');
     }
   }

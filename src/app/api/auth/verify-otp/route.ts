@@ -254,8 +254,9 @@ export async function POST(req: NextRequest): Promise<Response> {
           },
         },
       });
-    } catch (e) {
+    } catch (error: unknown) {
       // Audit log failure shouldn't block login
+      logger.warn('[VERIFY-OTP] Audit log creation failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
     
     // Return token and user data

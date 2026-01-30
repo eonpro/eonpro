@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Building2, ChevronDown, Check, RefreshCw, AlertCircle } from 'lucide-react';
+import { isBrowser, getLocalStorageItem, setLocalStorageItem } from '@/lib/utils/ssr-safe';
 
 interface ClinicOption {
   id: number;
@@ -46,11 +47,12 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
   }, []);
 
   const getAuthToken = () => {
-    return localStorage.getItem('auth-token') || 
-           localStorage.getItem('admin-token') || 
-           localStorage.getItem('provider-token') ||
-           localStorage.getItem('super_admin-token') ||
-           localStorage.getItem('SUPER_ADMIN-token');
+    if (!isBrowser) return null;
+    return getLocalStorageItem('auth-token') ||
+           getLocalStorageItem('admin-token') ||
+           getLocalStorageItem('provider-token') ||
+           getLocalStorageItem('super_admin-token') ||
+           getLocalStorageItem('SUPER_ADMIN-token');
   };
 
   const fetchClinics = async () => {
@@ -76,7 +78,7 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
         
         // Store active clinic in localStorage for other components
         if (data.activeClinicId) {
-          localStorage.setItem('activeClinicId', data.activeClinicId.toString());
+          setLocalStorageItem('activeClinicId', data.activeClinicId.toString());
         }
       } else if (response.status === 401) {
         // Not authenticated - that's okay, just don't show the switcher
@@ -110,11 +112,13 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
       if (response.ok) {
         const data = await response.json();
         setActiveClinicId(clinicId);
-        localStorage.setItem('activeClinicId', clinicId.toString());
+        setLocalStorageItem('activeClinicId', clinicId.toString());
         setIsOpen(false);
         
-        // Refresh the page to load new clinic data
-        window.location.reload();
+        // Refresh the page to load new clinic data (with SSR guard)
+        if (isBrowser) {
+          window.location.reload();
+        }
       } else {
         const errorData = await response.json();
         alert(errorData.error || 'Failed to switch clinic');
