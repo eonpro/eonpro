@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { isBrowser, getLocalStorageItem, removeLocalStorageItem } from '@/lib/utils/ssr-safe';
 
 interface User {
   id: number;
@@ -33,10 +34,16 @@ export function useAuth(requiredRole?: string | string[]) {
   }, []);
 
   const checkAuth = useCallback(async () => {
+    // SSR guard - only run on client
+    if (!isBrowser) {
+      setState(prev => ({ ...prev, loading: false }));
+      return;
+    }
+    
     try {
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('super_admin-token') ||
-                    localStorage.getItem('admin-token');
+      const token = getLocalStorageItem('auth-token') || 
+                    getLocalStorageItem('super_admin-token') ||
+                    getLocalStorageItem('admin-token');
 
       if (!token) {
         setState(prev => ({ ...prev, loading: false, error: 'No token found' }));
@@ -91,10 +98,10 @@ export function useAuth(requiredRole?: string | string[]) {
   };
 
   const clearAuth = () => {
-    localStorage.removeItem('auth-token');
-    localStorage.removeItem('super_admin-token');
-    localStorage.removeItem('admin-token');
-    localStorage.removeItem('user');
+    removeLocalStorageItem('auth-token');
+    removeLocalStorageItem('super_admin-token');
+    removeLocalStorageItem('admin-token');
+    removeLocalStorageItem('user');
     setState({
       user: null,
       token: null,
@@ -112,8 +119,9 @@ export function useAuth(requiredRole?: string | string[]) {
           headers: { 'Authorization': `Bearer ${token}` },
         });
       }
-    } catch (e) {
-      // Ignore logout errors
+    } catch (error) {
+      // Log but don't fail on logout errors - we're clearing auth anyway
+      console.warn('[useAuth] Logout API call failed:', error instanceof Error ? error.message : 'Unknown error');
     }
     clearAuth();
     router.push('/login');
@@ -121,7 +129,7 @@ export function useAuth(requiredRole?: string | string[]) {
 
   // Fetch helper with auto-auth
   const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
-    const token = state.token || localStorage.getItem('auth-token');
+    const token = state.token || getLocalStorageItem('auth-token');
     
     const response = await fetch(url, {
       ...options,
