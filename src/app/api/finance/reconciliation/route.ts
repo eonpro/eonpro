@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       });
 
       // Transform unmatched payments
-      const transformedPayments = unmatchedPayments.map((payment) => {
+      const transformedPayments = unmatchedPayments.map((payment: typeof unmatchedPayments[number]) => {
         const metadata = payment.metadata as Record<string, unknown> | null;
         return {
           id: payment.id,
