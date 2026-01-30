@@ -1,0 +1,322 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import {
+  FileText,
+  Search,
+  Filter,
+  Download,
+  Loader2,
+  Plus,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Send,
+  MoreVertical,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
+
+interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  patientId: number;
+  patientName: string;
+  patientEmail: string;
+  amount: number;
+  status: 'DRAFT' | 'OPEN' | 'PAID' | 'VOID' | 'UNCOLLECTIBLE';
+  dueDate: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+interface InvoiceStats {
+  totalOutstanding: number;
+  overdueAmount: number;
+  paidThisMonth: number;
+  averagePaymentTime: number;
+}
+
+const formatCurrency = (cents: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+  }).format(cents / 100);
+};
+
+export default function InvoicesPage() {
+  const [loading, setLoading] = useState(true);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [stats, setStats] = useState<InvoiceStats | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  useEffect(() => {
+    loadInvoices();
+  }, [page, statusFilter]);
+
+  const loadInvoices = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('auth-token') || 
+                    localStorage.getItem('super_admin-token') || 
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('token');
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20',
+        ...(statusFilter !== 'all' && { status: statusFilter }),
+      });
+
+      const response = await fetch(`/api/invoices?${params}`, {
+        credentials: 'include',
+        headers,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInvoices(data.invoices || []);
+        setTotalPages(Math.ceil((data.total || 0) / 20));
+        
+        // Calculate stats
+        const outstanding = data.invoices?.filter((i: Invoice) => i.status === 'OPEN') || [];
+        const overdue = outstanding.filter((i: Invoice) => 
+          i.dueDate && new Date(i.dueDate) < new Date()
+        );
+        
+        setStats({
+          totalOutstanding: outstanding.reduce((sum: number, i: Invoice) => sum + i.amount, 0),
+          overdueAmount: overdue.reduce((sum: number, i: Invoice) => sum + i.amount, 0),
+          paidThisMonth: data.invoices?.filter((i: Invoice) => i.status === 'PAID')
+            .reduce((sum: number, i: Invoice) => sum + i.amount, 0) || 0,
+          averagePaymentTime: 5.2, // Mock data
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load invoices:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'PAID': return 'bg-green-100 text-green-700';
+      case 'OPEN': return 'bg-blue-100 text-blue-700';
+      case 'DRAFT': return 'bg-gray-100 text-gray-700';
+      case 'VOID': return 'bg-red-100 text-red-700';
+      case 'UNCOLLECTIBLE': return 'bg-orange-100 text-orange-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const filteredInvoices = invoices.filter(inv =>
+    inv.patientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    inv.patientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    inv.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Invoice Management</h2>
+          <p className="text-sm text-gray-500 mt-1">Create and manage patient invoices</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+            <Download className="h-4 w-4" />
+            Export
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">
+            <Plus className="h-4 w-4" />
+            New Invoice
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="p-2 bg-amber-50 rounded-lg w-fit">
+            <DollarSign className="h-5 w-5 text-amber-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mt-4">
+            {formatCurrency(stats?.totalOutstanding || 0)}
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">Outstanding</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="p-2 bg-red-50 rounded-lg w-fit">
+            <Clock className="h-5 w-5 text-red-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mt-4">
+            {formatCurrency(stats?.overdueAmount || 0)}
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">Overdue</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="p-2 bg-green-50 rounded-lg w-fit">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mt-4">
+            {formatCurrency(stats?.paidThisMonth || 0)}
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">Paid This Month</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="p-2 bg-blue-50 rounded-lg w-fit">
+            <Clock className="h-5 w-5 text-blue-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mt-4">
+            {stats?.averagePaymentTime?.toFixed(1) || 0} days
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">Avg Payment Time</p>
+        </div>
+      </div>
+
+      {/* Invoices Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search invoices..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 w-64 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600"
+              >
+                <option value="all">All Status</option>
+                <option value="DRAFT">Draft</option>
+                <option value="OPEN">Open</option>
+                <option value="PAID">Paid</option>
+                <option value="VOID">Void</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center">
+                        <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">No invoices found</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map((invoice) => (
+                      <tr key={invoice.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-medium text-gray-900">{invoice.invoiceNumber || `INV-${invoice.id}`}</p>
+                          <p className="text-xs text-gray-400">{new Date(invoice.createdAt).toLocaleDateString()}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-medium text-gray-900">{invoice.patientName || 'Unknown'}</p>
+                          <p className="text-sm text-gray-500">{invoice.patientEmail}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-semibold text-gray-900">{formatCurrency(invoice.amount)}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(invoice.status)}`}>
+                            {invoice.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-600">
+                            {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : '-'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            {invoice.status === 'DRAFT' && (
+                              <button className="p-1.5 hover:bg-gray-100 rounded" title="Send">
+                                <Send className="h-4 w-4 text-gray-500" />
+                              </button>
+                            )}
+                            <button className="p-1.5 hover:bg-gray-100 rounded" title="Download">
+                              <Download className="h-4 w-4 text-gray-500" />
+                            </button>
+                            <button className="p-1.5 hover:bg-gray-100 rounded" title="More">
+                              <MoreVertical className="h-4 w-4 text-gray-500" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  Page {page} of {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="p-2 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="p-2 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

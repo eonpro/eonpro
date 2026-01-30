@@ -32,6 +32,10 @@ interface AccountData {
     smsNotifications: boolean;
     weeklyReport: boolean;
   };
+  leaderboard: {
+    optIn: boolean;
+    alias: string | null;
+  };
   taxStatus: {
     hasValidW9: boolean;
     yearToDateEarnings: number;
@@ -87,11 +91,65 @@ export default function AccountPage() {
       smsNotifications: false,
       weeklyReport: true,
     },
+    leaderboard: {
+      optIn: false,
+      alias: null,
+    },
     taxStatus: {
       hasValidW9: false,
       yearToDateEarnings: 0,
       threshold: 60000,
     },
+  };
+
+  // Leaderboard settings state
+  const [leaderboardOptIn, setLeaderboardOptIn] = useState(displayData.leaderboard.optIn);
+  const [leaderboardAlias, setLeaderboardAlias] = useState(displayData.leaderboard.alias || '');
+  const [isSavingLeaderboard, setIsSavingLeaderboard] = useState(false);
+
+  // Update state when data loads
+  useEffect(() => {
+    if (data) {
+      setLeaderboardOptIn(data.leaderboard.optIn);
+      setLeaderboardAlias(data.leaderboard.alias || '');
+    }
+  }, [data]);
+
+  const handleLeaderboardToggle = async () => {
+    setIsSavingLeaderboard(true);
+    try {
+      const res = await fetch('/api/affiliate/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leaderboardOptIn: !leaderboardOptIn }),
+      });
+      if (res.ok) {
+        setLeaderboardOptIn(!leaderboardOptIn);
+      }
+    } catch (error) {
+      console.error('Failed to update leaderboard opt-in:', error);
+    } finally {
+      setIsSavingLeaderboard(false);
+    }
+  };
+
+  const handleAliasChange = async () => {
+    setIsSavingLeaderboard(true);
+    try {
+      const res = await fetch('/api/affiliate/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leaderboardAlias: leaderboardAlias.trim() || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to save alias');
+      }
+    } catch (error) {
+      console.error('Failed to update leaderboard alias:', error);
+    } finally {
+      setIsSavingLeaderboard(false);
+    }
   };
 
   if (isLoading) {
@@ -349,6 +407,86 @@ export default function AccountPage() {
                 />
               </button>
             </div>
+          </div>
+        </motion.div>
+
+        {/* Leaderboard Settings */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.22 }}
+          className="bg-white rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
+              <h3 className="font-semibold text-gray-900">Leaderboard Settings</h3>
+            </div>
+            <Link
+              href="/affiliate/leaderboard"
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              View Leaderboard
+            </Link>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <p className="font-medium text-gray-900">Show on leaderboard</p>
+                <p className="text-sm text-gray-500">Display your name on public rankings</p>
+              </div>
+              <button
+                onClick={handleLeaderboardToggle}
+                disabled={isSavingLeaderboard}
+                className={`w-12 h-7 rounded-full relative transition-colors ${
+                  leaderboardOptIn ? 'bg-amber-500' : 'bg-gray-200'
+                } ${isSavingLeaderboard ? 'opacity-50' : ''}`}
+              >
+                <span
+                  className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform"
+                  style={{
+                    transform: leaderboardOptIn ? 'translateX(20px)' : 'translateX(2px)',
+                  }}
+                />
+              </button>
+            </div>
+
+            {leaderboardOptIn && (
+              <div className="pt-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Name (optional)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={leaderboardAlias}
+                    onChange={(e) => setLeaderboardAlias(e.target.value)}
+                    placeholder={displayData.profile.displayName}
+                    maxLength={30}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  />
+                  <button
+                    onClick={handleAliasChange}
+                    disabled={isSavingLeaderboard}
+                    className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Leave blank to use your profile name
+                </p>
+              </div>
+            )}
+
+            {!leaderboardOptIn && (
+              <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                When disabled, you appear as &quot;Partner #{displayData.profile.displayName.slice(0, 3)}...&quot; on public leaderboards
+              </p>
+            )}
           </div>
         </motion.div>
 

@@ -36,9 +36,16 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
     let userExists = false;
     
     switch (role) {
+      case 'patient':
+        const user = await prisma.user.findUnique({
+          where: { email: email.toLowerCase() },
+        });
+        userExists = !!user;
+        break;
+
       case 'provider':
-        const provider: any = await // @ts-ignore
-    prisma.provider.findFirst({ where: { email: email.toLowerCase() },
+        const provider: any = await prisma.provider.findFirst({
+          where: { email: email.toLowerCase() },
         });
         userExists = !!provider;
         break;
@@ -54,7 +61,8 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
         userExists = email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
         break;
         
-      default: return NextResponse.json(
+      default:
+        return NextResponse.json(
           { error: 'Invalid role specified' },
           { status: 400 }
         );
@@ -159,6 +167,31 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
     let updated = false;
     
     switch (role) {
+      case 'patient':
+        const userToUpdate = await prisma.user.findUnique({
+          where: { email: email.toLowerCase() },
+        });
+        if (userToUpdate) {
+          const updatedUser = await prisma.user.update({
+            where: { id: userToUpdate.id },
+            data: { passwordHash },
+          }).catch(() => null);
+          updated = !!updatedUser;
+
+          // Create audit log for patient
+          if (updated) {
+            await prisma.patientAudit.create({
+              data: {
+                patientId: userToUpdate.patientId || 0,
+                action: 'PASSWORD_RESET',
+                actorEmail: email.toLowerCase(),
+                diff: JSON.stringify({ timestamp: new Date().toISOString() }),
+              },
+            }).catch(() => null);
+          }
+        }
+        break;
+
       case 'provider':
         const providerToUpdate = await prisma.provider.findFirst({ where: { email: email.toLowerCase() }});
         if (providerToUpdate) {

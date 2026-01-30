@@ -1,155 +1,97 @@
 /**
- * COMPREHENSIVE REPORTS API
- * =========================
- * Main endpoint for generating clinic reports
+ * Saved Reports API
  * 
- * GET /api/reports - Generate comprehensive report
- * 
- * Query Parameters:
- * - range: DateRange preset (today, yesterday, this_week, last_week, this_month, etc.)
- * - startDate: Custom start date (ISO string)
- * - endDate: Custom end date (ISO string)
- * - sections: Comma-separated list of sections to include (patients, revenue, subscriptions, payments, treatments, orders)
+ * GET /api/reports - List saved reports
+ * POST /api/reports - Create new report
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
-import { ReportingService, DateRange, DateRangeParams } from '@/services/reporting/ReportingService';
-import { standardRateLimit } from '@/lib/rateLimit';
+import { prisma, getClinicContext } from '@/lib/db';
+import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-const VALID_RANGES: DateRange[] = [
-  'today', 'yesterday', 'this_week', 'last_week',
-  'this_month', 'last_month', 'this_quarter', 'last_quarter',
-  'this_semester', 'last_semester', 'this_year', 'last_year', 'custom'
-];
-
-const VALID_SECTIONS = ['patients', 'revenue', 'subscriptions', 'payments', 'treatments', 'orders'];
-
-async function getReportsHandler(req: NextRequest, user: AuthUser): Promise<Response> {
+export async function GET(request: NextRequest) {
   try {
-    const url = new URL(req.url);
-    
-    // Parse date range
-    const rangeParam = url.searchParams.get('range') || 'this_month';
-    const startDateParam = url.searchParams.get('startDate');
-    const endDateParam = url.searchParams.get('endDate');
-    const sectionsParam = url.searchParams.get('sections');
-
-    // Validate range
-    if (!VALID_RANGES.includes(rangeParam as DateRange)) {
-      return NextResponse.json(
-        { error: `Invalid range. Valid options: ${VALID_RANGES.join(', ')}` },
-        { status: 400 }
-      );
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Build date range params
-    const dateRangeParams: DateRangeParams = {
-      range: rangeParam as DateRange
-    };
-
-    if (rangeParam === 'custom') {
-      if (!startDateParam || !endDateParam) {
-        return NextResponse.json(
-          { error: 'Custom range requires startDate and endDate parameters' },
-          { status: 400 }
-        );
-      }
-      dateRangeParams.startDate = new Date(startDateParam);
-      dateRangeParams.endDate = new Date(endDateParam);
-
-      if (isNaN(dateRangeParams.startDate.getTime()) || isNaN(dateRangeParams.endDate.getTime())) {
-        return NextResponse.json(
-          { error: 'Invalid date format. Use ISO 8601 format (YYYY-MM-DD)' },
-          { status: 400 }
-        );
-      }
+    const clinicId = getClinicContext();
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
-    // Parse sections
-    const requestedSections = sectionsParam
-      ? sectionsParam.split(',').filter(s => VALID_SECTIONS.includes(s))
-      : VALID_SECTIONS;
-
-    // Initialize reporting service with clinic context
-    const reportingService = new ReportingService(user.clinicId);
-
-    // Generate report based on requested sections
-    const report: Record<string, unknown> = {
-      generatedAt: new Date(),
-      clinicId: user.clinicId || 'all',
-      requestedBy: user.email,
-      dateRange: dateRangeParams
-    };
-
-    // Fetch requested sections in parallel
-    const promises: Promise<void>[] = [];
-
-    if (requestedSections.includes('patients')) {
-      promises.push(
-        reportingService.getPatientMetrics(dateRangeParams)
-          .then(data => { report.patients = data; })
-      );
-    }
-
-    if (requestedSections.includes('revenue')) {
-      promises.push(
-        reportingService.getRevenueMetrics(dateRangeParams)
-          .then(data => { report.revenue = data; })
-      );
-    }
-
-    if (requestedSections.includes('subscriptions')) {
-      promises.push(
-        reportingService.getSubscriptionMetrics(dateRangeParams)
-          .then(data => { report.subscriptions = data; })
-      );
-    }
-
-    if (requestedSections.includes('payments')) {
-      promises.push(
-        reportingService.getPaymentMetrics(dateRangeParams)
-          .then(data => { report.payments = data; })
-      );
-    }
-
-    if (requestedSections.includes('treatments')) {
-      promises.push(
-        reportingService.getTreatmentMetrics(dateRangeParams)
-          .then(data => { report.treatments = data; })
-      );
-    }
-
-    if (requestedSections.includes('orders')) {
-      promises.push(
-        reportingService.getOrderMetrics(dateRangeParams)
-          .then(data => { report.orders = data; })
-      );
-    }
-
-    await Promise.all(promises);
-
-    logger.info('Report generated', {
-      clinicId: user.clinicId,
-      range: rangeParam,
-      sections: requestedSections,
-      userId: user.id
+    const reports = await prisma.savedReport.findMany({
+      where: { clinicId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
     });
 
-    return NextResponse.json(report);
+    return NextResponse.json({
+      reports: reports.map(r => ({
+        ...r,
+        createdByName: r.user ? `${r.user.firstName} ${r.user.lastName}` : 'Unknown',
+      })),
+    });
   } catch (error) {
-    const err = error as Error;
-    logger.error('Failed to generate report', err);
-    console.error('Report generation error:', err.message, err.stack);
+    logger.error('Failed to fetch reports', { error });
     return NextResponse.json(
-      { 
-        error: 'Failed to generate report',
-        details: process.env.NODE_ENV === 'development' ? err.message : undefined
-      },
+      { error: 'Failed to fetch reports' },
       { status: 500 }
     );
   }
 }
 
-export const GET = standardRateLimit(withClinicalAuth(getReportsHandler));
+export async function POST(request: NextRequest) {
+  try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const clinicId = getClinicContext();
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { name, description, type, config, isScheduled, schedule, recipients } = body;
+
+    if (!name || !type || !config) {
+      return NextResponse.json(
+        { error: 'name, type, and config are required' },
+        { status: 400 }
+      );
+    }
+
+    const report = await prisma.savedReport.create({
+      data: {
+        clinicId,
+        createdBy: user.id,
+        name,
+        description,
+        type,
+        config,
+        isScheduled: isScheduled || false,
+        schedule,
+        recipients: recipients || [],
+      },
+    });
+
+    return NextResponse.json({ report }, { status: 201 });
+  } catch (error) {
+    logger.error('Failed to create report', { error });
+    return NextResponse.json(
+      { error: 'Failed to create report' },
+      { status: 500 }
+    );
+  }
+}

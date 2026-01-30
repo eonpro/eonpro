@@ -1,0 +1,487 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  ArrowLeft,
+  Plus,
+  X,
+  GripVertical,
+  Calendar,
+  BarChart3,
+  LineChart,
+  PieChart,
+  Table,
+  Download,
+  Save,
+  Clock,
+  Play,
+  Filter,
+  Settings,
+} from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  LineChart as RechartsLineChart,
+  Line,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+
+// Available metrics
+const METRICS = {
+  revenue: [
+    { id: 'grossRevenue', name: 'Gross Revenue', unit: 'currency' },
+    { id: 'netRevenue', name: 'Net Revenue', unit: 'currency' },
+    { id: 'refunds', name: 'Refunds', unit: 'currency' },
+    { id: 'fees', name: 'Fees', unit: 'currency' },
+    { id: 'mrr', name: 'MRR', unit: 'currency' },
+    { id: 'arr', name: 'ARR', unit: 'currency' },
+    { id: 'averageOrderValue', name: 'Average Order Value', unit: 'currency' },
+  ],
+  patients: [
+    { id: 'totalPatients', name: 'Total Patients', unit: 'count' },
+    { id: 'newPatients', name: 'New Patients', unit: 'count' },
+    { id: 'activePatients', name: 'Active Patients', unit: 'count' },
+    { id: 'churnedPatients', name: 'Churned Patients', unit: 'count' },
+    { id: 'averageLTV', name: 'Average LTV', unit: 'currency' },
+    { id: 'retentionRate', name: 'Retention Rate', unit: 'percentage' },
+  ],
+  subscriptions: [
+    { id: 'activeSubscriptions', name: 'Active Subscriptions', unit: 'count' },
+    { id: 'newSubscriptions', name: 'New Subscriptions', unit: 'count' },
+    { id: 'canceledSubscriptions', name: 'Canceled Subscriptions', unit: 'count' },
+    { id: 'churnRate', name: 'Churn Rate', unit: 'percentage' },
+    { id: 'subscriptionValue', name: 'Avg Subscription Value', unit: 'currency' },
+  ],
+  payments: [
+    { id: 'totalPayments', name: 'Total Payments', unit: 'count' },
+    { id: 'successfulPayments', name: 'Successful Payments', unit: 'count' },
+    { id: 'failedPayments', name: 'Failed Payments', unit: 'count' },
+    { id: 'paymentSuccessRate', name: 'Success Rate', unit: 'percentage' },
+  ],
+};
+
+const CHART_TYPES = [
+  { id: 'bar', name: 'Bar Chart', icon: BarChart3 },
+  { id: 'line', name: 'Line Chart', icon: LineChart },
+  { id: 'pie', name: 'Pie Chart', icon: PieChart },
+  { id: 'table', name: 'Table', icon: Table },
+];
+
+const DATE_RANGES = [
+  { id: '7d', name: 'Last 7 Days' },
+  { id: '30d', name: 'Last 30 Days' },
+  { id: '90d', name: 'Last 90 Days' },
+  { id: '12m', name: 'Last 12 Months' },
+  { id: 'ytd', name: 'Year to Date' },
+  { id: 'custom', name: 'Custom Range' },
+];
+
+const COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#6366F1'];
+
+export default function ReportBuilderPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const template = searchParams.get('template');
+
+  const [reportName, setReportName] = useState('Untitled Report');
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['grossRevenue', 'netRevenue']);
+  const [chartType, setChartType] = useState<string>('bar');
+  const [dateRange, setDateRange] = useState<string>('30d');
+  const [groupBy, setGroupBy] = useState<string>('daily');
+  const [showSchedule, setShowSchedule] = useState(false);
+
+  // Preview data (mock)
+  const previewData = [
+    { name: 'Week 1', grossRevenue: 125000, netRevenue: 118750 },
+    { name: 'Week 2', grossRevenue: 145000, netRevenue: 137750 },
+    { name: 'Week 3', grossRevenue: 132000, netRevenue: 125400 },
+    { name: 'Week 4', grossRevenue: 158000, netRevenue: 150100 },
+  ];
+
+  const pieData = [
+    { name: 'Gross Revenue', value: 560000 },
+    { name: 'Net Revenue', value: 532000 },
+  ];
+
+  const addMetric = (metricId: string) => {
+    if (!selectedMetrics.includes(metricId)) {
+      setSelectedMetrics([...selectedMetrics, metricId]);
+    }
+  };
+
+  const removeMetric = (metricId: string) => {
+    setSelectedMetrics(selectedMetrics.filter(m => m !== metricId));
+  };
+
+  const getMetricName = (id: string) => {
+    for (const category of Object.values(METRICS)) {
+      const metric = category.find(m => m.id === id);
+      if (metric) return metric.name;
+    }
+    return id;
+  };
+
+  const handleSave = async () => {
+    // Save report logic
+    console.log('Saving report:', {
+      name: reportName,
+      metrics: selectedMetrics,
+      chartType,
+      dateRange,
+      groupBy,
+    });
+    router.push('/admin/finance/reports');
+  };
+
+  const handleExport = (format: string) => {
+    console.log('Exporting as:', format);
+    // Export logic would go here
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin/finance/reports"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-500" />
+          </Link>
+          <input
+            type="text"
+            value={reportName}
+            onChange={(e) => setReportName(e.target.value)}
+            className="text-2xl font-bold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded px-2 -mx-2"
+            placeholder="Report Name"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSchedule(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            <Clock className="h-4 w-4" />
+            Schedule
+          </button>
+          <div className="relative group">
+            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 hidden group-hover:block z-10">
+              <button 
+                onClick={() => handleExport('csv')}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Export as CSV
+              </button>
+              <button 
+                onClick={() => handleExport('excel')}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Export as Excel
+              </button>
+              <button 
+                onClick={() => handleExport('pdf')}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Export as PDF
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+          >
+            <Save className="h-4 w-4" />
+            Save Report
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar - Metrics */}
+        <div className="lg:col-span-1 space-y-4">
+          {/* Date Range */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Date Range
+            </h3>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+            >
+              {DATE_RANGES.map((range) => (
+                <option key={range.id} value={range.id}>{range.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Chart Type */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Chart Type</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {CHART_TYPES.map((type) => {
+                const Icon = type.icon;
+                return (
+                  <button
+                    key={type.id}
+                    onClick={() => setChartType(type.id)}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition-colors ${
+                      chartType === type.id
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="text-xs font-medium">{type.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Group By */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Group By</h3>
+            <select
+              value={groupBy}
+              onChange={(e) => setGroupBy(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+            </select>
+          </div>
+
+          {/* Metrics Selector */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Available Metrics</h3>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {Object.entries(METRICS).map(([category, metrics]) => (
+                <div key={category}>
+                  <p className="text-xs font-medium text-gray-400 uppercase mb-2">{category}</p>
+                  <div className="space-y-1">
+                    {metrics.map((metric) => (
+                      <button
+                        key={metric.id}
+                        onClick={() => addMetric(metric.id)}
+                        disabled={selectedMetrics.includes(metric.id)}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
+                          selectedMetrics.includes(metric.id)
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <span className="flex items-center justify-between">
+                          {metric.name}
+                          {!selectedMetrics.includes(metric.id) && (
+                            <Plus className="h-4 w-4 text-gray-400" />
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Preview Area */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Selected Metrics */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Selected Metrics</h3>
+            {selectedMetrics.length === 0 ? (
+              <p className="text-sm text-gray-400">Select metrics from the sidebar to add to your report</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {selectedMetrics.map((metricId, index) => (
+                  <span
+                    key={metricId}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium"
+                    style={{ backgroundColor: `${COLORS[index % COLORS.length]}20`, color: COLORS[index % COLORS.length] }}
+                  >
+                    <GripVertical className="h-3 w-3 cursor-move" />
+                    {getMetricName(metricId)}
+                    <button
+                      onClick={() => removeMetric(metricId)}
+                      className="hover:opacity-70"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Chart Preview */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Preview</h3>
+            {selectedMetrics.length === 0 ? (
+              <div className="h-80 flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Add metrics to see a preview</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={350}>
+                {chartType === 'bar' ? (
+                  <BarChart data={previewData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                    <Legend />
+                    {selectedMetrics.map((metric, index) => (
+                      <Bar 
+                        key={metric}
+                        dataKey={metric}
+                        name={getMetricName(metric)}
+                        fill={COLORS[index % COLORS.length]}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    ))}
+                  </BarChart>
+                ) : chartType === 'line' ? (
+                  <RechartsLineChart data={previewData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                    <Legend />
+                    {selectedMetrics.map((metric, index) => (
+                      <Line 
+                        key={metric}
+                        type="monotone"
+                        dataKey={metric}
+                        name={getMetricName(metric)}
+                        stroke={COLORS[index % COLORS.length]}
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </RechartsLineChart>
+                ) : chartType === 'pie' ? (
+                  <RechartsPieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={120}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                    <Legend />
+                  </RechartsPieChart>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-medium text-gray-500">Period</th>
+                          {selectedMetrics.map((metric) => (
+                            <th key={metric} className="text-right py-3 px-4 font-medium text-gray-500">
+                              {getMetricName(metric)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewData.map((row) => (
+                          <tr key={row.name} className="border-b border-gray-100">
+                            <td className="py-3 px-4 font-medium text-gray-900">{row.name}</td>
+                            {selectedMetrics.map((metric) => (
+                              <td key={metric} className="text-right py-3 px-4 text-gray-600">
+                                ${((row as any)[metric] / 100).toLocaleString()}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Schedule Modal */}
+      {showSchedule && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Schedule Report</h3>
+              <button onClick={() => setShowSchedule(false)}>
+                <X className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                <select className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                  <option>Daily</option>
+                  <option>Weekly</option>
+                  <option>Monthly</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                <input type="time" defaultValue="09:00" className="w-full px-3 py-2 border border-gray-200 rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Recipients</label>
+                <input 
+                  type="email" 
+                  placeholder="Enter email addresses" 
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowSchedule(false)}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setShowSchedule(false)}
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+                >
+                  Save Schedule
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

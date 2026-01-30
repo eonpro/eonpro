@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
 
-type LoginStep = 'identifier' | 'password' | 'otp' | 'clinic';
+type LoginStep = 'identifier' | 'password' | 'otp' | 'clinic' | 'forgot' | 'reset';
 type LoginMethod = 'email' | 'phone';
 
 interface Clinic {
@@ -71,6 +71,16 @@ export default function LoginPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const [pendingLoginData, setPendingLoginData] = useState<any>(null);
+
+  // Forgot password state
+  const [resetCode, setResetCode] = useState(['', '', '', '', '', '']);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [resetCodeSent, setResetCodeSent] = useState(false);
+  const [resetCountdown, setResetCountdown] = useState(0);
+  const [canResendReset, setCanResendReset] = useState(false);
+  const resetCodeRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // White-label branding state
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
@@ -152,6 +162,17 @@ export default function LoginPage() {
     return undefined;
   }, [otpCountdown, otpSent]);
 
+  // Reset code countdown timer
+  useEffect(() => {
+    if (resetCountdown > 0) {
+      const timer = setTimeout(() => setResetCountdown(resetCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (resetCodeSent && resetCountdown === 0) {
+      setCanResendReset(true);
+    }
+    return undefined;
+  }, [resetCountdown, resetCodeSent]);
+
   // Detect if input is phone number or email
   const isPhoneNumber = (value: string): boolean => {
     // Remove all non-digit characters for checking
@@ -231,6 +252,131 @@ export default function LoginPage() {
     if (!canResend) return;
     setOtp(['', '', '', '', '', '']);
     await sendOtp(identifier);
+  };
+
+  // Handle forgot password - send reset code
+  const handleForgotPassword = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier, role: 'patient' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset code');
+      }
+
+      setResetCodeSent(true);
+      setResetCountdown(60);
+      setCanResendReset(false);
+      setStep('forgot');
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend reset code
+  const handleResendResetCode = async () => {
+    if (!canResendReset) return;
+    setResetCode(['', '', '', '', '', '']);
+    await handleForgotPassword();
+  };
+
+  // Handle reset code input
+  const handleResetCodeChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newCode = [...resetCode];
+    newCode[index] = digit;
+    setResetCode(newCode);
+
+    if (digit && index < 5) {
+      resetCodeRefs.current[index + 1]?.focus();
+    }
+
+    // Move to password step when all digits entered
+    if (digit && index === 5 && newCode.every(d => d)) {
+      setStep('reset');
+    }
+  };
+
+  // Handle reset code paste
+  const handleResetCodePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+
+    if (pastedData.length === 6) {
+      setResetCode(pastedData.split(''));
+      resetCodeRefs.current[5]?.focus();
+      setStep('reset');
+    }
+  };
+
+  // Handle reset code backspace
+  const handleResetCodeKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !resetCode[index] && index > 0) {
+      resetCodeRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // Submit new password
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: identifier,
+          code: resetCode.join(''),
+          newPassword,
+          role: 'patient',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reset password');
+      }
+
+      // Success - go back to password step with success message
+      setPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setResetCode(['', '', '', '', '', '']);
+      setResetCodeSent(false);
+      setStep('password');
+      setError(''); // Clear any errors
+      setSessionMessage('Password reset successful! Please log in with your new password.');
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset password');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle OTP input change
@@ -709,7 +855,9 @@ export default function LoginPage() {
                 <div className="flex items-center justify-center gap-4 pt-4">
                   <button 
                     type="button"
-                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors disabled:opacity-50"
                   >
                     Forgot password?
                   </button>
@@ -815,6 +963,211 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* STEP: Forgot Password - Enter Code */}
+            {step === 'forgot' && (
+              <div className="space-y-6">
+                {/* Email Display */}
+                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Reset code sent to</p>
+                    <p className="text-gray-900 font-medium">{identifier}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('password');
+                      setResetCode(['', '', '', '', '', '']);
+                      setResetCodeSent(false);
+                    }}
+                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {/* Instructions */}
+                <div className="text-center">
+                  <Mail className="h-12 w-12 mx-auto mb-4" style={{ color: primaryColor }} />
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    Check your email
+                  </h2>
+                  <p className="text-gray-600">
+                    Enter the 6-digit code we sent to reset your password
+                  </p>
+                </div>
+
+                {/* Reset Code Input */}
+                <div className="flex justify-center gap-3">
+                  {resetCode.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={(el) => { resetCodeRefs.current[index] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleResetCodeChange(index, e.target.value)}
+                      onKeyDown={(e) => handleResetCodeKeyDown(index, e)}
+                      onPaste={index === 0 ? handleResetCodePaste : undefined}
+                      className="w-12 h-14 text-center text-2xl font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      autoFocus={index === 0}
+                    />
+                  ))}
+                </div>
+
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  </div>
+                )}
+
+                {/* Resend Code */}
+                <div className="text-center">
+                  {canResendReset ? (
+                    <button
+                      type="button"
+                      onClick={handleResendResetCode}
+                      className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
+                      style={{ color: primaryColor }}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Resend code
+                    </button>
+                  ) : resetCountdown > 0 ? (
+                    <p className="text-gray-500 text-sm">
+                      Resend code in {resetCountdown}s
+                    </p>
+                  ) : null}
+                </div>
+
+                {/* Back to login */}
+                <div className="flex items-center justify-center pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('password');
+                      setResetCode(['', '', '', '', '', '']);
+                      setResetCodeSent(false);
+                      setError('');
+                    }}
+                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                  >
+                    Back to login
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP: Reset Password - Enter New Password */}
+            {step === 'reset' && (
+              <form onSubmit={handleResetPassword} className="space-y-6">
+                {/* Email Display */}
+                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Resetting password for</p>
+                    <p className="text-gray-900 font-medium">{identifier}</p>
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="text-center">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    Create new password
+                  </h2>
+                  <p className="text-gray-600">
+                    Enter your new password below
+                  </p>
+                </div>
+
+                {/* New Password Input */}
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-4 py-4 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:border-transparent transition-all pr-12"
+                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    placeholder="New password"
+                    required
+                    minLength={8}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+
+                {/* Confirm Password Input */}
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className={`w-full px-4 py-4 bg-white border rounded-2xl focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      confirmNewPassword && newPassword !== confirmNewPassword
+                        ? 'border-red-300'
+                        : 'border-gray-200'
+                    }`}
+                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    placeholder="Confirm new password"
+                    required
+                    minLength={8}
+                  />
+                </div>
+
+                {/* Password requirements hint */}
+                <p className="text-xs text-gray-500 text-center">
+                  Password must be at least 8 characters
+                </p>
+
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || !newPassword || !confirmNewPassword}
+                  className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                    loading || !newPassword || !confirmNewPassword ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                  }`}
+                  style={{
+                    backgroundColor: primaryColor,
+                    color: buttonTextColor,
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent" />
+                      Resetting...
+                    </>
+                  ) : (
+                    'Reset Password'
+                  )}
+                </button>
+
+                {/* Back to code entry */}
+                <div className="flex items-center justify-center pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('forgot');
+                      setError('');
+                    }}
+                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                  >
+                    Re-enter code
+                  </button>
+                </div>
+              </form>
             )}
 
             {/* STEP 3: Clinic Selection (for multi-clinic users) */}

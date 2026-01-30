@@ -443,18 +443,27 @@ export default function RegisterPage() {
                 
                 {/* Terms Agreement */}
                 <div className="flex items-start gap-3">
-                  <input
-                    id="terms"
-                    type="checkbox"
-                    checked={agreedToTerms}
-                    onChange={(e) => setAgreedToTerms(e.target.checked)}
-                    className="mt-1 h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                  />
-                  <label htmlFor="terms" className="text-sm text-gray-600">
+                  <button
+                    type="button"
+                    onClick={() => setAgreedToTerms(!agreedToTerms)}
+                    className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                      agreedToTerms
+                        ? 'bg-emerald-600 border-emerald-600'
+                        : 'bg-white border-gray-300 hover:border-emerald-400'
+                    }`}
+                    aria-checked={agreedToTerms}
+                    role="checkbox"
+                  >
+                    {agreedToTerms && <Check className="h-3.5 w-3.5 text-white" />}
+                  </button>
+                  <label
+                    onClick={() => setAgreedToTerms(!agreedToTerms)}
+                    className="text-sm text-gray-600 cursor-pointer select-none"
+                  >
                     I agree to the{' '}
-                    <a href="/terms" className="text-emerald-600 hover:underline">Terms of Service</a>
+                    <a href="/terms" target="_blank" className="text-emerald-600 hover:underline" onClick={(e) => e.stopPropagation()}>Terms of Service</a>
                     {' '}and{' '}
-                    <a href="/privacy" className="text-emerald-600 hover:underline">Privacy Policy</a>
+                    <a href="/privacy" target="_blank" className="text-emerald-600 hover:underline" onClick={(e) => e.stopPropagation()}>Privacy Policy</a>
                   </label>
                 </div>
                 

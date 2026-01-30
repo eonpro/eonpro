@@ -577,6 +577,11 @@ class PrismaWithClinicFilter {
   get subscriptionAction() { return this.client.subscriptionAction; }
   get retentionOffer() { return this.client.retentionOffer; }
 
+  // Financial Analytics
+  get financialMetrics() { return this.client.financialMetrics; }
+  get savedReport() { return this.client.savedReport; }
+  get reportExport() { return this.client.reportExport; }
+
   // Expose transaction support
   async $transaction(fn: (tx: any) => Promise<any>) {
     return this.client.$transaction(async (tx) => {

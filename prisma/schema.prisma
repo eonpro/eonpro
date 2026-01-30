@@ -849,6 +849,10 @@ model User {
   carePlanTemplates   CarePlanTemplate[]
   carePlanProgress    CarePlanProgress[]
 
+  // Financial Analytics Relations
+  savedReports  SavedReport[]
+  reportExports ReportExport[]
+
   @@index([email])
   @@index([role, status])
   @@index([createdAt(sort: Desc)])
@@ -1898,6 +1902,7 @@ model Clinic {
   affiliatePayouts           AffiliatePayout[]
   affiliateFraudAlerts       AffiliateFraudAlert[]
   affiliateFraudConfig       AffiliateFraudConfig?
+  affiliateCompetitions      AffiliateCompetition[]
 
   // Lifefile Shipping Updates
   shippingUpdates PatientShippingUpdate[]
@@ -1907,6 +1912,11 @@ model Clinic {
 
   // Prescription Refill Queue
   refillQueue RefillQueue[]
+
+  // Financial Analytics
+  financialMetrics FinancialMetrics[]
+  savedReports     SavedReport[]
+  reportExports    ReportExport[]
 
   @@index([subdomain])
   @@index([status])
@@ -3250,18 +3260,23 @@ model Affiliate {
   // Login tracking
   lastLoginAt DateTime?
 
+  // Leaderboard settings
+  leaderboardOptIn  Boolean @default(false) // Whether affiliate appears on public leaderboards
+  leaderboardAlias  String? // Custom display name for leaderboard (if opt-in)
+
   // Relations
-  refCodes           AffiliateRefCode[]
-  planAssignments    AffiliatePlanAssignment[]
-  commissionEvents   AffiliateCommissionEvent[]
-  attributedPatients Patient[]
-  touches            AffiliateTouch[]
-  payoutMethods      AffiliatePayoutMethod[]
-  payouts            AffiliatePayout[]
-  taxDocuments       AffiliateTaxDocument[]
-  fraudAlerts        AffiliateFraudAlert[]
-  otpCode            AffiliateOtpCode?
-  application        AffiliateApplication? // Link to original application (if created via self-signup)
+  refCodes             AffiliateRefCode[]
+  planAssignments      AffiliatePlanAssignment[]
+  commissionEvents     AffiliateCommissionEvent[]
+  attributedPatients   Patient[]
+  touches              AffiliateTouch[]
+  payoutMethods        AffiliatePayoutMethod[]
+  payouts              AffiliatePayout[]
+  taxDocuments         AffiliateTaxDocument[]
+  fraudAlerts          AffiliateFraudAlert[]
+  otpCode              AffiliateOtpCode?
+  application          AffiliateApplication? // Link to original application (if created via self-signup)
+  competitionEntries   AffiliateCompetitionEntry[]
 
   @@index([clinicId])
   @@index([status])
@@ -3486,6 +3501,66 @@ enum CommissionEventStatus {
   APPROVED // Hold period passed, ready for payout
   PAID // Commission paid out
   REVERSED // Clawed back due to refund/chargeback
+}
+
+// ===== AFFILIATE COMPETITIONS & LEADERBOARDS =====
+
+// Competition/challenge for affiliates (managed by clinic admins)
+model AffiliateCompetition {
+  id               Int               @id @default(autoincrement())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  clinicId         Int
+  clinic           Clinic            @relation(fields: [clinicId], references: [id])
+  name             String // e.g., "January Sales Sprint"
+  description      String? // Detailed description of the competition
+  metric           CompetitionMetric // What metric is being tracked
+  startDate        DateTime // When competition starts
+  endDate          DateTime // When competition ends
+  status           CompetitionStatus @default(SCHEDULED)
+  prizeDescription String? // e.g., "$500 bonus", "Free trip to Vegas"
+  prizeValueCents  Int? // Monetary value of prize in cents
+  minParticipants  Int               @default(0) // Minimum participants required
+  isPublic         Boolean           @default(true) // Show on affiliate leaderboard page
+
+  // Relations
+  entries AffiliateCompetitionEntry[]
+
+  @@index([clinicId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+// Entry/participation in a competition
+model AffiliateCompetitionEntry {
+  id            Int                  @id @default(autoincrement())
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  competitionId Int
+  competition   AffiliateCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  affiliateId   Int
+  affiliate     Affiliate            @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  currentValue  Int                  @default(0) // Current score (clicks, conversions, or cents depending on metric)
+  rank          Int? // Current rank in competition (updated by cron)
+
+  @@unique([competitionId, affiliateId])
+  @@index([competitionId, rank])
+  @@index([affiliateId])
+}
+
+enum CompetitionMetric {
+  CLICKS // Most clicks
+  CONVERSIONS // Most conversions/sales
+  REVENUE // Highest revenue generated (in cents)
+  CONVERSION_RATE // Best conversion rate (conversions/clicks * 10000 for precision)
+  NEW_CUSTOMERS // Most new customer acquisitions
+}
+
+enum CompetitionStatus {
+  SCHEDULED // Not yet started
+  ACTIVE // Currently running
+  COMPLETED // Ended successfully
+  CANCELLED // Cancelled by admin
 }
 
 // ===== ENTERPRISE AFFILIATE SYSTEM - ATTRIBUTION =====
@@ -4189,4 +4264,146 @@ model RefillQueue {
   @@index([subscriptionId])
   @@index([nextRefillDate])
   @@index([status, nextRefillDate])
+}
+
+// ===== FINANCIAL ANALYTICS SYSTEM =====
+
+// Type of saved report
+enum ReportType {
+  REVENUE
+  PATIENTS
+  PAYOUTS
+  RECONCILIATION
+  SUBSCRIPTIONS
+  CUSTOM
+}
+
+// Granularity for time-based reports
+enum ReportGranularity {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// Daily aggregated financial metrics for fast reporting
+model FinancialMetrics {
+  id        Int      @id @default(autoincrement())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  date      DateTime @db.Date
+
+  // Daily revenue aggregates (in cents)
+  grossRevenue Int @default(0) // Total before fees/refunds
+  netRevenue   Int @default(0) // After fees
+  refunds      Int @default(0) // Total refunds
+  fees         Int @default(0) // Stripe fees + platform fees
+
+  // Subscription metrics (MRR in cents)
+  newMrr         Int @default(0) // MRR from new subscriptions
+  churnedMrr     Int @default(0) // MRR lost from cancellations
+  expansionMrr   Int @default(0) // MRR from upgrades
+  contractionMrr Int @default(0) // MRR lost from downgrades
+
+  // Counts
+  newSubscriptions       Int @default(0) // New subscriptions created
+  canceledSubscriptions  Int @default(0) // Subscriptions canceled
+  newCustomers           Int @default(0) // New patients with payments
+  activeSubscriptions    Int @default(0) // Total active at end of day
+
+  // Payment metrics
+  successfulPayments Int @default(0) // Count of successful payments
+  failedPayments     Int @default(0) // Count of failed payments
+  averageOrderValue  Int @default(0) // Average payment amount (cents)
+
+  // Invoice metrics
+  invoicesSent        Int @default(0)
+  invoicesPaid        Int @default(0)
+  invoicesOutstanding Int @default(0)
+  outstandingAmount   Int @default(0) // Total outstanding (cents)
+
+  // Dispute metrics
+  disputesOpened Int @default(0)
+  disputesWon    Int @default(0)
+  disputesLost   Int @default(0)
+  disputeAmount  Int @default(0) // Total disputed amount (cents)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clinicId, date])
+  @@index([clinicId])
+  @@index([date])
+  @@index([clinicId, date])
+}
+
+// User-saved report configurations
+model SavedReport {
+  id        Int    @id @default(autoincrement())
+  clinicId  Int
+  clinic    Clinic @relation(fields: [clinicId], references: [id])
+  createdBy Int
+  user      User   @relation(fields: [createdBy], references: [id])
+
+  // Report metadata
+  name        String
+  description String?
+  type        ReportType
+  isPublic    Boolean    @default(false) // Shared with all clinic users
+
+  // Report configuration (metrics, filters, grouping, chart type)
+  config Json
+
+  // Scheduling
+  isScheduled Boolean   @default(false)
+  schedule    String? // Cron expression (e.g., "0 9 * * 1" for Monday 9am)
+  recipients  String[] // Email addresses for delivery
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  lastRunError String? // Error message from last run if failed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clinicId])
+  @@index([createdBy])
+  @@index([type])
+  @@index([isScheduled, nextRunAt])
+}
+
+// Export job tracking for async report generation
+model ReportExport {
+  id        Int    @id @default(autoincrement())
+  clinicId  Int
+  clinic    Clinic @relation(fields: [clinicId], references: [id])
+  createdBy Int
+  user      User   @relation(fields: [createdBy], references: [id])
+
+  // Export configuration
+  reportType    ReportType
+  format        String // 'csv', 'excel', 'pdf'
+  config        Json // Report configuration used
+  dateRangeStart DateTime
+  dateRangeEnd   DateTime
+
+  // Status tracking
+  status       String    @default("pending") // pending, processing, completed, failed
+  progress     Int       @default(0) // 0-100 percentage
+  startedAt    DateTime?
+  completedAt  DateTime?
+  errorMessage String?
+
+  // File storage
+  fileUrl     String? // S3 URL when completed
+  fileName    String?
+  fileSize    Int? // File size in bytes
+  expiresAt   DateTime? // When the download link expires
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clinicId])
+  @@index([status])
+  @@index([createdBy])
 }

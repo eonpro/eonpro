@@ -82,6 +82,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         displayName: true,
         createdAt: true,
         currentTierId: true,
+        leaderboardOptIn: true,
+        leaderboardAlias: true,
         user: {
           select: {
             email: true,
@@ -182,6 +184,10 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         smsNotifications: false,
         weeklyReport: true,
       },
+      leaderboard: {
+        optIn: affiliate.leaderboardOptIn,
+        alias: affiliate.leaderboardAlias,
+      },
       taxStatus: {
         hasValidW9,
         yearToDateEarnings: ytdEarnings,
@@ -208,17 +214,46 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     }
 
     const body = await request.json();
-    const { emailNotifications, smsNotifications, weeklyReport } = body;
+    const { emailNotifications, smsNotifications, weeklyReport, leaderboardOptIn, leaderboardAlias } = body;
 
-    // Note: preferences fields may not exist in schema yet
-    // For now, just acknowledge the request and return the requested values
-    // TODO: Add preference columns to Affiliate model or use a settings JSON field
+    // Update leaderboard settings if provided
+    if (leaderboardOptIn !== undefined || leaderboardAlias !== undefined) {
+      const updateData: Record<string, unknown> = {};
+      if (leaderboardOptIn !== undefined) {
+        updateData.leaderboardOptIn = leaderboardOptIn;
+      }
+      if (leaderboardAlias !== undefined) {
+        // Validate alias length and characters
+        if (leaderboardAlias && leaderboardAlias.length > 30) {
+          return NextResponse.json({ error: 'Alias must be 30 characters or less' }, { status: 400 });
+        }
+        updateData.leaderboardAlias = leaderboardAlias || null;
+      }
+
+      await prisma.affiliate.update({
+        where: { id: affiliateId },
+        data: updateData,
+      });
+    }
+
+    // Get updated affiliate data
+    const affiliate = await prisma.affiliate.findUnique({
+      where: { id: affiliateId },
+      select: {
+        leaderboardOptIn: true,
+        leaderboardAlias: true,
+      },
+    });
     
     return NextResponse.json({
       preferences: {
         emailNotifications: emailNotifications ?? true,
         smsNotifications: smsNotifications ?? false,
         weeklyReport: weeklyReport ?? true,
+      },
+      leaderboard: {
+        optIn: affiliate?.leaderboardOptIn ?? false,
+        alias: affiliate?.leaderboardAlias ?? null,
       },
     });
   } catch (error) {
