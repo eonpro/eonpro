@@ -7,18 +7,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
-import { requireAuth, getAuthUser } from '@/lib/auth';
+import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { 
-  startOfDay, 
   startOfYear, 
-  subDays, 
-  subMonths,
+  subDays,
   startOfMonth,
-  endOfMonth,
 } from 'date-fns';
-import { RevenueAnalyticsService } from '@/services/analytics/revenueAnalytics';
-import { SubscriptionAnalyticsService } from '@/services/analytics/subscriptionAnalytics';
 
 export async function GET(request: NextRequest) {
   try {
@@ -54,73 +49,137 @@ export async function GET(request: NextRequest) {
     }
 
     return withClinicContext(clinicId, async () => {
-      // Get revenue overview
-      const revenueOverview = await RevenueAnalyticsService.getRevenueOverview(
-        clinicId,
-        { start: startDate, end: now }
-      );
+      // Get paid invoices for the period (primary source of revenue)
+      const [paidInvoices, allTimePaidInvoices, previousPeriodInvoices] = await Promise.all([
+        // Current period paid invoices
+        prisma.invoice.aggregate({
+          where: {
+            clinicId,
+            status: 'PAID',
+            paidAt: { gte: startDate, lte: now },
+          },
+          _sum: { amountPaid: true },
+          _count: true,
+        }),
+        // All-time paid invoices for total revenue
+        prisma.invoice.aggregate({
+          where: {
+            clinicId,
+            status: 'PAID',
+          },
+          _sum: { amountPaid: true },
+          _count: true,
+        }),
+        // Previous period for growth calculation
+        prisma.invoice.aggregate({
+          where: {
+            clinicId,
+            status: 'PAID',
+            paidAt: { 
+              gte: subDays(startDate, range === '7d' ? 7 : range === '90d' ? 90 : 30), 
+              lt: startDate 
+            },
+          },
+          _sum: { amountPaid: true },
+        }),
+      ]);
 
-      // Get MRR breakdown
-      const mrrBreakdown = await RevenueAnalyticsService.getMrrBreakdown(clinicId);
+      // Calculate revenue metrics from invoices
+      const grossRevenue = paidInvoices._sum.amountPaid || 0;
+      const previousGross = previousPeriodInvoices._sum.amountPaid || 0;
+      const periodGrowth = previousGross > 0 
+        ? Math.round(((grossRevenue - previousGross) / previousGross) * 10000) / 100
+        : grossRevenue > 0 ? 100 : 0;
+      
+      // Estimate fees (~2.9% for Stripe)
+      const estimatedFees = Math.round(grossRevenue * 0.029);
+      const netRevenue = grossRevenue - estimatedFees;
+      
+      // Average order value from paid invoices count
+      const invoiceCount = paidInvoices._count || 0;
+      const averageOrderValue = invoiceCount > 0 ? Math.round(grossRevenue / invoiceCount) : 0;
 
-      // Get subscription metrics
-      const subscriptionMetrics = await SubscriptionAnalyticsService.getSubscriptionMetrics(clinicId);
+      // Get MRR from active subscriptions
+      const activeSubscriptions = await prisma.subscription.findMany({
+        where: {
+          clinicId,
+          status: 'ACTIVE',
+        },
+        select: {
+          amount: true,
+          interval: true,
+        },
+      });
 
-      // Get churn analysis
-      const churnAnalysis = await SubscriptionAnalyticsService.getChurnAnalysis(clinicId);
+      // Calculate MRR (normalize to monthly)
+      let mrr = 0;
+      for (const sub of activeSubscriptions) {
+        const amount = sub.amount || 0;
+        switch (sub.interval?.toLowerCase()) {
+          case 'year':
+          case 'yearly':
+          case 'annual':
+            mrr += amount / 12;
+            break;
+          case 'quarter':
+          case 'quarterly':
+            mrr += amount / 3;
+            break;
+          case 'week':
+          case 'weekly':
+            mrr += amount * 4;
+            break;
+          default:
+            mrr += amount;
+        }
+      }
+      const arr = mrr * 12;
 
       // Get outstanding invoices
       const outstandingInvoices = await prisma.invoice.findMany({
         where: {
           clinicId,
-          status: { in: ['OPEN', 'DRAFT'] },
+          status: { in: ['OPEN', 'DRAFT', 'SENT'] },
         },
         select: {
-          total: true,
+          amount: true,
         },
       });
 
-      const outstandingAmount = outstandingInvoices.reduce((sum: number, inv: typeof outstandingInvoices[number]) => sum + inv.total, 0);
+      const outstandingAmount = outstandingInvoices.reduce(
+        (sum: number, inv: { amount: number | null }) => sum + (inv.amount || 0), 
+        0
+      );
 
-      // Get pending payouts (from Stripe if connected)
-      // This would need Stripe API integration for real data
-      const pendingPayouts = 0;
-
-      // Calculate dispute rate from payments
-      const [totalPayments, disputedPayments] = await Promise.all([
-        prisma.payment.count({
-          where: {
-            clinicId,
-            createdAt: { gte: startDate },
-          },
-        }),
-        prisma.payment.count({
-          where: {
-            clinicId,
-            createdAt: { gte: startDate },
-            status: 'DISPUTED',
-          },
-        }),
-      ]);
-
-      const disputeRate = totalPayments > 0 
-        ? (disputedPayments / totalPayments) * 100 
+      // Calculate churn rate (subscriptions canceled this month / active at start of month)
+      const monthStart = startOfMonth(now);
+      const canceledThisMonth = await prisma.subscription.count({
+        where: {
+          clinicId,
+          status: 'CANCELED',
+          canceledAt: { gte: monthStart },
+        },
+      });
+      
+      const totalActiveAtMonthStart = activeSubscriptions.length + canceledThisMonth;
+      const churnRate = totalActiveAtMonthStart > 0 
+        ? Math.round((canceledThisMonth / totalActiveAtMonthStart) * 10000) / 100
         : 0;
 
       return NextResponse.json({
-        grossRevenue: revenueOverview.grossRevenue,
-        netRevenue: revenueOverview.netRevenue,
-        mrr: mrrBreakdown.totalMrr,
-        arr: mrrBreakdown.arr,
-        activeSubscriptions: subscriptionMetrics.activeSubscriptions,
-        churnRate: churnAnalysis.churnRate,
-        averageOrderValue: revenueOverview.averageOrderValue,
+        grossRevenue,
+        netRevenue,
+        mrr,
+        arr,
+        activeSubscriptions: activeSubscriptions.length,
+        churnRate,
+        averageOrderValue,
         outstandingInvoices: outstandingInvoices.length,
         outstandingAmount,
-        pendingPayouts,
-        disputeRate,
-        periodGrowth: revenueOverview.periodGrowth,
-        mrrGrowth: mrrBreakdown.mrrGrowthRate,
+        pendingPayouts: 0,
+        disputeRate: 0,
+        periodGrowth,
+        mrrGrowth: 0,
       });
     });
   } catch (error) {
