@@ -84,6 +84,10 @@ export default function ChatWidget({
       if (chatManagerRef.current) {
         chatManagerRef.current.disconnect();
       }
+      // Clear typing timeout on cleanup
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
   }, [isOpen, isEnabled]);
 

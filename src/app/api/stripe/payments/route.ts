@@ -4,28 +4,40 @@ import { logger } from '@/lib/logger';
 
 // Schema for creating a payment
 const createPaymentSchema = z.object({
-  patientId: z.number(),
-  amount: z.number().min(50), // Minimum 50 cents
-  description: z.string().optional(),
-  invoiceId: z.number().optional(),
-  paymentMethodId: z.string().optional(),
+  patientId: z.number().positive('Patient ID must be positive'),
+  amount: z.number().min(50, 'Minimum amount is 50 cents'), // Minimum 50 cents
+  description: z.string().max(500).optional(),
+  invoiceId: z.number().positive().optional(),
+  paymentMethodId: z.string().min(1).optional(),
   metadata: z.record(z.string()).optional(),
 });
+
+// Type for validated payment data
+type CreatePaymentData = z.infer<typeof createPaymentSchema>;
 
 export async function POST(request: NextRequest) {
   try {
     // Dynamic import to avoid build-time errors
     const { StripePaymentService } = await import('@/services/stripe/paymentService');
-    
+
     const body = await request.json();
-    
-    // Validate request body
-    const validatedData = createPaymentSchema.parse(body);
+
+    // Validate request body with safeParse for better error handling
+    const validationResult = createPaymentSchema.safeParse(body);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid payment data', details: validationResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const validatedData: CreatePaymentData = validationResult.data;
     
     // Create payment intent or process payment
     if (validatedData.paymentMethodId) {
       // Process payment immediately with saved payment method
-      const payment = await StripePaymentService.processPayment(validatedData as any);
+      const payment = await StripePaymentService.processPayment(validatedData);
       
       return NextResponse.json({
         success: true,
@@ -33,7 +45,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Create payment intent for client-side confirmation
-      const result = await StripePaymentService.createPaymentIntent(validatedData as any);
+      const result = await StripePaymentService.createPaymentIntent(validatedData);
       
       return NextResponse.json({
         success: true,
@@ -42,17 +54,11 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[API] Error creating payment:', error instanceof Error ? error : new Error(String(error)));
     
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
-    }
-    
     return NextResponse.json(
-      { error: 'Failed to create payment' },
+      { error: 'Failed to create payment', message: errorMessage },
       { status: 500 }
     );
   }

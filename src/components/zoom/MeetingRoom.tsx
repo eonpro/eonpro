@@ -65,6 +65,7 @@ export default function MeetingRoom({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const meetingClientRef = useRef<any>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
 
   // Check if feature is enabled
   const isEnabled = isFeatureEnabled("ZOOM_TELEHEALTH");
@@ -191,7 +192,11 @@ export default function MeetingRoom({
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
       setIsScreenSharing(false);
-      // Stop screen share
+      // Stop screen share and clean up stream
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+        screenStreamRef.current = null;
+      }
       if (remoteVideoRef.current && localVideoRef.current?.srcObject) {
         remoteVideoRef.current.srcObject = (localVideoRef.current.srcObject as MediaStream).clone();
       }
@@ -201,20 +206,27 @@ export default function MeetingRoom({
           video: true,
           audio: false,
         });
-        
+
+        // Store reference for cleanup
+        screenStreamRef.current = screenStream;
+
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = screenStream;
         }
         
         setIsScreenSharing(true);
         
-        // Listen for screen share end
-        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+        // Listen for screen share end - the track will be stopped when the user clicks "Stop sharing"
+        // which automatically triggers the 'ended' event and cleans up
+        const videoTrack = screenStream.getVideoTracks()[0];
+        const handleEnded = () => {
           setIsScreenSharing(false);
+          screenStreamRef.current = null;
           if (remoteVideoRef.current && localVideoRef.current?.srcObject) {
             remoteVideoRef.current.srcObject = (localVideoRef.current.srcObject as MediaStream).clone();
           }
-        });
+        };
+        videoTrack.addEventListener('ended', handleEnded);
       } catch (err: any) {
     // @ts-ignore
    
@@ -251,7 +263,13 @@ export default function MeetingRoom({
       const stream = remoteVideoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track: any) => track.stop());
     }
-    
+
+    // Stop screen share stream if active
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+
     setIsConnected(false);
     onMeetingEnd?.();
   };

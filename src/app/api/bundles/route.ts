@@ -102,10 +102,13 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Some products not found or not in your clinic' }, { status: 400 });
     }
 
+    // Define product type from Prisma query result
+    type ProductRecord = typeof products[number];
+
     // Calculate regular price (sum of individual products)
     let regularPrice = 0;
     for (const item of validated.items) {
-      const product = products.find((p: { id: number; price: number }) => p.id === item.productId);
+      const product = products.find((p: ProductRecord) => p.id === item.productId);
       if (product) {
         regularPrice += product.price * item.quantity;
       }

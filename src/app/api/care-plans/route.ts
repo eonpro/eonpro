@@ -43,6 +43,14 @@ const createCarePlanSchema = z.object({
   })).optional(),
 });
 
+// Zod schema for care plan update/action request
+const updateCarePlanSchema = z.object({
+  carePlanId: z.number().positive('Care plan ID must be positive'),
+  action: z.enum(['activate', 'archive'], {
+    errorMap: () => ({ message: 'Action must be either "activate" or "archive"' }),
+  }),
+});
+
 /**
  * GET /api/care-plans
  * List care plans or get a specific care plan
@@ -171,15 +179,17 @@ export const PATCH = withProviderAuth(
   async (req: NextRequest, user) => {
     try {
       const body = await req.json();
-      const { carePlanId, action } = body;
 
-      if (!carePlanId || !action) {
+      // Validate request body with Zod schema
+      const parsed = updateCarePlanSchema.safeParse(body);
+      if (!parsed.success) {
         return NextResponse.json(
-          { error: 'carePlanId and action are required' },
+          { error: 'Invalid request data', details: parsed.error.issues },
           { status: 400 }
         );
       }
 
+      const { carePlanId, action } = parsed.data;
       let result;
 
       switch (action) {
@@ -189,11 +199,6 @@ export const PATCH = withProviderAuth(
         case 'archive':
           result = await archiveCarePlan(carePlanId);
           break;
-        default:
-          return NextResponse.json(
-            { error: 'Invalid action. Use "activate" or "archive"' },
-            { status: 400 }
-          );
       }
 
       if (!result.success) {

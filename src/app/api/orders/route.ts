@@ -9,10 +9,32 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import lifefile from '@/lib/lifefile';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { orderService, type UserContext } from '@/domains/order';
 import { handleApiError } from '@/domains/shared/errors';
+
+// Zod schema for order creation request
+const createOrderSchema = z.object({
+  patientId: z.number().positive('Patient ID must be positive'),
+  providerId: z.number().positive('Provider ID must be positive').optional(),
+  products: z.array(z.object({
+    productId: z.number().positive(),
+    quantity: z.number().min(1).default(1),
+  })).min(1, 'At least one product is required').optional(),
+  // Lifefile-specific fields
+  orderType: z.string().optional(),
+  shippingAddress: z.object({
+    street: z.string().min(1),
+    city: z.string().min(1),
+    state: z.string().min(2).max(2),
+    zip: z.string().min(5),
+    country: z.string().default('US'),
+  }).optional(),
+  notes: z.string().max(1000).optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
 
 /**
  * GET /api/orders
@@ -82,7 +104,17 @@ export async function GET(request: NextRequest) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const order = await lifefile.createOrder(body);
+
+    // Validate request body
+    const validationResult = createOrderSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid order data', details: validationResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const order = await lifefile.createOrder(validationResult.data);
     return Response.json(order.data);
   } catch (error) {
     return handleApiError(error, {

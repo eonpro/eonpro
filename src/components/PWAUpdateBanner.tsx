@@ -5,7 +5,7 @@
  * Shows when a new version of the app is available
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, RefreshCw, Download } from 'lucide-react';
 import { useServiceWorker } from '@/hooks/useServiceWorker';
 
@@ -90,14 +90,20 @@ export function InstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  // Listen for beforeinstallprompt event
-  if (typeof window !== 'undefined') {
-    window.addEventListener('beforeinstallprompt', (e) => {
+  // Listen for beforeinstallprompt event with proper cleanup
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setShowPrompt(true);
-    });
-  }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;

@@ -8,11 +8,32 @@
  * @module api/patients
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { withClinicalAuth } from '@/lib/auth/middleware';
 import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
 import { patientService, type UserContext, type ListPatientsOptions } from '@/domains/patient';
 import { handleApiError } from '@/domains/shared/errors';
+
+// Zod schema for patient creation
+const createPatientSchema = z.object({
+  firstName: z.string().min(1, 'First name is required').max(100),
+  lastName: z.string().min(1, 'Last name is required').max(100),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().min(10, 'Phone must be at least 10 digits').max(20).optional(),
+  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must be in YYYY-MM-DD format').optional(),
+  gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
+  address1: z.string().max(200).optional(),
+  address2: z.string().max(200).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().min(2).max(50).optional(),
+  zip: z.string().min(5).max(20).optional(),
+  country: z.string().max(50).default('US'),
+  source: z.string().max(100).optional(),
+  tags: z.array(z.string()).optional(),
+  clinicId: z.number().positive().optional(), // Required for super_admin
+  metadata: z.record(z.unknown()).optional(),
+});
 
 /**
  * GET /api/patients
@@ -139,6 +160,15 @@ const createPatientHandler = withClinicalAuth(async (req: NextRequest, user) => 
   try {
     const body = await req.json();
 
+    // Validate request body with Zod schema
+    const validationResult = createPatientSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid patient data', details: validationResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     // Convert auth user to service UserContext
     const userContext: UserContext = {
       id: user.id,
@@ -149,7 +179,7 @@ const createPatientHandler = withClinicalAuth(async (req: NextRequest, user) => 
     };
 
     // Use patient service - handles validation, clinic assignment, PHI, audit
-    const patient = await patientService.createPatient(body, userContext);
+    const patient = await patientService.createPatient(validationResult.data, userContext);
 
     return Response.json({
       patient,

@@ -112,12 +112,14 @@ export default function PatientDocumentsView({
     formData.append("patientId", patientId.toString());
     formData.append("category", selectedCategory);
 
+    let progressInterval: NodeJS.Timeout | null = null;
+
     try {
       // Simulate upload progress
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setUploadProgress((prev: any) => {
           if (prev >= 90) {
-            clearInterval(progressInterval);
+            if (progressInterval) clearInterval(progressInterval);
             return 90;
           }
           return prev + 10;
@@ -136,7 +138,7 @@ export default function PatientDocumentsView({
         body: formData,
       });
 
-      clearInterval(progressInterval);
+      if (progressInterval) clearInterval(progressInterval);
       setUploadProgress(100);
 
       if (response.ok) {
@@ -152,6 +154,8 @@ export default function PatientDocumentsView({
         throw new Error("Upload failed");
       }
     } catch (error: any) {
+      // Always clear the interval on error
+      if (progressInterval) clearInterval(progressInterval);
     // @ts-ignore
    
       logger.error("Upload error:", error);

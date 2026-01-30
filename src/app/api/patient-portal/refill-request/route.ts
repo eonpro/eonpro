@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -17,6 +18,57 @@ import {
   getPatientRefillHistory,
   hasPendingRefillsAwaitingPayment,
 } from '@/services/refill';
+
+// Zod schema for early refill request
+const earlyRefillRequestSchema = z.object({
+  subscriptionId: z.number().positive('Subscription ID must be positive').optional(),
+  notes: z.string().max(500, 'Notes must be under 500 characters').optional(),
+});
+
+// Type definitions for refill queue and history items
+interface RefillQueueItem {
+  id: number;
+  status: string;
+  vialCount: number | null;
+  refillIntervalDays: number | null;
+  nextRefillDate: Date | null;
+  lastRefillDate: Date | null;
+  medicationName: string | null;
+  medicationStrength: string | null;
+  planName: string | null;
+  requestedEarly: boolean;
+  patientNotes: string | null;
+  paymentVerified: boolean;
+  adminApproved: boolean | null;
+  subscription: {
+    id: number;
+    planName: string | null;
+  } | null;
+}
+
+interface RefillHistoryItem {
+  id: number;
+  status: string;
+  medicationName: string | null;
+  medicationStrength: string | null;
+  planName: string | null;
+  prescribedAt: Date | null;
+  nextRefillDate: Date | null;
+  order: {
+    id: number;
+    status: string;
+    trackingNumber: string | null;
+  } | null;
+}
+
+interface SubscriptionItem {
+  id: number;
+  planName: string | null;
+  vialCount: number | null;
+  refillIntervalDays: number | null;
+  currentPeriodEnd: Date | null;
+  nextBillingDate: Date | null;
+}
 
 /**
  * GET /api/patient-portal/refill-request
@@ -120,10 +172,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     // Check if patient can request early refill
     const hasPendingRefills = refillQueue.length > 0;
-    const canRequestEarly = subscriptions.length > 0 && !refillQueue.some((r: typeof refillQueue[number]) => r.requestedEarly);
+    const canRequestEarly = subscriptions.length > 0 && !refillQueue.some((r: RefillQueueItem) => r.requestedEarly);
 
     // Transform refill queue for frontend
-    const upcomingRefills = refillQueue.map((refill: typeof refillQueue[number]) => ({
+    const upcomingRefills = refillQueue.map((refill: RefillQueueItem) => ({
       id: refill.id,
       status: refill.status,
       statusLabel: getStatusLabel(refill.status),
@@ -143,7 +195,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     }));
 
     // Transform refill history for frontend
-    const pastRefills = refillHistory.map((refill: typeof refillHistory[number]) => ({
+    const pastRefills = refillHistory.map((refill: RefillHistoryItem) => ({
       id: refill.id,
       status: refill.status,
       medication: refill.medicationName || 'Prescription Refill',
@@ -160,7 +212,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         id: patient.id,
         name: `${patient.firstName} ${patient.lastName}`,
       },
-      subscriptions: subscriptions.map((sub: typeof subscriptions[number]) => ({
+      subscriptions: subscriptions.map((sub: SubscriptionItem) => ({
         id: sub.id,
         planName: sub.planName,
         vialCount: sub.vialCount,
@@ -191,7 +243,17 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     const body = await req.json();
-    const { subscriptionId, notes } = body;
+
+    // Validate request body with Zod schema
+    const validationResult = earlyRefillRequestSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: validationResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { subscriptionId, notes } = validationResult.data;
 
     // Get patient with clinic ID
     const patient = await prisma.patient.findUnique({

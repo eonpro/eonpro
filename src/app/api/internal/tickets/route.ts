@@ -1,7 +1,35 @@
 import { NextResponse, NextRequest } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { withAuth } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
+
+// Zod schema for ticket creation
+const createTicketSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200, 'Title must be under 200 characters'),
+  description: z.string().min(1, 'Description is required').max(5000, 'Description must be under 5000 characters'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  category: z.enum(['GENERAL', 'BILLING', 'TECHNICAL', 'CLINICAL', 'SHIPPING', 'REFUND', 'COMPLAINT', 'OTHER']).default('GENERAL'),
+  patientId: z.union([z.string(), z.number()]).optional().transform((val) => {
+    if (val === undefined || val === null) return null;
+    const num = typeof val === 'string' ? parseInt(val, 10) : val;
+    return isNaN(num) ? null : num;
+  }),
+  orderId: z.union([z.string(), z.number()]).optional().transform((val) => {
+    if (val === undefined || val === null) return null;
+    const num = typeof val === 'string' ? parseInt(val, 10) : val;
+    return isNaN(num) ? null : num;
+  }),
+  assignedToId: z.union([z.string(), z.number()]).optional().transform((val) => {
+    if (val === undefined || val === null) return null;
+    const num = typeof val === 'string' ? parseInt(val, 10) : val;
+    return isNaN(num) ? null : num;
+  }),
+  tags: z.array(z.string()).optional(),
+  customFields: z.record(z.unknown()).optional(),
+  attachments: z.array(z.string()).optional(),
+  isNonClientIssue: z.boolean().default(false),
+});
 
 // Generate unique ticket number
 async function generateTicketNumber(): Promise<string> {
@@ -24,7 +52,7 @@ async function generateTicketNumber(): Promise<string> {
 }
 
 // GET /api/internal/tickets - Fetch tickets
-async function getHandler(request: NextRequest, user: any) {
+async function getHandler(request: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(request.url);
     const assignedToId = searchParams.get('assignedToId');
@@ -143,25 +171,36 @@ async function getHandler(request: NextRequest, user: any) {
 }
 
 // POST /api/internal/tickets - Create a ticket
-async function postHandler(request: NextRequest, user: any) {
+async function postHandler(request: NextRequest, user: AuthUser) {
   try {
     const body = await request.json();
-    // Use authenticated user as creator
-    const createdById = user.id;
+
+    // Validate request body with Zod schema
+    const validationResult = createTicketSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid ticket data', details: validationResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     const {
       title,
       description,
-      priority = 'MEDIUM',
-      category = 'GENERAL',
+      priority,
+      category,
       patientId,
       orderId,
       assignedToId,
       tags,
       customFields,
       attachments,
-      isNonClientIssue = false
-    } = body;
-    
+      isNonClientIssue
+    } = validationResult.data;
+
+    // Use authenticated user as creator
+    const createdById = user.id;
+
     // Log ticket creation for audit
     logger.api('POST', '/api/internal/tickets', {
       userId: user.id,
@@ -170,13 +209,6 @@ async function postHandler(request: NextRequest, user: any) {
       patientId,
       category
     });
-
-    if (!title || !description) {
-      return NextResponse.json(
-        { error: 'Title and description are required' },
-        { status: 400 }
-      );
-    }
 
     // Generate ticket number
     const ticketNumber = await generateTicketNumber();
@@ -189,10 +221,10 @@ async function postHandler(request: NextRequest, user: any) {
         priority,
         category,
         status: 'OPEN',
-        patientId: patientId ? parseInt(patientId) : null,
-        orderId: orderId ? parseInt(orderId) : null,
+        patientId: patientId,
+        orderId: orderId,
         createdById: createdById,
-        assignedToId: assignedToId ? parseInt(assignedToId) : null,
+        assignedToId: assignedToId,
         clinicId: user.clinicId,
         tags,
         customFields,
@@ -248,12 +280,12 @@ async function postHandler(request: NextRequest, user: any) {
     });
 
     // If assigned, create assignment record
-    if (assignedToId) {
+    if (assignedToId !== null) {
       await prisma.ticketAssignment.create({
         data: {
           ticketId: newTicket.id,
           assignedById: createdById,
-          assignedToId: parseInt(assignedToId),
+          assignedToId: assignedToId,
           notes: 'Initial assignment'
         }
       });

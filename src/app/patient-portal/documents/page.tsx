@@ -114,12 +114,14 @@ export default function PatientPortalDocuments() {
     formData.append('category', selectedCategory);
     formData.append('source', 'patient_portal');
 
+    let progressInterval: NodeJS.Timeout | null = null;
+
     try {
       // Simulate upload progress
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
-            clearInterval(progressInterval);
+            if (progressInterval) clearInterval(progressInterval);
             return 90;
           }
           return prev + 10;
@@ -131,7 +133,7 @@ export default function PatientPortalDocuments() {
         body: formData,
       });
 
-      clearInterval(progressInterval);
+      if (progressInterval) clearInterval(progressInterval);
       setUploadProgress(100);
 
       if (response.ok) {
@@ -147,6 +149,8 @@ export default function PatientPortalDocuments() {
         throw new Error('Upload failed');
       }
     } catch (error) {
+      // Always clear the interval on error
+      if (progressInterval) clearInterval(progressInterval);
       logger.error('Upload error:', error);
       setIsUploading(false);
       setUploadProgress(0);

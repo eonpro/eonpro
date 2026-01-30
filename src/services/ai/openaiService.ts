@@ -546,7 +546,6 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
   } catch (error: unknown) {
     const err = error as { message?: string; status?: number; code?: string };
     const errorMessage = err.message || String(error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('[OpenAI] Error generating SOAP note:', {
       error: errorMessage,
       status: err.status,

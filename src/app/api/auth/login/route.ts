@@ -6,11 +6,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { strictRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+
+// Zod schema for login request validation
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
+  role: z.enum(['patient', 'provider', 'admin', 'super_admin', 'influencer', 'staff', 'support']).default('patient'),
+  clinicId: z.number().optional(),
+});
 
 /**
  * POST /api/auth/login
@@ -19,22 +28,24 @@ import { Patient, Provider, Order } from '@/types/models';
  */
 async function loginHandler(req: NextRequest) {
   const startTime = Date.now();
-  let debugInfo: any = { step: 'start' };
+  let debugInfo: Record<string, unknown> = { step: 'start' };
 
   try {
     const body = await req.json();
-    const { email, password, role = 'patient', clinicId: selectedClinicId } = body;
 
-    debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
-    console.log('[LOGIN_DEBUG] Starting login', debugInfo);
-
-    // Validate input
-    if (!email || !password) {
+    // Validate input with Zod schema
+    const validationResult = loginSchema.safeParse(body);
+    if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Invalid input', details: validationResult.error.flatten() },
         { status: 400 }
       );
     }
+
+    const { email, password, role, clinicId: selectedClinicId } = validationResult.data;
+
+    debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
+    console.log('[LOGIN_DEBUG] Starting login', debugInfo);
 
     debugInfo.step = 'finding_user';
     console.log('[LOGIN_DEBUG] Finding user by email');
@@ -273,7 +284,17 @@ async function loginHandler(req: NextRequest) {
     }
 
     // Create JWT token
-    const tokenPayload: any = {
+    const tokenPayload: {
+      id: number;
+      email: string;
+      name: string;
+      role: string;
+      clinicId?: number;
+      providerId?: number;
+      patientId?: number;
+      permissions?: string[];
+      features?: string[];
+    } = {
       id: user.id,
       email: user.email,
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,

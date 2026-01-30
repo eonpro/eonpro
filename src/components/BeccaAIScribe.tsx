@@ -47,6 +47,7 @@ export default function BeccaAIScribe({
   const audioChunksRef = useRef<Blob[]>([]);
   const transcriptContainerRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const chunkIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -73,6 +74,27 @@ export default function BeccaAIScribe({
       }
     };
   }, [isRecording, isPaused]);
+
+  // Cleanup on unmount - stop recording and clear intervals
+  useEffect(() => {
+    return () => {
+      // Clear chunk interval
+      if (chunkIntervalRef.current) {
+        clearInterval(chunkIntervalRef.current);
+      }
+      // Stop media recorder and release tracks
+      if (mediaRecorderRef.current) {
+        try {
+          if (mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+          }
+          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+      }
+    };
+  }, []);
 
   // Format duration
   const formatDuration = (seconds: number) => {
@@ -140,15 +162,12 @@ export default function BeccaAIScribe({
       setDuration(0);
 
       // Set up interval to process chunks
-      const chunkInterval = setInterval(async () => {
+      chunkIntervalRef.current = setInterval(async () => {
         if (mediaRecorderRef.current?.state === 'recording') {
           mediaRecorderRef.current.stop();
           mediaRecorderRef.current.start();
         }
       }, 10000); // Every 10 seconds
-
-      // Store interval ID for cleanup
-      (mediaRecorderRef.current as any).chunkInterval = chunkInterval;
 
     } catch (err: any) {
       setError(err.message || 'Failed to start recording');
@@ -197,13 +216,13 @@ export default function BeccaAIScribe({
 
   // Stop recording
   const stopRecording = async () => {
-    if (mediaRecorderRef.current) {
-      // Clear chunk interval
-      const chunkInterval = (mediaRecorderRef.current as any).chunkInterval;
-      if (chunkInterval) {
-        clearInterval(chunkInterval);
-      }
+    // Clear chunk interval
+    if (chunkIntervalRef.current) {
+      clearInterval(chunkIntervalRef.current);
+      chunkIntervalRef.current = null;
+    }
 
+    if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
