@@ -413,44 +413,142 @@ export const providerRepository = {
   },
 
   /**
-   * Delete provider (soft delete via audit trail)
+   * Delete provider with cascade deletion of related records
+   *
+   * This method handles all foreign key constraints by:
+   * 1. Deleting related records that should be removed (audits, appointments, etc.)
+   * 2. Nullifying optional references (User.providerId, SOAPNote.approvedBy, etc.)
+   * 3. Finally deleting the provider record
+   *
+   * WARNING: This permanently deletes data. Use archiveProvider for soft delete.
    */
   async delete(id: number, actorEmail: string): Promise<void> {
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.provider.findUnique({
         where: { id },
+        include: {
+          orders: { select: { id: true } },
+          appointments: { select: { id: true } },
+        },
       });
 
       if (!existing) {
         throw new Error('Provider not found');
       }
 
-      // Create audit entry before delete
-      await tx.providerAudit.create({
-        data: {
-          providerId: id,
-          actorEmail,
-          action: 'DELETE',
-          diff: {
-            deleted: {
-              firstName: existing.firstName,
-              lastName: existing.lastName,
-              npi: existing.npi,
-              clinicId: existing.clinicId,
-            },
-            by: actorEmail,
-          },
-        },
+      // Log what we're about to delete for audit purposes
+      logger.info('[ProviderRepository] deleting provider with cascade', {
+        providerId: id,
+        npi: existing.npi,
+        firstName: existing.firstName,
+        lastName: existing.lastName,
+        relatedOrdersCount: existing.orders.length,
+        relatedAppointmentsCount: existing.appointments.length,
+        actor: actorEmail,
       });
 
-      // Actually delete the provider
+      // 1. Delete ProviderAudit entries (these are specific to this provider)
+      await tx.providerAudit.deleteMany({
+        where: { providerId: id },
+      });
+
+      // 2. Delete ProviderClinic entries (junction table - has onDelete: Cascade but be explicit)
+      await tx.providerClinic.deleteMany({
+        where: { providerId: id },
+      });
+
+      // 3. Delete ProviderAvailability entries
+      await tx.providerAvailability.deleteMany({
+        where: { providerId: id },
+      });
+
+      // 4. Delete ProviderTimeOff entries
+      await tx.providerTimeOff.deleteMany({
+        where: { providerId: id },
+      });
+
+      // 5. Delete ProviderCalendarIntegration entries
+      await tx.providerCalendarIntegration.deleteMany({
+        where: { providerId: id },
+      });
+
+      // 6. Delete Appointments (these are demo appointments tied to demo provider)
+      // First delete related appointment reminders and notes
+      const appointmentIds = existing.appointments.map(a => a.id);
+      if (appointmentIds.length > 0) {
+        await tx.appointmentReminder.deleteMany({
+          where: { appointmentId: { in: appointmentIds } },
+        });
+        await tx.appointment.deleteMany({
+          where: { providerId: id },
+        });
+      }
+
+      // 7. Delete related Superbills
+      await tx.superbill.deleteMany({
+        where: { providerId: id },
+      });
+
+      // 8. Nullify CarePlan.providerId (care plans may need to be preserved for patient records)
+      await tx.carePlan.updateMany({
+        where: { providerId: id },
+        data: { providerId: null },
+      });
+
+      // 9. Nullify SOAPNote.approvedBy references
+      await tx.sOAPNote.updateMany({
+        where: { approvedBy: id },
+        data: { approvedBy: null },
+      });
+
+      // 10. Nullify IntakeFormTemplate.providerId references
+      await tx.intakeFormTemplate.updateMany({
+        where: { providerId: id },
+        data: { providerId: null },
+      });
+
+      // 11. Unlink User.providerId (user accounts should persist, just unlink from provider)
+      await tx.user.updateMany({
+        where: { providerId: id },
+        data: { providerId: null },
+      });
+
+      // 12. Handle Orders - this is the tricky one
+      // For demo data cleanup, we need to delete orders and their related records
+      const orderIds = existing.orders.map(o => o.id);
+      if (orderIds.length > 0) {
+        // Delete Rx records first (they reference Order)
+        await tx.rx.deleteMany({
+          where: { orderId: { in: orderIds } },
+        });
+
+        // Delete OrderEvent records
+        await tx.orderEvent.deleteMany({
+          where: { orderId: { in: orderIds } },
+        });
+
+        // Unlink RefillQueue from orders
+        await tx.refillQueue.updateMany({
+          where: { orderId: { in: orderIds } },
+          data: { orderId: null },
+        });
+
+        // Delete Orders
+        await tx.order.deleteMany({
+          where: { providerId: id },
+        });
+      }
+
+      // Finally, delete the provider
       await tx.provider.delete({
         where: { id },
       });
 
-      logger.info('[ProviderRepository] deleted provider', {
+      logger.info('[ProviderRepository] deleted provider and related records', {
         providerId: id,
         npi: existing.npi,
+        ordersDeleted: orderIds.length,
+        appointmentsDeleted: appointmentIds.length,
         actor: actorEmail,
       });
     });
