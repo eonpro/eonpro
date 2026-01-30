@@ -37,20 +37,34 @@ async function main() {
 
   console.log(`Found Wellmedr clinic: ID=${wellmedr.id}, Name="${wellmedr.name}"\n`);
 
-  // Update with Lifefile credentials
+  // SECURITY: Load credentials from environment variables
+  const credentials = {
+    lifefileBaseUrl: process.env.WELLMEDR_LIFEFILE_BASE_URL,
+    lifefileUsername: process.env.WELLMEDR_LIFEFILE_USERNAME,
+    lifefilePassword: process.env.WELLMEDR_LIFEFILE_PASSWORD,
+    lifefileVendorId: process.env.WELLMEDR_LIFEFILE_VENDOR_ID,
+    lifefilePracticeId: process.env.WELLMEDR_LIFEFILE_PRACTICE_ID,
+    lifefileLocationId: process.env.WELLMEDR_LIFEFILE_LOCATION_ID,
+    lifefileNetworkId: process.env.WELLMEDR_LIFEFILE_NETWORK_ID,
+    lifefilePracticeName: process.env.WELLMEDR_LIFEFILE_PRACTICE_NAME || 'WELLMEDR LLC',
+  };
+
+  // Validate required credentials
+  const requiredVars = ['lifefileBaseUrl', 'lifefileUsername', 'lifefilePassword', 'lifefileVendorId', 'lifefilePracticeId'];
+  const missing = requiredVars.filter(v => !credentials[v as keyof typeof credentials]);
+  if (missing.length > 0) {
+    console.error('❌ Missing required environment variables:');
+    missing.forEach(v => console.error(`  - WELLMEDR_${v.toUpperCase().replace(/([A-Z])/g, '_$1')}`));
+    console.error('\nPlease set these environment variables and try again.');
+    process.exit(1);
+  }
+
+  // Update with Lifefile credentials from environment
   const updated = await prisma.clinic.update({
     where: { id: wellmedr.id },
     data: {
       lifefileEnabled: true,
-      lifefileBaseUrl: 'https://host47a.lifefile.net:10165/lfapi/v1',
-      lifefileUsername: 'api11596-4',
-      lifefilePassword: '8+?QEFGWA(,TUP?[ZWZK',
-      lifefileVendorId: '11596',
-      lifefilePracticeId: '1270306',
-      lifefileLocationId: '110396',
-      lifefileNetworkId: '1594',
-      lifefilePracticeName: 'WELLMEDR LLC',
-      // Keep existing address/phone/fax if set, or leave empty for manual entry
+      ...credentials,
     }
   });
 

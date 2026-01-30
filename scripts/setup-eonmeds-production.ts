@@ -36,14 +36,14 @@ async function setupEonmedsProduction() {
         features: {},
         integrations: {},
         lifefileEnabled: true,
-        lifefileBaseUrl: 'https://host47a.lifefile.net:10165/lfapi/v1',
-        lifefileUsername: 'api11596-1',
-        lifefilePassword: 'L3FW7KCK:6BE2QCVXZ31',
-        lifefileVendorId: '11596',
-        lifefilePracticeId: '1266794',
-        lifefileLocationId: '110396',
-        lifefileNetworkId: '1373',
-        lifefilePracticeName: 'APOLLO BASED HEALTH LLC',
+        lifefileBaseUrl: process.env.EONMEDS_LIFEFILE_BASE_URL,
+        lifefileUsername: process.env.EONMEDS_LIFEFILE_USERNAME,
+        lifefilePassword: process.env.EONMEDS_LIFEFILE_PASSWORD,
+        lifefileVendorId: process.env.EONMEDS_LIFEFILE_VENDOR_ID,
+        lifefilePracticeId: process.env.EONMEDS_LIFEFILE_PRACTICE_ID,
+        lifefileLocationId: process.env.EONMEDS_LIFEFILE_LOCATION_ID,
+        lifefileNetworkId: process.env.EONMEDS_LIFEFILE_NETWORK_ID,
+        lifefilePracticeName: process.env.EONMEDS_LIFEFILE_PRACTICE_NAME || 'APOLLO BASED HEALTH LLC',
       },
     });
     
@@ -53,19 +53,34 @@ async function setupEonmedsProduction() {
 
   console.log(`✅ Found EONMEDS clinic: ID ${eonmeds.id}, Name: ${eonmeds.name}\n`);
 
-  // Update EONMEDS clinic with Lifefile credentials
+  // SECURITY: Load credentials from environment variables
+  const credentials = {
+    lifefileBaseUrl: process.env.EONMEDS_LIFEFILE_BASE_URL,
+    lifefileUsername: process.env.EONMEDS_LIFEFILE_USERNAME,
+    lifefilePassword: process.env.EONMEDS_LIFEFILE_PASSWORD,
+    lifefileVendorId: process.env.EONMEDS_LIFEFILE_VENDOR_ID,
+    lifefilePracticeId: process.env.EONMEDS_LIFEFILE_PRACTICE_ID,
+    lifefileLocationId: process.env.EONMEDS_LIFEFILE_LOCATION_ID,
+    lifefileNetworkId: process.env.EONMEDS_LIFEFILE_NETWORK_ID,
+    lifefilePracticeName: process.env.EONMEDS_LIFEFILE_PRACTICE_NAME || 'APOLLO BASED HEALTH LLC',
+  };
+
+  // Validate required credentials
+  const requiredVars = ['lifefileBaseUrl', 'lifefileUsername', 'lifefilePassword', 'lifefileVendorId', 'lifefilePracticeId'];
+  const missing = requiredVars.filter(v => !credentials[v as keyof typeof credentials]);
+  if (missing.length > 0) {
+    console.error('❌ Missing required environment variables for EONMEDS:');
+    missing.forEach(v => console.error(`  - EONMEDS_${v.toUpperCase().replace(/([A-Z])/g, '_$1')}`));
+    console.error('\nPlease set these environment variables and try again.');
+    process.exit(1);
+  }
+
+  // Update EONMEDS clinic with Lifefile credentials from environment
   const updated = await prisma.clinic.update({
     where: { id: eonmeds.id },
     data: {
       lifefileEnabled: true,
-      lifefileBaseUrl: 'https://host47a.lifefile.net:10165/lfapi/v1',
-      lifefileUsername: 'api11596-1',
-      lifefilePassword: 'L3FW7KCK:6BE2QCVXZ31',
-      lifefileVendorId: '11596',
-      lifefilePracticeId: '1266794',
-      lifefileLocationId: '110396',
-      lifefileNetworkId: '1373',
-      lifefilePracticeName: 'APOLLO BASED HEALTH LLC',
+      ...credentials,
       lifefilePracticeAddress: null,
       lifefilePracticePhone: null,
       lifefilePracticeFax: null,

@@ -29,25 +29,31 @@ const CONFIG = {
     timezone: 'America/New_York',
   },
   
-  // Super Admin Credentials
+  // Super Admin Credentials - SECURITY: Load from environment
   admin: {
-    email: 'admin@eonmedical.com',
-    password: 'EonMedical2026!',  // Will be hashed
+    email: process.env.ADMIN_EMAIL || 'admin@eonmedical.com',
+    password: process.env.ADMIN_PASSWORD || (() => { 
+      console.error('❌ ADMIN_PASSWORD environment variable is required');
+      process.exit(1);
+    })(),
     firstName: 'System',
     lastName: 'Administrator',
   },
   
-  // Provider Details
+  // Provider Details - SECURITY: Load from environment
   provider: {
-    firstName: 'Dr. Maria',
-    lastName: 'Santos',
-    email: 'provider@eonmedical.com',
-    password: 'Provider2026!',  // Will be hashed
-    npi: '1234567890',
-    licenseState: 'FL',
-    licenseNumber: 'ME123456',
-    dea: 'AS1234567',
-    phone: '(305) 555-0101',
+    firstName: process.env.PROVIDER_FIRST_NAME || 'Dr. Maria',
+    lastName: process.env.PROVIDER_LAST_NAME || 'Santos',
+    email: process.env.PROVIDER_EMAIL || 'provider@eonmedical.com',
+    password: process.env.PROVIDER_PASSWORD || (() => {
+      console.error('❌ PROVIDER_PASSWORD environment variable is required');
+      process.exit(1);
+    })(),
+    npi: process.env.PROVIDER_NPI || '1234567890',
+    licenseState: process.env.PROVIDER_LICENSE_STATE || 'FL',
+    licenseNumber: process.env.PROVIDER_LICENSE_NUMBER || 'ME123456',
+    dea: process.env.PROVIDER_DEA || 'AS1234567',
+    phone: process.env.PROVIDER_PHONE || '(305) 555-0101',
   },
   
   // Test Patient (for order testing)

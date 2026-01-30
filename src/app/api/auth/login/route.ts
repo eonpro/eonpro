@@ -44,11 +44,11 @@ async function loginHandler(req: NextRequest) {
 
     const { email, password, role, clinicId: selectedClinicId } = validationResult.data;
 
-    debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
-    console.log('[LOGIN_DEBUG] Starting login', debugInfo);
-
-    debugInfo.step = 'finding_user';
-    console.log('[LOGIN_DEBUG] Finding user by email');
+    // Debug info only in development
+    if (process.env.NODE_ENV === 'development') {
+      debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
+      logger.debug('[Login] Starting login', debugInfo);
+    }
 
     // Find user from unified User table first
     let user = await prisma.user.findUnique({
@@ -60,10 +60,12 @@ async function loginHandler(req: NextRequest) {
       },
     });
 
-    debugInfo.step = 'user_found';
-    debugInfo.userFound = !!user;
-    debugInfo.userRole = user?.role;
-    console.log('[LOGIN_DEBUG] User lookup result', { found: !!user, role: user?.role });
+    // Debug logging only in development
+    if (process.env.NODE_ENV === 'development') {
+      debugInfo.step = 'user_found';
+      debugInfo.userFound = !!user;
+      logger.debug('[Login] User lookup result', { found: !!user, role: user?.role });
+    }
 
     let passwordHash: string | null = null;
 
