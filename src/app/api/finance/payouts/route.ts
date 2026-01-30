@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       const monthlyPayouts: Array<{ month: string; gross: number; fees: number; net: number }> = [];
       const monthMap = new Map<string, number>();
       
-      monthlyPayments.forEach((payment) => {
+      monthlyPayments.forEach((payment: { amountPaid: number; paidAt: Date | null }) => {
         if (payment.paidAt) {
           const monthKey = format(payment.paidAt, 'yyyy-MM');
           monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + payment.amountPaid);
