@@ -268,12 +268,21 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Helper function to extract GLP-1 info from metadata and/or document data
     const extractGlp1Info = (
       metadata: Record<string, unknown> | null,
-      documentData: Buffer | null
+      documentData: Buffer | null,
+      patientName?: string
     ) => {
       // First try to get GLP-1 info from PatientDocument (intake form data)
       if (documentData) {
         try {
           const docJson = JSON.parse(documentData.toString('utf8'));
+
+          // Debug logging
+          logger.info('[PRESCRIPTION-QUEUE] Parsing document data', {
+            patientName,
+            hasGlp1History: !!docJson.glp1History,
+            glp1History: docJson.glp1History,
+            docKeys: Object.keys(docJson).slice(0, 10),
+          });
 
           // Check for glp1History structure (WellMedR intake format)
           if (docJson.glp1History) {
@@ -416,17 +425,20 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const documentData = intakeDoc?.data || null;
 
       // Debug: Log document info
-      if (invoice.patient.documents && invoice.patient.documents.length > 0) {
-        logger.debug('[PRESCRIPTION-QUEUE] Patient documents found', {
-          patientId: invoice.patient.id,
-          patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-          documentCount: invoice.patient.documents.length,
-          categories: invoice.patient.documents.map((d: { category: string }) => d.category),
-          hasIntakeDoc: !!intakeDoc,
-        });
-      }
+      logger.info('[PRESCRIPTION-QUEUE] Patient document lookup', {
+        patientId: invoice.patient.id,
+        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+        documentCount: invoice.patient.documents?.length || 0,
+        categories: invoice.patient.documents?.map((d: { category: string }) => d.category) || [],
+        hasIntakeDoc: !!intakeDoc,
+        intakeDocId: intakeDoc?.id,
+      });
 
-      const glp1Info = extractGlp1Info(metadata, documentData);
+      const glp1Info = extractGlp1Info(
+        metadata,
+        documentData,
+        `${invoice.patient.firstName} ${invoice.patient.lastName}`
+      );
 
       if (metadata) {
         treatment = (metadata.product as string) || treatment;
