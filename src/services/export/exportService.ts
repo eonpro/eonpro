@@ -75,8 +75,8 @@ export class ExportService {
     // Build CSV content
     const csvRows = [
       headers.join(','),
-      ...data.map(row => 
-        headers.map(header => {
+      ...data.map((row: Record<string, unknown>) => 
+        headers.map((header: string) => {
           const value = row[header];
           // Escape values containing commas or quotes
           if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
@@ -129,11 +129,11 @@ export class ExportService {
       headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
 
       // Add data rows
-      data.forEach((row, index) => {
+      data.forEach((row: Record<string, unknown>, index: number) => {
         const dataRow = worksheet.addRow(row);
         
         // Format currency columns
-        headers.forEach((header, colIndex) => {
+        headers.forEach((header: string, colIndex: number) => {
           const cell = dataRow.getCell(colIndex + 1);
           if (this.isCurrencyField(header)) {
             cell.numFmt = '$#,##0.00';
@@ -153,9 +153,9 @@ export class ExportService {
       });
 
       // Auto-fit columns
-      worksheet.columns.forEach(column => {
+      worksheet.columns.forEach((column: Partial<ExcelJS.Column>) => {
         let maxLength = 0;
-        column.eachCell?.({ includeEmpty: true }, cell => {
+        column.eachCell?.({ includeEmpty: true }, (cell: ExcelJS.Cell) => {
           const columnLength = cell.value ? cell.value.toString().length : 10;
           if (columnLength > maxLength) {
             maxLength = columnLength;
@@ -308,7 +308,7 @@ startxref
       orderBy: { createdAt: 'desc' },
     });
 
-    return payments.map(p => ({
+    return payments.map((p: typeof payments[number]) => ({
       date: format(p.createdAt, 'yyyy-MM-dd'),
       patientName: p.patient ? `${p.patient.firstName} ${p.patient.lastName}` : 'Unknown',
       patientEmail: p.patient?.email || '',
@@ -348,14 +348,14 @@ startxref
       },
     });
 
-    return patients.map(p => ({
+    return patients.map((p: typeof patients[number]) => ({
       id: p.id,
       firstName: p.firstName,
       lastName: p.lastName,
       email: p.email,
       createdAt: format(p.createdAt, 'yyyy-MM-dd'),
       totalPayments: p.payments.length,
-      totalRevenue: p.payments.reduce((sum, pay) => sum + pay.amount, 0) / 100,
+      totalRevenue: p.payments.reduce((sum: number, pay: { amount: number }) => sum + pay.amount, 0) / 100,
       subscriptionStatus: p.subscriptions[0]?.status || 'None',
     }));
   }
@@ -389,7 +389,7 @@ startxref
     // Group by day
     const dailyPayouts = new Map<string, { gross: number; fees: number; net: number }>();
     
-    payments.forEach(p => {
+    payments.forEach((p: typeof payments[number]) => {
       const day = format(p.createdAt, 'yyyy-MM-dd');
       const existing = dailyPayouts.get(day) || { gross: 0, fees: 0, net: 0 };
       existing.gross += p.amount;
@@ -398,7 +398,7 @@ startxref
       dailyPayouts.set(day, existing);
     });
 
-    return Array.from(dailyPayouts.entries()).map(([date, data]) => ({
+    return Array.from(dailyPayouts.entries()).map(([date, data]: [string, { gross: number; fees: number; net: number }]) => ({
       date,
       grossAmount: data.gross / 100,
       fees: data.fees / 100,
@@ -433,7 +433,7 @@ startxref
       orderBy: { createdAt: 'desc' },
     });
 
-    return subscriptions.map(s => ({
+    return subscriptions.map((s: typeof subscriptions[number]) => ({
       id: s.id,
       patientName: s.patient ? `${s.patient.firstName} ${s.patient.lastName}` : 'Unknown',
       patientEmail: s.patient?.email || '',
@@ -473,7 +473,7 @@ startxref
       orderBy: { createdAt: 'desc' },
     });
 
-    return invoices.map(inv => ({
+    return invoices.map((inv: typeof invoices[number]) => ({
       invoiceNumber: inv.invoiceNumber || `INV-${inv.id}`,
       patientName: inv.patient ? `${inv.patient.firstName} ${inv.patient.lastName}` : 'Unknown',
       patientEmail: inv.patient?.email || '',

@@ -5,7 +5,23 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type { PrescriptionStatus } from '@prisma/client';
+
+/** Prescription status values (matching schema-rx-tracking.prisma) */
+type PrescriptionStatus = 
+  | 'PENDING'
+  | 'SENT_TO_PHARMACY'
+  | 'RECEIVED'
+  | 'PROCESSING'
+  | 'READY_FOR_PICKUP'
+  | 'SHIPPED'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'RETURNED'
+  | 'CANCELLED'
+  | 'ON_HOLD'
+  | 'REFILL_REQUESTED'
+  | 'REFILL_APPROVED'
+  | 'FAILED';
 
 /** Type for prescription tracking record */
 interface PrescriptionTrackingRecord {

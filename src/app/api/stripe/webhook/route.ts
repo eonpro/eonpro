@@ -236,7 +236,7 @@ async function processWebhookEvent(
       // ================================================================
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const piInvoice = paymentIntent.invoice;
+        const piInvoice = (paymentIntent as Stripe.PaymentIntent & { invoice?: string | null }).invoice;
 
         // Skip if this is an invoice payment (handled by invoice.payment_succeeded)
         if (piInvoice) {
@@ -343,7 +343,7 @@ async function processWebhookEvent(
       // ================================================================
       case 'charge.succeeded': {
         const charge = event.data.object as Stripe.Charge;
-        const chargeInvoice = charge.invoice;
+        const chargeInvoice = (charge as Stripe.Charge & { invoice?: string | null }).invoice;
 
         // Skip if linked to payment intent or invoice
         if (charge.payment_intent || chargeInvoice) {

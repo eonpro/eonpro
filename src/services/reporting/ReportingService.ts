@@ -16,6 +16,7 @@
 
 import { prisma, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import type { Patient, Payment, Subscription, Order } from '@prisma/client';
 
 // Use singleton Prisma client for reporting
 // Note: For super admin reporting across clinics, use getClinicContext() to control filtering
@@ -23,6 +24,53 @@ import { logger } from '@/lib/logger';
 // ============================================================================
 // TYPES & INTERFACES
 // ============================================================================
+
+// Helper types for Prisma groupBy results
+type PatientSourceGroupBy = { source: string | null; _count: number };
+type PatientGenderGroupBy = { gender: string | null; _count: number };
+type SubscriptionStatusGroupBy = { status: string; _count: number };
+type PaymentStatusGroupBy = { status: string; _count: number; _sum: { amount: number | null } };
+type PaymentMethodGroupBy = { paymentMethod: string | null; _count: number };
+type OrderStatusGroupBy = { status: string | null; _count: number };
+type OrderMedicationGroupBy = { primaryMedName: string | null; _count: number };
+
+// Helper types for query results with specific selects
+type PaymentSelect = Pick<Payment, 'amount' | 'createdAt' | 'subscriptionId'>;
+type PatientDobSelect = Pick<Patient, 'dob'>;
+type SubscriptionAmountSelect = Pick<Subscription, 'amount'>;
+type SubscriptionMRRSelect = Pick<Subscription, 'amount' | 'interval' | 'intervalCount'>;
+type SubscriptionStartDateSelect = Pick<Subscription, 'startDate'>;
+type SubscriptionEndedSelect = Pick<Subscription, 'startDate' | 'endedAt'>;
+type SubscriptionPlanSelect = Pick<Subscription, 'amount' | 'interval' | 'intervalCount' | 'planName'>;
+type OrderFulfillmentSelect = Pick<Order, 'createdAt' | 'lastWebhookAt'>;
+
+// Helper types for includes
+type PatientWithPayments = { payments: Payment[] };
+type OrderWithPatientPayments = Order & { patient: Patient & PatientWithPayments };
+
+type SubscriptionWithPatient = Subscription & {
+  patient: Pick<Patient, 'id' | 'firstName' | 'lastName'>;
+};
+
+type SubscriptionWithPatientFull = Subscription & {
+  patient: Patient;
+};
+
+type PaymentWithPatientOrders = Payment & {
+  patient: Patient & {
+    orders: Array<Pick<Order, 'primaryMedName'>>;
+  };
+};
+
+// Revenue by day entry
+type RevenueByDayEntry = { date: string; amount: number };
+
+// Patients on month entry
+type PatientOnMonthEntry = { id: number; name: string; startDate: Date; treatment: string };
+type PatientsOnMonthGroup = { month: number; count: number; patients: PatientOnMonthEntry[] };
+
+// Recurring revenue breakdown
+type PlanBreakdown = { count: number; mrr: number };
 
 export type DateRange = 
   | 'today'
@@ -380,7 +428,7 @@ export class ReportingService {
       _count: true
     });
     const patientsBySource: Record<string, number> = {};
-    patientsBySourceRaw.forEach(p => {
+    patientsBySourceRaw.forEach((p: PatientSourceGroupBy) => {
       patientsBySource[p.source || 'unknown'] = p._count;
     });
 
@@ -394,7 +442,7 @@ export class ReportingService {
       _count: true
     });
     const patientsByGender: Record<string, number> = {};
-    patientsByGenderRaw.forEach(p => {
+    patientsByGenderRaw.forEach((p: PatientGenderGroupBy) => {
       patientsByGender[p.gender || 'unknown'] = p._count;
     });
 
@@ -419,9 +467,9 @@ export class ReportingService {
       where: clinicFilter,
       select: { dob: true }
     });
-    const ages = allPatients.map(p => calculateAge(p.dob)).filter(a => a > 0);
+    const ages = allPatients.map((p: PatientDobSelect) => calculateAge(p.dob)).filter((a: number) => a > 0);
     const averagePatientAge = ages.length > 0
-      ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length)
+      ? Math.round(ages.reduce((a: number, b: number) => a + b, 0) / ages.length)
       : 0;
 
     // Retention rate (patients who made a purchase in both this period and previous period)
@@ -464,10 +512,10 @@ export class ReportingService {
       }
     });
 
-    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+    const totalRevenue = payments.reduce((sum: number, p: PaymentSelect) => sum + p.amount, 0);
     const recurringRevenue = payments
-      .filter(p => p.subscriptionId)
-      .reduce((sum, p) => sum + p.amount, 0);
+      .filter((p: PaymentSelect) => p.subscriptionId)
+      .reduce((sum: number, p: PaymentSelect) => sum + p.amount, 0);
     const oneTimeRevenue = totalRevenue - recurringRevenue;
 
     // Average order value
@@ -490,27 +538,27 @@ export class ReportingService {
       }
     });
 
-    const orderValues = orders.map(o => 
-      o.patient.payments.reduce((sum, p) => sum + p.amount, 0)
-    ).filter(v => v > 0);
+    const orderValues = orders.map((o: OrderWithPatientPayments) => 
+      o.patient.payments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
+    ).filter((v: number) => v > 0);
     
     const averageOrderValue = orderValues.length > 0
-      ? Math.round(orderValues.reduce((a, b) => a + b, 0) / orderValues.length)
+      ? Math.round(orderValues.reduce((a: number, b: number) => a + b, 0) / orderValues.length)
       : 0;
 
     // Revenue by day
     const revenueByDay: Array<{ date: string; amount: number }> = [];
     const dayMap = new Map<string, number>();
     
-    payments.forEach(p => {
+    payments.forEach((p: PaymentSelect) => {
       const dateKey = p.createdAt.toISOString().split('T')[0];
       dayMap.set(dateKey, (dayMap.get(dateKey) || 0) + p.amount);
     });
     
-    dayMap.forEach((amount, date) => {
+    dayMap.forEach((amount: number, date: string) => {
       revenueByDay.push({ date, amount });
     });
-    revenueByDay.sort((a, b) => a.date.localeCompare(b.date));
+    revenueByDay.sort((a: RevenueByDayEntry, b: RevenueByDayEntry) => a.date.localeCompare(b.date));
 
     // Revenue by treatment (medication)
     const revenueByTreatment: Record<string, number> = {};
@@ -530,11 +578,11 @@ export class ReportingService {
       }
     });
 
-    ordersWithPayments.forEach(order => {
+    ordersWithPayments.forEach((order: OrderWithPatientPayments) => {
       const treatment = order.primaryMedName || 'Unknown';
       const orderPayments = order.patient.payments
-        .filter(p => p.createdAt >= start && p.createdAt <= end)
-        .reduce((sum, p) => sum + p.amount, 0);
+        .filter((p: Payment) => p.createdAt >= start && p.createdAt <= end)
+        .reduce((sum: number, p: Payment) => sum + p.amount, 0);
       revenueByTreatment[treatment] = (revenueByTreatment[treatment] || 0) + orderPayments;
     });
 
@@ -565,7 +613,7 @@ export class ReportingService {
       },
       select: { amount: true }
     });
-    const monthlyRecurring = activeSubscriptions.reduce((sum, s) => sum + s.amount, 0);
+    const monthlyRecurring = activeSubscriptions.reduce((sum: number, s: SubscriptionAmountSelect) => sum + s.amount, 0);
     const projectedRevenue = monthlyRecurring * 12;
 
     return {
@@ -599,7 +647,7 @@ export class ReportingService {
     let totalPausedSubscriptions = 0;
     let totalCancelledSubscriptions = 0;
 
-    subscriptionCounts.forEach(s => {
+    subscriptionCounts.forEach((s: SubscriptionStatusGroupBy) => {
       if (s.status === 'ACTIVE') totalActiveSubscriptions = s._count;
       if (s.status === 'PAUSED') totalPausedSubscriptions = s._count;
       if (s.status === 'CANCELED') totalCancelledSubscriptions = s._count;
@@ -614,7 +662,7 @@ export class ReportingService {
       select: { amount: true, interval: true, intervalCount: true }
     });
 
-    const monthlyRecurringRevenue = activeSubscriptions.reduce((sum, s) => {
+    const monthlyRecurringRevenue = activeSubscriptions.reduce((sum: number, s: SubscriptionMRRSelect) => {
       if (s.interval === 'month') return sum + (s.amount / s.intervalCount);
       if (s.interval === 'year') return sum + (s.amount / 12);
       return sum + s.amount;
@@ -623,7 +671,7 @@ export class ReportingService {
     const annualRecurringRevenue = monthlyRecurringRevenue * 12;
 
     const averageSubscriptionValue = activeSubscriptions.length > 0
-      ? Math.round(activeSubscriptions.reduce((sum, s) => sum + s.amount, 0) / activeSubscriptions.length)
+      ? Math.round(activeSubscriptions.reduce((sum: number, s: SubscriptionMRRSelect) => sum + s.amount, 0) / activeSubscriptions.length)
       : 0;
 
     // Churn rate (cancelled in period / total at start of period)
@@ -662,7 +710,7 @@ export class ReportingService {
     const subscriptionsByMonth: Record<number, number> = {};
     const now = new Date();
     
-    allActiveSubscriptions.forEach(s => {
+    allActiveSubscriptions.forEach((s: SubscriptionStartDateSelect) => {
       const months = monthsBetween(s.startDate, now) + 1;
       subscriptionsByMonth[months] = (subscriptionsByMonth[months] || 0) + 1;
     });
@@ -708,13 +756,13 @@ export class ReportingService {
       averageSubscriptionValue,
       churnRate,
       subscriptionsByMonth,
-      recentCancellations: recentCancellations.map(s => ({
+      recentCancellations: recentCancellations.map((s: SubscriptionWithPatient) => ({
         patientId: s.patient.id,
         patientName: `${s.patient.firstName} ${s.patient.lastName}`,
         cancelledAt: s.canceledAt!,
         monthsActive: monthsBetween(s.startDate, s.canceledAt || new Date())
       })),
-      recentPauses: recentPauses.map(s => ({
+      recentPauses: recentPauses.map((s: SubscriptionWithPatient) => ({
         patientId: s.patient.id,
         patientName: `${s.patient.firstName} ${s.patient.lastName}`,
         pausedAt: s.pausedAt!,
@@ -749,7 +797,7 @@ export class ReportingService {
     let refundedPayments = 0;
     let totalAmount = 0;
 
-    paymentCounts.forEach(p => {
+    paymentCounts.forEach((p: PaymentStatusGroupBy) => {
       totalPayments += p._count;
       if (p.status === 'SUCCEEDED') {
         successfulPayments = p._count;
@@ -780,7 +828,7 @@ export class ReportingService {
     });
 
     const paymentsByMethod: Record<string, number> = {};
-    paymentsByMethodRaw.forEach(p => {
+    paymentsByMethodRaw.forEach((p: PaymentMethodGroupBy) => {
       paymentsByMethod[p.paymentMethod || 'unknown'] = p._count;
     });
 
@@ -809,7 +857,7 @@ export class ReportingService {
       orderBy: { createdAt: 'desc' }
     });
 
-    const yesterdayPayments = yesterdayPaymentsRaw.map(p => ({
+    const yesterdayPayments = yesterdayPaymentsRaw.map((p: PaymentWithPatientOrders) => ({
       patientId: p.patient.id,
       patientName: `${p.patient.firstName} ${p.patient.lastName}`,
       amount: p.amount,
@@ -860,7 +908,7 @@ export class ReportingService {
 
     const monthGroups = new Map<number, Array<{ id: number; name: string; startDate: Date; treatment: string }>>();
 
-    subscriptions.forEach(s => {
+    subscriptions.forEach((s: SubscriptionWithPatientFull) => {
       const months = monthsBetween(s.startDate, now) + 1;
       patientsByTreatmentMonth[months] = (patientsByTreatmentMonth[months] || 0) + 1;
 
@@ -875,14 +923,14 @@ export class ReportingService {
       });
     });
 
-    monthGroups.forEach((patients, month) => {
+    monthGroups.forEach((patients: PatientOnMonthEntry[], month: number) => {
       patientsOnMonth.push({
         month,
         count: patients.length,
         patients
       });
     });
-    patientsOnMonth.sort((a, b) => a.month - b.month);
+    patientsOnMonth.sort((a: PatientsOnMonthGroup, b: PatientsOnMonthGroup) => a.month - b.month);
 
     // Treatment completion rate (completed subscriptions / total ended)
     const completedSubscriptions = await prisma.subscription.count({
@@ -916,11 +964,11 @@ export class ReportingService {
       select: { startDate: true, endedAt: true }
     });
 
-    const durations = endedSubscriptions.map(s => 
+    const durations = endedSubscriptions.map((s: SubscriptionEndedSelect) => 
       monthsBetween(s.startDate, s.endedAt!)
     );
     const averageTreatmentDuration = durations.length > 0
-      ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+      ? Math.round(durations.reduce((a: number, b: number) => a + b, 0) / durations.length)
       : 0;
 
     // Treatments by type
@@ -931,7 +979,7 @@ export class ReportingService {
       _count: true
     });
 
-    orders.forEach(o => {
+    orders.forEach((o: OrderMedicationGroupBy) => {
       treatmentsByType[o.primaryMedName || 'Unknown'] = o._count;
     });
 
@@ -986,7 +1034,7 @@ export class ReportingService {
     let completedOrders = 0;
     let cancelledOrders = 0;
 
-    ordersByStatusRaw.forEach(o => {
+    ordersByStatusRaw.forEach((o: OrderStatusGroupBy) => {
       const status = o.status || 'unknown';
       ordersByStatus[status] = o._count;
       
@@ -1012,7 +1060,7 @@ export class ReportingService {
     });
 
     const ordersByMedication: Record<string, number> = {};
-    ordersByMedicationRaw.forEach(o => {
+    ordersByMedicationRaw.forEach((o: OrderMedicationGroupBy) => {
       ordersByMedication[o.primaryMedName || 'Unknown'] = o._count;
     });
 
@@ -1033,12 +1081,12 @@ export class ReportingService {
       }
     });
 
-    const orderValues = ordersWithPayments.map(o => 
-      o.patient.payments.reduce((sum, p) => sum + p.amount, 0)
-    ).filter(v => v > 0);
+    const orderValues = ordersWithPayments.map((o: OrderWithPatientPayments) => 
+      o.patient.payments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
+    ).filter((v: number) => v > 0);
 
     const averageOrderValue = orderValues.length > 0
-      ? Math.round(orderValues.reduce((a, b) => a + b, 0) / orderValues.length)
+      ? Math.round(orderValues.reduce((a: number, b: number) => a + b, 0) / orderValues.length)
       : 0;
 
     // Average fulfillment time (from created to shipped)
@@ -1052,11 +1100,11 @@ export class ReportingService {
     });
 
     const fulfillmentTimes = fulfilledOrders
-      .filter(o => o.lastWebhookAt)
-      .map(o => (o.lastWebhookAt!.getTime() - o.createdAt.getTime()) / (1000 * 60 * 60)); // hours
+      .filter((o: OrderFulfillmentSelect) => o.lastWebhookAt)
+      .map((o: OrderFulfillmentSelect) => (o.lastWebhookAt!.getTime() - o.createdAt.getTime()) / (1000 * 60 * 60)); // hours
 
     const averageFulfillmentTime = fulfillmentTimes.length > 0
-      ? Math.round(fulfillmentTimes.reduce((a, b) => a + b, 0) / fulfillmentTimes.length)
+      ? Math.round(fulfillmentTimes.reduce((a: number, b: number) => a + b, 0) / fulfillmentTimes.length)
       : 0;
 
     return {
@@ -1177,11 +1225,11 @@ export class ReportingService {
     });
 
     return subscriptions
-      .filter(s => {
+      .filter((s: SubscriptionWithPatient) => {
         const months = monthsBetween(s.startDate, now) + 1;
         return months === month;
       })
-      .map(s => ({
+      .map((s: SubscriptionWithPatient) => ({
         ...s.patient,
         subscriptionId: s.id,
         planName: s.planName,
@@ -1269,7 +1317,7 @@ export class ReportingService {
 
     const byPlan: Record<string, { count: number; mrr: number }> = {};
 
-    subscriptions.forEach(s => {
+    subscriptions.forEach((s: SubscriptionPlanSelect) => {
       const plan = s.planName || 'Unknown';
       let monthlyAmount = s.amount;
       
@@ -1286,7 +1334,7 @@ export class ReportingService {
       byPlan[plan].mrr += monthlyAmount;
     });
 
-    const totalMRR = Object.values(byPlan).reduce((sum, p) => sum + p.mrr, 0);
+    const totalMRR = Object.values(byPlan).reduce((sum: number, p: PlanBreakdown) => sum + p.mrr, 0);
 
     return {
       totalMRR: Math.round(totalMRR),

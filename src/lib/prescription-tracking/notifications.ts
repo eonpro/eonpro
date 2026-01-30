@@ -6,7 +6,29 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import twilio from 'twilio';
-import { NotificationStatus, NotificationType, PrescriptionStatus } from '@prisma/client';
+
+/** Prescription status values (matching schema-rx-tracking.prisma) */
+type PrescriptionStatus = 
+  | 'PENDING'
+  | 'SENT_TO_PHARMACY'
+  | 'RECEIVED'
+  | 'PROCESSING'
+  | 'READY_FOR_PICKUP'
+  | 'SHIPPED'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'RETURNED'
+  | 'CANCELLED'
+  | 'ON_HOLD'
+  | 'REFILL_REQUESTED'
+  | 'REFILL_APPROVED'
+  | 'FAILED';
+
+/** Notification type values */
+type NotificationType = 'SMS' | 'CHAT' | 'EMAIL' | 'PUSH' | 'VOICE';
+
+/** Notification status values */
+type NotificationStatus = 'PENDING' | 'QUEUED' | 'SENDING' | 'SENT' | 'DELIVERED' | 'FAILED' | 'CANCELLED' | 'READ';
 
 // Type for prisma models that may not be in the generated client yet
 interface PrescriptionNotificationRecord {

@@ -424,11 +424,12 @@ export class InvoiceManager {
     
     // Create in Stripe if configured
     if (this.stripeClient && !invoice.stripeInvoiceId) {
-      const lineItems = (invoice.lineItems as LineItem[]) || [];
+      const lineItems = (invoice.lineItems as unknown as LineItem[]) || [];
+      const invoiceMeta = (invoice.metadata as InvoiceMetadata) || {};
       const result = await this.createInvoice({
         patientId: invoice.patientId,
         clinicId: invoice.clinicId || undefined,
-        lineItems: lineItems.map((item) => ({
+        lineItems: lineItems.map((item: LineItem) => ({
           description: item.description,
           quantity: item.quantity || 1,
           unitPrice: item.unitPrice,
@@ -436,7 +437,8 @@ export class InvoiceManager {
         description: invoice.description || undefined,
         dueDate: invoice.dueDate || undefined,
         orderId: invoice.orderId || undefined,
-        metadata: (invoice.metadata as InvoiceMetadata) || undefined,
+        // Only pass customFields as string metadata - other metadata is created internally
+        metadata: invoiceMeta.customFields,
       });
       
       // Delete the draft and return the new invoice
@@ -454,7 +456,7 @@ export class InvoiceManager {
           ...currentMetadata,
           isDraft: false,
           finalizedAt: new Date().toISOString(),
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true, clinic: true },
     });
@@ -489,7 +491,7 @@ export class InvoiceManager {
           customFields: updates.customFields ?? invoiceMetadata.customFields,
           ...updates.metadata,
           updatedAt: new Date().toISOString(),
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true, clinic: true },
     });
@@ -509,7 +511,7 @@ export class InvoiceManager {
       throw new Error('Can only add items to draft invoices');
     }
     
-    const existingItems = (invoice.lineItems as LineItem[]) || [];
+    const existingItems = (invoice.lineItems as unknown as LineItem[]) || [];
     const allItems = [...existingItems, ...items];
     const summary = this.calculateInvoiceSummary(allItems);
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
@@ -523,7 +525,7 @@ export class InvoiceManager {
         metadata: {
           ...invoiceMetadata,
           summary,
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true, clinic: true },
     });
@@ -543,7 +545,7 @@ export class InvoiceManager {
       throw new Error('Can only remove items from draft invoices');
     }
     
-    const existingItems = (invoice.lineItems as LineItem[]) || [];
+    const existingItems = (invoice.lineItems as unknown as LineItem[]) || [];
     existingItems.splice(itemIndex, 1);
     const summary = this.calculateInvoiceSummary(existingItems);
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
@@ -557,7 +559,7 @@ export class InvoiceManager {
         metadata: {
           ...invoiceMetadata,
           summary,
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true, clinic: true },
     });
@@ -649,7 +651,7 @@ export class InvoiceManager {
           lastSentAt: new Date().toISOString(),
           sendCount: (invoiceMetadata.sendCount || 0) + 1,
           lastDelivery: delivery,
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
     });
     
@@ -691,7 +693,7 @@ export class InvoiceManager {
           ...invoiceMetadata,
           voidedAt: new Date().toISOString(),
           voidReason: reason,
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true, clinic: true },
     });
@@ -725,7 +727,7 @@ export class InvoiceManager {
           ...invoiceMetadata,
           markedUncollectibleAt: new Date().toISOString(),
           uncollectibleReason: reason,
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true, clinic: true },
     });
@@ -799,7 +801,7 @@ export class InvoiceManager {
               method: options.paymentMethod,
             },
           ],
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true, payments: true },
     });
@@ -886,10 +888,11 @@ export class InvoiceManager {
           ...invoiceMetadata,
           paymentPlan: {
             ...plan,
+            startDate: plan.startDate.toISOString(),
             schedule,
             createdAt: new Date().toISOString(),
           },
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true },
     });
@@ -929,7 +932,7 @@ export class InvoiceManager {
               appliedAt: new Date().toISOString(),
             },
           ],
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true },
     });
@@ -1000,7 +1003,7 @@ export class InvoiceManager {
               isFullRefund,
             },
           ],
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
       include: { patient: true },
     });
@@ -1180,7 +1183,7 @@ export class InvoiceManager {
           ...invoiceMetadata,
           reminders,
           remindersScheduledAt: new Date().toISOString(),
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
     });
   }
@@ -1251,7 +1254,7 @@ export class InvoiceManager {
                 metadata: {
                   ...metadata,
                   sentReminders: [...sentReminders, reminderKey],
-                },
+                } as unknown as Prisma.InputJsonValue,
               },
             });
             sent++;

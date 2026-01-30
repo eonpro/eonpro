@@ -240,14 +240,14 @@ export class SubscriptionAnalyticsService {
 
       const churnedCount = churnedSubscriptions.length;
       const churnedMrr = churnedSubscriptions.reduce(
-        (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: typeof churnedSubscriptions[number]) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
       // Calculate average lifetime before churn
       const lifetimes = churnedSubscriptions
-        .filter((sub: { canceledAt: Date | null; createdAt: Date }) => sub.canceledAt && sub.createdAt)
-        .map((sub: { canceledAt: Date | null; createdAt: Date }) => differenceInDays(sub.canceledAt!, sub.createdAt));
+        .filter((sub: typeof churnedSubscriptions[number]) => sub.canceledAt && sub.createdAt)
+        .map((sub: typeof churnedSubscriptions[number]) => differenceInDays(sub.canceledAt!, sub.createdAt));
       
       const avgLifetime = lifetimes.length > 0
         ? Math.round(lifetimes.reduce((a: number, b: number) => a + b, 0) / lifetimes.length)
@@ -274,7 +274,7 @@ export class SubscriptionAnalyticsService {
 
       // Group by cancel reason
       const reasonMap = new Map<string, { count: number; mrr: number }>();
-      churnedSubscriptions.forEach((sub: { cancelReason?: string; amount: number; interval?: string }) => {
+      churnedSubscriptions.forEach((sub: typeof churnedSubscriptions[number]) => {
         const reason = sub.cancelReason || 'Not specified';
         const existing = reasonMap.get(reason);
         const mrr = calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY');
@@ -288,7 +288,7 @@ export class SubscriptionAnalyticsService {
       });
 
       const churnReasons = Array.from(reasonMap.entries())
-        .map(([reason, data]) => ({
+        .map(([reason, data]: [string, { count: number; mrr: number }]) => ({
           reason,
           count: data.count,
           mrr: data.mrr,
@@ -296,7 +296,7 @@ export class SubscriptionAnalyticsService {
             ? Math.round((data.count / churnedCount) * 10000) / 100
             : 0,
         }))
-        .sort((a, b) => b.count - a.count);
+        .sort((a: { count: number }, b: { count: number }) => b.count - a.count);
 
       return {
         churnRate,
@@ -380,7 +380,7 @@ export class SubscriptionAnalyticsService {
         });
 
         const mrr = activeAtEnd.reduce(
-          (sum, sub) => sum + calculateMonthlyAmount(sub.amount, sub.interval),
+          (sum: number, sub: typeof activeAtEnd[number]) => sum + calculateMonthlyAmount(sub.amount, sub.interval),
           0
         );
 
@@ -448,7 +448,7 @@ export class SubscriptionAnalyticsService {
 
       // Get payment counts for each subscription's patient
       const details = await Promise.all(
-        subscriptions.map(async (sub) => {
+        subscriptions.map(async (sub: typeof subscriptions[number]) => {
           const [payments, totalValue] = await Promise.all([
             prisma.payment.count({
               where: {

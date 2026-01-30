@@ -539,7 +539,7 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
       medicalNecessity: replacePatientPlaceholders(ensureString(parsed.medicalNecessity) || ''),
       metadata: {
         generatedAt: new Date(),
-        intakeId: input.intakeData.submissionId,
+        intakeId: input.intakeData.submissionId as string | undefined,
         usage: usageMetrics,
       },
     };
@@ -642,8 +642,9 @@ FORMATTING REMINDER - CRITICAL:
 
   // Add conversation history if provided
   if (input.conversationHistory && input.conversationHistory.length > 0) {
-    input.conversationHistory.forEach((msg: { role: 'user' | 'assistant' | 'system'; content: string }) => {
-      messages.push({ role: msg.role, content: msg.content });
+    input.conversationHistory.forEach((msg) => {
+      const role = msg.role as 'user' | 'assistant' | 'system';
+      messages.push({ role, content: msg.content });
     });
   }
 
@@ -866,7 +867,7 @@ Recent Intakes: ${context.recentIntakes}`;
         type: 'general_info';
         statistics?: { totalPatients?: number; totalOrders?: number; totalProviders?: number };
       }
-      const generalCtx = context as GeneralInfoContext;
+      const generalCtx = context as unknown as GeneralInfoContext;
       contextDescription = `Platform Statistics:
 Total Patients: ${generalCtx.statistics?.totalPatients || 0}
 Total Orders: ${generalCtx.statistics?.totalOrders || 0}

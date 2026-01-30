@@ -457,8 +457,10 @@ export async function createPaidInvoiceFromStripe(
  */
 export function extractPaymentDataFromCharge(charge: Stripe.Charge): StripePaymentData {
   const billing = charge.billing_details;
-  // Access invoice field - exists on Charge but may be typed as string | null
-  const chargeInvoice = charge.invoice;
+  // Access invoice field - exists on Charge at runtime but not in type definitions
+  // Use type assertion to access it safely
+  const chargeWithInvoice = charge as Stripe.Charge & { invoice?: string | Stripe.Invoice | null };
+  const chargeInvoice = chargeWithInvoice.invoice;
 
   return {
     customerId: typeof charge.customer === 'string' ? charge.customer : charge.customer?.id || null,
@@ -474,7 +476,7 @@ export function extractPaymentDataFromCharge(charge: Stripe.Charge): StripePayme
     chargeId: charge.id,
     stripeInvoiceId: typeof chargeInvoice === 'string'
       ? chargeInvoice
-      : chargeInvoice?.id || null,
+      : (chargeInvoice && typeof chargeInvoice === 'object') ? chargeInvoice.id : null,
     metadata: charge.metadata || {},
     paidAt: new Date(charge.created * 1000),
   };
@@ -490,8 +492,9 @@ export function extractPaymentDataFromPaymentIntent(
   const charge = paymentIntent.latest_charge;
   const chargeObj = typeof charge === 'object' ? charge as Stripe.Charge : null;
   const billing = chargeObj?.billing_details;
-  // Access invoice field from PaymentIntent
-  const piInvoice = paymentIntent.invoice;
+  // Access invoice field from PaymentIntent - exists at runtime but not in type definitions
+  const piWithInvoice = paymentIntent as Stripe.PaymentIntent & { invoice?: string | Stripe.Invoice | null };
+  const piInvoice = piWithInvoice.invoice;
 
   return {
     customerId: typeof paymentIntent.customer === 'string'
@@ -507,7 +510,7 @@ export function extractPaymentDataFromPaymentIntent(
     chargeId: typeof charge === 'string' ? charge : chargeObj?.id || null,
     stripeInvoiceId: typeof piInvoice === 'string'
       ? piInvoice
-      : null,
+      : (piInvoice && typeof piInvoice === 'object') ? piInvoice.id : null,
     metadata: paymentIntent.metadata || {},
     paidAt: new Date(paymentIntent.created * 1000),
   };
