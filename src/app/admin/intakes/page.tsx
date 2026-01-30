@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Filter, Eye, Edit, MoreVertical, Users, GitMerge, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, DollarSign, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Filter, Eye, Edit, MoreVertical, UserPlus, GitMerge, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from 'lucide-react';
 import MergePatientModal from '@/components/MergePatientModal';
 import DeletePatientModal from '@/components/DeletePatientModal';
 
@@ -17,11 +17,6 @@ interface Patient {
   dateOfBirth: string;
   status: string;
   createdAt: string;
-  convertedAt?: string;
-  hasPayment?: boolean;
-  hasOrder?: boolean;
-  lastPaymentAmount?: string | null;
-  lastOrderStatus?: string | null;
   clinicName?: string | null;
 }
 
@@ -31,25 +26,24 @@ interface PaginationMeta {
   hasMore: boolean;
 }
 
-const PAGE_SIZE = 25; // Items per page
+const PAGE_SIZE = 25;
 
-// Helper to detect if data looks like encrypted PHI (base64:base64:base64 format)
+// Helper to detect if data looks like encrypted PHI
 const isEncryptedData = (value: string | null | undefined): boolean => {
   if (!value || typeof value !== 'string') return false;
   const parts = value.split(':');
   if (parts.length !== 3) return false;
-  // Check if all parts look like base64 (contain base64 chars and end with = padding or alphanumeric)
   return parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
 };
 
-// Safely display contact info - hide encrypted data
+// Safely display contact info
 const displayContact = (value: string | null | undefined): string => {
   if (!value) return '-';
   if (isEncryptedData(value)) return '(encrypted)';
   return value;
 };
 
-export default function AdminPatientsPage() {
+export default function AdminIntakesPage() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +68,7 @@ export default function AdminPatientsPage() {
     }
     searchTimeoutRef.current = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setCurrentPage(1); // Reset to first page on new search
+      setCurrentPage(1);
     }, 300);
     return () => {
       if (searchTimeoutRef.current) {
@@ -83,8 +77,8 @@ export default function AdminPatientsPage() {
     };
   }, [searchTerm]);
 
-  // Fetch converted patients with server-side search and pagination
-  const fetchPatients = useCallback(async (page: number, searchQuery: string) => {
+  // Fetch intakes with server-side search and pagination
+  const fetchIntakes = useCallback(async (page: number, searchQuery: string) => {
     try {
       const isSearch = searchQuery.trim().length > 0;
       setIsSearching(isSearch);
@@ -92,26 +86,20 @@ export default function AdminPatientsPage() {
 
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
-      // Build query params
       const params = new URLSearchParams({
         includeContact: 'true',
       });
 
-      // When searching, fetch more results to show all matches
-      // When not searching, use pagination
       if (isSearch) {
-        // For search: fetch up to 500 results to show all matches
         params.set('limit', '500');
         params.set('search', searchQuery.trim());
       } else {
-        // For browsing: use pagination
         const offset = (page - 1) * PAGE_SIZE;
         params.set('limit', PAGE_SIZE.toString());
         params.set('offset', offset.toString());
       }
 
-      // Use the new admin patients API for converted patients only
-      const response = await fetch(`/api/admin/patients?${params.toString()}`, {
+      const response = await fetch(`/api/admin/intakes?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -127,16 +115,15 @@ export default function AdminPatientsPage() {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch patients:', error);
+      console.error('Failed to fetch intakes:', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Fetch when page or search changes
   useEffect(() => {
-    fetchPatients(currentPage, debouncedSearch);
-  }, [currentPage, debouncedSearch, fetchPatients]);
+    fetchIntakes(currentPage, debouncedSearch);
+  }, [currentPage, debouncedSearch, fetchIntakes]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -149,7 +136,7 @@ export default function AdminPatientsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Apply client-side status filter to loaded patients
+  // Apply client-side status filter
   const filteredPatients = patients.filter(patient => {
     const matchesStatus = statusFilter === 'all' || patient.status?.toLowerCase() === statusFilter;
     return matchesStatus;
@@ -160,7 +147,6 @@ export default function AdminPatientsPage() {
     ? Math.ceil(filteredPatients.length / PAGE_SIZE)
     : Math.ceil(meta.total / PAGE_SIZE);
 
-  // For search results, paginate client-side
   const displayedPatients = isSearching
     ? filteredPatients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
     : filteredPatients;
@@ -172,7 +158,6 @@ export default function AdminPatientsPage() {
     }
   };
 
-  // Generate page numbers to display
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
     const maxVisiblePages = 7;
@@ -182,14 +167,12 @@ export default function AdminPatientsPage() {
         pages.push(i);
       }
     } else {
-      // Always show first page
       pages.push(1);
 
       if (currentPage > 3) {
         pages.push('...');
       }
 
-      // Show pages around current
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
 
@@ -203,7 +186,6 @@ export default function AdminPatientsPage() {
         pages.push('...');
       }
 
-      // Always show last page
       if (!pages.includes(totalPages)) {
         pages.push(totalPages);
       }
@@ -229,35 +211,35 @@ export default function AdminPatientsPage() {
     }
 
     setDeletePatient(null);
-    fetchPatients(currentPage, debouncedSearch);
+    fetchIntakes(currentPage, debouncedSearch);
   };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
-          <p className="text-gray-600 mt-1">Patients who have made a payment or received a prescription</p>
+          <h1 className="text-2xl font-bold text-gray-900">Intakes</h1>
+          <p className="text-gray-600 mt-1">New patient intakes awaiting payment or prescription</p>
         </div>
         <button
           onClick={() => router.push('/admin/patients/new')}
           className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
         >
           <Plus className="h-5 w-5" />
-          Add Patient
+          Add Intake
         </button>
       </div>
 
       {/* Info Banner */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
         <div className="flex items-start gap-3">
-          <Users className="h-5 w-5 text-emerald-600 mt-0.5" />
+          <UserPlus className="h-5 w-5 text-blue-600 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-emerald-800">
-              This list shows converted patients with payment or prescription history
+            <p className="text-sm font-medium text-blue-800">
+              Intakes become Patients when they make a payment or receive a prescription
             </p>
-            <p className="text-xs text-emerald-600 mt-1">
-              New intakes without payment or prescription are shown in the Intakes tab
+            <p className="text-xs text-blue-600 mt-1">
+              Converted patients will appear in the Patients tab
             </p>
           </div>
         </div>
@@ -317,7 +299,7 @@ export default function AdminPatientsPage() {
           onClose={() => setMergePatient(null)}
           onMergeComplete={(mergedPatientId) => {
             setMergePatient(null);
-            fetchPatients(currentPage, debouncedSearch);
+            fetchIntakes(currentPage, debouncedSearch);
             router.push(`/patients/${mergedPatientId}`);
           }}
         />
@@ -338,12 +320,12 @@ export default function AdminPatientsPage() {
           <p className="text-sm text-gray-600">
             {isSearching ? (
               <>
-                Found <span className="font-medium">{filteredPatients.length}</span> patient{filteredPatients.length !== 1 ? 's' : ''} matching &quot;{debouncedSearch}&quot;
+                Found <span className="font-medium">{filteredPatients.length}</span> intake{filteredPatients.length !== 1 ? 's' : ''} matching &quot;{debouncedSearch}&quot;
                 {statusFilter !== 'all' && ` (${statusFilter})`}
               </>
             ) : (
               <>
-                Showing <span className="font-medium">{displayedPatients.length}</span> of <span className="font-medium">{meta.total}</span> patients
+                Showing <span className="font-medium">{displayedPatients.length}</span> of <span className="font-medium">{meta.total}</span> intakes
                 {statusFilter !== 'all' && ` (filtered by ${statusFilter})`}
               </>
             )}
@@ -351,33 +333,28 @@ export default function AdminPatientsPage() {
         </div>
       )}
 
-      {/* Patients Table */}
+      {/* Intakes Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-emerald-500 mx-auto mb-4" />
             <p className="text-gray-600">
-              {searchTerm ? 'Searching patients...' : 'Loading patients...'}
+              {searchTerm ? 'Searching intakes...' : 'Loading intakes...'}
             </p>
           </div>
         ) : displayedPatients.length === 0 ? (
           <div className="p-12 text-center">
-            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No patients found</h3>
+            <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No intakes found</h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm ? 'Try adjusting your search criteria' : 'No intakes have been converted to patients yet'}
+              {searchTerm ? 'Try adjusting your search criteria' : 'All intakes have been converted to patients'}
             </p>
-            {!searchTerm && (
-              <p className="text-sm text-gray-500">
-                Intakes become patients when they make a payment or receive a prescription
-              </p>
-            )}
           </div>
         ) : (
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intake</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -394,8 +371,8 @@ export default function AdminPatientsPage() {
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                        <span className="text-emerald-700 font-medium">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span className="text-blue-700 font-medium">
                           {patient.firstName?.[0]}{patient.lastName?.[0]}
                         </span>
                       </div>
@@ -417,20 +394,9 @@ export default function AdminPatientsPage() {
                       : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      {patient.hasPayment && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                          <DollarSign className="h-3 w-3" />
-                          Paid
-                        </span>
-                      )}
-                      {patient.hasOrder && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                          <ShoppingCart className="h-3 w-3" />
-                          Rx
-                        </span>
-                      )}
-                    </div>
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                      Intake
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : '-'}
@@ -479,7 +445,7 @@ export default function AdminPatientsPage() {
                               className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
                             >
                               <Trash2 className="h-4 w-4" />
-                              Delete patient
+                              Delete intake
                             </button>
                           </div>
                         )}
@@ -500,7 +466,6 @@ export default function AdminPatientsPage() {
                 Page {currentPage} of {totalPages}
               </div>
               <div className="flex items-center gap-1">
-                {/* First page */}
                 <button
                   onClick={() => goToPage(1)}
                   disabled={currentPage === 1}
@@ -510,7 +475,6 @@ export default function AdminPatientsPage() {
                   <ChevronsLeft className="h-4 w-4" />
                 </button>
 
-                {/* Previous page */}
                 <button
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
@@ -520,7 +484,6 @@ export default function AdminPatientsPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </button>
 
-                {/* Page numbers */}
                 <div className="flex items-center gap-1 mx-2">
                   {getPageNumbers().map((page, index) => (
                     typeof page === 'number' ? (
@@ -543,7 +506,6 @@ export default function AdminPatientsPage() {
                   ))}
                 </div>
 
-                {/* Next page */}
                 <button
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
@@ -553,7 +515,6 @@ export default function AdminPatientsPage() {
                   <ChevronRight className="h-4 w-4" />
                 </button>
 
-                {/* Last page */}
                 <button
                   onClick={() => goToPage(totalPages)}
                   disabled={currentPage === totalPages}

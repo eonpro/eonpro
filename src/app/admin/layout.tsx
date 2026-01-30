@@ -1,18 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home, Users, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, ClipboardList, CreditCard, Key
+  Home, Users, UserPlus, Building2, ShoppingCart, Store, TrendingUp,
+  DollarSign, Settings, LogOut, ChevronRight, ClipboardList, CreditCard, Key, X, Lock, Pill
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 
-const navItems = [
+interface UserClinic {
+  id: number;
+  name: string;
+  subdomain: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  isPrimary: boolean;
+}
+
+const baseNavItems = [
   { icon: Home, path: '/', label: 'Home' },
+  { icon: UserPlus, path: '/admin/intakes', label: 'Intakes' },
   { icon: Users, path: '/admin/patients', label: 'Patients' },
-  { icon: Building2, path: '/admin/clinics', label: 'Clinics' },
+  { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },
@@ -23,6 +33,9 @@ const navItems = [
   { icon: Settings, path: '/admin/settings', label: 'Settings' },
 ];
 
+// Clinics tab only shown for multi-clinic admins or super_admin
+const clinicsNavItem = { icon: Building2, path: '/admin/clinics', label: 'Clinics' };
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -30,6 +43,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>('admin');
+  const [userClinics, setUserClinics] = useState<UserClinic[]>([]);
+  const [activeClinicId, setActiveClinicId] = useState<number | null>(null);
+  const [hasMultipleClinics, setHasMultipleClinics] = useState(false);
+  const [showClinicSwitchModal, setShowClinicSwitchModal] = useState(false);
+  const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
+  const [password, setPassword] = useState('');
+  const [switchError, setSwitchError] = useState('');
+  const [switching, setSwitching] = useState(false);
+
+  // Fetch user's clinic assignments
+  const fetchUserClinics = async () => {
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch('/api/user/clinics', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUserClinics(data.clinics || []);
+        setActiveClinicId(data.activeClinicId);
+        setHasMultipleClinics(data.hasMultipleClinics || false);
+      }
+    } catch (error) {
+      console.error('Error fetching user clinics:', error);
+    }
+  };
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -48,11 +87,92 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setUserId(parsedUser.id || null);
       setUserRole(role);
       setLoading(false);
+
+      // Fetch user's clinics for multi-clinic support
+      fetchUserClinics();
     } catch {
       localStorage.removeItem('user');
       router.push('/login');
     }
   }, [router]);
+
+  // Build navigation items - only show Clinics tab if user is super_admin OR has multiple clinics
+  const navItems = useMemo(() => {
+    const items = [...baseNavItems];
+
+    // Insert Clinics tab after RX Queue for super_admin or multi-clinic admins
+    if (userRole === 'super_admin' || hasMultipleClinics) {
+      items.splice(4, 0, clinicsNavItem);
+    }
+
+    return items;
+  }, [userRole, hasMultipleClinics]);
+
+  // Handle clinic switching with password confirmation
+  const handleClinicSwitch = async () => {
+    if (!selectedClinicId || !password) {
+      setSwitchError('Please select a clinic and enter your password');
+      return;
+    }
+
+    setSwitching(true);
+    setSwitchError('');
+
+    try {
+      // First verify password
+      const verifyResponse = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+
+      if (!verifyResponse.ok) {
+        setSwitchError('Invalid password');
+        setSwitching(false);
+        return;
+      }
+
+      // Then switch clinic
+      const token = localStorage.getItem('auth-token');
+      const switchResponse = await fetch('/api/user/clinics', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ clinicId: selectedClinicId }),
+      });
+
+      if (switchResponse.ok) {
+        const data = await switchResponse.json();
+        setActiveClinicId(selectedClinicId);
+        setShowClinicSwitchModal(false);
+        setPassword('');
+        setSelectedClinicId(null);
+
+        // Update the selected-clinic cookie for data isolation
+        document.cookie = `selected-clinic=${selectedClinicId}; path=/; max-age=31536000`;
+
+        // Reload to refresh all data with new clinic context
+        window.location.reload();
+      } else {
+        const errorData = await switchResponse.json();
+        setSwitchError(errorData.error || 'Failed to switch clinic');
+      }
+    } catch (error) {
+      setSwitchError('An error occurred while switching clinics');
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  // Handle Clinics tab click - for multi-clinic admins (not super_admin), show switch modal
+  const handleClinicsClick = (e: React.MouseEvent, path: string) => {
+    if (path === '/admin/clinics' && hasMultipleClinics && userRole !== 'super_admin') {
+      e.preventDefault();
+      setShowClinicSwitchModal(true);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -115,10 +235,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
+            const isClinicsTab = item.path === '/admin/clinics';
+
             return (
               <Link
                 key={item.path}
                 href={item.path}
+                onClick={(e) => handleClinicsClick(e, item.path)}
                 title={!sidebarExpanded ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   active
@@ -128,7 +251,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
-                  <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                  <span className="text-sm font-medium whitespace-nowrap">
+                    {isClinicsTab && hasMultipleClinics && userRole !== 'super_admin'
+                      ? 'Switch Clinic'
+                      : item.label}
+                  </span>
                 )}
               </Link>
             );
@@ -158,6 +285,132 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Internal Team Chat */}
       {userId && (
         <InternalChat currentUserId={userId} currentUserRole={userRole} />
+      )}
+
+      {/* Clinic Switch Modal - for multi-clinic admins */}
+      {showClinicSwitchModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Building2 className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Switch Clinic</h2>
+                  <p className="text-sm text-gray-500">Select a clinic and confirm with your password</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowClinicSwitchModal(false);
+                  setPassword('');
+                  setSwitchError('');
+                  setSelectedClinicId(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Current Clinic */}
+            {activeClinicId && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+                <p className="text-xs font-medium text-green-700 mb-1">Current Clinic</p>
+                <p className="text-sm font-semibold text-green-900">
+                  {userClinics.find(c => c.id === activeClinicId)?.name || 'Unknown'}
+                </p>
+              </div>
+            )}
+
+            {/* Clinic Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Clinic
+              </label>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {userClinics.filter(c => c.id !== activeClinicId).map((clinic) => (
+                  <button
+                    key={clinic.id}
+                    onClick={() => setSelectedClinicId(clinic.id)}
+                    className={`w-full p-3 rounded-xl border text-left transition-all ${
+                      selectedClinicId === clinic.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {clinic.logoUrl ? (
+                        <img 
+                          src={clinic.logoUrl} 
+                          alt={clinic.name} 
+                          className="w-8 h-8 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div 
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                          style={{ backgroundColor: clinic.primaryColor || '#4fa77e' }}
+                        >
+                          {clinic.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-medium text-gray-900">{clinic.name}</p>
+                        {clinic.subdomain && (
+                          <p className="text-xs text-gray-500">{clinic.subdomain}</p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Password Confirmation */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Lock className="h-4 w-4 inline mr-1" />
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setSwitchError('');
+                }}
+                placeholder="Enter your password"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {switchError && (
+                <p className="mt-2 text-sm text-red-600">{switchError}</p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowClinicSwitchModal(false);
+                  setPassword('');
+                  setSwitchError('');
+                  setSelectedClinicId(null);
+                }}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClinicSwitch}
+                disabled={!selectedClinicId || !password || switching}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {switching ? 'Switching...' : 'Switch Clinic'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
