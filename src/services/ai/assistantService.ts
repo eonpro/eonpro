@@ -742,44 +742,107 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
       }
     }
 
+    // Type for patient with included relations
+    interface PatientWithRelations {
+      orders?: Array<{
+        id: number;
+        status: string | null;
+        shippingStatus: string | null;
+        trackingNumber: string | null;
+        trackingUrl: string | null;
+        primaryMedName: string | null;
+        rxs?: Array<{ medName: string }>;
+        createdAt: Date;
+      }>;
+      weightLogs?: Array<{
+        weight: number;
+        unit: string;
+        createdAt: Date;
+      }>;
+      documents?: Array<{
+        data: Buffer | string | Record<string, unknown>;
+        category: string;
+        filename: string;
+        createdAt: Date;
+      }>;
+      intakeSubmissions?: Array<{
+        responses: Array<{
+          question?: { questionText?: string; text?: string; label?: string };
+          answer: string;
+        }>;
+      }>;
+      soapNotes?: Array<{
+        subjective: string;
+        objective: string;
+        assessment: string;
+        plan: string;
+        createdAt: Date;
+      }>;
+      shippingUpdates?: Array<{
+        trackingNumber: string;
+        carrier: string;
+        status: string;
+        statusDetail: string;
+        estimatedDelivery: Date | null;
+        deliveredAt: Date | null;
+        lastUpdatedAt: Date;
+      }>;
+    }
+
+    const patientData = targetPatient as unknown as PatientWithRelations;
+
     // Extract tracking information from orders
-    const ordersWithTracking = ((targetPatient as any).orders || [])
-      .filter((order: any) => order.trackingNumber)
-      .map((order: any) => ({
+    const ordersWithTracking = (patientData.orders || [])
+      .filter((order) => order.trackingNumber)
+      .map((order) => ({
         orderId: order.id,
         status: order.status,
         shippingStatus: order.shippingStatus,
         trackingNumber: order.trackingNumber,
         trackingUrl: order.trackingUrl,
-        medication: order.primaryMedName || (order.rxs?.[0]?.medName),
+        medication: order.primaryMedName || order.rxs?.[0]?.medName,
         createdAt: order.createdAt,
       }));
 
     // Extract latest weight from weight logs
-    const latestWeight = (targetPatient as any).weightLogs?.[0];
+    const latestWeight = patientData.weightLogs?.[0];
 
     // Extract vitals/health data from multiple sources:
     // 1. Document data (JSON with sections array) - from eonpro-intake, heyflow-intake-v2
     // 2. IntakeSubmissions responses - from intake form system
     // 3. weightLogs table
-    let intakeVitals: any = {};
+    interface IntakeVitals {
+      height?: string | null;
+      weight?: string | null;
+      bmi?: string | null;
+      bloodPressure?: string | null;
+    }
+    const intakeVitals: IntakeVitals = {};
+
+    // Interface for parsed document data
+    interface DocumentData {
+      sections?: Array<{
+        fields?: Array<{ label?: string; value?: string | number }>;
+      }>;
+      [key: string]: unknown;
+    }
 
     // Helper to find value by label in various data sources
     const findVitalValue = (...labels: string[]): string | null => {
       // Source 1: Document data (most common in production)
-      const documents = (targetPatient as any).documents || [];
+      const documents = patientData.documents || [];
       for (const doc of documents) {
         if (doc.data) {
           try {
             // Handle both Buffer and string data
-            let docData: any;
+            let docData: DocumentData;
             if (Buffer.isBuffer(doc.data)) {
               const jsonStr = doc.data.toString('utf8');
               docData = JSON.parse(jsonStr);
             } else if (typeof doc.data === 'string') {
               docData = JSON.parse(doc.data);
             } else {
-              docData = doc.data;
+              docData = doc.data as DocumentData;
             }
 
             // Check sections array format
@@ -809,14 +872,14 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
                 }
               }
             }
-          } catch (e) {
+          } catch {
             // Skip unparseable documents
           }
         }
       }
 
       // Source 2: IntakeSubmissions responses
-      const intakeSubmissions = (targetPatient as any).intakeSubmissions || [];
+      const intakeSubmissions = patientData.intakeSubmissions || [];
       for (const submission of intakeSubmissions) {
         if (submission.responses && Array.isArray(submission.responses)) {
           for (const response of submission.responses) {
@@ -859,7 +922,7 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
     intakeVitals.bloodPressure = bp && bp.toLowerCase() !== 'unknown' ? bp : null;
 
     // Get shipping updates
-    const shippingUpdates = ((targetPatient as any).shippingUpdates || []).map((update: any) => ({
+    const shippingUpdates = (patientData.shippingUpdates || []).map((update) => ({
       trackingNumber: update.trackingNumber,
       carrier: update.carrier,
       status: update.status,
@@ -881,8 +944,8 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
         phone: targetPatient.phone,
         email: targetPatient.email,
         address: `${targetPatient.address1}${targetPatient.address2 ? ' ' + targetPatient.address2 : ''}, ${targetPatient.city}, ${targetPatient.state} ${targetPatient.zip}`,
-        orderCount: (targetPatient as any).orders?.length || 0,
-        documentCount: (targetPatient as any).documents?.length || 0,
+        orderCount: patientData.orders?.length || 0,
+        documentCount: patientData.documents?.length || 0,
       },
       // Include detailed tracking information
       tracking: ordersWithTracking.length > 0 ? ordersWithTracking : null,
@@ -897,8 +960,8 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
         fromIntake: intakeVitals,
       },
       // Include intake form data summary
-      hasIntakeData: ((targetPatient as any).intakeSubmissions?.length || 0) > 0,
-      intakeCount: (targetPatient as any).intakeSubmissions?.length || 0,
+      hasIntakeData: (patientData.intakeSubmissions?.length || 0) > 0,
+      intakeCount: patientData.intakeSubmissions?.length || 0,
     };
   }
 

@@ -95,7 +95,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
             startDate: s.startDate,
             monthsActive,
             nextBillingDate: s.nextBillingDate,
-            recentPayments: s.payments.map(p => ({
+            recentPayments: s.payments.map((p: { amount: number; status: string; createdAt: Date }) => ({
               amount: formatCurrency(p.amount),
               status: p.status,
               date: p.createdAt
@@ -114,14 +114,14 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
       case 'cancelled':
         const cancelledSubscriptions = await reportingService.getCancelledSubscriptions(dateRangeParams);
         
-        const cancelledWithDetails = cancelledSubscriptions.map(s => {
+        const cancelledWithDetails = cancelledSubscriptions.map((s: typeof cancelledSubscriptions[number]) => {
           const monthsActive = s.canceledAt && s.startDate
             ? Math.floor(
                 (s.canceledAt.getTime() - s.startDate.getTime()) / (30 * 24 * 60 * 60 * 1000)
               ) + 1
             : 0;
           
-          const totalPaid = s.payments.reduce((sum, p) => 
+          const totalPaid = s.payments.reduce((sum: number, p: { status: string; amount: number }) => 
             p.status === 'SUCCEEDED' ? sum + p.amount : sum, 0
           );
 
@@ -139,7 +139,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
           };
         });
 
-        const totalLostMRR = cancelledSubscriptions.reduce((sum, s) => sum + s.amount, 0);
+        const totalLostMRR = cancelledSubscriptions.reduce((sum: number, s: { amount: number }) => sum + s.amount, 0);
 
         return NextResponse.json({
           subscriptions: cancelledWithDetails,
@@ -151,7 +151,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
       case 'paused':
         const pausedSubscriptions = await reportingService.getPausedSubscriptions();
         
-        const pausedWithDetails = pausedSubscriptions.map(s => ({
+        const pausedWithDetails = pausedSubscriptions.map((s: typeof pausedSubscriptions[number]) => ({
           id: s.id,
           patient: s.patient,
           planName: s.planName,
@@ -162,7 +162,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
           startDate: s.startDate
         }));
 
-        const pausedMRR = pausedSubscriptions.reduce((sum, s) => sum + s.amount, 0);
+        const pausedMRR = pausedSubscriptions.reduce((sum: number, s: { amount: number }) => sum + s.amount, 0);
 
         return NextResponse.json({
           subscriptions: pausedWithDetails,

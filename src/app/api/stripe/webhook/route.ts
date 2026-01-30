@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     try {
       const body = await request.clone().text();
       await queueFailedEvent(
-        { id: eventId || 'unknown', type: eventType || 'unknown' } as any,
+        { id: eventId || 'unknown', type: eventType || 'unknown' } as Pick<Stripe.Event, 'id' | 'type'>,
         `CATASTROPHIC: ${errorMessage}`,
         body
       );
@@ -236,7 +236,7 @@ async function processWebhookEvent(
       // ================================================================
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const piInvoice = (paymentIntent as any).invoice;
+        const piInvoice = paymentIntent.invoice;
 
         // Skip if this is an invoice payment (handled by invoice.payment_succeeded)
         if (piInvoice) {
@@ -343,7 +343,7 @@ async function processWebhookEvent(
       // ================================================================
       case 'charge.succeeded': {
         const charge = event.data.object as Stripe.Charge;
-        const chargeInvoice = (charge as any).invoice;
+        const chargeInvoice = charge.invoice;
 
         // Skip if linked to payment intent or invoice
         if (charge.payment_intent || chargeInvoice) {
@@ -410,8 +410,11 @@ async function processWebhookEvent(
       // ================================================================
       case 'charge.refunded':
       case 'charge.dispute.created': {
-        const chargeOrDispute = event.data.object as any;
-        const chargeId = chargeOrDispute.id || chargeOrDispute.charge;
+        // Handle both Charge (refunded) and Dispute (created) objects
+        const eventObject = event.data.object as Stripe.Charge | Stripe.Dispute;
+        const chargeId = 'charge' in eventObject && typeof eventObject.charge === 'string'
+          ? eventObject.charge
+          : eventObject.id;
         
         logger.info('[STRIPE WEBHOOK] Processing refund/dispute for commission reversal', {
           eventType: event.type,
@@ -429,12 +432,13 @@ async function processWebhookEvent(
             });
 
             if (payment?.clinicId) {
+              const amountCents = 'amount' in eventObject ? eventObject.amount : 0;
               await reverseCommissionForRefund({
                 clinicId: payment.clinicId,
                 stripeEventId: event.id,
                 stripeObjectId: chargeId,
                 stripeEventType: event.type,
-                amountCents: chargeOrDispute.amount || 0,
+                amountCents,
                 occurredAt: new Date(),
                 reason: event.type === 'charge.dispute.created' ? 'chargeback' : 'refund',
               });
@@ -493,7 +497,7 @@ async function processWebhookEvent(
               stripeObjectId: session.id,
               stripeEventType: event.type,
               amountCents: session.amount_total || 0,
-              occurredAt: new Date((session as any).created * 1000),
+              occurredAt: new Date(session.created * 1000),
               isFirstPayment,
             });
           } catch (e) {
@@ -612,7 +616,27 @@ async function alertPaymentFailure(
   event: Stripe.Event,
   error: string
 ): Promise<void> {
-  const paymentData = event.data.object as any;
+  // Extract payment-related data from various Stripe event object types
+  const paymentData = event.data.object;
+  
+  // Helper to safely extract amount from different Stripe object types
+  const getAmount = (): number | undefined => {
+    if ('amount' in paymentData) return paymentData.amount as number;
+    if ('amount_total' in paymentData) return paymentData.amount_total as number;
+    return undefined;
+  };
+  
+  // Helper to safely extract email from different Stripe object types
+  const getEmail = (): string | undefined => {
+    if ('billing_details' in paymentData && paymentData.billing_details?.email) {
+      return paymentData.billing_details.email;
+    }
+    if ('customer_details' in paymentData && paymentData.customer_details?.email) {
+      return paymentData.customer_details.email;
+    }
+    if ('receipt_email' in paymentData) return paymentData.receipt_email as string | undefined;
+    return undefined;
+  };
 
   const alertPayload = {
     severity: 'CRITICAL',
@@ -620,10 +644,8 @@ async function alertPaymentFailure(
     message: `Failed to process ${event.type} - patient may not receive prescription`,
     eventId: event.id,
     eventType: event.type,
-    amount: paymentData.amount || paymentData.amount_total,
-    customerEmail: paymentData.billing_details?.email ||
-                   paymentData.customer_details?.email ||
-                   paymentData.receipt_email,
+    amount: getAmount(),
+    customerEmail: getEmail(),
     error,
     timestamp: new Date().toISOString(),
     actionRequired: 'Manual review required in Admin > Payment Reconciliation',

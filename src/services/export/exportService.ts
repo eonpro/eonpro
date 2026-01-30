@@ -523,9 +523,9 @@ startxref
       data: {
         clinicId,
         createdBy: userId,
-        reportType: config.reportType as any,
+        reportType: config.reportType, // ReportType enum
         format: config.format,
-        config: config as any,
+        config: config, // Prisma JSON field accepts ExportConfig
         dateRangeStart: config.dateRange.start,
         dateRangeEnd: config.dateRange.end,
         status: 'pending',

@@ -5,6 +5,36 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import type { PrescriptionStatus } from '@prisma/client';
+
+/** Type for prescription tracking record */
+interface PrescriptionTrackingRecord {
+  id: number;
+  currentStatus: PrescriptionStatus;
+  pharmacyName: string | null;
+  timeToProcess: number | null;
+  timeToShip: number | null;
+  timeToDeliver: number | null;
+  totalFulfillmentTime: number | null;
+  actualDeliveryDate: Date | null;
+  estimatedDeliveryDate: Date | null;
+}
+
+/** Type for analytics record */
+interface AnalyticsRecord {
+  totalOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  pendingOrders: number;
+  avgTimeToProcess: number | null;
+  avgTimeToShip: number | null;
+  avgTimeToDeliver: number | null;
+  avgTotalFulfillment: number | null;
+  onTimeDeliveryRate: number | null;
+  sameDayShipmentRate: number | null;
+  nextDayShipmentRate: number | null;
+  pharmacyName: string | null;
+}
 
 interface FulfillmentMetrics {
   averageTimeToProcess: number;
@@ -21,9 +51,9 @@ interface FulfillmentMetrics {
  */
 export async function updateFulfillmentAnalytics(prescriptionId: number): Promise<void> {
   try {
-    const prescription = await (prisma as any).prescriptionTracking.findUnique({
+    const prescription = await prisma.prescriptionTracking.findUnique({
       where: { id: prescriptionId }
-    });
+    }) as PrescriptionTrackingRecord | null;
 
     if (!prescription) {
       logger.error('Prescription not found for analytics', { prescriptionId });
@@ -34,7 +64,7 @@ export async function updateFulfillmentAnalytics(prescriptionId: number): Promis
     today.setHours(0, 0, 0, 0);
 
     // Get or create today's analytics record
-    const analytics = await (prisma as any).fulfillmentAnalytics.upsert({
+    const analytics = await prisma.fulfillmentAnalytics.upsert({
       where: {
         date_pharmacyName: {
           date: today,
@@ -48,15 +78,15 @@ export async function updateFulfillmentAnalytics(prescriptionId: number): Promis
         year: today.getFullYear(),
         pharmacyName: prescription.pharmacyName || 'Default',
         totalOrders: 1,
-        completedOrders: (prescription.currentStatus as any) === "DELIVERED" ? 1 : 0,
-        cancelledOrders: (prescription.currentStatus as any) === "CANCELLED" ? 1 : 0,
+        completedOrders: prescription.currentStatus === 'DELIVERED' ? 1 : 0,
+        cancelledOrders: prescription.currentStatus === 'CANCELLED' ? 1 : 0,
         pendingOrders: ['PENDING', 'PROCESSING', 'SHIPPED'].includes(prescription.currentStatus) ? 1 : 0,
       },
       update: {
         totalOrders: { increment: 1 },
-        completedOrders: (prescription.currentStatus as any) === "DELIVERED" ? 
+        completedOrders: prescription.currentStatus === 'DELIVERED' ? 
           { increment: 1 } : undefined,
-        cancelledOrders: (prescription.currentStatus as any) === "CANCELLED" ? 
+        cancelledOrders: prescription.currentStatus === 'CANCELLED' ? 
           { increment: 1 } : undefined,
         pendingOrders: ['PENDING', 'PROCESSING', 'SHIPPED'].includes(prescription.currentStatus) ? 
           { increment: 1 } : undefined,
@@ -66,10 +96,9 @@ export async function updateFulfillmentAnalytics(prescriptionId: number): Promis
     // Calculate aggregated metrics for the day
     await recalculateDailyMetrics(today, prescription.pharmacyName || 'Default');
 
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Failed to update fulfillment analytics', { error, prescriptionId });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to update fulfillment analytics', { error: errorMessage, prescriptionId });
   }
 }
 
@@ -84,7 +113,7 @@ async function recalculateDailyMetrics(date: Date, pharmacyName: string): Promis
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const prescriptions = await (prisma as any).prescriptionTracking.findMany({
+    const prescriptions = await prisma.prescriptionTracking.findMany({
       where: {
         pharmacyName,
         createdAt: {
@@ -92,55 +121,55 @@ async function recalculateDailyMetrics(date: Date, pharmacyName: string): Promis
           lte: endOfDay
         }
       }
-    });
+    }) as PrescriptionTrackingRecord[];
 
     if (prescriptions.length === 0) return;
 
     // Calculate averages
     const processingTimes = prescriptions
-      .filter((p: any) => p.timeToProcess !== null)
-      .map((p: any) => p.timeToProcess!);
+      .filter((p) => p.timeToProcess !== null)
+      .map((p) => p.timeToProcess!);
     
     const shippingTimes = prescriptions
-      .filter((p: any) => p.timeToShip !== null)
-      .map((p: any) => p.timeToShip!);
+      .filter((p) => p.timeToShip !== null)
+      .map((p) => p.timeToShip!);
     
     const deliveryTimes = prescriptions
-      .filter((p: any) => p.timeToDeliver !== null)
-      .map((p: any) => p.timeToDeliver!);
+      .filter((p) => p.timeToDeliver !== null)
+      .map((p) => p.timeToDeliver!);
     
     const fulfillmentTimes = prescriptions
-      .filter((p: any) => p.totalFulfillmentTime !== null)
-      .map((p: any) => p.totalFulfillmentTime!);
+      .filter((p) => p.totalFulfillmentTime !== null)
+      .map((p) => p.totalFulfillmentTime!);
 
     // Calculate on-time metrics
-    const deliveredOrders = prescriptions.filter((p: any) => 
-      (p.currentStatus as any) === "DELIVERED" && 
+    const deliveredOrders = prescriptions.filter((p) => 
+      p.currentStatus === 'DELIVERED' && 
       p.actualDeliveryDate && 
       p.estimatedDeliveryDate
     );
     
-    const onTimeDeliveries = deliveredOrders.filter((p: any) => 
+    const onTimeDeliveries = deliveredOrders.filter((p) => 
       p.actualDeliveryDate! <= p.estimatedDeliveryDate!
     );
 
     // Calculate same-day and next-day shipments
-    const shippedOrders = prescriptions.filter((p: any) => 
-      (p.currentStatus as any) === "SHIPPED" || (p.currentStatus as any) === "DELIVERED"
+    const shippedOrders = prescriptions.filter((p) => 
+      p.currentStatus === 'SHIPPED' || p.currentStatus === 'DELIVERED'
     );
     
-    const sameDayShipments = shippedOrders.filter((p: any) => {
+    const sameDayShipments = shippedOrders.filter((p) => {
       if (!p.timeToShip) return false;
       return p.timeToShip < 1440; // Less than 24 hours
     });
     
-    const nextDayShipments = shippedOrders.filter((p: any) => {
+    const nextDayShipments = shippedOrders.filter((p) => {
       if (!p.timeToShip) return false;
       return p.timeToShip >= 1440 && p.timeToShip < 2880; // 24-48 hours
     });
 
     // Update analytics
-    await (prisma as any).fulfillmentAnalytics.update({
+    await prisma.fulfillmentAnalytics.update({
       where: {
         date_pharmacyName: {
           date: startOfDay,
@@ -172,10 +201,9 @@ async function recalculateDailyMetrics(date: Date, pharmacyName: string): Promis
       prescriptionCount: prescriptions.length 
     });
 
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Failed to recalculate daily metrics', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to recalculate daily metrics', { error: errorMessage });
   }
 }
 
@@ -188,7 +216,7 @@ export async function generateFulfillmentReport(
   pharmacyName?: string
 ): Promise<FulfillmentMetrics> {
   try {
-    const where: any = {
+    const where: { date: { gte: Date; lte: Date }; pharmacyName?: string } = {
       date: {
         gte: startDate,
         lte: endDate
@@ -199,9 +227,9 @@ export async function generateFulfillmentReport(
       where.pharmacyName = pharmacyName;
     }
 
-    const analytics = await (prisma as any).fulfillmentAnalytics.findMany({
+    const analytics = await prisma.fulfillmentAnalytics.findMany({
       where
-    });
+    }) as AnalyticsRecord[];
 
     if (analytics.length === 0) {
       return {
@@ -216,38 +244,37 @@ export async function generateFulfillmentReport(
     }
 
     // Calculate weighted averages
-    const totalOrders = analytics.reduce((sum: number, a: { totalOrders: number }) => sum + a.totalOrders, 0);
+    const totalOrders = analytics.reduce((sum, a) => sum + a.totalOrders, 0);
     
     const metrics: FulfillmentMetrics = {
       averageTimeToProcess: weightedAverage(
-        analytics.map((a: any) => ({ value: a.avgTimeToProcess || 0, weight: a.totalOrders }))
+        analytics.map((a) => ({ value: a.avgTimeToProcess || 0, weight: a.totalOrders }))
       ),
       averageTimeToShip: weightedAverage(
-        analytics.map((a: any) => ({ value: a.avgTimeToShip || 0, weight: a.totalOrders }))
+        analytics.map((a) => ({ value: a.avgTimeToShip || 0, weight: a.totalOrders }))
       ),
       averageTimeToDeliver: weightedAverage(
-        analytics.map((a: any) => ({ value: a.avgTimeToDeliver || 0, weight: a.totalOrders }))
+        analytics.map((a) => ({ value: a.avgTimeToDeliver || 0, weight: a.totalOrders }))
       ),
       totalFulfillmentTime: weightedAverage(
-        analytics.map((a: any) => ({ value: a.avgTotalFulfillment || 0, weight: a.totalOrders }))
+        analytics.map((a) => ({ value: a.avgTotalFulfillment || 0, weight: a.totalOrders }))
       ),
       onTimeDeliveryRate: weightedAverage(
-        analytics.map((a: any) => ({ value: a.onTimeDeliveryRate || 0, weight: a.completedOrders }))
+        analytics.map((a) => ({ value: a.onTimeDeliveryRate || 0, weight: a.completedOrders }))
       ),
       sameDayShipmentRate: weightedAverage(
-        analytics.map((a: any) => ({ value: a.sameDayShipmentRate || 0, weight: a.totalOrders }))
+        analytics.map((a) => ({ value: a.sameDayShipmentRate || 0, weight: a.totalOrders }))
       ),
       nextDayShipmentRate: weightedAverage(
-        analytics.map((a: any) => ({ value: a.nextDayShipmentRate || 0, weight: a.totalOrders }))
+        analytics.map((a) => ({ value: a.nextDayShipmentRate || 0, weight: a.totalOrders }))
       ),
     };
 
     return metrics;
 
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Failed to generate fulfillment report', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to generate fulfillment report', { error: errorMessage });
     throw error;
   }
 }
@@ -260,7 +287,7 @@ export async function comparePharmacyPerformance(
   endDate: Date
 ): Promise<Record<string, FulfillmentMetrics>> {
   try {
-    const pharmacies = await (prisma as any).fulfillmentAnalytics.findMany({
+    const pharmacies = await prisma.fulfillmentAnalytics.findMany({
       where: {
         date: {
           gte: startDate,
@@ -268,7 +295,7 @@ export async function comparePharmacyPerformance(
         }
       },
       distinct: ['pharmacyName']
-    });
+    }) as Pick<AnalyticsRecord, 'pharmacyName'>[];
 
     const comparison: Record<string, FulfillmentMetrics> = {};
 
@@ -284,10 +311,9 @@ export async function comparePharmacyPerformance(
 
     return comparison;
 
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Failed to compare pharmacy performance', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to compare pharmacy performance', { error: errorMessage });
     throw error;
   }
 }
@@ -305,29 +331,29 @@ export async function identifyBottlenecks(
   recommendations: string[];
 }> {
   try {
-    const where: any = {};
+    const where: { pharmacyName?: string } = {};
     if (pharmacyName) {
       where.pharmacyName = pharmacyName;
     }
 
-    const prescriptions = await (prisma as any).prescriptionTracking.findMany({
+    const prescriptions = await prisma.prescriptionTracking.findMany({
       where,
       select: {
         timeToProcess: true,
         timeToShip: true,
         timeToDeliver: true,
       }
-    });
+    }) as Pick<PrescriptionTrackingRecord, 'timeToProcess' | 'timeToShip' | 'timeToDeliver'>[];
 
-    const processingBottlenecks = prescriptions.filter((p: any) => 
+    const processingBottlenecks = prescriptions.filter((p) => 
       p.timeToProcess && p.timeToProcess > threshold
     ).length;
 
-    const shippingBottlenecks = prescriptions.filter((p: any) => 
+    const shippingBottlenecks = prescriptions.filter((p) => 
       p.timeToShip && p.timeToShip > threshold
     ).length;
 
-    const deliveryBottlenecks = prescriptions.filter((p: any) => 
+    const deliveryBottlenecks = prescriptions.filter((p) => 
       p.timeToDeliver && p.timeToDeliver > threshold * 2 // 48 hours for delivery
     ).length;
 
@@ -358,10 +384,9 @@ export async function identifyBottlenecks(
       recommendations
     };
 
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Failed to identify bottlenecks', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to identify bottlenecks', { error: errorMessage });
     throw error;
   }
 }

@@ -85,6 +85,7 @@ export function PatientInsights() {
 
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -93,13 +94,17 @@ export function PatientInsights() {
 
   const fetchInsights = async () => {
     try {
+      setError(null);
       const res = await fetch('/api/patient-portal/ai/insights');
       if (res.ok) {
         const data = await res.json();
         setInsights(data.insights || []);
+      } else {
+        setError('Unable to load insights');
       }
     } catch (error) {
       console.error('Failed to fetch insights:', error);
+      setError('Failed to load insights. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -117,6 +122,14 @@ export function PatientInsights() {
         {[1, 2].map((i) => (
           <div key={i} className="animate-pulse bg-gray-100 rounded-xl h-24" />
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <p className="text-sm">{error}</p>
       </div>
     );
   }

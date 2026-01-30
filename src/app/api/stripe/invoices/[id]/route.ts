@@ -736,7 +736,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     }
 
     // Wrap deletion of invoice items and invoice in a transaction for atomicity
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: typeof prisma) => {
       // Delete related invoice items first (if table exists)
       try {
         await tx.invoiceItem.deleteMany({

@@ -25,6 +25,7 @@ export default function PatientPortalDocuments() {
   const [selectedCategory, setSelectedCategory] = useState('MEDICAL_RECORDS');
   const [dragActive, setDragActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
 
   // Get patient ID from localStorage
@@ -44,13 +45,17 @@ export default function PatientPortalDocuments() {
     const fetchDocuments = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         const response = await fetch(`/api/patients/${patientId}/documents`);
         if (response.ok) {
           const data = await response.json();
           setDocuments(data);
+        } else {
+          setError('Failed to load documents. Please try again.');
         }
       } catch (error) {
         logger.error('Error fetching documents:', error);
+        setError('Failed to load documents. Please check your connection and try again.');
       } finally {
         setIsLoading(false);
       }
@@ -241,6 +246,23 @@ export default function PatientPortalDocuments() {
 
   if (!patientId) {
     return null;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 max-w-md text-center">
+          <p className="font-medium mb-2">Error Loading Documents</p>
+          <p className="text-sm">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-sm font-medium transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

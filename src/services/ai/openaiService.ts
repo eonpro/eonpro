@@ -541,28 +541,30 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
         generatedAt: new Date(),
         intakeId: input.intakeData.submissionId,
         usage: usageMetrics,
-      } as any,
+      },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { message?: string; status?: number; code?: string };
+    const errorMessage = err.message || String(error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('[OpenAI] Error generating SOAP note:', {
       error: errorMessage,
-      status: error.status,
+      status: err.status,
     });
 
     // Handle specific OpenAI error codes
-    if (error.status === 429) {
+    if (err.status === 429) {
       throw new Error('OpenAI API is busy. Please wait 30 seconds and try again.');
     }
-    if (error.status === 401) {
+    if (err.status === 401) {
       throw new Error('Invalid OpenAI API key. Please contact support.');
     }
-    if (error.status === 500 || error.status === 502 || error.status === 503) {
+    if (err.status === 500 || err.status === 502 || err.status === 503) {
       throw new Error(
         'OpenAI service is temporarily unavailable. Please try again in a few minutes.'
       );
     }
-    if (error.code === 'insufficient_quota') {
+    if (err.code === 'insufficient_quota') {
       throw new Error('OpenAI quota exceeded. Please contact support to upgrade the plan.');
     }
 
@@ -641,8 +643,8 @@ FORMATTING REMINDER - CRITICAL:
 
   // Add conversation history if provided
   if (input.conversationHistory && input.conversationHistory.length > 0) {
-    input.conversationHistory.forEach((msg: any) => {
-      messages.push({ role: msg.role as any, content: msg.content });
+    input.conversationHistory.forEach((msg: { role: 'user' | 'assistant' | 'system'; content: string }) => {
+      messages.push({ role: msg.role, content: msg.content });
     });
   }
 
@@ -652,21 +654,77 @@ FORMATTING REMINDER - CRITICAL:
     const context = input.patientContext;
 
     if (context.type === 'patient_found') {
-      const summary = context.summary as any;
+      // Type definitions for context data
+      interface PatientSummary {
+        patientId: number;
+        name: string;
+        age: number | null;
+        gender: string;
+        orderCount: number;
+        documentCount: number;
+      }
+      interface OrderData {
+        id: number;
+        status: string | null;
+        shippingStatus: string | null;
+        trackingNumber: string | null;
+        trackingUrl: string | null;
+        primaryMedName: string | null;
+        rxs?: Array<{ medName: string; strength: string; quantity: string; sig: string }>;
+        createdAt: Date;
+      }
+      interface DocumentData {
+        category: string;
+        filename: string;
+        createdAt: Date;
+      }
+      interface SoapNoteData {
+        subjective: string;
+        objective: string;
+        assessment: string;
+        plan: string;
+        status: string;
+        createdAt: Date;
+      }
+      interface TrackingInfo {
+        orderId: number;
+        medication: string;
+        status: string | null;
+        shippingStatus: string | null;
+        trackingNumber: string;
+        trackingUrl: string | null;
+      }
+      interface ShippingUpdate {
+        carrier: string;
+        trackingNumber: string;
+        status: string;
+        statusDetail?: string;
+        estimatedDelivery?: Date;
+        deliveredAt?: Date;
+      }
+      interface PatientContext {
+        orders?: OrderData[];
+        documents?: DocumentData[];
+        soapNotes?: SoapNoteData[];
+      }
+
+      const summary = context.summary as PatientSummary;
       // Format patient data for AI - include operational data (tracking, etc.)
       // Note: Patient name is already known to the user, so we include it for context
       const patientAge = summary.age !== null ? summary.age + ' years old' : 'Unknown';
       const patientGender = summary.gender || 'Not specified';
 
+      const patientCtx = context.patient as PatientContext | undefined;
+
       // Include full order details with tracking numbers (tracking is operational, not PHI)
-      const ordersWithDetails = ((context.patient as any)?.orders || []).map((order: any) => ({
+      const ordersWithDetails = (patientCtx?.orders || []).map((order) => ({
         orderId: order.id,
         status: order.status,
         shippingStatus: order.shippingStatus,
         trackingNumber: order.trackingNumber || 'Not yet assigned',
         trackingUrl: order.trackingUrl,
         medication: order.primaryMedName || order.rxs?.[0]?.medName || 'Unknown medication',
-        prescriptions: order.rxs?.map((rx: any) => ({
+        prescriptions: order.rxs?.map((rx) => ({
           name: rx.medName,
           strength: rx.strength,
           quantity: rx.quantity,
@@ -676,14 +734,14 @@ FORMATTING REMINDER - CRITICAL:
       }));
 
       // Include document categories
-      const documents = ((context.patient as any)?.documents || []).map((doc: any) => ({
+      const documents = (patientCtx?.documents || []).map((doc) => ({
         category: doc.category,
         filename: doc.filename,
         createdAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown',
       }));
 
       // Include SOAP notes with actual clinical content (this is for provider use)
-      const soapNotes = ((context.patient as any)?.soapNotes || []).map((note: any) => ({
+      const soapNotes = (patientCtx?.soapNotes || []).map((note) => ({
         date: note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Unknown',
         subjective: note.subjective || 'Not recorded',
         objective: note.objective || 'Not recorded',
@@ -693,11 +751,24 @@ FORMATTING REMINDER - CRITICAL:
       }));
 
       // Include tracking information
-      const trackingInfo = (context.tracking as any[]) || [];
-      const shippingUpdates = (context.shippingUpdates as any[]) || [];
+      const trackingInfo = (context.tracking as TrackingInfo[] | undefined) || [];
+      const shippingUpdates = (context.shippingUpdates as ShippingUpdate[] | undefined) || [];
 
       // Include vitals/health data
-      const vitals = (context.vitals as any) || {};
+      interface VitalsData {
+        latestWeight?: {
+          weight: number;
+          unit: string;
+          recordedAt: Date;
+        };
+        fromIntake?: {
+          weight?: string;
+          height?: string;
+          bloodPressure?: string;
+          bmi?: string;
+        };
+      }
+      const vitals = (context.vitals as VitalsData | undefined) || {};
       const latestWeight = vitals?.latestWeight;
       const intakeVitals = vitals?.fromIntake;
 
@@ -719,7 +790,7 @@ FORMATTING REMINDER - CRITICAL:
       let trackingSection = '';
       if (trackingInfo && trackingInfo.length > 0) {
         trackingSection = `\nTracking Information:`;
-        trackingInfo.forEach((t: any) => {
+        trackingInfo.forEach((t) => {
           trackingSection += `\n- Order #${t.orderId}: ${t.medication}`;
           trackingSection += `\n  Status: ${t.status || 'Unknown'}, Shipping: ${t.shippingStatus || 'Pending'}`;
           trackingSection += `\n  Tracking Number: ${t.trackingNumber}`;
@@ -729,7 +800,7 @@ FORMATTING REMINDER - CRITICAL:
 
       if (shippingUpdates && shippingUpdates.length > 0) {
         trackingSection += `\nShipping Updates:`;
-        shippingUpdates.forEach((s: any) => {
+        shippingUpdates.forEach((s) => {
           trackingSection += `\n- ${s.carrier}: ${s.trackingNumber}`;
           trackingSection += `\n  Status: ${s.status}${s.statusDetail ? ` - ${s.statusDetail}` : ''}`;
           if (s.estimatedDelivery) trackingSection += `\n  Estimated Delivery: ${new Date(s.estimatedDelivery).toLocaleDateString()}`;
@@ -769,7 +840,12 @@ ${suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}
 
 IMPORTANT: Suggest these similar patients to the user and ask if they meant one of them.` : 'No similar patients found in the system.'}`;
     } else if (context.statistics) {
-      const stats = context.statistics as any;
+      interface Statistics {
+        totalPatients: number;
+        totalOrders?: number;
+        totalProviders?: number;
+      }
+      const stats = context.statistics as Statistics;
       // HIPAA: Only send aggregate statistics, no individual patient data
       contextDescription = `Platform Statistics:
 Total Patients: ${stats.totalPatients}
@@ -787,11 +863,15 @@ New Patients Today: ${context.todayPatients}
 Pending Orders: ${context.pendingOrders}
 Recent Intakes: ${context.recentIntakes}`;
     } else if (context.type === 'general_info') {
-      const stats = (context as any).statistics;
+      interface GeneralInfoContext {
+        type: 'general_info';
+        statistics?: { totalPatients?: number; totalOrders?: number; totalProviders?: number };
+      }
+      const generalCtx = context as GeneralInfoContext;
       contextDescription = `Platform Statistics:
-Total Patients: ${stats?.totalPatients || 0}
-Total Orders: ${stats?.totalOrders || 0}
-Total Providers: ${stats?.totalProviders || 0}`;
+Total Patients: ${generalCtx.statistics?.totalPatients || 0}
+Total Orders: ${generalCtx.statistics?.totalOrders || 0}
+Total Providers: ${generalCtx.statistics?.totalProviders || 0}`;
     } else if (context.type === 'knowledge_query') {
       // Knowledge-based query - no patient data needed
       contextDescription = `This is a clinical/operational knowledge question.

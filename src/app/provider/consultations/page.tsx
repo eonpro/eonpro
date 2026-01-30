@@ -63,6 +63,7 @@ export default function ProviderConsultationsPage() {
       } catch (err) {
         console.error('Failed to fetch consultations:', err);
         setConsultations([]);
+        setError('Failed to load consultations. Please check your connection and try again.');
       } finally {
         setLoading(false);
       }
@@ -164,6 +165,17 @@ export default function ProviderConsultationsPage() {
               <div className="text-center py-8 text-gray-500">
                 <div className="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-2"></div>
                 Loading consultations...
+              </div>
+            ) : error ? (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                <p className="font-medium mb-1">Error Loading Consultations</p>
+                <p className="text-sm">{error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-3 px-3 py-1.5 bg-red-100 hover:bg-red-200 rounded text-sm font-medium transition-colors"
+                >
+                  Try Again
+                </button>
               </div>
             ) : filteredConsultations.length === 0 ? (
               <div className="text-center py-12">

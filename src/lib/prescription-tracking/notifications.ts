@@ -6,6 +6,35 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import twilio from 'twilio';
+import { NotificationStatus, NotificationType, PrescriptionStatus } from '@prisma/client';
+
+// Type for prisma models that may not be in the generated client yet
+interface PrescriptionNotificationRecord {
+  id: number;
+  prescriptionId: number;
+  type: NotificationType;
+  status: NotificationStatus;
+  message: string;
+  templateUsed?: string;
+  sentAt?: Date;
+  deliveredAt?: Date;
+  failedAt?: Date;
+  errorMessage?: string;
+  recipientPhone?: string;
+  recipientEmail?: string;
+  recipientId?: string;
+  externalId?: string;
+  externalStatus?: string;
+}
+
+interface NotificationRuleRecord {
+  id: number;
+  triggerStatus: PrescriptionStatus;
+  sendSMS: boolean;
+  sendChat: boolean;
+  sendEmail: boolean;
+  isActive: boolean;
+}
 
 // Notification templates for different statuses
 const NOTIFICATION_TEMPLATES = {
@@ -131,10 +160,10 @@ async function sendSMS(phone: string, message: string, notificationId: number): 
     logger.info('Twilio not configured, skipping SMS', { phone, message });
     
     // Update notification as sent (demo mode)
-    await (prisma as any).prescriptionNotification.update({
+    await prisma.prescriptionNotification.update({
       where: { id: notificationId },
       data: {
-        status: 'SENT' as any,
+        status: 'SENT',
         sentAt: new Date(),
         deliveredAt: new Date(),
       }
@@ -157,10 +186,10 @@ async function sendSMS(phone: string, message: string, notificationId: number): 
       to: formattedPhone
     });
 
-    await (prisma as any).prescriptionNotification.update({
+    await prisma.prescriptionNotification.update({
       where: { id: notificationId },
       data: {
-        status: 'SENT' as any,
+        status: 'SENT',
         sentAt: new Date(),
         externalId: twilioMessage.sid,
         externalStatus: twilioMessage.status,
@@ -174,10 +203,10 @@ async function sendSMS(phone: string, message: string, notificationId: number): 
   } catch (error: any) {
     logger.error('Failed to send SMS', error);
     
-    await (prisma as any).prescriptionNotification.update({
+    await prisma.prescriptionNotification.update({
       where: { id: notificationId },
       data: {
-        status: "FAILED" as any as any,
+        status: 'FAILED',
         failedAt: new Date(),
         errorMessage: error.message,
       }
@@ -197,25 +226,26 @@ async function sendChatMessage(
 ): Promise<void> {
   try {
     // Store chat message in database (you can integrate with your chat system)
-    await (prisma as any).prescriptionNotification.update({
+    await prisma.prescriptionNotification.update({
       where: { id: notificationId },
       data: {
-        status: 'SENT' as any,
+        status: 'SENT',
         sentAt: new Date(),
         deliveredAt: new Date(), // Mark as delivered for chat
       }
     });
 
     logger.info('Chat notification sent', { notificationId, patientId });
-  } catch (error: any) {
-    logger.error('Failed to send chat message', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to send chat message', { error: errorMessage });
     
-    await (prisma as any).prescriptionNotification.update({
+    await prisma.prescriptionNotification.update({
       where: { id: notificationId },
       data: {
-        status: "FAILED" as any as any,
+        status: 'FAILED',
         failedAt: new Date(),
-        errorMessage: error.message,
+        errorMessage,
       }
     });
     
@@ -232,7 +262,7 @@ export async function sendPrescriptionNotification(
 ): Promise<void> {
   try {
     // Get prescription details
-    const prescription = await (prisma as any).prescriptionTracking.findUnique({
+    const prescription = await prisma.prescriptionTracking.findUnique({
       where: { id: prescriptionId },
       include: {
         patient: true,
@@ -257,9 +287,9 @@ export async function sendPrescriptionNotification(
     }
 
     // Check notification rules
-    const rules = await (prisma as any).notificationRule.findMany({
+    const rules = await prisma.notificationRule.findMany({
       where: {
-        triggerStatus: status as any,
+        triggerStatus: status as PrescriptionStatus,
         isActive: true,
       }
     });
@@ -284,22 +314,22 @@ export async function sendPrescriptionNotification(
     };
 
     // Send SMS notification
-    if (shouldSendSMS && prescription.patient.phoneNumber) {
+    if (shouldSendSMS && prescription.patient.phone) {
       const smsMessage = populateTemplate(templates.sms, templateData);
       
-      const smsNotification = await (prisma as any).prescriptionNotification.create({
+      const smsNotification = await prisma.prescriptionNotification.create({
         data: {
           prescriptionId,
-          type: 'SMS' as any,
-          status: 'PENDING' as any,
+          type: 'SMS',
+          status: 'PENDING',
           message: smsMessage,
           templateUsed: 'default',
-          recipientPhone: prescription.patient.phoneNumber,
+          recipientPhone: prescription.patient.phone,
         }
       });
 
       // Send SMS asynchronously
-      sendSMS(prescription.patient.phoneNumber, smsMessage, smsNotification.id)
+      sendSMS(prescription.patient.phone, smsMessage, smsNotification.id)
         .catch(err => logger.error('SMS send failed', err));
     }
 
@@ -307,11 +337,11 @@ export async function sendPrescriptionNotification(
     if (shouldSendChat) {
       const chatMessage = populateTemplate(templates.chat, templateData);
       
-      const chatNotification = await (prisma as any).prescriptionNotification.create({
+      const chatNotification = await prisma.prescriptionNotification.create({
         data: {
           prescriptionId,
-          type: 'CHAT' as any,
-          status: 'PENDING' as any,
+          type: 'CHAT',
+          status: 'PENDING',
           message: chatMessage,
           templateUsed: 'default',
           recipientId: prescription.patient.id.toString(),
@@ -344,9 +374,9 @@ export async function sendPrescriptionNotification(
  */
 export async function retryFailedNotifications(): Promise<void> {
   try {
-    const failedNotifications = await (prisma as any).prescriptionNotification.findMany({
+    const failedNotifications = await prisma.prescriptionNotification.findMany({
       where: {
-        status: "FAILED" as any as any,
+        status: 'FAILED',
         createdAt: {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
         }
@@ -381,9 +411,8 @@ export async function retryFailedNotifications(): Promise<void> {
       count: failedNotifications.length 
     });
 
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Failed to retry notifications', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to retry notifications', { error: errorMessage });
   }
 }

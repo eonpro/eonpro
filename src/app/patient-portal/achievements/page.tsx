@@ -92,6 +92,7 @@ export default function AchievementsPage() {
   const [points, setPoints] = useState<PointsInfo | null>(null);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,6 +101,7 @@ export default function AchievementsPage() {
 
   const fetchData = async () => {
     try {
+      setError(null);
       const [achievementsRes, streaksRes, pointsRes, challengesRes] = await Promise.all([
         fetch('/api/patient-portal/gamification/achievements'),
         fetch('/api/patient-portal/gamification/streaks'),
@@ -128,6 +130,7 @@ export default function AchievementsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch gamification data:', error);
+      setError('Failed to load achievements. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -165,6 +168,27 @@ export default function AchievementsPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] p-4">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 max-w-md text-center">
+          <Trophy className="w-12 h-12 mx-auto mb-3 text-red-300" />
+          <p className="font-medium mb-2">Error Loading Achievements</p>
+          <p className="text-sm">{error}</p>
+          <button
+            onClick={() => {
+              setLoading(true);
+              fetchData();
+            }}
+            className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-sm font-medium transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }

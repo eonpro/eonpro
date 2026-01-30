@@ -226,15 +226,15 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
         );
     }
 
-    // Update alert
+    // Update alert - status is a FraudAlertStatus enum value
     const updatedAlert = await prisma.affiliateFraudAlert.update({
       where: { id: alertId },
       data: {
-        status: status as any,
+        status,
         resolvedAt: status !== 'INVESTIGATING' ? new Date() : null,
         resolvedBy: status !== 'INVESTIGATING' ? user.id : null,
         resolution: resolution || null,
-        resolutionAction: resolutionAction as any,
+        resolutionAction,
       },
     });
 

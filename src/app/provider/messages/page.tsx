@@ -28,12 +28,14 @@ export default function ProviderMessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch conversations from API
   useEffect(() => {
     async function fetchMessages() {
       try {
         setLoading(true);
+        setError(null);
         const token = localStorage.getItem('token') || 
                       localStorage.getItem('auth-token') || 
                       localStorage.getItem('provider-token');
@@ -49,10 +51,16 @@ export default function ProviderMessagesPage() {
           setMessages(data.conversations || []);
         } else {
           setMessages([]);
+          if (response.status === 401) {
+            setError('Please log in to view messages.');
+          } else {
+            setError('Failed to load messages. Please try again.');
+          }
         }
       } catch (err) {
         console.error('Failed to fetch messages:', err);
         setMessages([]);
+        setError('Failed to load messages. Please check your connection.');
       } finally {
         setLoading(false);
       }
@@ -183,6 +191,17 @@ export default function ProviderMessagesPage() {
               <div className="text-center py-8 text-gray-500">
                 <div className="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-2"></div>
                 Loading messages...
+              </div>
+            ) : error ? (
+              <div className="p-4 m-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                <p className="font-medium mb-1">Error</p>
+                <p className="text-sm">{error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-3 px-3 py-1.5 bg-red-100 hover:bg-red-200 rounded text-sm font-medium transition-colors"
+                >
+                  Try Again
+                </button>
               </div>
             ) : filteredMessages.length === 0 ? (
               <div className="text-center py-12 px-4">

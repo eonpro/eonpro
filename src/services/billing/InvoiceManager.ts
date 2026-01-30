@@ -127,6 +127,48 @@ export interface InvoiceSummary {
   credits: number;
 }
 
+/** Invoice metadata structure for JSON field */
+export interface InvoiceMetadata {
+  invoiceNumber?: string;
+  memo?: string;
+  footer?: string;
+  discount?: InvoiceDiscount;
+  taxes?: InvoiceTax[];
+  customFields?: Record<string, string>;
+  poNumber?: string;
+  paymentTerms?: string;
+  summary?: InvoiceSummary;
+  isDraft?: boolean;
+  finalizedAt?: string;
+  lastSentAt?: string;
+  sendCount?: number;
+  lastDelivery?: Array<{ method: string; success: boolean; error?: string }>;
+  voidedAt?: string;
+  voidReason?: string;
+  markedUncollectibleAt?: string;
+  uncollectibleReason?: string;
+  lastPaymentAt?: string;
+  paymentHistory?: Array<{
+    paymentId: number;
+    amount: number;
+    date: string;
+    method: string;
+  }>;
+  paymentPlan?: PaymentPlan & { schedule: any[]; createdAt: string };
+  credits?: Array<{ amount: number; description?: string; appliedAt: string }>;
+  refunds?: Array<{
+    amount: number;
+    reason?: string;
+    issuedAt: string;
+    isFullRefund: boolean;
+  }>;
+  reminders?: InvoiceReminder[];
+  remindersScheduledAt?: string;
+  sentReminders?: string[];
+  updatedAt?: string;
+  [key: string]: unknown;
+}
+
 // ============================================================================
 // INVOICE MANAGER SERVICE
 // ============================================================================
@@ -382,19 +424,19 @@ export class InvoiceManager {
     
     // Create in Stripe if configured
     if (this.stripeClient && !invoice.stripeInvoiceId) {
-      const lineItems = (invoice.lineItems as any[]) || [];
+      const lineItems = (invoice.lineItems as LineItem[]) || [];
       const result = await this.createInvoice({
         patientId: invoice.patientId,
         clinicId: invoice.clinicId || undefined,
-        lineItems: lineItems.map((item: any) => ({
+        lineItems: lineItems.map((item) => ({
           description: item.description,
           quantity: item.quantity || 1,
-          unitPrice: item.unitPrice || item.amount,
+          unitPrice: item.unitPrice,
         })),
         description: invoice.description || undefined,
         dueDate: invoice.dueDate || undefined,
         orderId: invoice.orderId || undefined,
-        metadata: invoice.metadata as any,
+        metadata: (invoice.metadata as InvoiceMetadata) || undefined,
       });
       
       // Delete the draft and return the new invoice
@@ -403,12 +445,13 @@ export class InvoiceManager {
     }
     
     // Just update status if no Stripe
+    const currentMetadata = (invoice.metadata as InvoiceMetadata) || {};
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: 'OPEN',
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...currentMetadata,
           isDraft: false,
           finalizedAt: new Date().toISOString(),
         },
@@ -431,7 +474,7 @@ export class InvoiceManager {
       throw new Error('Invoice not found');
     }
     
-    const currentMetadata = (invoice.metadata as any) || {};
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
@@ -439,11 +482,11 @@ export class InvoiceManager {
         description: updates.description,
         dueDate: updates.dueDate,
         metadata: {
-          ...currentMetadata,
-          memo: updates.memo ?? currentMetadata.memo,
-          footer: updates.footer ?? currentMetadata.footer,
-          discount: updates.discount ?? currentMetadata.discount,
-          customFields: updates.customFields ?? currentMetadata.customFields,
+          ...invoiceMetadata,
+          memo: updates.memo ?? invoiceMetadata.memo,
+          footer: updates.footer ?? invoiceMetadata.footer,
+          discount: updates.discount ?? invoiceMetadata.discount,
+          customFields: updates.customFields ?? invoiceMetadata.customFields,
           ...updates.metadata,
           updatedAt: new Date().toISOString(),
         },
@@ -466,18 +509,19 @@ export class InvoiceManager {
       throw new Error('Can only add items to draft invoices');
     }
     
-    const existingItems = (invoice.lineItems as any[]) || [];
+    const existingItems = (invoice.lineItems as LineItem[]) || [];
     const allItems = [...existingItems, ...items];
     const summary = this.calculateInvoiceSummary(allItems);
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
-        lineItems: allItems as any,
+        lineItems: allItems as unknown as Prisma.InputJsonValue,
         amount: summary.total,
         amountDue: summary.amountDue,
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           summary,
         },
       },
@@ -499,18 +543,19 @@ export class InvoiceManager {
       throw new Error('Can only remove items from draft invoices');
     }
     
-    const existingItems = (invoice.lineItems as any[]) || [];
+    const existingItems = (invoice.lineItems as LineItem[]) || [];
     existingItems.splice(itemIndex, 1);
     const summary = this.calculateInvoiceSummary(existingItems);
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
-        lineItems: existingItems as any,
+        lineItems: existingItems as unknown as Prisma.InputJsonValue,
         amount: summary.total,
         amountDue: summary.amountDue,
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           summary,
         },
       },
@@ -595,13 +640,14 @@ export class InvoiceManager {
     }
     
     // Update invoice metadata
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           lastSentAt: new Date().toISOString(),
-          sendCount: ((invoice.metadata as any)?.sendCount || 0) + 1,
+          sendCount: (invoiceMetadata.sendCount || 0) + 1,
           lastDelivery: delivery,
         },
       },
@@ -636,12 +682,13 @@ export class InvoiceManager {
       }
     }
     
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: 'VOID',
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           voidedAt: new Date().toISOString(),
           voidReason: reason,
         },
@@ -669,12 +716,13 @@ export class InvoiceManager {
       }
     }
     
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: 'UNCOLLECTIBLE',
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           markedUncollectibleAt: new Date().toISOString(),
           uncollectibleReason: reason,
         },
@@ -731,6 +779,7 @@ export class InvoiceManager {
     });
     
     // Update invoice
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     const updatedInvoice = await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
@@ -739,10 +788,10 @@ export class InvoiceManager {
         status: isPaid ? 'PAID' : 'OPEN',
         paidAt: isPaid ? new Date() : undefined,
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           lastPaymentAt: new Date().toISOString(),
           paymentHistory: [
-            ...((invoice.metadata as any)?.paymentHistory || []),
+            ...(invoiceMetadata.paymentHistory || []),
             {
               paymentId: payment.id,
               amount: options.amount,
@@ -829,11 +878,12 @@ export class InvoiceManager {
     }
     
     // Update invoice with payment plan
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           paymentPlan: {
             ...plan,
             schedule,
@@ -862,6 +912,7 @@ export class InvoiceManager {
     const newAmountDue = Math.max(0, (invoice.amountDue ?? invoice.amount ?? 0) - amount);
     const isPaid = newAmountDue === 0;
     
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
@@ -869,9 +920,9 @@ export class InvoiceManager {
         status: isPaid ? 'PAID' : invoice.status,
         paidAt: isPaid ? new Date() : undefined,
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           credits: [
-            ...((invoice.metadata as any)?.credits || []),
+            ...(invoiceMetadata.credits || []),
             {
               amount,
               description,
@@ -930,6 +981,7 @@ export class InvoiceManager {
     const isFullRefund = newAmountPaid <= 0;
     const invoiceAmount = invoice.amount ?? 0;
     
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
@@ -938,11 +990,11 @@ export class InvoiceManager {
         status: isFullRefund ? 'VOID' : 'OPEN',
         paidAt: isFullRefund ? null : invoice.paidAt,
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           refunds: [
-            ...((invoice.metadata as any)?.refunds || []),
+            ...(invoiceMetadata.refunds || []),
             {
-              amount: refundAmount,
+              amount: refundAmount ?? 0,
               reason: options.reason,
               issuedAt: new Date().toISOString(),
               isFullRefund,
@@ -1120,11 +1172,12 @@ export class InvoiceManager {
       throw new Error('Invoice not found');
     }
     
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
         metadata: {
-          ...(invoice.metadata as any || {}),
+          ...invoiceMetadata,
           reminders,
           remindersScheduledAt: new Date().toISOString(),
         },
@@ -1151,9 +1204,9 @@ export class InvoiceManager {
     });
     
     for (const invoice of invoices) {
-      const metadata = invoice.metadata as any;
-      const reminders = metadata?.reminders as InvoiceReminder[] || [];
-      const sentReminders = metadata?.sentReminders || [];
+      const metadata = (invoice.metadata as InvoiceMetadata) || {};
+      const reminders = metadata.reminders || [];
+      const sentReminders = metadata.sentReminders || [];
       
       for (const reminder of reminders) {
         const reminderKey = `${reminder.type}_${reminder.daysOffset}`;
@@ -1324,7 +1377,7 @@ export class InvoiceManager {
   private generateInvoiceEmailHtml(invoice: any, paymentUrl: string, customMessage?: string): string {
     const clinicName = invoice.clinic?.name || 'EON Medical';
     const amount = '$' + (invoice.amount / 100).toFixed(2);
-    const lineItems = (invoice.lineItems as any[]) || [];
+    const lineItems = (invoice.lineItems as LineItem[]) || [];
     const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric'
     }) : 'N/A';
@@ -1379,7 +1432,7 @@ export class InvoiceManager {
             </center>
             
             <p style="font-size: 12px; color: #666;">
-              Invoice #${(invoice.metadata as any)?.invoiceNumber || invoice.id}
+              Invoice #${(invoice.metadata as InvoiceMetadata)?.invoiceNumber || invoice.id}
             </p>
           </div>
           <div class="footer">
@@ -1409,7 +1462,7 @@ ${customMessage ? customMessage + '\n\n' : ''}You have a new invoice from ${clin
 
 Amount Due: ${amount}
 Due Date: ${dueDate}
-Invoice #: ${(invoice.metadata as any)?.invoiceNumber || invoice.id}
+Invoice #: ${(invoice.metadata as InvoiceMetadata)?.invoiceNumber || invoice.id}
 
 Pay now: ${paymentUrl}
 

@@ -233,7 +233,7 @@ export async function regenerateBackupCodes(userId: number): Promise<string[]> {
     await prisma.user.update({
       where: { id: userId },
       data: {
-        twoFactorBackupCodes: hashedCodes as any // Store as JSON
+        twoFactorBackupCodes: hashedCodes // Prisma JSON field accepts string[]
       }
     });
 
@@ -279,7 +279,7 @@ async function verifyBackupCode(
   await prisma.user.update({
     where: { id: userId },
     data: {
-      twoFactorBackupCodes: updatedCodes as any // Store as JSON
+      twoFactorBackupCodes: updatedCodes // Prisma JSON field accepts string[]
     }
   });
 
@@ -339,7 +339,7 @@ async function storeTwoFactorSecret(
     where: { id: userId },
     data: {
       twoFactorSecret: encryptedSecret,
-      twoFactorBackupCodes: hashedBackupCodes as any // Store as JSON
+      twoFactorBackupCodes: hashedBackupCodes // Prisma JSON field accepts string[]
     }
   });
 }

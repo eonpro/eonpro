@@ -68,6 +68,7 @@ export default function ProgressPage() {
   const [patientId, setPatientId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('weight');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState('');
 
@@ -149,6 +150,7 @@ export default function ProgressPage() {
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      setError('Failed to load health data. Please check your connection and try again.');
     }
   };
 
@@ -285,6 +287,28 @@ export default function ProgressPage() {
           className="h-10 w-10 animate-spin rounded-full border-[3px] border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
         />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center p-4">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 max-w-md text-center">
+          <Activity className="w-12 h-12 mx-auto mb-3 text-red-300" />
+          <p className="font-medium mb-2">Error Loading Health Data</p>
+          <p className="text-sm">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              if (patientId) fetchData();
+            }}
+            className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-sm font-medium transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }

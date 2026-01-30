@@ -443,11 +443,14 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
         result = { success: false, error: 'Unknown payout method' };
     }
 
-    // Update payout with result
+    // Update payout with result - status is PayoutStatus enum
+    const payoutStatus = result.success 
+      ? (result.status as 'PROCESSING' | 'COMPLETED') 
+      : 'FAILED';
     await prisma.affiliatePayout.update({
       where: { id: payout.id },
       data: {
-        status: result.success ? (result.status as any) : 'FAILED',
+        status: payoutStatus,
         stripeTransferId: methodType === 'STRIPE_CONNECT' ? result.externalId : undefined,
         paypalBatchId: methodType === 'PAYPAL' ? result.externalId : undefined,
         failedAt: result.success ? undefined : new Date(),

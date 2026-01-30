@@ -87,7 +87,7 @@ export async function findPatientByEmail(
 ): Promise<Patient | null> {
   const normalizedEmail = email.toLowerCase().trim();
 
-  const where: any = {
+  const where: { email: { equals: string; mode: 'insensitive' }; clinicId?: number } = {
     email: {
       equals: normalizedEmail,
       mode: 'insensitive',
@@ -126,7 +126,7 @@ export async function findPatientByPhone(
       : null,
   ].filter(Boolean) as string[];
 
-  const where: any = {
+  const where: { OR: { phone: { contains: string } }[]; clinicId?: number } = {
     OR: phoneVariants.map(p => ({
       phone: { contains: p },
     })),
@@ -150,7 +150,11 @@ export async function findPatientByName(
   lastName: string,
   clinicId?: number
 ): Promise<Patient | null> {
-  const where: any = {
+  const where: {
+    firstName: { equals: string; mode: 'insensitive' };
+    lastName: { equals: string; mode: 'insensitive' };
+    clinicId?: number;
+  } = {
     firstName: {
       equals: firstName.trim(),
       mode: 'insensitive',
@@ -453,8 +457,8 @@ export async function createPaidInvoiceFromStripe(
  */
 export function extractPaymentDataFromCharge(charge: Stripe.Charge): StripePaymentData {
   const billing = charge.billing_details;
-  // Access invoice field - exists on Charge but not in all TS definitions
-  const chargeInvoice = (charge as any).invoice;
+  // Access invoice field - exists on Charge but may be typed as string | null
+  const chargeInvoice = charge.invoice;
 
   return {
     customerId: typeof charge.customer === 'string' ? charge.customer : charge.customer?.id || null,
@@ -486,8 +490,8 @@ export function extractPaymentDataFromPaymentIntent(
   const charge = paymentIntent.latest_charge;
   const chargeObj = typeof charge === 'object' ? charge as Stripe.Charge : null;
   const billing = chargeObj?.billing_details;
-  // Access invoice field - exists on PaymentIntent but not in all TS definitions
-  const piInvoice = (paymentIntent as any).invoice;
+  // Access invoice field from PaymentIntent
+  const piInvoice = paymentIntent.invoice;
 
   return {
     customerId: typeof paymentIntent.customer === 'string'
@@ -565,8 +569,8 @@ export async function processStripePayment(
           invoice: existing.invoiceId ? await prisma.invoice.findUnique({ where: { id: existing.invoiceId } }) : null,
           matchResult: {
             patient: null,
-            matchedBy: existing.matchedBy as any,
-            confidence: existing.matchConfidence as any
+            matchedBy: existing.matchedBy as PatientMatchResult['matchedBy'],
+            confidence: existing.matchConfidence as PatientMatchResult['confidence']
           },
           patientCreated: existing.patientCreated,
         };
