@@ -40,10 +40,10 @@ export async function GET(request: NextRequest) {
       });
 
       // Calculate totals
-      const totalGross = recentPayments.reduce((sum: number, p) => sum + p.amount, 0);
+      const totalGross = recentPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
       
       // Estimate fees (approximately 2.9% + $0.30 per transaction for Stripe)
-      const stripeFees = Math.round(recentPayments.reduce((sum: number, p) => {
+      const stripeFees = Math.round(recentPayments.reduce((sum: number, p: { amount: number }) => {
         return sum + (p.amount * 0.029) + 30; // 2.9% + $0.30 in cents
       }, 0));
       
