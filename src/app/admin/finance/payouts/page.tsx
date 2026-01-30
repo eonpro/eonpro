@@ -92,44 +92,65 @@ export default function PayoutsPage() {
   const [data, setData] = useState<PayoutData | null>(null);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setData({
-        balance: {
-          available: 4523100,
-          pending: 1234500,
-          reserved: 50000,
-        },
-        upcomingPayouts: [
-          { id: 'po_1', amount: 1234500, arrivalDate: '2024-03-15', status: 'pending', bankAccount: '****4242' },
-          { id: 'po_2', amount: 2345600, arrivalDate: '2024-03-18', status: 'pending', bankAccount: '****4242' },
-        ],
-        payoutHistory: [
-          { id: 'po_3', amount: 4567800, fees: 132500, net: 4435300, arrivalDate: '2024-03-08', status: 'paid' },
-          { id: 'po_4', amount: 3456700, fees: 100200, net: 3356500, arrivalDate: '2024-03-01', status: 'paid' },
-          { id: 'po_5', amount: 5678900, fees: 164900, net: 5514000, arrivalDate: '2024-02-22', status: 'paid' },
-          { id: 'po_6', amount: 4234500, fees: 122800, net: 4111700, arrivalDate: '2024-02-15', status: 'paid' },
-          { id: 'po_7', amount: 3987600, fees: 115700, net: 3871900, arrivalDate: '2024-02-08', status: 'paid' },
-        ],
-        feeBreakdown: {
-          stripeFees: 385000,
-          platformFees: 125000,
-          refundFees: 15000,
-          disputeFees: 7500,
-          totalFees: 532500,
-          feePercentage: 2.9,
-        },
-        monthlyPayouts: [
-          { month: '2024-01', gross: 12500000, fees: 362500, net: 12137500 },
-          { month: '2024-02', gross: 14200000, fees: 411800, net: 13788200 },
-          { month: '2024-03', gross: 11800000, fees: 342200, net: 11457800 },
-        ],
-        bankAccounts: [
-          { id: 'ba_1', bankName: 'Chase Bank', last4: '4242', isDefault: true },
-        ],
-      });
-      setLoading(false);
-    }, 1000);
+    const loadPayoutData = async () => {
+      try {
+        const token = localStorage.getItem('auth-token') || 
+                      localStorage.getItem('super_admin-token') || 
+                      localStorage.getItem('admin-token') ||
+                      localStorage.getItem('token');
+
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch('/api/finance/payouts', {
+          credentials: 'include',
+          headers,
+        });
+
+        if (response.ok) {
+          const payoutData = await response.json();
+          setData(payoutData);
+        } else {
+          // Set empty data structure if API fails
+          setData({
+            balance: { available: 0, pending: 0, reserved: 0 },
+            upcomingPayouts: [],
+            payoutHistory: [],
+            feeBreakdown: {
+              stripeFees: 0,
+              platformFees: 0,
+              refundFees: 0,
+              disputeFees: 0,
+              totalFees: 0,
+              feePercentage: 0,
+            },
+            monthlyPayouts: [],
+            bankAccounts: [],
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load payout data:', error);
+        setData({
+          balance: { available: 0, pending: 0, reserved: 0 },
+          upcomingPayouts: [],
+          payoutHistory: [],
+          feeBreakdown: {
+            stripeFees: 0,
+            platformFees: 0,
+            refundFees: 0,
+            disputeFees: 0,
+            totalFees: 0,
+            feePercentage: 0,
+          },
+          monthlyPayouts: [],
+          bankAccounts: [],
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPayoutData();
   }, []);
 
   if (loading) {
@@ -298,23 +319,30 @@ export default function PayoutsPage() {
         {/* Monthly Payout Chart */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Payout Trend</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={displayData.monthlyPayouts}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} />
-              <YAxis 
-                tick={{ fontSize: 12, fill: '#6B7280' }}
-                tickFormatter={(value) => formatCurrencyCompact(value)}
-              />
-              <Tooltip 
-                formatter={(value) => formatCurrency(value as number)}
-                contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
-              />
-              <Legend />
-              <Bar dataKey="gross" name="Gross" fill="#10B981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="fees" name="Fees" fill="#EF4444" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {displayData.monthlyPayouts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[250px] text-gray-400">
+              <TrendingUp className="h-12 w-12 mb-3" />
+              <p className="text-gray-500">No payout history available</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={displayData.monthlyPayouts}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} />
+                <YAxis 
+                  tick={{ fontSize: 12, fill: '#6B7280' }}
+                  tickFormatter={(value) => formatCurrencyCompact(value)}
+                />
+                <Tooltip 
+                  formatter={(value) => formatCurrency(value as number)}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
+                />
+                <Legend />
+                <Bar dataKey="gross" name="Gross" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="fees" name="Fees" fill="#EF4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -323,67 +351,83 @@ export default function PayoutsPage() {
         <div className="p-5 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Payout History</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fees</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {displayData.payoutHistory.map((payout) => (
-                <tr key={payout.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(payout.arrivalDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatCurrency(payout.amount)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                    -{formatCurrency(payout.fees)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">
-                    {formatCurrency(payout.net)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(payout.status)}`}>
-                      {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
-                    </span>
-                  </td>
+        {displayData.payoutHistory.length === 0 ? (
+          <div className="p-8 text-center">
+            <Wallet className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No payout history available</p>
+            <p className="text-sm text-gray-400 mt-1">Payouts will appear here once processed</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fees</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {displayData.payoutHistory.map((payout) => (
+                  <tr key={payout.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(payout.arrivalDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatCurrency(payout.amount)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                      -{formatCurrency(payout.fees)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">
+                      {formatCurrency(payout.net)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(payout.status)}`}>
+                        {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Bank Account */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Bank Account</h3>
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white rounded-lg border border-gray-200">
-              <Building2 className="h-6 w-6 text-gray-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                {displayData.bankAccounts[0].bankName}
-              </p>
-              <p className="text-sm text-gray-500">
-                Account ending in {displayData.bankAccounts[0].last4}
-              </p>
-            </div>
+        {displayData.bankAccounts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-gray-400">
+            <Building2 className="h-12 w-12 mb-3" />
+            <p className="text-gray-500">No bank account connected</p>
+            <p className="text-sm text-gray-400 mt-1">Connect a bank account in Stripe to receive payouts</p>
           </div>
-          {displayData.bankAccounts[0].isDefault && (
-            <span className="inline-flex px-3 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">
-              Default
-            </span>
-          )}
-        </div>
+        ) : (
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white rounded-lg border border-gray-200">
+                <Building2 className="h-6 w-6 text-gray-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  {displayData.bankAccounts[0].bankName}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Account ending in {displayData.bankAccounts[0].last4}
+                </p>
+              </div>
+            </div>
+            {displayData.bankAccounts[0].isDefault && (
+              <span className="inline-flex px-3 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">
+                Default
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

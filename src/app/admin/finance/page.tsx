@@ -364,7 +364,7 @@ export default function FinanceOverviewPage() {
                       <p className={`text-sm font-semibold ${
                         activity.type === 'refund' ? 'text-red-600' : 'text-gray-900'
                       }`}>
-                        {activity.type === 'refund' ? '-' : '+'}{formatCurrencyFull(activity.amount)}
+                        {activity.type === 'refund' ? '-' : '+'}{formatCurrencyFull(activity.amount || 0)}
                       </p>
                     </div>
                   </div>

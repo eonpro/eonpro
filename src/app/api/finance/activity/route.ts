@@ -59,7 +59,12 @@ export async function GET(request: NextRequest) {
           where: { clinicId },
           orderBy: { createdAt: 'desc' },
           take: limit,
-          include: {
+          select: {
+            id: true,
+            amount: true,
+            amountPaid: true,
+            status: true,
+            createdAt: true,
             patient: {
               select: {
                 firstName: true,
@@ -143,7 +148,7 @@ export async function GET(request: NextRequest) {
           id: invoice.id + 100000, // Offset to avoid ID collision
           type: 'invoice',
           description,
-          amount: invoice.total,
+          amount: invoice.amountPaid || invoice.amount || 0,
           status: invoice.status.toLowerCase(),
           timestamp: formatDistanceToNow(new Date(invoice.createdAt), { addSuffix: true }),
           createdAt: invoice.createdAt,

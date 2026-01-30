@@ -21,12 +21,19 @@ import {
 
 interface Invoice {
   id: number;
-  invoiceNumber: string;
-  patientId: number;
-  patientName: string;
-  patientEmail: string;
+  invoiceNumber?: string;
+  stripeInvoiceId?: string;
+  patient?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  description?: string;
   amount: number;
-  status: 'DRAFT' | 'OPEN' | 'PAID' | 'VOID' | 'UNCOLLECTIBLE';
+  total?: number;
+  amountPaid?: number;
+  status: 'DRAFT' | 'OPEN' | 'PAID' | 'VOID' | 'UNCOLLECTIBLE' | 'SENT';
   dueDate: string | null;
   paidAt: string | null;
   createdAt: string;
@@ -72,8 +79,8 @@ export default function InvoicesPage() {
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '20',
+        limit: '100', // Get more to calculate stats
+        offset: ((page - 1) * 20).toString(),
         ...(statusFilter !== 'all' && { status: statusFilter }),
       });
 
@@ -87,22 +94,37 @@ export default function InvoicesPage() {
         setInvoices(data.invoices || []);
         setTotalPages(Math.ceil((data.total || 0) / 20));
         
-        // Calculate stats
-        const outstanding = data.invoices?.filter((i: Invoice) => i.status === 'OPEN') || [];
+        // Calculate stats from all invoices
+        const allInvoices = data.invoices || [];
+        const outstanding = allInvoices.filter((i: Invoice) => i.status === 'OPEN' || i.status === 'SENT');
         const overdue = outstanding.filter((i: Invoice) => 
           i.dueDate && new Date(i.dueDate) < new Date()
         );
         
+        // Get paid invoices - using amountPaid if available, otherwise amount
+        const paidInvoices = allInvoices.filter((i: Invoice) => i.status === 'PAID');
+        const paidTotal = paidInvoices.reduce((sum: number, i: Invoice) => 
+          sum + (i.amountPaid || i.amount || 0), 0
+        );
+        
         setStats({
-          totalOutstanding: outstanding.reduce((sum: number, i: Invoice) => sum + i.amount, 0),
-          overdueAmount: overdue.reduce((sum: number, i: Invoice) => sum + i.amount, 0),
-          paidThisMonth: data.invoices?.filter((i: Invoice) => i.status === 'PAID')
-            .reduce((sum: number, i: Invoice) => sum + i.amount, 0) || 0,
-          averagePaymentTime: 5.2, // Mock data
+          totalOutstanding: outstanding.reduce((sum: number, i: Invoice) => sum + (i.amount || 0), 0),
+          overdueAmount: overdue.reduce((sum: number, i: Invoice) => sum + (i.amount || 0), 0),
+          paidThisMonth: paidTotal,
+          averagePaymentTime: 0, // Will be calculated from actual data when available
+        });
+      } else {
+        setInvoices([]);
+        setStats({
+          totalOutstanding: 0,
+          overdueAmount: 0,
+          paidThisMonth: 0,
+          averagePaymentTime: 0,
         });
       }
     } catch (error) {
       console.error('Failed to load invoices:', error);
+      setInvoices([]);
     } finally {
       setLoading(false);
     }
@@ -119,11 +141,23 @@ export default function InvoicesPage() {
     }
   };
 
-  const filteredInvoices = invoices.filter(inv =>
-    inv.patientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.patientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter invoices by search query
+  const filteredInvoices = searchQuery.trim() === '' 
+    ? invoices 
+    : invoices.filter(inv => {
+        const query = searchQuery.toLowerCase();
+        const patientName = inv.patient 
+          ? `${inv.patient.firstName} ${inv.patient.lastName}`.toLowerCase()
+          : '';
+        const patientEmail = inv.patient?.email?.toLowerCase() || '';
+        const invoiceNumber = inv.invoiceNumber?.toLowerCase() || inv.stripeInvoiceId?.toLowerCase() || '';
+        const description = inv.description?.toLowerCase() || '';
+        
+        return patientName.includes(query) ||
+               patientEmail.includes(query) ||
+               invoiceNumber.includes(query) ||
+               description.includes(query);
+      });
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -245,46 +279,54 @@ export default function InvoicesPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredInvoices.map((invoice) => (
-                      <tr key={invoice.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-medium text-gray-900">{invoice.invoiceNumber || `INV-${invoice.id}`}</p>
-                          <p className="text-xs text-gray-400">{new Date(invoice.createdAt).toLocaleDateString()}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-medium text-gray-900">{invoice.patientName || 'Unknown'}</p>
-                          <p className="text-sm text-gray-500">{invoice.patientEmail}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-semibold text-gray-900">{formatCurrency(invoice.amount)}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(invoice.status)}`}>
-                            {invoice.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-gray-600">
-                            {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : '-'}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            {invoice.status === 'DRAFT' && (
-                              <button className="p-1.5 hover:bg-gray-100 rounded" title="Send">
-                                <Send className="h-4 w-4 text-gray-500" />
+                    filteredInvoices.map((invoice) => {
+                      const patientName = invoice.patient 
+                        ? `${invoice.patient.firstName} ${invoice.patient.lastName}`.trim()
+                        : 'Unknown';
+                      const patientEmail = invoice.patient?.email || '';
+                      const invoiceNumber = invoice.invoiceNumber || invoice.stripeInvoiceId || `INV-${invoice.id}`;
+                      
+                      return (
+                        <tr key={invoice.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-medium text-gray-900">{invoiceNumber}</p>
+                            <p className="text-xs text-gray-400">{new Date(invoice.createdAt).toLocaleDateString()}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-medium text-gray-900">{patientName}</p>
+                            <p className="text-sm text-gray-500">{patientEmail}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-semibold text-gray-900">{formatCurrency(invoice.amount || 0)}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(invoice.status)}`}>
+                              {invoice.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-600">
+                              {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : '-'}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              {invoice.status === 'DRAFT' && (
+                                <button className="p-1.5 hover:bg-gray-100 rounded" title="Send">
+                                  <Send className="h-4 w-4 text-gray-500" />
+                                </button>
+                              )}
+                              <button className="p-1.5 hover:bg-gray-100 rounded" title="Download">
+                                <Download className="h-4 w-4 text-gray-500" />
                               </button>
-                            )}
-                            <button className="p-1.5 hover:bg-gray-100 rounded" title="Download">
-                              <Download className="h-4 w-4 text-gray-500" />
-                            </button>
-                            <button className="p-1.5 hover:bg-gray-100 rounded" title="More">
-                              <MoreVertical className="h-4 w-4 text-gray-500" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              <button className="p-1.5 hover:bg-gray-100 rounded" title="More">
+                                <MoreVertical className="h-4 w-4 text-gray-500" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

@@ -90,13 +90,13 @@ export default function FinanceSettingsPage() {
     );
   }
 
-  // Mock Stripe status for demonstration
-  const mockStripeStatus: StripeStatus = stripeStatus || {
-    connected: true,
-    accountId: 'acct_1234567890',
-    chargesEnabled: true,
-    payoutsEnabled: true,
-    detailsSubmitted: true,
+  // Use real Stripe status or disconnected state
+  const displayStripeStatus: StripeStatus = stripeStatus || {
+    connected: false,
+    accountId: null,
+    chargesEnabled: false,
+    payoutsEnabled: false,
+    detailsSubmitted: false,
   };
 
   return (
@@ -119,7 +119,7 @@ export default function FinanceSettingsPage() {
               <p className="text-sm text-gray-500">Payment processing configuration</p>
             </div>
           </div>
-          {mockStripeStatus.connected ? (
+          {displayStripeStatus.connected ? (
             <span className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium">
               <CheckCircle className="h-4 w-4" />
               Connected
@@ -132,19 +132,19 @@ export default function FinanceSettingsPage() {
           )}
         </div>
 
-        {mockStripeStatus.connected ? (
+        {displayStripeStatus.connected ? (
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-500">Account ID</p>
-              <p className="text-sm font-mono text-gray-900">{mockStripeStatus.accountId}</p>
+              <p className="text-sm font-mono text-gray-900">{displayStripeStatus.accountId}</p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-500">Status</p>
               <div className="flex items-center gap-2 mt-1">
-                {mockStripeStatus.chargesEnabled && (
+                {displayStripeStatus.chargesEnabled && (
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Charges</span>
                 )}
-                {mockStripeStatus.payoutsEnabled && (
+                {displayStripeStatus.payoutsEnabled && (
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Payouts</span>
                 )}
               </div>

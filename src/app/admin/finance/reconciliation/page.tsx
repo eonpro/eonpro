@@ -67,108 +67,61 @@ export default function ReconciliationPage() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setStats({
-        totalUnmatched: 24,
-        matchedToday: 156,
-        createdToday: 12,
-        skippedToday: 3,
-        autoMatchRate: 87.5,
-      });
+    const loadReconciliationData = async () => {
+      try {
+        const token = localStorage.getItem('auth-token') || 
+                      localStorage.getItem('super_admin-token') || 
+                      localStorage.getItem('admin-token') ||
+                      localStorage.getItem('token');
 
-      setUnmatchedPayments([
-        {
-          id: 1,
-          stripePaymentId: 'pi_3P1234567890',
-          amount: 29900,
-          email: 'john.smith@email.com',
-          name: 'John Smith',
-          date: '2024-03-10T10:30:00Z',
-          status: 'pending',
-          confidence: 92,
-          suggestedPatientId: 123,
-          suggestedPatientName: 'John A. Smith',
-        },
-        {
-          id: 2,
-          stripePaymentId: 'pi_3P2345678901',
-          amount: 49900,
-          email: 'sarah.johnson@gmail.com',
-          name: 'Sarah Johnson',
-          date: '2024-03-10T09:15:00Z',
-          status: 'pending',
-          confidence: 78,
-          suggestedPatientId: 456,
-          suggestedPatientName: 'Sarah M. Johnson',
-        },
-        {
-          id: 3,
-          stripePaymentId: 'pi_3P3456789012',
-          amount: 19900,
-          email: 'newpatient@example.com',
-          name: 'Michael Brown',
-          date: '2024-03-10T08:45:00Z',
-          status: 'pending',
-          confidence: 0,
-          suggestedPatientId: null,
-          suggestedPatientName: null,
-        },
-        {
-          id: 4,
-          stripePaymentId: 'pi_3P4567890123',
-          amount: 39900,
-          email: 'emily.d@company.com',
-          name: 'Emily Davis',
-          date: '2024-03-09T16:20:00Z',
-          status: 'pending',
-          confidence: 65,
-          suggestedPatientId: 789,
-          suggestedPatientName: 'Emily R. Davis',
-        },
-      ]);
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      setRules([
-        {
-          id: 1,
-          name: 'Email Exact Match',
-          description: 'Match payments where Stripe email exactly matches patient email',
-          priority: 1,
-          matchType: 'email',
-          isActive: true,
-          matchCount: 1245,
-        },
-        {
-          id: 2,
-          name: 'Phone Number Match',
-          description: 'Match using normalized phone number from Stripe metadata',
-          priority: 2,
-          matchType: 'phone',
-          isActive: true,
-          matchCount: 456,
-        },
-        {
-          id: 3,
-          name: 'Name Fuzzy Match',
-          description: 'Match using fuzzy name comparison (>80% similarity)',
-          priority: 3,
-          matchType: 'name',
-          isActive: true,
-          matchCount: 234,
-        },
-        {
-          id: 4,
-          name: 'Email Domain + Name',
-          description: 'Match by email domain and partial name match',
-          priority: 4,
-          matchType: 'custom',
-          isActive: false,
-          matchCount: 78,
-        },
-      ]);
+        const response = await fetch('/api/finance/reconciliation', {
+          credentials: 'include',
+          headers,
+        });
 
-      setLoading(false);
-    }, 1000);
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data.stats || {
+            totalUnmatched: 0,
+            matchedToday: 0,
+            createdToday: 0,
+            skippedToday: 0,
+            autoMatchRate: 0,
+          });
+          setUnmatchedPayments(data.unmatchedPayments || []);
+          setRules(data.rules || []);
+        } else {
+          // Set empty defaults
+          setStats({
+            totalUnmatched: 0,
+            matchedToday: 0,
+            createdToday: 0,
+            skippedToday: 0,
+            autoMatchRate: 0,
+          });
+          setUnmatchedPayments([]);
+          setRules([]);
+        }
+      } catch (error) {
+        console.error('Failed to load reconciliation data:', error);
+        setStats({
+          totalUnmatched: 0,
+          matchedToday: 0,
+          createdToday: 0,
+          skippedToday: 0,
+          autoMatchRate: 0,
+        });
+        setUnmatchedPayments([]);
+        setRules([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReconciliationData();
   }, []);
 
   const handleMatchPayment = async (paymentId: number, patientId: number) => {
