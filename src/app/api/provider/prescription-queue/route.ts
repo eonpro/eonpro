@@ -540,11 +540,36 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         dataLength: documentData ? (documentData as Buffer).length : 0,
       });
 
+      // DEBUG: Log metadata keys to understand what data we have
+      const metadataKeys = metadata ? Object.keys(metadata) : [];
+      const hasGlp1InMetadata = metadataKeys.some(k =>
+        k.toLowerCase().includes('glp1') || k.toLowerCase().includes('glp-1')
+      );
+
+      logger.info('[PRESCRIPTION-QUEUE] GLP-1 data sources', {
+        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+        patientId: invoice.patient.id,
+        hasDocumentData: !!documentData,
+        documentDataLength: documentData ? (documentData as Buffer).length : 0,
+        hasMetadata: !!metadata,
+        metadataKeys: metadataKeys.slice(0, 20),
+        hasGlp1InMetadata,
+        // Check for specific Airtable fields in metadata
+        'glp1-last-30': metadata?.['glp1-last-30'],
+        'glp1_last_30': metadata?.['glp1_last_30'],
+      });
+
       const glp1Info = extractGlp1Info(
         metadata,
         documentData,
         `${invoice.patient.firstName} ${invoice.patient.lastName}`
       );
+
+      // DEBUG: Log extraction result
+      logger.info('[PRESCRIPTION-QUEUE] GLP-1 extraction result', {
+        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+        glp1Info,
+      });
 
       if (metadata) {
         treatment = (metadata.product as string) || treatment;
