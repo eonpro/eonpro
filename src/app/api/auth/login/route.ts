@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { strictRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
@@ -76,8 +76,9 @@ async function loginHandler(req: NextRequest) {
       // Fallback to legacy tables for backward compatibility
       switch (role) {
         case 'provider':
-          // Legacy provider lookup - provider table may have different schema
-          const provider = await prisma.provider.findFirst({
+          // Legacy provider lookup - use basePrisma to bypass clinic filtering
+          // since providers can be shared across clinics
+          const provider = await basePrisma.provider.findFirst({
             where: { email: email.toLowerCase() },
           });
           if (provider) {
@@ -314,8 +315,9 @@ async function loginHandler(req: NextRequest) {
     } else if (userRole === 'provider') {
       // FALLBACK: Look up provider by email if not already linked
       // This handles cases where the User record exists but providerId wasn't set
+      // Use basePrisma to bypass clinic filtering since providers can be shared
       try {
-        const providerByEmail = await prisma.provider.findFirst({
+        const providerByEmail = await basePrisma.provider.findFirst({
           where: { email: user.email.toLowerCase() },
           select: { id: true, clinicId: true },
         });
@@ -409,8 +411,9 @@ async function loginHandler(req: NextRequest) {
       });
 
       // Also update Provider.lastLogin if user has a linked provider
+      // Use basePrisma to bypass clinic filtering since providers can be shared
       if (tokenPayload.providerId) {
-        await prisma.provider.update({
+        await basePrisma.provider.update({
           where: { id: tokenPayload.providerId },
           data: { lastLogin: loginTime },
         }).catch((error: Error) => {

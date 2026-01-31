@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
@@ -33,8 +33,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       });
     }
 
-    // Try to find provider by email
-    const provider = await prisma.provider.findFirst({
+    // Try to find provider by email - use basePrisma to bypass clinic filtering
+    // since providers can be shared across clinics
+    const provider = await basePrisma.provider.findFirst({
       where: { email: user.email },
     });
 

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, SignJWT } from 'jose';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/db';
+import { basePrisma as prisma } from '@/lib/db';
 
 /**
  * POST /api/auth/refresh-token

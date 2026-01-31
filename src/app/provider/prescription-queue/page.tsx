@@ -793,7 +793,7 @@ export default function PrescriptionQueuePage() {
     <div className="min-h-screen" style={{ backgroundColor: '#efece7' }}>
       {/* Header */}
       <div className="border-b border-gray-200 sticky top-0 z-10" style={{ backgroundColor: '#efece7' }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {/* MedLink Logo */}
@@ -830,7 +830,7 @@ export default function PrescriptionQueuePage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {/* Success/Error Messages */}
         {successMessage && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 animate-in slide-in-from-top duration-300">
@@ -890,8 +890,8 @@ export default function PrescriptionQueuePage() {
                 className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md"
               >
                 {/* Main Card Content */}
-                <div className="p-4 sm:p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="p-4 sm:p-5 overflow-x-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 min-w-fit">
                     {/* Patient Info */}
                     <div className="flex items-center gap-4 min-w-[200px]">
                       <div className="w-12 h-12 bg-gradient-to-br from-rose-100 to-rose-200 rounded-full flex items-center justify-center flex-shrink-0">

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { strictRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/db';
+import { basePrisma as prisma } from '@/lib/db';
 import {
   generateOTP,
   storeVerificationCode,
