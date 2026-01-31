@@ -143,7 +143,7 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
       prisma.ticket.count({
         where: {
           clinicId,
-          status: { in: ['open', 'in_progress', 'waiting_on_customer'] },
+          status: { in: ['OPEN', 'IN_PROGRESS', 'PENDING'] },
         },
       }),
 
