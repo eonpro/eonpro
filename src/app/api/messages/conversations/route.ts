@@ -18,8 +18,15 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
     const conversations = await runWithClinicContext(clinicId, async () => {
+      // Build where clause with proper clinic filtering
+      const whereClause: Record<string, unknown> = {};
+      if (clinicId) {
+        whereClause.clinicId = clinicId;
+      }
+
       // Get all patients with their latest chat message
       const patients = await prisma.patient.findMany({
+        where: whereClause,
         select: {
           id: true,
           firstName: true,
@@ -31,16 +38,16 @@ async function getHandler(request: NextRequest, user: AuthUser) {
               id: true,
               message: true,
               createdAt: true,
-              isFromPatient: true,
-              isRead: true,
+              direction: true,
+              readAt: true,
             }
           },
           _count: {
             select: {
               chatMessages: {
                 where: {
-                  isFromPatient: true,
-                  isRead: false
+                  direction: 'INBOUND', // Patient -> Staff messages
+                  readAt: null // Not read yet
                 }
               }
             }

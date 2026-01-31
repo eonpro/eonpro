@@ -17,9 +17,14 @@
  * @module lib/auth/get-provider-for-user
  */
 
-import { prisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { AuthUser } from './middleware';
+
+// CRITICAL: We use basePrisma (without clinic filtering) because:
+// 1. Providers can belong to multiple clinics
+// 2. The clinic filter in the token may not match the provider's primary clinicId
+// 3. Provider lookup should work regardless of which clinic is active in the session
 
 export interface ProviderLookupResult {
   id: number;
@@ -88,7 +93,7 @@ export async function getProviderForUser(
   // ============================================================================
   if (!skipDatabaseRefresh) {
     try {
-      const currentUserData = await prisma.user.findUnique({
+      const currentUserData = await basePrisma.user.findUnique({
         where: { id: user.id },
         select: {
           providerId: true,
@@ -100,7 +105,7 @@ export async function getProviderForUser(
 
       if (currentUserData?.providerId) {
         // User has providerId in database - use it even if token doesn't have it
-        provider = (await prisma.provider.findUnique({
+        provider = (await basePrisma.provider.findUnique({
           where: { id: currentUserData.providerId },
           select: baseSelect,
         })) as ProviderLookupResult | null;
@@ -118,7 +123,7 @@ export async function getProviderForUser(
 
       // Also check if there's a provider with matching email that we should auto-link
       if (currentUserData?.email && !currentUserData.providerId) {
-        const providerByEmail = await prisma.provider.findFirst({
+        const providerByEmail = await basePrisma.provider.findFirst({
           where: { email: { equals: currentUserData.email, mode: 'insensitive' } },
           select: { ...baseSelect, email: true },
         });
@@ -126,7 +131,7 @@ export async function getProviderForUser(
         if (providerByEmail) {
           // Auto-link the user to this provider for future requests
           try {
-            await prisma.user.update({
+            await basePrisma.user.update({
               where: { id: user.id },
               data: { providerId: providerByEmail.id },
             });
@@ -166,7 +171,7 @@ export async function getProviderForUser(
   // STRATEGY 1: Direct providerId from token (fast path)
   // ============================================================================
   if (user.providerId) {
-    provider = (await prisma.provider.findUnique({
+    provider = (await basePrisma.provider.findUnique({
       where: { id: user.providerId },
       select: baseSelect,
     })) as ProviderLookupResult | null;
@@ -185,7 +190,7 @@ export async function getProviderForUser(
   // STRATEGY 2: Email match fallback (case-insensitive)
   // ============================================================================
   if (user.email) {
-    provider = (await prisma.provider.findFirst({
+    provider = (await basePrisma.provider.findFirst({
       where: {
         email: { equals: user.email, mode: 'insensitive' },
       },
@@ -207,13 +212,13 @@ export async function getProviderForUser(
   // STRATEGY 3: Name match (optional, slower)
   // ============================================================================
   if (tryNameMatch) {
-    const userData = await prisma.user.findUnique({
+    const userData = await basePrisma.user.findUnique({
       where: { id: user.id },
       select: { firstName: true, lastName: true },
     });
 
     if (userData?.firstName && userData?.lastName) {
-      provider = (await prisma.provider.findFirst({
+      provider = (await basePrisma.provider.findFirst({
         where: {
           firstName: { equals: userData.firstName, mode: 'insensitive' },
           lastName: { equals: userData.lastName, mode: 'insensitive' },
@@ -239,7 +244,7 @@ export async function getProviderForUser(
   if (user.clinicId && (user.role === 'provider' || user.role === 'admin')) {
     const emailDomain = user.email?.split('@')[1];
     if (emailDomain) {
-      provider = (await prisma.provider.findFirst({
+      provider = (await basePrisma.provider.findFirst({
         where: {
           clinicId: user.clinicId,
           email: { endsWith: `@${emailDomain}`, mode: 'insensitive' },
