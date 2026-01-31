@@ -37,13 +37,15 @@ export interface ConnectedAccountStatus {
 }
 
 // Platform Stripe client (singleton)
+// Uses STRIPE_PLATFORM_SECRET_KEY (EonMeds main account) for Connect operations
 let platformStripe: Stripe | null = null;
 
 function getPlatformStripe(): Stripe {
   if (!platformStripe) {
-    const secretKey = process.env.STRIPE_SECRET_KEY;
+    // New naming convention first, then legacy fallback
+    const secretKey = process.env.STRIPE_PLATFORM_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
     if (!secretKey) {
-      throw new Error('STRIPE_SECRET_KEY not configured');
+      throw new Error('STRIPE_PLATFORM_SECRET_KEY not configured');
     }
     platformStripe = new Stripe(secretKey, {
       apiVersion: '2026-01-28.clover',

@@ -10,7 +10,8 @@ import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+// Use Platform Secret Key for Connect operations (EonMeds account)
+const stripe = new Stripe(process.env.STRIPE_PLATFORM_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2026-01-28.clover',
 });
 

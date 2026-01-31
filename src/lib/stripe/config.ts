@@ -54,9 +54,18 @@ let lastCacheTime = 0;
 /**
  * Get all possible Stripe key environment variables
  * Handles various naming conventions used across different deployment platforms
+ *
+ * NAMING CONVENTION:
+ * - STRIPE_PLATFORM_* = EonMeds main Stripe account (direct payments)
+ * - STRIPE_CONNECT_* = Stripe Connect for clinic account onboarding
+ *
+ * Legacy names are supported for backward compatibility
  */
 function getStripeSecretKey(): string | undefined {
   return (
+    // New naming convention (preferred)
+    process.env.STRIPE_PLATFORM_SECRET_KEY ||
+    // Legacy names (backward compatibility)
     process.env.STRIPE_SECRET_KEY ||
     process.env.STRIPE_API_KEY ||
     process.env.STRIPE_SK ||
@@ -67,6 +76,9 @@ function getStripeSecretKey(): string | undefined {
 
 function getStripePublishableKey(): string | undefined {
   return (
+    // New naming convention (preferred)
+    process.env.NEXT_PUBLIC_STRIPE_PLATFORM_PUBLISHABLE_KEY ||
+    // Legacy names (backward compatibility)
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
     process.env.STRIPE_PUBLISHABLE_KEY ||
     process.env.STRIPE_PK ||
@@ -77,6 +89,9 @@ function getStripePublishableKey(): string | undefined {
 
 function getStripeWebhookSecret(): string | undefined {
   return (
+    // New naming convention (preferred)
+    process.env.STRIPE_PLATFORM_WEBHOOK_SECRET ||
+    // Legacy names (backward compatibility)
     process.env.STRIPE_WEBHOOK_SECRET ||
     process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET ||
     process.env.STRIPE_WH_SECRET ||
@@ -126,7 +141,7 @@ export function requireStripeClient(): Stripe {
   
   if (!client) {
     throw new StripeConfigError(
-      'Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.',
+      'Stripe is not configured. Please set STRIPE_PLATFORM_SECRET_KEY environment variable.',
       'STRIPE_NOT_CONFIGURED'
     );
   }
@@ -164,7 +179,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
   
   // No secret key = not configured
   if (!secretKey) {
-    config.error = 'STRIPE_SECRET_KEY not found in environment';
+    config.error = 'STRIPE_PLATFORM_SECRET_KEY not found in environment';
     cachedConfig = config;
     lastCacheTime = now;
     return config;
@@ -172,7 +187,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
   
   // Validate key format
   if (!secretKey.startsWith('sk_')) {
-    config.error = 'Invalid STRIPE_SECRET_KEY format (should start with sk_)';
+    config.error = 'Invalid STRIPE_PLATFORM_SECRET_KEY format (should start with sk_)';
     cachedConfig = config;
     lastCacheTime = now;
     return config;

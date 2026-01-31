@@ -22,8 +22,12 @@ export {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Get API key with fallbacks for various naming conventions
+// NAMING: STRIPE_PLATFORM_* = EonMeds main account, STRIPE_CONNECT_* = clinic onboarding
 function getStripeSecretKey(): string | undefined {
   return (
+    // New naming convention (preferred)
+    process.env.STRIPE_PLATFORM_SECRET_KEY ||
+    // Legacy names (backward compatibility)
     process.env.STRIPE_SECRET_KEY ||
     process.env.STRIPE_API_KEY ||
     process.env.STRIPE_SK ||
@@ -42,7 +46,7 @@ export const stripe = stripeApiKey
     })
   : null;
 
-// Stripe configuration constants
+// Stripe configuration constants for EonMeds Platform Account
 export const STRIPE_CONFIG = {
   // Payment settings
   currency: 'usd' as const,
@@ -52,8 +56,8 @@ export const STRIPE_CONFIG = {
   invoiceDueDays: 30,
   collectionMethod: 'send_invoice' as const,
   
-  // Webhook endpoints
-  webhookEndpointSecret: process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET || '',
+  // Webhook endpoints (Platform webhooks)
+  webhookEndpointSecret: process.env.STRIPE_PLATFORM_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET || '',
   
   // Product/Price IDs (to be configured)
   products: {
@@ -81,12 +85,12 @@ export function getStripe(): Stripe {
   if (!stripe) {
     // Log detailed error for debugging
     logger.error('[STRIPE] Configuration Error', {
-      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
-      hasApiKey: !!process.env.STRIPE_API_KEY,
+      hasPlatformSecretKey: !!process.env.STRIPE_PLATFORM_SECRET_KEY,
+      hasLegacySecretKey: !!process.env.STRIPE_SECRET_KEY,
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV,
     });
-    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.');
+    throw new Error('Stripe is not configured. Please set STRIPE_PLATFORM_SECRET_KEY environment variable.');
   }
   return stripe;
 }

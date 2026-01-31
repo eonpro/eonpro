@@ -35,7 +35,14 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
   NEXT_PUBLIC_API_URL: z.string().url().optional(),
   
-  // Stripe
+  // Stripe Platform (EonMeds main account for direct payments)
+  STRIPE_PLATFORM_SECRET_KEY: z.string().optional(),
+  STRIPE_PLATFORM_WEBHOOK_SECRET: z.string().optional(),
+  NEXT_PUBLIC_STRIPE_PLATFORM_PUBLISHABLE_KEY: z.string().optional(),
+  // Stripe Connect (for clinic account onboarding)
+  STRIPE_CONNECT_CLIENT_ID: z.string().optional(),
+  STRIPE_CONNECT_WEBHOOK_SECRET: z.string().optional(),
+  // Legacy Stripe vars (backward compatibility)
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),

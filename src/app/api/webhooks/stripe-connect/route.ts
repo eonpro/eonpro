@@ -14,13 +14,13 @@ import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+// Initialize Stripe with Platform Secret Key (EonMeds account)
+const stripe = new Stripe(process.env.STRIPE_PLATFORM_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2026-01-28.clover',
 });
 
-// Webhook secret for Connect events (separate from regular webhook secret)
-const CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET;
+// Webhook secret for Connect events (separate from regular platform webhook secret)
+const CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
 /**
  * POST /api/webhooks/stripe-connect

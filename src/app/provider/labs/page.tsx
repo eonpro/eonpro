@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FlaskConical, Download, Eye, AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import { FlaskConical, Download, Eye, AlertCircle, CheckCircle, Clock, TrendingUp, TrendingDown, Construction } from "lucide-react";
 
 interface LabResult {
   id: string;
@@ -24,77 +24,8 @@ export default function ProviderLabsPage() {
   const [selectedLab, setSelectedLab] = useState<LabResult | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  // Mock lab results
-  const labResults: LabResult[] = [
-    {
-      id: "LAB001",
-      patientName: "Sarah Johnson",
-      testName: "Complete Blood Count (CBC)",
-      orderDate: "2024-01-28",
-      resultDate: "2024-01-29",
-      status: "completed",
-      provider: "Quest Diagnostics",
-      values: [
-        { name: "WBC", value: "7.2", unit: "K/uL", reference: "4.5-11.0" },
-        { name: "RBC", value: "4.5", unit: "M/uL", reference: "4.2-5.4" },
-        { name: "Hemoglobin", value: "13.8", unit: "g/dL", reference: "12.0-15.5" },
-        { name: "Hematocrit", value: "41.2", unit: "%", reference: "36-44" },
-        { name: "Platelets", value: "250", unit: "K/uL", reference: "150-450" }
-      ]
-    },
-    {
-      id: "LAB002",
-      patientName: "Michael Chen",
-      testName: "Lipid Panel",
-      orderDate: "2024-01-27",
-      resultDate: "2024-01-28",
-      status: "abnormal",
-      provider: "LabCorp",
-      values: [
-        { name: "Total Cholesterol", value: "245", unit: "mg/dL", reference: "<200", flag: "high" },
-        { name: "LDL", value: "165", unit: "mg/dL", reference: "<100", flag: "high" },
-        { name: "HDL", value: "38", unit: "mg/dL", reference: ">40", flag: "low" },
-        { name: "Triglycerides", value: "210", unit: "mg/dL", reference: "<150", flag: "high" }
-      ]
-    },
-    {
-      id: "LAB003",
-      patientName: "Emily Davis",
-      testName: "Thyroid Function Test",
-      orderDate: "2024-01-29",
-      status: "pending",
-      provider: "Quest Diagnostics"
-    },
-    {
-      id: "LAB004",
-      patientName: "James Wilson",
-      testName: "HbA1c",
-      orderDate: "2024-01-25",
-      resultDate: "2024-01-26",
-      status: "critical",
-      provider: "LabCorp",
-      values: [
-        { name: "HbA1c", value: "9.8", unit: "%", reference: "<5.7", flag: "critical" },
-        { name: "Estimated Average Glucose", value: "237", unit: "mg/dL", reference: "<126", flag: "critical" }
-      ]
-    },
-    {
-      id: "LAB005",
-      patientName: "Lisa Anderson",
-      testName: "Basic Metabolic Panel",
-      orderDate: "2024-01-28",
-      resultDate: "2024-01-29",
-      status: "completed",
-      provider: "Hospital Lab",
-      values: [
-        { name: "Glucose", value: "95", unit: "mg/dL", reference: "70-99" },
-        { name: "BUN", value: "18", unit: "mg/dL", reference: "7-20" },
-        { name: "Creatinine", value: "0.9", unit: "mg/dL", reference: "0.6-1.2" },
-        { name: "Sodium", value: "140", unit: "mEq/L", reference: "136-145" },
-        { name: "Potassium", value: "4.0", unit: "mEq/L", reference: "3.5-5.1" }
-      ]
-    }
-  ];
+  // No lab results - feature coming soon
+  const labResults: LabResult[] = [];
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -134,7 +65,10 @@ export default function ProviderLabsPage() {
             <FlaskConical className="h-6 w-6" />
             Lab Results
           </h1>
-          <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+          <button 
+            className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+            disabled
+          >
             Order New Lab
           </button>
         </div>
@@ -184,47 +118,60 @@ export default function ProviderLabsPage() {
         {/* Lab Results List */}
         <div className="col-span-2 bg-white rounded-lg shadow">
           <div className="p-6">
-            <div className="space-y-4">
-              {filteredResults.map((lab) => (
-                <div
-                  key={lab.id}
-                  onClick={() => setSelectedLab(lab)}
-                  className={`p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer ${
-                    selectedLab?.id === lab.id ? "border-indigo-500 bg-indigo-50" : ""
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{lab.patientName}</span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getStatusColor(lab.status)}`}>
-                          {getStatusIcon(lab.status)}
-                          {lab.status}
-                        </span>
+            {filteredResults.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
+                  <Construction className="h-8 w-8 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Lab Integration Coming Soon</h3>
+                <p className="text-gray-500 max-w-md mx-auto">
+                  Lab ordering and results management is currently in development. 
+                  This feature will integrate with major lab providers like Quest Diagnostics and LabCorp.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredResults.map((lab) => (
+                  <div
+                    key={lab.id}
+                    onClick={() => setSelectedLab(lab)}
+                    className={`p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer ${
+                      selectedLab?.id === lab.id ? "border-indigo-500 bg-indigo-50" : ""
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{lab.patientName}</span>
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getStatusColor(lab.status)}`}>
+                            {getStatusIcon(lab.status)}
+                            {lab.status}
+                          </span>
+                        </div>
+                        <div className="text-lg font-medium text-gray-900">{lab.testName}</div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          Ordered: {new Date(lab.orderDate).toLocaleDateString()}
+                          {lab.resultDate && (
+                            <span> • Result: {new Date(lab.resultDate).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500">Provider: {lab.provider}</div>
                       </div>
-                      <div className="text-lg font-medium text-gray-900">{lab.testName}</div>
-                      <div className="text-sm text-gray-500 mt-1">
-                        Ordered: {new Date(lab.orderDate).toLocaleDateString()}
+                      <div className="flex gap-2">
+                        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
+                          <Eye className="h-4 w-4" />
+                        </button>
                         {lab.resultDate && (
-                          <span> • Result: {new Date(lab.resultDate).toLocaleDateString()}</span>
+                          <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
+                            <Download className="h-4 w-4" />
+                          </button>
                         )}
                       </div>
-                      <div className="text-sm text-gray-500">Provider: {lab.provider}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      {lab.resultDate && (
-                        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
-                          <Download className="h-4 w-4" />
-                        </button>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

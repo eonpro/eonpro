@@ -17,12 +17,13 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+// Use Platform Secret Key for Connect operations (EonMeds account)
+const stripe = new Stripe(process.env.STRIPE_PLATFORM_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2026-01-28.clover',
 });
 
-// Your Stripe Connect Client ID (from Dashboard → Connect → Settings)
-const STRIPE_CLIENT_ID = process.env.STRIPE_CONNECT_CLIENT_ID;
+// Stripe Connect Client ID (from Dashboard → Connect → Settings on EonMeds platform account)
+const STRIPE_CONNECT_CLIENT_ID = process.env.STRIPE_CONNECT_CLIENT_ID;
 
 /**
  * GET /api/stripe/connect/oauth
@@ -35,7 +36,7 @@ async function getOAuthHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    if (!STRIPE_CLIENT_ID) {
+    if (!STRIPE_CONNECT_CLIENT_ID) {
       return NextResponse.json(
         { error: 'Stripe Connect OAuth not configured. Set STRIPE_CONNECT_CLIENT_ID.' },
         { status: 500 }
@@ -92,7 +93,7 @@ async function getOAuthHandler(request: NextRequest, user: AuthUser) {
     // Stripe OAuth authorize URL
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: STRIPE_CLIENT_ID,
+      client_id: STRIPE_CONNECT_CLIENT_ID,
       scope: 'read_write',
       redirect_uri: redirectUri,
       state: state,
