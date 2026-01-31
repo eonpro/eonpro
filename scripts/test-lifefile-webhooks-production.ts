@@ -21,21 +21,38 @@ const BASE_URL = process.argv.includes('--local')
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
-// Credentials given to LifeFile
+// Credentials from environment variables - NEVER hardcode secrets!
+// Set these in your .env.local or pass via environment
 const CREDENTIALS = {
   shipping: {
-    username: 'wellmedr_shipping',
-    password: 'G7vb2Xq!9Lm',
+    username: process.env.WELLMEDR_SHIPPING_WEBHOOK_USERNAME || 'wellmedr_shipping',
+    password: process.env.WELLMEDR_SHIPPING_WEBHOOK_PASSWORD || '',
   },
   prescriptionStatus: {
-    username: 'lifefile_webhook',
-    password: 'G7vb2Xq!9Lm',
+    username: process.env.LIFEFILE_WEBHOOK_USERNAME || 'lifefile_webhook',
+    password: process.env.LIFEFILE_WEBHOOK_PASSWORD || '',
   },
   dataPush: {
-    username: 'lifefile_datapush',
-    password: 'G7vb2Xq!9Lm',
+    username: process.env.LIFEFILE_DATAPUSH_USERNAME || 'lifefile_datapush',
+    password: process.env.LIFEFILE_DATAPUSH_PASSWORD || '',
   },
 };
+
+// Validate credentials are set
+function validateCredentials(): boolean {
+  const missing: string[] = [];
+  if (!CREDENTIALS.shipping.password) missing.push('WELLMEDR_SHIPPING_WEBHOOK_PASSWORD');
+  if (!CREDENTIALS.prescriptionStatus.password) missing.push('LIFEFILE_WEBHOOK_PASSWORD');
+  if (!CREDENTIALS.dataPush.password) missing.push('LIFEFILE_DATAPUSH_PASSWORD');
+
+  if (missing.length > 0) {
+    console.error('\n❌ Missing required environment variables:');
+    missing.forEach(v => console.error(`   - ${v}`));
+    console.error('\nSet these in your environment or .env.local file before running tests.\n');
+    return false;
+  }
+  return true;
+}
 
 // Test data matching real LifeFile order
 const TEST_DATA = {
@@ -109,6 +126,11 @@ async function main() {
   console.log(`Target: ${BASE_URL}`);
   console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'LIVE'}`);
   console.log(`Time: ${new Date().toISOString()}`);
+
+  // Validate credentials before proceeding
+  if (!DRY_RUN && !validateCredentials()) {
+    process.exit(1);
+  }
 
   const results: { name: string; success: boolean; status: number }[] = [];
 
@@ -221,13 +243,14 @@ async function main() {
     console.log('\nIf you see 401 Unauthorized errors:');
     console.log('  → Add the credentials to Vercel environment variables');
     console.log('  → Redeploy the application');
-    console.log('\nRequired environment variables:');
-    console.log('  WELLMEDR_SHIPPING_WEBHOOK_USERNAME=wellmedr_shipping');
-    console.log('  WELLMEDR_SHIPPING_WEBHOOK_PASSWORD=G7vb2Xq!9Lm');
-    console.log('  LIFEFILE_WEBHOOK_USERNAME=lifefile_webhook');
-    console.log('  LIFEFILE_WEBHOOK_PASSWORD=G7vb2Xq!9Lm');
-    console.log('  LIFEFILE_DATAPUSH_USERNAME=lifefile_datapush');
-    console.log('  LIFEFILE_DATAPUSH_PASSWORD=G7vb2Xq!9Lm');
+    console.log('\nRequired environment variables (set in production):');
+    console.log('  WELLMEDR_SHIPPING_WEBHOOK_USERNAME');
+    console.log('  WELLMEDR_SHIPPING_WEBHOOK_PASSWORD');
+    console.log('  LIFEFILE_WEBHOOK_USERNAME');
+    console.log('  LIFEFILE_WEBHOOK_PASSWORD');
+    console.log('  LIFEFILE_DATAPUSH_USERNAME');
+    console.log('  LIFEFILE_DATAPUSH_PASSWORD');
+    console.log('\n⚠️  SECURITY: Never commit credentials to source code!');
   }
   console.log('='.repeat(70) + '\n');
 }

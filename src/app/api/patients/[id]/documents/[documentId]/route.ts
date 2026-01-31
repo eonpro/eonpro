@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { retrieveFile, deleteFile } from '@/lib/storage/secure-storage';
+import { hipaaAudit } from '@/lib/audit/hipaa-audit';
 
 // GET /api/patients/[id]/documents/[documentId] - Serve document securely
 export const GET = withAuthParams(async (
@@ -35,22 +36,58 @@ export const GET = withAuthParams(async (
       );
     }
     
-    // Patients can only access their own documents
-    // TODO: Add proper patient-user relationship check
+    // SECURITY: Patients can only access their own documents
+    // Verify patient ownership via user.patientId
     if (user.role === 'patient') {
-      // For now, allow access - should check patient.userId when field exists
-      // return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      const userPatientId = user.patientId;
+      if (!userPatientId || patient.id !== userPatientId) {
+        logger.security('Patient attempted to access another patient\'s document', {
+          userId: user.id,
+          userPatientId,
+          requestedPatientId: patient.id,
+          documentId,
+        });
+        return NextResponse.json(
+          { error: 'Access denied - you can only access your own documents' },
+          { status: 403 }
+        );
+      }
     }
     
-    // Check clinic access
-    if (user.clinicId && patient.clinicId !== user.clinicId) {
+    // Check clinic access for non-patient roles
+    if (user.role !== 'patient' && user.clinicId && patient.clinicId !== user.clinicId) {
+      logger.security('Cross-clinic document access attempt', {
+        userId: user.id,
+        userClinicId: user.clinicId,
+        patientClinicId: patient.clinicId,
+        documentId,
+      });
       return NextResponse.json(
         { error: 'Patient not in your clinic' },
         { status: 403 }
       );
     }
     
-    // Log document access for HIPAA audit
+    // HIPAA Audit: Log document access
+    try {
+      await hipaaAudit.log({
+        action: 'PHI_VIEW',
+        resourceType: 'PatientDocument',
+        resourceId: documentId.toString(),
+        userId: user.id,
+        patientId,
+        clinicId: patient.clinicId,
+        metadata: {
+          userRole: user.role,
+          accessMethod: 'api',
+        },
+      });
+    } catch (auditError) {
+      // Log but don't fail the request for audit errors
+      logger.error('Failed to create HIPAA audit log', { error: auditError });
+    }
+
+    // Log document access
     logger.api('GET', `/api/patients/${patientId}/documents/${documentId}`, {
       userId: user.id,
       userRole: user.role,

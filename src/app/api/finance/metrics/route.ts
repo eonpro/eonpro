@@ -9,8 +9,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
-import { 
-  startOfYear, 
+import { verifyClinicAccess } from '@/lib/auth/clinic-access';
+import {
+  startOfYear,
   subDays,
   startOfMonth,
 } from 'date-fns';
@@ -25,6 +26,11 @@ export async function GET(request: NextRequest) {
     const clinicId = getClinicContext();
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
+    }
+
+    // SECURITY: Verify user has access to this clinic's financial data
+    if (!verifyClinicAccess(user, clinicId)) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

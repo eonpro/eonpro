@@ -5,15 +5,19 @@
  * API endpoints for order list and creation.
  * Uses the order service layer for business logic.
  *
+ * SECURITY: All endpoints require authentication.
+ * POST requires provider/admin role for order creation.
+ *
  * @module api/orders
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import lifefile from '@/lib/lifefile';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { orderService, type UserContext } from '@/domains/order';
 import { handleApiError } from '@/domains/shared/errors';
+import { logger } from '@/lib/logger';
 
 // Zod schema for order creation request
 const createOrderSchema = z.object({
@@ -46,15 +50,8 @@ const createOrderSchema = z.object({
  * - status: Filter by status
  * - patientId: Filter by patient
  */
-export async function GET(request: NextRequest) {
+async function listOrdersHandler(request: NextRequest, user: AuthUser) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.success) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = authResult.user!;
     const { searchParams } = new URL(request.url);
 
     // Parse query parameters
@@ -94,15 +91,34 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Export with authentication wrapper
+export const GET = withAuth(listOrdersHandler);
+
 /**
  * POST /api/orders
  * Create order via Lifefile API
  *
+ * SECURITY: Requires authentication with provider, admin, or super_admin role.
+ *
  * Note: This is a pass-through to Lifefile.
  * For full prescription creation, use POST /api/prescriptions
  */
-export async function POST(req: Request) {
+async function createOrderHandler(req: NextRequest, user: AuthUser) {
   try {
+    // SECURITY: Verify user has order creation permissions
+    const allowedRoles = ['provider', 'admin', 'super_admin'];
+    if (!allowedRoles.includes(user.role)) {
+      logger.security('Unauthorized order creation attempt', {
+        userId: user.id,
+        role: user.role,
+        clinicId: user.clinicId,
+      });
+      return NextResponse.json(
+        { error: 'Not authorized to create orders' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
 
     // Validate request body
@@ -114,11 +130,28 @@ export async function POST(req: Request) {
       );
     }
 
+    // Log order creation for audit
+    logger.info('Order creation initiated', {
+      userId: user.id,
+      role: user.role,
+      clinicId: user.clinicId,
+      patientId: validationResult.data.patientId,
+    });
+
     const order = await lifefile.createOrder(validationResult.data);
-    return Response.json(order.data);
+
+    logger.info('Order created successfully', {
+      userId: user.id,
+      lifefileOrderId: order.data?.orderId,
+    });
+
+    return NextResponse.json(order.data);
   } catch (error) {
     return handleApiError(error, {
-      context: { route: 'POST /api/orders' },
+      context: { route: 'POST /api/orders', userId: user.id },
     });
   }
 }
+
+// Export with authentication wrapper - requires authenticated user
+export const POST = withAuth(createOrderHandler);

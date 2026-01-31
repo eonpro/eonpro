@@ -152,14 +152,20 @@ export default function AdminRxQueuePage() {
       </div>
 
       {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+      <div 
+        className="rounded-xl p-4 mb-6 border"
+        style={{ 
+          backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
+          borderColor: 'var(--brand-primary, #4fa77e)'
+        }}
+      >
         <div className="flex items-start gap-3">
-          <Eye className="h-5 w-5 text-blue-600 mt-0.5" />
+          <Eye className="h-5 w-5 mt-0.5" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
           <div>
-            <p className="text-sm font-medium text-blue-800">
+            <p className="text-sm font-medium text-gray-800">
               This is a read-only view for monitoring prescription activity
             </p>
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
               Providers handle prescription writing from their dedicated queue
             </p>
           </div>
@@ -167,63 +173,79 @@ export default function AdminRxQueuePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <div 
-          className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${filter === 'all' ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-gray-200 hover:border-gray-300'}`}
+          className="bg-white rounded-xl border p-3 sm:p-4 cursor-pointer transition-all border-gray-200 hover:border-gray-300"
+          style={filter === 'all' ? { 
+            borderColor: 'var(--brand-primary, #4fa77e)', 
+            boxShadow: '0 0 0 3px var(--brand-primary-light, rgba(79, 167, 126, 0.15))' 
+          } : {}}
           onClick={() => setFilter('all')}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Queue</p>
-              <p className="text-2xl font-bold text-gray-900">{counts.total}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Total Queue</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{counts.total}</p>
             </div>
-            <div className="p-3 bg-gray-100 rounded-xl">
-              <Pill className="h-6 w-6 text-gray-600" />
+            <div className="p-2 sm:p-3 rounded-xl" style={{ backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))' }}>
+              <Pill className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
             </div>
           </div>
         </div>
 
         <div 
-          className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${filter === 'invoices' ? 'border-green-500 ring-2 ring-green-100' : 'border-gray-200 hover:border-gray-300'}`}
+          className="bg-white rounded-xl border p-3 sm:p-4 cursor-pointer transition-all border-gray-200 hover:border-gray-300"
+          style={filter === 'invoices' ? { 
+            borderColor: '#22c55e', 
+            boxShadow: '0 0 0 3px rgba(34, 197, 94, 0.15)' 
+          } : {}}
           onClick={() => setFilter('invoices')}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Awaiting Rx</p>
-              <p className="text-2xl font-bold text-green-600">{counts.invoices}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Awaiting Rx</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">{counts.invoices}</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-xl">
-              <DollarSign className="h-6 w-6 text-green-600" />
+            <div className="p-2 sm:p-3 bg-green-100 rounded-xl">
+              <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
             </div>
           </div>
         </div>
 
         <div 
-          className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${filter === 'soap_notes' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-gray-200 hover:border-gray-300'}`}
+          className="bg-white rounded-xl border p-3 sm:p-4 cursor-pointer transition-all border-gray-200 hover:border-gray-300"
+          style={filter === 'soap_notes' ? { 
+            borderColor: '#f59e0b', 
+            boxShadow: '0 0 0 3px rgba(245, 158, 11, 0.15)' 
+          } : {}}
           onClick={() => setFilter('soap_notes')}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">SOAP Pending</p>
-              <p className="text-2xl font-bold text-amber-600">{counts.soap_notes}</p>
+              <p className="text-xs sm:text-sm text-gray-500">SOAP Pending</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600">{counts.soap_notes}</p>
             </div>
-            <div className="p-3 bg-amber-100 rounded-xl">
-              <ClipboardCheck className="h-6 w-6 text-amber-600" />
+            <div className="p-2 sm:p-3 bg-amber-100 rounded-xl">
+              <ClipboardCheck className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" />
             </div>
           </div>
         </div>
 
         <div 
-          className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${filter === 'refills' ? 'border-purple-500 ring-2 ring-purple-100' : 'border-gray-200 hover:border-gray-300'}`}
+          className="bg-white rounded-xl border p-3 sm:p-4 cursor-pointer transition-all border-gray-200 hover:border-gray-300"
+          style={filter === 'refills' ? { 
+            borderColor: '#a855f7', 
+            boxShadow: '0 0 0 3px rgba(168, 85, 247, 0.15)' 
+          } : {}}
           onClick={() => setFilter('refills')}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Refills</p>
-              <p className="text-2xl font-bold text-purple-600">{counts.refills}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Refills</p>
+              <p className="text-xl sm:text-2xl font-bold text-purple-600">{counts.refills}</p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-xl">
-              <RefreshCw className="h-6 w-6 text-purple-600" />
+            <div className="p-2 sm:p-3 bg-purple-100 rounded-xl">
+              <RefreshCw className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
             </div>
           </div>
         </div>
@@ -239,7 +261,8 @@ export default function AdminRxQueuePage() {
               placeholder="Search by patient name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -247,7 +270,8 @@ export default function AdminRxQueuePage() {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value as typeof filter)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             >
               <option value="all">All Types</option>
               <option value="invoices">Awaiting Rx</option>
@@ -262,7 +286,7 @@ export default function AdminRxQueuePage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-emerald-500 mx-auto mb-4" />
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
             <p className="text-gray-600">Loading RX queue...</p>
           </div>
         ) : queueItems.length === 0 ? (
@@ -278,72 +302,85 @@ export default function AdminRxQueuePage() {
             </p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Treatment</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clinic</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">In Queue Since</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {queueItems.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${getTypeBadgeColor(item.type)}`}>
-                      {getTypeIcon(item.type)}
-                      {getTypeLabel(item.type)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                        <User className="h-5 w-5 text-gray-500" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{item.patientName}</div>
-                        <div className="text-sm text-gray-500">ID: {item.patientId}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.treatment || '-'}</div>
-                    {item.amount && (
-                      <div className="text-sm text-green-600 font-medium">{item.amount}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Building2 className="h-4 w-4 text-gray-400" />
-                      {item.clinicName || 'Unknown'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-700">{item.status}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock className="h-4 w-4 text-gray-400" />
-                      {formatDate(item.createdAt)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => router.push(`/patients/${item.patientId}`)}
-                      className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                      title="View Patient"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Treatment</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Clinic</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">In Queue</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {queueItems.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${getTypeBadgeColor(item.type)}`}>
+                        {getTypeIcon(item.type)}
+                        {getTypeLabel(item.type)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <User className="h-4 w-4 text-gray-500" />
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">{item.patientName}</div>
+                          <div className="text-xs text-gray-500">ID: {item.patientId}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap hidden lg:table-cell">
+                      <div className="text-sm text-gray-900">{item.treatment || '-'}</div>
+                      {item.amount && (
+                        <div className="text-xs font-medium" style={{ color: 'var(--brand-primary, #4fa77e)' }}>{item.amount}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap hidden md:table-cell">
+                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                        <Building2 className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="truncate max-w-[120px]">{item.clinicName || 'Unknown'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-700">{item.status}</span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                        <Clock className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="text-xs">{formatDate(item.createdAt)}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => router.push(`/patients/${item.patientId}`)}
+                        className="p-2 text-gray-600 rounded-lg transition-colors hover:bg-opacity-10"
+                        style={{ 
+                          '--tw-bg-opacity': '0.1'
+                        } as React.CSSProperties}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                          e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = '#4b5563';
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                        title="View Patient"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

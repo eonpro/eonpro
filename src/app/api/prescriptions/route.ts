@@ -420,76 +420,169 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       },
     };
 
-    try {
-      let patientRecord = await prisma.patient.findFirst({
-        where: {
-          firstName: p.patient.firstName,
-          lastName: p.patient.lastName,
-          dob: p.patient.dob,
-        },
+    // CRITICAL: Must have clinicId for data integrity
+    if (!activeClinicId) {
+      logger.error('[PRESCRIPTIONS] Cannot create patient without clinic context', {
+        userId: user.id,
+        patientEmail: p.patient.email
       });
+      return NextResponse.json(
+        { error: 'Clinic context required to create patient' },
+        { status: 400 }
+      );
+    }
 
-      if (!patientRecord) {
-        // CRITICAL: Must have clinicId for data integrity
-        if (!activeClinicId) {
-          logger.error('[PRESCRIPTIONS] Cannot create patient without clinic context', {
-            userId: user.id,
-            patientEmail: p.patient.email
+    try {
+      // ENTERPRISE: Atomic transaction for prescription creation
+      // This ensures all records are created together or none at all
+      const transactionResult = await prisma.$transaction(async (tx) => {
+        // Check for duplicate submission (idempotency)
+        const existingOrder = await tx.order.findFirst({
+          where: {
+            messageId,
+            clinicId: activeClinicId,
+          },
+          include: { patient: true },
+        });
+
+        if (existingOrder) {
+          logger.info('[PRESCRIPTIONS] Duplicate submission detected', {
+            messageId,
+            existingOrderId: existingOrder.id,
           });
-          return NextResponse.json(
-            { error: 'Clinic context required to create patient' },
-            { status: 400 }
-          );
+          return {
+            order: existingOrder,
+            patient: existingOrder.patient,
+            isNew: false,
+          };
         }
 
-        patientRecord = await prisma.patient.create({
-          data: {
+        // Find or create patient within transaction
+        let patientRecord = await tx.patient.findFirst({
+          where: {
             firstName: p.patient.firstName,
             lastName: p.patient.lastName,
             dob: p.patient.dob,
-            gender: p.patient.gender,
-            phone: p.patient.phone,
-            email: p.patient.email,
-            address1: p.patient.address1,
-            address2: patientAddressLine2 ?? null,
-            city: p.patient.city,
-            state: p.patient.state,
-            zip: p.patient.zip,
-            clinicId: activeClinicId, // Explicit clinic assignment
+            clinicId: activeClinicId,
           },
+        });
+
+        if (!patientRecord) {
+          patientRecord = await tx.patient.create({
+            data: {
+              firstName: p.patient.firstName,
+              lastName: p.patient.lastName,
+              dob: p.patient.dob,
+              gender: p.patient.gender,
+              phone: p.patient.phone,
+              email: p.patient.email,
+              address1: p.patient.address1,
+              address2: patientAddressLine2 ?? null,
+              city: p.patient.city,
+              state: p.patient.state,
+              zip: p.patient.zip,
+              clinicId: activeClinicId,
+            },
+          });
+          logger.info('[PRESCRIPTIONS] New patient created in transaction', {
+            patientId: patientRecord.id,
+            clinicId: activeClinicId,
+          });
+        }
+
+        // Create order within transaction
+        const order = await tx.order.create({
+          data: {
+            messageId,
+            referenceId,
+            patientId: patientRecord.id,
+            providerId: p.providerId,
+            clinicId: activeClinicId,
+            shippingMethod: p.shippingMethod,
+            primaryMedName: primary.med.name,
+            primaryMedStrength: primary.med.strength,
+            primaryMedForm: primary.med.formLabel ?? primary.med.form,
+            status: "PENDING",
+            requestJson: JSON.stringify(orderPayload),
+          },
+        });
+
+        // Create Rx items within transaction
+        await tx.rx.createMany({
+          data: rxsWithMeds.map(({ rx, med }) => ({
+            orderId: order.id,
+            medicationKey: rx.medicationKey,
+            medName: med.name,
+            strength: med.strength,
+            form: med.form,
+            quantity: rx.quantity,
+            refills: rx.refills,
+            sig: rx.sig,
+          })),
+        });
+
+        logger.info('[PRESCRIPTIONS] Transaction completed successfully', {
+          orderId: order.id,
+          patientId: patientRecord.id,
+          rxCount: rxsWithMeds.length,
+        });
+
+        return {
+          order,
+          patient: patientRecord,
+          isNew: true,
+        };
+      }, {
+        isolationLevel: 'Serializable',
+        timeout: 30000,
+      });
+
+      // If duplicate, return existing order info
+      if (!transactionResult.isNew) {
+        logger.info('[PRESCRIPTIONS] Returning existing order for duplicate submission', {
+          orderId: transactionResult.order.id,
+        });
+        return NextResponse.json({
+          success: true,
+          order: transactionResult.order,
+          duplicate: true,
+          message: 'Duplicate submission - returning existing order',
         });
       }
 
-      const order = await prisma.order.create({
-        data: {
-          messageId,
-          referenceId,
-          patientId: patientRecord.id,
-          providerId: p.providerId,
-          clinicId: activeClinicId, // ENTERPRISE: Explicit clinic assignment for multi-tenant isolation
-          shippingMethod: p.shippingMethod,
-          primaryMedName: primary.med.name,
-          primaryMedStrength: primary.med.strength,
-          primaryMedForm: primary.med.formLabel ?? primary.med.form,
-          status: "PENDING",
-          requestJson: JSON.stringify(orderPayload),
-        },
-      });
+      const { order, patient: patientRecord } = transactionResult;
 
-      await prisma.rx.createMany({
-        data: rxsWithMeds.map(({ rx, med }) => ({
+      // ENTERPRISE: External API call AFTER transaction commits
+      // This ensures DB state is consistent even if Lifefile fails
+      let orderResponse;
+      try {
+        orderResponse = await lifefileClient.createFullOrder(orderPayload);
+      } catch (lifefileError: unknown) {
+        // Mark order as error but don't rollback DB - we have the record
+        const errorMessage = lifefileError instanceof Error ? lifefileError.message : 'Unknown Lifefile error';
+        logger.error('[PRESCRIPTIONS] Lifefile API call failed after DB commit', {
           orderId: order.id,
-          medicationKey: rx.medicationKey,
-          medName: med.name,
-          strength: med.strength,
-          form: med.form,
-          quantity: rx.quantity,
-          refills: rx.refills,
-          sig: rx.sig,
-        })),
-      });
+          error: errorMessage,
+        });
 
-      const orderResponse = await lifefileClient.createFullOrder(orderPayload);
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            status: "error",
+            errorMessage: `Lifefile submission failed: ${errorMessage}`,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            error: "Failed to submit order to Lifefile",
+            detail: errorMessage,
+            orderId: order.id,
+            recoverable: true,
+          },
+          { status: 502 }
+        );
+      }
       const updated = await prisma.order.update({
         where: { id: order.id },
         data: {
