@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import {
   FileText,
   Percent,
   Info,
+  Layers,
 } from 'lucide-react';
 
 type CompensationType = 'FLAT_RATE' | 'PERCENTAGE' | 'HYBRID';
@@ -57,7 +58,6 @@ interface EarningsSummary {
 
 export default function AdminProviderCompensationPage() {
   const params = useParams();
-  const router = useRouter();
   const providerId = params.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -159,6 +159,12 @@ export default function AdminProviderCompensationPage() {
 
       const data = await response.json();
       setPlan(data.plan);
+      // Update form state to match saved plan
+      if (data.plan) {
+        setCompensationType(data.plan.compensationType);
+        setFlatRate((data.plan.flatRatePerScript / 100).toFixed(2));
+        setPercentBps((data.plan.percentBps / 100).toFixed(2));
+      }
       setSuccess('Compensation plan saved successfully');
 
       setTimeout(() => setSuccess(null), 3000);
@@ -399,6 +405,7 @@ export default function AdminProviderCompensationPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
+                        <Layers className={`h-4 w-4 ${compensationType === 'HYBRID' ? 'text-teal-600' : 'text-gray-400'}`} />
                         <span className={`font-medium ${compensationType === 'HYBRID' ? 'text-teal-900' : 'text-gray-700'}`}>
                           Both
                         </span>
