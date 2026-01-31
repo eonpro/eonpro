@@ -167,9 +167,33 @@ export default function ProviderSettingsPage() {
 
     const img = new Image();
     img.onload = () => {
+      // Clear canvas with white background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
+
+      // Calculate scaling to fit image within canvas while maintaining aspect ratio
+      const padding = 20; // Add some padding
+      const maxWidth = canvas.width - (padding * 2);
+      const maxHeight = canvas.height - (padding * 2);
+
+      let drawWidth = img.width;
+      let drawHeight = img.height;
+
+      // Scale down if image is larger than canvas
+      if (img.width > maxWidth || img.height > maxHeight) {
+        const widthRatio = maxWidth / img.width;
+        const heightRatio = maxHeight / img.height;
+        const scale = Math.min(widthRatio, heightRatio);
+
+        drawWidth = img.width * scale;
+        drawHeight = img.height * scale;
+      }
+
+      // Center the image on the canvas
+      const x = (canvas.width - drawWidth) / 2;
+      const y = (canvas.height - drawHeight) / 2;
+
+      ctx.drawImage(img, x, y, drawWidth, drawHeight);
     };
     img.src = dataUrl;
   };
@@ -361,14 +385,38 @@ export default function ProviderSettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setError('Please upload a valid image file (PNG, JPEG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setError('Image file is too large. Maximum size is 5MB.');
+      return;
+    }
+
+    setError('');
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setSignatureData(dataUrl);
       loadSignatureToCanvas(dataUrl);
       setHasDrawnSignature(true);
+      setSuccess('Signature image loaded. Click "Save Signature" to save.');
+      setTimeout(() => setSuccess(''), 3000);
+    };
+    reader.onerror = () => {
+      setError('Failed to read the image file. Please try again.');
     };
     reader.readAsDataURL(file);
+
+    // Reset the input so the same file can be selected again
+    e.target.value = '';
   };
 
   const verifyNpi = async () => {
@@ -855,12 +903,12 @@ export default function ProviderSettingsPage() {
                     Clear
                   </button>
 
-                  <label className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer">
+                  <label className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer border border-gray-200">
                     <Upload className="h-4 w-4" />
                     Upload Image
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
                       onChange={handleFileUpload}
                       className="hidden"
                     />
