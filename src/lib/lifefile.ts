@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosInstance } from "axios";
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 
 // Lifefile credentials can come from clinic config or env vars as fallback
 export type LifefileCredentials = {
@@ -121,6 +122,10 @@ function getLegacyClient(): AxiosInstance {
   return getClient(credentials);
 }
 
+/**
+ * Call Lifefile API with circuit breaker protection
+ * SOC 2 Compliance: Wrapped with circuit breaker for availability
+ */
 async function callLifefile<T = any>(
   fn: (client: AxiosInstance) => Promise<{ data: T }>,
   context: string,
@@ -128,24 +133,26 @@ async function callLifefile<T = any>(
 ): Promise<T> {
   const client = credentials ? getClient(credentials) : getLegacyClient();
 
-  try {
-    const res = await fn(client);
-    return res.data;
-  } catch (err: any) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    // @ts-ignore
-
-    if (err.response?.status && err.response.status >= 500) {
-      logger.warn(`[LIFEFILE RETRY] ${context}`);
+  // SOC 2 Compliance: Execute through circuit breaker for fault tolerance
+  return circuitBreakers.lifefile.execute(async () => {
+    try {
       const res = await fn(client);
       return res.data;
+    } catch (err: any) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      if (err.response?.status && err.response.status >= 500) {
+        logger.warn(`[LIFEFILE RETRY] ${context}`);
+        const res = await fn(client);
+        return res.data;
+      }
+      throw new Error(
+        `[Lifefile:${context}] ${err.response?.status} ${
+          JSON.stringify(err.response?.data ?? errorMessage) ?? "unknown error"
+        }`
+      );
     }
-    throw new Error(
-      `[Lifefile:${context}] ${err.response?.status} ${
-        JSON.stringify(err.response?.data ?? errorMessage) ?? "unknown error"
-      }`
-    );
-  }
+  });
 }
 
 export type LifefileOrderRx = {

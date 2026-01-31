@@ -4,6 +4,8 @@ import { StripeCustomerService } from './customerService';
 import type Stripe from 'stripe';
 import type { PaymentStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
+import crypto from 'crypto';
 
 export interface ProcessPaymentOptions {
   patientId: number;
@@ -36,7 +38,8 @@ export class StripePaymentService {
     const stripeClient = getStripe();
 
     // ENTERPRISE: Generate idempotency key for deduplication
-    const idempotencyKey = `pi_${options.patientId}_${options.invoiceId || 'no_invoice'}_${Date.now()}`;
+    // SOC 2 Compliance: Use crypto.randomUUID() to prevent collision under high concurrency
+    const idempotencyKey = `pi_${options.patientId}_${options.invoiceId || 'no_invoice'}_${crypto.randomUUID()}`;
 
     // 1. Create DB record FIRST (pending status)
     const payment = await prisma.payment.create({
@@ -60,25 +63,28 @@ export class StripePaymentService {
       const customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
 
       // 2. Create payment intent in Stripe with idempotency key
-      const paymentIntent = await stripeClient.paymentIntents.create({
-        amount: options.amount,
-        currency: STRIPE_CONFIG.currency,
-        customer: customer.id,
-        description: options.description,
-        payment_method: options.paymentMethodId,
-        automatic_payment_methods: {
-          enabled: true,
-        },
-        metadata: {
-          paymentId: payment.id.toString(),
-          patientId: options.patientId.toString(),
-          invoiceId: options.invoiceId?.toString() || '',
-          idempotencyKey,
-          ...options.metadata,
-        } as any,
-      }, {
-        idempotencyKey, // Stripe idempotency for duplicate prevention
-      });
+      // SOC 2 Compliance: Wrapped with circuit breaker for availability
+      const paymentIntent = await circuitBreakers.stripe.execute(() =>
+        stripeClient.paymentIntents.create({
+          amount: options.amount,
+          currency: STRIPE_CONFIG.currency,
+          customer: customer.id,
+          description: options.description,
+          payment_method: options.paymentMethodId,
+          automatic_payment_methods: {
+            enabled: true,
+          },
+          metadata: {
+            paymentId: payment.id.toString(),
+            patientId: options.patientId.toString(),
+            invoiceId: options.invoiceId?.toString() || '',
+            idempotencyKey,
+            ...options.metadata,
+          } as any,
+        }, {
+          idempotencyKey, // Stripe idempotency for duplicate prevention
+        })
+      );
 
       // 3. Update DB record with Stripe payment intent ID
       const updatedPayment = await prisma.payment.update({

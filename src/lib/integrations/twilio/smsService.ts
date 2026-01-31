@@ -9,6 +9,7 @@ import { prisma } from '@/lib/db';
 import { mockSendSMS, mockProcessIncomingSMS } from './mockService';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 
 // SMS Message Type
 export interface SMSMessage {
@@ -83,14 +84,16 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
       message.to = formatted;
     }
     
-    // Send the message
-    const result = await client.messages.create({
-      body: message.body,
-      to: message.to,
-      from: message.from || process.env.TWILIO_PHONE_NUMBER!,
-      statusCallback: message.statusCallback,
-      mediaUrl: message.mediaUrl,
-    });
+    // Send the message - SOC 2 Compliance: Wrapped with circuit breaker for availability
+    const result = await circuitBreakers.sms.execute(() =>
+      client.messages.create({
+        body: message.body,
+        to: message.to,
+        from: message.from || process.env.TWILIO_PHONE_NUMBER!,
+        statusCallback: message.statusCallback,
+        mediaUrl: message.mediaUrl,
+      })
+    );
     
     // Log the message in the database
     await logSMSMessage({

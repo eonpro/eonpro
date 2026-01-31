@@ -398,25 +398,59 @@ async function loginHandler(req: NextRequest) {
     logger.debug(`Successful login: ${email} (${role})`);
 
     // Update last login if it's a User model
+    const loginTime = new Date();
     if (user && 'lastLogin' in user) {
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          lastLogin: new Date(),
+          lastLogin: loginTime,
           failedLoginAttempts: 0,
         },
       });
 
-      // Create audit log
+      // Also update Provider.lastLogin if user has a linked provider
+      if (tokenPayload.providerId) {
+        await prisma.provider.update({
+          where: { id: tokenPayload.providerId },
+          data: { lastLogin: loginTime },
+        }).catch((error: Error) => {
+          logger.warn('Failed to update provider lastLogin:', error);
+        });
+      }
+
+      // Create audit log with session details
       await prisma.userAuditLog.create({ data: {
           userId: user.id,
           action: 'LOGIN',
           ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
           userAgent: req.headers.get('user-agent'),
+          details: {
+            role: userRole,
+            clinicId: activeClinicId,
+            providerId: tokenPayload.providerId,
+            loginMethod: 'password',
+          },
         },
       }).catch((error: Error) => {
         logger.warn('Failed to create audit log:', error);
       });
+
+      // Create/update user session for online tracking
+      try {
+        await prisma.userSession.create({
+          data: {
+            userId: user.id,
+            token: token.substring(0, 64), // Store truncated token for lookup
+            refreshToken: refreshToken.substring(0, 64),
+            ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+            userAgent: req.headers.get('user-agent') || 'unknown',
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+            lastActivity: loginTime,
+          },
+        });
+      } catch (sessionError) {
+        logger.warn('Failed to create user session:', { error: sessionError instanceof Error ? sessionError.message : 'Unknown error' });
+      }
     }
 
     // ENTERPRISE: Fetch provider's clinic assignments for multi-clinic support

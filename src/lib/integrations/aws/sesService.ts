@@ -28,6 +28,7 @@ import {
   validateEmail,
   SES_ERRORS,
 } from './sesConfig';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { AppError, ApiResponse } from '@/types/common';
@@ -218,7 +219,8 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
         ConfigurationSetName: sesConfig.configurationSet,
       });
 
-      const response = await client.send(command);
+      // SOC 2 Compliance: Wrapped with circuit breaker for availability
+      const response = await circuitBreakers.email.execute(() => client.send(command));
       result = { messageId: response.MessageId };
     }
 

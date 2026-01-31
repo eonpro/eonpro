@@ -1,0 +1,103 @@
+# CODEOWNERS - SOC 2 Compliance
+# ================================
+# This file defines code ownership for security-critical paths.
+# Changes to these files require review from the designated owners.
+#
+# SOC 2 Requirement: CC7.1 - Change Management
+# All changes to security-sensitive code must be reviewed by qualified personnel.
+#
+# Format: pattern  @owner1 @owner2
+# Patterns match files relative to repository root.
+
+# ============================================================================
+# SECURITY-CRITICAL: Authentication & Authorization
+# ============================================================================
+# All auth-related changes require security team review
+
+/src/lib/auth/                           @security-team
+/src/lib/security/                       @security-team
+/src/middleware.ts                       @security-team
+/src/middleware/                         @security-team
+
+# ============================================================================
+# SECURITY-CRITICAL: Cryptography & PHI Encryption
+# ============================================================================
+# PHI encryption and key management are HIPAA-critical
+
+/src/lib/security/phi-encryption.ts      @security-team @hipaa-compliance
+/src/lib/security/kms.ts                 @security-team @hipaa-compliance
+/src/lib/secrets/                        @security-team
+
+# ============================================================================
+# SECURITY-CRITICAL: API Routes with Auth Middleware
+# ============================================================================
+# Payment and patient data routes require extra scrutiny
+
+/src/app/api/auth/                       @security-team
+/src/app/api/stripe/                     @security-team @payments-team
+/src/app/api/webhooks/                   @security-team
+/src/app/api/patients/                   @hipaa-compliance
+/src/app/api/prescriptions/              @hipaa-compliance
+
+# ============================================================================
+# INFRASTRUCTURE: CI/CD and Deployment
+# ============================================================================
+# Changes to deployment pipelines require DevOps review
+
+/.github/workflows/                      @devops-team @security-team
+/infrastructure/                         @devops-team
+/docker-compose.yml                      @devops-team
+/Dockerfile                              @devops-team
+
+# ============================================================================
+# DATA: Database Schema & Migrations
+# ============================================================================
+# Schema changes require data team and security review
+
+/prisma/schema.prisma                    @data-team @security-team
+/prisma/migrations/                      @data-team
+
+# ============================================================================
+# CONFIGURATION: Environment & Secrets
+# ============================================================================
+# Configuration files that may contain security settings
+
+/.env*                                   @security-team
+/env.*                                   @security-team
+/src/lib/config/                         @security-team
+
+# ============================================================================
+# COMPLIANCE: Audit & Logging
+# ============================================================================
+# Audit logging is critical for SOC 2 and HIPAA compliance
+
+/src/lib/audit/                          @security-team @hipaa-compliance
+/src/lib/logger.ts                       @security-team
+
+# ============================================================================
+# RESILIENCE: Circuit Breakers & Rate Limiting
+# ============================================================================
+# Service resilience affects availability SLAs
+
+/src/lib/resilience/                     @devops-team @security-team
+/src/lib/security/rate-limiter.ts        @security-team
+
+# ============================================================================
+# EXTERNAL INTEGRATIONS
+# ============================================================================
+# External service integrations may handle sensitive data
+
+/src/lib/integrations/aws/               @devops-team @security-team
+/src/lib/integrations/twilio/            @devops-team
+/src/lib/stripe/                         @payments-team @security-team
+/src/lib/lifefile.ts                     @pharmacy-team @hipaa-compliance
+
+# ============================================================================
+# DOCUMENTATION: Compliance Evidence
+# ============================================================================
+# Compliance documentation requires review
+
+/docs/*HIPAA*                            @hipaa-compliance
+/docs/*SOC2*                             @security-team
+/docs/*SECURITY*                         @security-team
+/HIPAA_*.md                              @hipaa-compliance
