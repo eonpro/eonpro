@@ -1,7 +1,7 @@
 /**
  * Authentication Middleware for API Routes
  * HIPAA-Compliant - Production Ready
- * 
+ *
  * @module auth/middleware
  * @version 2.0.0
  * @security CRITICAL - This module handles all authentication
@@ -10,10 +10,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, JWTPayload } from 'jose';
 import { JWT_SECRET, AUTH_CONFIG } from './config';
-import { setClinicContext, runWithClinicContext } from '@/lib/db';
+import { setClinicContext, runWithClinicContext, prisma } from '@/lib/db';
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
+
+// Track last activity update to avoid too frequent DB writes
+const lastActivityUpdates = new Map<number, number>();
+const ACTIVITY_UPDATE_INTERVAL_MS = 60000; // Update at most once per minute per user
 
 // ============================================================================
 // Types & Interfaces
@@ -35,14 +39,14 @@ export interface AuthUser {
   exp?: number;
 }
 
-export type UserRole = 
-  | 'super_admin' 
-  | 'admin' 
-  | 'provider' 
-  | 'influencer' 
+export type UserRole =
+  | 'super_admin'
+  | 'admin'
+  | 'provider'
+  | 'influencer'
   | 'affiliate'
-  | 'patient' 
-  | 'staff' 
+  | 'patient'
+  | 'staff'
   | 'support';
 
 export interface AuthOptions {
@@ -66,6 +70,55 @@ interface TokenValidationResult {
 }
 
 // ============================================================================
+// Session Activity Tracking
+// ============================================================================
+
+/**
+ * Update user session activity in the database (for online status tracking)
+ * This is fire-and-forget to not block the request
+ */
+async function updateSessionActivity(userId: number, ipAddress: string): Promise<void> {
+  // Check if we've recently updated this user (throttle to avoid DB spam)
+  const lastUpdate = lastActivityUpdates.get(userId);
+  const now = Date.now();
+
+  if (lastUpdate && now - lastUpdate < ACTIVITY_UPDATE_INTERVAL_MS) {
+    return; // Skip update, too recent
+  }
+
+  // Update the timestamp in memory immediately
+  lastActivityUpdates.set(userId, now);
+
+  // Cleanup old entries periodically (prevent memory leak)
+  if (lastActivityUpdates.size > 1000) {
+    const cutoff = now - ACTIVITY_UPDATE_INTERVAL_MS * 2;
+    for (const [uid, timestamp] of lastActivityUpdates) {
+      if (timestamp < cutoff) {
+        lastActivityUpdates.delete(uid);
+      }
+    }
+  }
+
+  // Update the database asynchronously
+  try {
+    // Update the most recent active session for this user
+    await prisma.userSession.updateMany({
+      where: {
+        userId,
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        lastActivity: new Date(),
+        ipAddress: ipAddress || undefined,
+      },
+    });
+  } catch (error) {
+    // Log but don't throw - this is non-critical
+    logger.debug('Failed to update session activity', { userId, error });
+  }
+}
+
+// ============================================================================
 // Token Verification
 // ============================================================================
 
@@ -78,13 +131,13 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
   if (isDemoToken(token)) {
     logger.security('Attempted use of demo token in production', {
       tokenPrefix: token.substring(0, 20),
-      environment: process.env.NODE_ENV
+      environment: process.env.NODE_ENV,
     });
-    
+
     return {
       valid: false,
       error: 'Demo tokens are not allowed',
-      errorCode: 'INVALID'
+      errorCode: 'INVALID',
     };
   }
 
@@ -93,14 +146,14 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
       algorithms: ['HS256'],
       clockTolerance: 30, // Allow 30 seconds clock skew
     });
-    
+
     // Validate required claims
     const validationError = validateTokenClaims(payload);
     if (validationError) {
       return {
         valid: false,
         error: validationError,
-        errorCode: 'MALFORMED'
+        errorCode: 'MALFORMED',
       };
     }
 
@@ -110,7 +163,7 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
       return {
         valid: false,
         error: 'Token has been revoked',
-        errorCode: 'REVOKED'
+        errorCode: 'REVOKED',
       };
     }
 
@@ -137,23 +190,23 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
         return {
           valid: false,
           error: 'Token has expired',
-          errorCode: 'EXPIRED'
+          errorCode: 'EXPIRED',
         };
       }
       if (error.message.includes('signature')) {
         return {
           valid: false,
           error: 'Invalid token signature',
-          errorCode: 'INVALID'
+          errorCode: 'INVALID',
         };
       }
     }
-    
+
     logger.error('Token verification failed', error as Error);
     return {
       valid: false,
       error: 'Token verification failed',
-      errorCode: 'INVALID'
+      errorCode: 'INVALID',
     };
   }
 }
@@ -176,24 +229,30 @@ function validateTokenClaims(payload: JWTPayload): string | null {
   if (!payload.id || typeof payload.id !== 'number') {
     return 'Missing or invalid user ID in token';
   }
-  
+
   if (!payload.email || typeof payload.email !== 'string') {
     return 'Missing or invalid email in token';
   }
-  
+
   if (!payload.role || typeof payload.role !== 'string') {
     return 'Missing or invalid role in token';
   }
-  
+
   const validRoles: UserRole[] = [
-    'super_admin', 'admin', 'provider', 'influencer', 
-    'affiliate', 'patient', 'staff', 'support'
+    'super_admin',
+    'admin',
+    'provider',
+    'influencer',
+    'affiliate',
+    'patient',
+    'staff',
+    'support',
   ];
-  
+
   if (!validRoles.includes(payload.role as UserRole)) {
     return `Invalid role: ${payload.role}`;
   }
-  
+
   return null;
 }
 
@@ -215,8 +274,8 @@ function extractToken(req: NextRequest): string | null {
   // Priority 2: HTTP-only cookies (secure for browser clients)
   // Note: Order matters! More specific cookies should be checked first
   const cookieTokenNames = [
-    'affiliate_session',  // Affiliate portal - check first for affiliate routes
-    'influencer-token',   // Legacy influencer portal
+    'affiliate_session', // Affiliate portal - check first for affiliate routes
+    'influencer-token', // Legacy influencer portal
     'affiliate-token',
     'auth-token',
     'super_admin-token',
@@ -241,7 +300,7 @@ function extractToken(req: NextRequest): string | null {
   if (queryToken) {
     logger.warn('Token passed via query parameter', {
       path: url.pathname,
-      ip: getClientIP(req)
+      ip: getClientIP(req),
     });
     return queryToken;
   }
@@ -253,10 +312,12 @@ function extractToken(req: NextRequest): string | null {
  * Get client IP address from request
  */
 function getClientIP(req: NextRequest): string {
-  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-         req.headers.get('x-real-ip') ||
-         req.headers.get('cf-connecting-ip') ||
-         'unknown';
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    req.headers.get('cf-connecting-ip') ||
+    'unknown'
+  );
 }
 
 // ============================================================================
@@ -265,13 +326,13 @@ function getClientIP(req: NextRequest): string {
 
 /**
  * Main authentication middleware factory
- * 
+ *
  * @example
  * // Basic authentication
  * export const GET = withAuth(async (req, user) => {
  *   return NextResponse.json({ user });
  * });
- * 
+ *
  * @example
  * // Role-based access
  * export const POST = withAuth(async (req, user) => {
@@ -291,7 +352,7 @@ export function withAuth<T = unknown>(
   return async (req: NextRequest, context?: T): Promise<Response> => {
     const startTime = Date.now();
     const requestId = crypto.randomUUID();
-    
+
     try {
       // Extract token
       const token = extractToken(req);
@@ -300,14 +361,14 @@ export function withAuth<T = unknown>(
         if (options.optional) {
           return handler(req, null as unknown as AuthUser, context);
         }
-        
+
         await logAuthFailure(req, requestId, 'NO_TOKEN', 'No authentication token provided');
-        
+
         return NextResponse.json(
-          { 
+          {
             error: options.unauthorizedMessage || 'Authentication required',
             code: 'AUTH_REQUIRED',
-            requestId 
+            requestId,
           },
           { status: 401 }
         );
@@ -320,30 +381,35 @@ export function withAuth<T = unknown>(
         if (options.optional) {
           return handler(req, null as unknown as AuthUser, context);
         }
-        
-        await logAuthFailure(req, requestId, tokenResult.errorCode || 'INVALID', tokenResult.error || 'Token verification failed');
-        
+
+        await logAuthFailure(
+          req,
+          requestId,
+          tokenResult.errorCode || 'INVALID',
+          tokenResult.error || 'Token verification failed'
+        );
+
         // Return specific error for expired tokens (client can refresh)
         const status = tokenResult.errorCode === 'EXPIRED' ? 401 : 401;
         return NextResponse.json(
-          { 
+          {
             error: tokenResult.error || 'Invalid or expired token',
             code: tokenResult.errorCode || 'AUTH_FAILED',
-            requestId 
+            requestId,
           },
           { status }
         );
       }
 
       const user = tokenResult.user;
-      
+
       // Session validation (skip for serverless compatibility when session is missing)
       if (!options.skipSessionValidation && user.sessionId) {
         const sessionResult = await validateSession(token, req);
-        
+
         if (!sessionResult.valid && sessionResult.reason !== 'Session not found') {
           setClinicContext(undefined);
-          
+
           await auditLog(req, {
             userId: user.id.toString(),
             userEmail: user.email,
@@ -353,14 +419,14 @@ export function withAuth<T = unknown>(
             resourceId: user.sessionId,
             action: 'SESSION_VALIDATION_FAILED',
             outcome: 'FAILURE',
-            reason: sessionResult.reason
+            reason: sessionResult.reason,
           });
-          
+
           return NextResponse.json(
-            { 
+            {
               error: sessionResult.reason || 'Session expired',
               code: 'SESSION_EXPIRED',
-              requestId 
+              requestId,
             },
             { status: 401 }
           );
@@ -370,8 +436,8 @@ export function withAuth<T = unknown>(
       // Role-based access control
       if (options.roles && options.roles.length > 0) {
         const userRole = user.role.toLowerCase() as UserRole;
-        const allowedRoles = options.roles.map(r => r.toLowerCase());
-        
+        const allowedRoles = options.roles.map((r) => r.toLowerCase());
+
         if (!allowedRoles.includes(userRole)) {
           await auditLog(req, {
             userId: user.id.toString(),
@@ -382,14 +448,14 @@ export function withAuth<T = unknown>(
             resourceType: 'API',
             action: 'AUTHORIZATION_FAILED',
             outcome: 'FAILURE',
-            reason: `Required roles: ${options.roles.join(', ')}, User role: ${user.role}`
+            reason: `Required roles: ${options.roles.join(', ')}, User role: ${user.role}`,
           });
-          
+
           return NextResponse.json(
-            { 
+            {
               error: 'Insufficient permissions',
               code: 'FORBIDDEN',
-              requestId 
+              requestId,
             },
             { status: 403 }
           );
@@ -399,10 +465,8 @@ export function withAuth<T = unknown>(
       // Permission-based access control
       if (options.permissions && options.permissions.length > 0) {
         const userPermissions = user.permissions || [];
-        const hasAllPermissions = options.permissions.every(
-          p => userPermissions.includes(p)
-        );
-        
+        const hasAllPermissions = options.permissions.every((p) => userPermissions.includes(p));
+
         if (!hasAllPermissions) {
           await auditLog(req, {
             userId: user.id.toString(),
@@ -413,28 +477,32 @@ export function withAuth<T = unknown>(
             resourceType: 'API',
             action: 'PERMISSION_CHECK_FAILED',
             outcome: 'FAILURE',
-            reason: `Required permissions: ${options.permissions.join(', ')}`
+            reason: `Required permissions: ${options.permissions.join(', ')}`,
           });
-          
+
           return NextResponse.json(
-            { 
+            {
               error: 'Missing required permissions',
               code: 'FORBIDDEN',
-              requestId 
+              requestId,
             },
             { status: 403 }
           );
         }
       }
-      
+
       // Determine clinic context for multi-tenant queries
       // Super admins should NOT have clinic context so they can access all data
-      const effectiveClinicId = (user.clinicId && user.role !== 'super_admin')
-        ? user.clinicId
-        : undefined;
+      const effectiveClinicId =
+        user.clinicId && user.role !== 'super_admin' ? user.clinicId : undefined;
 
       // Also set the legacy global for backwards compatibility
       setClinicContext(effectiveClinicId);
+
+      // Update session activity for online status tracking (fire-and-forget)
+      updateSessionActivity(user.id, getClientIP(req)).catch(() => {
+        // Silently ignore errors - this is non-critical
+      });
 
       // Inject user info into request headers
       const headers = new Headers(req.headers);
@@ -445,25 +513,25 @@ export function withAuth<T = unknown>(
       if (user.clinicId) {
         headers.set('x-clinic-id', user.clinicId.toString());
       }
-      
+
       // Create a new NextRequest with the modified headers
       const modifiedReq = new NextRequest(req.url, {
         method: req.method,
         headers,
         body: req.body,
       });
-      
+
       // Execute handler within clinic context (thread-safe using AsyncLocalStorage)
       const response = await runWithClinicContext(effectiveClinicId, async () => {
         return handler(modifiedReq, user, context);
       });
-      
+
       // Clear legacy clinic context
       setClinicContext(undefined);
-      
+
       // Add security headers to response
       const finalResponse = addSecurityHeaders(response, requestId);
-      
+
       // Log successful access for high-privilege operations
       if (shouldLogAccess(user.role, req.method)) {
         logger.api(req.method, new URL(req.url).pathname, {
@@ -471,21 +539,21 @@ export function withAuth<T = unknown>(
           role: user.role,
           clinicId: user.clinicId,
           duration: Date.now() - startTime,
-          requestId
+          requestId,
         });
       }
-      
+
       return finalResponse;
     } catch (error) {
       setClinicContext(undefined);
-      
+
       logger.error('Authentication middleware error', error as Error, { requestId });
-      
+
       return NextResponse.json(
-        { 
+        {
           error: 'Internal authentication error',
           code: 'AUTH_ERROR',
-          requestId 
+          requestId,
         },
         { status: 500 }
       );
@@ -497,9 +565,9 @@ export function withAuth<T = unknown>(
  * Log authentication failure
  */
 async function logAuthFailure(
-  req: NextRequest, 
-  requestId: string, 
-  code: string, 
+  req: NextRequest,
+  requestId: string,
+  code: string,
   reason: string
 ): Promise<void> {
   await auditLog(req, {
@@ -509,7 +577,7 @@ async function logAuthFailure(
     action: 'AUTHENTICATION_FAILED',
     outcome: 'FAILURE',
     reason,
-    metadata: { code, requestId }
+    metadata: { code, requestId },
   });
 }
 
@@ -521,12 +589,12 @@ function shouldLogAccess(role: UserRole, method: string): boolean {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
     return true;
   }
-  
+
   // Log access for high-privilege roles
   if (['super_admin', 'admin', 'provider'].includes(role)) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -538,11 +606,11 @@ function addSecurityHeaders(response: Response, requestId: string): Response {
   headers.set('X-Request-ID', requestId);
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
-  
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers
+    headers,
   });
 }
 
@@ -604,8 +672,8 @@ export function withClinicalAuth(
 export function withSupportAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
 ): (req: NextRequest) => Promise<Response> {
-  return withAuth(handler, { 
-    roles: ['super_admin', 'admin', 'support', 'staff'] 
+  return withAuth(handler, {
+    roles: ['super_admin', 'admin', 'support', 'staff'],
   });
 }
 
@@ -635,8 +703,8 @@ export function withAffiliateAuth(
 export function withPatientAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
 ): (req: NextRequest) => Promise<Response> {
-  return withAuth(handler, { 
-    roles: ['super_admin', 'admin', 'provider', 'staff', 'patient'] 
+  return withAuth(handler, {
+    roles: ['super_admin', 'admin', 'provider', 'staff', 'patient'],
   });
 }
 
@@ -647,7 +715,7 @@ export function withPatientAuth(
 /**
  * Directly verify authentication from a request
  * Use this for routes with dynamic params where HOC wrappers don't work well
- * 
+ *
  * @example
  * const authResult = await verifyAuth(req);
  * if (!authResult.success) {
@@ -664,17 +732,17 @@ export async function verifyAuth(req: NextRequest): Promise<{
   // Extract token
   const authHeader = req.headers.get('authorization');
   let token: string | null = null;
-  
+
   if (authHeader?.startsWith('Bearer ')) {
     token = authHeader.slice(7).trim();
   }
-  
+
   // Check cookies as fallback
   // Note: Order matters! More specific cookies should be checked first
   if (!token) {
     const cookieTokenNames = [
-      'affiliate_session',  // Affiliate portal - check first for affiliate routes
-      'influencer-token',   // Legacy influencer portal
+      'affiliate_session', // Affiliate portal - check first for affiliate routes
+      'influencer-token', // Legacy influencer portal
       'affiliate-token',
       'auth-token',
       'super_admin-token',
@@ -684,7 +752,7 @@ export async function verifyAuth(req: NextRequest): Promise<{
       'staff-token',
       'support-token',
     ];
-    
+
     for (const cookieName of cookieTokenNames) {
       const cookieToken = req.cookies.get(cookieName)?.value;
       if (cookieToken) {
@@ -693,17 +761,17 @@ export async function verifyAuth(req: NextRequest): Promise<{
       }
     }
   }
-  
+
   if (!token) {
     return { success: false, error: 'No authentication token', errorCode: 'NO_TOKEN' };
   }
-  
+
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET, {
       algorithms: ['HS256'],
       clockTolerance: 30,
     });
-    
+
     const user: AuthUser = {
       id: payload.id as number,
       email: payload.email as string,
@@ -718,7 +786,7 @@ export async function verifyAuth(req: NextRequest): Promise<{
       iat: payload.iat,
       exp: payload.exp,
     };
-    
+
     // Set clinic context for multi-tenant queries
     // Super admins should NOT have clinic context so they can access all data
     if (user.clinicId && user.role !== 'super_admin') {
@@ -726,7 +794,7 @@ export async function verifyAuth(req: NextRequest): Promise<{
     } else {
       setClinicContext(undefined);
     }
-    
+
     return { success: true, user };
   } catch (error) {
     if (error instanceof Error) {
@@ -791,12 +859,12 @@ export function canAccessClinic(user: AuthUser | null, clinicId: number): boolea
   if (!user) {
     return false;
   }
-  
+
   // Super admins can access all clinics
   if (user.role === 'super_admin') {
     return true;
   }
-  
+
   // Others can only access their own clinic
   return user.clinicId === clinicId;
 }
