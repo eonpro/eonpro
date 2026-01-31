@@ -115,6 +115,11 @@ model Order {
   lastModifiedBy      Int? // User ID who modified
   modificationHistory Json? // Array of modification records
 
+  // Provider assignment tracking (for routing system)
+  assignedProviderId Int? // Provider assigned via routing (may differ from providerId for queue items)
+  assignedAt         DateTime? // When provider was assigned
+  assignmentSource   String? // 'state_match', 'round_robin', 'manual', 'self_select', 'direct'
+
   provider          Provider                @relation(fields: [providerId], references: [id])
   patient           Patient                 @relation(fields: [patientId], references: [id])
   events            OrderEvent[]
@@ -124,7 +129,11 @@ model Order {
   refillAsLastOrder RefillQueue[]           @relation("RefillLastOrder")
   refillAsNewOrder  RefillQueue?            @relation("RefillNewOrder")
 
+  // Provider Compensation
+  compensationEvent ProviderCompensationEvent?
+
   @@index([cancelledAt])
+  @@index([assignedProviderId])
 }
 
 model Rx {
@@ -147,8 +156,8 @@ model Provider {
 
   // Provider status for archive/suspend functionality
   status     ProviderStatus @default(ACTIVE)
-  archivedAt DateTime?      // When the provider was archived
-  archivedBy Int?           // User ID who archived the provider
+  archivedAt DateTime? // When the provider was archived
+  archivedBy Int? // User ID who archived the provider
 
   // Legacy single clinic assignment (deprecated, use ProviderClinic)
   clinicId Int? // Multi-clinic support - nullable for shared providers
@@ -189,6 +198,10 @@ model Provider {
 
   // ENTERPRISE: Multi-clinic assignments (like UserClinic pattern)
   providerClinics ProviderClinic[]
+
+  // ENTERPRISE: Provider Compensation System
+  compensationPlans  ProviderCompensationPlan[]
+  compensationEvents ProviderCompensationEvent[]
 
   @@index([status])
 }
@@ -1918,6 +1931,11 @@ model Clinic {
   savedReports     SavedReport[]
   reportExports    ReportExport[]
 
+  // Provider Routing & Compensation (Enterprise feature)
+  providerRoutingConfig      ProviderRoutingConfig?
+  providerCompensationPlans  ProviderCompensationPlan[]
+  providerCompensationEvents ProviderCompensationEvent[]
+
   @@index([subdomain])
   @@index([status])
   @@index([customDomain])
@@ -3261,22 +3279,22 @@ model Affiliate {
   lastLoginAt DateTime?
 
   // Leaderboard settings
-  leaderboardOptIn  Boolean @default(false) // Whether affiliate appears on public leaderboards
-  leaderboardAlias  String? // Custom display name for leaderboard (if opt-in)
+  leaderboardOptIn Boolean @default(false) // Whether affiliate appears on public leaderboards
+  leaderboardAlias String? // Custom display name for leaderboard (if opt-in)
 
   // Relations
-  refCodes             AffiliateRefCode[]
-  planAssignments      AffiliatePlanAssignment[]
-  commissionEvents     AffiliateCommissionEvent[]
-  attributedPatients   Patient[]
-  touches              AffiliateTouch[]
-  payoutMethods        AffiliatePayoutMethod[]
-  payouts              AffiliatePayout[]
-  taxDocuments         AffiliateTaxDocument[]
-  fraudAlerts          AffiliateFraudAlert[]
-  otpCode              AffiliateOtpCode?
-  application          AffiliateApplication? // Link to original application (if created via self-signup)
-  competitionEntries   AffiliateCompetitionEntry[]
+  refCodes           AffiliateRefCode[]
+  planAssignments    AffiliatePlanAssignment[]
+  commissionEvents   AffiliateCommissionEvent[]
+  attributedPatients Patient[]
+  touches            AffiliateTouch[]
+  payoutMethods      AffiliatePayoutMethod[]
+  payouts            AffiliatePayout[]
+  taxDocuments       AffiliateTaxDocument[]
+  fraudAlerts        AffiliateFraudAlert[]
+  otpCode            AffiliateOtpCode?
+  application        AffiliateApplication? // Link to original application (if created via self-signup)
+  competitionEntries AffiliateCompetitionEntry[]
 
   @@index([clinicId])
   @@index([status])
@@ -4289,10 +4307,10 @@ enum ReportGranularity {
 
 // Daily aggregated financial metrics for fast reporting
 model FinancialMetrics {
-  id        Int      @id @default(autoincrement())
-  clinicId  Int
-  clinic    Clinic   @relation(fields: [clinicId], references: [id])
-  date      DateTime @db.Date
+  id       Int      @id @default(autoincrement())
+  clinicId Int
+  clinic   Clinic   @relation(fields: [clinicId], references: [id])
+  date     DateTime @db.Date
 
   // Daily revenue aggregates (in cents)
   grossRevenue Int @default(0) // Total before fees/refunds
@@ -4307,10 +4325,10 @@ model FinancialMetrics {
   contractionMrr Int @default(0) // MRR lost from downgrades
 
   // Counts
-  newSubscriptions       Int @default(0) // New subscriptions created
-  canceledSubscriptions  Int @default(0) // Subscriptions canceled
-  newCustomers           Int @default(0) // New patients with payments
-  activeSubscriptions    Int @default(0) // Total active at end of day
+  newSubscriptions      Int @default(0) // New subscriptions created
+  canceledSubscriptions Int @default(0) // Subscriptions canceled
+  newCustomers          Int @default(0) // New patients with payments
+  activeSubscriptions   Int @default(0) // Total active at end of day
 
   // Payment metrics
   successfulPayments Int @default(0) // Count of successful payments
@@ -4356,11 +4374,11 @@ model SavedReport {
   config Json
 
   // Scheduling
-  isScheduled Boolean   @default(false)
-  schedule    String? // Cron expression (e.g., "0 9 * * 1" for Monday 9am)
-  recipients  String[] // Email addresses for delivery
-  lastRunAt   DateTime?
-  nextRunAt   DateTime?
+  isScheduled  Boolean   @default(false)
+  schedule     String? // Cron expression (e.g., "0 9 * * 1" for Monday 9am)
+  recipients   String[] // Email addresses for delivery
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
   lastRunError String? // Error message from last run if failed
 
   createdAt DateTime @default(now())
@@ -4381,9 +4399,9 @@ model ReportExport {
   user      User   @relation(fields: [createdBy], references: [id])
 
   // Export configuration
-  reportType    ReportType
-  format        String // 'csv', 'excel', 'pdf'
-  config        Json // Report configuration used
+  reportType     ReportType
+  format         String // 'csv', 'excel', 'pdf'
+  config         Json // Report configuration used
   dateRangeStart DateTime
   dateRangeEnd   DateTime
 
@@ -4395,10 +4413,10 @@ model ReportExport {
   errorMessage String?
 
   // File storage
-  fileUrl     String? // S3 URL when completed
-  fileName    String?
-  fileSize    Int? // File size in bytes
-  expiresAt   DateTime? // When the download link expires
+  fileUrl   String? // S3 URL when completed
+  fileName  String?
+  fileSize  Int? // File size in bytes
+  expiresAt DateTime? // When the download link expires
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4406,4 +4424,142 @@ model ReportExport {
   @@index([clinicId])
   @@index([status])
   @@index([createdBy])
+}
+
+// ===== PROVIDER ROUTING & COMPENSATION SYSTEM =====
+// Enterprise feature for provider prescription routing, SOAP approval workflows,
+// and per-script compensation tracking - configurable per clinic
+
+enum RoutingStrategy {
+  STATE_LICENSE_MATCH // Match provider's license state to patient's state
+  ROUND_ROBIN // Rotate among available providers
+  MANUAL_ASSIGNMENT // Admin manually assigns prescriptions
+  PROVIDER_CHOICE // Providers self-select from shared queue
+}
+
+enum SoapApprovalMode {
+  REQUIRED // Block prescribing without approved SOAP note
+  ADVISORY // Show warning but allow provider to proceed
+  DISABLED // No SOAP approval check
+}
+
+enum CompensationEventStatus {
+  PENDING // Prescription completed, awaiting approval
+  APPROVED // Approved for payout
+  PAID // Payment processed
+  VOIDED // Cancelled/voided (e.g., order cancelled)
+}
+
+enum CompensationType {
+  FLAT_RATE // Fixed amount per prescription
+  PERCENTAGE // Percentage of order/invoice total
+  HYBRID // Both flat rate + percentage
+}
+
+// Clinic-level routing configuration
+model ProviderRoutingConfig {
+  id       Int    @id @default(autoincrement())
+  clinicId Int    @unique
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Feature enable flags - this is an optional feature per clinic
+  routingEnabled      Boolean @default(false)
+  compensationEnabled Boolean @default(false)
+
+  // Routing strategy
+  routingStrategy RoutingStrategy @default(PROVIDER_CHOICE)
+
+  // SOAP note approval requirement
+  soapApprovalMode SoapApprovalMode @default(ADVISORY)
+
+  // Round-robin state tracking
+  lastAssignedIndex      Int  @default(0)
+  lastAssignedProviderId Int?
+
+  // Auto-assignment settings
+  autoAssignOnPayment Boolean @default(false) // Auto-assign when invoice paid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Per-clinic, per-provider compensation rates
+model ProviderCompensationPlan {
+  id         Int      @id @default(autoincrement())
+  clinicId   Int
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id])
+
+  // Compensation type (flat rate, percentage, or both)
+  compensationType CompensationType @default(FLAT_RATE)
+
+  // Compensation rates
+  flatRatePerScript Int @default(500) // Amount in cents (e.g., 500 = $5.00)
+  percentBps        Int @default(0) // Basis points (e.g., 1000 = 10%, 500 = 5%)
+
+  // Effective dates for rate changes
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime? // null = currently active
+  isActive      Boolean   @default(true)
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int? // User who created/modified
+  notes     String? // Admin notes about this rate
+
+  // Relations
+  compensationEvents ProviderCompensationEvent[]
+
+  @@unique([clinicId, providerId]) // One active plan per provider per clinic
+  @@index([clinicId])
+  @@index([providerId])
+  @@index([isActive])
+}
+
+// Per-prescription compensation event
+model ProviderCompensationEvent {
+  id         Int      @id @default(autoincrement())
+  clinicId   Int
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id])
+  orderId    Int      @unique // One compensation event per order
+  order      Order    @relation(fields: [orderId], references: [id])
+
+  // Link to the plan used for calculation
+  planId Int
+  plan   ProviderCompensationPlan @relation(fields: [planId], references: [id])
+
+  // Compensation details
+  amountCents        Int // Total amount earned in cents
+  prescriptionCount  Int  @default(1) // Number of prescriptions in order
+  orderTotalCents    Int? // Order/invoice total used for percentage calculation
+  calculationDetails Json? // Breakdown: { flatAmount, percentAmount, percentBps, etc. }
+
+  // Status workflow
+  status CompensationEventStatus @default(PENDING)
+
+  // Payment tracking (for future payment integration)
+  approvedAt      DateTime?
+  approvedBy      Int? // User who approved
+  paidAt          DateTime?
+  payoutReference String? // External payment reference (Stripe, check #, etc.)
+  payoutBatchId   String? // For batch payouts
+
+  // Voiding
+  voidedAt     DateTime?
+  voidedBy     Int?
+  voidedReason String?
+
+  // Audit
+  createdAt DateTime @default(now())
+  metadata  Json? // Additional context (medication name, patient state, etc.)
+
+  @@index([clinicId, providerId])
+  @@index([clinicId, createdAt])
+  @@index([providerId, status])
+  @@index([status])
+  @@index([createdAt])
 }
