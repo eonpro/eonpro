@@ -741,13 +741,14 @@ export default function PrescriptionQueuePage() {
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${month}/${day}/${year} at ${hour12}:${minutes} ${ampm}`;
   };
 
   const formatDob = (dob: string) => {
@@ -756,11 +757,10 @@ export default function PrescriptionQueuePage() {
     const age = Math.floor(
       (Date.now() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
     );
-    return `${date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })} (${age} yrs)`;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    return `${month}/${day}/${year} (${age} yrs)`;
   };
 
   const filteredItems = queueItems.filter((item) => {
@@ -893,79 +893,79 @@ export default function PrescriptionQueuePage() {
                 <div className="p-4 sm:p-5 overflow-x-auto">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4 min-w-fit">
                     {/* Patient Info */}
-                    <div className="flex items-center gap-3 min-w-[160px] flex-shrink-0">
-                      <div className="w-10 h-10 bg-gradient-to-br from-rose-100 to-rose-200 rounded-full flex items-center justify-center flex-shrink-0">
-                        <User className="w-5 h-5 text-rose-600" />
+                    <div className="flex items-center gap-2 min-w-[140px] flex-shrink-0">
+                      <div className="w-8 h-8 bg-gradient-to-br from-rose-100 to-rose-200 rounded-full flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-rose-600" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-gray-900 truncate">
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">
                           {item.patientName}
                         </h3>
-                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                        <span className="text-[10px] text-gray-400 bg-gray-100 px-1 py-0.5 rounded">
                           {item.patientDisplayId}
                         </span>
-                        <p className="text-sm text-gray-500 truncate">{item.patientEmail}</p>
+                        <p className="text-xs text-gray-500 truncate">{item.patientEmail}</p>
                       </div>
                     </div>
 
                     {/* Treatment & Plan */}
-                    <div className="flex items-center gap-2 min-w-[140px] flex-shrink-0">
-                      <div className="p-1.5 bg-purple-100 rounded-lg flex-shrink-0">
-                        <Pill className="w-4 h-4 text-purple-600" />
+                    <div className="flex items-center gap-2 min-w-[120px] flex-shrink-0">
+                      <div className="p-1 bg-purple-100 rounded flex-shrink-0">
+                        <Pill className="w-3.5 h-3.5 text-purple-600" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-xs font-medium text-gray-900 truncate">
                           {item.treatment}
                         </p>
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${
+                        <span className={`inline-flex items-center px-1 py-0.5 rounded text-[10px] font-semibold ${
                           item.planMonths >= 6
                             ? 'bg-emerald-100 text-emerald-700'
                             : item.planMonths >= 3
                               ? 'bg-rose-100 text-rose-700'
                               : 'bg-gray-200 text-gray-700'
                         }`}>
-                          {item.plan} ({item.planMonths} {item.planMonths === 1 ? 'mo' : 'mos'})
+                          {item.plan} ({item.planMonths} mo)
                         </span>
-                        <p className="text-xs text-gray-400">{item.invoiceNumber}</p>
+                        <p className="text-[10px] text-gray-400">{item.invoiceNumber}</p>
                       </div>
                     </div>
 
                     {/* GLP-1 History */}
-                    <div className="hidden lg:flex items-center gap-2 min-w-[100px] flex-shrink-0">
-                      <div className={`p-1.5 rounded-lg ${item.glp1Info?.usedGlp1 ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                        <Activity className={`w-3.5 h-3.5 ${item.glp1Info?.usedGlp1 ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <div className="hidden lg:flex items-center gap-1.5 min-w-[90px] flex-shrink-0">
+                      <div className={`p-1 rounded ${item.glp1Info?.usedGlp1 ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                        <Activity className={`w-3 h-3 ${item.glp1Info?.usedGlp1 ? 'text-blue-600' : 'text-gray-400'}`} />
                       </div>
                       <div className="min-w-0">
                         {item.glp1Info?.usedGlp1 ? (
                           <>
-                            <p className="text-xs font-semibold text-blue-700 truncate">
+                            <p className="text-[10px] font-semibold text-blue-700 truncate">
                               {item.glp1Info.glp1Type || 'Prior GLP-1'}
                             </p>
-                            <p className="text-xs text-blue-600">
+                            <p className="text-[10px] text-blue-600">
                               {item.glp1Info.lastDose ? `${item.glp1Info.lastDose}mg` : 'Has history'}
                             </p>
                           </>
                         ) : (
                           <>
-                            <p className="text-xs font-medium text-gray-600">New Patient</p>
-                            <p className="text-xs text-gray-400">No GLP-1 history</p>
+                            <p className="text-[10px] font-medium text-gray-600">New Patient</p>
+                            <p className="text-[10px] text-gray-400">No GLP-1 history</p>
                           </>
                         )}
                       </div>
                     </div>
 
                     {/* Clinic */}
-                    <div className="hidden xl:flex items-center gap-2 min-w-[90px] flex-shrink-0">
-                      <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <div className="hidden xl:flex items-center gap-1.5 min-w-[80px] flex-shrink-0">
+                      <Building2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-xs text-gray-700 truncate">{item.clinic?.name || "Unknown"}</p>
+                        <p className="text-[10px] text-gray-700 truncate">{item.clinic?.name || "Unknown"}</p>
                         {item.clinic?.lifefileEnabled ? (
-                          <span className="inline-flex items-center text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                          <span className="inline-flex items-center text-[10px] text-green-700 bg-green-100 px-1 py-0.5 rounded">
                             Lifefile ✓
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-amber-700">
-                            <AlertTriangle className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-700">
+                            <AlertTriangle className="w-2.5 h-2.5" />
                             No Lifefile
                           </span>
                         )}
@@ -973,9 +973,9 @@ export default function PrescriptionQueuePage() {
                     </div>
 
                     {/* Amount & Date */}
-                    <div className="hidden md:block text-right min-w-[80px] flex-shrink-0">
-                      <p className="text-sm font-semibold text-green-600">{item.amountFormatted}</p>
-                      <p className="text-xs text-gray-400">{formatDate(item.paidAt)}</p>
+                    <div className="hidden md:block text-right min-w-[70px] flex-shrink-0">
+                      <p className="text-xs font-semibold text-green-600">{item.amountFormatted}</p>
+                      <p className="text-[10px] text-gray-400">{formatDate(item.paidAt)}</p>
                     </div>
 
                     {/* Actions */}

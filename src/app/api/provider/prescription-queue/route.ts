@@ -271,6 +271,27 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       documentData: Buffer | null,
       patientName?: string
     ) => {
+      // Helper to check for exact Airtable field names (with dashes)
+      // These are the exact field names from Airtable intake forms
+      const checkExactAirtableFields = (obj: Record<string, unknown>) => {
+        // Check exact Airtable field names (case-insensitive)
+        const glp1Last30 = obj['glp1-last-30'] || obj['glp1_last_30'] || obj['GLP1-last-30'];
+        const glp1Type = obj['glp1-last-30-medication-type'] || obj['glp1_last_30_medication_type'] || obj['GLP1-last-30-medication-type'];
+        const glp1Dose = obj['glp1-last-30-medication-dose-mg'] || obj['glp1_last_30_medication_dose_mg'] || obj['GLP1-last-30-medication-dose-mg'];
+
+        if (glp1Last30) {
+          const isYes = String(glp1Last30).toLowerCase() === 'yes' || glp1Last30 === true;
+          if (isYes) {
+            return {
+              usedGlp1: true,
+              glp1Type: glp1Type ? String(glp1Type) : null,
+              lastDose: glp1Dose ? String(glp1Dose).replace(/[^\d.]/g, '') : null,
+            };
+          }
+        }
+        return null;
+      };
+
       // First try to get GLP-1 info from PatientDocument (intake form data)
       if (documentData) {
         try {
@@ -281,17 +302,33 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             patientName,
             hasGlp1History: !!docJson.glp1History,
             glp1History: docJson.glp1History,
-            docKeys: Object.keys(docJson).slice(0, 10),
+            docKeys: Object.keys(docJson).slice(0, 15),
           });
 
-          // Check for glp1History structure (WellMedR intake format)
+          // FIRST: Check for exact Airtable field names at root level
+          const exactMatch = checkExactAirtableFields(docJson);
+          if (exactMatch) {
+            logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from exact Airtable fields', {
+              patientName,
+              glp1Info: exactMatch,
+            });
+            return exactMatch;
+          }
+
+          // SECOND: Check for glp1History structure (WellMedR intake format)
           if (docJson.glp1History) {
             const history = docJson.glp1History;
             const usedLast30 = history.usedLast30Days;
             const medType = history.medicationType;
             const doseMg = history.doseMg;
 
-            if (usedLast30 && (usedLast30.toLowerCase() === 'yes' || usedLast30 === true)) {
+            if (usedLast30 && (String(usedLast30).toLowerCase() === 'yes' || usedLast30 === true)) {
+              logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from glp1History structure', {
+                patientName,
+                usedLast30,
+                medType,
+                doseMg,
+              });
               return {
                 usedGlp1: true,
                 glp1Type: medType || null,
@@ -300,7 +337,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             }
           }
 
-          // Also check the answers array for GLP-1 fields
+          // THIRD: Check the answers array for GLP-1 fields
           if (docJson.answers && Array.isArray(docJson.answers)) {
             let usedGlp1 = false;
             let glp1Type: string | null = null;
@@ -331,13 +368,44 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               return { usedGlp1, glp1Type, lastDose };
             }
           }
+
+          // FOURTH: Check sections array (another intake format)
+          if (docJson.sections && Array.isArray(docJson.sections)) {
+            for (const section of docJson.sections) {
+              if (section.questions && Array.isArray(section.questions)) {
+                for (const q of section.questions) {
+                  const key = normalizeKey(q.question || q.field || q.id || '');
+                  const val = q.answer || q.value || '';
+
+                  if ((key.includes('glp1') || key.includes('glp-1')) && key.includes('30')) {
+                    if (String(val).toLowerCase() === 'yes') {
+                      logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from sections array', { patientName, key, val });
+                      return {
+                        usedGlp1: true,
+                        glp1Type: null,
+                        lastDose: null,
+                      };
+                    }
+                  }
+                }
+              }
+            }
+          }
         } catch (e) {
           // Document data not JSON or malformed, fall through to metadata check
+          logger.debug('[PRESCRIPTION-QUEUE] Document parse failed', { patientName, error: e instanceof Error ? e.message : 'Unknown' });
         }
       }
 
       // Fall back to checking invoice metadata
       if (!metadata) return { usedGlp1: false, glp1Type: null, lastDose: null };
+
+      // Check exact Airtable field names in metadata first
+      const exactMetadataMatch = checkExactAirtableFields(metadata);
+      if (exactMetadataMatch) {
+        logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from metadata exact fields', { patientName, glp1Info: exactMetadataMatch });
+        return exactMetadataMatch;
+      }
 
       // Patterns to match (will be normalized for comparison)
       const glp1UsedPatterns = [
@@ -409,13 +477,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Fetch documents separately for patients that might not have them in the relation
     // This handles cases where the Patient -> Document link might not be populated
-    const patientIds = invoices.map((inv: InvoiceWithRelations) => inv.patient.id);
+    // IMPORTANT: Include both invoice AND refill patients
+    const invoicePatientIds = invoices.map((inv: InvoiceWithRelations) => inv.patient.id);
+    const refillPatientIds = refills.map((ref: RefillWithRelations) => ref.patient.id);
+    const allPatientIds = [...new Set([...invoicePatientIds, ...refillPatientIds])];
     const patientDocsMap = new Map<number, PatientDocumentWithData[]>();
     
-    if (patientIds.length > 0) {
+    if (allPatientIds.length > 0) {
       const allPatientDocs = await prisma.patientDocument.findMany({
         where: {
-          patientId: { in: patientIds },
+          patientId: { in: allPatientIds },
           category: 'MEDICAL_INTAKE_FORM',
         },
         orderBy: { createdAt: 'desc' },
@@ -437,7 +508,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
       
       logger.info('[PRESCRIPTION-QUEUE] Fetched intake documents', {
-        patientCount: patientIds.length,
+        patientCount: allPatientIds.length,
         docsFound: allPatientDocs.length,
         patientsWithDocs: patientDocsMap.size,
       });
@@ -623,6 +694,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const istirzepatide = treatmentDisplay.toLowerCase().includes('tirzepatide');
       const isSemaglutide = treatmentDisplay.toLowerCase().includes('semaglutide');
 
+      // Also check documents for more detailed GLP-1 info (original dose/type from intake)
+      const refillPatientDocs = patientDocsMap.get(refill.patient.id) || [];
+      const refillIntakeDoc = refillPatientDocs[0] || null;
+      const refillDocumentData = refillIntakeDoc?.data || null;
+
+      // Get GLP-1 info from documents if available (for original dose info)
+      const docGlp1Info = refillDocumentData ? extractGlp1Info(null, refillDocumentData, `${refill.patient.firstName} ${refill.patient.lastName}`) : null;
+
       return {
         // Queue item identification
         queueType: 'refill' as const,
@@ -656,10 +735,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         invoiceNumber: refill.invoiceId ? `INV-${refill.invoiceId}` : `REFILL-${refill.id}`,
         intakeCompletedAt,
         // GLP-1 history info - refill patients are existing GLP-1 users
+        // Prefer document data if available (has original intake info), fallback to medication info
         glp1Info: {
           usedGlp1: true, // Refill = they've used it before
-          glp1Type: istirzepatide ? 'Tirzepatide' : isSemaglutide ? 'Semaglutide' : refill.medicationName,
-          lastDose: refill.medicationStrength || null,
+          glp1Type: docGlp1Info?.glp1Type || (istirzepatide ? 'Tirzepatide' : isSemaglutide ? 'Semaglutide' : refill.medicationName),
+          lastDose: docGlp1Info?.lastDose || refill.medicationStrength || null,
         },
         // SOAP Note status
         soapNote: soapNote ? {
