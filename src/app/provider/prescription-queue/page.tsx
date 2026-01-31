@@ -893,56 +893,52 @@ export default function PrescriptionQueuePage() {
                 <div className="p-4 sm:p-5 overflow-x-auto">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4 min-w-fit">
                     {/* Patient Info */}
-                    <div className="flex items-center gap-4 min-w-[200px]">
-                      <div className="w-12 h-12 bg-gradient-to-br from-rose-100 to-rose-200 rounded-full flex items-center justify-center flex-shrink-0">
-                        <User className="w-6 h-6 text-rose-600" />
+                    <div className="flex items-center gap-3 min-w-[160px] flex-shrink-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-rose-100 to-rose-200 rounded-full flex items-center justify-center flex-shrink-0">
+                        <User className="w-5 h-5 text-rose-600" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">
                           {item.patientName}
                         </h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                            {item.patientDisplayId}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-500 truncate max-w-[180px]">{item.patientEmail}</p>
+                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                          {item.patientDisplayId}
+                        </span>
+                        <p className="text-sm text-gray-500 truncate">{item.patientEmail}</p>
                       </div>
                     </div>
 
                     {/* Treatment & Plan */}
-                    <div className="flex items-center gap-3 sm:min-w-[220px]">
-                      <div className="p-2 bg-purple-100 rounded-lg">
+                    <div className="flex items-center gap-2 min-w-[140px] flex-shrink-0">
+                      <div className="p-1.5 bg-purple-100 rounded-lg flex-shrink-0">
                         <Pill className="w-4 h-4 text-purple-600" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">
+                        <p className="text-sm font-medium text-gray-900 truncate">
                           {item.treatment}
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                            item.planMonths >= 6 
-                              ? 'bg-emerald-100 text-emerald-700' 
-                              : item.planMonths >= 3 
-                                ? 'bg-rose-100 text-rose-700'
-                                : 'bg-gray-200 text-gray-700'
-                          }`}>
-                            {item.plan} ({item.planMonths} {item.planMonths === 1 ? 'mo' : 'mos'})
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{item.invoiceNumber}</p>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${
+                          item.planMonths >= 6
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : item.planMonths >= 3
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          {item.plan} ({item.planMonths} {item.planMonths === 1 ? 'mo' : 'mos'})
+                        </span>
+                        <p className="text-xs text-gray-400">{item.invoiceNumber}</p>
                       </div>
                     </div>
 
                     {/* GLP-1 History */}
-                    <div className="hidden lg:flex items-center gap-2 min-w-[130px]">
+                    <div className="hidden lg:flex items-center gap-2 min-w-[100px] flex-shrink-0">
                       <div className={`p-1.5 rounded-lg ${item.glp1Info?.usedGlp1 ? 'bg-blue-100' : 'bg-gray-100'}`}>
                         <Activity className={`w-3.5 h-3.5 ${item.glp1Info?.usedGlp1 ? 'text-blue-600' : 'text-gray-400'}`} />
                       </div>
                       <div className="min-w-0">
                         {item.glp1Info?.usedGlp1 ? (
                           <>
-                            <p className="text-xs font-semibold text-blue-700 truncate max-w-[100px]">
+                            <p className="text-xs font-semibold text-blue-700 truncate">
                               {item.glp1Info.glp1Type || 'Prior GLP-1'}
                             </p>
                             <p className="text-xs text-blue-600">
@@ -959,10 +955,10 @@ export default function PrescriptionQueuePage() {
                     </div>
 
                     {/* Clinic */}
-                    <div className="hidden xl:flex items-center gap-2 min-w-[120px]">
-                      <Building2 className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <p className="text-xs text-gray-700 truncate max-w-[90px]">{item.clinic?.name || "Unknown"}</p>
+                    <div className="hidden xl:flex items-center gap-2 min-w-[90px] flex-shrink-0">
+                      <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-700 truncate">{item.clinic?.name || "Unknown"}</p>
                         {item.clinic?.lifefileEnabled ? (
                           <span className="inline-flex items-center text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
                             Lifefile ✓
@@ -977,13 +973,13 @@ export default function PrescriptionQueuePage() {
                     </div>
 
                     {/* Amount & Date */}
-                    <div className="hidden md:block text-right min-w-[100px]">
+                    <div className="hidden md:block text-right min-w-[80px] flex-shrink-0">
                       <p className="text-sm font-semibold text-green-600">{item.amountFormatted}</p>
                       <p className="text-xs text-gray-400">{formatDate(item.paidAt)}</p>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+                    <div className="flex items-center gap-1 ml-auto flex-shrink-0">
                       <button
                         onClick={() => handleExpandItem(item.invoiceId)}
                         className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
@@ -998,7 +994,7 @@ export default function PrescriptionQueuePage() {
                       <button
                         onClick={() => handleOpenPrescriptionPanel(item)}
                         disabled={!item.clinic?.lifefileEnabled}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm font-medium text-sm whitespace-nowrap"
+                        className="flex items-center gap-1 px-2 py-1.5 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm font-medium text-sm"
                         title={
                           item.clinic?.lifefileEnabled
                             ? "Write and send prescription"
@@ -1006,27 +1002,27 @@ export default function PrescriptionQueuePage() {
                         }
                       >
                         <Send className="w-4 h-4" />
-                        <span>Write Rx</span>
+                        <span className="hidden 2xl:inline">Write Rx</span>
                       </button>
                       <button
                         onClick={() => handleMarkProcessed(item.invoiceId, item.patientName)}
                         disabled={processing === item.invoiceId}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all font-medium text-sm whitespace-nowrap"
+                        className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all font-medium text-sm"
+                        title="Mark as done"
                       >
                         {processing === item.invoiceId ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <Check className="w-4 h-4" />
                         )}
-                        <span>Done</span>
+                        <span className="hidden 2xl:inline">Done</span>
                       </button>
                       <button
                         onClick={() => setDeclineModal({ item })}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-medium text-sm border border-red-200 whitespace-nowrap"
+                        className="flex items-center gap-1 px-2 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-medium text-sm border border-red-200"
                         title="Decline prescription request"
                       >
                         <X className="w-4 h-4" />
-                        <span className="hidden xl:inline">Decline</span>
                       </button>
                     </div>
                   </div>
