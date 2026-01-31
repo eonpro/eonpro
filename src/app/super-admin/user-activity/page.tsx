@@ -480,9 +480,10 @@ export default function UserActivityPage() {
                             </button>
                           )}
                           <Link
-                            href={`/super-admin/users/${user.id}`}
+                            href={`/super-admin/users/${user.id}/clinics`}
+                            prefetch={false}
                             className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                            title="View Details"
+                            title="Manage Clinics"
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
