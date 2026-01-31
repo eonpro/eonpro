@@ -4,7 +4,8 @@ import { prescriptionSchema } from "@/lib/validate";
 import { generatePrescriptionPDF } from "@/lib/pdf";
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
-import { prisma, basePrisma, Prisma } from "@/lib/db";
+import { prisma, basePrisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 type TransactionClient = Prisma.TransactionClient;
 import { logger } from '@/lib/logger';

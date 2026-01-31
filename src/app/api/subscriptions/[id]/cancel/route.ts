@@ -8,8 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, Prisma } from '@/lib/db';
-import { SubscriptionStatus } from '@prisma/client';
+import { prisma } from '@/lib/db';
+import { SubscriptionStatus, Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
@@ -132,9 +132,8 @@ async function cancelSubscriptionHandler(
       await tx.subscriptionAction.create({
         data: {
           subscriptionId,
-          actionType: 'CANCELED',
-          userId: user.id,
-          notes: 'Subscription canceled via API',
+          actionType: 'CANCELLED',
+          reason: `Cancelled via API by user ${user.id}`,
         },
       });
 

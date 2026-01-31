@@ -317,7 +317,7 @@ export const circuitBreakers = {
 
   email: createCircuitBreaker({
     name: 'email',
-    timeout: 5000,
+    timeout: 10000,
     errorThreshold: 80,
     volumeThreshold: 5,
     sleepWindow: 30000,
@@ -330,7 +330,7 @@ export const circuitBreakers = {
 
   sms: createCircuitBreaker({
     name: 'sms',
-    timeout: 3000,
+    timeout: 10000,
     errorThreshold: 70,
     volumeThreshold: 5,
     sleepWindow: 30000,
@@ -338,6 +338,30 @@ export const circuitBreakers = {
       // Queue for retry later
       logger.warn('SMS service down, queuing for retry');
       return { queued: true };
+    },
+  }),
+
+  // ENTERPRISE: Stripe payment service circuit breaker
+  stripe: createCircuitBreaker({
+    name: 'stripe',
+    timeout: 30000, // Stripe operations can take longer
+    errorThreshold: 30, // Lower threshold for payment failures
+    volumeThreshold: 5,
+    sleepWindow: 60000, // 1 minute cooldown
+    fallback: async () => {
+      throw new Error('Stripe payment service is temporarily unavailable. Please try again.');
+    },
+  }),
+
+  // ENTERPRISE: Lifefile pharmacy API circuit breaker
+  lifefile: createCircuitBreaker({
+    name: 'lifefile',
+    timeout: 20000,
+    errorThreshold: 40,
+    volumeThreshold: 5,
+    sleepWindow: 60000,
+    fallback: async () => {
+      throw new Error('Pharmacy service is temporarily unavailable. Order has been saved and will be processed automatically.');
     },
   }),
 };

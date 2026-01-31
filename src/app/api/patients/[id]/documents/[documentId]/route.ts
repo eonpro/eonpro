@@ -70,15 +70,17 @@ export const GET = withAuthParams(async (
     
     // HIPAA Audit: Log document access
     try {
-      await auditLog({
+      await auditLog(request, {
         eventType: AuditEventType.DOCUMENT_VIEW,
         userId: user.id,
+        userRole: user.role,
         patientId,
         resourceType: 'PatientDocument',
         resourceId: documentId.toString(),
         clinicId: patient.clinicId,
+        action: 'view_document',
+        outcome: 'SUCCESS',
         metadata: {
-          userRole: user.role,
           accessMethod: 'api',
         },
       });
