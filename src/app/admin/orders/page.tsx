@@ -9,14 +9,7 @@ export default function AdminOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const orders = [
-    { id: 'ORD-001', patient: 'John Smith', items: 'Medication A, Medication B', status: 'Processing', date: '2024-01-15', total: '$125.00' },
-    { id: 'ORD-002', patient: 'Sarah Johnson', items: 'Lab Kit', status: 'Shipped', date: '2024-01-14', total: '$89.00' },
-    { id: 'ORD-003', patient: 'Mike Davis', items: 'Medication C', status: 'Delivered', date: '2024-01-13', total: '$45.00' },
-    { id: 'ORD-004', patient: 'Emily Brown', items: 'Supplies Pack', status: 'Pending', date: '2024-01-12', total: '$234.00' },
-    { id: 'ORD-005', patient: 'Chris Wilson', items: 'Medication D, Medication E', status: 'Processing', date: '2024-01-11', total: '$178.00' },
-    { id: 'ORD-006', patient: 'Lisa Anderson', items: 'Lab Kit, Supplies', status: 'Cancelled', date: '2024-01-10', total: '$156.00' },
-  ];
+  const orders: { id: string; patient: string; items: string; status: string; date: string; total: string }[] = [];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -110,26 +103,36 @@ export default function AdminOrdersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredOrders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">{order.id}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.patient}</td>
-                <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{order.items}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
-                    {getStatusIcon(order.status)}
-                    {order.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{order.date}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.total}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <button className="text-emerald-600 hover:text-emerald-700">
-                    <Eye className="h-5 w-5" />
-                  </button>
+            {filteredOrders.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-12 text-center">
+                  <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 text-sm">No orders found</p>
+                  <p className="text-gray-400 text-xs mt-1">Orders will appear here once created</p>
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredOrders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">{order.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.patient}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{order.items}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                      {getStatusIcon(order.status)}
+                      {order.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{order.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.total}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button className="text-emerald-600 hover:text-emerald-700">
+                      <Eye className="h-5 w-5" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
