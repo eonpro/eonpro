@@ -4,7 +4,9 @@ import { prescriptionSchema } from "@/lib/validate";
 import { generatePrescriptionPDF } from "@/lib/pdf";
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
-import { prisma, basePrisma } from "@/lib/db";
+import { prisma, basePrisma, Prisma } from "@/lib/db";
+
+type TransactionClient = Prisma.TransactionClient;
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { NextRequest, NextResponse } from 'next/server';
@@ -435,7 +437,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     try {
       // ENTERPRISE: Atomic transaction for prescription creation
       // This ensures all records are created together or none at all
-      const transactionResult = await prisma.$transaction(async (tx) => {
+      const transactionResult = await prisma.$transaction(async (tx: TransactionClient) => {
         // Check for duplicate submission (idempotency)
         const existingOrder = await tx.order.findFirst({
           where: {

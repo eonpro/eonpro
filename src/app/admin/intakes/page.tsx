@@ -223,7 +223,13 @@ export default function AdminIntakesPage() {
         </div>
         <button
           onClick={() => router.push('/admin/patients/new')}
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-white rounded-lg transition-colors flex items-center gap-2"
+          style={{
+            backgroundColor: 'var(--brand-primary, #4fa77e)',
+            color: 'var(--brand-primary-text, #ffffff)'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
         >
           <Plus className="h-5 w-5" />
           Add Intake
@@ -231,14 +237,20 @@ export default function AdminIntakesPage() {
       </div>
 
       {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+      <div
+        className="rounded-xl p-4 mb-6 border"
+        style={{
+          backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
+          borderColor: 'var(--brand-primary, #4fa77e)'
+        }}
+      >
         <div className="flex items-start gap-3">
-          <UserPlus className="h-5 w-5 text-blue-600 mt-0.5" />
+          <UserPlus className="h-5 w-5 mt-0.5" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
           <div>
-            <p className="text-sm font-medium text-blue-800">
+            <p className="text-sm font-medium text-gray-800">
               Intakes become Patients when they make a payment or receive a prescription
             </p>
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
               Converted patients will appear in the Patients tab
             </p>
           </div>
@@ -255,7 +267,8 @@ export default function AdminIntakesPage() {
               placeholder="Search by name, patient ID, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             />
             {searchTerm && (
               <button
@@ -272,7 +285,8 @@ export default function AdminIntakesPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -337,7 +351,7 @@ export default function AdminIntakesPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-emerald-500 mx-auto mb-4" />
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
             <p className="text-gray-600">
               {searchTerm ? 'Searching intakes...' : 'Loading intakes...'}
             </p>
@@ -351,72 +365,90 @@ export default function AdminIntakesPage() {
             </p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intake</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {displayedPatients.map((patient) => (
-                <tr
-                  key={patient.id}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => router.push(`/patients/${patient.id}`)}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-blue-700 font-medium">
-                          {patient.firstName?.[0]}{patient.lastName?.[0]}
-                        </span>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {patient.firstName} {patient.lastName}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intake</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {displayedPatients.map((patient) => (
+                  <tr
+                    key={patient.id}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => router.push(`/patients/${patient.id}`)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div
+                          className="h-10 w-10 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: 'var(--brand-secondary-light, rgba(59, 130, 246, 0.15))' }}
+                        >
+                          <span className="font-medium" style={{ color: 'var(--brand-secondary, #3B82F6)' }}>
+                            {patient.firstName?.[0]}{patient.lastName?.[0]}
+                          </span>
                         </div>
-                        <div className="text-sm text-gray-500">ID: {patient.id}</div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {patient.firstName} {patient.lastName}
+                          </div>
+                          <div className="text-sm text-gray-500">ID: {patient.id}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{displayContact(patient.email)}</div>
-                    <div className="text-sm text-gray-500">{displayContact(patient.phone)}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {patient.dateOfBirth && !isEncryptedData(patient.dateOfBirth)
-                      ? new Date(patient.dateOfBirth).toLocaleDateString()
-                      : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                      Intake
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => router.push(`/patients/${patient.id}`)}
-                        className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                        title="View"
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{displayContact(patient.email)}</div>
+                      <div className="text-sm text-gray-500">{displayContact(patient.phone)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {patient.dateOfBirth && !isEncryptedData(patient.dateOfBirth)
+                        ? new Date(patient.dateOfBirth).toLocaleDateString()
+                        : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className="px-2 py-1 text-xs font-medium rounded-full"
+                        style={{
+                          backgroundColor: 'var(--brand-secondary-light, rgba(59, 130, 246, 0.15))',
+                          color: 'var(--brand-secondary, #3B82F6)'
+                        }}
                       >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => router.push(`/patients/${patient.id}/edit`)}
-                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
+                        Intake
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => router.push(`/patients/${patient.id}`)}
+                          className="p-2 text-gray-600 rounded-lg transition-colors"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                            e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = '#4b5563';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          title="View"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => router.push(`/patients/${patient.id}/edit`)}
+                          className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
                       <div className="relative" ref={openDropdownId === patient.id ? dropdownRef : null}>
                         <button
                           onClick={() => setOpenDropdownId(openDropdownId === patient.id ? null : patient.id)}
@@ -454,8 +486,9 @@ export default function AdminIntakesPage() {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         )}
 
         {/* Pagination */}
@@ -469,7 +502,17 @@ export default function AdminIntakesPage() {
                 <button
                   onClick={() => goToPage(1)}
                   disabled={currentPage === 1}
-                  className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-600"
+                  className="p-2 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onMouseEnter={(e) => {
+                    if (currentPage !== 1) {
+                      e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                      e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#4b5563';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
                   title="First page"
                 >
                   <ChevronsLeft className="h-4 w-4" />
@@ -478,7 +521,17 @@ export default function AdminIntakesPage() {
                 <button
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-600"
+                  className="p-2 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onMouseEnter={(e) => {
+                    if (currentPage !== 1) {
+                      e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                      e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#4b5563';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
                   title="Previous page"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -490,11 +543,25 @@ export default function AdminIntakesPage() {
                       <button
                         key={index}
                         onClick={() => goToPage(page)}
-                        className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === page
-                            ? 'bg-emerald-600 text-white'
-                            : 'text-gray-600 hover:text-emerald-600 hover:bg-emerald-50'
-                        }`}
+                        className="min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors"
+                        style={currentPage === page ? {
+                          backgroundColor: 'var(--brand-primary, #4fa77e)',
+                          color: 'var(--brand-primary-text, #ffffff)'
+                        } : {
+                          color: '#4b5563'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (currentPage !== page) {
+                            e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                            e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (currentPage !== page) {
+                            e.currentTarget.style.color = '#4b5563';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
                       >
                         {page}
                       </button>
@@ -509,7 +576,17 @@ export default function AdminIntakesPage() {
                 <button
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-600"
+                  className="p-2 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onMouseEnter={(e) => {
+                    if (currentPage !== totalPages) {
+                      e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                      e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#4b5563';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
                   title="Next page"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -518,7 +595,17 @@ export default function AdminIntakesPage() {
                 <button
                   onClick={() => goToPage(totalPages)}
                   disabled={currentPage === totalPages}
-                  className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-600"
+                  className="p-2 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onMouseEnter={(e) => {
+                    if (currentPage !== totalPages) {
+                      e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                      e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#4b5563';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
                   title="Last page"
                 >
                   <ChevronsRight className="h-4 w-4" />

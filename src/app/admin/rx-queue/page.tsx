@@ -152,9 +152,9 @@ export default function AdminRxQueuePage() {
       </div>
 
       {/* Info Banner */}
-      <div 
+      <div
         className="rounded-xl p-4 mb-6 border"
-        style={{ 
+        style={{
           backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
           borderColor: 'var(--brand-primary, #4fa77e)'
         }}
@@ -174,11 +174,11 @@ export default function AdminRxQueuePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        <div 
+        <div
           className="bg-white rounded-xl border p-3 sm:p-4 cursor-pointer transition-all border-gray-200 hover:border-gray-300"
-          style={filter === 'all' ? { 
-            borderColor: 'var(--brand-primary, #4fa77e)', 
-            boxShadow: '0 0 0 3px var(--brand-primary-light, rgba(79, 167, 126, 0.15))' 
+          style={filter === 'all' ? {
+            borderColor: 'var(--brand-primary, #4fa77e)',
+            boxShadow: '0 0 0 3px var(--brand-primary-light, rgba(79, 167, 126, 0.15))'
           } : {}}
           onClick={() => setFilter('all')}
         >
@@ -193,11 +193,11 @@ export default function AdminRxQueuePage() {
           </div>
         </div>
 
-        <div 
+        <div
           className="bg-white rounded-xl border p-3 sm:p-4 cursor-pointer transition-all border-gray-200 hover:border-gray-300"
-          style={filter === 'invoices' ? { 
-            borderColor: '#22c55e', 
-            boxShadow: '0 0 0 3px rgba(34, 197, 94, 0.15)' 
+          style={filter === 'invoices' ? {
+            borderColor: '#22c55e',
+            boxShadow: '0 0 0 3px rgba(34, 197, 94, 0.15)'
           } : {}}
           onClick={() => setFilter('invoices')}
         >
@@ -212,11 +212,11 @@ export default function AdminRxQueuePage() {
           </div>
         </div>
 
-        <div 
+        <div
           className="bg-white rounded-xl border p-3 sm:p-4 cursor-pointer transition-all border-gray-200 hover:border-gray-300"
-          style={filter === 'soap_notes' ? { 
-            borderColor: '#f59e0b', 
-            boxShadow: '0 0 0 3px rgba(245, 158, 11, 0.15)' 
+          style={filter === 'soap_notes' ? {
+            borderColor: '#f59e0b',
+            boxShadow: '0 0 0 3px rgba(245, 158, 11, 0.15)'
           } : {}}
           onClick={() => setFilter('soap_notes')}
         >
@@ -231,11 +231,11 @@ export default function AdminRxQueuePage() {
           </div>
         </div>
 
-        <div 
+        <div
           className="bg-white rounded-xl border p-3 sm:p-4 cursor-pointer transition-all border-gray-200 hover:border-gray-300"
-          style={filter === 'refills' ? { 
-            borderColor: '#a855f7', 
-            boxShadow: '0 0 0 3px rgba(168, 85, 247, 0.15)' 
+          style={filter === 'refills' ? {
+            borderColor: '#a855f7',
+            boxShadow: '0 0 0 3px rgba(168, 85, 247, 0.15)'
           } : {}}
           onClick={() => setFilter('refills')}
         >
@@ -360,7 +360,7 @@ export default function AdminRxQueuePage() {
                       <button
                         onClick={() => router.push(`/patients/${item.patientId}`)}
                         className="p-2 text-gray-600 rounded-lg transition-colors hover:bg-opacity-10"
-                        style={{ 
+                        style={{
                           '--tw-bg-opacity': '0.1'
                         } as React.CSSProperties}
                         onMouseEnter={(e) => {

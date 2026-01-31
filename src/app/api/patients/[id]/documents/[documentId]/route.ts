@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { retrieveFile, deleteFile } from '@/lib/storage/secure-storage';
-import { hipaaAudit } from '@/lib/audit/hipaa-audit';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 
 // GET /api/patients/[id]/documents/[documentId] - Serve document securely
 export const GET = withAuthParams(async (
@@ -70,12 +70,12 @@ export const GET = withAuthParams(async (
     
     // HIPAA Audit: Log document access
     try {
-      await hipaaAudit.log({
-        action: 'PHI_VIEW',
-        resourceType: 'PatientDocument',
-        resourceId: documentId.toString(),
+      await auditLog({
+        eventType: AuditEventType.DOCUMENT_VIEW,
         userId: user.id,
         patientId,
+        resourceType: 'PatientDocument',
+        resourceId: documentId.toString(),
         clinicId: patient.clinicId,
         metadata: {
           userRole: user.role,

@@ -242,7 +242,7 @@ export default function AdminPatientsPage() {
         <button
           onClick={() => router.push('/admin/patients/new')}
           className="px-4 py-2 text-white rounded-lg transition-colors flex items-center gap-2"
-          style={{ 
+          style={{
             backgroundColor: 'var(--brand-primary, #4fa77e)',
             color: 'var(--brand-primary-text, #ffffff)'
           }}
@@ -255,9 +255,9 @@ export default function AdminPatientsPage() {
       </div>
 
       {/* Info Banner */}
-      <div 
+      <div
         className="rounded-xl p-4 mb-6 border"
-        style={{ 
+        style={{
           backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
           borderColor: 'var(--brand-primary, #4fa77e)'
         }}
@@ -437,9 +437,9 @@ export default function AdminPatientsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {patient.hasPayment && (
-                          <span 
+                          <span
                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full"
-                            style={{ 
+                            style={{
                               backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
                               color: 'var(--brand-primary, #4fa77e)'
                             }}
@@ -449,9 +449,9 @@ export default function AdminPatientsPage() {
                           </span>
                         )}
                         {patient.hasOrder && (
-                          <span 
+                          <span
                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full"
-                            style={{ 
+                            style={{
                               backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
                               color: 'var(--brand-primary, #4fa77e)'
                             }}

@@ -1,8 +1,15 @@
 'use client';
 
+/**
+ * Authentication Context
+ *
+ * SECURITY: Uses server-side JWT verification.
+ * The JWT secret is NEVER exposed to the client.
+ * All token verification happens via /api/auth/session endpoint.
+ */
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { jwtVerify } from 'jose';
 import { logger } from '@/lib/logger';
 
 // Auth types
@@ -89,21 +96,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = 'patient-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   }, []);
 
-  // Decode and verify JWT token
+  /**
+   * SECURITY: Server-side token verification
+   * Uses /api/auth/session to verify tokens without exposing JWT secret
+   */
   const verifyToken = useCallback(async (token: string): Promise<User | null> => {
     try {
-      const secret = new TextEncoder().encode(process.env.NEXT_PUBLIC_JWT_SECRET || '');
-      const { payload } = await jwtVerify(token, secret);
-      
+      const response = await fetch('/api/auth/session', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        // Don't cache session verification
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        logger.error('Session verification failed:', { status: response.status });
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (!data.authenticated || !data.user) {
+        if (data.expired) {
+          logger.info('Token expired, needs refresh');
+        }
+        return null;
+      }
+
       return {
-        id: payload.id as number,
-        email: payload.email as string,
-        name: payload.name as string,
-        role: payload.role as User['role'],
-        providerId: (payload.providerId as number  as number | undefined),
-        patientId: payload.patientId as number | undefined,
-        influencerId: payload.influencerId as number | undefined,
-        permissions: payload.permissions as string[] | undefined,
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+        role: data.user.role as User['role'],
+        providerId: data.user.providerId,
+        patientId: data.user.patientId,
+        influencerId: data.user.influencerId,
+        permissions: data.user.permissions,
       };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

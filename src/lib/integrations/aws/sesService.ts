@@ -14,6 +14,7 @@ import {
   VerifyEmailIdentityCommand,
   ListVerifiedEmailAddressesCommand,
 } from '@aws-sdk/client-ses';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import nodemailer from 'nodemailer';
 import handlebars from 'handlebars';
 import {
@@ -32,6 +33,10 @@ import { join } from 'path';
 import { AppError, ApiResponse } from '@/types/common';
 import { Patient, Provider, Order } from '@/types/models';
 
+// ENTERPRISE: Timeout configuration for SES client
+const SES_CONNECTION_TIMEOUT = 5000; // 5 seconds
+const SES_SOCKET_TIMEOUT = 10000; // 10 seconds
+
 // Initialize SES Client
 let sesClient: SESClient | null = null;
 let transporter: nodemailer.Transporter | null = null;
@@ -42,12 +47,22 @@ export function getSESClient(): SESClient {
       throw new Error(SES_ERRORS.NOT_CONFIGURED);
     }
 
+    // ENTERPRISE: Configure SES client with timeouts to prevent hanging requests
     sesClient = new SESClient({
       region: sesConfig.region,
       credentials: {
         accessKeyId: sesConfig.accessKeyId,
         secretAccessKey: sesConfig.secretAccessKey,
       },
+      requestHandler: new NodeHttpHandler({
+        connectionTimeout: SES_CONNECTION_TIMEOUT,
+        socketTimeout: SES_SOCKET_TIMEOUT,
+      }),
+    });
+
+    logger.info('[SES] Client initialized with timeouts', {
+      connectionTimeout: SES_CONNECTION_TIMEOUT,
+      socketTimeout: SES_SOCKET_TIMEOUT,
     });
   }
 

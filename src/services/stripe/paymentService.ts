@@ -16,10 +16,18 @@ export interface ProcessPaymentOptions {
 
 /**
  * Service for managing Stripe payments
+ *
+ * ENTERPRISE: All payment operations follow DB-first pattern to prevent
+ * orphaned Stripe charges and ensure data consistency.
  */
 export class StripePaymentService {
   /**
    * Create a payment intent for immediate payment
+   *
+   * SECURITY: Uses idempotency keys and DB-first pattern
+   * 1. Create DB record with PENDING status
+   * 2. Call Stripe API with idempotency key
+   * 3. Update DB with Stripe ID
    */
   static async createPaymentIntent(options: ProcessPaymentOptions): Promise<{
     payment: any;
@@ -27,46 +35,89 @@ export class StripePaymentService {
   }> {
     const stripeClient = getStripe();
 
-    // Get or create Stripe customer
-    const customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
+    // ENTERPRISE: Generate idempotency key for deduplication
+    const idempotencyKey = `pi_${options.patientId}_${options.invoiceId || 'no_invoice'}_${Date.now()}`;
 
-    // Create payment intent
-    const paymentIntent = await stripeClient.paymentIntents.create({
-      amount: options.amount,
-      currency: STRIPE_CONFIG.currency,
-      customer: customer.id,
-      description: options.description,
-      payment_method: options.paymentMethodId,
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      metadata: {
-        patientId: options.patientId.toString(),
-        invoiceId: options.invoiceId?.toString() || '',
-        ...options.metadata,
-      } as any,
-    });
-
-    // Store payment in database
+    // 1. Create DB record FIRST (pending status)
     const payment = await prisma.payment.create({
       data: {
-        stripePaymentIntentId: paymentIntent.id,
         amount: options.amount,
         currency: STRIPE_CONFIG.currency,
-        status: this.mapStripeStatus(paymentIntent.status),
-        paymentMethod: paymentIntent.payment_method?.toString(),
+        status: 'PENDING',
         patientId: options.patientId,
         invoiceId: options.invoiceId,
-        metadata: options.metadata,
+        metadata: {
+          ...options.metadata,
+          idempotencyKey,
+        },
       },
     });
 
-    logger.debug(`[STRIPE] Created payment intent ${paymentIntent.id} for patient ${options.patientId}`);
+    logger.info(`[STRIPE] Created pending payment record ${payment.id} for patient ${options.patientId}`);
 
-    return {
-      payment,
-      clientSecret: paymentIntent.client_secret!,
-    };
+    try {
+      // Get or create Stripe customer
+      const customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
+
+      // 2. Create payment intent in Stripe with idempotency key
+      const paymentIntent = await stripeClient.paymentIntents.create({
+        amount: options.amount,
+        currency: STRIPE_CONFIG.currency,
+        customer: customer.id,
+        description: options.description,
+        payment_method: options.paymentMethodId,
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        metadata: {
+          paymentId: payment.id.toString(),
+          patientId: options.patientId.toString(),
+          invoiceId: options.invoiceId?.toString() || '',
+          idempotencyKey,
+          ...options.metadata,
+        } as any,
+      }, {
+        idempotencyKey, // Stripe idempotency for duplicate prevention
+      });
+
+      // 3. Update DB record with Stripe payment intent ID
+      const updatedPayment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          stripePaymentIntentId: paymentIntent.id,
+          status: this.mapStripeStatus(paymentIntent.status),
+          paymentMethod: paymentIntent.payment_method?.toString(),
+        },
+      });
+
+      logger.info(`[STRIPE] Created payment intent ${paymentIntent.id} for patient ${options.patientId}`, {
+        paymentId: payment.id,
+        stripePaymentIntentId: paymentIntent.id,
+      });
+
+      return {
+        payment: updatedPayment,
+        clientSecret: paymentIntent.client_secret!,
+      };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown Stripe error';
+
+      // ENTERPRISE: Mark payment as failed, don't lose tracking
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'FAILED',
+          failureReason: `Stripe API error: ${errorMessage}`,
+        },
+      });
+
+      logger.error(`[STRIPE] Payment intent creation failed for payment ${payment.id}`, {
+        paymentId: payment.id,
+        error: errorMessage,
+      });
+
+      throw error;
+    }
   }
 
   /**
@@ -144,6 +195,8 @@ export class StripePaymentService {
 
   /**
    * Refund a payment
+   *
+   * ENTERPRISE: Uses DB-first pattern and tracks refund before processing
    */
   static async refundPayment(
     paymentId: number,
@@ -161,28 +214,93 @@ export class StripePaymentService {
       throw new Error(`Payment with ID ${paymentId} not found`);
     }
 
-    if (!payment.stripeChargeId) {
-      throw new Error('Payment has no charge ID');
+    if (!payment.stripePaymentIntentId && !payment.stripeChargeId) {
+      throw new Error('Payment has no Stripe ID for refund');
     }
 
-    // Create refund in Stripe
-    const refund = await stripeClient.refunds.create({
-      charge: payment.stripeChargeId,
-      amount: amount || payment.amount,
-      reason: reason as Stripe.RefundCreateParams.Reason || 'requested_by_customer',
+    const refundAmount = amount || payment.amount;
+    const isPartialRefund = refundAmount < payment.amount;
+
+    // 1. Track refund intent BEFORE processing
+    logger.info(`[STRIPE] Initiating refund for payment ${paymentId}`, {
+      paymentId,
+      stripePaymentIntentId: payment.stripePaymentIntentId,
+      amount: refundAmount,
+      isPartialRefund,
     });
 
-    // Update payment status
+    // Mark payment as refund in progress
     await prisma.payment.update({
       where: { id: paymentId },
       data: {
-        status: amount && amount < payment.amount ? 'REFUNDED' : 'REFUNDED',
+        status: 'PROCESSING',
+        metadata: {
+          ...(payment.metadata as object || {}),
+          refundInitiatedAt: new Date().toISOString(),
+          refundAmount,
+          refundReason: reason,
+        },
       },
     });
 
-    logger.debug(`[STRIPE] Refunded payment ${payment.stripePaymentIntentId}`);
+    try {
+      // 2. Create refund in Stripe
+      const refund = await stripeClient.refunds.create({
+        payment_intent: payment.stripePaymentIntentId || undefined,
+        charge: payment.stripeChargeId || undefined,
+        amount: refundAmount,
+        reason: reason as Stripe.RefundCreateParams.Reason || 'requested_by_customer',
+        metadata: {
+          paymentId: paymentId.toString(),
+          originalAmount: payment.amount.toString(),
+        },
+      });
 
-    return refund;
+      // 3. Update payment status after successful refund
+      await prisma.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: isPartialRefund ? 'PARTIALLY_REFUNDED' : 'REFUNDED',
+          metadata: {
+            ...(payment.metadata as object || {}),
+            stripeRefundId: refund.id,
+            refundCompletedAt: new Date().toISOString(),
+            refundAmount,
+          },
+        },
+      });
+
+      logger.info(`[STRIPE] Refund completed for payment ${paymentId}`, {
+        paymentId,
+        stripeRefundId: refund.id,
+        amount: refundAmount,
+      });
+
+      return refund;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown refund error';
+
+      // ENTERPRISE: Mark as failed but don't lose tracking
+      await prisma.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: 'SUCCEEDED', // Revert to original status
+          failureReason: `Refund failed: ${errorMessage}`,
+          metadata: {
+            ...(payment.metadata as object || {}),
+            refundFailedAt: new Date().toISOString(),
+            refundError: errorMessage,
+          },
+        },
+      });
+
+      logger.error(`[STRIPE] Refund failed for payment ${paymentId}`, {
+        paymentId,
+        error: errorMessage,
+      });
+
+      throw error;
+    }
   }
 
   /**

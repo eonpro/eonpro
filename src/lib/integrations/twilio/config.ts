@@ -1,11 +1,18 @@
 /**
  * Twilio Configuration and Initialization
- * 
+ *
  * Handles Twilio client setup for SMS and Chat services
+ *
+ * ENTERPRISE: Configured with timeouts to prevent hanging requests
  */
 
 import twilio from 'twilio';
 import { isFeatureEnabled } from '@/lib/features';
+import { logger } from '@/lib/logger';
+
+// ENTERPRISE: Timeout configuration for Twilio client
+const TWILIO_TIMEOUT = 10000; // 10 seconds
+const TWILIO_MAX_RETRIES = 3;
 
 // Twilio Configuration Type
 export interface TwilioConfig {
@@ -30,14 +37,33 @@ export const twilioConfig: TwilioConfig = {
 // Validate Twilio configuration
 export function isTwilioConfigured(): boolean {
   return !!(
-    twilioConfig.accountSid && 
-    twilioConfig.authToken && 
+    twilioConfig.accountSid &&
+    twilioConfig.authToken &&
     twilioConfig.phoneNumber
   );
 }
 
 // Initialize Twilio client (singleton)
 let twilioClient: ReturnType<typeof twilio> | null = null;
+
+/**
+ * Create Twilio client with enterprise configuration
+ * Includes timeouts and retry settings
+ */
+function createTwilioClient() {
+  const client = twilio(twilioConfig.accountSid, twilioConfig.authToken, {
+    timeout: TWILIO_TIMEOUT,
+    autoRetry: true,
+    maxRetries: TWILIO_MAX_RETRIES,
+  });
+
+  logger.info('[TWILIO] Client initialized with enterprise config', {
+    timeout: TWILIO_TIMEOUT,
+    maxRetries: TWILIO_MAX_RETRIES,
+  });
+
+  return client;
+}
 
 export function getTwilioClient() {
   if (!isFeatureEnabled('TWILIO_SMS')) {
@@ -49,7 +75,7 @@ export function getTwilioClient() {
   }
 
   if (!twilioClient) {
-    twilioClient = twilio(twilioConfig.accountSid, twilioConfig.authToken);
+    twilioClient = createTwilioClient();
   }
 
   return twilioClient;
@@ -66,7 +92,7 @@ export function getTwilioClientDirect() {
   }
 
   if (!twilioClient) {
-    twilioClient = twilio(twilioConfig.accountSid, twilioConfig.authToken);
+    twilioClient = createTwilioClient();
   }
 
   return twilioClient;
