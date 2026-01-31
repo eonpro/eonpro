@@ -57,8 +57,14 @@ async function handleGet(req: NextRequest) {
       );
     }
     
+    // Return error details for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
     return NextResponse.json(
-      { error: 'Failed to fetch policies' },
+      { 
+        error: 'Failed to fetch policies',
+        message: errorMessage,
+      },
       { status: 500 }
     );
   }
