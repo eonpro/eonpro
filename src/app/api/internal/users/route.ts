@@ -146,13 +146,13 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     });
 
     // Transform to add display info
-    const transformedUsers = users.map((u) => {
+    const transformedUsers = users.map((u: typeof users[number]) => {
       // Get all clinic names for display
       const clinicNames: string[] = [];
       if (u.clinic?.name) {
         clinicNames.push(u.clinic.name);
       }
-      u.userClinics?.forEach(uc => {
+      u.userClinics?.forEach((uc: { clinic?: { name?: string } }) => {
         if (uc.clinic?.name && !clinicNames.includes(uc.clinic.name)) {
           clinicNames.push(uc.clinic.name);
         }
