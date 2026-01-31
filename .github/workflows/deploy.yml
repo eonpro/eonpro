@@ -138,6 +138,7 @@ jobs:
           echo "Attempting to resolve any failed migrations..."
           # Mark failed migrations as applied (they are idempotent)
           npx prisma migrate resolve --applied "20260129_add_affiliate_competitions" 2>/dev/null || echo "Migration already resolved or does not exist"
+          npx prisma migrate resolve --applied "20260129_add_provider_status" 2>/dev/null || echo "Migration already resolved or does not exist"
           npx prisma migrate resolve --applied "20260130_add_provider_routing_compensation" 2>/dev/null || echo "Migration already resolved or does not exist"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
