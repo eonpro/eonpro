@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Settings, Shield, Bell, Mail,
-  Lock, Save, Check, AlertCircle, ToggleLeft, ToggleRight
+  Lock, Save, Check, AlertCircle, ToggleLeft, ToggleRight,
+  FileText, ExternalLink, CheckCircle2
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface GlobalSettings {
   sessionTimeout: number;
@@ -26,12 +28,41 @@ interface GlobalSettings {
   dataRetention: number;
 }
 
+interface PolicySummary {
+  totalPolicies: number;
+  fullyApproved: number;
+  pendingApproval: number;
+}
+
 export default function GlobalSettingsPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'security' | 'email' | 'features' | 'compliance'>('security');
+  const [activeTab, setActiveTab] = useState<'security' | 'email' | 'features' | 'compliance' | 'policies'>('security');
+  const [policySummary, setPolicySummary] = useState<PolicySummary | null>(null);
+  const [loadingPolicies, setLoadingPolicies] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'policies') {
+      fetchPolicySummary();
+    }
+  }, [activeTab]);
+
+  const fetchPolicySummary = async () => {
+    setLoadingPolicies(true);
+    try {
+      const response = await fetch('/api/admin/policies?format=report');
+      if (response.ok) {
+        const data = await response.json();
+        setPolicySummary(data.summary);
+      }
+    } catch (err) {
+      console.error('Failed to fetch policy summary:', err);
+    } finally {
+      setLoadingPolicies(false);
+    }
+  };
 
   const [settings, setSettings] = useState<GlobalSettings>({
     sessionTimeout: 15,
@@ -93,6 +124,7 @@ export default function GlobalSettingsPage() {
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'features', label: 'Features', icon: ToggleLeft },
     { id: 'compliance', label: 'Compliance', icon: Lock },
+    { id: 'policies', label: 'Policies', icon: FileText },
   ];
 
   return (
@@ -378,6 +410,115 @@ export default function GlobalSettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Policy Management */}
+      {activeTab === 'policies' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              SOC 2 Policy Management
+            </h2>
+            <Link
+              href="/super-admin/policies"
+              className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] transition-colors font-medium"
+            >
+              Open Policy Center
+              <ExternalLink className="h-4 w-4" />
+            </Link>
+          </div>
+
+          {loadingPolicies ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#4fa77e] border-t-transparent"></div>
+            </div>
+          ) : policySummary ? (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-sm text-gray-500">Total Policies</p>
+                  <p className="text-2xl font-bold text-gray-900">{policySummary.totalPolicies}</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-4">
+                  <p className="text-sm text-green-600">Fully Approved</p>
+                  <p className="text-2xl font-bold text-green-700">{policySummary.fullyApproved}</p>
+                </div>
+                <div className={`rounded-xl p-4 ${policySummary.pendingApproval > 0 ? 'bg-amber-50' : 'bg-green-50'}`}>
+                  <p className={`text-sm ${policySummary.pendingApproval > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                    Pending Approval
+                  </p>
+                  <p className={`text-2xl font-bold ${policySummary.pendingApproval > 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                    {policySummary.pendingApproval}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Indicator */}
+              {policySummary.pendingApproval === 0 ? (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="font-medium text-green-800">All Policies Approved</p>
+                    <p className="text-sm text-green-700">
+                      All SOC 2 compliance policies have been digitally signed and are active.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <p className="font-medium text-amber-800">Action Required</p>
+                    <p className="text-sm text-amber-700">
+                      {policySummary.pendingApproval} policies require executive approval for SOC 2 compliance.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Policy List */}
+              <div className="border-t border-gray-100 pt-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-4">Available Policies</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { id: 'POL-001', name: 'Information Security Policy' },
+                    { id: 'POL-002', name: 'Access Control Policy' },
+                    { id: 'POL-003', name: 'Incident Response Policy' },
+                    { id: 'POL-004', name: 'Risk Assessment Policy' },
+                    { id: 'POL-005', name: 'Vendor Management Policy' },
+                    { id: 'POL-006', name: 'Change Management Policy' },
+                    { id: 'POL-007', name: 'Business Continuity Policy' },
+                    { id: 'POL-008', name: 'Data Retention Policy' },
+                  ].map((policy) => (
+                    <div
+                      key={policy.id}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                    >
+                      <FileText className="h-4 w-4 text-gray-400" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{policy.name}</p>
+                        <p className="text-xs text-gray-500">{policy.id}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p>Unable to load policy summary</p>
+              <button
+                onClick={fetchPolicySummary}
+                className="mt-4 text-[#4fa77e] hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
