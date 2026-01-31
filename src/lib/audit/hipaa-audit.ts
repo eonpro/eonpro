@@ -596,3 +596,174 @@ export async function getAuditStats(filters: {
 
 // Export event types for use in application
 export const AUDIT_EVENTS = AuditEventType;
+
+// ============================================================================
+// CONVENIENCE HELPERS FOR COMMON PHI ACCESS PATTERNS
+// ============================================================================
+
+/**
+ * User context for audit logging (simplified from auth middleware)
+ */
+export interface AuditUserContext {
+  id: number;
+  email?: string;
+  role: string;
+  clinicId?: number | null;
+}
+
+/**
+ * Log PHI view access (read operation)
+ */
+export async function logPHIAccess(
+  request: NextRequest | null,
+  user: AuditUserContext,
+  resourceType: string,
+  resourceId: string | number,
+  patientId?: number,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  await auditLog(request, {
+    eventType: AuditEventType.PHI_VIEW,
+    userId: user.id,
+    userEmail: user.email,
+    userRole: user.role,
+    clinicId: user.clinicId ?? undefined,
+    resourceType,
+    resourceId,
+    patientId,
+    action: `view_${resourceType.toLowerCase()}`,
+    outcome: 'SUCCESS',
+    metadata,
+  });
+}
+
+/**
+ * Log PHI creation
+ */
+export async function logPHICreate(
+  request: NextRequest | null,
+  user: AuditUserContext,
+  resourceType: string,
+  resourceId: string | number,
+  patientId?: number,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  await auditLog(request, {
+    eventType: AuditEventType.PHI_CREATE,
+    userId: user.id,
+    userEmail: user.email,
+    userRole: user.role,
+    clinicId: user.clinicId ?? undefined,
+    resourceType,
+    resourceId,
+    patientId,
+    action: `create_${resourceType.toLowerCase()}`,
+    outcome: 'SUCCESS',
+    metadata,
+  });
+}
+
+/**
+ * Log PHI update
+ */
+export async function logPHIUpdate(
+  request: NextRequest | null,
+  user: AuditUserContext,
+  resourceType: string,
+  resourceId: string | number,
+  patientId?: number,
+  changedFields?: string[],
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  await auditLog(request, {
+    eventType: AuditEventType.PHI_UPDATE,
+    userId: user.id,
+    userEmail: user.email,
+    userRole: user.role,
+    clinicId: user.clinicId ?? undefined,
+    resourceType,
+    resourceId,
+    patientId,
+    action: `update_${resourceType.toLowerCase()}`,
+    outcome: 'SUCCESS',
+    metadata: {
+      ...metadata,
+      changedFields: changedFields?.join(', '),
+    },
+  });
+}
+
+/**
+ * Log PHI deletion
+ */
+export async function logPHIDelete(
+  request: NextRequest | null,
+  user: AuditUserContext,
+  resourceType: string,
+  resourceId: string | number,
+  patientId?: number,
+  reason?: string,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  await auditLog(request, {
+    eventType: AuditEventType.PHI_DELETE,
+    userId: user.id,
+    userEmail: user.email,
+    userRole: user.role,
+    clinicId: user.clinicId ?? undefined,
+    resourceType,
+    resourceId,
+    patientId,
+    action: `delete_${resourceType.toLowerCase()}`,
+    outcome: 'SUCCESS',
+    reason,
+    metadata,
+  });
+}
+
+/**
+ * Log failed PHI access attempt (for security monitoring)
+ */
+export async function logPHIAccessDenied(
+  request: NextRequest | null,
+  user: AuditUserContext,
+  resourceType: string,
+  resourceId: string | number,
+  reason: string,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  await auditLog(request, {
+    eventType: AuditEventType.PHI_VIEW,
+    userId: user.id,
+    userEmail: user.email,
+    userRole: user.role,
+    clinicId: user.clinicId ?? undefined,
+    resourceType,
+    resourceId,
+    action: `access_denied_${resourceType.toLowerCase()}`,
+    outcome: 'FAILURE',
+    reason,
+    metadata,
+  });
+}
+
+/**
+ * Log security event (login failures, suspicious activity)
+ */
+export async function logSecurityEvent(
+  request: NextRequest | null,
+  eventType: 'LOGIN_FAILED' | 'SECURITY_ALERT' | 'BREAK_GLASS',
+  userId: number | string | null,
+  reason: string,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  await auditLog(request, {
+    eventType: AuditEventType[eventType],
+    userId: userId ?? 'anonymous',
+    resourceType: 'Security',
+    action: eventType.toLowerCase(),
+    outcome: eventType === 'BREAK_GLASS' ? 'SUCCESS' : 'FAILURE',
+    reason,
+    metadata,
+  });
+}
