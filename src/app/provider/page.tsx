@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 interface DashboardStats {
-  totalPatients: number;
+  totalIntakes: number;
   todayAppointments: number;
   pendingSOAPNotes: number;
   recentPrescriptions: number;
@@ -34,7 +34,7 @@ export default function ProviderDashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
-    totalPatients: 0,
+    totalIntakes: 0,
     todayAppointments: 0,
     pendingSOAPNotes: 0,
     recentPrescriptions: 0,
@@ -64,14 +64,14 @@ export default function ProviderDashboard() {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Fetch patients
+      // Fetch intakes (records become patients only when they have prescriptions)
       const patientsRes = await fetch('/api/patients?limit=5', { headers });
       if (patientsRes.ok) {
         const patientsData = await patientsRes.json();
         setRecentPatients(patientsData.patients || []);
         setStats(prev => ({
           ...prev,
-          totalPatients: patientsData.meta?.total || patientsData.patients?.length || 0
+          totalIntakes: patientsData.meta?.total || patientsData.patients?.length || 0
         }));
       }
 
@@ -125,9 +125,9 @@ export default function ProviderDashboard() {
           Welcome back, Dr. {userData?.lastName || userData?.name?.split(' ').pop() || userData?.email?.split('@')[0]}!
         </h1>
         <p className="text-green-100">
-          {stats.totalPatients > 0
-            ? `You have ${stats.totalPatients} patient${stats.totalPatients !== 1 ? 's' : ''} in your practice`
-            : 'Get started by adding your first patient'}
+          {stats.totalIntakes > 0
+            ? `You have ${stats.totalIntakes} intake${stats.totalIntakes !== 1 ? 's' : ''} in your practice`
+            : 'Get started by adding your first intake'}
         </p>
       </div>
 
@@ -136,8 +136,8 @@ export default function ProviderDashboard() {
         <Link href="/provider/patients" className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-green-200 transition-colors">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Patients</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalPatients}</p>
+              <p className="text-sm font-medium text-gray-500">Total Intakes</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalIntakes}</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-[#4fa77e] flex items-center justify-center">
               <Users className="h-6 w-6 text-white" />
@@ -226,7 +226,7 @@ export default function ProviderDashboard() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Patients</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Recent Intakes</h2>
             <Link href="/provider/patients" className="text-sm text-[#4fa77e] hover:underline">
               View all
             </Link>
@@ -235,12 +235,12 @@ export default function ProviderDashboard() {
             {recentPatients.length === 0 ? (
               <div className="text-center py-8">
                 <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">No patients yet</p>
+                <p className="text-gray-500 text-sm">No intakes yet</p>
                 <Link
                   href="/provider/patients"
                   className="mt-3 inline-block text-sm text-[#4fa77e] hover:underline"
                 >
-                  Add your first patient
+                  Add your first intake
                 </Link>
               </div>
             ) : (
@@ -286,7 +286,7 @@ export default function ProviderDashboard() {
               className="p-4 bg-[#4fa77e]/10 text-[#4fa77e] rounded-xl hover:bg-[#4fa77e]/20 transition-colors flex flex-col items-center"
             >
               <Users className="h-6 w-6 mb-2" />
-              <span className="text-sm font-medium">Add Patient</span>
+              <span className="text-sm font-medium">View Intakes</span>
             </button>
             <button
               onClick={() => router.push('/provider/soap-notes')}
