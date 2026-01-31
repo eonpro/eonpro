@@ -20,6 +20,8 @@ import {
 } from '@/domains/shared/errors';
 
 import type { UserContext } from '@/domains/shared/types';
+import { logPHIAccess, logPHIAccessDenied } from '@/lib/audit/hipaa-audit';
+import { logger } from '@/lib/logger';
 
 import {
   type PatientRepository,
@@ -332,6 +334,15 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
 
       // Require clinic for non-super-admin
       if (user.role !== 'super_admin' && !clinicId) {
+        // HIPAA: Log access denial
+        logPHIAccessDenied(null, {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          clinicId: user.clinicId,
+        }, 'Patient', id, 'No clinic context for non-super-admin').catch((err) => {
+          logger.error('Failed to log PHI access denial', { error: err });
+        });
         throw new ForbiddenError(ERR_NO_CLINIC);
       }
 
@@ -339,8 +350,27 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
 
       // Additional check for patient role - can only see own record
       if (user.role === 'patient' && user.patientId !== patient.id) {
+        // HIPAA: Log access denial
+        logPHIAccessDenied(null, {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          clinicId: user.clinicId,
+        }, 'Patient', id, 'Patient attempted to access another patient record').catch((err) => {
+          logger.error('Failed to log PHI access denial', { error: err });
+        });
         throw new ForbiddenError('You can only access your own patient record');
       }
+
+      // HIPAA: Log successful PHI access
+      logPHIAccess(null, {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        clinicId: user.clinicId,
+      }, 'Patient', patient.id, patient.id).catch((err) => {
+        logger.error('Failed to log PHI access', { error: err });
+      });
 
       return patient;
     },
