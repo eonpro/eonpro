@@ -5,6 +5,9 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "overrides": {
+    "fast-xml-parser": "^5.3.4"
+  },
   "scripts": {
     "dev": "next dev -p ${PORT:-3001}",
     "build": "rm -rf node_modules/.prisma && prisma generate && prisma db push --skip-generate && next build",
@@ -71,11 +74,11 @@
     ]
   },
   "dependencies": {
-    "@aws-sdk/client-kms": "^3.956.0",
-    "@aws-sdk/client-s3": "^3.939.0",
-    "@aws-sdk/client-secrets-manager": "^3.974.0",
-    "@aws-sdk/client-ses": "^3.939.0",
-    "@aws-sdk/s3-request-presigner": "^3.939.0",
+    "@aws-sdk/client-kms": "^3.980.0",
+    "@aws-sdk/client-s3": "^3.980.0",
+    "@aws-sdk/client-secrets-manager": "^3.980.0",
+    "@aws-sdk/client-ses": "^3.980.0",
+    "@aws-sdk/s3-request-presigner": "^3.980.0",
     "@azure/msal-node": "^3.8.4",
     "@headlessui/react": "^2.2.9",
     "@lottiefiles/dotlottie-react": "^0.17.8",
@@ -159,7 +162,7 @@
     "@vitest/coverage-v8": "4.0.14",
     "@vitest/ui": "4.0.14",
     "autoprefixer": "^10.4.16",
-    "eslint": "^8.57.0",
+    "eslint": "^9.39.2",
     "eslint-config-next": "^15.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^3.6.0",
