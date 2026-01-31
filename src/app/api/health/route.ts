@@ -85,7 +85,7 @@ async function checkStripe(): Promise<HealthCheck> {
 
     const Stripe = require('stripe');
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2025-11-17.clover'
+      apiVersion: '2026-01-28.clover'
     });
 
     // Quick balance check to verify API key

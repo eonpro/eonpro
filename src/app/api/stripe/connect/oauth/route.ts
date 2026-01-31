@@ -18,7 +18,7 @@ import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-11-17.clover',
+  apiVersion: '2026-01-28.clover',
 });
 
 // Your Stripe Connect Client ID (from Dashboard → Connect → Settings)

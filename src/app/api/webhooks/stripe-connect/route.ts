@@ -16,7 +16,7 @@ import { prisma } from '@/lib/db';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-11-17.clover',
+  apiVersion: '2026-01-28.clover',
 });
 
 // Webhook secret for Connect events (separate from regular webhook secret)

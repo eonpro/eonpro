@@ -7,7 +7,7 @@ import Stripe from 'stripe';
 import { getClinicIdFromRequest } from '@/lib/clinic/utils';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-11-17.clover',
+  apiVersion: '2026-01-28.clover',
 });
 
 // Validation schema for creating/updating products
