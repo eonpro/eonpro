@@ -62,14 +62,11 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
       // Total patients
       prisma.patient.count({ where: { clinicId } }),
 
-      // Active patients (logged in last 30 days or has recent order)
+      // Active patients (has recent order in last 30 days)
       prisma.patient.count({
         where: {
           clinicId,
-          OR: [
-            { lastLogin: { gte: thirtyDaysAgo } },
-            { orders: { some: { createdAt: { gte: thirtyDaysAgo } } } },
-          ],
+          orders: { some: { createdAt: { gte: thirtyDaysAgo } } },
         },
       }),
 
