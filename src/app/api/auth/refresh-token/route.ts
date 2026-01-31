@@ -48,22 +48,24 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user based on ID and role from the token
-    let user: { id: number; email: string; firstName?: string; lastName?: string; name?: string } | null = null;
+    let user: { id: number; email: string | null; firstName: string; lastName: string } | null = null;
     const userId = payload.id as number;
     
     // Since we don't store the role in refresh token, we need to check multiple tables
     // In production, you'd want to store user sessions in a dedicated table
     
     // Try provider first
-    user = await prisma.provider.findUnique({
+    const providerUser = await prisma.provider.findUnique({
       where: { id: userId },
+      select: { id: true, email: true, firstName: true, lastName: true },
     });
     
-    if (user) {
+    if (providerUser) {
+      user = providerUser;
       // Create new access token for provider
       const newAccessToken = await new SignJWT({
         id: user.id,
-        email: user.email,
+        email: user.email || '',
         name: `${user.firstName} ${user.lastName}`,
         role: 'provider',
       })
@@ -97,16 +99,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Try influencer
-    user = await prisma.influencer.findUnique({
+    const influencerUser = await prisma.influencer.findUnique({
       where: { id: userId },
+      select: { id: true, email: true, name: true },
     });
-    
-    if (user) {
+
+    if (influencerUser) {
       // Create new access token for influencer
       const newAccessToken = await new SignJWT({
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        id: influencerUser.id,
+        email: influencerUser.email,
+        name: influencerUser.name,
         role: 'influencer',
       })
         .setProtectedHeader({ alg: 'HS256' })
@@ -116,7 +119,7 @@ export async function POST(req: NextRequest) {
 
       // Create new refresh token
       const newRefreshToken = await new SignJWT({
-        id: user.id,
+        id: influencerUser.id,
         type: 'refresh',
       })
         .setProtectedHeader({ alg: 'HS256' })
@@ -124,15 +127,15 @@ export async function POST(req: NextRequest) {
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
         .sign(JWT_SECRET);
 
-      logger.info(`Token refreshed for influencer: ${user.email}`);
+      logger.info(`Token refreshed for influencer: ${influencerUser.email}`);
 
       return NextResponse.json({
         token: newAccessToken,
         refreshToken: newRefreshToken,
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
+          id: influencerUser.id,
+          email: influencerUser.email,
+          name: influencerUser.name,
           role: 'influencer',
         },
       });

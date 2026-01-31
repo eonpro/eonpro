@@ -92,8 +92,8 @@ async function loginHandler(req: NextRequest) {
             user = {
               id: providerData.id,
               email: providerData.email || '',
-              firstName: providerData.firstName || providerData.name?.split(' ')[0] || '',
-              lastName: providerData.lastName || providerData.name?.split(' ').slice(1).join(' ') || '',
+              firstName: providerData.firstName || '',
+              lastName: providerData.lastName || '',
               role: "provider",
               status: 'ACTIVE',
               providerId: providerData.id,
