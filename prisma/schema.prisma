@@ -866,6 +866,10 @@ model User {
   savedReports  SavedReport[]
   reportExports ReportExport[]
 
+  // SOC 2 Policy Management Relations
+  policyApprovals       PolicyApproval[]
+  policyAcknowledgments PolicyAcknowledgment[]
+
   @@index([email])
   @@index([role, status])
   @@index([createdAt(sort: Desc)])
@@ -1935,6 +1939,9 @@ model Clinic {
   providerRoutingConfig      ProviderRoutingConfig?
   providerCompensationPlans  ProviderCompensationPlan[]
   providerCompensationEvents ProviderCompensationEvent[]
+
+  // SOC 2 Policy Management
+  policyAcknowledgments PolicyAcknowledgment[]
 
   @@index([subdomain])
   @@index([status])
@@ -4534,7 +4541,7 @@ model ProviderCompensationEvent {
 
   // Compensation details
   amountCents        Int // Total amount earned in cents
-  prescriptionCount  Int  @default(1) // Number of prescriptions in order
+  prescriptionCount  Int   @default(1) // Number of prescriptions in order
   orderTotalCents    Int? // Order/invoice total used for percentage calculation
   calculationDetails Json? // Breakdown: { flatAmount, percentAmount, percentBps, etc. }
 
@@ -4562,4 +4569,78 @@ model ProviderCompensationEvent {
   @@index([providerId, status])
   @@index([status])
   @@index([createdAt])
+}
+
+// ============================================================================
+// SOC 2 Policy Management
+// ============================================================================
+
+// Policy definitions for SOC 2 compliance
+model Policy {
+  id               Int      @id @default(autoincrement())
+  policyId         String   @unique // e.g., "POL-001"
+  title            String
+  version          String // e.g., "1.0"
+  effectiveDate    DateTime
+  content          String // Full policy markdown
+  contentHash      String // SHA-256 hash for tamper detection
+  status           String   @default("draft") // draft, active, superseded
+  requiresApproval Boolean  @default(true)
+  approvalRoles    String[] // Roles required to approve
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  PolicyApproval       PolicyApproval[]
+  PolicyAcknowledgment PolicyAcknowledgment[]
+
+  @@index([status])
+  @@index([policyId])
+}
+
+// Executive policy approvals (digital signatures)
+model PolicyApproval {
+  id                    Int      @id @default(autoincrement())
+  policyId              Int
+  policy                Policy   @relation(fields: [policyId], references: [id])
+  userId                Int
+  user                  User     @relation(fields: [userId], references: [id])
+  userEmail             String
+  userName              String
+  userRole              String
+  approvalType          String // executive_approval, ciso_approval, compliance_approval
+  ipAddress             String
+  userAgent             String?
+  contentHashAtApproval String // Hash when approved (tamper detection)
+  signatureStatement    String // Legal statement agreed to
+  approvedAt            DateTime @default(now())
+
+  @@unique([policyId, userId, approvalType])
+  @@index([policyId])
+  @@index([userId])
+  @@index([approvedAt])
+}
+
+// Employee policy acknowledgments
+model PolicyAcknowledgment {
+  id                          Int      @id @default(autoincrement())
+  policyId                    Int
+  policy                      Policy   @relation(fields: [policyId], references: [id])
+  userId                      Int
+  user                        User     @relation(fields: [userId], references: [id])
+  userEmail                   String
+  userName                    String
+  userRole                    String
+  clinicId                    Int?
+  clinic                      Clinic?  @relation(fields: [clinicId], references: [id])
+  ipAddress                   String
+  userAgent                   String?
+  contentHashAtAcknowledgment String // Hash when acknowledged
+  acknowledgedAt              DateTime @default(now())
+
+  @@unique([policyId, userId])
+  @@index([policyId])
+  @@index([userId])
+  @@index([clinicId])
+  @@index([acknowledgedAt])
 }

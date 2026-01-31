@@ -10,10 +10,11 @@
  * - Full audit trail via HIPAA audit logging
  */
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { createHash } from 'crypto';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { NextRequest } from 'next/server';
+import type { Policy, PolicyApproval, PolicyAcknowledgment, Prisma } from '@prisma/client';
 
 // ============================================================================
 // Types
@@ -138,7 +139,7 @@ export async function upsertPolicy(policy: PolicyDefinition): Promise<number> {
 /**
  * Get all policies with their approval status
  */
-export async function getAllPoliciesWithStatus(): Promise<PolicyApprovalStatus[]> {
+export async function getAllPoliciesWithStatus(): Promise<(PolicyApprovalStatus & { id: number })[]> {
   const policies = await prisma.policy.findMany({
     where: { status: { not: 'superseded' } },
     include: {
@@ -158,7 +159,7 @@ export async function getAllPoliciesWithStatus(): Promise<PolicyApprovalStatus[]
 
   // Get total users who need to acknowledge
   const totalUsers = await prisma.user.count({
-    where: { status: 'active' },
+    where: { status: 'ACTIVE' },
   });
 
   return policies.map((policy) => {
@@ -169,6 +170,7 @@ export async function getAllPoliciesWithStatus(): Promise<PolicyApprovalStatus[]
     );
 
     return {
+      id: policy.id, // Include database ID for API calls
       policyId: policy.policyId,
       title: policy.title,
       version: policy.version,
