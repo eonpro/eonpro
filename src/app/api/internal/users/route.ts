@@ -5,12 +5,12 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 /**
  * GET /api/internal/users - Fetch team members for internal chat
- * 
+ *
  * MULTI-CLINIC SUPPORT:
  * - Super admins see all users across all clinics
  * - Users see all team members from clinics they belong to (via UserClinic table)
  * - Falls back to primary clinicId if user has no UserClinic entries
- * 
+ *
  * VISIBILITY RULES:
  * - Excludes patients (they use patient chat)
  * - Only shows ACTIVE users
@@ -31,7 +31,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
     // Determine which clinics the user has access to
     let accessibleClinicIds: number[] = [];
-    
+
     if (user.role === 'super_admin') {
       // Super admins see everyone - no clinic filter
       accessibleClinicIds = [];
@@ -46,9 +46,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           clinicId: true
         }
       });
-      
-      accessibleClinicIds = userClinics.map(uc => uc.clinicId);
-      
+
+      accessibleClinicIds = userClinics.map((uc: { clinicId: number }) => uc.clinicId);
+
       // Fall back to primary clinic if no UserClinic entries
       if (accessibleClinicIds.length === 0 && user.clinicId) {
         accessibleClinicIds = [user.clinicId];
@@ -88,7 +88,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         { lastName: { contains: search, mode: 'insensitive' as const } },
         { email: { contains: search, mode: 'insensitive' as const } }
       ];
-      
+
       // If we already have OR conditions for clinic filtering, we need to AND them
       if (whereClause.OR) {
         whereClause.AND = [
@@ -192,6 +192,6 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
 // Export handler with authentication
 // Include all staff roles that should have access to internal chat
-export const GET = withAuth(getHandler, { 
-  roles: ['super_admin', 'admin', 'provider', 'staff', 'support'] 
+export const GET = withAuth(getHandler, {
+  roles: ['super_admin', 'admin', 'provider', 'staff', 'support']
 });
