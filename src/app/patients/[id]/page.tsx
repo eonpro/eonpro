@@ -51,7 +51,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       return (
         <div className="p-10">
           <p className="text-red-600">Invalid patient ID.</p>
-          <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
+          <Link href="/provider/patients" className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
             ← Back to patients
           </Link>
         </div>
@@ -128,7 +128,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       return (
         <div className="p-10">
           <p className="text-red-600">Error loading patient data. Please try again.</p>
-          <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
+          <Link href="/provider/patients" className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
             ← Back to patients
           </Link>
         </div>
@@ -154,7 +154,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       return (
         <div className="p-10">
           <p className="text-red-600">Patient not found or you don't have access to this patient.</p>
-          <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
+          <Link href="/provider/patients" className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
             ← Back to patients
           </Link>
         </div>
@@ -721,10 +721,11 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                 <div className="mt-6 flex h-48 items-center justify-center rounded-xl bg-[#efece7] p-4">
                   <Link
                     href={`/patients/${patientWithDecryptedPHI.id}?tab=progress`}
-                    className="text-center text-gray-500 transition-colors hover:text-[#4fa77e]"
+                    className="text-center text-gray-500 transition-colors group"
                   >
                     <svg
-                      className="mx-auto mb-2 h-8 w-8 opacity-50"
+                      className="mx-auto mb-2 h-8 w-8 opacity-50 group-hover:opacity-80 transition-opacity"
+                      style={{ color: 'inherit' }}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -736,7 +737,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                         d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                       />
                     </svg>
-                    <p className="text-sm font-medium">Weight Progress Tracking</p>
+                    <p className="text-sm font-medium group-hover:text-gray-700">Weight Progress Tracking</p>
                     <p className="text-xs">View full chart in Progress tab →</p>
                   </Link>
                 </div>
@@ -830,7 +831,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       <div className="p-10">
         <p className="text-red-600">An error occurred while loading this page.</p>
         <p className="text-sm text-gray-500 mt-2">Please try refreshing the page or contact support if the problem persists.</p>
-        <Link href="/provider/patients" className="mt-4 block text-[#4fa77e] underline">
+        <Link href="/provider/patients" className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
           ← Back to patients
         </Link>
       </div>

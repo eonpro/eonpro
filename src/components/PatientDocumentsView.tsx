@@ -284,7 +284,8 @@ export default function PatientDocumentsView({
             id="category"
             value={selectedCategory}
             onChange={(e: any) => setSelectedCategory(e.target.value)}
-            className="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e]"
+            className="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none focus:border-transparent"
+            style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
           >
             {documentCategories.map((cat: any) => (
               <option key={cat.value} value={cat.value}>
@@ -295,11 +296,11 @@ export default function PatientDocumentsView({
         </div>
 
         <div
-          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive
-              ? "border-[#4fa77e] bg-green-50"
-              : "border-gray-300 hover:border-gray-400"
-          }`}
+          className="relative border-2 border-dashed rounded-lg p-8 text-center transition-colors"
+          style={{
+            borderColor: dragActive ? 'var(--brand-primary, #4fa77e)' : '#d1d5db',
+            backgroundColor: dragActive ? 'var(--brand-primary-light, rgba(79, 167, 126, 0.05))' : 'transparent'
+          }}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
@@ -321,8 +322,8 @@ export default function PatientDocumentsView({
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
-                  className="bg-[#4fa77e] h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
+                  className="h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%`, backgroundColor: 'var(--brand-primary, #4fa77e)' }}
                 ></div>
               </div>
               <p className="text-sm text-gray-600">Uploading... {uploadProgress}%</p>
@@ -331,7 +332,11 @@ export default function PatientDocumentsView({
             <>
               <Upload className="mx-auto h-12 w-12 text-gray-400" />
               <p className="mt-2 text-sm text-gray-600">
-                <label htmlFor="file-upload" className="font-semibold text-[#4fa77e] hover:text-[#3f8660] cursor-pointer">
+                <label
+                  htmlFor="file-upload"
+                  className="font-semibold cursor-pointer transition-opacity hover:opacity-80"
+                  style={{ color: 'var(--brand-primary, #4fa77e)' }}
+                >
                   Click to upload
                 </label>{" "}
                 or drag and drop
@@ -352,7 +357,10 @@ export default function PatientDocumentsView({
 
         {isLoading ? (
           <div className="p-6 text-center text-gray-500">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4fa77e] mx-auto mb-2"></div>
+            <div
+              className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-2"
+              style={{ borderColor: 'var(--brand-primary, #4fa77e)' }}
+            ></div>
             <p>Loading documents...</p>
           </div>
         ) : documents.length === 0 ? (
@@ -379,21 +387,38 @@ export default function PatientDocumentsView({
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => handleView(doc)}
-                      className="p-2 text-gray-600 hover:text-[#4fa77e] transition-colors"
+                      className="p-2 text-gray-600 rounded-lg transition-colors"
+                      style={{ '--hover-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                        e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#4b5563';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
                       title="View document"
                     >
                       <Eye className="h-5 w-5" />
                     </button>
                     <button
                       onClick={() => handleDownload(doc)}
-                      className="p-2 text-gray-600 hover:text-[#4fa77e] transition-colors"
+                      className="p-2 text-gray-600 rounded-lg transition-colors"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
+                        e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#4b5563';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
                       title="Download document"
                     >
                       <Download className="h-5 w-5" />
                     </button>
                     <button
                       onClick={() => handleDelete(doc.id)}
-                      className="p-2 text-gray-600 hover:text-red-600 transition-colors"
+                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete document"
                     >
                       <Trash2 className="h-5 w-5" />
