@@ -209,6 +209,7 @@ export interface OrderListFilters {
   dateFrom?: Date;
   dateTo?: Date;
   limit?: number;
+  hasTrackingNumber?: boolean;
 }
 
 /**

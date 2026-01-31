@@ -216,6 +216,13 @@ export const orderRepository = {
       }
     }
 
+    // Tracking number filter
+    if (filters.hasTrackingNumber === true) {
+      where.trackingNumber = { not: null };
+    } else if (filters.hasTrackingNumber === false) {
+      where.trackingNumber = null;
+    }
+
     const limit = filters.limit ?? 100;
 
     logger.debug('[OrderRepository] list query', { filters, where });

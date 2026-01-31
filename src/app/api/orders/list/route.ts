@@ -43,9 +43,14 @@ export async function GET(request: NextRequest) {
       providerId: user.providerId,
     };
 
+    // Parse query params
+    const { searchParams } = new URL(request.url);
+    const hasTrackingNumber = searchParams.get('hasTrackingNumber');
+
     // Use order service for proper access control
     const result = await orderService.listOrders(userContext, {
-      limit: 50,
+      limit: 100,
+      hasTrackingNumber: hasTrackingNumber === 'true' ? true : hasTrackingNumber === 'false' ? false : undefined,
     });
 
     // Fetch events for each order (for backward compatibility)

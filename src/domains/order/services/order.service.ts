@@ -121,6 +121,7 @@ export const orderService = {
       status?: string | string[];
       patientId?: number;
       providerId?: number;
+      hasTrackingNumber?: boolean;
     } = {}
   ): Promise<ListOrdersResult> {
     logger.info('[OrderService] listOrders', {
@@ -177,6 +178,11 @@ export const orderService = {
           filters.dateFrom = new Date(now.getTime() - value * 24 * 60 * 60 * 1000);
         }
       }
+    }
+
+    // Tracking number filter
+    if (options.hasTrackingNumber !== undefined) {
+      filters.hasTrackingNumber = options.hasTrackingNumber;
     }
 
     const result = await orderRepository.list(filters);
