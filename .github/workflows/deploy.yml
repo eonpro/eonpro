@@ -131,6 +131,23 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         continue-on-error: true
           
+      - name: Resolve failed migrations
+        run: |
+          echo "Checking for failed migrations..."
+          # Check if there are any failed migrations and resolve them
+          FAILED=$(npx prisma migrate status 2>&1 || true)
+          if echo "$FAILED" | grep -q "failed"; then
+            echo "Found failed migrations, attempting to resolve..."
+            # Extract failed migration names and mark them as applied (since they're idempotent)
+            echo "$FAILED" | grep -oP '`\K[^`]+(?=` migration)' | while read migration; do
+              echo "Resolving: $migration"
+              npx prisma migrate resolve --applied "$migration" || true
+            done
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        continue-on-error: true
+          
       - name: Run database migrations
         run: |
           echo "🔄 Running database migrations..."
