@@ -86,10 +86,12 @@ export async function getProviderForUser(
     }
   }
 
-  // Strategy 2: Email match fallback
+  // Strategy 2: Email match fallback (case-insensitive)
   if (user.email) {
     provider = await prisma.provider.findFirst({
-      where: { email: user.email.toLowerCase() },
+      where: { 
+        email: { equals: user.email, mode: 'insensitive' },
+      },
       select: baseSelect,
     }) as ProviderLookupResult | null;
 
@@ -124,6 +126,32 @@ export async function getProviderForUser(
           userId: user.id,
           providerId: provider.id,
           name: `${userData.firstName} ${userData.lastName}`,
+        });
+        return provider;
+      }
+    }
+  }
+
+  // Strategy 4: If user has clinicId and is provider/admin role, find ANY active provider in that clinic
+  // This handles cases where user/provider linking is incomplete but user clearly has provider access
+  if (user.clinicId && (user.role === 'provider' || user.role === 'admin')) {
+    // First try to find by clinic + email domain match
+    const emailDomain = user.email?.split('@')[1];
+    if (emailDomain) {
+      provider = await prisma.provider.findFirst({
+        where: {
+          clinicId: user.clinicId,
+          email: { endsWith: `@${emailDomain}`, mode: 'insensitive' },
+          status: 'ACTIVE',
+        },
+        select: baseSelect,
+      }) as ProviderLookupResult | null;
+
+      if (provider) {
+        logger.debug('[GetProviderForUser] Found via clinic + email domain match', {
+          userId: user.id,
+          providerId: provider.id,
+          clinicId: user.clinicId,
         });
         return provider;
       }

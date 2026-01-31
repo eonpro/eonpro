@@ -96,12 +96,27 @@ export const POST = withAuth(
       });
 
       if (!provider) {
+        // Log details to help debug provider linking issues
+        logger.warn('[API] SOAP note approval failed - no provider found', {
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role,
+          userClinicId: user.clinicId,
+          userProviderId: user.providerId,
+          soapNoteId,
+        });
+
         // Return 400 instead of 403 to avoid triggering session expiration
         // This is a data/configuration issue, not an auth issue
         return NextResponse.json(
           {
-            error: 'Provider record not found. Only providers can approve SOAP notes.',
+            error: 'Your user account is not linked to a provider profile. Please ask an administrator to link your user account to your provider record.',
             code: 'PROVIDER_NOT_FOUND',
+            debug: {
+              userId: user.id,
+              email: user.email,
+              hasProviderId: !!user.providerId,
+            },
           },
           { status: 400 }
         );
@@ -183,7 +198,7 @@ export const POST = withAuth(
       );
     }
   },
-  { roles: ['super_admin', 'provider'] }  // ONLY providers can approve clinical documentation
+  { roles: ['super_admin', 'admin', 'provider'] }  // Admins and providers can approve clinical documentation
 );
 
 /**
@@ -294,5 +309,5 @@ export const DELETE = withAuth(
       );
     }
   },
-  { roles: ['super_admin', 'provider'] }
+  { roles: ['super_admin', 'admin', 'provider'] }
 );
