@@ -9,7 +9,7 @@ function extractUserId(req: NextRequest): number | null {
   const url = new URL(req.url);
   const pathParts = url.pathname.split('/');
   // Path is /api/super-admin/users/[userId]/clinics
-  const userIdIndex = pathParts.findIndex(part => part === 'users') + 1;
+  const userIdIndex = pathParts.findIndex((part) => part === 'users') + 1;
   if (userIdIndex > 0 && userIdIndex < pathParts.length) {
     const userId = parseInt(pathParts[userIdIndex]);
     return isNaN(userId) ? null : userId;
@@ -78,15 +78,91 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               },
             },
           },
-          orderBy: [
-            { isPrimary: 'desc' },
-            { createdAt: 'asc' },
-          ],
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
         });
       }
     } catch (ucError) {
       console.warn('UserClinic table may not exist:', ucError);
       // Fall back to legacy clinic assignment
+    }
+
+    // Get session data for this user
+    let sessionData = null;
+    try {
+      const activeSession = await prisma.userSession.findFirst({
+        where: {
+          userId,
+          isActive: true,
+        },
+        orderBy: { startedAt: 'desc' },
+      });
+
+      if (activeSession) {
+        const now = new Date();
+        const startedAt = new Date(activeSession.startedAt);
+        const lastActivity = activeSession.lastActivity
+          ? new Date(activeSession.lastActivity)
+          : startedAt;
+        const durationMs = now.getTime() - startedAt.getTime();
+        const durationMinutes = Math.floor(durationMs / 60000);
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+
+        sessionData = {
+          isOnline: true,
+          sessionId: activeSession.id,
+          startedAt: activeSession.startedAt,
+          lastActivity: activeSession.lastActivity,
+          ipAddress: activeSession.ipAddress,
+          userAgent: activeSession.userAgent,
+          durationMinutes,
+          durationFormatted: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`,
+        };
+      }
+    } catch (sessionError) {
+      console.warn('Could not fetch session data:', sessionError);
+    }
+
+    // Get login history (last 10 logins)
+    let loginHistory: any[] = [];
+    try {
+      loginHistory = await prisma.userAuditLog.findMany({
+        where: {
+          userId,
+          action: 'LOGIN',
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          createdAt: true,
+          ipAddress: true,
+          details: true,
+        },
+      });
+    } catch (historyError) {
+      console.warn('Could not fetch login history:', historyError);
+    }
+
+    // Get user stats
+    let userStats = null;
+    try {
+      const totalLogins = await prisma.userAuditLog.count({
+        where: { userId, action: 'LOGIN' },
+      });
+
+      const lastLogin = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { lastLogin: true, createdAt: true },
+      });
+
+      userStats = {
+        totalLogins,
+        lastLogin: lastLogin?.lastLogin,
+        accountCreated: lastLogin?.createdAt,
+      };
+    } catch (statsError) {
+      console.warn('Could not fetch user stats:', statsError);
     }
 
     return NextResponse.json({
@@ -99,6 +175,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       },
       userClinics,
       legacyClinic: userData.clinic,
+      session: sessionData,
+      loginHistory,
+      stats: userStats,
     });
   } catch (error: any) {
     console.error('Error fetching user clinics:', error);
@@ -155,7 +234,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         where: { id: userId },
         data: { clinicId },
       });
-      
+
       return NextResponse.json({
         message: `User assigned to ${clinic.name}`,
         userClinic: null,
@@ -172,7 +251,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       });
     } catch (error: unknown) {
       // Table might not exist, continue
-      logger.warn('[SUPER-ADMIN-CLINICS] UserClinic lookup failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.warn('[SUPER-ADMIN-CLINICS] UserClinic lookup failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
 
     if (existingAssignment) {
@@ -191,7 +272,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         });
       } catch (error: unknown) {
         // Ignore if table doesn't exist
-        logger.warn('[SUPER-ADMIN-CLINICS] Failed to update primary clinic', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.warn('[SUPER-ADMIN-CLINICS] Failed to update primary clinic', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
     }
 
@@ -267,10 +350,7 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
     });
 
     if (!assignment) {
-      return NextResponse.json(
-        { error: 'User is not assigned to this clinic' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User is not assigned to this clinic' }, { status: 404 });
     }
 
     // Delete the assignment
