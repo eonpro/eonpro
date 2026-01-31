@@ -683,6 +683,26 @@ export default function StripeSettingsPage() {
           </div>
         )}
 
+        {/* Configuration Note for Admins */}
+        {error && error.includes('Invalid redirect URI') && (
+          <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-6">
+            <h3 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Stripe Configuration Required
+            </h3>
+            <p className="text-sm text-amber-800 mb-4">
+              The Stripe Connect redirect URI needs to be configured in the Stripe Dashboard.
+              Please contact your platform administrator to add the following redirect URI:
+            </p>
+            <div className="bg-amber-100 rounded-lg p-3 font-mono text-sm text-amber-900 break-all">
+              {typeof window !== 'undefined' ? `${window.location.origin}/api/stripe/connect/oauth/callback` : 'https://[your-domain]/api/stripe/connect/oauth/callback'}
+            </div>
+            <p className="text-xs text-amber-700 mt-3">
+              This URI must be added in Stripe Dashboard → Connect → Settings → OAuth settings → Redirects.
+            </p>
+          </div>
+        )}
+
         {/* FAQ */}
         <div className="mt-8 bg-white rounded-xl border p-6">
           <h3 className="font-semibold text-gray-900 mb-4">Frequently Asked Questions</h3>
