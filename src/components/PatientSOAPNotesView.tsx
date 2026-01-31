@@ -160,17 +160,16 @@ export default function PatientSOAPNotesView({
 
   // Approve SOAP note
   const handleApprove = async () => {
-    if (!selectedNote || !currentProviderId) return;
+    if (!selectedNote) return;
     
     try {
       const headers = getAuthHeaders();
-      const response = await fetch(`/api/soap-notes/${selectedNote.id}`, {
-        method: 'PATCH',
+      // Use the dedicated approve endpoint that properly resolves provider from auth
+      const response = await fetch(`/api/soap-notes/${selectedNote.id}/approve`, {
+        method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'approve',
-          providerId: currentProviderId,
           password: approvalPassword,
         }),
       });
@@ -181,12 +180,19 @@ export default function PatientSOAPNotesView({
         await fetchSOAPNotes();
         setShowApprovalModal(false);
         setApprovalPassword('');
+        // Update selected note with approval info
+        if (data.soapNote) {
+          setSelectedNote(prev => prev ? { ...prev, ...data.soapNote } : null);
+        }
       } else {
-        setError(data.error);
+        // Handle specific error codes
+        if (data.code === 'PROVIDER_NOT_FOUND') {
+          setError('Your user account is not linked to a provider profile. Please contact your administrator.');
+        } else {
+          setError(data.error || 'Failed to approve SOAP note');
+        }
       }
     } catch (err: any) {
-    // @ts-ignore
-   
       setError('Failed to approve SOAP note');
       logger.error('Error approving SOAP note:', err);
     }
@@ -420,7 +426,7 @@ export default function PatientSOAPNotesView({
                   )}
                 </div>
                 <div className="flex space-x-2">
-                  {note.status === 'DRAFT' && currentProviderId && (
+                  {note.status === 'DRAFT' && (
                     <button
                       onClick={(e: any) => {
                         e.stopPropagation();

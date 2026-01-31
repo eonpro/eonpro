@@ -15,6 +15,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { getProviderForUser } from '@/lib/auth/get-provider-for-user';
+import bcrypt from 'bcryptjs';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -106,6 +107,21 @@ export const POST = withAuth(
         );
       }
 
+      // Parse request body for optional password
+      let password: string | undefined;
+      try {
+        const body = await request.json();
+        password = body.password;
+      } catch {
+        // No body or invalid JSON - password is optional
+      }
+
+      // Hash password if provided (for future edits)
+      let passwordHash: string | undefined;
+      if (password && password.length >= 8) {
+        passwordHash = await bcrypt.hash(password, 10);
+      }
+
       // Approve the SOAP note
       const updatedSoapNote = await prisma.sOAPNote.update({
         where: { id: soapNoteId },
@@ -113,6 +129,7 @@ export const POST = withAuth(
           status: 'APPROVED',
           approvedBy: provider.id,
           approvedAt: new Date(),
+          ...(passwordHash && { editPasswordHash: passwordHash }),
         },
       });
 
