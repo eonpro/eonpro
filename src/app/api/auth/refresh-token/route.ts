@@ -48,25 +48,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user based on ID and role from the token
-    let user: { id: number; email: string | null; firstName: string; lastName: string } | null = null;
     const userId = payload.id as number;
-    
+
     // Since we don't store the role in refresh token, we need to check multiple tables
     // In production, you'd want to store user sessions in a dedicated table
-    
+
     // Try provider first
     const providerUser = await prisma.provider.findUnique({
       where: { id: userId },
       select: { id: true, email: true, firstName: true, lastName: true },
     });
-    
+
     if (providerUser) {
-      user = providerUser;
       // Create new access token for provider
       const newAccessToken = await new SignJWT({
-        id: user.id,
-        email: user.email || '',
-        name: `${user.firstName} ${user.lastName}`,
+        id: providerUser.id,
+        email: providerUser.email || '',
+        name: `${providerUser.firstName} ${providerUser.lastName}`,
         role: 'provider',
       })
         .setProtectedHeader({ alg: 'HS256' })
@@ -76,7 +74,7 @@ export async function POST(req: NextRequest) {
 
       // Create new refresh token
       const newRefreshToken = await new SignJWT({
-        id: user.id,
+        id: providerUser.id,
         type: 'refresh',
       })
         .setProtectedHeader({ alg: 'HS256' })
@@ -84,15 +82,15 @@ export async function POST(req: NextRequest) {
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
         .sign(JWT_SECRET);
 
-      logger.info(`Token refreshed for provider: ${user.email}`);
+      logger.info(`Token refreshed for provider: ${providerUser.email}`);
 
       return NextResponse.json({
         token: newAccessToken,
         refreshToken: newRefreshToken,
         user: {
-          id: user.id,
-          email: user.email,
-          name: `${user.firstName} ${user.lastName}`,
+          id: providerUser.id,
+          email: providerUser.email,
+          name: `${providerUser.firstName} ${providerUser.lastName}`,
           role: 'provider',
         },
       });

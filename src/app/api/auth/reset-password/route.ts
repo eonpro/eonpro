@@ -107,7 +107,7 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
             actorEmail: email.toLowerCase(),
           },
           orderBy: { createdAt: 'desc' },
-        }).then((r: { diff: string } | null) => r  ? JSON.parse(r.diff as string).code  : undefined)) }),
+        }).then((r) => r && typeof r.diff === 'string' ? JSON.parse(r.diff).code : undefined)) }),
       }),
     });
   } catch (error: unknown) {
