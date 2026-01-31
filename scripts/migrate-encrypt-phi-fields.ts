@@ -1,4 +1,4 @@
-#!/usr/bin/env npx ts-node
+#!/usr/bin/env node
 
 /**
  * PHI Field Encryption Migration Script
@@ -14,14 +14,89 @@
  * 5. Creates audit log entries for compliance
  * 
  * Usage:
- *   DRY_RUN=true npx ts-node scripts/migrate-encrypt-phi-fields.ts  # Preview only
- *   npx ts-node scripts/migrate-encrypt-phi-fields.ts                # Execute migration
+ *   DRY_RUN=true npx tsx scripts/migrate-encrypt-phi-fields.ts  # Preview only
+ *   DRY_RUN=false npx tsx scripts/migrate-encrypt-phi-fields.ts # Execute migration
  * 
  * @see docs/SOC2_REMEDIATION.md
  */
 
+// Load environment variables
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
+
 import { PrismaClient } from '@prisma/client';
-import { encryptPHI, isEncrypted } from '../src/lib/security/phi-encryption';
+import crypto from 'crypto';
+
+// ============================================================================
+// Inline PHI Encryption (to avoid module resolution issues in scripts)
+// ============================================================================
+
+const algorithm = 'aes-256-gcm';
+const ivLength = 16;
+
+function getEncryptionKey(): Buffer {
+  const keyHex = process.env.ENCRYPTION_KEY;
+  
+  if (!keyHex) {
+    throw new Error(
+      'ENCRYPTION_KEY environment variable is required. ' +
+      'Generate with: openssl rand -hex 32'
+    );
+  }
+  
+  if (keyHex.length !== 64) {
+    throw new Error(
+      'ENCRYPTION_KEY must be 32 bytes (64 hex characters). ' +
+      'Current length: ' + keyHex.length
+    );
+  }
+  
+  return Buffer.from(keyHex, 'hex');
+}
+
+function encryptPHI(text: string | null | undefined): string | null {
+  if (!text) {
+    return null;
+  }
+  
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(ivLength);
+  const cipher = crypto.createCipheriv(algorithm, key, iv);
+  
+  const encrypted = Buffer.concat([
+    cipher.update(text, 'utf8'),
+    cipher.final()
+  ]);
+  
+  const authTag = cipher.getAuthTag();
+  
+  return [
+    iv.toString('base64'),
+    authTag.toString('base64'),
+    encrypted.toString('base64')
+  ].join(':');
+}
+
+function isEncrypted(value: string | null | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+  
+  const parts = value.split(':');
+  if (parts.length !== 3) {
+    return false;
+  }
+  
+  try {
+    Buffer.from(parts[0], 'base64');
+    Buffer.from(parts[1], 'base64');
+    Buffer.from(parts[2], 'base64');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const prisma = new PrismaClient();
 
