@@ -7,6 +7,11 @@ import {
   Home, Users, Building2, ShoppingCart, Store, TrendingUp,
   DollarSign, Settings, LogOut, ChevronRight, ClipboardList
 } from 'lucide-react';
+import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+
+// Default EONPRO logos
+const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
 const navItems = [
   { icon: Home, path: '/', label: 'Home' },
@@ -23,11 +28,19 @@ const navItems = [
 // Roles allowed to access patient pages
 const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
 
-export default function PatientsLayout({ children }: { children: React.ReactNode }) {
+function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Get branding colors with fallbacks
+  const primaryColor = branding?.primaryColor || '#4fa77e';
+  const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
+  const clinicIcon = branding?.iconUrl || EONPRO_ICON;
+  const clinicName = branding?.clinicName || 'EONPRO';
+  const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
   // Authentication check on mount
   useEffect(() => {
@@ -64,11 +77,14 @@ export default function PatientsLayout({ children }: { children: React.ReactNode
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  // Show loading state while checking auth
-  if (loading) {
+  // Show loading state while checking auth or loading branding
+  if (loading || brandingLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-[#4fa77e] border-t-transparent"></div>
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-2 border-t-transparent"
+          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+        ></div>
       </div>
     );
   }
@@ -82,22 +98,26 @@ export default function PatientsLayout({ children }: { children: React.ReactNode
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center mb-6 px-4">
+        <div className="flex flex-col items-center mb-6 px-4">
           <Link href="/">
             {sidebarExpanded ? (
               <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
-                alt="EONPRO"
-                className="h-10 w-auto"
+                src={clinicLogo}
+                alt={clinicName}
+                className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
               <img
-                src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
-                alt="EONPRO"
+                src={clinicIcon}
+                alt={clinicName}
                 className="h-10 w-10 object-contain"
               />
             )}
           </Link>
+          {/* Powered by EONPRO - shown for white-labeled clinics */}
+          {isWhiteLabeled && sidebarExpanded && (
+            <span className="text-[10px] text-gray-400 mt-1">Powered by EONPRO</span>
+          )}
         </div>
 
         {/* Expand Button */}
@@ -122,9 +142,10 @@ export default function PatientsLayout({ children }: { children: React.ReactNode
                 title={!sidebarExpanded ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   active
-                    ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                    ? ''
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
+                style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
@@ -155,5 +176,13 @@ export default function PatientsLayout({ children }: { children: React.ReactNode
         {children}
       </main>
     </div>
+  );
+}
+
+export default function PatientsLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClinicBrandingProvider>
+      <PatientsLayoutInner>{children}</PatientsLayoutInner>
+    </ClinicBrandingProvider>
   );
 }

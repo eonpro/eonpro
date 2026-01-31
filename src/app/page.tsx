@@ -136,8 +136,8 @@ function HomePageInner() {
 
   const loadDashboardData = async () => {
     try {
-      // Fetch recent patient intakes (includeContact=true for dashboard display)
-      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h&includeContact=true');
+      // Fetch recent patient intakes from last 24 hours (includeContact=true for dashboard display)
+      const intakesResponse = await apiFetch('/api/patients?limit=100&recent=24h&includeContact=true');
 
       if (intakesResponse.ok) {
         const intakesData = await intakesResponse.json();
@@ -146,9 +146,15 @@ function HomePageInner() {
         setStats(prev => ({ ...prev, newIntakes: patients.length }));
       }
 
-      // Fetch revenue stats
+      // Fetch revenue stats for last 7 days
       try {
-        const revenueResponse = await apiFetch('/api/stripe/transactions?limit=100&type=charges&status=succeeded');
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const startDate = sevenDaysAgo.toISOString();
+
+        const revenueResponse = await apiFetch(
+          `/api/stripe/transactions?limit=100&type=charges&status=succeeded&startDate=${encodeURIComponent(startDate)}`
+        );
         if (revenueResponse.ok) {
           const revenueData = await revenueResponse.json();
           const transactions = revenueData.transactions || [];
@@ -162,7 +168,7 @@ function HomePageInner() {
         }
       }
 
-      // Fetch subscription/recurring revenue
+      // Fetch subscription/recurring revenue (monthly active subscriptions)
       try {
         const subsResponse = await apiFetch('/api/stripe/subscriptions?status=active');
         if (subsResponse.ok) {
@@ -178,7 +184,7 @@ function HomePageInner() {
         }
       }
 
-      // Fetch prescriptions count
+      // Fetch prescriptions/scripts count from last 24 hours
       try {
         const ordersResponse = await apiFetch('/api/orders?limit=100&recent=24h');
         if (ordersResponse.ok) {
@@ -385,7 +391,7 @@ function HomePageInner() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {/* New Intakes */}
+            {/* Intakes (24h) */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
               <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center"
@@ -395,11 +401,11 @@ function HomePageInner() {
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{stats.newIntakes}</p>
-                <p className="text-sm text-gray-500">New Intakes</p>
+                <p className="text-sm text-gray-500">Intakes (24h)</p>
               </div>
             </div>
 
-            {/* New Revenue */}
+            {/* Revenue (7 days) */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
               <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center"
@@ -409,7 +415,7 @@ function HomePageInner() {
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.newRevenue)}</p>
-                <p className="text-sm text-gray-500">New Revenue</p>
+                <p className="text-sm text-gray-500">Revenue (7 days)</p>
               </div>
             </div>
 
@@ -424,14 +430,14 @@ function HomePageInner() {
               </div>
             </div>
 
-            {/* New Prescriptions */}
+            {/* Scripts (24h) */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
                 <FileText className="h-6 w-6 text-rose-500" />
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{stats.newPrescriptions}</p>
-                <p className="text-sm text-gray-500">New Scripts</p>
+                <p className="text-sm text-gray-500">Scripts (24h)</p>
               </div>
             </div>
           </div>
@@ -440,7 +446,7 @@ function HomePageInner() {
           <div className="bg-white rounded-2xl border border-gray-200">
             {/* Header */}
             <div className="px-6 py-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">New Patient Intakes</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Patient Intakes (Last 24 Hours)</h2>
               <Link
                 href="/admin/patients"
                 className="text-sm text-gray-500 font-medium hover:opacity-80"
