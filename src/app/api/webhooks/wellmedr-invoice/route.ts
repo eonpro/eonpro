@@ -337,24 +337,33 @@ export async function POST(req: NextRequest) {
   // We only need to record the invoice internally for tracking
   
   // Determine amount - use provided amount or price or default
-  // Amount should be in cents
+  // The `amount` and `amount_paid` fields are expected in CENTS (per API doc)
+  // The `price` field is expected in DOLLARS (from Airtable) and must be converted
   let amountInCents = payload.amount || payload.amount_paid || 0;
   
-  // Try to parse price if amount not provided (price might be "$299.99" format)
+  // Try to parse price if amount not provided
+  // IMPORTANT: price field from Airtable is ALWAYS in dollars (e.g., "$1,134.00" or 1134)
   if (!amountInCents && payload.price) {
     if (typeof payload.price === 'number') {
-      amountInCents = payload.price < 1000 ? Math.round(payload.price * 100) : payload.price;
+      // Price is in dollars - always convert to cents
+      // This fixes the bug where $1,134.00 (sent as 1134) was stored as 1134 cents ($11.34)
+      amountInCents = Math.round(payload.price * 100);
     } else if (typeof payload.price === 'string') {
       const cleanedPrice = payload.price.replace(/[$,]/g, '').trim();
       const parsedPrice = parseFloat(cleanedPrice);
       if (!isNaN(parsedPrice)) {
+        // Price is in dollars - convert to cents
         amountInCents = Math.round(parsedPrice * 100);
       }
     }
   }
   
-  // If amount looks like dollars (less than 1000), convert to cents
-  if (amountInCents > 0 && amountInCents < 1000) {
+  // Safety check: if amount/amount_paid was provided but looks like dollars (reasonable range for this platform)
+  // Values 100-5000 are ambiguous, but values like 29900 (=$299) are clearly cents
+  // We only auto-correct obvious dollar values (< 100, which would be < $1 in cents - unrealistic)
+  // Note: This is a last-resort fallback - callers should send amount in cents as documented
+  if (amountInCents > 0 && amountInCents < 100) {
+    logger.warn(`[WELLMEDR-INVOICE] Amount ${amountInCents} looks like dollars, converting to cents`);
     amountInCents = Math.round(amountInCents * 100);
   }
 
