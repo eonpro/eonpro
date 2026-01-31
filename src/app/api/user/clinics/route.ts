@@ -19,6 +19,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             subdomain: true,
             customDomain: true,
             logoUrl: true,
+            iconUrl: true,
+            faviconUrl: true,
             primaryColor: true,
             status: true,
           },
@@ -27,7 +29,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
 
     // Build clinics array from user's clinic
-    const clinics: Array<{ id: number; name: string; subdomain: string | null; customDomain: string | null; logoUrl: string | null; primaryColor: string | null; status: string | null; role: string; isPrimary: boolean }> = [];
+    const clinics: Array<{ id: number; name: string; subdomain: string | null; customDomain: string | null; logoUrl: string | null; iconUrl: string | null; faviconUrl: string | null; primaryColor: string | null; status: string | null; role: string; isPrimary: boolean }> = [];
     if (userData?.clinic) {
       clinics.push({
         ...userData.clinic,
@@ -51,6 +53,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               subdomain: true,
               customDomain: true,
               logoUrl: true,
+              iconUrl: true,
+              faviconUrl: true,
               primaryColor: true,
               status: true,
             },

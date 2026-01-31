@@ -13,6 +13,8 @@ interface Clinic {
   name: string;
   subdomain: string | null;
   logoUrl: string | null;
+  iconUrl: string | null;
+  faviconUrl: string | null;
   role: string;
   isPrimary: boolean;
 }
@@ -1220,11 +1222,12 @@ export default function LoginPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          {clinic.logoUrl ? (
+                          {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
+                          {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
                             <img
-                              src={clinic.logoUrl}
+                              src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                               alt={clinic.name}
-                              className="h-10 w-10 rounded-lg object-cover"
+                              className="h-10 w-10 rounded-lg object-contain"
                             />
                           ) : (
                             <div

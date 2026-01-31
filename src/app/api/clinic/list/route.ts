@@ -41,6 +41,8 @@ export const GET = withAuth(
           name: true,
           subdomain: true,
           logoUrl: true,
+          iconUrl: true,
+          faviconUrl: true,
           status: true,
           billingPlan: true,
           _count: {
@@ -78,6 +80,8 @@ export const GET = withAuth(
             name: clinic.name,
             subdomain: clinic.subdomain,
             logoUrl: clinic.logoUrl,
+            iconUrl: clinic.iconUrl,
+            faviconUrl: clinic.faviconUrl,
             status: clinic.status,
             billingPlan: clinic.billingPlan,
             patientCount: clinic._count.patients,

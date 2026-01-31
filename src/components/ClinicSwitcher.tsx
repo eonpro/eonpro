@@ -10,6 +10,8 @@ interface Clinic {
   subdomain: string;
   customDomain?: string;
   logoUrl?: string;
+  iconUrl?: string;
+  faviconUrl?: string;
   primaryColor?: string;
   status: string;
   role?: string;
@@ -140,8 +142,9 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
     
     return (
       <div className={`flex items-center gap-2 px-3 py-2 ${className}`}>
-        {activeClinic.logoUrl ? (
-          <img src={activeClinic.logoUrl} alt="" className="h-5 w-5 rounded" />
+        {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
+        {(activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl) ? (
+          <img src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl} alt="" className="h-5 w-5 rounded object-contain" />
         ) : (
           <Building2 className="h-4 w-4 text-gray-500" />
         )}
@@ -163,8 +166,8 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
       >
         {switching ? (
           <RefreshCw className="h-4 w-4 animate-spin text-teal-600" />
-        ) : activeClinic?.logoUrl ? (
-          <img src={activeClinic.logoUrl} alt="" className="h-5 w-5 rounded" />
+        ) : (activeClinic?.iconUrl || activeClinic?.faviconUrl || activeClinic?.logoUrl) ? (
+          <img src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl} alt="" className="h-5 w-5 rounded object-contain" />
         ) : (
           <Building2 className="h-4 w-4 text-gray-500" />
         )}
@@ -189,8 +192,9 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
                   clinic.id === activeClinicId ? 'bg-teal-50' : ''
                 }`}
               >
-                {clinic.logoUrl ? (
-                  <img src={clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
+                {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
+                  <img src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-contain" />
                 ) : (
                   <div 
                     className="h-8 w-8 rounded-lg flex items-center justify-center"

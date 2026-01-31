@@ -224,6 +224,8 @@ async function loginHandler(req: NextRequest) {
       name: string;
       subdomain: string | null;
       logoUrl: string | null;
+      iconUrl: string | null;
+      faviconUrl: string | null;
       role: string;
       isPrimary: boolean;
     }> = [];
@@ -232,7 +234,7 @@ async function loginHandler(req: NextRequest) {
     if (user.clinicId) {
       const primaryClinic = await prisma.clinic.findUnique({
         where: { id: user.clinicId },
-        select: { id: true, name: true, subdomain: true, logoUrl: true },
+        select: { id: true, name: true, subdomain: true, logoUrl: true, iconUrl: true, faviconUrl: true },
       });
       if (primaryClinic) {
         clinics.push({
@@ -252,7 +254,7 @@ async function loginHandler(req: NextRequest) {
         },
         include: {
           clinic: {
-            select: { id: true, name: true, subdomain: true, logoUrl: true },
+            select: { id: true, name: true, subdomain: true, logoUrl: true, iconUrl: true, faviconUrl: true },
           },
         },
         orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],

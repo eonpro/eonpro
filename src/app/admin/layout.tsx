@@ -14,6 +14,8 @@ interface UserClinic {
   name: string;
   subdomain: string | null;
   logoUrl: string | null;
+  iconUrl: string | null;
+  faviconUrl: string | null;
   primaryColor: string | null;
   isPrimary: boolean;
 }
@@ -341,11 +343,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {clinic.logoUrl ? (
-                        <img 
-                          src={clinic.logoUrl} 
+                      {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
+                      {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
+                        <img
+                          src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                           alt={clinic.name} 
-                          className="w-8 h-8 rounded-lg object-cover"
+                          className="w-8 h-8 rounded-lg object-contain"
                         />
                       ) : (
                         <div 

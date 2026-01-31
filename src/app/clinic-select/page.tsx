@@ -11,6 +11,8 @@ interface ClinicOption {
   name: string;
   subdomain: string;
   logoUrl?: string | null;
+  iconUrl?: string | null;
+  faviconUrl?: string | null;
   status: string;
   billingPlan: string;
   patientCount: number;
@@ -147,11 +149,12 @@ export default function ClinicSelectPage() {
               )}
               
               <div className="flex items-start gap-4">
-                {clinic.logoUrl ? (
-                  <img 
-                    src={clinic.logoUrl} 
+                {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
+                {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
+                  <img
+                    src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                     alt={clinic.name}
-                    className="w-12 h-12 rounded-lg object-cover"
+                    className="w-12 h-12 rounded-lg object-contain"
                   />
                 ) : (
                   <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">
