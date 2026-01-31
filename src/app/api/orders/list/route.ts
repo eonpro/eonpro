@@ -116,8 +116,8 @@ export async function GET(request: NextRequest) {
 
       // Convert PatientShippingUpdate records to order-like format
       const shippingOnlyRecords = patientShipments
-        .filter(s => !existingOrderIds.has(s.orderId || -1))
-        .map(shipment => ({
+        .filter((s: typeof patientShipments[number]) => !existingOrderIds.has(s.orderId || -1))
+        .map((shipment: typeof patientShipments[number]) => ({
           // Use negative ID to distinguish from real orders (prefixed with 'ship-')
           id: shipment.orderId || -shipment.id,
           _isShipmentOnly: true, // Flag to identify these records
