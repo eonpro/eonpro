@@ -14,7 +14,6 @@ import { prisma } from '@/lib/db';
 import { createHash } from 'crypto';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { NextRequest } from 'next/server';
-import type { Policy, PolicyApproval, PolicyAcknowledgment, Prisma } from '@prisma/client';
 
 // ============================================================================
 // Types
@@ -51,23 +50,28 @@ export interface AcknowledgmentRequest {
   userAgent?: string;
 }
 
+export interface PolicyApprovalRecord {
+  type: string;
+  approvedBy: string;
+  approvedAt: Date;
+}
+
+export interface AcknowledgmentStats {
+  total: number;
+  acknowledged: number;
+  pending: number;
+}
+
 export interface PolicyApprovalStatus {
+  id: number;
   policyId: string;
   title: string;
   version: string;
   status: string;
   requiredApprovals: string[];
-  approvals: {
-    type: string;
-    approvedBy: string;
-    approvedAt: Date;
-  }[];
+  approvals: PolicyApprovalRecord[];
   isFullyApproved: boolean;
-  acknowledgmentStats?: {
-    total: number;
-    acknowledged: number;
-    pending: number;
-  };
+  acknowledgmentStats?: AcknowledgmentStats;
 }
 
 // ============================================================================
@@ -139,7 +143,7 @@ export async function upsertPolicy(policy: PolicyDefinition): Promise<number> {
 /**
  * Get all policies with their approval status
  */
-export async function getAllPoliciesWithStatus(): Promise<(PolicyApprovalStatus & { id: number })[]> {
+export async function getAllPoliciesWithStatus(): Promise<PolicyApprovalStatus[]> {
   const policies = await prisma.policy.findMany({
     where: { status: { not: 'superseded' } },
     include: {
@@ -162,21 +166,23 @@ export async function getAllPoliciesWithStatus(): Promise<(PolicyApprovalStatus 
     where: { status: 'ACTIVE' },
   });
 
-  return policies.map((policy) => {
+  return policies.map((policy: typeof policies[number]) => {
     const requiredApprovals = ['executive_approval', 'ciso_approval'];
-    const existingApprovalTypes = policy.PolicyApproval.map((a) => a.approvalType);
+    const existingApprovalTypes = policy.PolicyApproval.map(
+      (a: { approvalType: string }) => a.approvalType
+    );
     const isFullyApproved = requiredApprovals.every((type) =>
       existingApprovalTypes.includes(type)
     );
 
     return {
-      id: policy.id, // Include database ID for API calls
+      id: policy.id,
       policyId: policy.policyId,
       title: policy.title,
       version: policy.version,
       status: policy.status,
       requiredApprovals,
-      approvals: policy.PolicyApproval.map((a) => ({
+      approvals: policy.PolicyApproval.map((a: { approvalType: string; userName: string; approvedAt: Date }) => ({
         type: a.approvalType,
         approvedBy: a.userName,
         approvedAt: a.approvedAt,
@@ -207,7 +213,7 @@ export async function getAllPoliciesWithStatus(): Promise<(PolicyApprovalStatus 
  */
 export async function approvePolicy(
   request: ApprovalRequest,
-  httpRequest?: NextRequest
+  httpRequest?: NextRequest | null
 ): Promise<{ success: boolean; approvalId?: number; error?: string }> {
   try {
     // Get the policy
@@ -248,7 +254,7 @@ export async function approvePolicy(
     });
 
     const requiredApprovals = ['executive_approval', 'ciso_approval'];
-    const existingTypes = approvals.map((a) => a.approvalType);
+    const existingTypes = approvals.map((a: { approvalType: string }) => a.approvalType);
     const isFullyApproved = requiredApprovals.every((type) =>
       existingTypes.includes(type)
     );
@@ -261,7 +267,7 @@ export async function approvePolicy(
     }
 
     // Audit log
-    await auditLog(httpRequest, {
+    await auditLog(httpRequest || null, {
       eventType: AuditEventType.SYSTEM_ACCESS,
       action: 'POLICY_APPROVED',
       resourceType: 'policy',
@@ -281,8 +287,9 @@ export async function approvePolicy(
     });
 
     return { success: true, approvalId: approval.id };
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    const prismaError = error as { code?: string };
+    if (prismaError.code === 'P2002') {
       return { success: false, error: 'Policy already approved by this user' };
     }
     throw error;
@@ -298,7 +305,7 @@ export async function approvePolicy(
  */
 export async function acknowledgePolicy(
   request: AcknowledgmentRequest,
-  httpRequest?: NextRequest
+  httpRequest?: NextRequest | null
 ): Promise<{ success: boolean; acknowledgmentId?: number; error?: string }> {
   try {
     // Get the policy
@@ -330,7 +337,7 @@ export async function acknowledgePolicy(
     });
 
     // Audit log
-    await auditLog(httpRequest, {
+    await auditLog(httpRequest || null, {
       eventType: AuditEventType.SYSTEM_ACCESS,
       action: 'POLICY_ACKNOWLEDGED',
       resourceType: 'policy',
@@ -347,8 +354,9 @@ export async function acknowledgePolicy(
     });
 
     return { success: true, acknowledgmentId: acknowledgment.id };
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    const prismaError = error as { code?: string };
+    if (prismaError.code === 'P2002') {
       return { success: false, error: 'Policy already acknowledged' };
     }
     throw error;
@@ -366,7 +374,7 @@ export async function getPendingAcknowledgments(
     select: { policyId: true },
   });
 
-  const acknowledgedIds = acknowledged.map((a) => a.policyId);
+  const acknowledgedIds = acknowledged.map((a: { policyId: number }) => a.policyId);
 
   const pending = await prisma.policy.findMany({
     where: {
@@ -395,6 +403,13 @@ export async function hasAcknowledgedAllPolicies(userId: number): Promise<boolea
 // Reporting
 // ============================================================================
 
+interface ClinicStatRow {
+  clinicId: number;
+  clinicName: string;
+  acknowledged: bigint;
+  total: bigint;
+}
+
 /**
  * Generate policy compliance report for auditors
  */
@@ -418,25 +433,24 @@ export async function generateComplianceReport(): Promise<{
   const policies = await getAllPoliciesWithStatus();
 
   // Get acknowledgments by clinic
-  const clinicStats = await prisma.$queryRaw<
-    { clinicId: number; clinicName: string; acknowledged: number; total: number }[]
-  >`
+  const clinicStats = await prisma.$queryRaw<ClinicStatRow[]>`
     SELECT 
       c.id as "clinicId",
       c.name as "clinicName",
       COUNT(DISTINCT pa."userId") as acknowledged,
       COUNT(DISTINCT u.id) as total
     FROM "Clinic" c
-    LEFT JOIN "User" u ON u."clinicId" = c.id AND u.status = 'active'
+    LEFT JOIN "User" u ON u."clinicId" = c.id AND u.status = 'ACTIVE'
     LEFT JOIN "PolicyAcknowledgment" pa ON pa."userId" = u.id
     GROUP BY c.id, c.name
   `;
 
-  const acknowledgmentsByClinic = clinicStats.map((c) => ({
-    ...c,
+  const acknowledgmentsByClinic = clinicStats.map((c: ClinicStatRow) => ({
+    clinicId: c.clinicId,
+    clinicName: c.clinicName,
     acknowledged: Number(c.acknowledged),
     total: Number(c.total),
-    percentage: c.total > 0 ? Math.round((Number(c.acknowledged) / Number(c.total)) * 100) : 0,
+    percentage: Number(c.total) > 0 ? Math.round((Number(c.acknowledged) / Number(c.total)) * 100) : 0,
   }));
 
   const fullyApproved = policies.filter((p) => p.isFullyApproved).length;
@@ -509,7 +523,16 @@ export async function exportApprovalCertificate(policyId: string): Promise<{
       effectiveDate: policy.effectiveDate,
       contentHash: policy.contentHash,
     },
-    approvals: policy.PolicyApproval.map((a) => ({
+    approvals: policy.PolicyApproval.map((a: {
+      approvalType: string;
+      userName: string;
+      userEmail: string;
+      userRole: string;
+      approvedAt: Date;
+      ipAddress: string;
+      signatureStatement: string;
+      contentHashAtApproval: string;
+    }) => ({
       approvalType: a.approvalType,
       approvedBy: a.userName,
       email: a.userEmail,

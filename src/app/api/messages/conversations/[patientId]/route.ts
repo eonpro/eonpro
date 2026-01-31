@@ -172,7 +172,7 @@ async function getHandler(
     });
 
     // Transform to frontend-expected format
-    const transformedMessages = messages.reverse().map(m => ({
+    const transformedMessages = messages.reverse().map((m: typeof messages[number]) => ({
       id: m.id,
       sender: m.direction === 'INBOUND' ? 'patient' : 'provider',
       content: m.message,
@@ -199,8 +199,8 @@ async function getHandler(
       // Auto-mark inbound messages as read when staff views
       if (messages.length > 0) {
         const unreadIds = messages
-          .filter(m => m.direction === 'INBOUND' && !m.readAt)
-          .map(m => m.id);
+          .filter((m: typeof messages[number]) => m.direction === 'INBOUND' && !m.readAt)
+          .map((m: typeof messages[number]) => m.id);
         
         if (unreadIds.length > 0) {
           await prisma.patientChatMessage.updateMany({
