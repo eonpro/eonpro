@@ -58,7 +58,6 @@ export const GET = async (request: NextRequest, context: RouteContext) => {
               npi: true,
               licenseNumber: true,
               licenseState: true,
-              specialty: true,
               dea: true,
             }
           },

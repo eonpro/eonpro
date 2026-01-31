@@ -57,7 +57,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           provider: {
             select: {
               id: true,
-              specialty: true
+              titleLine: true
             }
           }
         },
@@ -77,7 +77,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       lastName: u.lastName || '',
       email: u.email,
       role: u.role,
-      specialty: u.provider?.specialty || null,
+      specialty: u.provider?.titleLine || null,
       isOnline: false // Placeholder for future real-time presence
     }));
 

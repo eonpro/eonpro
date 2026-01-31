@@ -55,7 +55,7 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
             npi: true,
             licenseNumber: true,
             licenseState: true,
-            specialty: true,
+            titleLine: true,
           }
         },
         userClinics: {
