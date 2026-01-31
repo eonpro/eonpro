@@ -21,25 +21,47 @@ import {
  * Get all policies with approval status
  */
 async function handleGet(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const format = searchParams.get('format');
-  const policyId = searchParams.get('policyId');
+  try {
+    const { searchParams } = new URL(req.url);
+    const format = searchParams.get('format');
+    const policyId = searchParams.get('policyId');
 
-  // Export approval certificate for specific policy
-  if (format === 'certificate' && policyId) {
-    const certificate = await exportApprovalCertificate(policyId);
-    return NextResponse.json(certificate);
+    // Export approval certificate for specific policy
+    if (format === 'certificate' && policyId) {
+      const certificate = await exportApprovalCertificate(policyId);
+      return NextResponse.json(certificate);
+    }
+
+    // Full compliance report
+    if (format === 'report') {
+      const report = await generateComplianceReport();
+      return NextResponse.json(report);
+    }
+
+    // Default: list all policies
+    const policies = await getAllPoliciesWithStatus();
+    return NextResponse.json({ policies });
+  } catch (error: unknown) {
+    console.error('Error fetching policies:', error);
+    
+    // Check if it's a database table not found error
+    const prismaError = error as { code?: string; meta?: { table?: string } };
+    if (prismaError.code === 'P2021' || (error instanceof Error && error.message.includes('does not exist'))) {
+      return NextResponse.json(
+        { 
+          error: 'Policy tables not initialized. Please run database migrations.',
+          setup_required: true,
+          instructions: 'Run: npx prisma db push && npx tsx scripts/seed-policies.ts'
+        },
+        { status: 503 }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: 'Failed to fetch policies' },
+      { status: 500 }
+    );
   }
-
-  // Full compliance report
-  if (format === 'report') {
-    const report = await generateComplianceReport();
-    return NextResponse.json(report);
-  }
-
-  // Default: list all policies
-  const policies = await getAllPoliciesWithStatus();
-  return NextResponse.json({ policies });
 }
 
 /**

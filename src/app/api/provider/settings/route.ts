@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
@@ -38,8 +38,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     let providerData = userData.provider;
 
     // If no direct provider association, try to find by email
+    // Use basePrisma to bypass clinic filtering since providers can be shared
     if (!providerData && user.role === 'provider') {
-      providerData = await prisma.provider.findFirst({
+      providerData = await basePrisma.provider.findFirst({
         where: { email: user.email },
       });
     }
@@ -156,10 +157,10 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get provider record - use prisma to bypass clinic filtering
+    // Get provider record - use basePrisma to bypass clinic filtering
     let provider = userData.provider;
     if (!provider && user.role === 'provider') {
-      provider = await prisma.provider.findFirst({
+      provider = await basePrisma.provider.findFirst({
         where: { email: user.email },
       });
 
@@ -218,8 +219,8 @@ async function handlePut(req: NextRequest, user: AuthUser) {
         );
       }
 
-      // Check if NPI already exists - use prisma to search all clinics
-      const existingProvider = await prisma.provider.findFirst({
+      // Check if NPI already exists - use basePrisma to search all clinics
+      const existingProvider = await basePrisma.provider.findFirst({
         where: { npi },
       });
 
@@ -238,8 +239,8 @@ async function handlePut(req: NextRequest, user: AuthUser) {
           );
         }
       } else {
-        // Create new provider record
-        provider = await prisma.provider.create({
+        // Create new provider record - use basePrisma to bypass clinic filtering
+        provider = await basePrisma.provider.create({
           data: {
             firstName: firstName || userData.firstName,
             lastName: lastName || userData.lastName,
@@ -293,8 +294,8 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       if (licenseState && !provider.licenseState) providerUpdateData.licenseState = licenseState;
 
       if (Object.keys(providerUpdateData).length > 0) {
-        // Use prisma to bypass clinic filtering for provider updates
-        await prisma.provider.update({
+        // Use basePrisma to bypass clinic filtering for provider updates
+        await basePrisma.provider.update({
           where: { id: provider.id },
           data: providerUpdateData,
         });
