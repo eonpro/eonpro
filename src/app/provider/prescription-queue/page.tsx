@@ -38,6 +38,163 @@ import {
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
 
+// ============================================================================
+// ADDRESS PARSING UTILITIES
+// Handles combined address strings from Airtable like:
+// "201 ELBRIDGE AVE, APT F, Cloverdale, California, 95425"
+// ============================================================================
+
+const STATE_NAME_TO_CODE: Record<string, string> = {
+  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR',
+  'california': 'CA', 'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE',
+  'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI', 'idaho': 'ID',
+  'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA', 'kansas': 'KS',
+  'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
+  'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV',
+  'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
+  'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK',
+  'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT',
+  'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV',
+  'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC',
+  'al': 'AL', 'ak': 'AK', 'az': 'AZ', 'ar': 'AR', 'ca': 'CA', 'co': 'CO',
+  'ct': 'CT', 'de': 'DE', 'fl': 'FL', 'ga': 'GA', 'hi': 'HI', 'id': 'ID',
+  'il': 'IL', 'in': 'IN', 'ia': 'IA', 'ks': 'KS', 'ky': 'KY', 'la': 'LA',
+  'me': 'ME', 'md': 'MD', 'ma': 'MA', 'mi': 'MI', 'mn': 'MN', 'ms': 'MS',
+  'mo': 'MO', 'mt': 'MT', 'ne': 'NE', 'nv': 'NV', 'nh': 'NH', 'nj': 'NJ',
+  'nm': 'NM', 'ny': 'NY', 'nc': 'NC', 'nd': 'ND', 'oh': 'OH', 'ok': 'OK',
+  'or': 'OR', 'pa': 'PA', 'ri': 'RI', 'sc': 'SC', 'sd': 'SD', 'tn': 'TN',
+  'tx': 'TX', 'ut': 'UT', 'vt': 'VT', 'va': 'VA', 'wa': 'WA', 'wv': 'WV',
+  'wi': 'WI', 'wy': 'WY', 'dc': 'DC',
+};
+
+const APT_PATTERNS = [
+  /^APT\.?\s*/i, /^APARTMENT\s*/i, /^UNIT\s*/i, /^STE\.?\s*/i,
+  /^SUITE\s*/i, /^#\s*/, /^BLDG\.?\s*/i, /^BUILDING\s*/i,
+  /^FLOOR\s*/i, /^FL\.?\s*/i, /^RM\.?\s*/i, /^ROOM\s*/i,
+];
+
+function isApartmentString(str: string): boolean {
+  return APT_PATTERNS.some(pattern => pattern.test(str.trim()));
+}
+
+function isStateName(str: string): boolean {
+  return STATE_NAME_TO_CODE[str.trim().toLowerCase()] !== undefined;
+}
+
+function isZipCode(str: string): boolean {
+  return /^\d{5}(-\d{4})?$/.test(str.trim());
+}
+
+function normalizeState(state: string): string {
+  if (!state) return '';
+  const normalized = state.trim().toLowerCase();
+  return STATE_NAME_TO_CODE[normalized] || state.toUpperCase().slice(0, 2);
+}
+
+interface ParsedAddress {
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+/**
+ * Parse a combined address string into components.
+ * Handles formats like "201 ELBRIDGE AVE, APT F, Cloverdale, California, 95425"
+ */
+function parseAddressString(addressString: string): ParsedAddress {
+  const result: ParsedAddress = { address1: '', address2: '', city: '', state: '', zip: '' };
+
+  if (!addressString || typeof addressString !== 'string') return result;
+
+  const parts = addressString.split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length === 0) return result;
+  if (parts.length === 1) { result.address1 = parts[0]; return result; }
+
+  const remainingParts = [...parts];
+
+  // Check last part for ZIP code
+  const lastPart = remainingParts[remainingParts.length - 1];
+  if (isZipCode(lastPart)) {
+    result.zip = lastPart;
+    remainingParts.pop();
+  } else {
+    // Check for "STATE ZIP" pattern
+    const stateZipMatch = lastPart.match(/^(.+?)\s+(\d{5}(-\d{4})?)$/);
+    if (stateZipMatch && isStateName(stateZipMatch[1])) {
+      result.state = normalizeState(stateZipMatch[1]);
+      result.zip = stateZipMatch[2];
+      remainingParts.pop();
+    }
+  }
+
+  // Check for state
+  if (!result.state && remainingParts.length > 0) {
+    const last = remainingParts[remainingParts.length - 1];
+    if (isStateName(last)) {
+      result.state = normalizeState(last);
+      remainingParts.pop();
+    }
+  }
+
+  // Parse remaining parts
+  if (remainingParts.length >= 3) {
+    result.address1 = remainingParts[0];
+    if (isApartmentString(remainingParts[1])) {
+      result.address2 = remainingParts[1];
+      result.city = remainingParts.slice(2).join(', ');
+    } else {
+      const aptIndex = remainingParts.findIndex((p, i) => i > 0 && isApartmentString(p));
+      if (aptIndex > 0) {
+        result.address2 = remainingParts[aptIndex];
+        result.city = remainingParts.slice(aptIndex + 1).join(', ') || remainingParts.slice(1, aptIndex).join(', ');
+      } else {
+        result.city = remainingParts[remainingParts.length - 1];
+        if (remainingParts.length > 2) {
+          result.address1 = remainingParts.slice(0, -1).join(', ');
+        }
+      }
+    }
+  } else if (remainingParts.length === 2) {
+    result.address1 = remainingParts[0];
+    if (isApartmentString(remainingParts[1])) {
+      result.address2 = remainingParts[1];
+    } else {
+      result.city = remainingParts[1];
+    }
+  } else if (remainingParts.length === 1) {
+    result.address1 = remainingParts[0];
+  }
+
+  return result;
+}
+
+/**
+ * Get parsed address from patient data, handling combined strings
+ */
+function getPatientAddress(patient: { address1?: string; address2?: string; city?: string; state?: string; zip?: string }): ParsedAddress {
+  const addr1 = patient.address1 || '';
+  const addr2 = patient.address2 || '';
+  const city = patient.city || '';
+  const state = patient.state || '';
+  const zip = patient.zip || '';
+
+  // Check if address1 looks like a combined string that needs parsing
+  const hasSeparateComponents = city || state || zip || addr2;
+  const looksLikeCombined = addr1 && addr1.includes(',') && !hasSeparateComponents;
+
+  if (looksLikeCombined) {
+    return parseAddressString(addr1);
+  }
+
+  return { address1: addr1, address2: addr2, city, state, zip };
+}
+
+// ============================================================================
+
 interface QueueItem {
   invoiceId: number;
   patientId: number;
@@ -435,15 +592,17 @@ export default function PrescriptionQueuePage() {
     const details = await fetchPatientDetails(item.invoiceId);
     if (details) {
       setPrescriptionPanel({ item, details });
+      // Parse address - handles combined strings like "123 Main, APT 4, City, State, 12345"
+      const parsedAddress = getPatientAddress(details.patient);
       // Reset form with fresh medication and pre-populate address from patient data
       setPrescriptionForm({
         medications: [createEmptyMedication()],
         shippingMethod: "8115",
-        address1: details.patient.address1 || "",
-        address2: details.patient.address2 || "",
-        city: details.patient.city || "",
-        state: details.patient.state || "",
-        zip: details.patient.zip || "",
+        address1: parsedAddress.address1,
+        address2: parsedAddress.address2,
+        city: parsedAddress.city,
+        state: parsedAddress.state,
+        zip: parsedAddress.zip,
       });
       // Try to auto-select medication based on treatment
       autoSelectMedication(item.treatment, details);
