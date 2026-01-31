@@ -1,7 +1,6 @@
 "use client";
 
 import { AddressInput, AddressData } from "@/components/AddressAutocomplete";
-import Breadcrumb from "@/components/Breadcrumb";
 import { formatDobInput } from "@/lib/format";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import Link from "next/link";
@@ -314,7 +313,6 @@ export default function PatientsPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <Breadcrumb items={[{ label: "Patients" }]} />
       <h1 className="text-3xl font-bold">Patients</h1>
       <section className="border rounded p-4 space-y-3 bg-white shadow">
         <h2 className="text-xl font-semibold">Add Patient</h2>

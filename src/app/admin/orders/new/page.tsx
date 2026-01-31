@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Breadcrumb from '@/components/Breadcrumb';
 import { Package, User, Pill, Truck, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface Patient {
@@ -172,11 +171,6 @@ export default function NewOrderPage() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <Breadcrumb items={[
-        { label: 'Orders', href: '/admin/orders' },
-        { label: 'New Order' }
-      ]} />
-
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
           <Package className="h-8 w-8 text-emerald-600" />

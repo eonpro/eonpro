@@ -87,19 +87,11 @@ export default async function AdminAuditsPage() {
 
   return (
     <div className="p-10 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">System Audit Logs</h1>
-          <p className="text-gray-600 mt-1">
-            Internal view for super administrators only
-          </p>
-        </div>
-        <Link
-          href="/admin"
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-        >
-          ← Back to Admin
-        </Link>
+      <div>
+        <h1 className="text-3xl font-bold">System Audit Logs</h1>
+        <p className="text-gray-600 mt-1">
+          Internal view for super administrators only
+        </p>
       </div>
 
       {/* Security Notice */}

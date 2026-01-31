@@ -236,7 +236,7 @@ export const PATCH = withAuth(async (request: NextRequest, user: AuthUser) => {
           },
         });
       } catch (auditError) {
-        logger.warn('Failed to create audit log for clinic update:', auditError);
+        logger.warn('Failed to create audit log for clinic update');
       }
     }
 

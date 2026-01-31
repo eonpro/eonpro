@@ -181,7 +181,7 @@ export const PATCH = async (request: NextRequest, context: RouteContext) => {
             },
           });
         } catch (ucError) {
-          logger.warn('Failed to update UserClinic role:', ucError);
+          logger.warn('Failed to update UserClinic role');
         }
       }
 
@@ -200,7 +200,7 @@ export const PATCH = async (request: NextRequest, context: RouteContext) => {
             },
           });
         } catch (providerError) {
-          logger.warn('Failed to update provider record:', providerError);
+          logger.warn('Failed to update provider record');
         }
       }
 
@@ -222,7 +222,7 @@ export const PATCH = async (request: NextRequest, context: RouteContext) => {
           },
         });
       } catch (auditError) {
-        logger.warn('Failed to create audit log:', auditError);
+        logger.warn('Failed to create audit log');
       }
 
       logger.info(`[CLINIC-USERS] Admin ${user.email} updated user ${targetUser.email}`);
@@ -322,7 +322,7 @@ export const DELETE = async (request: NextRequest, context: RouteContext) => {
           },
         });
       } catch (auditError) {
-        logger.warn('Failed to create audit log:', auditError);
+        logger.warn('Failed to create audit log');
       }
 
       logger.info(`[CLINIC-USERS] Admin ${user.email} deactivated user ${targetUser.email}`);

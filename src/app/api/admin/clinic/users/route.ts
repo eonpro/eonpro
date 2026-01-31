@@ -253,8 +253,8 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
           isActive: true,
         },
       });
-    } catch (ucError: any) {
-      logger.warn('Could not create UserClinic record:', ucError.message);
+    } catch (ucError) {
+      logger.warn('Could not create UserClinic record');
     }
 
     // If role is PROVIDER, also create a Provider record
@@ -304,7 +304,7 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
         },
       });
     } catch (auditError) {
-      logger.warn('Failed to create audit log for user creation:', auditError);
+      logger.warn('Failed to create audit log for user creation');
     }
 
     logger.info(`[CLINIC-USERS] Admin ${user.email} created user ${newUser.email} in clinic ${user.clinicId}`);

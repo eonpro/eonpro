@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Breadcrumb from '@/components/Breadcrumb';
 
 interface Product {
   id: number;
@@ -218,8 +217,7 @@ export default function ProductCatalogPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b px-6 py-4">
-        <Breadcrumb items={[{ label: 'Admin' }, { label: 'Product Catalog' }]} />
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Product Catalog</h1>
             <p className="text-gray-600">Manage your services, packages, and subscription plans</p>

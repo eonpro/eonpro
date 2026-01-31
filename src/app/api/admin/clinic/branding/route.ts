@@ -189,7 +189,7 @@ export const PATCH = withAuth(async (request: NextRequest, user: AuthUser) => {
         },
       });
     } catch (auditError) {
-      logger.warn('Failed to create audit log:', auditError);
+      logger.warn('Failed to create audit log for branding update');
     }
 
     logger.info(`[CLINIC-BRANDING] Admin ${user.email} updated branding for clinic ${user.clinicId}`);

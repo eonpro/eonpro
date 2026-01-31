@@ -67,7 +67,6 @@ export default function ConditionalHeader() {
     { href: '/admin', label: 'Dashboard', roles: ['admin', 'super_admin'] },
     { href: '/patients', label: 'Patients', roles: ['admin', 'provider', 'staff', 'super_admin'] },
     { href: '/providers', label: 'Providers', roles: ['admin', 'super_admin'] },
-    { href: '/intake-forms', label: 'Intake Forms', roles: ['admin', 'staff', 'super_admin'] },
     { href: '/pharmacy/analytics', label: 'Pharmacy', roles: ['admin', 'provider', 'super_admin'] },
     { href: '/settings', label: 'Settings', roles: ['admin', 'super_admin'] },
   ];

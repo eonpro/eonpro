@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Breadcrumb from '@/components/Breadcrumb';
 import { Package, Search, Filter, Eye, CheckCircle, Clock, XCircle, Plus, Truck, ExternalLink, Loader2 } from 'lucide-react';
 
 interface OrderWithTracking {
@@ -19,6 +18,10 @@ interface OrderWithTracking {
   trackingNumber: string | null;
   trackingUrl: string | null;
   createdAt: string;
+  lifefileOrderId?: string | null;
+  // Flag for records that came from PatientShippingUpdate only (no linked Order)
+  _isShipmentOnly?: boolean;
+  _shipmentId?: number;
 }
 
 export default function AdminOrdersPage() {
@@ -92,8 +95,6 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <Breadcrumb items={[{ label: 'Orders', href: '/admin/orders' }]} />
-      
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
@@ -187,9 +188,15 @@ export default function AdminOrdersPage() {
                 </tr>
               ) : (
                 filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
+                  <tr key={order._isShipmentOnly ? `ship-${order._shipmentId}` : order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">
-                      #{order.id}
+                      {order._isShipmentOnly ? (
+                        <span className="text-gray-500" title="Shipment from Lifefile (no linked order)">
+                          {order.lifefileOrderId ? `LF-${order.lifefileOrderId.slice(-6)}` : `S-${order._shipmentId}`}
+                        </span>
+                      ) : (
+                        `#${order.id}`
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link
@@ -212,10 +219,17 @@ export default function AdminOrdersPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.shippingStatus || order.status)}`}>
-                        {getStatusIcon(order.shippingStatus || order.status)}
-                        {(order.shippingStatus || order.status || 'Unknown').replace('_', ' ')}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.shippingStatus || order.status)}`}>
+                          {getStatusIcon(order.shippingStatus || order.status)}
+                          {(order.shippingStatus || order.status || 'Unknown').replace('_', ' ')}
+                        </span>
+                        {order._isShipmentOnly && (
+                          <span className="text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded" title="Tracking from Lifefile webhook - order record pending">
+                            Lifefile
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {order.trackingNumber && (

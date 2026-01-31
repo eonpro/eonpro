@@ -1,20 +1,23 @@
 /**
  * STRIPE COMPREHENSIVE REPORTS API
- * 
+ *
  * GET /api/stripe/reports - Generate comprehensive financial reports
- * 
+ *
  * Provides:
  * - Revenue reports
  * - Growth metrics
  * - Cohort analysis
  * - Financial summaries
  * - Export-ready data
- * 
+ *
  * PROTECTED: Requires admin authentication
+ *
+ * Supports multi-tenant data isolation via clinic context
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, formatCurrency } from '@/lib/stripe';
+import { formatCurrency } from '@/lib/stripe';
+import { getStripeContextForRequest, getNotConnectedResponse } from '@/lib/stripe/context';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -25,8 +28,15 @@ async function getReportsHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
-    const stripe = getStripe();
+
+    // Get Stripe context for clinic
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId, clinicId, isPlatformAccount } = context;
     const { searchParams } = new URL(request.url);
     
     const reportType = searchParams.get('type') || 'summary';
@@ -38,22 +48,25 @@ async function getReportsHandler(request: NextRequest, user: AuthUser) {
     const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
     
     let reportData: any = {};
-    
+
+    // Pass stripeAccountId for connected account API calls
+    const accountOptions = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
+
     switch (reportType) {
       case 'summary':
-        reportData = await generateSummaryReport(stripe, startTimestamp, endTimestamp);
+        reportData = await generateSummaryReport(stripe, startTimestamp, endTimestamp, accountOptions);
         break;
       case 'revenue':
-        reportData = await generateRevenueReport(stripe, startTimestamp, endTimestamp, groupBy);
+        reportData = await generateRevenueReport(stripe, startTimestamp, endTimestamp, groupBy, accountOptions);
         break;
       case 'subscriptions':
-        reportData = await generateSubscriptionReport(stripe, startTimestamp, endTimestamp);
+        reportData = await generateSubscriptionReport(stripe, startTimestamp, endTimestamp, accountOptions);
         break;
       case 'products':
-        reportData = await generateProductReport(stripe, startTimestamp, endTimestamp);
+        reportData = await generateProductReport(stripe, startTimestamp, endTimestamp, accountOptions);
         break;
       case 'customers':
-        reportData = await generateCustomerReport(stripe, startTimestamp, endTimestamp);
+        reportData = await generateCustomerReport(stripe, startTimestamp, endTimestamp, accountOptions);
         break;
       default:
         return NextResponse.json(
@@ -93,7 +106,9 @@ async function getReportsHandler(request: NextRequest, user: AuthUser) {
 
 export const GET = withAuth(getReportsHandler);
 
-async function generateSummaryReport(stripe: Stripe, startTimestamp: number, endTimestamp: number) {
+type AccountOptions = { stripeAccount: string } | undefined;
+
+async function generateSummaryReport(stripe: Stripe, startTimestamp: number, endTimestamp: number, accountOptions?: AccountOptions) {
   // Helper to fetch all items with pagination (handles >100 items)
   async function fetchAllCharges(params: Stripe.ChargeListParams): Promise<Stripe.Charge[]> {
     const allItems: Stripe.Charge[] = [];
@@ -103,9 +118,10 @@ async function generateSummaryReport(stripe: Stripe, startTimestamp: number, end
     while (hasMore) {
       const response = await stripe.charges.list({
         ...params,
+        ...accountOptions,
         limit: 100,
         ...(startingAfter && { starting_after: startingAfter }),
-      });
+      } as Stripe.ChargeListParams);
       allItems.push(...response.data);
       hasMore = response.has_more;
       if (response.data.length > 0) {
@@ -125,9 +141,10 @@ async function generateSummaryReport(stripe: Stripe, startTimestamp: number, end
     while (hasMore) {
       const response = await stripe.refunds.list({
         ...params,
+        ...accountOptions,
         limit: 100,
         ...(startingAfter && { starting_after: startingAfter }),
-      });
+      } as Stripe.RefundListParams);
       allItems.push(...response.data);
       hasMore = response.has_more;
       if (response.data.length > 0) {
@@ -146,9 +163,10 @@ async function generateSummaryReport(stripe: Stripe, startTimestamp: number, end
     while (hasMore) {
       const response = await stripe.invoices.list({
         ...params,
+        ...accountOptions,
         limit: 100,
         ...(startingAfter && { starting_after: startingAfter }),
-      });
+      } as Stripe.InvoiceListParams);
       allItems.push(...response.data);
       hasMore = response.has_more;
       if (response.data.length > 0) {
@@ -242,11 +260,12 @@ async function generateSummaryReport(stripe: Stripe, startTimestamp: number, end
   };
 }
 
-async function generateRevenueReport(stripe: Stripe, startTimestamp: number, endTimestamp: number, groupBy: string) {
-  const charges = await stripe.charges.list({ 
-    created: { gte: startTimestamp, lte: endTimestamp }, 
+async function generateRevenueReport(stripe: Stripe, startTimestamp: number, endTimestamp: number, groupBy: string, accountOptions?: AccountOptions) {
+  const charges = await stripe.charges.list({
+    created: { gte: startTimestamp, lte: endTimestamp },
     limit: 100,
-  });
+    ...accountOptions,
+  } as Stripe.ChargeListParams);
   
   const successfulCharges = charges.data.filter(c => c.status === 'succeeded');
   
@@ -311,12 +330,13 @@ async function generateRevenueReport(stripe: Stripe, startTimestamp: number, end
   };
 }
 
-async function generateSubscriptionReport(stripe: Stripe, startTimestamp: number, endTimestamp: number) {
+async function generateSubscriptionReport(stripe: Stripe, startTimestamp: number, endTimestamp: number, accountOptions?: AccountOptions) {
   const subscriptions = await stripe.subscriptions.list({
     created: { gte: startTimestamp, lte: endTimestamp },
     limit: 100,
     expand: ['data.items.data.price'],
-  });
+    ...accountOptions,
+  } as Stripe.SubscriptionListParams);
   
   const statusBreakdown: Record<string, number> = {};
   let totalMRR = 0;
@@ -355,12 +375,13 @@ async function generateSubscriptionReport(stripe: Stripe, startTimestamp: number
   };
 }
 
-async function generateProductReport(stripe: Stripe, startTimestamp: number, endTimestamp: number) {
+async function generateProductReport(stripe: Stripe, startTimestamp: number, endTimestamp: number, accountOptions?: AccountOptions) {
   const charges = await stripe.charges.list({
     created: { gte: startTimestamp, lte: endTimestamp },
     limit: 100,
     expand: ['data.invoice'],
-  });
+    ...accountOptions,
+  } as Stripe.ChargeListParams);
   
   const productRevenue: Record<string, { name: string; revenue: number; count: number }> = {};
   
@@ -401,10 +422,10 @@ async function generateProductReport(stripe: Stripe, startTimestamp: number, end
   };
 }
 
-async function generateCustomerReport(stripe: Stripe, startTimestamp: number, endTimestamp: number) {
+async function generateCustomerReport(stripe: Stripe, startTimestamp: number, endTimestamp: number, accountOptions?: AccountOptions) {
   const [newCustomers, charges] = await Promise.all([
-    stripe.customers.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }),
-    stripe.charges.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }),
+    stripe.customers.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100, ...accountOptions } as Stripe.CustomerListParams),
+    stripe.charges.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100, ...accountOptions } as Stripe.ChargeListParams),
   ]);
   
   const successfulCharges = charges.data.filter(c => c.status === 'succeeded');

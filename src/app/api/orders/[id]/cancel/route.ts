@@ -13,6 +13,7 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { getClinicLifefileClient } from '@/lib/clinic-lifefile';
 import lifefile, { CANCELLATION_REASONS, CancellationReason } from '@/lib/lifefile';
+import { providerCompensationService } from '@/services/provider';
 
 // Request validation schema
 const cancelOrderSchema = z.object({
@@ -239,6 +240,22 @@ export const POST = withAuthParams(async (
         note: `Order cancelled by ${user.email}: ${reason}${notes ? ` - ${notes}` : ''}`,
       },
     });
+
+    // ENTERPRISE: Void any compensation event associated with this order
+    try {
+      await providerCompensationService.voidCompensation(
+        orderId,
+        `Order cancelled: ${reason}${notes ? ` - ${notes}` : ''}`,
+        user.id
+      );
+      logger.info('[ORDER CANCEL] Compensation event voided', { orderId });
+    } catch (compError) {
+      // Don't fail the cancellation if compensation voiding fails
+      logger.error('[ORDER CANCEL] Failed to void compensation event', {
+        orderId,
+        error: compError instanceof Error ? compError.message : 'Unknown error',
+      });
+    }
 
     const processingTime = Date.now() - startTime;
 

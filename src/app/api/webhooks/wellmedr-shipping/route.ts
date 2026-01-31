@@ -144,6 +144,7 @@ function parseDate(dateStr: string | undefined): Date | undefined {
 
 /**
  * Find patient by Lifefile order ID or email
+ * Also tries to find the most recent order for the patient if no exact match
  */
 async function findPatient(
   clinicId: number,
@@ -151,7 +152,7 @@ async function findPatient(
   patientEmail?: string,
   patientId?: string
 ): Promise<{ patient: any; order: any } | null> {
-  // First, try to find by order
+  // First, try to find by order with exact lifefileOrderId
   const order = await prisma.order.findFirst({
     where: {
       clinicId,
@@ -170,29 +171,72 @@ async function findPatient(
   }
 
   // Try to find patient by email if no order found
+  let patient = null;
   if (patientEmail) {
-    const patient = await prisma.patient.findFirst({
+    patient = await prisma.patient.findFirst({
       where: {
         clinicId,
         email: patientEmail.toLowerCase(),
       },
     });
-    if (patient) {
-      return { patient, order: null };
-    }
   }
 
   // Try to find patient by patientId
-  if (patientId) {
-    const patient = await prisma.patient.findFirst({
+  if (!patient && patientId) {
+    patient = await prisma.patient.findFirst({
       where: {
         clinicId,
         patientId,
       },
     });
-    if (patient) {
-      return { patient, order: null };
+  }
+
+  if (patient) {
+    // Try to find the most recent order for this patient that doesn't have a lifefileOrderId yet
+    // This helps link shipping updates when LifeFile's orderId wasn't captured initially
+    const recentOrder = await prisma.order.findFirst({
+      where: {
+        clinicId,
+        patientId: patient.id,
+        // Look for orders without lifefileOrderId or with no tracking
+        OR: [
+          { lifefileOrderId: null },
+          { lifefileOrderId: '' },
+          { trackingNumber: null },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        patient: true,
+      },
+    });
+
+    if (recentOrder) {
+      logger.info(`[WELLMEDR SHIPPING] Found recent order ${recentOrder.id} for patient ${patient.id} without tracking`);
+      return { patient, order: recentOrder };
     }
+
+    // Also try to find ANY recent order (within last 30 days) if tracking might need updating
+    const recentOrderWithinMonth = await prisma.order.findFirst({
+      where: {
+        clinicId,
+        patientId: patient.id,
+        createdAt: {
+          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        patient: true,
+      },
+    });
+
+    if (recentOrderWithinMonth) {
+      logger.info(`[WELLMEDR SHIPPING] Found recent order ${recentOrderWithinMonth.id} within 30 days for patient ${patient.id}`);
+      return { patient, order: recentOrderWithinMonth };
+    }
+
+    return { patient, order: null };
   }
 
   return null;
@@ -395,15 +439,25 @@ export async function POST(req: NextRequest) {
 
     // Also update the Order record if we have one
     if (order) {
+      // Build update data - also save lifefileOrderId if it wasn't set before
+      const orderUpdateData: any = {
+        trackingNumber: data.trackingNumber,
+        trackingUrl: data.trackingUrl,
+        shippingStatus: data.status,
+        lastWebhookAt: new Date(),
+        lastWebhookPayload: JSON.stringify(payload),
+      };
+
+      // Save the lifefileOrderId if it's not already set
+      // This helps link orders that weren't properly connected to LifeFile initially
+      if (!order.lifefileOrderId && data.orderId) {
+        orderUpdateData.lifefileOrderId = data.orderId;
+        logger.info(`[WELLMEDR SHIPPING] Saving lifefileOrderId ${data.orderId} to order ${order.id}`);
+      }
+
       await prisma.order.update({
         where: { id: order.id },
-        data: {
-          trackingNumber: data.trackingNumber,
-          trackingUrl: data.trackingUrl,
-          shippingStatus: data.status,
-          lastWebhookAt: new Date(),
-          lastWebhookPayload: JSON.stringify(payload),
-        },
+        data: orderUpdateData,
       });
 
       // Create order event for audit trail

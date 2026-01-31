@@ -12,7 +12,6 @@ import {
   PieChart,
   FileBarChart,
   Settings,
-  ArrowLeft,
 } from 'lucide-react';
 
 const financeNavItems = [
@@ -42,22 +41,12 @@ export default function FinanceLayout({
   return (
     <div className="min-h-screen bg-[#efece7]">
       {/* Finance Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="border-b border-gray-200">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/admin" 
-                className="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="text-sm">Back to Admin</span>
-              </Link>
-              <div className="h-6 w-px bg-gray-200" />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Financial Hub</h1>
-                <p className="text-sm text-gray-500">Comprehensive financial analytics and management</p>
-              </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Financial Hub</h1>
+              <p className="text-sm text-gray-500">Comprehensive financial analytics and management</p>
             </div>
           </div>
         </div>

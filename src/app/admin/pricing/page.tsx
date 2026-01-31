@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Breadcrumb from '@/components/Breadcrumb';
 
 type TabType = 'discounts' | 'promotions' | 'bundles' | 'rules';
 
@@ -285,8 +284,7 @@ export default function PricingManagementPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b px-6 py-4">
-        <Breadcrumb items={[{ label: 'Admin' }, { label: 'Pricing & Promotions' }]} />
-        <h1 className="text-2xl font-bold text-gray-900 mt-4">Pricing & Promotions</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Pricing & Promotions</h1>
         <p className="text-gray-600">Manage discount codes, promotions, bundles, and pricing rules</p>
       </div>
 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, Users, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ClipboardList, ChevronRight
+  DollarSign, Settings, LogOut, ChevronRight
 } from 'lucide-react';
 
 const navItems = [
@@ -14,7 +14,6 @@ const navItems = [
   { icon: Building2, path: '/admin/clinics', label: 'Clinics' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
   { icon: Store, path: '/admin/products', label: 'Products' },
-  { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
   { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
   { icon: Settings, path: '/admin/settings', label: 'Settings' },

@@ -1,20 +1,23 @@
 /**
  * STRIPE DISPUTES API
- * 
+ *
  * GET /api/stripe/disputes - List all disputes/chargebacks
  * POST /api/stripe/disputes - Submit evidence for a dispute
- * 
+ *
  * Provides:
  * - Active disputes
  * - Dispute history
  * - Evidence submission
  * - Win/loss statistics
- * 
+ *
  * PROTECTED: Requires admin authentication
+ *
+ * Supports multi-tenant data isolation via clinic context
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, formatCurrency } from '@/lib/stripe';
+import { formatCurrency } from '@/lib/stripe';
+import { getStripeContextForRequest, getNotConnectedResponse } from '@/lib/stripe/context';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -25,8 +28,15 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
-    const stripe = getStripe();
+
+    // Get Stripe context for clinic
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId, clinicId, isPlatformAccount } = context;
     const { searchParams } = new URL(request.url);
     
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
@@ -48,8 +58,13 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
       ...(createdFilter && { created: createdFilter }),
       expand: ['data.charge', 'data.payment_intent'],
     };
-    
-    const disputes = await stripe.disputes.list(disputeParams);
+
+    // Add connected account if applicable
+    const listOptions = stripeAccountId
+      ? { ...disputeParams, stripeAccount: stripeAccountId }
+      : disputeParams;
+
+    const disputes = await stripe.disputes.list(listOptions as Stripe.DisputeListParams);
     
     // Calculate statistics
     let totalDisputed = 0;
@@ -164,7 +179,14 @@ async function submitDisputeEvidenceHandler(request: NextRequest, user: AuthUser
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
     
-    const stripe = getStripe();
+    // Get clinic's Stripe context
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+    const { stripe } = context;
+    
     const body = await request.json();
     
     const { disputeId, evidence } = body;

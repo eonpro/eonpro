@@ -793,7 +793,7 @@ export default function PrescriptionQueuePage() {
     <div className="min-h-screen" style={{ backgroundColor: '#efece7' }}>
       {/* Header */}
       <div className="border-b border-gray-200 sticky top-0 z-10" style={{ backgroundColor: '#efece7' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {/* MedLink Logo */}
@@ -830,7 +830,7 @@ export default function PrescriptionQueuePage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {/* Success/Error Messages */}
         {successMessage && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 animate-in slide-in-from-top duration-300">

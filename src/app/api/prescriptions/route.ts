@@ -10,6 +10,7 @@ import { Patient, Provider, Order } from '@/types/models';
 import { NextRequest, NextResponse } from 'next/server';
 import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
 import { markPrescribed, queueForProvider } from '@/services/refill';
+import { providerCompensationService } from '@/services/provider';
 
 // Medication-specific clinical difference statements for Lifefile
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
@@ -577,6 +578,37 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             error: refillError instanceof Error ? refillError.message : 'Unknown error',
           });
         }
+      }
+
+      // ENTERPRISE: Record compensation event for the provider
+      // This is tracked only if compensation is enabled for the clinic
+      try {
+        const compensationEvent = await providerCompensationService.recordPrescription(
+          updated.id,
+          p.providerId,
+          {
+            patientId: patientRecord.id,
+            patientState: p.patient.state,
+            medicationName: primary.med.name,
+            invoiceId: p.invoiceId,
+          }
+        );
+        
+        if (compensationEvent) {
+          logger.info('[PRESCRIPTIONS] Compensation event recorded', {
+            orderId: updated.id,
+            eventId: compensationEvent.id,
+            providerId: p.providerId,
+            amountCents: compensationEvent.amountCents,
+          });
+        }
+      } catch (compError) {
+        // Don't fail the prescription if compensation recording fails
+        logger.error('[PRESCRIPTIONS] Failed to record compensation event', {
+          orderId: updated.id,
+          providerId: p.providerId,
+          error: compError instanceof Error ? compError.message : 'Unknown error',
+        });
       }
 
       return NextResponse.json({

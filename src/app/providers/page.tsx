@@ -1,7 +1,6 @@
 "use client";
 
 import SignaturePadCanvas from "@/components/SignaturePadCanvas";
-import Breadcrumb from "@/components/Breadcrumb";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -377,8 +376,7 @@ export default function ProvidersPage() {
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <Breadcrumb items={[{ label: "Providers" }]} />
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
                 {Icons.user}

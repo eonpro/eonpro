@@ -4,6 +4,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
+import { getClinicIdFromRequest } from '@/lib/clinic/utils';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2025-11-17.clover',
@@ -44,14 +45,23 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     const where: any = {};
 
-    // Clinic filter based on role
+    // Clinic filter - use current clinic context from headers/cookies (set by middleware)
+    // Priority: 1. Query param (super_admin only) 2. Header/Cookie 3. User's clinicId from token
     if (user.role === 'super_admin') {
-      const clinicId = url.searchParams.get('clinicId');
-      if (clinicId) {
-        where.clinicId = parseInt(clinicId);
+      const clinicIdParam = url.searchParams.get('clinicId');
+      if (clinicIdParam) {
+        where.clinicId = parseInt(clinicIdParam);
       }
-    } else if (user.clinicId) {
-      where.clinicId = user.clinicId;
+      // For super_admin without explicit clinicId, return all products (no filter)
+    } else {
+      // For non-super_admin users, get clinic context from header/cookie first
+      const contextClinicId = await getClinicIdFromRequest(req);
+      if (contextClinicId) {
+        where.clinicId = contextClinicId;
+      } else if (user.clinicId) {
+        // Fall back to JWT token clinicId
+        where.clinicId = user.clinicId;
+      }
     }
 
     if (category) where.category = category;
@@ -91,10 +101,15 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     const body = await req.json();
     const validated = productSchema.parse(body);
 
-    // Determine clinic ID
-    let clinicId = user.clinicId;
+    // Determine clinic ID - priority: body.clinicId (super_admin), header/cookie, user.clinicId
+    let clinicId: number | null = null;
+
     if (user.role === 'super_admin' && body.clinicId) {
       clinicId = body.clinicId;
+    } else {
+      // Get from header/cookie first (current clinic context)
+      const contextClinicId = await getClinicIdFromRequest(req);
+      clinicId = contextClinicId ?? user.clinicId ?? null;
     }
 
     if (!clinicId) {

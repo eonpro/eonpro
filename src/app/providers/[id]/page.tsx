@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import EditProviderForm from "@/components/EditProviderForm";
-import Breadcrumb from "@/components/Breadcrumb";
 import { prisma, runWithClinicContext } from "@/lib/db";
 import { getUserFromCookies } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
@@ -90,13 +89,6 @@ export default async function ProviderDetailPage({ params }: Params) {
 
   return (
     <div className="p-10 space-y-8">
-      <Breadcrumb 
-        items={[
-          { label: "Providers", href: "/providers" },
-          { label: `${provider.firstName} ${provider.lastName}` }
-        ]} 
-      />
-      
       <div className="flex items-start justify-between gap-6">
         <div>
           <p className="text-xs uppercase tracking-widest text-gray-500">

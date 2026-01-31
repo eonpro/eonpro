@@ -194,7 +194,7 @@ export const PATCH = withAuth(async (request: NextRequest, user: AuthUser) => {
         },
       });
     } catch (auditError) {
-      logger.warn('Failed to create audit log:', auditError);
+      logger.warn('Failed to create audit log for settings update');
     }
 
     // Return merged settings

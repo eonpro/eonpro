@@ -1,19 +1,22 @@
 /**
  * STRIPE PAYOUTS API
- * 
+ *
  * GET /api/stripe/payouts - List all payouts to bank account
- * 
+ *
  * Provides:
  * - Payout history
  * - Payout status tracking
  * - Bank account info
  * - Payout schedule
- * 
+ *
  * PROTECTED: Requires admin authentication
+ *
+ * Supports multi-tenant data isolation via clinic context
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, formatCurrency } from '@/lib/stripe';
+import { formatCurrency } from '@/lib/stripe';
+import { getStripeContextForRequest, getNotConnectedResponse } from '@/lib/stripe/context';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -24,8 +27,15 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
-    const stripe = getStripe();
+
+    // Get Stripe context for clinic
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId, clinicId, isPlatformAccount } = context;
     const { searchParams } = new URL(request.url);
     
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
@@ -48,8 +58,13 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
       ...(status && { status }),
       ...(arrivalDateFilter && { arrival_date: arrivalDateFilter }),
     };
-    
-    const payouts = await stripe.payouts.list(payoutParams);
+
+    // Add connected account if applicable
+    const listOptions = stripeAccountId
+      ? { ...payoutParams, stripeAccount: stripeAccountId }
+      : payoutParams;
+
+    const payouts = await stripe.payouts.list(listOptions as Stripe.PayoutListParams);
     
     // Calculate statistics
     let totalPaidOut = 0;

@@ -10,10 +10,16 @@
  * - Fee breakdown
  *
  * PROTECTED: Requires admin authentication
+ *
+ * Supports multi-tenant data isolation via clinic context:
+ * - super_admin: Can specify clinicId query param, defaults to platform
+ * - admin: Uses their clinic's Stripe account (connected or platform)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, formatCurrency } from '@/lib/stripe';
+import { formatCurrency } from '@/lib/stripe';
+import { getStripeForClinic, getStripeForPlatform, withConnectedAccount } from '@/lib/stripe/connect';
+import { getClinicIdFromRequest } from '@/lib/clinic/utils';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -25,8 +31,54 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
-    const stripe = getStripe();
     const { searchParams } = new URL(request.url);
+
+    // Determine which clinic's Stripe account to use
+    const clinicIdParam = searchParams.get('clinicId');
+    let stripeContext;
+
+    if (user.role === 'super_admin') {
+      // Super admin can specify clinicId, defaults to platform account
+      if (clinicIdParam) {
+        stripeContext = await getStripeForClinic(parseInt(clinicIdParam));
+      } else {
+        stripeContext = getStripeForPlatform();
+      }
+    } else {
+      // Regular admins use their clinic's Stripe account
+      const contextClinicId = await getClinicIdFromRequest(request);
+      const clinicId = contextClinicId || user.clinicId;
+
+      if (!clinicId) {
+        return NextResponse.json(
+          { error: 'Clinic context required' },
+          { status: 400 }
+        );
+      }
+
+      stripeContext = await getStripeForClinic(clinicId);
+    }
+
+    const { stripe, stripeAccountId, isPlatformAccount, clinicId } = stripeContext;
+
+    // If clinic has no Stripe account configured, return empty state
+    if (!isPlatformAccount && !stripeAccountId) {
+      return NextResponse.json({
+        success: true,
+        notConnected: true,
+        message: 'This clinic has not connected a Stripe account yet',
+        balance: {
+          available: [],
+          pending: [],
+          totalAvailable: 0,
+          totalPending: 0,
+          totalAvailableFormatted: '$0.00',
+          totalPendingFormatted: '$0.00',
+        },
+        clinicId,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     // Parse query parameters
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
@@ -36,8 +88,10 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
     const endDate = searchParams.get('endDate');
     const includeTransactions = searchParams.get('includeTransactions') !== 'false';
 
-    // Get current balance
-    const balance = await stripe.balance.retrieve();
+    // Get current balance (with connected account if applicable)
+    const balance = await stripe.balance.retrieve(
+      stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
+    );
 
     // Format balance data
     const balanceData = {
@@ -83,6 +137,7 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
       if (startingAfter) transactionsParams.starting_after = startingAfter;
       if (type) transactionsParams.type = type;
       if (createdFilter) transactionsParams.created = createdFilter;
+      if (stripeAccountId) transactionsParams.stripeAccount = stripeAccountId;
 
       const transactions = await stripe.balanceTransactions.list(
         transactionsParams as Stripe.BalanceTransactionListParams
@@ -186,12 +241,17 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
       available: balanceData.totalAvailableFormatted,
       pending: balanceData.totalPendingFormatted,
       transactionCount: transactionsData?.transactions.length || 0,
+      clinicId,
+      isPlatformAccount,
     });
 
     return NextResponse.json({
       success: true,
       balance: balanceData,
       ...(transactionsData && { transactions: transactionsData }),
+      clinicId,
+      isPlatformAccount,
+      isConnectedAccount: !!stripeAccountId,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {

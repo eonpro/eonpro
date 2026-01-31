@@ -606,12 +606,17 @@ export default function SuperAdminCommissionPlansPage() {
                   <button
                     type="button"
                     onClick={() => setFormData((f) => ({ ...f, planType: 'PERCENT' }))}
-                    className={`p-3 rounded-lg border-2 transition-colors ${
+                    className={`relative p-3 rounded-lg border-2 transition-colors ${
                       formData.planType === 'PERCENT'
                         ? 'border-[#4fa77e] bg-[#4fa77e]/5'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
+                    {formData.planType === 'PERCENT' && (
+                      <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-[#4fa77e] flex items-center justify-center">
+                        <CheckCircle className="h-5 w-5 text-white" />
+                      </div>
+                    )}
                     <Percent
                       className={`h-5 w-5 mx-auto mb-1 ${formData.planType === 'PERCENT' ? 'text-[#4fa77e]' : 'text-gray-400'}`}
                     />
@@ -625,12 +630,17 @@ export default function SuperAdminCommissionPlansPage() {
                   <button
                     type="button"
                     onClick={() => setFormData((f) => ({ ...f, planType: 'FLAT' }))}
-                    className={`p-3 rounded-lg border-2 transition-colors ${
+                    className={`relative p-3 rounded-lg border-2 transition-colors ${
                       formData.planType === 'FLAT'
                         ? 'border-[#4fa77e] bg-[#4fa77e]/5'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
+                    {formData.planType === 'FLAT' && (
+                      <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-[#4fa77e] flex items-center justify-center">
+                        <CheckCircle className="h-5 w-5 text-white" />
+                      </div>
+                    )}
                     <DollarSign
                       className={`h-5 w-5 mx-auto mb-1 ${formData.planType === 'FLAT' ? 'text-[#4fa77e]' : 'text-gray-400'}`}
                     />

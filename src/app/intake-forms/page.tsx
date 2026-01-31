@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
-import Breadcrumb from '@/components/Breadcrumb';
 
 // Icons
 const CheckIcon = () => (
@@ -371,8 +370,6 @@ export default function IntakeFormsPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <Breadcrumb items={[{ label: "Intake Forms" }]} />
-      
       {/* Notifications */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {notifications.map((notification: any) => (

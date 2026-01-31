@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Breadcrumb from '@/components/Breadcrumb';
 
 interface DashboardData {
   user: {
@@ -113,8 +112,6 @@ export default function SettingsDashboard() {
 
   return (
     <div className="p-8">
-      <Breadcrumb items={[{ label: "Settings" }]} />
-      
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Settings Dashboard</h1>

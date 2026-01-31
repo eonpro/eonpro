@@ -50,7 +50,8 @@ export default function ClinicsAdminPage() {
       const response = await fetch('/api/admin/clinics');
       if (response.ok) {
         const data = await response.json();
-        setClinics(data);
+        // API returns { clinics: [...] }, extract the array
+        setClinics(data.clinics || []);
       }
     } catch (error) {
       logger.error('Error fetching clinics:', error);

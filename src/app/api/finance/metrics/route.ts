@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       const outstandingInvoices = await prisma.invoice.findMany({
         where: {
           clinicId,
-          status: { in: ['OPEN', 'DRAFT', 'SENT'] },
+          status: { in: ['OPEN', 'DRAFT'] },
         },
         select: {
           amount: true,
