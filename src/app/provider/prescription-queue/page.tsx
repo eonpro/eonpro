@@ -175,7 +175,7 @@ function parseAddressString(addressString: string): ParsedAddress {
 /**
  * Get parsed address from patient data, handling combined strings
  */
-function getPatientAddress(patient: { address1?: string; address2?: string; city?: string; state?: string; zip?: string }): ParsedAddress {
+function getPatientAddress(patient: { address1?: string | null; address2?: string | null; city?: string | null; state?: string | null; zip?: string | null }): ParsedAddress {
   const addr1 = patient.address1 || '';
   const addr2 = patient.address2 || '';
   const city = patient.city || '';
