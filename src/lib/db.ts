@@ -545,6 +545,11 @@ class PrismaWithClinicFilter {
   // SMS logs (system-wide)
   get smsLog() { return this.client.smsLog; }
 
+  // Policy management (system-wide, SOC 2 compliance)
+  get policy() { return this.client.policy; }
+  get policyApproval() { return this.client.policyApproval; }
+  get policyAcknowledgment() { return this.client.policyAcknowledgment; }
+
   // Discounts (system-wide promotions)
   get discountCode() { return this.client.discountCode; }
   get discountUsage() { return this.client.discountUsage; }
