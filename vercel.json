@@ -85,7 +85,7 @@
   ],
   "functions": {
     "src/app/api/auth/login/route.ts": {
-      "maxDuration": 10
+      "maxDuration": 30
     },
     "src/app/api/auth/send-otp/route.ts": {
       "maxDuration": 15
