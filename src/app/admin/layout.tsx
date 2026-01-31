@@ -8,6 +8,11 @@ import {
   DollarSign, Settings, LogOut, ChevronRight, ClipboardList, CreditCard, Key, X, Lock, Pill
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
+import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+
+// Default EONPRO logos
+const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
 interface UserClinic {
   id: number;
@@ -38,9 +43,10 @@ const baseNavItems = [
 // Clinics tab only shown for multi-clinic admins or super_admin
 const clinicsNavItem = { icon: Building2, path: '/admin/clinics', label: 'Clinics' };
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
@@ -53,6 +59,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [password, setPassword] = useState('');
   const [switchError, setSwitchError] = useState('');
   const [switching, setSwitching] = useState(false);
+
+  // Get branding colors with fallbacks
+  const primaryColor = branding?.primaryColor || '#4fa77e';
+  const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
+  const clinicIcon = branding?.iconUrl || EONPRO_ICON;
 
   // Fetch user's clinic assignments
   const fetchUserClinics = async () => {
@@ -187,10 +198,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading) {
+  if (loading || brandingLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-[#4fa77e] border-t-transparent"></div>
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-2 border-t-transparent"
+          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+        ></div>
       </div>
     );
   }
@@ -208,14 +222,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/">
             {sidebarExpanded ? (
               <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
-                alt="EONPRO"
-                className="h-10 w-auto"
+                src={clinicLogo}
+                alt={branding?.clinicName || 'EONPRO'}
+                className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
               <img
-                src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
-                alt="EONPRO"
+                src={clinicIcon}
+                alt={branding?.clinicName || 'EONPRO'}
                 className="h-10 w-10 object-contain"
               />
             )}
@@ -247,9 +261,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 title={!sidebarExpanded ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   active
-                    ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                    ? ''
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
+                style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
@@ -353,7 +368,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       ) : (
                         <div 
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                          style={{ backgroundColor: clinic.primaryColor || '#4fa77e' }}
+                          style={{ backgroundColor: clinic.primaryColor || primaryColor }}
                         >
                           {clinic.name.charAt(0).toUpperCase()}
                         </div>
@@ -416,5 +431,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClinicBrandingProvider>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </ClinicBrandingProvider>
   );
 }

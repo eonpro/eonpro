@@ -9,6 +9,11 @@ import {
   Stethoscope, ClipboardList
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
+import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+
+// Default EONPRO logos
+const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
 const mainNavItems = [
   { icon: Home, path: '/provider', label: 'Dashboard', exact: true },
@@ -30,14 +35,20 @@ const clinicalTools = [
   { icon: Activity, path: '/provider/calculators', label: 'Medical Calculators' },
 ];
 
-export default function ProviderLayout({ children }: { children: React.ReactNode }) {
+function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<number | null>(null);
   const [rxQueueCount, setRxQueueCount] = useState(0);
+
+  // Get branding colors with fallbacks
+  const primaryColor = branding?.primaryColor || '#4fa77e';
+  const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
+  const clinicIcon = branding?.iconUrl || EONPRO_ICON;
 
   // Fetch prescription queue count
   const fetchQueueCount = useCallback(async () => {
@@ -115,10 +126,13 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading) {
+  if (loading || brandingLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-[#4fa77e] border-t-transparent"></div>
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-2 border-t-transparent"
+          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+        ></div>
       </div>
     );
   }
@@ -136,14 +150,14 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           <Link href="/provider">
             {sidebarExpanded ? (
               <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
-                alt="EONPRO"
-                className="h-10 w-auto"
+                src={clinicLogo}
+                alt={branding?.clinicName || 'EONPRO'}
+                className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
               <img
-                src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
-                alt="EONPRO"
+                src={clinicIcon}
+                alt={branding?.clinicName || 'EONPRO'}
                 className="h-10 w-10 object-contain"
               />
             )}
@@ -173,9 +187,10 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
                 title={!sidebarExpanded ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}` : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative ${
                   active
-                    ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                    ? ''
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
+                style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
                 <div className="relative">
                   <Icon className="h-5 w-5 flex-shrink-0" />
@@ -212,9 +227,10 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
                     href={item.path}
                     className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
                       active
-                        ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                        ? ''
                         : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
+                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
@@ -237,9 +253,10 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
                     title={item.label}
                     className={`flex items-center justify-center p-2.5 rounded-xl transition-all ${
                       active
-                        ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                        ? ''
                         : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
+                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
                   >
                     <Icon className="h-4 w-4" />
                   </Link>
@@ -279,5 +296,13 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         <InternalChat currentUserId={userId} currentUserRole="provider" />
       )}
     </div>
+  );
+}
+
+export default function ProviderLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClinicBrandingProvider>
+      <ProviderLayoutInner>{children}</ProviderLayoutInner>
+    </ClinicBrandingProvider>
   );
 }
