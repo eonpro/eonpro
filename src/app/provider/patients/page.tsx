@@ -33,6 +33,7 @@ export default function ProviderPatientsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false); // New: for search-in-progress indicator
   const [loadingMore, setLoadingMore] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -40,6 +41,7 @@ export default function ProviderPatientsPage() {
   const [meta, setMeta] = useState<PaginationMeta>({ count: 0, total: 0, hasMore: false });
   const [offset, setOffset] = useState(0);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialLoadRef = useRef(true);
 
   // New patient form
   const [newPatient, setNewPatient] = useState({
@@ -74,8 +76,12 @@ export default function ProviderPatientsPage() {
   // Fetch patients function
   const fetchPatients = useCallback(async (currentOffset: number, isNewSearch = false, searchQuery = "") => {
     try {
-      if (isNewSearch) {
+      // Only show full loading spinner on initial page load
+      // For searches, show a subtle searching indicator without clearing the list
+      if (isNewSearch && isInitialLoadRef.current) {
         setLoading(true);
+      } else if (isNewSearch) {
+        setSearching(true);
       } else {
         setLoadingMore(true);
       }
@@ -117,6 +123,7 @@ export default function ProviderPatientsPage() {
 
         if (isNewSearch) {
           setPatients(mapped);
+          isInitialLoadRef.current = false;
         } else {
           setPatients(prev => [...prev, ...mapped]);
         }
@@ -132,6 +139,7 @@ export default function ProviderPatientsPage() {
       console.error("Error fetching patients:", err);
     } finally {
       setLoading(false);
+      setSearching(false);
       setLoadingMore(false);
     }
   }, []);
@@ -139,7 +147,8 @@ export default function ProviderPatientsPage() {
   // Fetch patients when search changes (including initial load)
   useEffect(() => {
     setOffset(0);
-    setPatients([]);
+    // Don't clear patients here - let fetchPatients handle the replacement
+    // This prevents flickering and allows typing to work smoothly
     fetchPatients(0, true, debouncedSearch);
   }, [debouncedSearch, fetchPatients]);
 
@@ -331,10 +340,14 @@ export default function ProviderPatientsPage() {
         {/* Search and Filter */}
         <div className="flex gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            {searching ? (
+              <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500 animate-spin" />
+            ) : (
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            )}
             <input
               type="text"
-              placeholder="Search patients by name or email..."
+              placeholder="Search patients by name..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); }}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"

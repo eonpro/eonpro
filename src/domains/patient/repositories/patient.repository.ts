@@ -700,11 +700,39 @@ function buildWhereClause(filter: PatientFilterOptions): Prisma.PatientWhereInpu
   }
 
   if (filter.search) {
-    where.OR = [
-      { firstName: { contains: filter.search, mode: 'insensitive' } },
-      { lastName: { contains: filter.search, mode: 'insensitive' } },
-      { patientId: { contains: filter.search, mode: 'insensitive' } },
-    ];
+    const searchTerms = filter.search.trim().split(/\s+/).filter(Boolean);
+
+    if (searchTerms.length === 1) {
+      // Single term: search firstName, lastName, or patientId
+      where.OR = [
+        { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+        { lastName: { contains: searchTerms[0], mode: 'insensitive' } },
+        { patientId: { contains: searchTerms[0], mode: 'insensitive' } },
+      ];
+    } else if (searchTerms.length >= 2) {
+      // Multiple terms: match as "firstName lastName" OR "lastName firstName" OR any term in either field
+      const [first, ...rest] = searchTerms;
+      const last = rest.join(' '); // Handle multi-word last names like "Van Der Berg"
+
+      where.OR = [
+        // Exact order: first matches firstName, rest matches lastName
+        {
+          AND: [
+            { firstName: { contains: first, mode: 'insensitive' } },
+            { lastName: { contains: last, mode: 'insensitive' } },
+          ],
+        },
+        // Reverse order: first matches lastName, rest matches firstName
+        {
+          AND: [
+            { lastName: { contains: first, mode: 'insensitive' } },
+            { firstName: { contains: last, mode: 'insensitive' } },
+          ],
+        },
+        // Any single term matches patientId
+        { patientId: { contains: filter.search, mode: 'insensitive' } },
+      ];
+    }
   }
 
   // Note: JSON array filtering with hasSome requires raw SQL in PostgreSQL
