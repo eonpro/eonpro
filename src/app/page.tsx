@@ -146,41 +146,21 @@ function HomePageInner() {
         setStats(prev => ({ ...prev, newIntakes: patients.length }));
       }
 
-      // Fetch revenue stats for last 7 days
+      // Fetch revenue stats for last 7 days from finance metrics (same source as Finance page)
       try {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const startDate = sevenDaysAgo.toISOString();
-
-        const revenueResponse = await apiFetch(
-          `/api/stripe/transactions?limit=100&type=charges&status=succeeded&startDate=${encodeURIComponent(startDate)}`
-        );
-        if (revenueResponse.ok) {
-          const revenueData = await revenueResponse.json();
-          const transactions = revenueData.transactions || [];
-          const newRevenue = transactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0) / 100;
-          setStats(prev => ({ ...prev, newRevenue }));
+        const metricsResponse = await apiFetch('/api/finance/metrics?range=7d');
+        if (metricsResponse.ok) {
+          const metricsData = await metricsResponse.json();
+          // grossRevenue is in cents, convert to dollars
+          const newRevenue = (metricsData.grossRevenue || 0) / 100;
+          // mrr (Monthly Recurring Revenue) is also in cents
+          const recurringRevenue = (metricsData.mrr || 0) / 100;
+          setStats(prev => ({ ...prev, newRevenue, recurringRevenue }));
         }
       } catch (e: any) {
         // Skip if auth error (already handled by apiFetch)
         if (!e.isAuthError) {
           // Revenue fetch failed, use placeholder
-        }
-      }
-
-      // Fetch subscription/recurring revenue (monthly active subscriptions)
-      try {
-        const subsResponse = await apiFetch('/api/stripe/subscriptions?status=active');
-        if (subsResponse.ok) {
-          const subsData = await subsResponse.json();
-          const subs = subsData.subscriptions || [];
-          const recurringRevenue = subs.reduce((sum: number, s: any) => sum + (s.plan?.amount || 0), 0) / 100;
-          setStats(prev => ({ ...prev, recurringRevenue }));
-        }
-      } catch (e: any) {
-        // Skip if auth error (already handled by apiFetch)
-        if (!e.isAuthError) {
-          // Subscriptions fetch failed, use placeholder
         }
       }
 

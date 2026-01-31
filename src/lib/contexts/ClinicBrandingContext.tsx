@@ -263,37 +263,63 @@ export function ClinicBrandingProvider({
       setIsLoading(true);
       setError(null);
 
-      // Get clinic ID from multiple sources (in priority order):
-      // 1. Prop passed directly
-      // 2. User data in localStorage
-      // 3. Resolve from subdomain (for white-labeled portals)
+      // WHITE-LABEL BRANDING LOGIC:
+      // Branding is determined by the DOMAIN, not the user's clinic assignment.
+      // - app.eonpro.io = Always EONPRO branding (native app)
+      // - wellmedr.eonpro.io = Wellmedr branding (white-labeled)
+      // - ot.eonpro.io = OT branding (white-labeled)
+      // This allows users from any clinic to use the main app with EONPRO branding
+
       let cId = clinicId;
+
+      // FIRST: Check domain to determine if this is a white-labeled subdomain
+      if (isBrowser) {
+        try {
+          const domain = window.location.hostname;
+          const resolveResponse = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
+          if (resolveResponse.ok) {
+            const resolveData = await resolveResponse.json();
+
+            // If this is the main app domain (app.eonpro.io), always use default EONPRO branding
+            if (resolveData.isMainApp) {
+              setBranding(defaultBranding);
+              return;
+            }
+
+            // If domain resolves to a specific clinic, use that clinic's branding
+            if (resolveData.clinicId) {
+              cId = resolveData.clinicId;
+            }
+          }
+        } catch (resolveErr) {
+          console.log('Could not resolve clinic from domain');
+        }
+      }
+
+      // FALLBACK: If no domain-based clinic found, check prop or user data
+      // This is for cases like direct clinicId prop or non-standard access patterns
+      if (!cId && clinicId) {
+        cId = clinicId;
+      }
 
       if (!cId && isBrowser) {
         const user = getLocalStorageItem('user');
         if (user) {
           try {
             const userData = JSON.parse(user);
-            cId = userData.clinicId;
+            // Only use user's clinicId if we couldn't resolve from domain
+            // AND we're not on a known main app domain
+            const domain = window.location.hostname;
+            const isMainAppDomain = domain.includes('app.eonpro.io') ||
+                                    domain === 'app.eonpro.io' ||
+                                    domain === 'localhost' ||
+                                    domain.startsWith('localhost:');
+            if (!isMainAppDomain) {
+              cId = userData.clinicId;
+            }
           } catch {
             // Invalid JSON in localStorage
           }
-        }
-      }
-
-      // If still no clinicId, try resolving from subdomain
-      if (!cId && isBrowser) {
-        try {
-          const domain = window.location.hostname;
-          const resolveResponse = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
-          if (resolveResponse.ok) {
-            const resolveData = await resolveResponse.json();
-            if (resolveData.clinicId && !resolveData.isMainApp) {
-              cId = resolveData.clinicId;
-            }
-          }
-        } catch (resolveErr) {
-          console.log('Could not resolve clinic from domain');
         }
       }
 
