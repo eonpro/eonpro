@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, UserPlus, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, ClipboardList, CreditCard, Key, X, Lock, Pill
+  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -32,7 +32,6 @@ const baseNavItems = [
   { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
   { icon: Store, path: '/admin/products', label: 'Products' },
-  { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
   { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
   { icon: CreditCard, path: '/admin/stripe-dashboard', label: 'Stripe' },
@@ -64,6 +63,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
   const clinicIcon = branding?.iconUrl || EONPRO_ICON;
+  const clinicName = branding?.clinicName || 'EONPRO';
+  const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
   // Fetch user's clinic assignments
   const fetchUserClinics = async () => {
@@ -218,22 +219,26 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center mb-6 px-4">
+        <div className="flex flex-col items-center mb-6 px-4">
           <Link href="/">
             {sidebarExpanded ? (
               <img
                 src={clinicLogo}
-                alt={branding?.clinicName || 'EONPRO'}
+                alt={clinicName}
                 className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
               <img
                 src={clinicIcon}
-                alt={branding?.clinicName || 'EONPRO'}
+                alt={clinicName}
                 className="h-10 w-10 object-contain"
               />
             )}
           </Link>
+          {/* Powered by EONPRO - shown for white-labeled clinics */}
+          {isWhiteLabeled && sidebarExpanded && (
+            <span className="text-[10px] text-gray-400 mt-1">Powered by EONPRO</span>
+          )}
         </div>
 
         {/* Expand Button */}

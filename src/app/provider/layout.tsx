@@ -49,6 +49,8 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
   const clinicIcon = branding?.iconUrl || EONPRO_ICON;
+  const clinicName = branding?.clinicName || 'EONPRO';
+  const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
   // Fetch prescription queue count
   const fetchQueueCount = useCallback(async () => {
@@ -146,22 +148,26 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center mb-6 px-4">
+        <div className="flex flex-col items-center mb-6 px-4">
           <Link href="/provider">
             {sidebarExpanded ? (
               <img
                 src={clinicLogo}
-                alt={branding?.clinicName || 'EONPRO'}
+                alt={clinicName}
                 className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
               <img
                 src={clinicIcon}
-                alt={branding?.clinicName || 'EONPRO'}
+                alt={clinicName}
                 className="h-10 w-10 object-contain"
               />
             )}
           </Link>
+          {/* Powered by EONPRO - shown for white-labeled clinics */}
+          {isWhiteLabeled && sidebarExpanded && (
+            <span className="text-[10px] text-gray-400 mt-1">Powered by EONPRO</span>
+          )}
         </div>
 
         {/* Expand Button */}

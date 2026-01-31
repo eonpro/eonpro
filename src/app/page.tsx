@@ -9,6 +9,11 @@ import {
   UserPlus, CreditCard, RefreshCw, FileText
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
+import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+
+// Default EONPRO logos
+const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
 interface PatientIntake {
   id: number;
@@ -42,8 +47,9 @@ const navItems = [
   { icon: Settings, path: '/admin/settings', label: 'Settings' },
 ];
 
-export default function HomePage() {
+function HomePageInner() {
   const router = useRouter();
+  const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
@@ -58,6 +64,13 @@ export default function HomePage() {
     recurringRevenue: 0,
     newPrescriptions: 0,
   });
+
+  // Get branding colors with fallbacks
+  const primaryColor = branding?.primaryColor || '#4fa77e';
+  const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
+  const clinicIcon = branding?.iconUrl || EONPRO_ICON;
+  const clinicName = branding?.clinicName || 'EONPRO';
+  const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -233,10 +246,13 @@ export default function HomePage() {
     );
   }).slice(0, 8); // Limit to 8 items
 
-  if (loading) {
+  if (loading || brandingLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-[#4fa77e] border-t-transparent"></div>
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-2 border-t-transparent"
+          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+        ></div>
       </div>
     );
   }
@@ -252,22 +268,26 @@ export default function HomePage() {
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center mb-6 px-4">
+        <div className="flex flex-col items-center mb-6 px-4">
           <Link href="/">
             {sidebarExpanded ? (
               <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
-                alt="EONPRO"
-                className="h-10 w-auto"
+                src={clinicLogo}
+                alt={clinicName}
+                className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
               <img
-                src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
-                alt="EONPRO"
+                src={clinicIcon}
+                alt={clinicName}
                 className="h-10 w-10 object-contain"
               />
             )}
           </Link>
+          {/* Powered by EONPRO - shown for white-labeled clinics */}
+          {isWhiteLabeled && sidebarExpanded && (
+            <span className="text-[10px] text-gray-400 mt-1">Powered by EONPRO</span>
+          )}
         </div>
 
         {/* Expand Button */}
@@ -291,9 +311,10 @@ export default function HomePage() {
                 title={!sidebarExpanded ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   item.active
-                    ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                    ? ''
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
+                style={item.active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
@@ -327,10 +348,10 @@ export default function HomePage() {
             {/* Left: Status & Time */}
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <div className={`w-2 h-2 rounded-full ${
-                  systemStatus === 'healthy' ? 'bg-[#4fa77e]' :
-                  systemStatus === 'warning' ? 'bg-amber-500' : 'bg-red-500'
-                }`} />
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: systemStatus === 'healthy' ? primaryColor : systemStatus === 'warning' ? '#f59e0b' : '#ef4444' }}
+                />
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                   SYSTEM: {systemStatus.toUpperCase()}
                 </span>
@@ -351,7 +372,8 @@ export default function HomePage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search patients"
-                className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e] transition-all text-sm"
+                className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 transition-all text-sm"
+                style={{ '--tw-ring-color': `${primaryColor}33` } as React.CSSProperties}
               />
             </div>
           </div>
@@ -365,8 +387,11 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {/* New Intakes */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#4fa77e]/10 flex items-center justify-center">
-                <UserPlus className="h-6 w-6 text-[#4fa77e]" />
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: `${primaryColor}15` }}
+              >
+                <UserPlus className="h-6 w-6" style={{ color: primaryColor }} />
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{stats.newIntakes}</p>
@@ -376,8 +401,11 @@ export default function HomePage() {
 
             {/* New Revenue */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#4fa77e]/10 flex items-center justify-center">
-                <CreditCard className="h-6 w-6 text-[#4fa77e]" />
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: `${primaryColor}15` }}
+              >
+                <CreditCard className="h-6 w-6" style={{ color: primaryColor }} />
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.newRevenue)}</p>
@@ -415,7 +443,8 @@ export default function HomePage() {
               <h2 className="text-lg font-semibold text-gray-900">New Patient Intakes</h2>
               <Link
                 href="/admin/patients"
-                className="text-sm text-gray-500 hover:text-[#4fa77e] font-medium"
+                className="text-sm text-gray-500 font-medium hover:opacity-80"
+                style={{ color: primaryColor }}
               >
                 Load More
               </Link>
@@ -428,7 +457,8 @@ export default function HomePage() {
                 placeholder="Search patients by name, email, phone, ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e]"
+                className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2"
+                style={{ '--tw-ring-color': `${primaryColor}33` } as React.CSSProperties}
               />
             </div>
 
@@ -436,7 +466,10 @@ export default function HomePage() {
             <div className="overflow-x-auto">
               {intakesLoading ? (
                 <div className="flex items-center justify-center py-16">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#4fa77e] border-t-transparent"></div>
+                  <div
+                    className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
+                    style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+                  ></div>
                 </div>
               ) : (
                 <table className="w-full">
@@ -462,13 +495,21 @@ export default function HomePage() {
                         <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => router.push(`/patients/${patient.id}`)}>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                new Date(patient.createdAt).getTime() > Date.now() - 3600000
-                                  ? 'bg-[#4fa77e]'
-                                  : 'bg-amber-400'
-                              }`} />
+                              <div
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{
+                                  backgroundColor: new Date(patient.createdAt).getTime() > Date.now() - 3600000
+                                    ? primaryColor
+                                    : '#fbbf24'
+                                }}
+                              />
                               <div>
-                                <Link href={`/patients/${patient.id}`} className="font-medium text-gray-900 hover:text-[#4fa77e]" onClick={(e) => e.stopPropagation()}>
+                                <Link
+                                  href={`/patients/${patient.id}`}
+                                  className="font-medium text-gray-900 hover:opacity-80"
+                                  style={{ '--hover-color': primaryColor } as React.CSSProperties}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {patient.firstName} {patient.lastName}
                                 </Link>
                                 <p className="text-xs text-gray-400">#{String(patient.id).padStart(6, '0')}</p>
@@ -486,7 +527,8 @@ export default function HomePage() {
                           <td className="px-6 py-4">
                             <Link
                               href={`/patients/${patient.id}`}
-                              className="text-sm text-[#4fa77e] hover:text-[#3d8a66] font-medium"
+                              className="text-sm font-medium hover:opacity-80"
+                              style={{ color: primaryColor }}
                               onClick={(e) => e.stopPropagation()}
                             >
                               View profile
@@ -503,5 +545,13 @@ export default function HomePage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <ClinicBrandingProvider>
+      <HomePageInner />
+    </ClinicBrandingProvider>
   );
 }
