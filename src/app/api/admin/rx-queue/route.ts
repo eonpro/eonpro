@@ -143,7 +143,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               }
             }
           },
-          createdByProvider: {
+          approvedByProvider: {
             select: {
               firstName: true,
               lastName: true
@@ -175,8 +175,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             soapNoteId: note.id,
             sourceType: note.sourceType,
             generatedByAI: note.generatedByAI,
-            createdBy: note.createdByProvider 
-              ? `${note.createdByProvider.firstName} ${note.createdByProvider.lastName}`
+            createdBy: note.approvedByProvider
+              ? `${note.approvedByProvider.firstName} ${note.approvedByProvider.lastName}`
               : 'System'
           }
         });
