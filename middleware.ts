@@ -15,9 +15,9 @@ const securityHeaders = {
   // TODO: Consider implementing nonce-based CSP for stricter security
   'Content-Security-Policy': [
     "default-src 'self'",
-    // Scripts: Removed unsafe-eval, kept unsafe-inline for Next.js hydration
-    // In production, consider using nonce-based CSP instead
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com https://lottie.host https://maps.googleapis.com https://*.googleapis.com",
+    // Scripts: 'wasm-unsafe-eval' for dotLottie animations (WASM-based)
+    // 'unsafe-inline' kept for Next.js hydration; consider nonce-based CSP for stricter security
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://lottie.host https://maps.googleapis.com https://*.googleapis.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https: http:",
     "font-src 'self' https://fonts.gstatic.com data:",
