@@ -234,6 +234,25 @@ class RedisCache {
   isReady(): boolean {
     return this.isConnected;
   }
+
+  /**
+   * Get all keys matching a pattern
+   * SOC 2 Compliance: Used for session management and audit queries
+   * Warning: Use sparingly - KEYS command can be slow on large datasets
+   */
+  async keys(pattern: string): Promise<string[]> {
+    if (!this.isConnected || !this.client) {
+      logger.warn('Redis not connected, returning empty keys');
+      return [];
+    }
+
+    try {
+      return await this.client.keys(pattern);
+    } catch (error: any) {
+      logger.error(`Redis keys error for pattern ${pattern}:`, error);
+      return [];
+    }
+  }
 }
 
 // Singleton instance

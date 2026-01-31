@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth/middleware';
-import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
 
 /**
@@ -40,9 +40,9 @@ export const GET = withAuth(async (req, user) => {
       take: 500, // Limit to 500 most recent for performance
     });
     
-    // Decrypt PHI fields for authorized users
+    // Decrypt PHI fields for authorized users (all PHI fields per SOC 2 compliance)
     const decryptedPatients = patients.map((patient: Record<string, unknown>) => 
-      decryptPatientPHI(patient, ['email', 'phone'])
+      decryptPatientPHI(patient, [...DEFAULT_PHI_FIELDS])
     );
 
     return NextResponse.json(decryptedPatients);

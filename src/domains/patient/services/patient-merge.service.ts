@@ -136,7 +136,22 @@ export interface MergeResult {
 // PHI Fields for decryption
 // ============================================================================
 
-const PHI_FIELDS = ['email', 'phone', 'dob'] as const;
+/** 
+ * PHI fields that need encryption/decryption
+ * Must match patient.repository.ts PHI_FIELDS
+ */
+const PHI_FIELDS = [
+  'firstName',
+  'lastName', 
+  'email', 
+  'phone', 
+  'dob',
+  'address1',
+  'address2',
+  'city',
+  'state',
+  'zip',
+] as const;
 
 // ============================================================================
 // Service Interface

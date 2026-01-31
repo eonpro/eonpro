@@ -13,7 +13,7 @@ import PatientTags from '@/components/PatientTags';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { logger } from '@/lib/logger';
-import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import { getUserFromCookies } from '@/lib/auth/session';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 
@@ -178,7 +178,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   // Decrypt PHI fields for display (with error handling)
   let patientWithDecryptedPHI;
   try {
-    const decryptedPatient = decryptPatientPHI(patient, ['email', 'phone', 'dob', 'ssn']);
+    const decryptedPatient = decryptPatientPHI(patient, [...DEFAULT_PHI_FIELDS]);
     patientWithDecryptedPHI = {
       ...patient,
       ...decryptedPatient,

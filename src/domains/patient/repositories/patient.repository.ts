@@ -63,8 +63,28 @@ const PATIENT_SUMMARY_SELECT = {
   clinicId: true,
 } as const;
 
-/** PHI fields that need encryption/decryption */
-const PHI_FIELDS = ['email', 'phone', 'dob'] as const;
+/** 
+ * PHI fields that need encryption/decryption
+ * 
+ * SOC 2 Compliance: All PII/PHI fields must be encrypted at rest
+ * - Direct identifiers: firstName, lastName, email, phone
+ * - Health information: dob
+ * - Location data: address1, address2, city, state, zip
+ * 
+ * @see docs/HIPAA_COMPLIANCE_EVIDENCE.md for compliance documentation
+ */
+const PHI_FIELDS = [
+  'firstName',
+  'lastName', 
+  'email', 
+  'phone', 
+  'dob',
+  'address1',
+  'address2',
+  'city',
+  'state',
+  'zip',
+] as const;
 
 // ============================================================================
 // Repository Interface

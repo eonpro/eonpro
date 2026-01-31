@@ -275,11 +275,28 @@ export async function decryptPHIAsync(encryptedData: string | null | undefined):
 // ============================================================================
 
 /**
+ * Default PHI fields for patient encryption
+ * SOC 2 Compliance: All PII/PHI fields must be encrypted at rest
+ */
+export const DEFAULT_PHI_FIELDS = [
+  'firstName',
+  'lastName',
+  'email',
+  'phone',
+  'dob',
+  'address1',
+  'address2',
+  'city',
+  'state',
+  'zip',
+] as const;
+
+/**
  * Encrypts an entire patient object's PHI fields
  */
 export function encryptPatientPHI<T extends Record<string, unknown>>(
   patient: T,
-  fieldsToEncrypt: (keyof T)[] = ['ssn', 'dob', 'phone', 'email'] as (keyof T)[]
+  fieldsToEncrypt: (keyof T)[] = DEFAULT_PHI_FIELDS as unknown as (keyof T)[]
 ): T {
   const encrypted = { ...patient };
   
@@ -298,7 +315,7 @@ export function encryptPatientPHI<T extends Record<string, unknown>>(
  */
 export function decryptPatientPHI<T extends Record<string, unknown>>(
   patient: T,
-  fieldsToDecrypt: (keyof T)[] = ['ssn', 'dob', 'phone', 'email'] as (keyof T)[]
+  fieldsToDecrypt: (keyof T)[] = DEFAULT_PHI_FIELDS as unknown as (keyof T)[]
 ): T {
   const decrypted = { ...patient };
 
