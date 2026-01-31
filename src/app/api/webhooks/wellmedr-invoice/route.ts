@@ -2,11 +2,11 @@
  * WELLMEDR INVOICE WEBHOOK
  * ========================
  * Creates invoices for WellMedR patients when payment is detected in Airtable
- * 
+ *
  * Trigger: Airtable automation when `method_payment_id` field is populated
- * 
+ *
  * POST /api/webhooks/wellmedr-invoice
- * 
+ *
  * Expected payload:
  * {
  *   "customer_email": "patient@example.com",
@@ -56,6 +56,178 @@ const STATE_NAME_TO_CODE: Record<string, string> = {
   'wi': 'WI', 'wy': 'WY', 'dc': 'DC', 'pr': 'PR', 'vi': 'VI', 'gu': 'GU',
 };
 
+// Valid state codes set for quick lookup
+const VALID_STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
+
+// Apartment/Unit pattern detection
+const APT_PATTERNS = [
+  /^APT\.?\s*/i,
+  /^APARTMENT\s*/i,
+  /^UNIT\s*/i,
+  /^STE\.?\s*/i,
+  /^SUITE\s*/i,
+  /^#\s*/,
+  /^BLDG\.?\s*/i,
+  /^BUILDING\s*/i,
+  /^FLOOR\s*/i,
+  /^FL\.?\s*/i,
+  /^RM\.?\s*/i,
+  /^ROOM\s*/i,
+];
+
+/**
+ * Check if a string looks like an apartment/unit number
+ */
+function isApartmentString(str: string): boolean {
+  const trimmed = str.trim();
+  return APT_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
+/**
+ * Check if a string is a valid US state name or code
+ */
+function isStateName(str: string): boolean {
+  const normalized = str.trim().toLowerCase();
+  return STATE_NAME_TO_CODE[normalized] !== undefined;
+}
+
+/**
+ * Check if a string is a valid US ZIP code (5 digits or 5+4 format)
+ */
+function isZipCode(str: string): boolean {
+  const trimmed = str.trim();
+  return /^\d{5}(-\d{4})?$/.test(trimmed);
+}
+
+interface ParsedAddress {
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+/**
+ * Parse a combined address string into components.
+ * Handles formats like:
+ * - "201 ELBRIDGE AVE, APT F, Cloverdale, California, 95425"
+ * - "123 Main St, Apt 4B, New York, NY, 10001"
+ * - "456 Oak Drive, Los Angeles, CA 90001"
+ */
+function parseAddressString(addressString: string): ParsedAddress {
+  const result: ParsedAddress = {
+    address1: '',
+    address2: '',
+    city: '',
+    state: '',
+    zip: '',
+  };
+
+  if (!addressString || typeof addressString !== 'string') {
+    return result;
+  }
+
+  // Split by comma
+  const parts = addressString.split(',').map(p => p.trim()).filter(Boolean);
+
+  if (parts.length === 0) {
+    return result;
+  }
+
+  // Single part - just return as address1
+  if (parts.length === 1) {
+    result.address1 = parts[0];
+    return result;
+  }
+
+  // Work backwards to identify zip, state, city
+  let remainingParts = [...parts];
+
+  // Check last part for ZIP code
+  const lastPart = remainingParts[remainingParts.length - 1];
+  if (isZipCode(lastPart)) {
+    result.zip = lastPart;
+    remainingParts.pop();
+  } else {
+    // Check if last part contains "STATE ZIP" pattern (e.g., "CA 90001" or "California 95425")
+    const stateZipMatch = lastPart.match(/^(.+?)\s+(\d{5}(-\d{4})?)$/);
+    if (stateZipMatch) {
+      const possibleState = stateZipMatch[1].trim();
+      if (isStateName(possibleState)) {
+        result.state = normalizeState(possibleState);
+        result.zip = stateZipMatch[2];
+        remainingParts.pop();
+      }
+    }
+  }
+
+  // Check for state (if not already found)
+  if (!result.state && remainingParts.length > 0) {
+    const lastPart = remainingParts[remainingParts.length - 1];
+    if (isStateName(lastPart)) {
+      result.state = normalizeState(lastPart);
+      remainingParts.pop();
+    }
+  }
+
+  // Now check remaining parts for city (should be after address but before state)
+  // If we have 3+ remaining parts: address1, apt/address2, city
+  // If we have 2 remaining parts: address1, city (or address1, apt if apt pattern)
+  // If we have 1 remaining part: address1
+
+  if (remainingParts.length >= 3) {
+    // First part is address1
+    result.address1 = remainingParts[0];
+
+    // Check if second part looks like apartment
+    if (isApartmentString(remainingParts[1])) {
+      result.address2 = remainingParts[1];
+      // Everything else before state/zip is city
+      result.city = remainingParts.slice(2).join(', ');
+    } else {
+      // Assume pattern: address1, city, extra-city-parts
+      // But first check if any middle part is apt
+      let aptIndex = -1;
+      for (let i = 1; i < remainingParts.length; i++) {
+        if (isApartmentString(remainingParts[i])) {
+          aptIndex = i;
+          break;
+        }
+      }
+
+      if (aptIndex > 0) {
+        result.address2 = remainingParts[aptIndex];
+        // City is everything between address1 and apt, then after apt
+        const beforeApt = remainingParts.slice(1, aptIndex);
+        const afterApt = remainingParts.slice(aptIndex + 1);
+        result.city = [...afterApt].join(', ') || beforeApt.join(', ');
+      } else {
+        // No apt found - last remaining part is city
+        result.city = remainingParts[remainingParts.length - 1];
+        // If there are more parts, they might be part of address
+        if (remainingParts.length > 2) {
+          result.address1 = remainingParts.slice(0, -1).join(', ');
+        }
+      }
+    }
+  } else if (remainingParts.length === 2) {
+    result.address1 = remainingParts[0];
+
+    // Check if second part looks like apartment
+    if (isApartmentString(remainingParts[1])) {
+      result.address2 = remainingParts[1];
+      // No city found
+    } else {
+      // Second part is city
+      result.city = remainingParts[1];
+    }
+  } else if (remainingParts.length === 1) {
+    result.address1 = remainingParts[0];
+  }
+
+  return result;
+}
+
 // Helper to normalize state input to 2-letter code
 function normalizeState(state: string): string {
   if (!state) return '';
@@ -68,29 +240,29 @@ function parsePaymentDate(dateValue: string | undefined): Date {
   if (!dateValue) {
     return new Date();
   }
-  
-  // Clean up the date string - sometimes Airtable sends "created_at2026-01-26..." 
+
+  // Clean up the date string - sometimes Airtable sends "created_at2026-01-26..."
   // instead of just the date
   let cleanDate = dateValue;
-  
+
   // Remove any field name prefix (e.g., "created_at" prefix)
   const isoMatch = cleanDate.match(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/);
   if (isoMatch) {
     cleanDate = isoMatch[1];
   }
-  
+
   // Try to parse
   const parsed = new Date(cleanDate);
-  
+
   // If invalid, return current date
   if (isNaN(parsed.getTime())) {
-    logger.warn('[WELLMEDR-INVOICE] Could not parse payment date, using current date', { 
+    logger.warn('[WELLMEDR-INVOICE] Could not parse payment date, using current date', {
       original: dateValue,
-      cleaned: cleanDate 
+      cleaned: cleanDate
     });
     return new Date();
   }
-  
+
   return parsed;
 }
 
@@ -335,12 +507,12 @@ export async function POST(req: NextRequest) {
   // STEP 7: Create internal EONPRO invoice (NO Stripe for WellMedR)
   // WellMedR collects payments via their own Stripe account through Airtable
   // We only need to record the invoice internally for tracking
-  
+
   // Determine amount - use provided amount or price or default
   // The `amount` and `amount_paid` fields are expected in CENTS (per API doc)
   // The `price` field is expected in DOLLARS (from Airtable) and must be converted
   let amountInCents = payload.amount || payload.amount_paid || 0;
-  
+
   // Try to parse price if amount not provided
   // IMPORTANT: price field from Airtable is ALWAYS in dollars (e.g., "$1,134.00" or 1134)
   if (!amountInCents && payload.price) {
@@ -357,7 +529,7 @@ export async function POST(req: NextRequest) {
       }
     }
   }
-  
+
   // Safety check: if amount/amount_paid was provided but looks like dollars (reasonable range for this platform)
   // Values 100-5000 are ambiguous, but values like 29900 (=$299) are clearly cents
   // We only auto-correct obvious dollar values (< 100, which would be < $1 in cents - unrealistic)
@@ -377,7 +549,7 @@ export async function POST(req: NextRequest) {
   const product = payload.product || 'GLP-1';
   const medicationType = payload.medication_type || '';
   const plan = payload.plan || '';
-  
+
   // Build a descriptive product name like "Tirzepatide Injections (Monthly)"
   let productName = product.charAt(0).toUpperCase() + product.slice(1).toLowerCase();
   if (medicationType) {
@@ -386,49 +558,73 @@ export async function POST(req: NextRequest) {
   if (plan) {
     productName += ` (${plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase()})`;
   }
-  
+
   const customerName = payload.customer_name || payload.cardholder_name || `${patient.firstName} ${patient.lastName}`;
 
   // Extract address from ALL possible field variations
-  const extractedAddress1 = 
-    payload.address || 
-    payload.address_line1 || 
+  const rawExtractedAddress1 = String(
+    payload.address ||
+    payload.address_line1 ||
     payload.address_line_1 ||
     payload.addressLine1 ||
     payload.street_address ||
     payload.streetAddress ||
     payload.shipping_address ||
-    payload.shippingAddress || '';
-  
-  const extractedAddress2 = 
+    payload.shippingAddress || ''
+  ).trim();
+
+  const rawExtractedAddress2 = String(
     payload.address_line2 ||
     payload.address_line_2 ||
     payload.addressLine2 ||
     payload.apartment ||
     payload.apt ||
     payload.suite ||
-    payload.unit || '';
-  
-  const extractedCity = 
+    payload.unit || ''
+  ).trim();
+
+  const rawExtractedCity = String(
     payload.city ||
     payload.shipping_city ||
-    payload.shippingCity || '';
-  
-  const extractedState = 
+    payload.shippingCity || ''
+  ).trim();
+
+  const rawExtractedState = String(
     payload.state ||
     payload.shipping_state ||
     payload.shippingState ||
-    payload.province || '';
-  
-  const extractedZip = 
+    payload.province || ''
+  ).trim();
+
+  const rawExtractedZip = String(
     payload.zip ||
     payload.zip_code ||
     payload.zipCode ||
     payload.postal_code ||
     payload.postalCode ||
     payload.shipping_zip ||
-    payload.shippingZip || '';
-  
+    payload.shippingZip || ''
+  ).trim();
+
+  // Check if we need to parse a combined address string for metadata
+  const metadataHasSeparateComponents = rawExtractedCity || rawExtractedState || rawExtractedZip || rawExtractedAddress2;
+  const metadataLooksCombined = rawExtractedAddress1 && rawExtractedAddress1.includes(',') && !metadataHasSeparateComponents;
+
+  let extractedAddress1 = rawExtractedAddress1;
+  let extractedAddress2 = rawExtractedAddress2;
+  let extractedCity = rawExtractedCity;
+  let extractedState = rawExtractedState;
+  let extractedZip = rawExtractedZip;
+
+  if (metadataLooksCombined) {
+    const parsedMeta = parseAddressString(rawExtractedAddress1);
+    extractedAddress1 = parsedMeta.address1;
+    extractedAddress2 = parsedMeta.address2;
+    extractedCity = parsedMeta.city;
+    extractedState = parsedMeta.state;
+    extractedZip = parsedMeta.zip;
+  }
+
   // Build address string from available fields
   const addressParts = [
     extractedAddress1,
@@ -528,17 +724,17 @@ export async function POST(req: NextRequest) {
 
     // STEP 8: Update patient address if provided in payload
     // Support ALL possible Airtable field name variations
-    const address1Value = 
-      payload.address || 
-      payload.address_line1 || 
+    const rawAddress1Value =
+      payload.address ||
+      payload.address_line1 ||
       payload.address_line_1 ||
       payload.addressLine1 ||
       payload.street_address ||
       payload.streetAddress ||
       payload.shipping_address ||
       payload.shippingAddress;
-    
-    const address2Value = 
+
+    const rawAddress2Value =
       payload.address_line2 ||
       payload.address_line_2 ||
       payload.addressLine2 ||
@@ -546,19 +742,19 @@ export async function POST(req: NextRequest) {
       payload.apt ||
       payload.suite ||
       payload.unit;
-    
-    const cityValue = 
+
+    const rawCityValue =
       payload.city ||
       payload.shipping_city ||
       payload.shippingCity;
-    
-    const stateValue = 
+
+    const rawStateValue =
       payload.state ||
       payload.shipping_state ||
       payload.shippingState ||
       payload.province;
-    
-    const zipValue = 
+
+    const rawZipValue =
       payload.zip ||
       payload.zip_code ||
       payload.zipCode ||
@@ -566,25 +762,65 @@ export async function POST(req: NextRequest) {
       payload.postalCode ||
       payload.shipping_zip ||
       payload.shippingZip;
-    
+
     const phoneValue =
       payload.phone ||
       payload.phone_number ||
       payload.phoneNumber;
-    
+
+    // Determine final address values - may need to parse combined string
+    let finalAddress1 = rawAddress1Value ? String(rawAddress1Value).trim() : '';
+    let finalAddress2 = rawAddress2Value ? String(rawAddress2Value).trim() : '';
+    let finalCity = rawCityValue ? String(rawCityValue).trim() : '';
+    let finalState = rawStateValue ? String(rawStateValue).trim() : '';
+    let finalZip = rawZipValue ? String(rawZipValue).trim() : '';
+
+    // Check if we have a combined address string that needs parsing
+    // This happens when Airtable sends "201 ELBRIDGE AVE, APT F, Cloverdale, California, 95425"
+    // in the address field without separate city/state/zip fields
+    const hasSeparateAddressComponents = rawCityValue || rawStateValue || rawZipValue || rawAddress2Value;
+    const looksLikeCombinedAddress = finalAddress1 &&
+      finalAddress1.includes(',') &&
+      !hasSeparateAddressComponents;
+
+    if (looksLikeCombinedAddress) {
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] Detected combined address string, parsing...`, {
+        rawAddress: finalAddress1,
+      });
+
+      const parsed = parseAddressString(finalAddress1);
+
+      // Use parsed values
+      finalAddress1 = parsed.address1;
+      finalAddress2 = parsed.address2;
+      finalCity = parsed.city;
+      finalState = parsed.state;
+      finalZip = parsed.zip;
+
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] Parsed address components:`, {
+        address1: finalAddress1,
+        address2: finalAddress2,
+        city: finalCity,
+        state: finalState,
+        zip: finalZip,
+      });
+    }
+
     // Log all address-related fields received for debugging
     logger.info(`[WELLMEDR-INVOICE ${requestId}] Address fields in payload:`, {
-      address1Value: address1Value || 'NOT FOUND',
-      address2Value: address2Value || 'NOT FOUND',
-      cityValue: cityValue || 'NOT FOUND',
-      stateValue: stateValue || 'NOT FOUND',
-      zipValue: zipValue || 'NOT FOUND',
+      rawAddress1: rawAddress1Value || 'NOT FOUND',
+      rawAddress2: rawAddress2Value || 'NOT FOUND',
+      rawCity: rawCityValue || 'NOT FOUND',
+      rawState: rawStateValue || 'NOT FOUND',
+      rawZip: rawZipValue || 'NOT FOUND',
       phoneValue: phoneValue || 'NOT FOUND',
+      wasParsed: looksLikeCombinedAddress,
+      finalValues: { finalAddress1, finalAddress2, finalCity, finalState, finalZip },
       // Log raw keys to help debug what Airtable is sending
-      payloadKeys: Object.keys(payload).filter(k => 
-        k.toLowerCase().includes('address') || 
-        k.toLowerCase().includes('city') || 
-        k.toLowerCase().includes('state') || 
+      payloadKeys: Object.keys(payload).filter(k =>
+        k.toLowerCase().includes('address') ||
+        k.toLowerCase().includes('city') ||
+        k.toLowerCase().includes('state') ||
         k.toLowerCase().includes('zip') ||
         k.toLowerCase().includes('postal') ||
         k.toLowerCase().includes('street') ||
@@ -593,26 +829,26 @@ export async function POST(req: NextRequest) {
       ),
     });
 
-    const hasAddressData = address1Value || cityValue || stateValue || zipValue;
+    const hasAddressData = finalAddress1 || finalCity || finalState || finalZip;
     if (hasAddressData) {
       try {
         const addressUpdate: Record<string, string> = {};
 
-        if (address1Value) {
-          addressUpdate.address1 = String(address1Value);
+        if (finalAddress1) {
+          addressUpdate.address1 = finalAddress1;
         }
-        if (address2Value) {
-          addressUpdate.address2 = String(address2Value);
+        if (finalAddress2) {
+          addressUpdate.address2 = finalAddress2;
         }
-        if (cityValue) {
-          addressUpdate.city = String(cityValue);
+        if (finalCity) {
+          addressUpdate.city = finalCity;
         }
-        if (stateValue) {
+        if (finalState) {
           // Normalize state to 2-letter code
-          addressUpdate.state = normalizeState(String(stateValue));
+          addressUpdate.state = normalizeState(finalState);
         }
-        if (zipValue) {
-          addressUpdate.zip = String(zipValue);
+        if (finalZip) {
+          addressUpdate.zip = finalZip;
         }
         if (phoneValue) {
           addressUpdate.phone = String(phoneValue).replace(/\D/g, '').slice(-10);
@@ -714,9 +950,9 @@ export async function POST(req: NextRequest) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Failed to create invoice:`, { error: errMsg });
     return NextResponse.json(
-      { 
+      {
         success: false,
-        error: 'Failed to create invoice', 
+        error: 'Failed to create invoice',
         message: errMsg,
         patientId: patient.id,
         requestId,
