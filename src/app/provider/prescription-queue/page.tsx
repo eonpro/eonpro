@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
+import SigBuilder from "@/components/SigBuilder";
 
 // ============================================================================
 // ADDRESS PARSING UTILITIES
@@ -2014,18 +2015,17 @@ export default function PrescriptionQueuePage() {
                           </select>
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Sig (Directions) *
-                          </label>
-                          <textarea
-                            value={medication.sig}
-                            onChange={(e) => updateMedicationField(index, 'sig', e.target.value)}
-                            rows={2}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent resize-none bg-white"
-                            placeholder="Enter directions for use..."
-                          />
-                        </div>
+                        {/* Enhanced SigBuilder Component */}
+                        <SigBuilder
+                          medicationKey={medication.medicationKey}
+                          initialSig={medication.sig}
+                          initialQuantity={medication.quantity}
+                          initialRefills={medication.refills}
+                          onSigChange={(sig) => updateMedicationField(index, 'sig', sig)}
+                          onQuantityChange={(quantity) => updateMedicationField(index, 'quantity', quantity)}
+                          onRefillsChange={(refills) => updateMedicationField(index, 'refills', refills)}
+                          disabled={!medication.medicationKey}
+                        />
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>
