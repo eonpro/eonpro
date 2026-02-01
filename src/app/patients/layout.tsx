@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,17 +13,23 @@ import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/Clinic
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
 const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
-const navItems = [
-  { icon: Home, path: '/', label: 'Home' },
-  { icon: Users, path: '/admin/patients', label: 'Patients' },
-  { icon: Building2, path: '/admin/clinics', label: 'Clinics' },
-  { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
-  { icon: Store, path: '/admin/products', label: 'Products' },
-  { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },
-  { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
-  { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
-  { icon: Settings, path: '/admin/settings', label: 'Settings' },
-];
+// Base nav items - patients path will be set dynamically based on role
+const getNavItems = (userRole: string | null) => {
+  // Determine the correct patients path based on role
+  const patientsPath = userRole === 'provider' ? '/provider/patients' : '/admin/patients';
+
+  return [
+    { icon: Home, path: '/', label: 'Home' },
+    { icon: Users, path: patientsPath, label: 'Patients' },
+    { icon: Building2, path: '/admin/clinics', label: 'Clinics' },
+    { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
+    { icon: Store, path: '/admin/products', label: 'Products' },
+    { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },
+    { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
+    { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
+    { icon: Settings, path: '/admin/settings', label: 'Settings' },
+  ];
+};
 
 // Roles allowed to access patient pages
 const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
@@ -34,6 +40,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';
@@ -42,11 +49,15 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const clinicName = branding?.clinicName || 'EONPRO';
   const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
-  // Authentication check on mount
+  // Get nav items based on user role
+  const navItems = useMemo(() => getNavItems(userRole), [userRole]);
+
+  // Authentication check on mount ONLY - removed pathname dependency to prevent logout on navigation
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (!user) {
-      router.push('/login?redirect=' + encodeURIComponent(pathname || '/patients'));
+      // Only redirect to login if we're not already on a login-related page
+      router.push('/login?redirect=' + encodeURIComponent(window.location.pathname || '/patients'));
       return;
     }
 
@@ -58,12 +69,14 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
         router.push('/');
         return;
       }
+      setUserRole(role);
       setLoading(false);
     } catch {
       localStorage.removeItem('user');
       router.push('/login');
     }
-  }, [router, pathname]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]); // Intentionally exclude pathname - auth check should only run on mount
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -73,7 +86,12 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
 
   const isActive = (path: string) => {
     if (path === '/') return pathname === '/';
-    if (path === '/admin/patients') return pathname?.startsWith('/patients') || pathname?.startsWith('/admin/patients');
+    // Handle both admin and provider patient paths
+    if (path === '/admin/patients' || path === '/provider/patients') {
+      return pathname?.startsWith('/patients') ||
+             pathname?.startsWith('/admin/patients') ||
+             pathname?.startsWith('/provider/patients');
+    }
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
