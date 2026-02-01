@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { decrypt } from '@/lib/security/encryption';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
 import type { Invoice, Clinic, Patient, IntakeFormSubmission, SOAPNote, RefillQueue, Subscription } from '@prisma/client';
 
@@ -25,16 +25,17 @@ const safeDecrypt = (value: string | null): string | null => {
   if (!value) return value;
   try {
     // Check if it looks encrypted (3 base64 parts with colons)
+    // Min length reduced to 2 to handle short encrypted values like state codes
     const parts = value.split(':');
-    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p))) {
-      return decrypt(value);
+    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+      return decryptPHI(value);
     }
     return value; // Not encrypted, return as-is
   } catch (e) {
     logger.warn('[PRESCRIPTION-QUEUE] Failed to decrypt patient field', {
       error: e instanceof Error ? e.message : 'Unknown error',
     });
-    return value; // Return original on error
+    return null; // Return null instead of encrypted blob
   }
 };
 
@@ -645,7 +646,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // Patient info
         patientId: invoice.patient.id,
         patientDisplayId: invoice.patient.patientId,
-        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+        patientName: `${safeDecrypt(invoice.patient.firstName) || invoice.patient.firstName} ${safeDecrypt(invoice.patient.lastName) || invoice.patient.lastName}`,
         // Decrypt PHI fields before returning
         patientEmail: safeDecrypt(invoice.patient.email),
         patientPhone: safeDecrypt(invoice.patient.phone),
@@ -735,7 +736,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // Patient info
         patientId: refill.patient.id,
         patientDisplayId: refill.patient.patientId,
-        patientName: `${refill.patient.firstName} ${refill.patient.lastName}`,
+        patientName: `${safeDecrypt(refill.patient.firstName) || refill.patient.firstName} ${safeDecrypt(refill.patient.lastName) || refill.patient.lastName}`,
         patientEmail: safeDecrypt(refill.patient.email),
         patientPhone: safeDecrypt(refill.patient.phone),
         patientDob: safeDecrypt(refill.patient.dob),

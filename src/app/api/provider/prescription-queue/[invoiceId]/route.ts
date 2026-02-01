@@ -186,7 +186,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         logger.warn('[PRESCRIPTION-QUEUE] Failed to decrypt patient field', {
           error: e instanceof Error ? e.message : 'Unknown error',
         });
-        return value; // Return original on error
+        return null; // Return null instead of encrypted blob
       }
     };
 

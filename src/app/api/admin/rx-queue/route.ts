@@ -26,9 +26,10 @@ const safeDecrypt = (value: string | null): string | null => {
     if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
       return decryptPHI(value);
     }
-    return value;
+    return value; // Not encrypted, return as-is
   } catch {
-    return value;
+    // Decryption failed - return null instead of encrypted blob
+    return null;
   }
 };
 

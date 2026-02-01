@@ -15,6 +15,7 @@ import {
   getRefillQueueStats,
   processDueRefills,
 } from '@/services/refill';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import type { RefillStatus } from '@prisma/client';
 
 // GET - List refills with filters and stats
@@ -99,13 +100,17 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       planName: refill.planName,
       // Relations
       patient: refill.patient
-        ? {
-            id: refill.patient.id,
-            firstName: refill.patient.firstName,
-            lastName: refill.patient.lastName,
-            email: refill.patient.email,
-            phone: refill.patient.phone,
-          }
+        ? (() => {
+            // Decrypt patient PHI fields
+            const decrypted = decryptPatientPHI(refill.patient, [...DEFAULT_PHI_FIELDS]);
+            return {
+              id: refill.patient.id,
+              firstName: decrypted.firstName || refill.patient.firstName,
+              lastName: decrypted.lastName || refill.patient.lastName,
+              email: decrypted.email || refill.patient.email,
+              phone: decrypted.phone || refill.patient.phone,
+            };
+          })()
         : null,
       subscription: refill.subscription
         ? {
