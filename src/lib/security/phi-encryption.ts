@@ -324,9 +324,11 @@ export function decryptPatientPHI<T extends Record<string, unknown>>(
       try {
         const value = String(patient[field]);
         // Check if the value looks encrypted (3 base64 parts separated by colons)
+        // Each part must be valid base64. Min length reduced to 2 to handle short
+        // encrypted values like state codes (e.g., "FL" -> short ciphertext)
         const parts = value.split(':');
         const looksEncrypted = parts.length === 3 &&
-          parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 5);
+          parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length >= 2);
 
         if (looksEncrypted) {
           const decryptedValue = decryptPHI(value);
