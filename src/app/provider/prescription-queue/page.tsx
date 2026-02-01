@@ -76,7 +76,13 @@ const APT_PATTERNS = [
 ];
 
 function isApartmentString(str: string): boolean {
-  return APT_PATTERNS.some(pattern => pattern.test(str.trim()));
+  const trimmed = str.trim();
+  // Check prefixed patterns (APT, UNIT, etc.)
+  if (APT_PATTERNS.some(pattern => pattern.test(trimmed))) return true;
+  // Also treat bare numbers (1-5 digits, optionally with a letter) as apartment numbers
+  // e.g., "130", "4B", "12A", "1234"
+  if (/^\d{1,5}[A-Za-z]?$/.test(trimmed)) return true;
+  return false;
 }
 
 function isStateName(str: string): boolean {
@@ -93,6 +99,26 @@ function normalizeState(state: string): string {
   return STATE_NAME_TO_CODE[normalized] || state.toUpperCase().slice(0, 2);
 }
 
+/**
+ * Extract state from a "City State" or "City STATE" string
+ * e.g., "HO Texas" -> { city: "HO", state: "TX" }
+ * e.g., "Houston TX" -> { city: "Houston", state: "TX" }
+ */
+function extractCityState(str: string): { city: string; state: string } | null {
+  const trimmed = str.trim();
+  // Try to match "CITY STATE_NAME" pattern (state name at end)
+  for (const [stateName, stateCode] of Object.entries(STATE_NAME_TO_CODE)) {
+    // Only check full state names and 2-letter codes
+    if (stateName.length < 2) continue;
+    const regex = new RegExp(`^(.+?)\\s+(${stateName})$`, 'i');
+    const match = trimmed.match(regex);
+    if (match) {
+      return { city: match[1].trim(), state: stateCode };
+    }
+  }
+  return null;
+}
+
 interface ParsedAddress {
   address1: string;
   address2: string;
@@ -103,7 +129,9 @@ interface ParsedAddress {
 
 /**
  * Parse a combined address string into components.
- * Handles formats like "201 ELBRIDGE AVE, APT F, Cloverdale, California, 95425"
+ * Handles formats like:
+ * - "201 ELBRIDGE AVE, APT F, Cloverdale, California, 95425"
+ * - "2900 W Dallas St, 130, HO Texas" (bare apt number, city+state combined)
  */
 function parseAddressString(addressString: string): ParsedAddress {
   const result: ParsedAddress = { address1: '', address2: '', city: '', state: '', zip: '' };
@@ -117,56 +145,86 @@ function parseAddressString(addressString: string): ParsedAddress {
   const remainingParts = [...parts];
 
   // Check last part for ZIP code
-  const lastPart = remainingParts[remainingParts.length - 1];
+  let lastPart = remainingParts[remainingParts.length - 1];
   if (isZipCode(lastPart)) {
     result.zip = lastPart;
     remainingParts.pop();
+    lastPart = remainingParts[remainingParts.length - 1] || '';
   } else {
-    // Check for "STATE ZIP" pattern
+    // Check for "STATE ZIP" pattern (e.g., "California 95425" or "CA 95425")
     const stateZipMatch = lastPart.match(/^(.+?)\s+(\d{5}(-\d{4})?)$/);
     if (stateZipMatch && isStateName(stateZipMatch[1])) {
       result.state = normalizeState(stateZipMatch[1]);
       result.zip = stateZipMatch[2];
       remainingParts.pop();
+      lastPart = remainingParts[remainingParts.length - 1] || '';
     }
   }
 
-  // Check for state
+  // Check for standalone state
   if (!result.state && remainingParts.length > 0) {
-    const last = remainingParts[remainingParts.length - 1];
-    if (isStateName(last)) {
-      result.state = normalizeState(last);
+    lastPart = remainingParts[remainingParts.length - 1];
+    if (isStateName(lastPart)) {
+      result.state = normalizeState(lastPart);
       remainingParts.pop();
-    }
-  }
-
-  // Parse remaining parts
-  if (remainingParts.length >= 3) {
-    result.address1 = remainingParts[0];
-    if (isApartmentString(remainingParts[1])) {
-      result.address2 = remainingParts[1];
-      result.city = remainingParts.slice(2).join(', ');
     } else {
-      const aptIndex = remainingParts.findIndex((p, i) => i > 0 && isApartmentString(p));
-      if (aptIndex > 0) {
-        result.address2 = remainingParts[aptIndex];
-        result.city = remainingParts.slice(aptIndex + 1).join(', ') || remainingParts.slice(1, aptIndex).join(', ');
-      } else {
-        result.city = remainingParts[remainingParts.length - 1];
-        if (remainingParts.length > 2) {
-          result.address1 = remainingParts.slice(0, -1).join(', ');
-        }
+      // Check for "City State" pattern in last part (e.g., "HO Texas", "Houston TX")
+      const cityState = extractCityState(lastPart);
+      if (cityState) {
+        result.city = cityState.city;
+        result.state = cityState.state;
+        remainingParts.pop();
       }
     }
-  } else if (remainingParts.length === 2) {
-    result.address1 = remainingParts[0];
-    if (isApartmentString(remainingParts[1])) {
-      result.address2 = remainingParts[1];
-    } else {
-      result.city = remainingParts[1];
-    }
+  }
+
+  // Now parse remaining parts for address1, address2, and city (if not found)
+  if (remainingParts.length === 0) {
+    // Nothing left
   } else if (remainingParts.length === 1) {
     result.address1 = remainingParts[0];
+  } else if (remainingParts.length === 2) {
+    result.address1 = remainingParts[0];
+    const second = remainingParts[1];
+    if (isApartmentString(second)) {
+      result.address2 = second;
+    } else if (!result.city) {
+      result.city = second;
+    } else {
+      // City already set, this might be extra address info
+      result.address2 = second;
+    }
+  } else {
+    // 3+ parts remaining
+    result.address1 = remainingParts[0];
+
+    // Find apartment (could be at index 1 or elsewhere)
+    let aptIndex = -1;
+    for (let i = 1; i < remainingParts.length; i++) {
+      if (isApartmentString(remainingParts[i])) {
+        aptIndex = i;
+        break;
+      }
+    }
+
+    if (aptIndex > 0) {
+      result.address2 = remainingParts[aptIndex];
+      // City is what comes after apt, or before if nothing after
+      const afterApt = remainingParts.slice(aptIndex + 1);
+      const beforeApt = remainingParts.slice(1, aptIndex);
+      if (!result.city) {
+        result.city = afterApt.join(', ') || beforeApt.join(', ');
+      }
+    } else {
+      // No apt found - last part is likely city (if not already set)
+      if (!result.city) {
+        result.city = remainingParts[remainingParts.length - 1];
+      }
+      // If more than 2 parts and no apt, middle parts are address continuation
+      if (remainingParts.length > 2) {
+        result.address1 = remainingParts.slice(0, -1).join(', ');
+      }
+    }
   }
 
   return result;
