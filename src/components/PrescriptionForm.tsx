@@ -7,6 +7,7 @@ import { LOGOS_PRODUCTS } from "@/data/logosProducts";
 import { MEDS, MedicationConfig, SigTemplate } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
 import SignaturePadCanvas from "./SignaturePadCanvas";
+import SigBuilder from "./SigBuilder";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import { formatDobInput } from "@/lib/format";
 import { logger } from '@/lib/logger';
@@ -1011,53 +1012,19 @@ export default function PrescriptionForm({
                   {selectedMed.name} – {selectedMed.strength}
                   {selectedMed.formLabel ? ` (${selectedMed.formLabel})` : ""}
                 </p>
-                {selectedMed.sigTemplates?.length ? (
-                  <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                        Suggested SIGs
-                      </p>
-                      <span className="text-[11px] text-gray-500">
-                        Click to auto-fill
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {selectedMed.sigTemplates.map((template: any) => {
-                        const active =
-                          rx.sig === template.sig &&
-                          rx.quantity === template.quantity &&
-                          rx.refills === template.refills;
-                        return (
-                          <button
-                            key={template.label}
-                            type="button"
-                            className={`w-full text-left rounded-md border px-3 py-2 text-xs transition hover:border-[#17aa7b] hover:bg-[#f6fefb] ${
-                              active
-                                ? "border-[#17aa7b] border bg-[#e9f7f2]"
-                                : "border-gray-200 border bg-white"
-                            }`}
-                            onClick={() => applySigTemplate(index, template)}
-                          >
-                            <p className="font-semibold text-gray-800 text-sm">
-                              {template.label}
-                            </p>
-                            <p className="text-gray-600 mt-1">{template.sig}</p>
-                            <p className="text-gray-500 mt-1">
-                              Qty {template.quantity} • Refills {template.refills}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
               </div>
             )}
-            <input
-              placeholder="SIG"
-              className="border p-2 w-full"
-              value={rx.sig}
-              onChange={(e: any) => updateRx(index, "sig", e.target.value)}
+
+            {/* Enhanced SigBuilder Component */}
+            <SigBuilder
+              medicationKey={rx.medicationKey}
+              initialSig={rx.sig}
+              initialQuantity={rx.quantity}
+              initialRefills={rx.refills}
+              onSigChange={(sig) => updateRx(index, "sig", sig)}
+              onQuantityChange={(quantity) => updateRx(index, "quantity", quantity)}
+              onRefillsChange={(refills) => updateRx(index, "refills", refills)}
+              disabled={!rx.medicationKey}
             />
             <div className="grid grid-cols-2 gap-2">
               <input
