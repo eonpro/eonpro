@@ -246,7 +246,20 @@ export class AirtableSyncService {
       body: JSON.stringify(payload),
     });
 
-    const result = await response.json();
+    // Get response text first to handle non-JSON responses
+    const responseText = await response.text();
+    
+    let result: Record<string, unknown>;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      // If not JSON, return the raw text as error
+      console.error(`[AirtableSync] Non-JSON response from webhook: ${responseText.substring(0, 200)}`);
+      return {
+        success: false,
+        error: `Webhook returned non-JSON: ${responseText.substring(0, 100)}`,
+      };
+    }
 
     if (!response.ok) {
       return {
