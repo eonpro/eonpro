@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import { ArrowLeft, Info, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Info, AlertTriangle, Syringe, ChevronRight, Check } from 'lucide-react';
 
 // Tirzepatide concentration options
 const concentrations = [
@@ -269,6 +269,52 @@ export default function TirzepatideDoseCalculatorPage() {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Injection Tracker Link */}
+          <Link
+            href="/patient-portal/tools/injection-tracker"
+            className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
+                style={{ backgroundColor: `${primaryColor}15` }}
+              >
+                <Syringe className="h-6 w-6" style={{ color: primaryColor }} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900">Injection Site Tracker</h3>
+                <p className="text-sm text-gray-500">Track and rotate your injection sites</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </div>
+          </Link>
+
+          {/* Storage Tips */}
+          <div
+            className="rounded-2xl p-5"
+            style={{ backgroundColor: `${primaryColor}08` }}
+          >
+            <h3 className="font-semibold text-gray-900 mb-3">Storage Instructions</h3>
+            <ul className="space-y-2 text-sm text-gray-700">
+              <li className="flex items-start gap-2">
+                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                Store in refrigerator at 36°F to 46°F (2°C to 8°C)
+              </li>
+              <li className="flex items-start gap-2">
+                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                Can be stored at room temp up to 86°F for 21 days after first use
+              </li>
+              <li className="flex items-start gap-2">
+                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                Do not freeze and protect from light
+              </li>
+              <li className="flex items-start gap-2">
+                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                Let medication reach room temperature (~30 min) before injecting
+              </li>
+            </ul>
           </div>
         </div>
       </div>

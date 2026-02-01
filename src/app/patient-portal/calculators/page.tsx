@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
-import { Activity, Flame, Syringe, Calculator, ChevronRight, Scale, Heart } from 'lucide-react';
+import { Activity, Flame, Syringe, Calculator, ChevronRight, Scale, Heart, Target, MapPin, Utensils } from 'lucide-react';
 
 const calculators = [
   {
@@ -26,6 +26,16 @@ const calculators = [
     href: '/patient-portal/calculators/calories',
   },
   {
+    id: 'macros',
+    title: 'Macro Calculator',
+    description: 'Calculate protein, carbs & fat targets',
+    icon: Target,
+    color: '#EF4444',
+    bgColor: '#EF444415',
+    feature: 'showCalorieCalculator',
+    href: '/patient-portal/calculators/macros',
+  },
+  {
     id: 'semaglutide',
     title: 'Semaglutide Dose',
     description: 'Convert units to mg for your injection',
@@ -44,6 +54,16 @@ const calculators = [
     bgColor: '#3B82F615',
     feature: 'showDoseCalculator',
     href: '/patient-portal/calculators/tirzepatide',
+  },
+  {
+    id: 'injection-tracker',
+    title: 'Injection Site Tracker',
+    description: 'Track and rotate your injection sites',
+    icon: MapPin,
+    color: '#14B8A6',
+    bgColor: '#14B8A615',
+    feature: 'showDoseCalculator',
+    href: '/patient-portal/tools/injection-tracker',
   },
 ];
 
@@ -120,6 +140,14 @@ export default function CalculatorsPage() {
         >
           <Scale className="h-5 w-5 text-gray-400" />
           <span className="text-sm font-medium text-gray-700">Track Weight Progress</span>
+          <ChevronRight className="ml-auto h-4 w-4 text-gray-300" />
+        </Link>
+        <Link
+          href="/patient-portal/dietary/meal-planner"
+          className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300"
+        >
+          <Utensils className="h-5 w-5 text-gray-400" />
+          <span className="text-sm font-medium text-gray-700">Meal Planner</span>
           <ChevronRight className="ml-auto h-4 w-4 text-gray-300" />
         </Link>
         <Link
