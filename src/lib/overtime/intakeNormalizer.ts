@@ -433,7 +433,11 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
 
   // If first/last names are still Unknown, try full name fields
   if (patient.firstName === 'Unknown' || patient.lastName === 'Unknown') {
-    const fullName = payload['name'] || payload['Name'] || payload['full-name'] ||
+    // Check for Heyflow-style "Whats your name" field first (common in OT forms)
+    const fullName = payload['whats-your-name'] || payload['whats_your_name'] ||
+                     payload['Whats your name'] || payload['whatsYourName'] ||
+                     payload['your-name'] || payload['your_name'] || payload['Your Name'] ||
+                     payload['name'] || payload['Name'] || payload['full-name'] ||
                      payload['fullName'] || payload['full_name'] || payload['Full Name'] ||
                      payload['customer-name'] || payload['customerName'] || payload['customer_name'] ||
                      payload['patient-name'] || payload['patientName'] || payload['patient_name'] ||

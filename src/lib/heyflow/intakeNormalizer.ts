@@ -641,6 +641,51 @@ function applyDerivedFields(
     }
   }
 
+  // Handle full name fields like "Whats your name" (common in OT Mens Heyflow forms)
+  if (patient.firstName === "Unknown" || patient.lastName === "Unknown") {
+    // Look for full name in entries by label
+    const fullNameEntry = entries.find((entry) => {
+      const label = (entry.label || '').toLowerCase();
+      return label.includes('your name') || label.includes('full name') ||
+             label === 'name' || label.includes('whats your name');
+    });
+
+    if (fullNameEntry?.value && fullNameEntry.value.trim()) {
+      const fullName = fullNameEntry.value.trim();
+      const parts = fullName.split(/\s+/);
+      if (parts.length >= 1) {
+        if (patient.firstName === "Unknown" && parts[0]) {
+          patient.firstName = capitalizeWords(parts[0]);
+        }
+        if (patient.lastName === "Unknown" && parts.length > 1) {
+          patient.lastName = capitalizeWords(parts.slice(1).join(' '));
+        }
+        logger.info('[Heyflow Normalizer] Extracted name from full name field', {
+          label: fullNameEntry.label,
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+        });
+      }
+    }
+  }
+
+  // Try to extract names from email if still Unknown
+  if (patient.firstName === "Unknown" && patient.lastName === "Unknown" && patient.email && patient.email !== "unknown@example.com") {
+    const emailLocal = patient.email.split('@')[0];
+    if (emailLocal && emailLocal.includes('.')) {
+      const [fn, ln] = emailLocal.split('.');
+      if (fn && ln && fn.length > 1 && ln.length > 1 && !/^\d+$/.test(fn) && !/^\d+$/.test(ln)) {
+        patient.firstName = capitalizeWords(fn.replace(/[^a-zA-Z]/g, ''));
+        patient.lastName = capitalizeWords(ln.replace(/[^a-zA-Z]/g, ''));
+        logger.info('[Heyflow Normalizer] Extracted name from email', {
+          email: patient.email,
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+        });
+      }
+    }
+  }
+
   if (patient.firstName) {
     patient.firstName = capitalizeWords(patient.firstName);
   }
