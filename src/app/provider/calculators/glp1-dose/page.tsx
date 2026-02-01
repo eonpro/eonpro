@@ -77,8 +77,10 @@ export default function ProviderGLP1DoseCalculatorPage() {
     return validateDose(medication, result.mg);
   }, [medication, result]);
 
+  // Syringe fill percentage (100 units = 1 mL = 100%)
+  // For Tirzepatide doses > 1 mL, shows full syringe (would need multiple draws)
   const fillPercentage = isTirzepatide
-    ? Math.min(100, ((selectedMl || 0) / 5) * 100)
+    ? Math.min(100, (selectedMl || 0) * 100)
     : Math.min(100, (parseFloat(units || '0') / 100) * 100);
 
   const copyToClipboard = async (text: string) => {
@@ -255,47 +257,103 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
                   </>
                 )}
 
-                {/* Syringe Visualization */}
-                <div className="mt-4 flex justify-center">
-                  <div className="relative w-14">
-                    <div className="relative h-48 w-14 overflow-hidden rounded-xl border-4 border-gray-200 bg-gradient-to-b from-gray-50 to-gray-100 shadow-inner">
+                {/* Realistic Syringe Visualization - 100 Units */}
+                <div className="mt-6 flex justify-center">
+                  <div className="relative">
+                    {/* Plunger handle */}
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 transition-all duration-500 ease-out"
+                      style={{ bottom: `calc(${fillPercentage}% + 200px)` }}
+                    >
+                      <div className="h-4 w-16 rounded-t-md bg-gradient-to-b from-gray-400 to-gray-500 shadow-md" />
+                      <div className="mx-auto h-2 w-3 bg-gradient-to-b from-gray-500 to-gray-600" />
+                    </div>
+
+                    {/* Plunger rod */}
+                    <div
+                      className="absolute left-1/2 w-2 -translate-x-1/2 bg-gradient-to-r from-gray-300 via-gray-200 to-gray-300 transition-all duration-500 ease-out"
+                      style={{
+                        bottom: `calc(${fillPercentage}% + 6px)`,
+                        height: `calc(200px - ${fillPercentage}% - 6px)`,
+                        minHeight: '10px',
+                      }}
+                    />
+
+                    {/* Plunger stopper (rubber) */}
+                    <div
+                      className="absolute left-1/2 h-2 w-8 -translate-x-1/2 rounded-sm bg-gradient-to-b from-gray-700 to-gray-800 transition-all duration-500 ease-out"
+                      style={{ bottom: `calc(${fillPercentage}%)` }}
+                    />
+
+                    {/* Syringe barrel */}
+                    <div className="relative h-[200px] w-12 overflow-hidden rounded-lg border-2 border-gray-300 bg-gradient-to-r from-gray-100 via-white to-gray-100 shadow-inner">
+                      {/* Liquid fill */}
                       <div
                         className="absolute bottom-0 left-0 right-0 transition-all duration-500 ease-out"
                         style={{
                           height: `${fillPercentage}%`,
                           background:
                             medication === 'semaglutide'
-                              ? 'linear-gradient(to top, #8B5CF6, #A78BFA)'
-                              : 'linear-gradient(to top, #F59E0B, #FBBF24)',
+                              ? 'linear-gradient(to top, rgba(139, 92, 246, 0.6), rgba(167, 139, 250, 0.4))'
+                              : 'linear-gradient(to top, rgba(245, 158, 11, 0.6), rgba(251, 191, 36, 0.4))',
                         }}
                       />
-                      {isTirzepatide
-                        ? [0, 1, 2, 3, 4, 5].map((mark) => (
-                            <div
-                              key={mark}
-                              className="absolute left-0 flex w-full items-center"
-                              style={{ bottom: `${(mark / 5) * 100}%` }}
-                            >
-                              <div className="h-0.5 w-3 bg-gray-300" />
-                              <span className="ml-1 text-[9px] font-semibold text-gray-400">
-                                {mark}
-                              </span>
-                            </div>
-                          ))
-                        : [0, 25, 50, 75, 100].map((mark) => (
-                            <div
-                              key={mark}
-                              className="absolute left-0 flex w-full items-center"
-                              style={{ bottom: `${mark}%` }}
-                            >
-                              <div className="h-0.5 w-3 bg-gray-300" />
-                              <span className="ml-1 text-[9px] font-semibold text-gray-400">
-                                {mark}
-                              </span>
-                            </div>
-                          ))}
+
+                      {/* Unit markings - 100 units scale */}
+                      {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((mark) => (
+                        <div
+                          key={mark}
+                          className="absolute right-0 flex items-center justify-end"
+                          style={{ bottom: `${mark}%`, transform: 'translateY(50%)' }}
+                        >
+                          <span className="mr-1 text-[8px] font-medium text-gray-500">{mark}</span>
+                          <div
+                            className={`h-[1px] ${mark % 50 === 0 ? 'w-3 bg-gray-500' : mark % 10 === 0 ? 'w-2 bg-gray-400' : 'w-1 bg-gray-300'}`}
+                          />
+                        </div>
+                      ))}
+
+                      {/* Minor tick marks (every 5 units) */}
+                      {[5, 15, 25, 35, 45, 55, 65, 75, 85, 95].map((mark) => (
+                        <div
+                          key={mark}
+                          className="absolute right-0 flex items-center justify-end"
+                          style={{ bottom: `${mark}%`, transform: 'translateY(50%)' }}
+                        >
+                          <div className="h-[1px] w-1.5 bg-gray-300" />
+                        </div>
+                      ))}
+
+                      {/* Barrel flange (top) */}
+                      <div className="absolute -left-1 -right-1 top-0 h-2 rounded-t bg-gradient-to-b from-gray-200 to-gray-300" />
+                    </div>
+
+                    {/* Needle hub (Luer lock) */}
+                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
+                      <div className="h-3 w-6 rounded-b-sm bg-gradient-to-b from-gray-300 to-gray-400" />
+                      <div className="mx-auto h-1 w-4 bg-gradient-to-b from-gray-400 to-gray-500" />
+                    </div>
+
+                    {/* Needle */}
+                    <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
+                      <div className="mx-auto h-6 w-[2px] bg-gradient-to-b from-gray-400 to-gray-500" />
+                      <div
+                        className="mx-auto h-2 w-[1px] bg-gray-500"
+                        style={{
+                          clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+                        }}
+                      />
                     </div>
                   </div>
+                </div>
+
+                {/* Units display below syringe */}
+                <div className="mt-14 text-center">
+                  <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                    {isTirzepatide
+                      ? `${(selectedMl || 0) * 100} units (${selectedMl || 0} mL)`
+                      : `${units || 0} units`}
+                  </p>
                 </div>
               </div>
 
