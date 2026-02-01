@@ -262,16 +262,19 @@ export class AirtableSyncService {
     }
 
     if (!response.ok) {
+      const errorMsg = typeof result.error === 'string' 
+        ? result.error 
+        : JSON.stringify(result.error) || `HTTP ${response.status}`;
       return {
         success: false,
-        error: result.error || `HTTP ${response.status}`,
+        error: errorMsg,
       };
     }
 
     return {
       success: true,
-      eonproPatientId: result.eonproPatientId,
-      message: result.message,
+      eonproPatientId: result.eonproPatientId as string | undefined,
+      message: result.message as string | undefined,
     };
   }
 
