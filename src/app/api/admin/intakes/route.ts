@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { decrypt } from '@/lib/security/encryption';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 
 const PAGE_SIZE = 25;
 
@@ -21,8 +21,9 @@ const safeDecrypt = (value: string | null): string | null => {
   if (!value) return value;
   try {
     const parts = value.split(':');
-    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p))) {
-      return decrypt(value);
+    // Min length of 2 to handle short encrypted values
+    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+      return decryptPHI(value);
     }
     return value;
   } catch {
@@ -118,9 +119,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const baseData: Record<string, unknown> = {
         id: patient.id,
         patientId: patient.patientId,
-        firstName: patient.firstName,
-        lastName: patient.lastName,
-        gender: patient.gender,
+        // Decrypt PHI fields including names
+        firstName: safeDecrypt(patient.firstName),
+        lastName: safeDecrypt(patient.lastName),
+        gender: safeDecrypt(patient.gender),
         tags: patient.tags || [],
         source: patient.source,
         createdAt: patient.createdAt,

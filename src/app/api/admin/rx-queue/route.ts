@@ -15,15 +15,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { decrypt } from '@/lib/security/encryption';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
   if (!value) return value;
   try {
     const parts = value.split(':');
-    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p))) {
-      return decrypt(value);
+    // Min length of 2 to handle short encrypted values
+    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+      return decryptPHI(value);
     }
     return value;
   } catch {
@@ -93,8 +94,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const metadata = invoice.metadata as Record<string, unknown> | null;
         const treatment = metadata?.product as string || metadata?.treatment as string || 'Unknown Treatment';
         
-        // Apply search filter
-        const patientName = `${invoice.patient.firstName} ${invoice.patient.lastName}`;
+        // Apply search filter - decrypt names first
+        const firstName = safeDecrypt(invoice.patient.firstName) || invoice.patient.firstName;
+        const lastName = safeDecrypt(invoice.patient.lastName) || invoice.patient.lastName;
+        const patientName = `${firstName} ${lastName}`;
         if (search && !patientName.toLowerCase().includes(search.toLowerCase())) {
           continue;
         }
@@ -154,8 +157,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       });
 
       for (const note of soapNotes) {
-        // Apply search filter
-        const patientName = `${note.patient.firstName} ${note.patient.lastName}`;
+        // Apply search filter - decrypt names first
+        const firstName = safeDecrypt(note.patient.firstName) || note.patient.firstName;
+        const lastName = safeDecrypt(note.patient.lastName) || note.patient.lastName;
+        const patientName = `${firstName} ${lastName}`;
         if (search && !patientName.toLowerCase().includes(search.toLowerCase())) {
           continue;
         }
@@ -210,8 +215,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       });
 
       for (const refill of refills) {
-        // Apply search filter
-        const patientName = `${refill.patient.firstName} ${refill.patient.lastName}`;
+        // Apply search filter - decrypt names first
+        const firstName = safeDecrypt(refill.patient.firstName) || refill.patient.firstName;
+        const lastName = safeDecrypt(refill.patient.lastName) || refill.patient.lastName;
+        const patientName = `${firstName} ${lastName}`;
         if (search && !patientName.toLowerCase().includes(search.toLowerCase())) {
           continue;
         }
