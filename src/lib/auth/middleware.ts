@@ -47,7 +47,8 @@ export type UserRole =
   | 'affiliate'
   | 'patient'
   | 'staff'
-  | 'support';
+  | 'support'
+  | 'sales_rep';
 
 export interface AuthOptions {
   /** Allowed roles for this endpoint */

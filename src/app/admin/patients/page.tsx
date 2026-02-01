@@ -2,9 +2,18 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Filter, Eye, Edit, MoreVertical, Users, GitMerge, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, DollarSign, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Filter, Eye, Edit, MoreVertical, Users, GitMerge, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, DollarSign, ShoppingCart, UserCheck } from 'lucide-react';
 import MergePatientModal from '@/components/MergePatientModal';
 import DeletePatientModal from '@/components/DeletePatientModal';
+import SalesRepAssignmentModal from '@/components/SalesRepAssignmentModal';
+
+interface SalesRep {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  assignedAt?: string;
+}
 
 interface Patient {
   id: number;
@@ -25,6 +34,16 @@ interface Patient {
   clinicName?: string | null;
   tags?: string[];
   source?: string | null;
+  salesRep?: SalesRep | null;
+  salesRepId?: number | null;
+}
+
+interface SalesRepOption {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  patientCount: number;
 }
 
 // Treatment type options for Overtime Men's Clinic filtering
@@ -72,6 +91,9 @@ export default function AdminPatientsPage() {
   const [treatmentFilter, setTreatmentFilter] = useState('all');
   const [mergePatient, setMergePatient] = useState<Patient | null>(null);
   const [deletePatient, setDeletePatient] = useState<Patient | null>(null);
+  const [assignSalesRepPatient, setAssignSalesRepPatient] = useState<Patient | null>(null);
+  const [salesReps, setSalesReps] = useState<SalesRepOption[]>([]);
+  const [salesRepFilter, setSalesRepFilter] = useState<string>('all');
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -97,8 +119,26 @@ export default function AdminPatientsPage() {
     };
   }, [searchTerm]);
 
+  // Fetch sales reps list
+  const fetchSalesReps = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+      const response = await fetch('/api/admin/sales-reps', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSalesReps(data.salesReps || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch sales reps:', error);
+    }
+  }, []);
+
   // Fetch converted patients with server-side search and pagination
-  const fetchPatients = useCallback(async (page: number, searchQuery: string) => {
+  const fetchPatients = useCallback(async (page: number, searchQuery: string, salesRepIdFilter?: string) => {
     try {
       const isSearch = searchQuery.trim().length > 0;
       setIsSearching(isSearch);
@@ -124,6 +164,11 @@ export default function AdminPatientsPage() {
         params.set('offset', offset.toString());
       }
 
+      // Add sales rep filter
+      if (salesRepIdFilter && salesRepIdFilter !== 'all') {
+        params.set('salesRepId', salesRepIdFilter);
+      }
+
       // Use the new admin patients API for converted patients only
       const response = await fetch(`/api/admin/patients?${params.toString()}`, {
         headers: {
@@ -147,10 +192,15 @@ export default function AdminPatientsPage() {
     }
   }, []);
 
-  // Fetch when page or search changes
+  // Fetch sales reps on mount
   useEffect(() => {
-    fetchPatients(currentPage, debouncedSearch);
-  }, [currentPage, debouncedSearch, fetchPatients]);
+    fetchSalesReps();
+  }, [fetchSalesReps]);
+
+  // Fetch when page, search, or sales rep filter changes
+  useEffect(() => {
+    fetchPatients(currentPage, debouncedSearch, salesRepFilter);
+  }, [currentPage, debouncedSearch, salesRepFilter, fetchPatients]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -340,6 +390,28 @@ export default function AdminPatientsPage() {
               ))}
             </select>
           </div>
+          {salesReps.length > 0 && (
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-gray-400" />
+              <select
+                value={salesRepFilter}
+                onChange={(e) => {
+                  setSalesRepFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
+              >
+                <option value="all">All Sales Reps</option>
+                <option value="unassigned">Unassigned</option>
+                {salesReps.map(rep => (
+                  <option key={rep.id} value={rep.id.toString()}>
+                    {rep.firstName} {rep.lastName} ({rep.patientCount})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -371,6 +443,21 @@ export default function AdminPatientsPage() {
           patient={deletePatient}
           onClose={() => setDeletePatient(null)}
           onDelete={handleDeletePatient}
+        />
+      )}
+
+      {/* Sales Rep Assignment Modal */}
+      {assignSalesRepPatient && (
+        <SalesRepAssignmentModal
+          patient={assignSalesRepPatient}
+          salesReps={salesReps}
+          currentSalesRepId={assignSalesRepPatient.salesRepId || undefined}
+          onClose={() => setAssignSalesRepPatient(null)}
+          onAssigned={() => {
+            setAssignSalesRepPatient(null);
+            fetchPatients(currentPage, debouncedSearch, salesRepFilter);
+            fetchSalesReps();
+          }}
         />
       )}
 
@@ -424,6 +511,9 @@ export default function AdminPatientsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Treatment</th>
+                  {salesReps.length > 0 && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales Rep</th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -488,6 +578,27 @@ export default function AdminPatientsPage() {
                         )}
                       </div>
                     </td>
+                    {salesReps.length > 0 && (
+                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {patient.salesRep ? (
+                          <button
+                            onClick={() => setAssignSalesRepPatient(patient)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-sky-100 text-sky-700 hover:bg-sky-200 transition-colors"
+                          >
+                            <UserCheck className="h-3 w-3" />
+                            {patient.salesRep.firstName} {patient.salesRep.lastName?.[0]}.
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setAssignSalesRepPatient(patient)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Assign
+                          </button>
+                        )}
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {patient.hasPayment && (
@@ -552,6 +663,21 @@ export default function AdminPatientsPage() {
                         </button>
                         {openDropdownId === patient.id && (
                           <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
+                            {salesReps.length > 0 && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    setAssignSalesRepPatient(patient);
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                                >
+                                  <UserCheck className="h-4 w-4 text-gray-500" />
+                                  {patient.salesRep ? 'Change sales rep' : 'Assign sales rep'}
+                                </button>
+                                <div className="border-t border-gray-100 my-1" />
+                              </>
+                            )}
                             <button
                               onClick={() => {
                                 setOpenDropdownId(null);

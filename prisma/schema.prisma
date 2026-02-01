@@ -74,6 +74,7 @@ model Patient {
   challengeParticipations ChallengeParticipant[]
   refillQueue             RefillQueue[]
   telehealthSessions      TelehealthSession[]
+  salesRepAssignments     PatientSalesRepAssignment[]
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
@@ -875,6 +876,11 @@ model User {
   policyApprovals       PolicyApproval[]
   policyAcknowledgments PolicyAcknowledgment[]
 
+  // Sales Rep Assignment Relations
+  salesRepAssignments   PatientSalesRepAssignment[] @relation("SalesRepAssignments")
+  assignmentsMadeByUser PatientSalesRepAssignment[] @relation("AssignmentsMadeBy")
+  assignmentsRemovedBy  PatientSalesRepAssignment[] @relation("AssignmentsRemovedBy")
+
   @@index([email])
   @@index([role, status])
   @@index([createdAt(sort: Desc)])
@@ -897,6 +903,37 @@ model UserClinic {
 
   @@unique([userId, clinicId]) // User can only be assigned once per clinic
   @@index([userId])
+  @@index([clinicId])
+}
+
+// Sales Rep Patient Assignment - Tracks which sales rep is assigned to which patient
+// Maintains history of assignments for audit trail and bulk reassignment
+model PatientSalesRepAssignment {
+  id         Int @id @default(autoincrement())
+  patientId  Int
+  salesRepId Int // User ID with SALES_REP role
+  clinicId   Int // Multi-tenant isolation
+
+  // Assignment tracking
+  assignedAt   DateTime @default(now())
+  assignedById Int? // Admin who made assignment
+
+  // Removal tracking (for history)
+  removedAt   DateTime?
+  removedById Int? // Admin who removed assignment
+  removalNote String? // Reason for reassignment
+
+  isActive Boolean @default(true)
+
+  // Relations
+  patient    Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  salesRep   User    @relation("SalesRepAssignments", fields: [salesRepId], references: [id])
+  clinic     Clinic  @relation(fields: [clinicId], references: [id])
+  assignedBy User?   @relation("AssignmentsMadeBy", fields: [assignedById], references: [id])
+  removedBy  User?   @relation("AssignmentsRemovedBy", fields: [removedById], references: [id])
+
+  @@index([salesRepId, clinicId, isActive])
+  @@index([patientId, isActive])
   @@index([clinicId])
 }
 
@@ -1097,6 +1134,7 @@ enum UserRole {
   PATIENT
   STAFF
   SUPPORT
+  SALES_REP
 }
 
 enum UserStatus {
@@ -1823,21 +1861,21 @@ model Clinic {
 
   // Zoom Telehealth Integration (per-clinic OAuth)
   zoomAccountId          String?   @unique // Zoom account ID
-  zoomAccountEmail       String?            // Zoom account email
-  zoomClientId           String?            // OAuth client ID (encrypted)
-  zoomClientSecret       String?            // OAuth client secret (encrypted)
-  zoomAccessToken        String?            // OAuth access token (encrypted)
-  zoomRefreshToken       String?            // OAuth refresh token (encrypted)
-  zoomTokenExpiresAt     DateTime?          // When access token expires
-  zoomWebhookSecret      String?            // Webhook verification secret
-  zoomSdkKey             String?            // Web SDK key (for client-side)
-  zoomSdkSecret          String?            // Web SDK secret (encrypted)
+  zoomAccountEmail       String? // Zoom account email
+  zoomClientId           String? // OAuth client ID (encrypted)
+  zoomClientSecret       String? // OAuth client secret (encrypted)
+  zoomAccessToken        String? // OAuth access token (encrypted)
+  zoomRefreshToken       String? // OAuth refresh token (encrypted)
+  zoomTokenExpiresAt     DateTime? // When access token expires
+  zoomWebhookSecret      String? // Webhook verification secret
+  zoomSdkKey             String? // Web SDK key (for client-side)
+  zoomSdkSecret          String? // Web SDK secret (encrypted)
   zoomEnabled            Boolean   @default(false) // Is Zoom integration enabled?
   zoomOnboardingComplete Boolean   @default(false) // Has completed Zoom OAuth
-  zoomConnectedAt        DateTime?          // When they connected Zoom
-  zoomWaitingRoomEnabled Boolean   @default(true)  // Enable waiting room by default
-  zoomRecordingEnabled   Boolean   @default(true)  // Enable cloud recording
-  zoomHipaaCompliant     Boolean   @default(true)  // Use HIPAA-compliant settings
+  zoomConnectedAt        DateTime? // When they connected Zoom
+  zoomWaitingRoomEnabled Boolean   @default(true) // Enable waiting room by default
+  zoomRecordingEnabled   Boolean   @default(true) // Enable cloud recording
+  zoomHipaaCompliant     Boolean   @default(true) // Use HIPAA-compliant settings
 
   // Billing & Limits
   billingPlan   String @default("starter")
@@ -1868,34 +1906,35 @@ model Clinic {
   schemaName  String? // Optional: for schema-per-clinic
 
   // Relations
-  users              User[]
-  providers          Provider[]
-  patients           Patient[]
-  inviteCodes        ClinicInviteCode[]
-  orders             Order[]
-  tickets            Ticket[]
-  intakeTemplates    IntakeFormTemplate[]
-  invoices           Invoice[]
-  payments           Payment[]
-  paymentMethods     PaymentMethod[]
-  subscriptions      Subscription[]
-  soapNotes          SOAPNote[]
-  documents          PatientDocument[]
-  auditLogs          ClinicAuditLog[]
-  aiConversations    AIConversation[]
-  influencers        Influencer[]
-  referralTrackings  ReferralTracking[]
-  commissions        Commission[]
-  internalMessages   InternalMessage[]
-  webhookLogs        WebhookLog[]
-  integrationConfigs Integration[]
-  apiKeys            ApiKey[]
-  webhookConfigs     WebhookConfig[]
-  systemSettings     SystemSettings[]
-  userClinics        UserClinic[] // Multi-clinic user assignments
-  providerClinics    ProviderClinic[] // ENTERPRISE: Multi-clinic provider assignments
-  reconciliations    PaymentReconciliation[]
-  patientCounter     PatientCounter? // Clinic-specific patient numbering
+  users               User[]
+  providers           Provider[]
+  patients            Patient[]
+  inviteCodes         ClinicInviteCode[]
+  orders              Order[]
+  tickets             Ticket[]
+  intakeTemplates     IntakeFormTemplate[]
+  invoices            Invoice[]
+  payments            Payment[]
+  paymentMethods      PaymentMethod[]
+  subscriptions       Subscription[]
+  soapNotes           SOAPNote[]
+  documents           PatientDocument[]
+  auditLogs           ClinicAuditLog[]
+  aiConversations     AIConversation[]
+  influencers         Influencer[]
+  referralTrackings   ReferralTracking[]
+  commissions         Commission[]
+  internalMessages    InternalMessage[]
+  webhookLogs         WebhookLog[]
+  integrationConfigs  Integration[]
+  apiKeys             ApiKey[]
+  webhookConfigs      WebhookConfig[]
+  systemSettings      SystemSettings[]
+  userClinics         UserClinic[] // Multi-clinic user assignments
+  providerClinics     ProviderClinic[] // ENTERPRISE: Multi-clinic provider assignments
+  salesRepAssignments PatientSalesRepAssignment[] // Sales rep patient assignments
+  reconciliations     PaymentReconciliation[]
+  patientCounter      PatientCounter? // Clinic-specific patient numbering
 
   // Scheduling & Care Plan Relations
   appointments         Appointment[]
@@ -4689,48 +4728,48 @@ enum TelehealthSessionStatus {
 }
 
 model TelehealthSession {
-  id              Int                     @id @default(autoincrement())
-  clinicId        Int?
-  clinic          Clinic?                 @relation(fields: [clinicId], references: [id])
-  appointmentId   Int?
-  appointment     Appointment?            @relation(fields: [appointmentId], references: [id])
-  patientId       Int
-  patient         Patient                 @relation(fields: [patientId], references: [id])
-  providerId      Int
-  provider        Provider                @relation(fields: [providerId], references: [id])
+  id            Int          @id @default(autoincrement())
+  clinicId      Int?
+  clinic        Clinic?      @relation(fields: [clinicId], references: [id])
+  appointmentId Int?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  patientId     Int
+  patient       Patient      @relation(fields: [patientId], references: [id])
+  providerId    Int
+  provider      Provider     @relation(fields: [providerId], references: [id])
 
   // Zoom Meeting Details
-  meetingId       String                  @unique
-  meetingUuid     String?
-  joinUrl         String
-  hostUrl         String?
-  password        String?
-  topic           String?
+  meetingId   String  @unique
+  meetingUuid String?
+  joinUrl     String
+  hostUrl     String?
+  password    String?
+  topic       String?
 
   // Scheduling
-  scheduledAt     DateTime
-  startedAt       DateTime?
-  endedAt         DateTime?
-  duration        Int                     @default(30) // scheduled duration in minutes
-  actualDuration  Int?                    // actual duration in minutes
+  scheduledAt    DateTime
+  startedAt      DateTime?
+  endedAt        DateTime?
+  duration       Int       @default(30) // scheduled duration in minutes
+  actualDuration Int? // actual duration in minutes
 
   // Status
-  status          TelehealthSessionStatus @default(SCHEDULED)
-  platform        String                  @default("zoom") // zoom, teams, etc.
+  status   TelehealthSessionStatus @default(SCHEDULED)
+  platform String                  @default("zoom") // zoom, teams, etc.
 
   // Recording (HIPAA: requires patient consent)
   recordingUrl      String?
   recordingPassword String?
-  recordingDuration Int?                  // in seconds
-  recordingSize     BigInt?               // in bytes
+  recordingDuration Int? // in seconds
+  recordingSize     BigInt? // in bytes
   transcriptUrl     String?
 
   // Participant Tracking
-  participantCount        Int?            @default(0)
-  hostJoinedAt            DateTime?
-  patientJoinedAt         DateTime?
-  waitingRoomEnteredAt    DateTime?
-  waitingRoomAdmittedAt   DateTime?
+  participantCount      Int?      @default(0)
+  hostJoinedAt          DateTime?
+  patientJoinedAt       DateTime?
+  waitingRoomEnteredAt  DateTime?
+  waitingRoomAdmittedAt DateTime?
 
   // Issues & Notes
   technicalIssues String?
@@ -4738,11 +4777,11 @@ model TelehealthSession {
   metadata        Json?
 
   // Audit
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  participants    TelehealthParticipant[]
+  participants TelehealthParticipant[]
 
   @@index([clinicId])
   @@index([appointmentId])
@@ -4756,17 +4795,17 @@ model TelehealthParticipant {
   id                Int               @id @default(autoincrement())
   sessionId         Int
   session           TelehealthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  participantId     String?           // External participant ID (from Zoom)
+  participantId     String? // External participant ID (from Zoom)
   name              String
   email             String?
   role              String            @default("participant") // host, cohost, participant
   joinedAt          DateTime
   leftAt            DateTime?
-  duration          Int?              // in seconds
-  deviceType        String?           // desktop, mobile, tablet
+  duration          Int? // in seconds
+  deviceType        String? // desktop, mobile, tablet
   ipAddress         String?
   location          String?
-  connectionQuality String?           // good, fair, poor
+  connectionQuality String? // good, fair, poor
   audioEnabled      Boolean?          @default(true)
   videoEnabled      Boolean?          @default(true)
   screenShared      Boolean?          @default(false)
@@ -4780,29 +4819,29 @@ model TelehealthParticipant {
 // ============================================================================
 
 model CalendarSubscription {
-  id                  Int       @id @default(autoincrement())
-  providerId          Int
-  provider            Provider  @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  clinicId            Int?
-  clinic              Clinic?   @relation(fields: [clinicId], references: [id])
-  token               String    @unique // Secure random token for URL
-  name                String?   // User-defined name for this subscription
-  isActive            Boolean   @default(true)
-  
+  id         Int      @id @default(autoincrement())
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  clinicId   Int?
+  clinic     Clinic?  @relation(fields: [clinicId], references: [id])
+  token      String   @unique // Secure random token for URL
+  name       String? // User-defined name for this subscription
+  isActive   Boolean  @default(true)
+
   // Privacy Settings
-  includePatientNames Boolean   @default(false) // HIPAA: default to anonymized
-  includeMeetingLinks Boolean   @default(true)
-  
+  includePatientNames Boolean @default(false) // HIPAA: default to anonymized
+  includeMeetingLinks Boolean @default(true)
+
   // Sync Configuration
-  syncRangeDays       Int       @default(90) // Days to include in feed
-  
+  syncRangeDays Int @default(90) // Days to include in feed
+
   // Access Tracking
-  lastAccessedAt      DateTime?
-  accessCount         Int       @default(0)
-  
+  lastAccessedAt DateTime?
+  accessCount    Int       @default(0)
+
   // Audit
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([providerId])
 }
@@ -4812,30 +4851,30 @@ model CalendarSubscription {
 // ============================================================================
 
 model AddressValidationLog {
-  id               Int       @id @default(autoincrement())
-  
+  id Int @id @default(autoincrement())
+
   // Event Classification
-  eventType        String    // PARSE_SUCCESS, SMARTY_VALIDATED, etc.
-  source           String    // webhook, intake, manual, migration
-  inputFormat      String    // combined_string, individual_fields, json
-  
+  eventType   String // PARSE_SUCCESS, SMARTY_VALIDATED, etc.
+  source      String // webhook, intake, manual, migration
+  inputFormat String // combined_string, individual_fields, json
+
   // Context (optional - for debugging)
-  clinicId         Int?
-  patientId        Int?
-  
+  clinicId  Int?
+  patientId Int?
+
   // Validation Results
-  wasStandardized  Boolean   @default(false)
-  confidence       Int?      // 0-100 confidence score
-  processingTimeMs Int?      // Time taken to process
-  
+  wasStandardized  Boolean @default(false)
+  confidence       Int? // 0-100 confidence score
+  processingTimeMs Int? // Time taken to process
+
   // Error Tracking
-  errorMessage     String?
-  
+  errorMessage String?
+
   // Truncated input preview (NOT full PHI)
-  inputPreview     String?
-  
+  inputPreview String?
+
   // Audit
-  createdAt        DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([eventType])
   @@index([clinicId])

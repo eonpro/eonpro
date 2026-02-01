@@ -3,7 +3,7 @@
  * Defines features, permissions, and UI layouts for each user role
  */
 
-export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'support' | 'patient' | 'influencer' | 'affiliate';
+export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'support' | 'patient' | 'influencer' | 'affiliate' | 'sales_rep';
 
 export interface RoleConfig {
   role: UserRole;
@@ -649,6 +649,74 @@ export const AFFILIATE_CONFIG: RoleConfig = {
   ]
 };
 
+// SALES_REP - Sales representatives managing patient relationships
+export const SALES_REP_CONFIG: RoleConfig = {
+  role: 'sales_rep',
+  displayName: 'Sales Representative',
+  description: 'Manage assigned patient relationships and track conversions',
+  defaultPath: '/sales',
+  theme: {
+    primaryColor: '#0EA5E9', // Sky blue
+    secondaryColor: '#0284C7',
+    iconColor: '#7DD3FC',
+    bgGradient: 'from-sky-500 to-blue-600'
+  },
+  features: {
+    viewAllPatients: false, // Only assigned patients
+    editPatients: true,     // Can edit assigned patients
+    deletePatients: false,
+    viewPatientPHI: false,  // Limited PHI access
+    exportPatientData: false,
+    createSoapNotes: false,
+    prescribeRx: false,
+    orderLabs: false,
+    viewMedicalRecords: false,
+    uploadDocuments: false,
+    manageUsers: false,
+    manageClinics: false,
+    viewAnalytics: true,    // Own performance metrics
+    viewFinancials: false,
+    manageSubscriptions: false,
+    internalMessaging: true,
+    patientMessaging: true, // Can message assigned patients
+    ticketManagement: false,
+    supportTickets: true,
+    systemSettings: false,
+    auditLogs: false,
+    apiAccess: false,
+    bulkOperations: false,
+    manageOrders: false,
+    processPayments: false,
+    manageInventory: false,
+    viewCommissions: true,  // View own commissions/performance
+  },
+  navigation: {
+    primary: [
+      { label: 'Dashboard', path: '/sales', icon: 'Home' },
+      { label: 'My Patients', path: '/sales/patients', icon: 'Users' },
+      { label: 'Performance', path: '/sales/performance', icon: 'TrendingUp' },
+      { label: 'Messages', path: '/sales/messages', icon: 'MessageSquare' },
+      { label: 'Support', path: '/sales/support', icon: 'HelpCircle' },
+    ],
+    quick: [
+      { label: 'View Patient', action: 'view-patient', icon: 'User', color: 'blue' },
+      { label: 'Send Message', action: 'send-message', icon: 'MessageSquare', color: 'green' },
+    ]
+  },
+  widgets: [
+    { id: 'patient-overview', title: 'My Patients', type: 'stat', size: 'large', position: 1 },
+    { id: 'recent-activity', title: 'Recent Activity', type: 'list', size: 'medium', position: 2 },
+    { id: 'conversion-stats', title: 'Conversion Stats', type: 'chart', size: 'medium', position: 3 },
+    { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 4 },
+  ],
+  restrictions: [
+    'Only view assigned patients',
+    'Cannot access medical records',
+    'Cannot prescribe or order tests',
+    'Cannot view financial data'
+  ]
+};
+
 // Role configuration map
 export const ROLE_CONFIGS: Record<UserRole, RoleConfig> = {
   super_admin: SUPER_ADMIN_CONFIG,
@@ -659,6 +727,7 @@ export const ROLE_CONFIGS: Record<UserRole, RoleConfig> = {
   patient: PATIENT_CONFIG,
   influencer: INFLUENCER_CONFIG,
   affiliate: AFFILIATE_CONFIG,
+  sales_rep: SALES_REP_CONFIG,
 };
 
 // Helper function to get role configuration

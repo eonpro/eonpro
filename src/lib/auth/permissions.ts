@@ -357,6 +357,18 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.BILLING_VIEW, // Own commissions only
     PERMISSIONS.REPORT_GENERATE, // Own aggregated reports only
   ],
+
+  SALES_REP: [
+    // Patient Management (assigned patients only)
+    PERMISSIONS.PATIENT_READ,
+    PERMISSIONS.PATIENT_UPDATE,
+
+    // Limited Billing (view only for assigned patients)
+    PERMISSIONS.BILLING_VIEW,
+
+    // Basic Reports (own performance)
+    PERMISSIONS.REPORT_GENERATE,
+  ],
   // Lowercase aliases for compatibility
   super_admin: [...Object.values(PERMISSIONS)],
   admin: [
@@ -377,6 +389,7 @@ export const ROLE_PERMISSIONS = {
   influencer: [PERMISSIONS.INFLUENCER_READ, PERMISSIONS.PATIENT_READ, PERMISSIONS.ORDER_READ, PERMISSIONS.BILLING_VIEW, PERMISSIONS.REPORT_GENERATE],
   patient: [PERMISSIONS.ORDER_READ, PERMISSIONS.BILLING_VIEW],
   affiliate: [PERMISSIONS.BILLING_VIEW, PERMISSIONS.REPORT_GENERATE],
+  sales_rep: [PERMISSIONS.PATIENT_READ, PERMISSIONS.PATIENT_UPDATE, PERMISSIONS.BILLING_VIEW, PERMISSIONS.REPORT_GENERATE],
 } as const;
 
 // Role-based feature access
@@ -474,15 +487,23 @@ export const ROLE_FEATURES = {
     'secure_messaging',
     'audit_logs',
   ],
-  
+
   AFFILIATE: [
     // HIPAA-compliant: aggregated metrics only
     'dashboard_analytics', // Own aggregated data only
   ],
+
+  SALES_REP: [
+    // Limited dashboard
+    'dashboard_analytics',
+
+    // Communication
+    'secure_messaging',
+  ],
 } as const;
 
 // Type for role keys as stored in database/auth (lowercase)
-export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient' | 'influencer' | 'support' | 'affiliate';
+export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient' | 'influencer' | 'support' | 'affiliate' | 'sales_rep';
 
 // Type for role keys in ROLE_PERMISSIONS (uppercase)
 type RoleKey = keyof typeof ROLE_PERMISSIONS;
@@ -497,6 +518,7 @@ const ROLE_KEY_MAP: Record<UserRole, RoleKey> = {
   influencer: 'INFLUENCER',
   support: 'SUPPORT',
   affiliate: 'AFFILIATE',
+  sales_rep: 'SALES_REP',
 };
 
 /**
