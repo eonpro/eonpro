@@ -14,12 +14,13 @@ import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
-// Initialize Stripe with Platform Secret Key (EonMeds account)
-const stripe = new Stripe(process.env.STRIPE_PLATFORM_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '', {
+// Stripe Connect Platform Account (SEPARATE from EonMeds)
+// This is the EONpro platform's Stripe account used for Connect functionality
+const stripe = new Stripe(process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY || '', {
   apiVersion: '2026-01-28.clover',
 });
 
-// Webhook secret for Connect events (separate from regular platform webhook secret)
+// Webhook secret for Connect events (from EONpro Platform's Stripe Dashboard)
 const CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
 /**

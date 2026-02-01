@@ -351,10 +351,10 @@ export default function MealPlannerPage() {
                   onClick={() => selectMeal(meal)}
                   className={`w-full text-left p-5 rounded-2xl transition-all ${
                     isSelected
-                      ? 'bg-white ring-2 shadow-lg'
-                      : 'bg-white shadow-sm hover:shadow-md'
+                      ? 'bg-white border-2 shadow-lg'
+                      : 'bg-white shadow-sm hover:shadow-md border-2 border-transparent'
                   }`}
-                  style={isSelected ? { ringColor: primaryColor } : {}}
+                  style={isSelected ? { borderColor: primaryColor } : {}}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

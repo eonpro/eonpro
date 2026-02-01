@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '../../../../lib/logger';
 import { basePrisma as prisma } from '@/lib/db';
 import { UserRole } from '@prisma/client';
-import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
+import { withSuperAdminAuth, AuthUser } from '@/lib/auth/middleware';
 
 /**
  * GET /api/admin/clinics
- * Get all clinics (admin only)
+ * Get all clinics (super_admin only - clinic management is restricted)
  */
-export const GET = withAdminAuth(async (request: NextRequest, user: AuthUser) => {
+export const GET = withSuperAdminAuth(async (request: NextRequest, user: AuthUser) => {
   try {
     // Use explicit select for backwards compatibility with schema changes
     const clinics = await prisma.clinic.findMany({
@@ -87,9 +87,9 @@ export const GET = withAdminAuth(async (request: NextRequest, user: AuthUser) =>
 
 /**
  * POST /api/admin/clinics
- * Create a new clinic (admin only)
+ * Create a new clinic (super_admin only)
  */
-export const POST = withAdminAuth(async (request: NextRequest, user: AuthUser) => {
+export const POST = withSuperAdminAuth(async (request: NextRequest, user: AuthUser) => {
   try {
     const body = await request.json();
 

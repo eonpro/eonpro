@@ -254,16 +254,11 @@ export default function InjectionTrackerPage() {
                 const isSelected = selectedSite === siteKey;
                 
                 let bgColor = '#E5E7EB';
-                let ringColor = 'transparent';
                 
                 if (status === 'suggested') {
                   bgColor = primaryColor;
                 } else if (status === 'recent') {
                   bgColor = '#FBBF24';
-                }
-                
-                if (isSelected) {
-                  ringColor = '#1F2937';
                 }
 
                 return (
@@ -278,11 +273,11 @@ export default function InjectionTrackerPage() {
                   >
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                        isSelected ? 'ring-4 scale-110' : ''
+                        isSelected ? 'scale-110' : ''
                       }`}
                       style={{
                         backgroundColor: bgColor,
-                        ringColor: ringColor,
+                        boxShadow: isSelected ? '0 0 0 4px #1F2937' : 'none',
                       }}
                     >
                       {isSelected && (

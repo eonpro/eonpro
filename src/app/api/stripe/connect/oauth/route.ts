@@ -17,12 +17,13 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-// Use Platform Secret Key for Connect operations (EonMeds account)
-const stripe = new Stripe(process.env.STRIPE_PLATFORM_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '', {
+// Stripe Connect Platform Account (SEPARATE from EonMeds)
+// This is the EONpro platform's Stripe account used for Connect functionality
+const stripe = new Stripe(process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY || '', {
   apiVersion: '2026-01-28.clover',
 });
 
-// Stripe Connect Client ID (from Dashboard → Connect → Settings on EonMeds platform account)
+// Stripe Connect Client ID (from EONpro Platform's Stripe Dashboard → Connect → Settings)
 const STRIPE_CONNECT_CLIENT_ID = process.env.STRIPE_CONNECT_CLIENT_ID;
 
 /**

@@ -52,51 +52,57 @@ let lastCacheTime = 0;
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Get all possible Stripe key environment variables
- * Handles various naming conventions used across different deployment platforms
+ * Get Stripe key environment variables
  *
  * NAMING CONVENTION:
- * - STRIPE_PLATFORM_* = EonMeds main Stripe account (direct payments)
- * - STRIPE_CONNECT_* = Stripe Connect for clinic account onboarding
+ * - EONMEDS_STRIPE_* = EonMeds clinic's own Stripe account (standalone)
+ * - STRIPE_CONNECT_PLATFORM_* = EONpro platform's Stripe Connect account
+ * - STRIPE_CONNECT_* = Stripe Connect settings (Client ID, webhook)
  *
- * Legacy names are supported for backward compatibility
+ * The "default" Stripe key is EonMeds for backward compatibility,
+ * but clinics using Connect will use their own connected accounts.
  */
 function getStripeSecretKey(): string | undefined {
   return (
-    // New naming convention (preferred)
-    process.env.STRIPE_PLATFORM_SECRET_KEY ||
+    // EonMeds clinic account (preferred for direct payments)
+    process.env.EONMEDS_STRIPE_SECRET_KEY ||
     // Legacy names (backward compatibility)
     process.env.STRIPE_SECRET_KEY ||
     process.env.STRIPE_API_KEY ||
     process.env.STRIPE_SK ||
-    process.env.NEXT_STRIPE_SECRET_KEY ||
     undefined
   );
 }
 
 function getStripePublishableKey(): string | undefined {
   return (
-    // New naming convention (preferred)
-    process.env.NEXT_PUBLIC_STRIPE_PLATFORM_PUBLISHABLE_KEY ||
+    // EonMeds clinic account (preferred)
+    process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PUBLISHABLE_KEY ||
     // Legacy names (backward compatibility)
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
     process.env.STRIPE_PUBLISHABLE_KEY ||
     process.env.STRIPE_PK ||
-    process.env.NEXT_PUBLIC_STRIPE_PK ||
     undefined
   );
 }
 
 function getStripeWebhookSecret(): string | undefined {
   return (
-    // New naming convention (preferred)
-    process.env.STRIPE_PLATFORM_WEBHOOK_SECRET ||
+    // EonMeds clinic account (preferred)
+    process.env.EONMEDS_STRIPE_WEBHOOK_SECRET ||
     // Legacy names (backward compatibility)
     process.env.STRIPE_WEBHOOK_SECRET ||
     process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET ||
-    process.env.STRIPE_WH_SECRET ||
     undefined
   );
+}
+
+/**
+ * Get Stripe Connect Platform secret key
+ * This is a SEPARATE Stripe account used for Connect functionality
+ */
+export function getStripeConnectPlatformKey(): string | undefined {
+  return process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -141,7 +147,7 @@ export function requireStripeClient(): Stripe {
   
   if (!client) {
     throw new StripeConfigError(
-      'Stripe is not configured. Please set STRIPE_PLATFORM_SECRET_KEY environment variable.',
+      'Stripe is not configured. Please set EONMEDS_STRIPE_SECRET_KEY environment variable.',
       'STRIPE_NOT_CONFIGURED'
     );
   }
@@ -179,7 +185,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
   
   // No secret key = not configured
   if (!secretKey) {
-    config.error = 'STRIPE_PLATFORM_SECRET_KEY not found in environment';
+    config.error = 'EONMEDS_STRIPE_SECRET_KEY not found in environment';
     cachedConfig = config;
     lastCacheTime = now;
     return config;
@@ -187,7 +193,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
   
   // Validate key format
   if (!secretKey.startsWith('sk_')) {
-    config.error = 'Invalid STRIPE_PLATFORM_SECRET_KEY format (should start with sk_)';
+    config.error = 'Invalid EONMEDS_STRIPE_SECRET_KEY format (should start with sk_)';
     cachedConfig = config;
     lastCacheTime = now;
     return config;

@@ -22,6 +22,7 @@ interface ClinicData {
   providerLimit: number;
   storageLimit: number;
   logoUrl?: string | null;
+  faviconUrl?: string | null;
   primaryColor: string;
   secondaryColor: string;
   createdAt: string;
@@ -40,10 +41,31 @@ export default function ClinicsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [selectedClinic, setSelectedClinic] = useState<ClinicData | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   
   useEffect(() => {
-    fetchClinics();
-  }, []);
+    // Check if user is super_admin - only super_admin can access this page
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const parsedUser = JSON.parse(user);
+        const role = parsedUser.role?.toLowerCase();
+        setUserRole(role);
+
+        if (role !== 'super_admin') {
+          // Redirect non-super-admins to dashboard
+          router.replace('/');
+          return;
+        }
+
+        fetchClinics();
+      } catch {
+        router.replace('/login');
+      }
+    } else {
+      router.replace('/login');
+    }
+  }, [router]);
   
   const fetchClinics = async () => {
     try {
@@ -260,11 +282,12 @@ export default function ClinicsAdminPage() {
                 <tr key={clinic.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      {clinic.logoUrl ? (
-                        <img 
-                          src={clinic.logoUrl} 
+                      {/* Show favicon/icon instead of full logo for compact display */}
+                      {clinic.faviconUrl ? (
+                        <img
+                          src={clinic.faviconUrl}
                           alt={clinic.name}
-                          className="w-10 h-10 rounded-lg object-cover"
+                          className="w-10 h-10 rounded-lg object-contain bg-gray-50 p-1"
                         />
                       ) : (
                         <div 

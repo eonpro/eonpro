@@ -36,25 +36,31 @@ export interface ConnectedAccountStatus {
   };
 }
 
-// Platform Stripe client (singleton)
-// Uses STRIPE_PLATFORM_SECRET_KEY (EonMeds main account) for Connect operations
-let platformStripe: Stripe | null = null;
+// Stripe Connect Platform client (singleton)
+// This is a SEPARATE Stripe account from EonMeds - used only for Connect functionality
+let connectPlatformStripe: Stripe | null = null;
 
-function getPlatformStripe(): Stripe {
-  if (!platformStripe) {
-    // New naming convention first, then legacy fallback
-    const secretKey = process.env.STRIPE_PLATFORM_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
+function getConnectPlatformStripe(): Stripe {
+  if (!connectPlatformStripe) {
+    // Stripe Connect Platform account (separate from EonMeds)
+    const secretKey = process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY;
     if (!secretKey) {
-      throw new Error('STRIPE_PLATFORM_SECRET_KEY not configured');
+      throw new Error(
+        'STRIPE_CONNECT_PLATFORM_SECRET_KEY not configured. ' +
+        'This should be a separate Stripe account from EonMeds, used for Connect functionality.'
+      );
     }
-    platformStripe = new Stripe(secretKey, {
+    connectPlatformStripe = new Stripe(secretKey, {
       apiVersion: '2026-01-28.clover',
       typescript: true,
       maxNetworkRetries: 3,
     });
   }
-  return platformStripe;
+  return connectPlatformStripe;
 }
+
+// Alias for backward compatibility
+const getPlatformStripe = getConnectPlatformStripe;
 
 /**
  * Get Stripe context for the platform account (EONmeds)

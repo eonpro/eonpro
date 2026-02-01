@@ -22,11 +22,12 @@ export {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Get API key with fallbacks for various naming conventions
-// NAMING: STRIPE_PLATFORM_* = EonMeds main account, STRIPE_CONNECT_* = clinic onboarding
+// NAMING: EONMEDS_STRIPE_* = EonMeds clinic account (standalone)
+//         STRIPE_CONNECT_PLATFORM_* = EONpro platform Connect account (separate)
 function getStripeSecretKey(): string | undefined {
   return (
-    // New naming convention (preferred)
-    process.env.STRIPE_PLATFORM_SECRET_KEY ||
+    // EonMeds clinic account (preferred)
+    process.env.EONMEDS_STRIPE_SECRET_KEY ||
     // Legacy names (backward compatibility)
     process.env.STRIPE_SECRET_KEY ||
     process.env.STRIPE_API_KEY ||
@@ -46,7 +47,8 @@ export const stripe = stripeApiKey
     })
   : null;
 
-// Stripe configuration constants for EonMeds Platform Account
+// Stripe configuration constants for EonMeds Clinic Account
+// NOTE: This is separate from Stripe Connect (which uses STRIPE_CONNECT_PLATFORM_*)
 export const STRIPE_CONFIG = {
   // Payment settings
   currency: 'usd' as const,
@@ -56,8 +58,8 @@ export const STRIPE_CONFIG = {
   invoiceDueDays: 30,
   collectionMethod: 'send_invoice' as const,
   
-  // Webhook endpoints (Platform webhooks)
-  webhookEndpointSecret: process.env.STRIPE_PLATFORM_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET || '',
+  // Webhook endpoints (EonMeds clinic webhooks)
+  webhookEndpointSecret: process.env.EONMEDS_STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET || '',
   
   // Product/Price IDs (to be configured)
   products: {
@@ -85,12 +87,12 @@ export function getStripe(): Stripe {
   if (!stripe) {
     // Log detailed error for debugging
     logger.error('[STRIPE] Configuration Error', {
-      hasPlatformSecretKey: !!process.env.STRIPE_PLATFORM_SECRET_KEY,
+      hasEonmedsSecretKey: !!process.env.EONMEDS_STRIPE_SECRET_KEY,
       hasLegacySecretKey: !!process.env.STRIPE_SECRET_KEY,
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV,
     });
-    throw new Error('Stripe is not configured. Please set STRIPE_PLATFORM_SECRET_KEY environment variable.');
+    throw new Error('Stripe is not configured. Please set EONMEDS_STRIPE_SECRET_KEY environment variable.');
   }
   return stripe;
 }

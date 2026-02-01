@@ -110,17 +110,17 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
-  // Build navigation items - only show Clinics tab if user is super_admin OR has multiple clinics
+  // Build navigation items - only show Clinics tab for super_admin
   const navItems = useMemo(() => {
     const items = [...baseNavItems];
 
-    // Insert Clinics tab after RX Queue for super_admin or multi-clinic admins
-    if (userRole === 'super_admin' || hasMultipleClinics) {
+    // Insert Clinics tab after RX Queue for super_admin only
+    if (userRole === 'super_admin') {
       items.splice(4, 0, clinicsNavItem);
     }
 
     return items;
-  }, [userRole, hasMultipleClinics]);
+  }, [userRole]);
 
   // Handle clinic switching with password confirmation
   const handleClinicSwitch = async () => {

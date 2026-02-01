@@ -72,7 +72,7 @@ export default function ProviderCalorieCalculatorPage() {
 
   const macros = useMemo(() => {
     if (!result) return null;
-    return calculateMacros(result.targetCalories, parseFloat(weight) || 150, 'weight_loss');
+    return calculateMacros(result.targetCalories, 'weight_loss', parseFloat(weight) || 150);
   }, [result, weight]);
 
   const glp1Adjustment = useMemo(() => {
@@ -114,9 +114,9 @@ Calculations:
 ${result.weeksToGoal ? `Timeline: ~${result.weeksToGoal} weeks (${result.monthsToGoal} months) to goal` : ''}
 
 Macronutrient Targets (${effectiveCalories} cal):
-- Protein: ${macros?.protein.grams}g (${macros?.protein.percentage}%)
-- Carbs: ${macros?.carbs.grams}g (${macros?.carbs.percentage}%)
-- Fat: ${macros?.fat.grams}g (${macros?.fat.percentage}%)`;
+- Protein: ${macros?.grams.protein}g (${macros?.percentages.protein}%)
+- Carbs: ${macros?.grams.carbs}g (${macros?.percentages.carbs}%)
+- Fat: ${macros?.grams.fat}g (${macros?.percentages.fat}%)`;
   };
 
   return (
@@ -420,37 +420,37 @@ Macronutrient Targets (${effectiveCalories} cal):
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Protein</span>
                       <span className="font-semibold text-gray-900">
-                        {macros.protein.grams}g ({macros.protein.percentage}%)
+                        {macros.grams.protein}g ({macros.percentages.protein}%)
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-red-500 h-2 rounded-full"
-                        style={{ width: `${macros.protein.percentage}%` }}
+                        style={{ width: `${macros.percentages.protein}%` }}
                       />
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Carbs</span>
                       <span className="font-semibold text-gray-900">
-                        {macros.carbs.grams}g ({macros.carbs.percentage}%)
+                        {macros.grams.carbs}g ({macros.percentages.carbs}%)
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full"
-                        style={{ width: `${macros.carbs.percentage}%` }}
+                        style={{ width: `${macros.percentages.carbs}%` }}
                       />
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Fat</span>
                       <span className="font-semibold text-gray-900">
-                        {macros.fat.grams}g ({macros.fat.percentage}%)
+                        {macros.grams.fat}g ({macros.percentages.fat}%)
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-yellow-500 h-2 rounded-full"
-                        style={{ width: `${macros.fat.percentage}%` }}
+                        style={{ width: `${macros.percentages.fat}%` }}
                       />
                     </div>
                   </div>
