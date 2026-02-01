@@ -266,20 +266,37 @@ function getPatientAddress(patient: { address1?: string | null; address2?: strin
     let fixedZip = zip;
     let fixedAddr2 = addr2;
 
-    // If zip contains a state name, swap it
+    // If zip contains a state name (like "Texas"), move it to state
+    // And use the original state value as city (e.g., "HO" might be Houston)
     if (zipIsStateName) {
+      // Before overwriting state, check if original state could be the city
+      // (e.g., state="HO" could be city abbreviation for Houston)
+      const originalState = state;
+      const originalStateIsNotValidState = originalState && !isStateName(originalState);
+
       fixedState = normalizeState(zip);
       fixedZip = '';
+
+      // Use original state as city if it's not a valid state code and city is empty/apt
+      if (originalStateIsNotValidState && (!fixedCity || cityLooksLikeApt)) {
+        // Original state might be city abbreviation (HO = Houston)
+        if (!fixedCity || cityLooksLikeApt) {
+          fixedCity = originalState;
+        }
+      }
     }
 
-    // If city looks like an apartment number, move it
+    // If city looks like an apartment number, move it to address2
     if (cityLooksLikeApt && !fixedAddr2) {
       fixedAddr2 = city;
-      fixedCity = '';
+      // Only clear city if we haven't already set it from the state field
+      if (fixedCity === city) {
+        fixedCity = '';
+      }
     }
 
     // If state looks invalid but could be part of "City State", try to extract
-    if (stateLooksInvalid && city) {
+    if (stateLooksInvalid && city && !cityLooksLikeApt) {
       const combined = `${city} ${state}`;
       const cityState = extractCityState(combined);
       if (cityState) {
