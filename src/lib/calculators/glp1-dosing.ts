@@ -1,6 +1,6 @@
 /**
  * GLP-1 Medication Dosing Calculation Utilities
- * 
+ *
  * References:
  * - FDA-approved prescribing information for Wegovy (semaglutide)
  * - FDA-approved prescribing information for Ozempic (semaglutide)
@@ -51,18 +51,49 @@ export const SEMAGLUTIDE_INFO: MedicationInfo = {
   name: 'Semaglutide',
   genericName: 'semaglutide',
   brandNames: ['Wegovy', 'Ozempic'],
-  indication: 'Chronic weight management in adults with BMI ≥30 or ≥27 with weight-related comorbidity',
+  indication:
+    'Chronic weight management in adults with BMI ≥30 or ≥27 with weight-related comorbidity',
   concentrations: [
     { value: 2.5, label: '2.5 mg/mL', color: '#3B82F6' },
     { value: 5, label: '5 mg/mL', color: '#10B981' },
     { value: 10, label: '10 mg/mL', color: '#8B5CF6' },
   ],
   titrationSchedule: [
-    { week: '1-4', dose: 0.25, label: 'Weeks 1-4', description: 'Starting dose', duration: '4 weeks' },
-    { week: '5-8', dose: 0.5, label: 'Weeks 5-8', description: 'First increase', duration: '4 weeks' },
-    { week: '9-12', dose: 1.0, label: 'Weeks 9-12', description: 'Building up', duration: '4 weeks' },
-    { week: '13-16', dose: 1.7, label: 'Weeks 13-16', description: 'Approaching target', duration: '4 weeks' },
-    { week: '17+', dose: 2.4, label: 'Week 17+', description: 'Maintenance dose', duration: 'Ongoing' },
+    {
+      week: '1-4',
+      dose: 0.25,
+      label: 'Weeks 1-4',
+      description: 'Starting dose',
+      duration: '4 weeks',
+    },
+    {
+      week: '5-8',
+      dose: 0.5,
+      label: 'Weeks 5-8',
+      description: 'First increase',
+      duration: '4 weeks',
+    },
+    {
+      week: '9-12',
+      dose: 1.0,
+      label: 'Weeks 9-12',
+      description: 'Building up',
+      duration: '4 weeks',
+    },
+    {
+      week: '13-16',
+      dose: 1.7,
+      label: 'Weeks 13-16',
+      description: 'Approaching target',
+      duration: '4 weeks',
+    },
+    {
+      week: '17+',
+      dose: 2.4,
+      label: 'Week 17+',
+      description: 'Maintenance dose',
+      duration: 'Ongoing',
+    },
   ],
   maintenanceDose: 2.4,
   maxDose: 2.4,
@@ -102,7 +133,8 @@ export const TIRZEPATIDE_INFO: MedicationInfo = {
   name: 'Tirzepatide',
   genericName: 'tirzepatide',
   brandNames: ['Mounjaro', 'Zepbound'],
-  indication: 'Chronic weight management in adults with BMI ≥30 or ≥27 with weight-related comorbidity',
+  indication:
+    'Chronic weight management in adults with BMI ≥30 or ≥27 with weight-related comorbidity',
   concentrations: [
     { value: 5, label: '5 mg/mL', color: '#3B82F6' },
     { value: 10, label: '10 mg/mL', color: '#10B981' },
@@ -110,12 +142,48 @@ export const TIRZEPATIDE_INFO: MedicationInfo = {
     { value: 20, label: '20 mg/mL', color: '#F59E0B' },
   ],
   titrationSchedule: [
-    { week: '1-4', dose: 2.5, label: 'Weeks 1-4', description: 'Starting dose', duration: '4 weeks' },
-    { week: '5-8', dose: 5.0, label: 'Weeks 5-8', description: 'First increase', duration: '4 weeks' },
-    { week: '9-12', dose: 7.5, label: 'Weeks 9-12', description: 'Building up', duration: '4 weeks' },
-    { week: '13-16', dose: 10.0, label: 'Weeks 13-16', description: 'Continuing increase', duration: '4 weeks' },
-    { week: '17-20', dose: 12.5, label: 'Weeks 17-20', description: 'Approaching target', duration: '4 weeks' },
-    { week: '21+', dose: 15.0, label: 'Week 21+', description: 'Maintenance dose', duration: 'Ongoing' },
+    {
+      week: '1-4',
+      dose: 2.5,
+      label: 'Weeks 1-4',
+      description: 'Starting dose',
+      duration: '4 weeks',
+    },
+    {
+      week: '5-8',
+      dose: 5.0,
+      label: 'Weeks 5-8',
+      description: 'First increase',
+      duration: '4 weeks',
+    },
+    {
+      week: '9-12',
+      dose: 7.5,
+      label: 'Weeks 9-12',
+      description: 'Building up',
+      duration: '4 weeks',
+    },
+    {
+      week: '13-16',
+      dose: 10.0,
+      label: 'Weeks 13-16',
+      description: 'Continuing increase',
+      duration: '4 weeks',
+    },
+    {
+      week: '17-20',
+      dose: 12.5,
+      label: 'Weeks 17-20',
+      description: 'Approaching target',
+      duration: '4 weeks',
+    },
+    {
+      week: '21+',
+      dose: 15.0,
+      label: 'Week 21+',
+      description: 'Maintenance dose',
+      duration: 'Ongoing',
+    },
   ],
   maintenanceDose: 15.0,
   maxDose: 15.0,
@@ -251,16 +319,16 @@ export function getCurrentTitrationStep(
 ): TitrationStep {
   const info = getMedicationInfo(medication);
   const schedule = info.titrationSchedule;
-  
+
   // Find the appropriate step
   for (let i = schedule.length - 1; i >= 0; i--) {
     const step = schedule[i];
-    const [startWeek] = step.week.split('-').map(w => parseInt(w.replace('+', '')));
+    const [startWeek] = step.week.split('-').map((w) => parseInt(w.replace('+', '')));
     if (weekNumber >= startWeek) {
       return step;
     }
   }
-  
+
   return schedule[0]; // Default to first step
 }
 
@@ -270,11 +338,11 @@ export function getCurrentTitrationStep(
 export function getDaysUntilNextDose(lastDoseDate: Date): number {
   const nextDoseDate = new Date(lastDoseDate);
   nextDoseDate.setDate(nextDoseDate.getDate() + 7);
-  
+
   const now = new Date();
   const diffTime = nextDoseDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   return Math.max(0, diffDays);
 }
 
@@ -286,34 +354,34 @@ export function validateDose(
   doseMg: number
 ): { valid: boolean; message: string } {
   const info = getMedicationInfo(medication);
-  
+
   if (doseMg <= 0) {
     return { valid: false, message: 'Dose must be greater than 0' };
   }
-  
+
   if (doseMg > info.maxDose) {
-    return { 
-      valid: false, 
-      message: `Dose exceeds maximum recommended dose of ${info.maxDose} mg` 
+    return {
+      valid: false,
+      message: `Dose exceeds maximum recommended dose of ${info.maxDose} mg`,
     };
   }
-  
+
   // Check if dose matches a titration step
-  const validDoses = info.titrationSchedule.map(s => s.dose);
+  const validDoses = info.titrationSchedule.map((s) => s.dose);
   if (!validDoses.includes(doseMg)) {
     return {
       valid: true,
       message: `Note: ${doseMg} mg is not a standard titration dose. Verify with prescriber.`,
     };
   }
-  
+
   return { valid: true, message: 'Dose is within recommended range' };
 }
 
 /**
  * Injection site options
  */
-export type InjectionSite = 
+export type InjectionSite =
   | 'abdomen_left'
   | 'abdomen_right'
   | 'thigh_left'
@@ -380,15 +448,15 @@ export function getNextInjectionSite(recentSites: InjectionSite[]): InjectionSit
     'upper_arm_left',
     'upper_arm_right',
   ];
-  
+
   if (recentSites.length === 0) {
     return rotation[0];
   }
-  
+
   const lastSite = recentSites[recentSites.length - 1];
   const lastIndex = rotation.indexOf(lastSite);
   const nextIndex = (lastIndex + 1) % rotation.length;
-  
+
   return rotation[nextIndex];
 }
 

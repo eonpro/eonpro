@@ -2,7 +2,18 @@
 
 import Link from 'next/link';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
-import { Activity, Flame, Syringe, Calculator, ChevronRight, Scale, Heart, Target, MapPin, Utensils } from 'lucide-react';
+import {
+  Activity,
+  Flame,
+  Syringe,
+  Calculator,
+  ChevronRight,
+  Scale,
+  Heart,
+  Target,
+  MapPin,
+  Utensils,
+} from 'lucide-react';
 
 const calculators = [
   {

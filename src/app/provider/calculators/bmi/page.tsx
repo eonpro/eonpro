@@ -33,16 +33,16 @@ type UnitSystem = 'imperial' | 'metric';
 export default function ProviderBMICalculatorPage() {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('imperial');
   const [sex, setSex] = useState<'male' | 'female'>('female');
-  
+
   // Imperial inputs
   const [feet, setFeet] = useState('');
   const [inches, setInches] = useState('');
   const [weightLbs, setWeightLbs] = useState('');
-  
+
   // Metric inputs
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
-  
+
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const result = useMemo(() => {
@@ -55,16 +55,16 @@ export default function ProviderBMICalculatorPage() {
       const inchesNum = parseInt(inches || '0');
       heightInches = feetInchesToInches(feetNum, inchesNum);
       weightPounds = parseFloat(weightLbs || '0');
-      
+
       if (heightInches <= 0 || weightPounds <= 0) return null;
-      
+
       bmi = calculateBMI(weightPounds, heightInches);
     } else {
       const cm = parseFloat(heightCm || '0');
       const kg = parseFloat(weightKg || '0');
-      
+
       if (cm <= 0 || kg <= 0) return null;
-      
+
       bmi = calculateBMIMetric(kg, cm);
       heightInches = cm / 2.54;
       weightPounds = kg * 2.20462;
@@ -103,7 +103,7 @@ export default function ProviderBMICalculatorPage() {
   };
 
   return (
-    <div className="p-6 lg:p-8 min-h-screen">
+    <div className="min-h-screen p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <Link
@@ -114,22 +114,22 @@ export default function ProviderBMICalculatorPage() {
           Back to Calculators
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">BMI Calculator</h1>
-        <p className="text-gray-500 mt-1">
+        <p className="mt-1 text-gray-500">
           Calculate Body Mass Index with clinical documentation support
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Input Section */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           {/* Unit Toggle */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Measurements</h2>
               <div className="flex rounded-xl bg-gray-100 p-1">
                 <button
                   onClick={() => setUnitSystem('imperial')}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                     unitSystem === 'imperial'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
@@ -139,7 +139,7 @@ export default function ProviderBMICalculatorPage() {
                 </button>
                 <button
                   onClick={() => setUnitSystem('metric')}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                     unitSystem === 'metric'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
@@ -152,13 +152,13 @@ export default function ProviderBMICalculatorPage() {
 
             {/* Sex Selection */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Biological Sex (for ideal weight calculation)
               </label>
               <div className="flex gap-3">
                 <button
                   onClick={() => setSex('female')}
-                  className={`flex-1 rounded-xl px-4 py-3 font-medium transition-all border-2 ${
+                  className={`flex-1 rounded-xl border-2 px-4 py-3 font-medium transition-all ${
                     sex === 'female'
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -168,7 +168,7 @@ export default function ProviderBMICalculatorPage() {
                 </button>
                 <button
                   onClick={() => setSex('male')}
-                  className={`flex-1 rounded-xl px-4 py-3 font-medium transition-all border-2 ${
+                  className={`flex-1 rounded-xl border-2 px-4 py-3 font-medium transition-all ${
                     sex === 'male'
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -183,9 +183,7 @@ export default function ProviderBMICalculatorPage() {
               <>
                 {/* Height - Imperial */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Height
-                  </label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Height</label>
                   <div className="flex gap-3">
                     <div className="relative flex-1">
                       <input
@@ -195,7 +193,7 @@ export default function ProviderBMICalculatorPage() {
                         placeholder="5"
                         min="3"
                         max="8"
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                         ft
@@ -209,7 +207,7 @@ export default function ProviderBMICalculatorPage() {
                         placeholder="6"
                         min="0"
                         max="11"
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                         in
@@ -220,9 +218,7 @@ export default function ProviderBMICalculatorPage() {
 
                 {/* Weight - Imperial */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Weight
-                  </label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Weight</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -231,7 +227,7 @@ export default function ProviderBMICalculatorPage() {
                       placeholder="180"
                       min="50"
                       max="800"
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                       lbs
@@ -243,9 +239,7 @@ export default function ProviderBMICalculatorPage() {
               <>
                 {/* Height - Metric */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Height
-                  </label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Height</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -254,7 +248,7 @@ export default function ProviderBMICalculatorPage() {
                       placeholder="170"
                       min="100"
                       max="250"
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                       cm
@@ -264,9 +258,7 @@ export default function ProviderBMICalculatorPage() {
 
                 {/* Weight - Metric */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Weight
-                  </label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Weight</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -275,7 +267,7 @@ export default function ProviderBMICalculatorPage() {
                       placeholder="80"
                       min="30"
                       max="400"
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                       kg
@@ -288,26 +280,24 @@ export default function ProviderBMICalculatorPage() {
 
           {/* BMI Categories Reference */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4">BMI Classification Reference</h2>
+            <h2 className="mb-4 font-semibold text-gray-900">BMI Classification Reference</h2>
             <div className="space-y-2">
               {BMI_CATEGORIES.map((cat) => (
                 <div
                   key={cat.category}
-                  className={`flex items-center justify-between p-3 rounded-xl ${
+                  className={`flex items-center justify-between rounded-xl p-3 ${
                     result?.category.category === cat.category
                       ? 'bg-gray-100 ring-2 ring-gray-900'
                       : 'bg-gray-50'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: cat.color }}
-                    />
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color }} />
                     <span className="font-medium text-gray-900">{cat.label}</span>
                   </div>
                   <span className="text-sm text-gray-500">
-                    {cat.range.min === 0 ? '<' : ''}{cat.range.min !== 0 ? cat.range.min : cat.range.max}
+                    {cat.range.min === 0 ? '<' : ''}
+                    {cat.range.min !== 0 ? cat.range.min : cat.range.max}
                     {cat.range.max < 100 ? ` - ${cat.range.max}` : '+'}
                   </span>
                 </div>
@@ -327,8 +317,8 @@ export default function ProviderBMICalculatorPage() {
             }}
           >
             <Scale className="mx-auto mb-3 h-10 w-10 opacity-80" />
-            <p className="text-sm font-medium opacity-80 mb-1">Body Mass Index</p>
-            <p className="text-6xl font-bold mb-2">{result?.bmi.toFixed(1) || '--'}</p>
+            <p className="mb-1 text-sm font-medium opacity-80">Body Mass Index</p>
+            <p className="mb-2 text-6xl font-bold">{result?.bmi.toFixed(1) || '--'}</p>
             <p className="text-lg font-medium opacity-90">
               {result?.category.label || 'Enter measurements'}
             </p>
@@ -338,15 +328,13 @@ export default function ProviderBMICalculatorPage() {
             <>
               {/* Clinical Notes */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="p-2 rounded-lg bg-blue-50">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="rounded-lg bg-blue-50 p-2">
                     <FileText className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">Clinical Notes</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {result.category.clinicalNotes}
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">{result.category.clinicalNotes}</p>
                   </div>
                 </div>
               </div>
@@ -354,7 +342,7 @@ export default function ProviderBMICalculatorPage() {
               {/* ICD-10 Codes */}
               {result.icd10Codes.length > 0 && (
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
                     <AlertCircle className="h-5 w-5 text-amber-500" />
                     Suggested ICD-10 Codes
                   </h3>
@@ -362,17 +350,15 @@ export default function ProviderBMICalculatorPage() {
                     {result.icd10Codes.map((code) => (
                       <div
                         key={code.code}
-                        className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+                        className="flex items-center justify-between rounded-xl bg-gray-50 p-3 transition-colors hover:bg-gray-100"
                       >
                         <div>
-                          <span className="font-mono font-semibold text-gray-900">
-                            {code.code}
-                          </span>
+                          <span className="font-mono font-semibold text-gray-900">{code.code}</span>
                           <p className="text-sm text-gray-500">{code.description}</p>
                         </div>
                         <button
                           onClick={() => copyToClipboard(code.code)}
-                          className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                          className="rounded-lg p-2 transition-colors hover:bg-gray-200"
                         >
                           {copiedCode === code.code ? (
                             <Check className="h-4 w-4 text-green-600" />
@@ -388,34 +374,33 @@ export default function ProviderBMICalculatorPage() {
 
               {/* Weight Goals */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
                   <TrendingDown className="h-5 w-5 text-green-600" />
                   Weight Analysis
                 </h3>
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl bg-gray-50">
-                    <p className="text-sm text-gray-500 mb-1">Healthy Weight Range</p>
+                  <div className="rounded-xl bg-gray-50 p-4">
+                    <p className="mb-1 text-sm text-gray-500">Healthy Weight Range</p>
                     <p className="text-xl font-semibold text-gray-900">
                       {result.idealRange.min} - {result.idealRange.max} lbs
                     </p>
                     <p className="text-sm text-gray-500">
-                      ({Math.round(result.idealRange.min * 0.453592)} - {Math.round(result.idealRange.max * 0.453592)} kg)
+                      ({Math.round(result.idealRange.min * 0.453592)} -{' '}
+                      {Math.round(result.idealRange.max * 0.453592)} kg)
                     </p>
                   </div>
-                  
-                  <div className="p-4 rounded-xl bg-gray-50">
-                    <p className="text-sm text-gray-500 mb-1">Ideal Body Weight (Devine)</p>
-                    <p className="text-xl font-semibold text-gray-900">
-                      {result.idealWeight} lbs
-                    </p>
+
+                  <div className="rounded-xl bg-gray-50 p-4">
+                    <p className="mb-1 text-sm text-gray-500">Ideal Body Weight (Devine)</p>
+                    <p className="text-xl font-semibold text-gray-900">{result.idealWeight} lbs</p>
                     <p className="text-sm text-gray-500">
                       ({Math.round(result.idealWeight * 0.453592)} kg)
                     </p>
                   </div>
 
                   {result.weightToLose > 0 && (
-                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200">
-                      <p className="text-sm text-amber-700 mb-1">Weight to Reach BMI 25</p>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="mb-1 text-sm text-amber-700">Weight to Reach BMI 25</p>
                       <p className="text-xl font-semibold text-amber-900">
                         {result.weightToLose} lbs to lose
                       </p>
@@ -429,13 +414,13 @@ export default function ProviderBMICalculatorPage() {
 
               {/* Formula Card */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-3">Formula</h3>
-                <div className="p-4 rounded-xl bg-gray-50 font-mono text-sm">
-                  <p className="text-gray-600 mb-2">BMI = weight (lb) / [height (in)]² × 703</p>
+                <h3 className="mb-3 font-semibold text-gray-900">Formula</h3>
+                <div className="rounded-xl bg-gray-50 p-4 font-mono text-sm">
+                  <p className="mb-2 text-gray-600">BMI = weight (lb) / [height (in)]² × 703</p>
                   <p className="text-gray-900">
                     = {Math.round(result.weightPounds)} / ({Math.round(result.heightInches)}² × 703)
                   </p>
-                  <p className="text-gray-900 font-semibold">= {result.bmi.toFixed(1)}</p>
+                  <p className="font-semibold text-gray-900">= {result.bmi.toFixed(1)}</p>
                 </div>
               </div>
             </>
@@ -444,11 +429,11 @@ export default function ProviderBMICalculatorPage() {
           {/* Info Box */}
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
             <Info className="mb-2 h-5 w-5 text-blue-600" />
-            <h3 className="font-semibold text-blue-900 mb-2">Clinical Considerations</h3>
+            <h3 className="mb-2 font-semibold text-blue-900">Clinical Considerations</h3>
             <p className="text-sm leading-relaxed text-blue-800">
-              BMI may overestimate body fat in muscular individuals and underestimate it 
-              in older adults or those with low muscle mass. Consider waist circumference 
-              and body composition for a complete assessment.
+              BMI may overestimate body fat in muscular individuals and underestimate it in older
+              adults or those with low muscle mass. Consider waist circumference and body
+              composition for a complete assessment.
             </p>
           </div>
         </div>

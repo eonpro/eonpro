@@ -383,7 +383,9 @@ export default function BMICalculatorPage() {
                           <Sparkles className="h-6 w-6 text-emerald-600" />
                         </div>
                         <div>
-                          <p className="font-semibold text-emerald-900">You're in a healthy range!</p>
+                          <p className="font-semibold text-emerald-900">
+                            You're in a healthy range!
+                          </p>
                           <p className="text-sm text-emerald-700">
                             Keep maintaining your current lifestyle
                           </p>

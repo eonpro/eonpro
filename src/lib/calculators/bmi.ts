@@ -1,6 +1,6 @@
 /**
  * BMI (Body Mass Index) Calculation Utilities
- * 
+ *
  * References:
  * - WHO BMI Classification
  * - CDC Adult BMI Guidelines
@@ -24,7 +24,7 @@ export interface ICD10Code {
   description: string;
 }
 
-export type BMICategory = 
+export type BMICategory =
   | 'severe_underweight'
   | 'underweight'
   | 'healthy'
@@ -47,14 +47,16 @@ export const BMI_CATEGORIES: BMICategoryInfo[] = [
     label: 'Severely Underweight',
     range: { min: 0, max: 16 },
     color: '#3B82F6',
-    clinicalNotes: 'May indicate malnutrition or underlying health condition. Consider nutritional assessment.',
+    clinicalNotes:
+      'May indicate malnutrition or underlying health condition. Consider nutritional assessment.',
   },
   {
     category: 'underweight',
     label: 'Underweight',
     range: { min: 16, max: 18.5 },
     color: '#60A5FA',
-    clinicalNotes: 'Consider evaluation for underlying causes. May benefit from nutritional counseling.',
+    clinicalNotes:
+      'Consider evaluation for underlying causes. May benefit from nutritional counseling.',
   },
   {
     category: 'healthy',
@@ -68,28 +70,32 @@ export const BMI_CATEGORIES: BMICategoryInfo[] = [
     label: 'Overweight',
     range: { min: 25, max: 30 },
     color: '#F59E0B',
-    clinicalNotes: 'Increased risk for cardiovascular disease. Lifestyle modifications recommended.',
+    clinicalNotes:
+      'Increased risk for cardiovascular disease. Lifestyle modifications recommended.',
   },
   {
     category: 'obese_class_1',
     label: 'Obese Class I',
     range: { min: 30, max: 35 },
     color: '#F97316',
-    clinicalNotes: 'Candidate for weight management intervention. Consider GLP-1 therapy eligibility.',
+    clinicalNotes:
+      'Candidate for weight management intervention. Consider GLP-1 therapy eligibility.',
   },
   {
     category: 'obese_class_2',
     label: 'Obese Class II',
     range: { min: 35, max: 40 },
     color: '#EF4444',
-    clinicalNotes: 'High risk for comorbidities. Intensive lifestyle intervention and pharmacotherapy recommended.',
+    clinicalNotes:
+      'High risk for comorbidities. Intensive lifestyle intervention and pharmacotherapy recommended.',
   },
   {
     category: 'obese_class_3',
     label: 'Obese Class III',
     range: { min: 40, max: 100 },
     color: '#DC2626',
-    clinicalNotes: 'Severe obesity. Consider bariatric surgery referral if pharmacotherapy insufficient.',
+    clinicalNotes:
+      'Severe obesity. Consider bariatric surgery referral if pharmacotherapy insufficient.',
   },
 ];
 
@@ -101,9 +107,7 @@ export const BMI_ICD10_CODES: Record<string, ICD10Code[]> = {
     { code: 'R63.6', description: 'Underweight' },
     { code: 'R63.4', description: 'Abnormal weight loss' },
   ],
-  overweight: [
-    { code: 'E66.3', description: 'Overweight' },
-  ],
+  overweight: [{ code: 'E66.3', description: 'Overweight' }],
   obese: [
     { code: 'E66.01', description: 'Morbid (severe) obesity due to excess calories' },
     { code: 'E66.09', description: 'Other obesity due to excess calories' },
@@ -167,7 +171,7 @@ export function getBMICategory(bmi: number): BMICategoryInfo {
     }
   }
   // Default to healthy if somehow out of range
-  return BMI_CATEGORIES.find(c => c.category === 'healthy')!;
+  return BMI_CATEGORIES.find((c) => c.category === 'healthy')!;
 }
 
 /**
@@ -178,14 +182,14 @@ export function getBMICategory(bmi: number): BMICategoryInfo {
  */
 export function calculateIdealBodyWeight(heightInches: number, sex: 'male' | 'female'): number {
   const heightOver5Feet = Math.max(0, heightInches - 60);
-  
+
   if (sex === 'male') {
     // Devine formula for males: 50 kg + 2.3 kg per inch over 5 feet
-    const idealKg = 50 + (2.3 * heightOver5Feet);
+    const idealKg = 50 + 2.3 * heightOver5Feet;
     return Math.round(idealKg * 2.20462); // Convert to lbs
   } else {
     // Devine formula for females: 45.5 kg + 2.3 kg per inch over 5 feet
-    const idealKg = 45.5 + (2.3 * heightOver5Feet);
+    const idealKg = 45.5 + 2.3 * heightOver5Feet;
     return Math.round(idealKg * 2.20462); // Convert to lbs
   }
 }
@@ -208,7 +212,7 @@ export function calculateIdealWeightRange(heightInches: number): { min: number; 
  */
 export function getICD10Codes(bmi: number): ICD10Code[] {
   const codes: ICD10Code[] = [];
-  
+
   if (bmi < 18.5) {
     codes.push(...BMI_ICD10_CODES.underweight);
   } else if (bmi >= 25 && bmi < 30) {
@@ -216,10 +220,10 @@ export function getICD10Codes(bmi: number): ICD10Code[] {
   } else if (bmi >= 30) {
     // Add general obesity code
     codes.push(BMI_ICD10_CODES.obese[0]); // E66.01
-    
+
     // Add specific BMI Z-code
     const bmiRounded = Math.floor(bmi);
-    const zCode = BMI_ICD10_CODES.obese.find(c => {
+    const zCode = BMI_ICD10_CODES.obese.find((c) => {
       if (bmiRounded >= 30 && bmiRounded < 40) {
         return c.code === `Z68.${bmiRounded}`;
       } else if (bmiRounded >= 40 && bmiRounded < 45) {
@@ -235,12 +239,12 @@ export function getICD10Codes(bmi: number): ICD10Code[] {
       }
       return false;
     });
-    
+
     if (zCode) {
       codes.push(zCode);
     }
   }
-  
+
   return codes;
 }
 
@@ -280,7 +284,7 @@ export function analyzeBMI(
 ): BMIResult {
   const bmi = calculateBMI(weightLbs, heightInches);
   const categoryInfo = getBMICategory(bmi);
-  
+
   let weightStatus: BMIResult['weightStatus'];
   if (bmi < 18.5) {
     weightStatus = 'underweight';
@@ -291,7 +295,7 @@ export function analyzeBMI(
   } else {
     weightStatus = 'obese';
   }
-  
+
   return {
     bmi,
     category: categoryInfo.category,
@@ -306,7 +310,7 @@ export function analyzeBMI(
  * Convert height from feet/inches to total inches
  */
 export function feetInchesToInches(feet: number, inches: number): number {
-  return (feet * 12) + inches;
+  return feet * 12 + inches;
 }
 
 /**

@@ -34,17 +34,30 @@ export default function ProviderASCVDCalculatorPage() {
   const [isSmoker, setIsSmoker] = useState(false);
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
-  const input: Partial<ASCVDInput> = useMemo(() => ({
-    age: parseInt(age) || undefined,
-    sex,
-    race,
-    totalCholesterol: parseInt(totalCholesterol) || undefined,
-    hdlCholesterol: parseInt(hdlCholesterol) || undefined,
-    systolicBP: parseInt(systolicBP) || undefined,
-    onHypertensionTreatment,
-    hasDiabetes,
-    isSmoker,
-  }), [age, sex, race, totalCholesterol, hdlCholesterol, systolicBP, onHypertensionTreatment, hasDiabetes, isSmoker]);
+  const input: Partial<ASCVDInput> = useMemo(
+    () => ({
+      age: parseInt(age) || undefined,
+      sex,
+      race,
+      totalCholesterol: parseInt(totalCholesterol) || undefined,
+      hdlCholesterol: parseInt(hdlCholesterol) || undefined,
+      systolicBP: parseInt(systolicBP) || undefined,
+      onHypertensionTreatment,
+      hasDiabetes,
+      isSmoker,
+    }),
+    [
+      age,
+      sex,
+      race,
+      totalCholesterol,
+      hdlCholesterol,
+      systolicBP,
+      onHypertensionTreatment,
+      hasDiabetes,
+      isSmoker,
+    ]
+  );
 
   const validation = useMemo(() => validateASCVDInput(input), [input]);
 
@@ -54,7 +67,7 @@ export default function ProviderASCVDCalculatorPage() {
   }, [input, validation]);
 
   const getCategoryInfo = (category: string): RiskCategoryInfo => {
-    return RISK_CATEGORIES.find(c => c.category === category) || RISK_CATEGORIES[0];
+    return RISK_CATEGORIES.find((c) => c.category === category) || RISK_CATEGORIES[0];
   };
 
   const getRiskGaugeRotation = (risk: number): number => {
@@ -90,7 +103,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
   };
 
   return (
-    <div className="p-6 lg:p-8 min-h-screen">
+    <div className="min-h-screen p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <Link
@@ -101,24 +114,22 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
           Back to Calculators
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">ASCVD Risk Calculator</h1>
-        <p className="text-gray-500 mt-1">
+        <p className="mt-1 text-gray-500">
           10-Year Atherosclerotic Cardiovascular Disease Risk (2013 ACC/AHA Pooled Cohort Equations)
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Input Section */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           {/* Demographics */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4">Demographics</h2>
-            
-            <div className="grid md:grid-cols-3 gap-4">
+            <h2 className="mb-4 font-semibold text-gray-900">Demographics</h2>
+
+            <div className="grid gap-4 md:grid-cols-3">
               {/* Age */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Age (40-79)
-                </label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Age (40-79)</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -127,7 +138,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
                     placeholder="55"
                     min="40"
                     max="79"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-16 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-16 text-lg font-semibold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     years
@@ -137,13 +148,11 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
               {/* Sex */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sex at Birth
-                </label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Sex at Birth</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSex('male')}
-                    className={`flex-1 rounded-xl px-3 py-3 font-medium transition-all border-2 ${
+                    className={`flex-1 rounded-xl border-2 px-3 py-3 font-medium transition-all ${
                       sex === 'male'
                         ? 'border-red-500 bg-red-50 text-red-700'
                         : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -153,7 +162,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
                   </button>
                   <button
                     onClick={() => setSex('female')}
-                    className={`flex-1 rounded-xl px-3 py-3 font-medium transition-all border-2 ${
+                    className={`flex-1 rounded-xl border-2 px-3 py-3 font-medium transition-all ${
                       sex === 'female'
                         ? 'border-red-500 bg-red-50 text-red-700'
                         : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -166,13 +175,11 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
               {/* Race */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Race
-                </label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Race</label>
                 <select
                   value={race}
                   onChange={(e) => setRace(e.target.value as typeof race)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 font-medium text-gray-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
                 >
                   <option value="white">White</option>
                   <option value="african_american">African American</option>
@@ -184,12 +191,12 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
           {/* Lab Values */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4">Lipid Panel</h2>
-            
-            <div className="grid md:grid-cols-2 gap-4">
+            <h2 className="mb-4 font-semibold text-gray-900">Lipid Panel</h2>
+
+            <div className="grid gap-4 md:grid-cols-2">
               {/* Total Cholesterol */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Total Cholesterol (130-320)
                 </label>
                 <div className="relative">
@@ -200,7 +207,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
                     placeholder="200"
                     min="130"
                     max="320"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-20 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-20 text-lg font-semibold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     mg/dL
@@ -210,7 +217,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
               {/* HDL Cholesterol */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   HDL Cholesterol (20-100)
                 </label>
                 <div className="relative">
@@ -221,7 +228,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
                     placeholder="50"
                     min="20"
                     max="100"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-20 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-20 text-lg font-semibold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     mg/dL
@@ -233,12 +240,12 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
           {/* Blood Pressure */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4">Blood Pressure</h2>
-            
-            <div className="grid md:grid-cols-2 gap-4">
+            <h2 className="mb-4 font-semibold text-gray-900">Blood Pressure</h2>
+
+            <div className="grid gap-4 md:grid-cols-2">
               {/* Systolic BP */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Systolic BP (90-200)
                 </label>
                 <div className="relative">
@@ -249,7 +256,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
                     placeholder="120"
                     min="90"
                     max="200"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-20 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-20 text-lg font-semibold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     mmHg
@@ -259,13 +266,13 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
               {/* HTN Treatment */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   On BP Treatment?
                 </label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setOnHypertensionTreatment(true)}
-                    className={`flex-1 rounded-xl px-3 py-3 font-medium transition-all border-2 ${
+                    className={`flex-1 rounded-xl border-2 px-3 py-3 font-medium transition-all ${
                       onHypertensionTreatment
                         ? 'border-red-500 bg-red-50 text-red-700'
                         : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -275,7 +282,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
                   </button>
                   <button
                     onClick={() => setOnHypertensionTreatment(false)}
-                    className={`flex-1 rounded-xl px-3 py-3 font-medium transition-all border-2 ${
+                    className={`flex-1 rounded-xl border-2 px-3 py-3 font-medium transition-all ${
                       !onHypertensionTreatment
                         ? 'border-green-500 bg-green-50 text-green-700'
                         : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -290,11 +297,11 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
           {/* Risk Factors */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4">Additional Risk Factors</h2>
-            
-            <div className="grid md:grid-cols-2 gap-4">
+            <h2 className="mb-4 font-semibold text-gray-900">Additional Risk Factors</h2>
+
+            <div className="grid gap-4 md:grid-cols-2">
               {/* Diabetes */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
+              <div className="flex items-center justify-between rounded-xl bg-gray-50 p-4">
                 <span className="font-medium text-gray-700">Diabetes</span>
                 <button
                   onClick={() => setHasDiabetes(!hasDiabetes)}
@@ -311,7 +318,7 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
               </div>
 
               {/* Smoker */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
+              <div className="flex items-center justify-between rounded-xl bg-gray-50 p-4">
                 <span className="font-medium text-gray-700">Current Smoker</span>
                 <button
                   onClick={() => setIsSmoker(!isSmoker)}
@@ -333,10 +340,10 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
           {!validation.valid && validation.errors.length > 0 && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
                 <div>
                   <p className="font-medium text-amber-900">Please correct the following:</p>
-                  <ul className="mt-2 text-sm text-amber-800 list-disc list-inside">
+                  <ul className="mt-2 list-inside list-disc text-sm text-amber-800">
                     {validation.errors.map((error, i) => (
                       <li key={i}>{error}</li>
                     ))}
@@ -358,11 +365,11 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
             }}
           >
             <Heart className="mx-auto mb-3 h-10 w-10 opacity-80" />
-            <p className="text-sm font-medium opacity-80 mb-1 text-center">10-Year ASCVD Risk</p>
-            <p className="text-6xl font-bold mb-2 text-center">
+            <p className="mb-1 text-center text-sm font-medium opacity-80">10-Year ASCVD Risk</p>
+            <p className="mb-2 text-center text-6xl font-bold">
               {result ? `${result.tenYearRisk}%` : '--'}
             </p>
-            <p className="text-lg font-medium opacity-90 text-center">
+            <p className="text-center text-lg font-medium opacity-90">
               {result?.riskCategoryLabel || 'Enter patient data'}
             </p>
           </div>
@@ -371,20 +378,20 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
             <>
               {/* Risk Comparison */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
                   <TrendingDown className="h-5 w-5 text-green-600" />
                   Risk Comparison
                 </h3>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 rounded-xl bg-red-50">
+                  <div className="flex items-center justify-between rounded-xl bg-red-50 p-3">
                     <span className="text-gray-700">Current Risk</span>
                     <span className="font-bold text-red-600">{result.tenYearRisk}%</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 rounded-xl bg-green-50">
+                  <div className="flex items-center justify-between rounded-xl bg-green-50 p-3">
                     <span className="text-gray-700">Optimal Risk</span>
                     <span className="font-bold text-green-600">{result.optimalRisk}%</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 rounded-xl bg-blue-50">
+                  <div className="flex items-center justify-between rounded-xl bg-blue-50 p-3">
                     <span className="text-gray-700">Potential Reduction</span>
                     <span className="font-bold text-blue-600">
                       {Math.round((result.tenYearRisk - result.optimalRisk) * 10) / 10}%
@@ -395,20 +402,20 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
               {/* Statin Recommendation */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
                   <Stethoscope className="h-5 w-5 text-purple-600" />
                   Statin Recommendation
                 </h3>
                 <div
-                  className={`p-4 rounded-xl ${
+                  className={`rounded-xl p-4 ${
                     result.statinRecommendation.indicated
                       ? result.statinRecommendation.intensity === 'high'
-                        ? 'bg-red-50 border border-red-200'
-                        : 'bg-amber-50 border border-amber-200'
-                      : 'bg-green-50 border border-green-200'
+                        ? 'border border-red-200 bg-red-50'
+                        : 'border border-amber-200 bg-amber-50'
+                      : 'border border-green-200 bg-green-50'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="mb-2 flex items-center gap-2">
                     <Shield
                       className={`h-5 w-5 ${
                         result.statinRecommendation.indicated
@@ -424,19 +431,17 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
                         : `${result.statinRecommendation.intensity}-Intensity Statin`}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-700">
-                    {result.statinRecommendation.rationale}
-                  </p>
+                  <p className="text-sm text-gray-700">{result.statinRecommendation.rationale}</p>
                 </div>
               </div>
 
               {/* Recommendations */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-3">Lifestyle Recommendations</h3>
+                <h3 className="mb-3 font-semibold text-gray-900">Lifestyle Recommendations</h3>
                 <ul className="space-y-2">
                   {result.recommendations.slice(0, 5).map((rec, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                      <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
                       {rec}
                     </li>
                   ))}
@@ -445,10 +450,10 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
               {/* Copy Documentation */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-3">Documentation</h3>
+                <h3 className="mb-3 font-semibold text-gray-900">Documentation</h3>
                 <button
                   onClick={() => copyToClipboard(generateDocumentation())}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-900 text-white font-medium hover:bg-gray-800 transition-colors"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-800"
                 >
                   {copiedText ? (
                     <>
@@ -468,21 +473,22 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
 
           {/* Risk Categories Reference */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3">Risk Categories</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Risk Categories</h3>
             <div className="space-y-2">
               {RISK_CATEGORIES.map((cat) => (
                 <div
                   key={cat.category}
-                  className={`flex items-center justify-between p-2 rounded-lg ${
+                  className={`flex items-center justify-between rounded-lg p-2 ${
                     result?.riskCategory === cat.category ? 'bg-gray-100 ring-1 ring-gray-300' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color }} />
                     <span className="text-sm font-medium text-gray-900">{cat.label}</span>
                   </div>
                   <span className="text-xs text-gray-500">
-                    {cat.range.min < 1 ? '<' : ''}{cat.range.min}
+                    {cat.range.min < 1 ? '<' : ''}
+                    {cat.range.min}
                     {cat.range.max < 100 ? `-${cat.range.max}` : '+'}%
                   </span>
                 </div>
@@ -493,11 +499,11 @@ Statin Recommendation: ${result.statinRecommendation.rationale}`;
           {/* Info Box */}
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
             <Info className="mb-2 h-5 w-5 text-blue-600" />
-            <h3 className="font-semibold text-blue-900 mb-2">Clinical Note</h3>
+            <h3 className="mb-2 font-semibold text-blue-900">Clinical Note</h3>
             <p className="text-sm text-blue-800">
-              This calculator uses the 2013 ACC/AHA Pooled Cohort Equations. Consider 
-              risk-enhancing factors for patients with borderline or intermediate risk 
-              when making treatment decisions.
+              This calculator uses the 2013 ACC/AHA Pooled Cohort Equations. Consider risk-enhancing
+              factors for patients with borderline or intermediate risk when making treatment
+              decisions.
             </p>
           </div>
         </div>

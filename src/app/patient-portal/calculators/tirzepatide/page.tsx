@@ -274,7 +274,7 @@ export default function TirzepatideDoseCalculatorPage() {
           {/* Injection Tracker Link */}
           <Link
             href="/patient-portal/tools/injection-tracker"
-            className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
+            className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
           >
             <div className="flex items-center gap-4">
               <div
@@ -292,26 +292,23 @@ export default function TirzepatideDoseCalculatorPage() {
           </Link>
 
           {/* Storage Tips */}
-          <div
-            className="rounded-2xl p-5"
-            style={{ backgroundColor: `${primaryColor}08` }}
-          >
-            <h3 className="font-semibold text-gray-900 mb-3">Storage Instructions</h3>
+          <div className="rounded-2xl p-5" style={{ backgroundColor: `${primaryColor}08` }}>
+            <h3 className="mb-3 font-semibold text-gray-900">Storage Instructions</h3>
             <ul className="space-y-2 text-sm text-gray-700">
               <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
                 Store in refrigerator at 36°F to 46°F (2°C to 8°C)
               </li>
               <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
                 Can be stored at room temp up to 86°F for 21 days after first use
               </li>
               <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
                 Do not freeze and protect from light
               </li>
               <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
                 Let medication reach room temperature (~30 min) before injecting
               </li>
             </ul>

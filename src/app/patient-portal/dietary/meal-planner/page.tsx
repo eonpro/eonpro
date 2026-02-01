@@ -303,30 +303,28 @@ export default function MealPlannerPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column - Meal Selection */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="space-y-5 lg:col-span-2">
           {/* Meal Type Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-2">
             {MEAL_CATEGORIES.map((cat) => {
               const Icon = cat.icon;
               const isSelected = selectedMealType === cat.id;
               const hasSelection = selectedMeals[cat.id] !== null;
-              
+
               return (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedMealType(cat.id)}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all whitespace-nowrap ${
+                  className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 font-medium transition-all ${
                     isSelected
                       ? 'text-white shadow-lg'
-                      : 'bg-white text-gray-600 hover:bg-gray-50 shadow-sm'
+                      : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50'
                   }`}
                   style={isSelected ? { backgroundColor: primaryColor } : {}}
                 >
                   <Icon className="h-5 w-5" />
                   {cat.name}
-                  {hasSelection && !isSelected && (
-                    <Check className="h-4 w-4 text-green-500" />
-                  )}
+                  {hasSelection && !isSelected && <Check className="h-4 w-4 text-green-500" />}
                 </button>
               );
             })}
@@ -344,15 +342,15 @@ export default function MealPlannerPage() {
           <div className="space-y-3">
             {currentCategory?.suggestions.map((meal) => {
               const isSelected = selectedMeals[selectedMealType]?.name === meal.name;
-              
+
               return (
                 <button
                   key={meal.name}
                   onClick={() => selectMeal(meal)}
-                  className={`w-full text-left p-5 rounded-2xl transition-all ${
+                  className={`w-full rounded-2xl p-5 text-left transition-all ${
                     isSelected
-                      ? 'bg-white border-2 shadow-lg'
-                      : 'bg-white shadow-sm hover:shadow-md border-2 border-transparent'
+                      ? 'border-2 bg-white shadow-lg'
+                      : 'border-2 border-transparent bg-white shadow-sm hover:shadow-md'
                   }`}
                   style={isSelected ? { borderColor: primaryColor } : {}}
                 >
@@ -362,7 +360,7 @@ export default function MealPlannerPage() {
                         <h3 className="font-semibold text-gray-900">{meal.name}</h3>
                         {meal.glp1Friendly && (
                           <span
-                            className="text-xs font-medium px-2 py-0.5 rounded-full"
+                            className="rounded-full px-2 py-0.5 text-xs font-medium"
                             style={{
                               backgroundColor: `${primaryColor}15`,
                               color: primaryColor,
@@ -372,18 +370,21 @@ export default function MealPlannerPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">{meal.description}</p>
-                      
+                      <p className="mt-1 text-sm text-gray-500">{meal.description}</p>
+
                       {meal.tips && (
-                        <p className="text-xs mt-2 flex items-center gap-1" style={{ color: primaryColor }}>
+                        <p
+                          className="mt-2 flex items-center gap-1 text-xs"
+                          style={{ color: primaryColor }}
+                        >
                           <Sparkles className="h-3 w-3" />
                           {meal.tips}
                         </p>
                       )}
                     </div>
-                    
+
                     <div
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-4 ${
+                      className={`ml-4 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 ${
                         isSelected ? 'border-transparent' : 'border-gray-200'
                       }`}
                       style={isSelected ? { backgroundColor: primaryColor } : {}}
@@ -391,16 +392,16 @@ export default function MealPlannerPage() {
                       {isSelected && <Check className="h-4 w-4 text-white" />}
                     </div>
                   </div>
-                  
+
                   {/* Macro Bar */}
-                  <div className="flex gap-4 mt-4 pt-4 border-t border-gray-100 text-sm">
+                  <div className="mt-4 flex gap-4 border-t border-gray-100 pt-4 text-sm">
                     <div className="flex items-center gap-1">
                       <Beef className="h-4 w-4 text-red-500" />
                       <span className="font-semibold text-gray-900">{meal.protein}g</span>
                       <span className="text-gray-400">P</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="w-4 h-4 text-blue-500">🍞</span>
+                      <span className="h-4 w-4 text-blue-500">🍞</span>
                       <span className="font-semibold text-gray-900">{meal.carbs}g</span>
                       <span className="text-gray-400">C</span>
                     </div>
@@ -409,9 +410,7 @@ export default function MealPlannerPage() {
                       <span className="font-semibold text-gray-900">{meal.fat}g</span>
                       <span className="text-gray-400">F</span>
                     </div>
-                    <div className="ml-auto font-semibold text-gray-600">
-                      {meal.calories} cal
-                    </div>
+                    <div className="ml-auto font-semibold text-gray-600">{meal.calories} cal</div>
                   </div>
                 </button>
               );
@@ -422,39 +421,33 @@ export default function MealPlannerPage() {
         {/* Right Column - Summary */}
         <div className="space-y-5">
           {/* Daily Summary */}
-          <div
-            className="rounded-2xl p-5"
-            style={{ backgroundColor: accentColor }}
-          >
-            <div className="flex items-center justify-between mb-4">
+          <div className="rounded-2xl p-5" style={{ backgroundColor: accentColor }}>
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">Today's Plan</h3>
               {Object.values(selectedMeals).some((m) => m !== null) && (
-                <button
-                  onClick={clearAll}
-                  className="text-sm text-gray-600 hover:text-gray-900"
-                >
+                <button onClick={clearAll} className="text-sm text-gray-600 hover:text-gray-900">
                   Clear all
                 </button>
               )}
             </div>
 
             {/* Selected Meals Summary */}
-            <div className="space-y-2 mb-4">
+            <div className="mb-4 space-y-2">
               {MEAL_CATEGORIES.map((cat) => {
                 const meal = selectedMeals[cat.id];
                 const Icon = cat.icon;
-                
+
                 return (
                   <div
                     key={cat.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-white/50"
+                    className="flex items-center justify-between rounded-xl bg-white/50 p-3"
                   >
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-700">{cat.name}</span>
                     </div>
                     {meal ? (
-                      <span className="text-sm font-medium text-gray-900 truncate max-w-24">
+                      <span className="max-w-24 truncate text-sm font-medium text-gray-900">
                         {meal.name}
                       </span>
                     ) : (
@@ -466,8 +459,8 @@ export default function MealPlannerPage() {
             </div>
 
             {/* Total Macros */}
-            <div className="p-4 rounded-xl bg-white/70">
-              <p className="text-sm font-medium text-gray-700 mb-3">Daily Totals</p>
+            <div className="rounded-xl bg-white/70 p-4">
+              <p className="mb-3 text-sm font-medium text-gray-700">Daily Totals</p>
               <div className="grid grid-cols-4 gap-2 text-center">
                 <div>
                   <p className="text-2xl font-bold text-gray-900">{totalDayMacros.calories}</p>
@@ -493,7 +486,7 @@ export default function MealPlannerPage() {
           <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
             <button
               onClick={() => setShowTips(!showTips)}
-              className="w-full flex items-center justify-between"
+              className="flex w-full items-center justify-between"
             >
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5" style={{ color: primaryColor }} />
@@ -509,11 +502,11 @@ export default function MealPlannerPage() {
             {showTips && (
               <ul className="mt-4 space-y-2">
                 {GLP1_TIPS.map((tip, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-sm text-gray-700"
-                  >
-                    <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                    <Check
+                      className="mt-0.5 h-4 w-4 flex-shrink-0"
+                      style={{ color: primaryColor }}
+                    />
                     {tip}
                   </li>
                 ))}
@@ -523,7 +516,7 @@ export default function MealPlannerPage() {
 
           {/* Hydration Reminder */}
           <div
-            className="rounded-2xl p-5 border-2"
+            className="rounded-2xl border-2 p-5"
             style={{
               borderColor: `${primaryColor}30`,
               backgroundColor: `${primaryColor}08`,
@@ -533,9 +526,9 @@ export default function MealPlannerPage() {
               <Droplets className="h-6 w-6 flex-shrink-0" style={{ color: primaryColor }} />
               <div>
                 <h4 className="font-semibold text-gray-900">Stay Hydrated</h4>
-                <p className="text-sm text-gray-600 mt-1">
-                  Aim for 64+ oz of water daily. Drink between meals, not during, 
-                  for better digestion on GLP-1 medications.
+                <p className="mt-1 text-sm text-gray-600">
+                  Aim for 64+ oz of water daily. Drink between meals, not during, for better
+                  digestion on GLP-1 medications.
                 </p>
               </div>
             </div>
@@ -544,22 +537,17 @@ export default function MealPlannerPage() {
           {/* Link to Macro Calculator */}
           <Link
             href="/patient-portal/calculators/macros"
-            className="block rounded-2xl bg-white p-5 shadow-lg shadow-gray-100 hover:shadow-xl transition-shadow"
+            className="block rounded-2xl bg-white p-5 shadow-lg shadow-gray-100 transition-shadow hover:shadow-xl"
           >
             <div className="flex items-center gap-4">
-              <div
-                className="p-3 rounded-xl"
-                style={{ backgroundColor: `${primaryColor}15` }}
-              >
+              <div className="rounded-xl p-3" style={{ backgroundColor: `${primaryColor}15` }}>
                 <Beef className="h-6 w-6" style={{ color: primaryColor }} />
               </div>
               <div>
                 <p className="font-semibold text-gray-900">Macro Calculator</p>
-                <p className="text-sm text-gray-500">
-                  Get your personalized macro targets
-                </p>
+                <p className="text-sm text-gray-500">Get your personalized macro targets</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
+              <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
             </div>
           </Link>
         </div>

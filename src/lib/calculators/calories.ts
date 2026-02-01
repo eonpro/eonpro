@@ -1,6 +1,6 @@
 /**
  * Calorie and Metabolism Calculation Utilities
- * 
+ *
  * References:
  * - Mifflin-St Jeor Equation (most accurate for modern populations)
  * - Harris-Benedict Equation (alternative)
@@ -32,12 +32,7 @@ export interface MacroTargets {
   fat: { grams: number; calories: number; percentage: number };
 }
 
-export type ActivityLevel = 
-  | 'sedentary'
-  | 'light'
-  | 'moderate'
-  | 'active'
-  | 'very_active';
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 
 export interface ActivityLevelInfo {
   level: ActivityLevel;
@@ -136,12 +131,12 @@ export function calculateBMR(
   // Mifflin-St Jeor Equation
   // Male: BMR = 10 × weight(kg) + 6.25 × height(cm) - 5 × age(years) + 5
   // Female: BMR = 10 × weight(kg) + 6.25 × height(cm) - 5 × age(years) - 161
-  
+
   let bmr: number;
   if (sex === 'male') {
-    bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
+    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
   } else {
-    bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161;
+    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
   }
 
   return Math.round(bmr);
@@ -152,7 +147,7 @@ export function calculateBMR(
  * TDEE = BMR × Activity Multiplier
  */
 export function calculateTDEE(bmr: number, activityLevel: ActivityLevel): number {
-  const activityInfo = ACTIVITY_LEVELS.find(a => a.level === activityLevel);
+  const activityInfo = ACTIVITY_LEVELS.find((a) => a.level === activityLevel);
   const multiplier = activityInfo?.multiplier || 1.2;
   return Math.round(bmr * multiplier);
 }
@@ -177,7 +172,7 @@ export function calculateTargetCalories(
   const dailyDeficit = (weightLossRate * 3500) / 7;
   const targetCalories = tdee - dailyDeficit;
   const minimumCalories = getMinimumSafeCalories(sex);
-  
+
   return Math.max(Math.round(targetCalories), minimumCalories);
 }
 
@@ -192,7 +187,7 @@ export function calculateWeeksToGoal(
   if (goalWeightLbs >= currentWeightLbs || weightLossRatePerWeek <= 0) {
     return null;
   }
-  
+
   const weightToLose = currentWeightLbs - goalWeightLbs;
   return Math.ceil(weightToLose / weightLossRatePerWeek);
 }
@@ -208,7 +203,7 @@ export function calculateCalorieNeeds(
   const bmr = calculateBMR(input.weightLbs, input.heightInches, input.age, input.sex);
   const tdee = calculateTDEE(bmr, input.activityLevel);
   const minimumSafe = getMinimumSafeCalories(input.sex);
-  
+
   let targetCalories = tdee;
   let deficit = 0;
   let weeksToGoal: number | null = null;
@@ -248,27 +243,27 @@ export function calculateMacros(
   // Weight loss: Higher protein to preserve muscle (0.8-1.0g per lb body weight)
   // Maintenance: Moderate protein (0.7-0.8g per lb)
   // Muscle gain: High protein (1.0-1.2g per lb)
-  
+
   switch (goal) {
     case 'weight_loss':
       proteinRatio = 0.35; // 35% protein
       carbRatio = 0.35; // 35% carbs
-      fatRatio = 0.30; // 30% fat
+      fatRatio = 0.3; // 30% fat
       break;
     case 'maintenance':
       proteinRatio = 0.25; // 25% protein
-      carbRatio = 0.50; // 50% carbs
+      carbRatio = 0.5; // 50% carbs
       fatRatio = 0.25; // 25% fat
       break;
     case 'muscle_gain':
-      proteinRatio = 0.30; // 30% protein
+      proteinRatio = 0.3; // 30% protein
       carbRatio = 0.45; // 45% carbs
       fatRatio = 0.25; // 25% fat
       break;
     default:
-      proteinRatio = 0.30;
-      carbRatio = 0.40;
-      fatRatio = 0.30;
+      proteinRatio = 0.3;
+      carbRatio = 0.4;
+      fatRatio = 0.3;
   }
 
   // Calculate calories per macro
@@ -352,7 +347,7 @@ export function getGLP1CalorieAdjustment(baseCalories: number): {
   // GLP-1 patients often need 200-400 fewer calories due to reduced appetite
   // but should not go below minimum safe thresholds
   const adjustment = Math.min(300, baseCalories * 0.15);
-  
+
   return {
     adjusted: Math.round(baseCalories - adjustment),
     note: 'GLP-1 medications reduce appetite. If struggling to meet calorie targets, focus on protein-rich foods first.',
@@ -362,7 +357,10 @@ export function getGLP1CalorieAdjustment(baseCalories: number): {
 /**
  * Validate calorie calculation inputs
  */
-export function validateCalorieInput(input: Partial<CalorieInput>): { valid: boolean; errors: string[] } {
+export function validateCalorieInput(input: Partial<CalorieInput>): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
 
   if (!input.age || input.age < 18 || input.age > 100) {

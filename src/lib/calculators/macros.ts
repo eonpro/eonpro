@@ -1,13 +1,19 @@
 /**
  * Macronutrient Calculation Utilities
- * 
+ *
  * References:
  * - Dietary Guidelines for Americans
  * - ACSM Protein Recommendations
  * - ADA Nutrition Therapy Guidelines
  */
 
-export type MacroGoal = 'weight_loss' | 'maintenance' | 'muscle_gain' | 'keto' | 'low_carb' | 'balanced';
+export type MacroGoal =
+  | 'weight_loss'
+  | 'maintenance'
+  | 'muscle_gain'
+  | 'keto'
+  | 'low_carb'
+  | 'balanced';
 
 export interface MacroRatio {
   protein: number; // percentage (0-100)
@@ -113,7 +119,7 @@ export const CALORIES_PER_GRAM = {
  * Get macro preset by goal
  */
 export function getMacroPreset(goal: MacroGoal): MacroPreset {
-  return MACRO_PRESETS.find(p => p.goal === goal) || MACRO_PRESETS[0];
+  return MACRO_PRESETS.find((p) => p.goal === goal) || MACRO_PRESETS[0];
 }
 
 /**
@@ -125,26 +131,26 @@ export function calculateMacros(
   bodyWeightLbs?: number
 ): MacroResult {
   const preset = getMacroPreset(goal);
-  
+
   // Calculate calories from each macro
   const proteinCalories = Math.round(targetCalories * (preset.ratio.protein / 100));
   const carbCalories = Math.round(targetCalories * (preset.ratio.carbs / 100));
   const fatCalories = Math.round(targetCalories * (preset.ratio.fat / 100));
-  
+
   // Convert to grams
   let proteinGrams = Math.round(proteinCalories / CALORIES_PER_GRAM.protein);
   const carbGrams = Math.round(carbCalories / CALORIES_PER_GRAM.carbs);
   const fatGrams = Math.round(fatCalories / CALORIES_PER_GRAM.fat);
-  
+
   // Adjust protein based on body weight if provided
   if (bodyWeightLbs) {
     const minProtein = Math.round(bodyWeightLbs * preset.proteinPerLb);
     proteinGrams = Math.max(proteinGrams, minProtein);
   }
-  
+
   // Calculate fiber target
   const fiberGrams = Math.round((targetCalories / 1000) * preset.fiberTarget);
-  
+
   // Generate recommendations
   const recommendations = generateMacroRecommendations(goal, {
     protein: proteinGrams,
@@ -152,7 +158,7 @@ export function calculateMacros(
     fat: fatGrams,
     fiber: fiberGrams,
   });
-  
+
   return {
     calories: {
       protein: proteinGrams * CALORIES_PER_GRAM.protein,
@@ -189,16 +195,16 @@ export function calculateCustomMacros(
     carbPercent *= factor;
     fatPercent *= factor;
   }
-  
+
   const proteinCalories = Math.round(targetCalories * (proteinPercent / 100));
   const carbCalories = Math.round(targetCalories * (carbPercent / 100));
   const fatCalories = Math.round(targetCalories * (fatPercent / 100));
-  
+
   const proteinGrams = Math.round(proteinCalories / CALORIES_PER_GRAM.protein);
   const carbGrams = Math.round(carbCalories / CALORIES_PER_GRAM.carbs);
   const fatGrams = Math.round(fatCalories / CALORIES_PER_GRAM.fat);
   const fiberGrams = Math.round((targetCalories / 1000) * 14);
-  
+
   return {
     calories: {
       protein: proteinCalories,
@@ -230,7 +236,7 @@ export function distributeMacrosToMeals(
   includeSnacks: boolean = true
 ): { meal: string; protein: number; carbs: number; fat: number; fiber: number }[] {
   const meals: { meal: string; protein: number; carbs: number; fat: number; fiber: number }[] = [];
-  
+
   if (mealCount === 3 && includeSnacks) {
     // 3 meals + 2 snacks distribution
     meals.push({
@@ -242,23 +248,23 @@ export function distributeMacrosToMeals(
     });
     meals.push({
       meal: 'Morning Snack',
-      protein: Math.round(dailyMacros.protein * 0.10),
-      carbs: Math.round(dailyMacros.carbs * 0.10),
-      fat: Math.round(dailyMacros.fat * 0.10),
+      protein: Math.round(dailyMacros.protein * 0.1),
+      carbs: Math.round(dailyMacros.carbs * 0.1),
+      fat: Math.round(dailyMacros.fat * 0.1),
       fiber: Math.round(dailyMacros.fiber * 0.15),
     });
     meals.push({
       meal: 'Lunch',
-      protein: Math.round(dailyMacros.protein * 0.30),
-      carbs: Math.round(dailyMacros.carbs * 0.30),
-      fat: Math.round(dailyMacros.fat * 0.30),
-      fiber: Math.round(dailyMacros.fiber * 0.30),
+      protein: Math.round(dailyMacros.protein * 0.3),
+      carbs: Math.round(dailyMacros.carbs * 0.3),
+      fat: Math.round(dailyMacros.fat * 0.3),
+      fiber: Math.round(dailyMacros.fiber * 0.3),
     });
     meals.push({
       meal: 'Afternoon Snack',
-      protein: Math.round(dailyMacros.protein * 0.10),
-      carbs: Math.round(dailyMacros.carbs * 0.10),
-      fat: Math.round(dailyMacros.fat * 0.10),
+      protein: Math.round(dailyMacros.protein * 0.1),
+      carbs: Math.round(dailyMacros.carbs * 0.1),
+      fat: Math.round(dailyMacros.fat * 0.1),
       fiber: Math.round(dailyMacros.fiber * 0.15),
     });
     meals.push({
@@ -266,7 +272,7 @@ export function distributeMacrosToMeals(
       protein: Math.round(dailyMacros.protein * 0.25),
       carbs: Math.round(dailyMacros.carbs * 0.25),
       fat: Math.round(dailyMacros.fat * 0.25),
-      fiber: Math.round(dailyMacros.fiber * 0.20),
+      fiber: Math.round(dailyMacros.fiber * 0.2),
     });
   } else {
     // Equal distribution across meals
@@ -276,7 +282,7 @@ export function distributeMacrosToMeals(
       fat: Math.round(dailyMacros.fat / mealCount),
       fiber: Math.round(dailyMacros.fiber / mealCount),
     };
-    
+
     const mealNames = ['Breakfast', 'Lunch', 'Dinner', 'Snack 1', 'Snack 2', 'Snack 3'];
     for (let i = 0; i < mealCount; i++) {
       meals.push({
@@ -285,7 +291,7 @@ export function distributeMacrosToMeals(
       });
     }
   }
-  
+
   return meals;
 }
 
@@ -294,10 +300,10 @@ export function distributeMacrosToMeals(
  */
 function generateMacroRecommendations(goal: MacroGoal, macros: MacroGrams): string[] {
   const recommendations: string[] = [];
-  
+
   // Protein recommendations
   recommendations.push(`Aim for ${macros.protein}g protein daily - spread across all meals`);
-  
+
   // Goal-specific recommendations
   switch (goal) {
     case 'weight_loss':
@@ -324,20 +330,24 @@ function generateMacroRecommendations(goal: MacroGoal, macros: MacroGrams): stri
       recommendations.push('Eat a variety of whole foods from all food groups');
       recommendations.push('Limit processed foods and added sugars');
   }
-  
+
   // Fiber recommendation
-  recommendations.push(`Target ${macros.fiber}g fiber daily from vegetables, fruits, and whole grains`);
-  
+  recommendations.push(
+    `Target ${macros.fiber}g fiber daily from vegetables, fruits, and whole grains`
+  );
+
   return recommendations;
 }
 
 /**
  * GLP-1 specific macro recommendations
  */
-export function getGLP1MacroRecommendations(targetCalories: number): MacroResult & { glp1Tips: string[] } {
+export function getGLP1MacroRecommendations(
+  targetCalories: number
+): MacroResult & { glp1Tips: string[] } {
   // GLP-1 patients benefit from higher protein, moderate carbs, healthy fats
   const macros = calculateMacros(targetCalories, 'weight_loss');
-  
+
   const glp1Tips = [
     'Eat protein first at each meal to maximize satiety',
     'Take small bites and eat slowly - GLP-1 slows digestion',
@@ -348,7 +358,7 @@ export function getGLP1MacroRecommendations(targetCalories: number): MacroResult
     'If experiencing nausea, try smaller, more frequent meals',
     'Focus on nutrient-dense foods since you may eat less overall',
   ];
-  
+
   return {
     ...macros,
     glp1Tips,
@@ -393,24 +403,24 @@ export function validateMacroInput(
   percentages: MacroRatio
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
   if (calories < 800 || calories > 10000) {
     errors.push('Calories must be between 800 and 10,000');
   }
-  
+
   const total = percentages.protein + percentages.carbs + percentages.fat;
   if (Math.abs(total - 100) > 5) {
     errors.push('Macro percentages must sum to approximately 100%');
   }
-  
+
   if (percentages.protein < 10 || percentages.protein > 50) {
     errors.push('Protein should be between 10-50% of calories');
   }
-  
+
   if (percentages.fat < 15 || percentages.fat > 75) {
     errors.push('Fat should be between 15-75% of calories');
   }
-  
+
   return {
     valid: errors.length === 0,
     errors,

@@ -322,7 +322,9 @@ export default function CalorieCalculatorPage() {
                   </div>
                   <div className="rounded-xl bg-gray-50 p-3 text-center">
                     <p className="mb-1 text-xs text-gray-500">Maintenance</p>
-                    <p className="text-xl font-semibold text-gray-900">{results.maintenanceCalories}</p>
+                    <p className="text-xl font-semibold text-gray-900">
+                      {results.maintenanceCalories}
+                    </p>
                     <p className="text-xs text-gray-400">cal/day</p>
                   </div>
                 </div>

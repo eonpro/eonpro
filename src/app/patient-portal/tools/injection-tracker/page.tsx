@@ -61,7 +61,7 @@ export default function InjectionTrackerPage() {
   }, [history]);
 
   const recentSites = useMemo(() => {
-    return history.slice(0, 6).map(h => h.site);
+    return history.slice(0, 6).map((h) => h.site);
   }, [history]);
 
   const suggestedSite = useMemo(() => {
@@ -120,9 +120,7 @@ export default function InjectionTrackerPage() {
           Back to Tools
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900">Injection Site Tracker</h1>
-        <p className="mt-1 text-gray-500">
-          Track and rotate your injection sites for best results
-        </p>
+        <p className="mt-1 text-gray-500">Track and rotate your injection sites for best results</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -133,13 +131,13 @@ export default function InjectionTrackerPage() {
             <div
               className={`rounded-2xl p-5 ${
                 isOverdue
-                  ? 'bg-amber-50 border-2 border-amber-200'
+                  ? 'border-2 border-amber-200 bg-amber-50'
                   : 'bg-white shadow-lg shadow-gray-100'
               }`}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Last Injection</p>
+                  <p className="mb-1 text-sm text-gray-500">Last Injection</p>
                   <p className="text-xl font-semibold text-gray-900">
                     {formatDate(lastInjection.date)}
                   </p>
@@ -148,9 +146,7 @@ export default function InjectionTrackerPage() {
                   </p>
                 </div>
                 <div
-                  className={`p-3 rounded-xl ${
-                    isOverdue ? 'bg-amber-100' : ''
-                  }`}
+                  className={`rounded-xl p-3 ${isOverdue ? 'bg-amber-100' : ''}`}
                   style={!isOverdue ? { backgroundColor: `${primaryColor}15` } : {}}
                 >
                   {isOverdue ? (
@@ -161,8 +157,10 @@ export default function InjectionTrackerPage() {
                 </div>
               </div>
               {daysSinceLastInjection !== null && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className={`text-sm font-medium ${isOverdue ? 'text-amber-700' : 'text-gray-600'}`}>
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <p
+                    className={`text-sm font-medium ${isOverdue ? 'text-amber-700' : 'text-gray-600'}`}
+                  >
                     {daysSinceLastInjection === 0 && 'Injection logged today'}
                     {daysSinceLastInjection === 1 && '1 day ago'}
                     {daysSinceLastInjection > 1 && `${daysSinceLastInjection} days ago`}
@@ -174,15 +172,14 @@ export default function InjectionTrackerPage() {
           ) : (
             <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
               <div className="flex items-center gap-3">
-                <div
-                  className="p-3 rounded-xl"
-                  style={{ backgroundColor: `${primaryColor}15` }}
-                >
+                <div className="rounded-xl p-3" style={{ backgroundColor: `${primaryColor}15` }}>
                   <Syringe className="h-6 w-6" style={{ color: primaryColor }} />
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900">No injections logged yet</p>
-                  <p className="text-sm text-gray-500">Tap on the body diagram to log your first injection</p>
+                  <p className="text-sm text-gray-500">
+                    Tap on the body diagram to log your first injection
+                  </p>
                 </div>
               </div>
             </div>
@@ -190,24 +187,24 @@ export default function InjectionTrackerPage() {
 
           {/* Body Diagram */}
           <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">Select Injection Site</h3>
               <div className="flex items-center gap-2 text-xs">
                 <span className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: primaryColor }} />
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: primaryColor }} />
                   Suggested
                 </span>
                 <span className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-amber-400" />
+                  <div className="h-3 w-3 rounded-full bg-amber-400" />
                   Recent
                 </span>
               </div>
             </div>
 
             {/* Body Outline with Clickable Sites */}
-            <div className="relative w-full aspect-[3/4] max-w-xs mx-auto">
+            <div className="relative mx-auto aspect-[3/4] w-full max-w-xs">
               {/* Simple body outline SVG */}
-              <svg viewBox="0 0 100 130" className="w-full h-full">
+              <svg viewBox="0 0 100 130" className="h-full w-full">
                 {/* Head */}
                 <circle cx="50" cy="12" r="10" fill="#E5E7EB" stroke="#D1D5DB" strokeWidth="1" />
                 {/* Torso */}
@@ -252,9 +249,9 @@ export default function InjectionTrackerPage() {
                 const siteKey = site as InjectionSite;
                 const status = getSiteStatus(siteKey);
                 const isSelected = selectedSite === siteKey;
-                
+
                 let bgColor = '#E5E7EB';
-                
+
                 if (status === 'suggested') {
                   bgColor = primaryColor;
                 } else if (status === 'recent') {
@@ -265,14 +262,14 @@ export default function InjectionTrackerPage() {
                   <button
                     key={site}
                     onClick={() => setSelectedSite(siteKey)}
-                    className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-110"
+                    className="absolute -translate-x-1/2 -translate-y-1/2 transform transition-transform hover:scale-110"
                     style={{
                       left: `${pos.x}%`,
                       top: `${pos.y}%`,
                     }}
                   >
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${
                         isSelected ? 'scale-110' : ''
                       }`}
                       style={{
@@ -280,9 +277,7 @@ export default function InjectionTrackerPage() {
                         boxShadow: isSelected ? '0 0 0 4px #1F2937' : 'none',
                       }}
                     >
-                      {isSelected && (
-                        <Check className="h-4 w-4 text-white" />
-                      )}
+                      {isSelected && <Check className="h-4 w-4 text-white" />}
                       {status === 'suggested' && !isSelected && (
                         <MapPin className="h-4 w-4 text-white" />
                       )}
@@ -294,24 +289,21 @@ export default function InjectionTrackerPage() {
 
             {/* Selected Site Info */}
             {selectedSite && (
-              <div className="mt-4 p-4 rounded-xl bg-gray-50">
-                <p className="font-medium text-gray-900 mb-1">
+              <div className="mt-4 rounded-xl bg-gray-50 p-4">
+                <p className="mb-1 font-medium text-gray-900">
                   {SITE_POSITIONS[selectedSite].label}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {INJECTION_SITES.find(s => s.site === selectedSite)?.instructions}
+                  {INJECTION_SITES.find((s) => s.site === selectedSite)?.instructions}
                 </p>
               </div>
             )}
 
             {/* Suggested Site Notice */}
             {!selectedSite && (
-              <div
-                className="mt-4 p-4 rounded-xl"
-                style={{ backgroundColor: `${primaryColor}15` }}
-              >
+              <div className="mt-4 rounded-xl p-4" style={{ backgroundColor: `${primaryColor}15` }}>
                 <p className="text-sm font-medium" style={{ color: primaryColor }}>
-                  <RotateCw className="h-4 w-4 inline mr-1" />
+                  <RotateCw className="mr-1 inline h-4 w-4" />
                   Suggested next site: {SITE_POSITIONS[suggestedSite].label}
                 </p>
               </div>
@@ -335,10 +327,10 @@ export default function InjectionTrackerPage() {
             <button
               onClick={logInjection}
               disabled={!selectedSite}
-              className={`mt-4 w-full py-4 rounded-xl font-semibold transition-all ${
+              className={`mt-4 w-full rounded-xl py-4 font-semibold transition-all ${
                 selectedSite
                   ? 'text-white shadow-lg hover:shadow-xl'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'cursor-not-allowed bg-gray-100 text-gray-400'
               }`}
               style={selectedSite ? { backgroundColor: primaryColor } : {}}
             >
@@ -350,13 +342,10 @@ export default function InjectionTrackerPage() {
           <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
             <button
               onClick={() => setShowTips(!showTips)}
-              className="w-full flex items-center justify-between"
+              className="flex w-full items-center justify-between"
             >
               <div className="flex items-center gap-3">
-                <div
-                  className="p-2 rounded-lg"
-                  style={{ backgroundColor: `${primaryColor}15` }}
-                >
+                <div className="rounded-lg p-2" style={{ backgroundColor: `${primaryColor}15` }}>
                   <Info className="h-5 w-5" style={{ color: primaryColor }} />
                 </div>
                 <span className="font-semibold text-gray-900">Injection Tips</span>
@@ -373,7 +362,7 @@ export default function InjectionTrackerPage() {
                 {INJECTION_TIPS.map((tip, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
                     <span
-                      className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold text-white"
+                      className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
                       style={{ backgroundColor: primaryColor }}
                     >
                       {i + 1}
@@ -390,8 +379,8 @@ export default function InjectionTrackerPage() {
         <div className="space-y-5">
           {/* History */}
           <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-semibold text-gray-900">
                 <CalendarDays className="h-5 w-5 text-gray-400" />
                 Injection History
               </h3>
@@ -401,21 +390,19 @@ export default function InjectionTrackerPage() {
             </div>
 
             {history.length === 0 ? (
-              <div className="text-center py-8">
-                <Syringe className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <div className="py-8 text-center">
+                <Syringe className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-gray-500">No injections logged yet</p>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="mt-1 text-sm text-gray-400">
                   Your injection history will appear here
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              <div className="max-h-96 space-y-3 overflow-y-auto">
                 {history.map((log, index) => (
                   <div
                     key={log.id}
-                    className={`p-4 rounded-xl ${
-                      index === 0 ? 'bg-gray-100' : 'bg-gray-50'
-                    }`}
+                    className={`rounded-xl p-4 ${index === 0 ? 'bg-gray-100' : 'bg-gray-50'}`}
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -424,12 +411,12 @@ export default function InjectionTrackerPage() {
                         </p>
                         <p className="text-sm text-gray-500">{formatDate(log.date)}</p>
                         {log.notes && (
-                          <p className="text-sm text-gray-600 mt-1 italic">{log.notes}</p>
+                          <p className="mt-1 text-sm italic text-gray-600">{log.notes}</p>
                         )}
                       </div>
                       {index === 0 && (
                         <span
-                          className="text-xs font-medium px-2 py-1 rounded-full text-white"
+                          className="rounded-full px-2 py-1 text-xs font-medium text-white"
                           style={{ backgroundColor: primaryColor }}
                         >
                           Latest
@@ -443,22 +430,16 @@ export default function InjectionTrackerPage() {
           </div>
 
           {/* Rotation Guide */}
-          <div
-            className="rounded-2xl p-5"
-            style={{ backgroundColor: accentColor }}
-          >
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <div className="rounded-2xl p-5" style={{ backgroundColor: accentColor }}>
+            <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
               <RotateCw className="h-5 w-5" />
               Site Rotation Pattern
             </h3>
             <div className="space-y-2">
               {INJECTION_SITES.map((site, i) => (
-                <div
-                  key={site.site}
-                  className="flex items-center gap-3 p-2 rounded-lg bg-white/50"
-                >
+                <div key={site.site} className="flex items-center gap-3 rounded-lg bg-white/50 p-2">
                   <span
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold text-white"
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-white"
                     style={{ backgroundColor: primaryColor }}
                   >
                     {i + 1}
@@ -468,30 +449,25 @@ export default function InjectionTrackerPage() {
               ))}
             </div>
             <p className="mt-4 text-sm text-gray-700">
-              Following a consistent rotation pattern helps prevent lipohypertrophy 
-              (lumps under the skin) and ensures consistent medication absorption.
+              Following a consistent rotation pattern helps prevent lipohypertrophy (lumps under the
+              skin) and ensures consistent medication absorption.
             </p>
           </div>
 
           {/* Link to Dose Calculator */}
           <Link
             href="/patient-portal/calculators/semaglutide"
-            className="block rounded-2xl bg-white p-5 shadow-lg shadow-gray-100 hover:shadow-xl transition-shadow"
+            className="block rounded-2xl bg-white p-5 shadow-lg shadow-gray-100 transition-shadow hover:shadow-xl"
           >
             <div className="flex items-center gap-4">
-              <div
-                className="p-3 rounded-xl"
-                style={{ backgroundColor: `${primaryColor}15` }}
-              >
+              <div className="rounded-xl p-3" style={{ backgroundColor: `${primaryColor}15` }}>
                 <Syringe className="h-6 w-6" style={{ color: primaryColor }} />
               </div>
               <div>
                 <p className="font-semibold text-gray-900">Dose Calculator</p>
-                <p className="text-sm text-gray-500">
-                  Calculate your injection dose in units
-                </p>
+                <p className="text-sm text-gray-500">Calculate your injection dose in units</p>
               </div>
-              <ArrowLeft className="h-5 w-5 text-gray-400 ml-auto rotate-180" />
+              <ArrowLeft className="ml-auto h-5 w-5 rotate-180 text-gray-400" />
             </div>
           </Link>
         </div>

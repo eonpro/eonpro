@@ -90,9 +90,8 @@ export default function ProviderCalorieCalculatorPage() {
 
   const generateDocumentation = () => {
     if (!result) return '';
-    const effectiveCalories = isOnGLP1 && glp1Adjustment 
-      ? glp1Adjustment.adjusted 
-      : result.targetCalories;
+    const effectiveCalories =
+      isOnGLP1 && glp1Adjustment ? glp1Adjustment.adjusted : result.targetCalories;
 
     return `Calorie Prescription
 
@@ -102,7 +101,7 @@ Patient Data:
 - Height: ${feet}'${inches}"
 - Current Weight: ${weight} lbs
 - Goal Weight: ${goalWeight || 'Not specified'} lbs
-- Activity Level: ${ACTIVITY_LEVELS.find(a => a.level === activityLevel)?.label}
+- Activity Level: ${ACTIVITY_LEVELS.find((a) => a.level === activityLevel)?.label}
 - GLP-1 Therapy: ${isOnGLP1 ? 'Yes' : 'No'}
 
 Calculations:
@@ -120,7 +119,7 @@ Macronutrient Targets (${effectiveCalories} cal):
   };
 
   return (
-    <div className="p-6 lg:p-8 min-h-screen">
+    <div className="min-h-screen p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <Link
@@ -131,26 +130,26 @@ Macronutrient Targets (${effectiveCalories} cal):
           Back to Calculators
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Calorie Calculator</h1>
-        <p className="text-gray-500 mt-1">
+        <p className="mt-1 text-gray-500">
           Calculate daily calorie needs for weight management with GLP-1 considerations
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Input Section */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           {/* Basic Info */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4">Patient Information</h2>
+            <h2 className="mb-4 font-semibold text-gray-900">Patient Information</h2>
 
             {/* Sex & Age */}
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="mb-4 grid gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sex</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Sex</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSex('female')}
-                    className={`flex-1 rounded-xl px-4 py-3 font-medium transition-all border-2 ${
+                    className={`flex-1 rounded-xl border-2 px-4 py-3 font-medium transition-all ${
                       sex === 'female'
                         ? 'border-orange-500 bg-orange-50 text-orange-700'
                         : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -160,7 +159,7 @@ Macronutrient Targets (${effectiveCalories} cal):
                   </button>
                   <button
                     onClick={() => setSex('male')}
-                    className={`flex-1 rounded-xl px-4 py-3 font-medium transition-all border-2 ${
+                    className={`flex-1 rounded-xl border-2 px-4 py-3 font-medium transition-all ${
                       sex === 'male'
                         ? 'border-orange-500 bg-orange-50 text-orange-700'
                         : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -172,7 +171,7 @@ Macronutrient Targets (${effectiveCalories} cal):
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Age</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -181,7 +180,7 @@ Macronutrient Targets (${effectiveCalories} cal):
                     placeholder="35"
                     min="18"
                     max="100"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-16 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-16 text-lg font-semibold focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     years
@@ -192,7 +191,7 @@ Macronutrient Targets (${effectiveCalories} cal):
 
             {/* Height */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Height</label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Height</label>
               <div className="flex gap-3">
                 <div className="relative flex-1">
                   <input
@@ -202,9 +201,11 @@ Macronutrient Targets (${effectiveCalories} cal):
                     placeholder="5"
                     min="4"
                     max="7"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 text-lg font-semibold focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">ft</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    ft
+                  </span>
                 </div>
                 <div className="relative flex-1">
                   <input
@@ -214,17 +215,21 @@ Macronutrient Targets (${effectiveCalories} cal):
                     placeholder="6"
                     min="0"
                     max="11"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 text-lg font-semibold focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">in</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    in
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Weight */}
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Current Weight</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Current Weight
+                </label>
                 <div className="relative">
                   <input
                     type="number"
@@ -233,13 +238,15 @@ Macronutrient Targets (${effectiveCalories} cal):
                     placeholder="180"
                     min="80"
                     max="700"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">lbs</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    lbs
+                  </span>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Goal Weight</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Goal Weight</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -248,9 +255,11 @@ Macronutrient Targets (${effectiveCalories} cal):
                     placeholder="150"
                     min="80"
                     max="500"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">lbs</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    lbs
+                  </span>
                 </div>
               </div>
             </div>
@@ -258,7 +267,7 @@ Macronutrient Targets (${effectiveCalories} cal):
 
           {/* Activity Level */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <h2 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
               <Activity className="h-5 w-5 text-green-500" />
               Activity Level
             </h2>
@@ -267,7 +276,7 @@ Macronutrient Targets (${effectiveCalories} cal):
                 <button
                   key={level.level}
                   onClick={() => setActivityLevel(level.level)}
-                  className={`w-full flex items-center justify-between rounded-xl border-2 p-4 transition-all ${
+                  className={`flex w-full items-center justify-between rounded-xl border-2 p-4 transition-all ${
                     activityLevel === level.level
                       ? 'border-green-500 bg-green-50'
                       : 'border-gray-200 hover:border-gray-300'
@@ -280,15 +289,13 @@ Macronutrient Targets (${effectiveCalories} cal):
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-500">×{level.multiplier}</span>
                     <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
                         activityLevel === level.level
                           ? 'border-green-500 bg-green-500'
                           : 'border-gray-300'
                       }`}
                     >
-                      {activityLevel === level.level && (
-                        <Check className="h-3 w-3 text-white" />
-                      )}
+                      {activityLevel === level.level && <Check className="h-3 w-3 text-white" />}
                     </div>
                   </div>
                 </button>
@@ -298,11 +305,11 @@ Macronutrient Targets (${effectiveCalories} cal):
 
           {/* Weight Loss Rate */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <h2 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
               <TrendingDown className="h-5 w-5 text-blue-500" />
               Weight Loss Rate
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               {WEIGHT_LOSS_RATES.map((rate) => (
                 <button
                   key={rate.lbsPerWeek}
@@ -314,7 +321,7 @@ Macronutrient Targets (${effectiveCalories} cal):
                   }`}
                 >
                   <p className="font-semibold text-gray-900">{rate.label}</p>
-                  <p className="text-xs text-gray-500 mt-1">{rate.description}</p>
+                  <p className="mt-1 text-xs text-gray-500">{rate.description}</p>
                 </button>
               ))}
             </div>
@@ -325,7 +332,7 @@ Macronutrient Targets (${effectiveCalories} cal):
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-gray-900">On GLP-1 Medication?</h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="mt-1 text-sm text-gray-500">
                   Adjusts calorie targets for reduced appetite
                 </p>
               </div>
@@ -336,7 +343,7 @@ Macronutrient Targets (${effectiveCalories} cal):
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow ${
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
                     isOnGLP1 ? 'translate-x-8' : 'translate-x-1'
                   }`}
                 />
@@ -350,38 +357,38 @@ Macronutrient Targets (${effectiveCalories} cal):
           {/* Daily Calories Card */}
           <div className="rounded-2xl bg-gradient-to-br from-orange-400 to-red-500 p-6 text-white">
             <Flame className="mx-auto mb-3 h-10 w-10 opacity-80" />
-            <p className="text-sm font-medium opacity-80 mb-1 text-center">
+            <p className="mb-1 text-center text-sm font-medium opacity-80">
               {isOnGLP1 ? 'Adjusted Daily Calories' : 'Target Daily Calories'}
             </p>
-            <p className="text-6xl font-bold mb-2 text-center">
-              {result 
-                ? (isOnGLP1 && glp1Adjustment ? glp1Adjustment.adjusted : result.targetCalories)
+            <p className="mb-2 text-center text-6xl font-bold">
+              {result
+                ? isOnGLP1 && glp1Adjustment
+                  ? glp1Adjustment.adjusted
+                  : result.targetCalories
                 : '--'}
             </p>
-            <p className="text-sm opacity-80 text-center">
-              to lose {lossRate} lb/week
-            </p>
+            <p className="text-center text-sm opacity-80">to lose {lossRate} lb/week</p>
           </div>
 
           {result && (
             <>
               {/* Metabolism Stats */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-4">Metabolism</h3>
+                <h3 className="mb-4 font-semibold text-gray-900">Metabolism</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-xl bg-gray-50 text-center">
-                    <p className="text-xs text-gray-500 mb-1">BMR</p>
+                  <div className="rounded-xl bg-gray-50 p-3 text-center">
+                    <p className="mb-1 text-xs text-gray-500">BMR</p>
                     <p className="text-xl font-bold text-gray-900">{result.bmr}</p>
                     <p className="text-xs text-gray-400">cal/day</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-gray-50 text-center">
-                    <p className="text-xs text-gray-500 mb-1">Maintenance</p>
+                  <div className="rounded-xl bg-gray-50 p-3 text-center">
+                    <p className="mb-1 text-xs text-gray-500">Maintenance</p>
                     <p className="text-xl font-bold text-gray-900">{result.tdee}</p>
                     <p className="text-xs text-gray-400">cal/day</p>
                   </div>
                 </div>
-                <div className="mt-3 p-3 rounded-xl bg-red-50">
-                  <p className="text-xs text-red-600 mb-1">Daily Deficit</p>
+                <div className="mt-3 rounded-xl bg-red-50 p-3">
+                  <p className="mb-1 text-xs text-red-600">Daily Deficit</p>
                   <p className="text-xl font-bold text-red-700">-{result.deficit} cal</p>
                 </div>
               </div>
@@ -389,19 +396,19 @@ Macronutrient Targets (${effectiveCalories} cal):
               {/* Timeline */}
               {result.weeksToGoal && (
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
                     <Clock className="h-5 w-5 text-blue-500" />
                     Estimated Timeline
                   </h3>
-                  <p className="text-sm text-gray-500 mb-3">
+                  <p className="mb-3 text-sm text-gray-500">
                     To reach {goalWeight} lbs from {weight} lbs
                   </p>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-blue-50 text-center">
+                    <div className="rounded-xl bg-blue-50 p-3 text-center">
                       <p className="text-3xl font-bold text-blue-600">{result.weeksToGoal}</p>
                       <p className="text-xs text-gray-500">weeks</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-blue-50 text-center">
+                    <div className="rounded-xl bg-blue-50 p-3 text-center">
                       <p className="text-3xl font-bold text-blue-600">{result.monthsToGoal}</p>
                       <p className="text-xs text-gray-500">months</p>
                     </div>
@@ -412,44 +419,44 @@ Macronutrient Targets (${effectiveCalories} cal):
               {/* Macros */}
               {macros && (
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                  <h3 className="font-semibold text-gray-900 mb-3">
-                    <Target className="h-5 w-5 text-purple-500 inline mr-2" />
+                  <h3 className="mb-3 font-semibold text-gray-900">
+                    <Target className="mr-2 inline h-5 w-5 text-purple-500" />
                     Macro Targets
                   </h3>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-600">Protein</span>
                       <span className="font-semibold text-gray-900">
                         {macros.grams.protein}g ({macros.percentages.protein}%)
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="h-2 w-full rounded-full bg-gray-200">
                       <div
-                        className="bg-red-500 h-2 rounded-full"
+                        className="h-2 rounded-full bg-red-500"
                         style={{ width: `${macros.percentages.protein}%` }}
                       />
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-600">Carbs</span>
                       <span className="font-semibold text-gray-900">
                         {macros.grams.carbs}g ({macros.percentages.carbs}%)
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="h-2 w-full rounded-full bg-gray-200">
                       <div
-                        className="bg-blue-500 h-2 rounded-full"
+                        className="h-2 rounded-full bg-blue-500"
                         style={{ width: `${macros.percentages.carbs}%` }}
                       />
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-600">Fat</span>
                       <span className="font-semibold text-gray-900">
                         {macros.grams.fat}g ({macros.percentages.fat}%)
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="h-2 w-full rounded-full bg-gray-200">
                       <div
-                        className="bg-yellow-500 h-2 rounded-full"
+                        className="h-2 rounded-full bg-yellow-500"
                         style={{ width: `${macros.percentages.fat}%` }}
                       />
                     </div>
@@ -470,7 +477,7 @@ Macronutrient Targets (${effectiveCalories} cal):
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                 <button
                   onClick={() => copyToClipboard(generateDocumentation())}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-900 text-white font-medium hover:bg-gray-800 transition-colors"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-800"
                 >
                   {copiedText ? (
                     <>
@@ -491,21 +498,22 @@ Macronutrient Targets (${effectiveCalories} cal):
           {/* Safety Warning */}
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
             <AlertTriangle className="mb-2 h-5 w-5 text-amber-600" />
-            <h3 className="font-semibold text-amber-900 mb-2">Minimum Safe Intake</h3>
+            <h3 className="mb-2 font-semibold text-amber-900">Minimum Safe Intake</h3>
             <p className="text-sm text-amber-800">
               {sex === 'female' ? 'Women' : 'Men'} should not consume fewer than{' '}
               <strong>{minimumCalories}</strong> calories/day without medical supervision.
-              {isOnGLP1 && ' GLP-1 medications naturally reduce appetite - ensure adequate nutrition.'}
+              {isOnGLP1 &&
+                ' GLP-1 medications naturally reduce appetite - ensure adequate nutrition.'}
             </p>
           </div>
 
           {/* Formula Info */}
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
             <Info className="mb-2 h-5 w-5 text-blue-600" />
-            <h3 className="font-semibold text-blue-900 mb-2">Calculation Method</h3>
+            <h3 className="mb-2 font-semibold text-blue-900">Calculation Method</h3>
             <p className="text-sm text-blue-800">
-              Uses the Mifflin-St Jeor equation for BMR, considered the most accurate 
-              for modern populations. TDEE = BMR × Activity Factor.
+              Uses the Mifflin-St Jeor equation for BMR, considered the most accurate for modern
+              populations. TDEE = BMR × Activity Factor.
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 /**
  * Medical Calculator Utilities
- * 
+ *
  * Centralized export for all clinical calculation functions.
  * These utilities are used by both provider and patient portal calculators.
  */
@@ -26,12 +26,7 @@ export {
   BMI_ICD10_CODES,
 } from './bmi';
 
-export type {
-  BMIResult,
-  BMICategory,
-  BMICategoryInfo,
-  ICD10Code,
-} from './bmi';
+export type { BMIResult, BMICategory, BMICategoryInfo, ICD10Code } from './bmi';
 
 // Cardiovascular risk calculations
 export {

@@ -3,16 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import {
-  ArrowLeft,
-  Info,
-  Target,
-  Beef,
-  Wheat,
-  Droplet,
-  Check,
-  Utensils,
-} from 'lucide-react';
+import { ArrowLeft, Info, Target, Beef, Wheat, Droplet, Check, Utensils } from 'lucide-react';
 import {
   calculateMacros,
   getGLP1MacroRecommendations,
@@ -36,13 +27,13 @@ export default function MacroCalculatorPage() {
   const result = useMemo(() => {
     const cals = parseInt(calories);
     const weightLbs = parseFloat(weight) || 150;
-    
+
     if (!cals || cals < 800) return null;
-    
+
     if (isOnGLP1) {
       return getGLP1MacroRecommendations(cals);
     }
-    
+
     return calculateMacros(cals, goal, weightLbs);
   }, [calories, weight, goal, isOnGLP1]);
 
@@ -67,9 +58,7 @@ export default function MacroCalculatorPage() {
           Back to Tools
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900">Macro Calculator</h1>
-        <p className="mt-1 text-gray-500">
-          Calculate your daily protein, carbs, and fat targets
-        </p>
+        <p className="mt-1 text-gray-500">Calculate your daily protein, carbs, and fat targets</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -77,7 +66,7 @@ export default function MacroCalculatorPage() {
         <div className="space-y-5">
           {/* Calorie Input */}
           <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="mb-3 block text-sm font-medium text-gray-700">
               Daily Calorie Target
             </label>
             <div className="relative">
@@ -110,7 +99,7 @@ export default function MacroCalculatorPage() {
 
           {/* Weight Input */}
           <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="mb-3 block text-sm font-medium text-gray-700">
               Current Weight (for protein calculation)
             </label>
             <div className="relative">
@@ -123,21 +112,19 @@ export default function MacroCalculatorPage() {
                 max="500"
                 className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 pr-12 text-lg font-semibold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
-                lbs
-              </span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">lbs</span>
             </div>
           </div>
 
           {/* Goal Selection */}
           <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Select Your Goal</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-700">Select Your Goal</h3>
             <div className="space-y-2">
               {MACRO_PRESETS.slice(0, 4).map((preset) => (
                 <button
                   key={preset.goal}
                   onClick={() => setGoal(preset.goal)}
-                  className={`w-full flex items-center justify-between rounded-xl border-2 p-4 transition-all ${
+                  className={`flex w-full items-center justify-between rounded-xl border-2 p-4 transition-all ${
                     goal === preset.goal
                       ? 'border-gray-900 bg-gray-50'
                       : 'border-gray-100 hover:border-gray-200'
@@ -165,9 +152,7 @@ export default function MacroCalculatorPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-gray-900">Taking GLP-1 Medication?</p>
-                <p className="text-sm text-gray-500">
-                  Get protein-focused recommendations
-                </p>
+                <p className="text-sm text-gray-500">Get protein-focused recommendations</p>
               </div>
               <button
                 onClick={() => setIsOnGLP1(!isOnGLP1)}
@@ -189,11 +174,8 @@ export default function MacroCalculatorPage() {
         {/* Results Section */}
         <div className="space-y-5">
           {/* Macro Breakdown Chart */}
-          <div
-            className="rounded-2xl p-6"
-            style={{ backgroundColor: accentColor }}
-          >
-            <div className="flex items-center gap-2 mb-4">
+          <div className="rounded-2xl p-6" style={{ backgroundColor: accentColor }}>
+            <div className="mb-4 flex items-center gap-2">
               <Target className="h-5 w-5 text-gray-700" />
               <h3 className="font-semibold text-gray-900">Daily Macro Targets</h3>
             </div>
@@ -201,9 +183,9 @@ export default function MacroCalculatorPage() {
             {result ? (
               <>
                 {/* Pie Chart Visualization */}
-                <div className="flex justify-center mb-6">
-                  <div className="relative w-48 h-48">
-                    <svg viewBox="0 0 100 100" className="transform -rotate-90">
+                <div className="mb-6 flex justify-center">
+                  <div className="relative h-48 w-48">
+                    <svg viewBox="0 0 100 100" className="-rotate-90 transform">
                       {/* Protein */}
                       <circle
                         cx="50"
@@ -248,15 +230,17 @@ export default function MacroCalculatorPage() {
                 {/* Macro Cards */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="rounded-xl bg-white/50 p-4 text-center backdrop-blur-sm">
-                    <div className="flex justify-center mb-2">
+                    <div className="mb-2 flex justify-center">
                       <Beef className="h-6 w-6 text-red-500" />
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{result.grams.protein}g</p>
                     <p className="text-xs text-gray-600">Protein</p>
-                    <p className="text-xs font-medium text-red-500">{result.percentages.protein}%</p>
+                    <p className="text-xs font-medium text-red-500">
+                      {result.percentages.protein}%
+                    </p>
                   </div>
                   <div className="rounded-xl bg-white/50 p-4 text-center backdrop-blur-sm">
-                    <div className="flex justify-center mb-2">
+                    <div className="mb-2 flex justify-center">
                       <Wheat className="h-6 w-6 text-blue-500" />
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{result.grams.carbs}g</p>
@@ -264,7 +248,7 @@ export default function MacroCalculatorPage() {
                     <p className="text-xs font-medium text-blue-500">{result.percentages.carbs}%</p>
                   </div>
                   <div className="rounded-xl bg-white/50 p-4 text-center backdrop-blur-sm">
-                    <div className="flex justify-center mb-2">
+                    <div className="mb-2 flex justify-center">
                       <Droplet className="h-6 w-6 text-amber-500" />
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{result.grams.fat}g</p>
@@ -274,15 +258,15 @@ export default function MacroCalculatorPage() {
                 </div>
 
                 {/* Fiber Target */}
-                <div className="mt-4 p-3 rounded-xl bg-white/30 text-center">
+                <div className="mt-4 rounded-xl bg-white/30 p-3 text-center">
                   <p className="text-sm text-gray-700">
                     <span className="font-semibold">Fiber Goal:</span> {result.grams.fiber}g daily
                   </p>
                 </div>
               </>
             ) : (
-              <div className="text-center py-12">
-                <Target className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <div className="py-12 text-center">
+                <Target className="mx-auto mb-3 h-12 w-12 text-gray-400" />
                 <p className="text-gray-600">Enter your calorie target to see macros</p>
               </div>
             )}
@@ -291,16 +275,19 @@ export default function MacroCalculatorPage() {
           {/* GLP-1 Tips */}
           {isOnGLP1 && result && 'glp1Tips' in result && (
             <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
-              <h3 className="font-semibold text-gray-900 mb-3">
-                GLP-1 Nutrition Tips
-              </h3>
+              <h3 className="mb-3 font-semibold text-gray-900">GLP-1 Nutrition Tips</h3>
               <ul className="space-y-2">
-                {(result as { glp1Tips: string[] }).glp1Tips.slice(0, 5).map((tip: string, i: number) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                    <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
-                    {tip}
-                  </li>
-                ))}
+                {(result as { glp1Tips: string[] }).glp1Tips
+                  .slice(0, 5)
+                  .map((tip: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <Check
+                        className="mt-0.5 h-4 w-4 flex-shrink-0"
+                        style={{ color: primaryColor }}
+                      />
+                      {tip}
+                    </li>
+                  ))}
               </ul>
             </div>
           )}
@@ -310,13 +297,10 @@ export default function MacroCalculatorPage() {
             <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
               <button
                 onClick={() => setShowMealBreakdown(!showMealBreakdown)}
-                className="w-full flex items-center justify-between"
+                className="flex w-full items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className="p-2 rounded-lg"
-                    style={{ backgroundColor: `${primaryColor}15` }}
-                  >
+                  <div className="rounded-lg p-2" style={{ backgroundColor: `${primaryColor}15` }}>
                     <Utensils className="h-5 w-5" style={{ color: primaryColor }} />
                   </div>
                   <div className="text-left">
@@ -327,18 +311,15 @@ export default function MacroCalculatorPage() {
                 <div
                   className={`transform transition-transform ${showMealBreakdown ? 'rotate-180' : ''}`}
                 >
-                  <ArrowLeft className="h-5 w-5 text-gray-400 -rotate-90" />
+                  <ArrowLeft className="h-5 w-5 -rotate-90 text-gray-400" />
                 </div>
               </button>
 
               {showMealBreakdown && mealDistribution && (
                 <div className="mt-4 space-y-3">
                   {mealDistribution.map((meal) => (
-                    <div
-                      key={meal.meal}
-                      className="p-4 rounded-xl bg-gray-50"
-                    >
-                      <p className="font-medium text-gray-900 mb-2">{meal.meal}</p>
+                    <div key={meal.meal} className="rounded-xl bg-gray-50 p-4">
+                      <p className="mb-2 font-medium text-gray-900">{meal.meal}</p>
                       <div className="grid grid-cols-3 gap-2 text-sm">
                         <div className="text-center">
                           <p className="font-semibold text-red-600">{meal.protein}g</p>
@@ -363,7 +344,7 @@ export default function MacroCalculatorPage() {
           {/* Protein Sources */}
           {result && (
             <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
                 <Beef className="h-5 w-5 text-red-500" />
                 Lean Protein Sources
               </h3>
@@ -371,7 +352,7 @@ export default function MacroCalculatorPage() {
                 {PROTEIN_SOURCES.lean.slice(0, 4).map((source) => (
                   <div
                     key={source.name}
-                    className="flex items-center justify-between p-3 rounded-xl bg-gray-50"
+                    className="flex items-center justify-between rounded-xl bg-gray-50 p-3"
                   >
                     <span className="text-sm text-gray-700">{source.name}</span>
                     <span className="text-sm font-semibold text-gray-900">
@@ -386,11 +367,14 @@ export default function MacroCalculatorPage() {
           {/* Recommendations */}
           {result && result.recommendations && (
             <div className="rounded-2xl bg-white p-5 shadow-lg shadow-gray-100">
-              <h3 className="font-semibold text-gray-900 mb-3">Recommendations</h3>
+              <h3 className="mb-3 font-semibold text-gray-900">Recommendations</h3>
               <ul className="space-y-2">
                 {result.recommendations.slice(0, 4).map((rec, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                    <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                    <Check
+                      className="mt-0.5 h-4 w-4 flex-shrink-0"
+                      style={{ color: primaryColor }}
+                    />
                     {rec}
                   </li>
                 ))}
@@ -404,12 +388,12 @@ export default function MacroCalculatorPage() {
             style={{ borderColor: `${primaryColor}30`, backgroundColor: `${primaryColor}08` }}
           >
             <Info className="mb-2 h-5 w-5" style={{ color: primaryColor }} />
-            <h3 className="font-semibold mb-2" style={{ color: primaryColor }}>
+            <h3 className="mb-2 font-semibold" style={{ color: primaryColor }}>
               About Macros
             </h3>
-            <p className="text-sm text-gray-700 leading-relaxed">
-              Macronutrients provide the calories your body needs. Protein (4 cal/g) builds muscle, 
-              carbs (4 cal/g) provide energy, and fats (9 cal/g) support hormones and absorption. 
+            <p className="text-sm leading-relaxed text-gray-700">
+              Macronutrients provide the calories your body needs. Protein (4 cal/g) builds muscle,
+              carbs (4 cal/g) provide energy, and fats (9 cal/g) support hormones and absorption.
               For weight loss, prioritize protein to preserve muscle mass.
             </p>
           </div>

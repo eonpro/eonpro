@@ -1,6 +1,6 @@
 /**
  * Cardiovascular Risk Calculation Utilities
- * 
+ *
  * References:
  * - 2013 ACC/AHA Pooled Cohort Equations for ASCVD Risk
  * - 2018 AHA/ACC Cholesterol Clinical Practice Guidelines
@@ -64,7 +64,8 @@ export const RISK_CATEGORIES: RiskCategoryInfo[] = [
     label: 'Intermediate Risk',
     range: { min: 7.5, max: 20 },
     color: '#F97316',
-    description: 'Lifestyle therapy and consider moderate-intensity statin if risk enhancers present.',
+    description:
+      'Lifestyle therapy and consider moderate-intensity statin if risk enhancers present.',
   },
   {
     category: 'high',
@@ -85,7 +86,7 @@ const PCE_COEFFICIENTS = {
     ln_age_sq: 0,
     ln_total_chol: 11.853,
     ln_age_x_ln_total_chol: -2.664,
-    ln_hdl: -7.990,
+    ln_hdl: -7.99,
     ln_age_x_ln_hdl: 1.769,
     ln_treated_sbp: 1.797,
     ln_untreated_sbp: 1.764,
@@ -99,7 +100,7 @@ const PCE_COEFFICIENTS = {
   white_female: {
     ln_age: -29.799,
     ln_age_sq: 4.884,
-    ln_total_chol: 13.540,
+    ln_total_chol: 13.54,
     ln_age_x_ln_total_chol: -3.114,
     ln_hdl: -13.578,
     ln_age_x_ln_hdl: 3.149,
@@ -131,12 +132,12 @@ const PCE_COEFFICIENTS = {
   african_american_female: {
     ln_age: 17.114,
     ln_age_sq: 0,
-    ln_total_chol: 0.940,
+    ln_total_chol: 0.94,
     ln_age_x_ln_total_chol: 0,
-    ln_hdl: -18.920,
+    ln_hdl: -18.92,
     ln_age_x_ln_hdl: 4.475,
     ln_treated_sbp: 29.291,
-    ln_untreated_sbp: 27.820,
+    ln_untreated_sbp: 27.82,
     ln_age_x_ln_sbp: -6.432,
     smoker: 0.691,
     ln_age_x_smoker: 0,
@@ -165,7 +166,7 @@ export function calculateASCVDRisk(input: ASCVDInput): number {
   }
 
   const coef = PCE_COEFFICIENTS[coeffKey];
-  
+
   // Calculate natural logs
   const lnAge = Math.log(input.age);
   const lnTotalChol = Math.log(input.totalCholesterol);
@@ -174,20 +175,20 @@ export function calculateASCVDRisk(input: ASCVDInput): number {
 
   // Calculate individual sum
   let sum = 0;
-  
+
   sum += coef.ln_age * lnAge;
   sum += coef.ln_age_sq * (lnAge * lnAge);
   sum += coef.ln_total_chol * lnTotalChol;
   sum += coef.ln_age_x_ln_total_chol * (lnAge * lnTotalChol);
   sum += coef.ln_hdl * lnHDL;
   sum += coef.ln_age_x_ln_hdl * (lnAge * lnHDL);
-  
+
   if (input.onHypertensionTreatment) {
     sum += coef.ln_treated_sbp * lnSBP;
   } else {
     sum += coef.ln_untreated_sbp * lnSBP;
   }
-  
+
   // Age x SBP interaction (for AA females)
   if (coef.ln_age_x_ln_sbp !== 0) {
     if (input.onHypertensionTreatment) {
@@ -196,19 +197,19 @@ export function calculateASCVDRisk(input: ASCVDInput): number {
       sum += coef.ln_age_x_ln_sbp * lnAge * lnSBP;
     }
   }
-  
+
   if (input.isSmoker) {
     sum += coef.smoker;
     sum += coef.ln_age_x_smoker * lnAge;
   }
-  
+
   if (input.hasDiabetes) {
     sum += coef.diabetes;
   }
 
   // Calculate 10-year risk
   const risk = 1 - Math.pow(coef.baseline_survival, Math.exp(sum - coef.mean_coef));
-  
+
   // Convert to percentage and round to 1 decimal
   return Math.round(risk * 1000) / 10;
 }
@@ -226,7 +227,7 @@ export function calculateOptimalRisk(input: ASCVDInput): number {
     hasDiabetes: false,
     isSmoker: false,
   };
-  
+
   return calculateASCVDRisk(optimalInput);
 }
 
@@ -280,7 +281,8 @@ export function getStatinRecommendation(
     return {
       indicated: true,
       intensity: 'high',
-      rationale: 'High ASCVD risk (≥20%) - High-intensity statin recommended to reduce LDL-C by ≥50%.',
+      rationale:
+        'High ASCVD risk (≥20%) - High-intensity statin recommended to reduce LDL-C by ≥50%.',
     };
   }
 
@@ -288,7 +290,8 @@ export function getStatinRecommendation(
     return {
       indicated: true,
       intensity: 'moderate',
-      rationale: 'Intermediate risk (7.5-20%) - Moderate-intensity statin recommended. Consider risk enhancers.',
+      rationale:
+        'Intermediate risk (7.5-20%) - Moderate-intensity statin recommended. Consider risk enhancers.',
     };
   }
 
@@ -314,8 +317,12 @@ export function getRecommendations(input: ASCVDInput, riskPercentage: number): s
   const recommendations: string[] = [];
 
   // Universal recommendations
-  recommendations.push('Heart-healthy diet (emphasize vegetables, fruits, whole grains, lean proteins)');
-  recommendations.push('Regular physical activity (150+ minutes moderate or 75+ minutes vigorous per week)');
+  recommendations.push(
+    'Heart-healthy diet (emphasize vegetables, fruits, whole grains, lean proteins)'
+  );
+  recommendations.push(
+    'Regular physical activity (150+ minutes moderate or 75+ minutes vigorous per week)'
+  );
   recommendations.push('Maintain healthy weight (BMI 18.5-24.9)');
 
   // Smoking
@@ -394,7 +401,10 @@ export const RISK_ENHANCING_FACTORS = [
 /**
  * Validate ASCVD input parameters
  */
-export function validateASCVDInput(input: Partial<ASCVDInput>): { valid: boolean; errors: string[] } {
+export function validateASCVDInput(input: Partial<ASCVDInput>): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
 
   if (!input.age || input.age < 40 || input.age > 79) {

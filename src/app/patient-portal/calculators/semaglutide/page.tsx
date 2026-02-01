@@ -163,7 +163,9 @@ export default function SemaglutideDoseCalculatorPage() {
                       >
                         <div className={`${mark % 20 === 0 ? 'w-4' : 'w-2'} h-0.5 bg-gray-300`} />
                         {mark % 20 === 0 && (
-                          <span className="ml-1 text-[10px] font-semibold text-gray-400">{mark}</span>
+                          <span className="ml-1 text-[10px] font-semibold text-gray-400">
+                            {mark}
+                          </span>
                         )}
                       </div>
                     ))}
@@ -382,9 +384,9 @@ export default function SemaglutideDoseCalculatorPage() {
           {/* Injection Tracker Link */}
           <Link
             href="/patient-portal/tools/injection-tracker"
-            className="block overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50 hover:shadow-2xl transition-shadow"
+            className="block overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50 transition-shadow hover:shadow-2xl"
           >
-            <div className="p-6 flex items-center gap-4">
+            <div className="flex items-center gap-4 p-6">
               <div
                 className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
                 style={{ backgroundColor: `${primaryColor}15` }}
@@ -404,22 +406,22 @@ export default function SemaglutideDoseCalculatorPage() {
             className="overflow-hidden rounded-3xl p-6"
             style={{ backgroundColor: `${primaryColor}08`, borderColor: `${primaryColor}30` }}
           >
-            <h3 className="font-semibold text-gray-900 mb-3">Storage Instructions</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Storage Instructions</h3>
             <ul className="space-y-2 text-sm text-gray-700">
               <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
                 Store in refrigerator at 36°F to 46°F (2°C to 8°C)
               </li>
               <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
                 After first use, can be stored at room temp up to 77°F for 28 days
               </li>
               <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
                 Do not freeze and keep away from direct light
               </li>
               <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
                 Let medication reach room temperature (~30 min) before injecting
               </li>
             </ul>
