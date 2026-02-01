@@ -379,6 +379,25 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
 }
 
 /**
+ * Split a full name into first and last name
+ */
+function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim();
+  if (!trimmed) return { firstName: '', lastName: '' };
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' };
+  }
+
+  // Handle common patterns: "First Last", "First Middle Last", "First M. Last"
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(' ');
+
+  return { firstName, lastName };
+}
+
+/**
  * Build patient data from Overtime payload
  */
 function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
@@ -397,15 +416,63 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
   };
 
   // First Name (check multiple field variations)
-  const firstName = payload['first-name'] || payload['firstName'] || payload['first_name'];
+  const firstName = payload['first-name'] || payload['firstName'] || payload['first_name'] ||
+                    payload['fname'] || payload['fName'] || payload['First Name'] ||
+                    payload['First name'] || payload['FIRST NAME'];
   if (firstName) {
     patient.firstName = capitalizeWords(String(firstName));
   }
 
-  // Last Name
-  const lastName = payload['last-name'] || payload['lastName'] || payload['last_name'];
+  // Last Name (check multiple field variations)
+  const lastName = payload['last-name'] || payload['lastName'] || payload['last_name'] ||
+                   payload['lname'] || payload['lName'] || payload['Last Name'] ||
+                   payload['Last name'] || payload['LAST NAME'];
   if (lastName) {
     patient.lastName = capitalizeWords(String(lastName));
+  }
+
+  // If first/last names are still Unknown, try full name fields
+  if (patient.firstName === 'Unknown' || patient.lastName === 'Unknown') {
+    const fullName = payload['name'] || payload['Name'] || payload['full-name'] ||
+                     payload['fullName'] || payload['full_name'] || payload['Full Name'] ||
+                     payload['customer-name'] || payload['customerName'] || payload['customer_name'] ||
+                     payload['patient-name'] || payload['patientName'] || payload['patient_name'] ||
+                     payload['contact-name'] || payload['contactName'] || payload['contact_name'] ||
+                     payload['Name (from Contacts)'] || payload['Contact Name'] ||
+                     payload['Customer Name'] || payload['Patient Name'];
+
+    if (fullName && typeof fullName === 'string' && fullName.trim()) {
+      const { firstName: fn, lastName: ln } = splitFullName(fullName);
+      if (fn && patient.firstName === 'Unknown') {
+        patient.firstName = capitalizeWords(fn);
+      }
+      if (ln && patient.lastName === 'Unknown') {
+        patient.lastName = capitalizeWords(ln);
+      }
+    }
+  }
+
+  // Try to extract names from email if still Unknown (e.g., john.doe@email.com)
+  if (patient.firstName === 'Unknown' && patient.lastName === 'Unknown') {
+    const emailField = payload['email'] || payload['Email'] || payload['EMAIL'];
+    if (emailField && typeof emailField === 'string') {
+      const emailParts = emailField.split('@')[0];
+      if (emailParts && emailParts.includes('.')) {
+        const [fn, ln] = emailParts.split('.');
+        if (fn && ln && fn.length > 1 && ln.length > 1) {
+          // Only use if both parts look like names (not just numbers/initials)
+          if (!/^\d+$/.test(fn) && !/^\d+$/.test(ln)) {
+            patient.firstName = capitalizeWords(fn.replace(/[^a-zA-Z]/g, ''));
+            patient.lastName = capitalizeWords(ln.replace(/[^a-zA-Z]/g, ''));
+            logger.info('[Overtime Normalizer] Extracted name from email', {
+              email: emailField,
+              firstName: patient.firstName,
+              lastName: patient.lastName,
+            });
+          }
+        }
+      }
+    }
   }
 
   // Email
