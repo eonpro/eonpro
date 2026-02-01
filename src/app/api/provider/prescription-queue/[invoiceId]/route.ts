@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { decrypt } from '@/lib/security/encryption';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { getPatientSoapNote } from '@/lib/soap-note-automation';
 
 /**
@@ -176,9 +176,10 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       if (!value) return value;
       try {
         // Check if it looks encrypted (3 base64 parts with colons)
+        // Min length of 2 to handle short encrypted values like state codes
         const parts = value.split(':');
-        if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p))) {
-          return decrypt(value);
+        if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+          return decryptPHI(value);
         }
         return value; // Not encrypted, return as-is
       } catch (e) {
@@ -235,9 +236,9 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       patient: {
         id: invoice.patient.id,
         patientId: invoice.patient.patientId,
-        firstName: invoice.patient.firstName,
-        lastName: invoice.patient.lastName,
-        // Decrypt PHI fields
+        // Decrypt all PHI fields including names
+        firstName: safeDecrypt(invoice.patient.firstName),
+        lastName: safeDecrypt(invoice.patient.lastName),
         email: safeDecrypt(invoice.patient.email),
         phone: safeDecrypt(invoice.patient.phone),
         dob: safeDecrypt(invoice.patient.dob),
