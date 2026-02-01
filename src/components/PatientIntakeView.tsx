@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
 import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2, Check, Shield } from 'lucide-react';
 import { WELLMEDR_INTAKE_SECTIONS, hasCustomIntakeSections } from '@/lib/wellmedr/intakeSections';
+import { OVERTIME_INTAKE_SECTIONS, hasOvertimeIntakeSections } from '@/lib/overtime/intakeSections';
 
 /**
  * Default intake display sections - maps fields from WeightLossIntake (eonmeds and other clinics)
@@ -323,10 +324,15 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   const router = useRouter();
 
   // Select the appropriate intake sections based on clinic
-  // Wellmedr uses custom field mappings; other clinics use default
+  // Wellmedr and Overtime use custom field mappings; other clinics use default
   const activeSections = useMemo(() => {
+    // Check for Wellmedr clinic
     if (hasCustomIntakeSections(clinicSubdomain)) {
       return WELLMEDR_INTAKE_SECTIONS;
+    }
+    // Check for Overtime Men's Clinic
+    if (hasOvertimeIntakeSections(clinicSubdomain)) {
+      return OVERTIME_INTAKE_SECTIONS;
     }
     return DEFAULT_INTAKE_SECTIONS;
   }, [clinicSubdomain]);

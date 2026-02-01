@@ -724,7 +724,7 @@ export class InvoiceManager {
     return await basePrisma.invoice.update({
       where: { id: invoiceId },
       data: {
-        status: 'CANCELLED',
+        status: 'VOID',
         prescriptionProcessed: true, // Remove from prescription queue
         metadata: {
           ...invoiceMetadata,

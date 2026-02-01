@@ -31,7 +31,7 @@ const MAX_DELAY_MS = 3_600_000; // 1 hour max delay
 export interface QueuedSubmission {
   id: string;
   payload: Record<string, unknown>;
-  source: 'weightlossintake' | 'wellmedr-intake' | 'heyflow' | 'medlink' | 'direct';
+  source: 'weightlossintake' | 'wellmedr-intake' | 'heyflow' | 'medlink' | 'direct' | 'overtime-intake';
   attemptCount: number;
   lastAttemptAt: string;
   lastError: string;
@@ -41,6 +41,7 @@ export interface QueuedSubmission {
     patientEmail?: string;
     submissionId?: string;
     sessionId?: string;
+    treatmentType?: string;
   };
 }
 
