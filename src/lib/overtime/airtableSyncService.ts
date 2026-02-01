@@ -64,11 +64,15 @@ export class AirtableSyncService {
     this.client = client ?? createAirtableClient();
     
     // Use internal webhook URL (localhost in dev, or the app URL in production)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000';
+    // Priority: NEXT_PUBLIC_APP_URL > VERCEL_URL > localhost
+    let baseUrl = 'http://localhost:3000';
+    if (process.env.NEXT_PUBLIC_APP_URL) {
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    } else if (process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`;
+    }
     this.webhookUrl = `${baseUrl}/api/webhooks/overtime-intake`;
-    this.webhookSecret = process.env.OVERTIME_INTAKE_WEBHOOK_SECRET || '';
+    this.webhookSecret = process.env.OVERTIME_INTAKE_WEBHOOK_SECRET || process.env.OVERTIME_SYNC_API_KEY || '';
   }
 
   /**
