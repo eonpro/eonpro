@@ -63,9 +63,11 @@ export {
   normalizeDirectional,
   normalizeAddress,
   capitalizeWords,
+  toTitleCase,
   formatAddressOneLine,
   formatAddressMultiLine,
 } from './normalizer';
+export type { NormalizeStreetOptions, NormalizeAddressOptions } from './normalizer';
 
 // Validator
 export {
@@ -93,6 +95,7 @@ export {
   STATE_NAME_TO_CODE,
   VALID_STATE_CODES,
   APT_PATTERNS,
+  APT_STANDALONE_PATTERNS,
   SECONDARY_UNIT_DESIGNATORS,
   STREET_SUFFIXES,
   DIRECTIONALS,

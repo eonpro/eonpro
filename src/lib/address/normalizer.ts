@@ -10,8 +10,98 @@ import {
   STREET_SUFFIXES,
   DIRECTIONALS,
   ZIP_CODE_PATTERN,
+  SECONDARY_UNIT_DESIGNATORS,
 } from './constants';
 import type { ParsedAddress } from './types';
+
+/**
+ * Words that should stay UPPERCASE in addresses
+ * (directionals, unit designators)
+ */
+const UPPERCASE_WORDS = new Set([
+  // Directionals
+  'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW',
+  // Unit designators
+  'APT', 'STE', 'BLDG', 'FL', 'RM', 'PH', 'TH',
+  // PO Box
+  'PO', 'BOX',
+]);
+
+/**
+ * Words that should stay lowercase when not first word
+ * (articles, prepositions)
+ */
+const LOWERCASE_WORDS = new Set(['of', 'the', 'and', 'at', 'by', 'in', 'on']);
+
+/**
+ * Convert a string to proper title case for addresses
+ *
+ * Rules:
+ * - First letter of each word capitalized, rest lowercase
+ * - Directionals stay uppercase (N, S, E, W, NE, NW, SE, SW)
+ * - Unit designators stay uppercase (APT, STE, BLDG)
+ * - Numbers preserved as-is
+ * - Handles ordinals correctly (1ST, 2ND, 3RD, 4TH)
+ *
+ * @param str - String to convert
+ * @returns Title-cased string
+ *
+ * @example
+ * toTitleCase('123 MAIN STREET') // '123 Main Street'
+ * toTitleCase('456 NW OAK AVE') // '456 NW Oak Ave'
+ * toTitleCase('APT 2078') // 'Apt 2078'
+ * toTitleCase('1ST FLOOR') // '1st Floor'
+ */
+export function toTitleCase(str: string | null | undefined): string {
+  if (!str) return '';
+
+  const trimmed = str.trim();
+  if (!trimmed) return '';
+
+  // Split on whitespace while preserving the separator
+  const words = trimmed.split(/(\s+)/);
+
+  return words
+    .map((word, index) => {
+      // Skip whitespace
+      if (/^\s+$/.test(word)) return word;
+
+      const upperWord = word.toUpperCase();
+
+      // Check if it's a directional or unit designator that should stay uppercase
+      if (UPPERCASE_WORDS.has(upperWord)) {
+        return upperWord;
+      }
+
+      // Check for ordinals (1ST, 2ND, 3RD, 4TH, etc.)
+      const ordinalMatch = word.match(/^(\d+)(ST|ND|RD|TH)$/i);
+      if (ordinalMatch) {
+        return ordinalMatch[1] + ordinalMatch[2].toLowerCase();
+      }
+
+      // Pure numbers - leave as-is
+      if (/^\d+$/.test(word)) {
+        return word;
+      }
+
+      // Alphanumeric with number first (like "4TH", "12A") - preserve structure
+      if (/^\d+[A-Za-z]+$/.test(word)) {
+        const match = word.match(/^(\d+)([A-Za-z]+)$/);
+        if (match) {
+          return match[1] + match[2].toLowerCase();
+        }
+      }
+
+      // Check for lowercase words (not first word)
+      if (index > 0 && LOWERCASE_WORDS.has(word.toLowerCase())) {
+        return word.toLowerCase();
+      }
+
+      // Standard title case: first letter uppercase, rest lowercase
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join('');
+}
 
 /**
  * Normalize state input to 2-letter code
@@ -145,7 +235,7 @@ export function capitalizeWords(value: string): string {
  * Normalize city name
  * 
  * @param city - City name
- * @returns Normalized city name
+ * @returns Normalized city name (title case)
  */
 export function normalizeCity(city?: string): string {
   if (!city) return '';
@@ -156,29 +246,50 @@ export function normalizeCity(city?: string): string {
   // Remove trailing punctuation
   const cleaned = trimmed.replace(/[.,;:]+$/, '').trim();
   
-  // Capitalize words
-  return capitalizeWords(cleaned);
+  // Apply proper title case
+  return toTitleCase(cleaned);
+}
+
+/**
+ * Options for normalizing street address
+ */
+export interface NormalizeStreetOptions {
+  /** Apply title case formatting (default: true) */
+  titleCase?: boolean;
+  /** Standardize suffix to USPS abbreviation (default: false) */
+  standardizeSuffix?: boolean;
 }
 
 /**
  * Normalize street address
- * 
+ *
  * @param address - Street address
- * @param standardizeSuffix - Whether to standardize suffix abbreviations
- * @returns Normalized address
+ * @param options - Normalization options
+ * @returns Normalized address (title case by default)
+ *
+ * @example
+ * normalizeStreetAddress('123 MAIN STREET') // '123 Main Street'
+ * normalizeStreetAddress('456 NW OAK AVE') // '456 NW Oak Ave'
  */
 export function normalizeStreetAddress(
   address?: string,
-  standardizeSuffix = false
+  options: NormalizeStreetOptions | boolean = {}
 ): string {
   if (!address) return '';
-  
+
+  // Handle legacy boolean parameter (standardizeSuffix)
+  const opts: NormalizeStreetOptions = typeof options === 'boolean'
+    ? { standardizeSuffix: options }
+    : options;
+
+  const { titleCase = true, standardizeSuffix = false } = opts;
+
   let normalized = address.trim();
   if (!normalized) return '';
-  
+
   // Convert multiple spaces to single
   normalized = normalized.replace(/\s+/g, ' ');
-  
+
   // Standardize suffix if requested
   if (standardizeSuffix) {
     const words = normalized.split(' ');
@@ -189,29 +300,47 @@ export function normalizeStreetAddress(
       normalized = words.join(' ');
     }
   }
-  
+
+  // Apply title case by default for display
+  if (titleCase) {
+    normalized = toTitleCase(normalized);
+  }
+
   return normalized;
 }
 
 /**
+ * Options for normalizing a complete address
+ */
+export interface NormalizeAddressOptions {
+  /** Standardize street suffix to USPS abbreviation (default: false) */
+  standardizeStreet?: boolean;
+  /** Apply title case to city (default: true) */
+  capitalizeCity?: boolean;
+  /** Apply title case to street addresses (default: true) */
+  titleCase?: boolean;
+}
+
+/**
  * Normalize a complete address
- * 
+ *
  * @param address - Parsed address
  * @param options - Normalization options
- * @returns Normalized address
+ * @returns Normalized address (title case by default)
+ *
+ * @example
+ * normalizeAddress({ address1: '123 MAIN ST', city: 'NEW YORK', state: 'ny', zip: '10001' })
+ * // { address1: '123 Main St', city: 'New York', state: 'NY', zip: '10001', ... }
  */
 export function normalizeAddress(
   address: ParsedAddress,
-  options: {
-    standardizeStreet?: boolean;
-    capitalizeCity?: boolean;
-  } = {}
+  options: NormalizeAddressOptions = {}
 ): ParsedAddress {
-  const { standardizeStreet = false, capitalizeCity = true } = options;
-  
+  const { standardizeStreet = false, capitalizeCity = true, titleCase = true } = options;
+
   return {
-    address1: normalizeStreetAddress(address.address1, standardizeStreet),
-    address2: address.address2?.trim() || '',
+    address1: normalizeStreetAddress(address.address1, { titleCase, standardizeSuffix: standardizeStreet }),
+    address2: titleCase ? toTitleCase(address.address2) : (address.address2?.trim() || ''),
     city: capitalizeCity ? normalizeCity(address.city) : (address.city?.trim() || ''),
     state: normalizeState(address.state),
     zip: normalizeZip(address.zip),

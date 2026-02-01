@@ -16,6 +16,7 @@ import {
   STATE_NAME_TO_CODE,
   VALID_STATE_CODES,
   APT_PATTERNS,
+  APT_STANDALONE_PATTERNS,
   ZIP_CODE_PATTERN,
   ZIP_CODE_LOOSE_PATTERN,
 } from './constants';
@@ -33,20 +34,23 @@ const DEFAULT_OPTIONS: AddressParseOptions = {
 
 /**
  * Check if a string looks like an apartment/unit number
+ *
+ * Handles various formats:
+ * - Prefixed: "APT 123", "Unit B", "STE 100", "#4"
+ * - Bare numbers: "130", "2078"
+ * - Alphanumeric: "4B", "G05", "A1", "12A"
+ * - With dashes: "A-1", "12-B"
  */
 export function isApartmentString(str: string): boolean {
   const trimmed = str.trim();
   if (!trimmed) return false;
-  
+
   // Check prefixed patterns (APT, UNIT, etc.)
   if (APT_PATTERNS.some(pattern => pattern.test(trimmed))) return true;
-  
-  // Bare numbers with optional letter (e.g., "130", "4B", "12A")
-  if (/^\d{1,5}[A-Za-z]?$/.test(trimmed)) return true;
-  
-  // Letter followed by number (e.g., "A1", "B12")
-  if (/^[A-Za-z]\d{1,4}$/.test(trimmed)) return true;
-  
+
+  // Check standalone patterns (bare numbers, alphanumeric combos)
+  if (APT_STANDALONE_PATTERNS.some(pattern => pattern.test(trimmed))) return true;
+
   return false;
 }
 

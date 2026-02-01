@@ -88,6 +88,7 @@ export const VALID_STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
 
 /**
  * Apartment/Unit designator patterns
+ * Matches strings that START with these patterns (prefixed unit identifiers)
  */
 export const APT_PATTERNS = [
   /^APT\.?\s*/i,
@@ -108,6 +109,20 @@ export const APT_PATTERNS = [
   /^SPC\.?\s*/i,
   /^TRLR\.?\s*/i,
   /^TRAILER\s*/i,
+];
+
+/**
+ * Standalone apartment/unit patterns (for bare values like "G05", "2078", "A-1")
+ * These match the ENTIRE string, not just a prefix
+ */
+export const APT_STANDALONE_PATTERNS = [
+  /^\d{1,5}$/,                    // Pure numbers: 130, 2078, 12345
+  /^\d{1,5}[A-Za-z]$/,           // Number + letter: 4B, 12A, 2078A
+  /^[A-Za-z]\d{1,4}$/,           // Letter + number: A1, B12, G05
+  /^[A-Za-z]-?\d{1,4}$/,         // Letter, optional dash, number: A-1, B12
+  /^\d{1,4}-?[A-Za-z]$/,         // Number, optional dash, letter: 1-A, 12-B
+  /^[A-Za-z]{1,2}\d{1,4}$/,      // 1-2 letters + number: PH1, TH12
+  /^\d{1,4}[A-Za-z]{1,2}$/,      // Number + 1-2 letters: 12TH, 4FL
 ];
 
 /**

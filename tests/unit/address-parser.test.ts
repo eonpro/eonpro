@@ -12,6 +12,9 @@ import {
   normalizeState,
   normalizeZip,
   normalizeCity,
+  normalizeStreetAddress,
+  normalizeAddress,
+  toTitleCase,
   validateAddress,
   isValidAddress,
   isApartmentString,
@@ -334,6 +337,20 @@ describe('Address Parser', () => {
         expect(isApartmentString('12A')).toBe(true);
       });
 
+      it('should detect alphanumeric apartment numbers', () => {
+        expect(isApartmentString('G05')).toBe(true);
+        expect(isApartmentString('2078')).toBe(true);
+        expect(isApartmentString('E216')).toBe(true);
+        expect(isApartmentString('PH1')).toBe(true);
+        expect(isApartmentString('TH12')).toBe(true);
+      });
+
+      it('should detect apartment numbers with dashes', () => {
+        expect(isApartmentString('A-1')).toBe(true);
+        expect(isApartmentString('12-B')).toBe(true);
+        expect(isApartmentString('1-A')).toBe(true);
+      });
+
       it('should not detect regular addresses', () => {
         expect(isApartmentString('123 Main Street')).toBe(false);
         expect(isApartmentString('New York')).toBe(false);
@@ -453,5 +470,125 @@ describe('Real-world WellMedR Address Scenarios', () => {
     expect(result.city).toBe('Spring Hill');
     expect(result.state).toBe('FL');
     expect(result.zip).toBe('34606');
+  });
+});
+
+describe('Title Case Formatting', () => {
+  describe('toTitleCase', () => {
+    it('should capitalize first letter of each word', () => {
+      expect(toTitleCase('123 MAIN STREET')).toBe('123 Main Street');
+      expect(toTitleCase('456 oak avenue')).toBe('456 Oak Avenue');
+      expect(toTitleCase('PINE ROAD')).toBe('Pine Road');
+    });
+
+    it('should preserve directionals (N, S, E, W, NE, NW, SE, SW)', () => {
+      expect(toTitleCase('456 NW OAK AVE')).toBe('456 NW Oak Ave');
+      expect(toTitleCase('123 SE MAIN ST')).toBe('123 SE Main St');
+      expect(toTitleCase('789 N FIRST ST')).toBe('789 N First St');
+      expect(toTitleCase('100 WEST BROADWAY')).toBe('100 West Broadway');
+    });
+
+    it('should preserve unit designators', () => {
+      expect(toTitleCase('APT 2078')).toBe('APT 2078');
+      expect(toTitleCase('STE 100')).toBe('STE 100');
+      expect(toTitleCase('BLDG A')).toBe('BLDG A');
+      expect(toTitleCase('FL 5')).toBe('FL 5');
+    });
+
+    it('should handle ordinals correctly', () => {
+      expect(toTitleCase('1ST FLOOR')).toBe('1st Floor');
+      expect(toTitleCase('2ND STREET')).toBe('2nd Street');
+      expect(toTitleCase('3RD AVENUE')).toBe('3rd Avenue');
+      expect(toTitleCase('4TH PLACE')).toBe('4th Place');
+      expect(toTitleCase('25TH STREET')).toBe('25th Street');
+    });
+
+    it('should handle empty or null input', () => {
+      expect(toTitleCase('')).toBe('');
+      expect(toTitleCase(null)).toBe('');
+      expect(toTitleCase(undefined)).toBe('');
+    });
+
+    it('should handle alphanumeric parts', () => {
+      expect(toTitleCase('4TH AVE')).toBe('4th Ave');
+      expect(toTitleCase('10124 9TH AVE W')).toBe('10124 9th Ave W');
+    });
+
+    it('should handle real WellMedR addresses', () => {
+      expect(toTitleCase('8201 SHORECREST CT')).toBe('8201 Shorecrest Ct');
+      expect(toTitleCase('18250 N 25TH AVE')).toBe('18250 N 25th Ave');
+      expect(toTitleCase('11726 SAHARA WAY')).toBe('11726 Sahara Way');
+      expect(toTitleCase('2930 TAIT TERRACE')).toBe('2930 Tait Terrace');
+    });
+  });
+
+  describe('normalizeStreetAddress', () => {
+    it('should apply title case by default', () => {
+      expect(normalizeStreetAddress('123 MAIN STREET')).toBe('123 Main Street');
+      expect(normalizeStreetAddress('456 NW OAK AVE')).toBe('456 NW Oak Ave');
+    });
+
+    it('should preserve title case when already correct', () => {
+      expect(normalizeStreetAddress('123 Main Street')).toBe('123 Main Street');
+    });
+
+    it('should allow disabling title case', () => {
+      expect(normalizeStreetAddress('123 MAIN STREET', { titleCase: false })).toBe('123 MAIN STREET');
+    });
+
+    it('should handle empty input', () => {
+      expect(normalizeStreetAddress('')).toBe('');
+      expect(normalizeStreetAddress(undefined)).toBe('');
+    });
+
+    it('should normalize multiple spaces', () => {
+      expect(normalizeStreetAddress('123   MAIN    STREET')).toBe('123 Main Street');
+    });
+  });
+
+  describe('normalizeAddress (complete address)', () => {
+    it('should apply title case to all address components', () => {
+      const result = normalizeAddress({
+        address1: '123 MAIN STREET',
+        address2: 'APT 4B',
+        city: 'NEW YORK',
+        state: 'ny',
+        zip: '10001',
+      });
+
+      expect(result.address1).toBe('123 Main Street');
+      expect(result.address2).toBe('APT 4b');
+      expect(result.city).toBe('New York');
+      expect(result.state).toBe('NY');
+      expect(result.zip).toBe('10001');
+    });
+
+    it('should handle real WellMedR addresses', () => {
+      const result = normalizeAddress({
+        address1: '8201 SHORECREST CT',
+        address2: '',
+        city: 'SPRING HILL',
+        state: 'florida',
+        zip: '34606',
+      });
+
+      expect(result.address1).toBe('8201 Shorecrest Ct');
+      expect(result.city).toBe('Spring Hill');
+      expect(result.state).toBe('FL');
+      expect(result.zip).toBe('34606');
+    });
+
+    it('should preserve directionals in full address normalization', () => {
+      const result = normalizeAddress({
+        address1: '456 NW OAK AVE',
+        address2: '',
+        city: 'PORTLAND',
+        state: 'OR',
+        zip: '97201',
+      });
+
+      expect(result.address1).toBe('456 NW Oak Ave');
+      expect(result.city).toBe('Portland');
+    });
   });
 });
