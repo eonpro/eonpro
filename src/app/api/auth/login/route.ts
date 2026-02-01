@@ -278,13 +278,53 @@ async function loginHandler(req: NextRequest) {
       });
     }
 
-    // Determine active clinic - use selected, primary, or first available
+    // Determine active clinic - use selected, subdomain-based, primary, or first available
     let activeClinicId: number | undefined = undefined;
     if (userRole !== 'super_admin') {
       if (selectedClinicId && clinics.find(c => c.id === selectedClinicId)) {
         activeClinicId = selectedClinicId;
       } else {
-        activeClinicId = user.clinicId || clinics[0]?.id;
+        // Try to detect clinic from subdomain (for white-labeled login)
+        const host = req.headers.get('host') || '';
+        const subdomain = extractSubdomain(host);
+
+        if (subdomain) {
+          // Find clinic by subdomain
+          const subdomainClinic = await basePrisma.clinic.findFirst({
+            where: { subdomain, status: 'ACTIVE' },
+            select: { id: true },
+          });
+
+          if (subdomainClinic) {
+            // Check if user has access to this clinic
+            const hasAccess = clinics.some(c => c.id === subdomainClinic.id) ||
+              user.clinicId === subdomainClinic.id;
+
+            if (hasAccess) {
+              activeClinicId = subdomainClinic.id;
+              logger.info('[Login] Using subdomain clinic', {
+                subdomain,
+                clinicId: subdomainClinic.id,
+                userId: user.id,
+              });
+            } else {
+              // User doesn't have access but is trying to login via subdomain
+              // Check if we should auto-add them (e.g., for new users created at this clinic)
+              // For now, just log and use their default
+              logger.warn('[Login] User logged in via subdomain without access', {
+                subdomain,
+                subdomainClinicId: subdomainClinic.id,
+                userId: user.id,
+                userClinicId: user.clinicId,
+              });
+            }
+          }
+        }
+
+        // Fallback to user's primary clinic or first available
+        if (!activeClinicId) {
+          activeClinicId = user.clinicId || clinics[0]?.id;
+        }
       }
     }
 
@@ -563,6 +603,46 @@ async function loginHandler(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Extract subdomain from hostname
+ * e.g., "ot.eonpro.io" -> "ot"
+ *       "wellmedr.localhost:3000" -> "wellmedr"
+ */
+function extractSubdomain(hostname: string): string | null {
+  // Normalize hostname (remove port)
+  const normalizedHost = hostname.split(':')[0].toLowerCase();
+
+  // Handle localhost specially
+  if (normalizedHost.includes('localhost')) {
+    const parts = normalizedHost.split('.');
+    if (parts.length >= 2 && parts[0] !== 'localhost' && parts[0] !== 'www') {
+      return parts[0];
+    }
+    return null;
+  }
+
+  // For eonpro.io domains
+  if (normalizedHost.endsWith('.eonpro.io')) {
+    const parts = normalizedHost.split('.');
+    const skipSubdomains = ['www', 'app', 'api', 'admin', 'staging'];
+    if (parts.length >= 3 && !skipSubdomains.includes(parts[0])) {
+      return parts[0];
+    }
+    return null;
+  }
+
+  // For other domains with subdomains (e.g., clinic.somedomain.com)
+  const parts = normalizedHost.split('.');
+  if (parts.length >= 3) {
+    const skipSubdomains = ['www', 'app', 'api', 'admin', 'staging', 'portal'];
+    if (!skipSubdomains.includes(parts[0])) {
+      return parts[0];
+    }
+  }
+
+  return null;
 }
 
 // Apply rate limiting to the handler

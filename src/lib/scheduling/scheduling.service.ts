@@ -9,6 +9,8 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { AppointmentStatus, AppointmentModeType } from '@prisma/client';
 import { createAppointmentReminders, cancelAppointmentReminders, sendAppointmentConfirmation } from './appointment-reminder.service';
+import { ensureZoomMeetingForAppointment, cancelZoomMeetingForAppointment } from '@/lib/integrations/zoom/telehealthService';
+import { isZoomEnabled } from '@/lib/integrations/zoom/config';
 
 // Types
 export interface TimeSlot {
@@ -246,14 +248,60 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
     // Create reminders
     await createAppointmentReminders(appointment.id);
 
+    // Auto-create Zoom meeting for VIDEO appointments
+    let finalAppointment = appointment;
+    if (input.type === AppointmentModeType.VIDEO && isZoomEnabled()) {
+      try {
+        const zoomResult = await ensureZoomMeetingForAppointment(appointment.id);
+        if (zoomResult.success && zoomResult.session) {
+          // Refresh appointment with Zoom details
+          const updatedAppointment = await prisma.appointment.findUnique({
+            where: { id: appointment.id },
+            include: {
+              patient: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  phone: true,
+                },
+              },
+              provider: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          });
+          if (updatedAppointment) {
+            finalAppointment = updatedAppointment;
+          }
+          logger.info('Zoom meeting created for appointment', {
+            appointmentId: appointment.id,
+            meetingId: zoomResult.session.meetingId,
+          });
+        }
+      } catch (zoomError) {
+        // Log but don't fail appointment creation
+        logger.error('Failed to create Zoom meeting for appointment', {
+          appointmentId: appointment.id,
+          error: zoomError instanceof Error ? zoomError.message : 'Unknown error',
+        });
+      }
+    }
+
     logger.info('Appointment created', {
-      appointmentId: appointment.id,
+      appointmentId: finalAppointment.id,
       patientId: input.patientId,
       providerId: input.providerId,
       startTime: input.startTime,
+      type: input.type,
     });
 
-    return { success: true, appointment };
+    return { success: true, appointment: finalAppointment };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to create appointment', { error: errorMessage, input });
@@ -376,6 +424,12 @@ export async function cancelAppointment(
   error?: string;
 }> {
   try {
+    // Get appointment to check type
+    const existingAppointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { type: true, zoomMeetingId: true }
+    });
+
     const appointment = await prisma.appointment.update({
       where: { id: appointmentId },
       data: {
@@ -387,6 +441,20 @@ export async function cancelAppointment(
 
     // Cancel all pending reminders
     await cancelAppointmentReminders(appointmentId);
+
+    // Cancel Zoom meeting if this was a VIDEO appointment
+    if (existingAppointment?.type === AppointmentModeType.VIDEO && isZoomEnabled()) {
+      try {
+        await cancelZoomMeetingForAppointment(appointmentId, reason);
+        logger.info('Zoom meeting cancelled for appointment', { appointmentId });
+      } catch (zoomError) {
+        // Log but don't fail cancellation
+        logger.error('Failed to cancel Zoom meeting for appointment', {
+          appointmentId,
+          error: zoomError instanceof Error ? zoomError.message : 'Unknown error',
+        });
+      }
+    }
 
     logger.info('Appointment cancelled', { appointmentId, reason });
 

@@ -22,8 +22,14 @@ import {
   isOutlookCalendarConnected,
   disconnectOutlookCalendar,
 } from './outlook-calendar.service';
+import {
+  isAppleCalendarConnected,
+  setupAppleCalendar,
+  disconnectAppleCalendar,
+  getAppleCalendarStatus,
+} from './apple-calendar.service';
 
-export type CalendarProvider = 'google' | 'outlook';
+export type CalendarProvider = 'google' | 'outlook' | 'apple';
 export type SyncDirection = 'to_external' | 'from_external' | 'both';
 
 export interface CalendarIntegrationStatus {
@@ -45,17 +51,22 @@ export interface UnifiedSyncResult {
 
 /**
  * Get OAuth URL for a calendar provider
+ * For Apple, returns setup instructions instead of OAuth URL
  */
 export async function getCalendarAuthUrl(
   provider: CalendarProvider,
   providerId: number,
   clinicId: number
-): Promise<string> {
+): Promise<string | { type: 'setup'; setup: Awaited<ReturnType<typeof setupAppleCalendar>> }> {
   switch (provider) {
     case 'google':
       return getGoogleAuthUrl(providerId, clinicId);
     case 'outlook':
       return await getOutlookAuthUrlAsync(providerId, clinicId);
+    case 'apple':
+      // Apple uses iCal subscription, not OAuth
+      const setup = await setupAppleCalendar(providerId, clinicId);
+      return { type: 'setup', setup };
     default:
       throw new Error(`Unknown calendar provider: ${provider}`);
   }
@@ -80,6 +91,7 @@ export async function getCalendarIntegrationStatus(
 
   const googleConnected = await isGoogleCalendarConnected(providerId);
   const outlookConnected = await isOutlookCalendarConnected(providerId);
+  const appleConnected = await isAppleCalendarConnected(providerId);
 
   const result: CalendarIntegrationStatus[] = [];
 
@@ -101,6 +113,16 @@ export async function getCalendarIntegrationStatus(
     syncEnabled: outlookIntegration?.syncEnabled || false,
     lastSyncAt: outlookIntegration?.lastSyncAt || null,
     syncDirection: (outlookIntegration?.syncDirection as SyncDirection) || 'both',
+  });
+
+  // Apple status
+  const appleIntegration = integrations.find((i: { provider: string }) => i.provider === 'apple');
+  result.push({
+    provider: 'apple',
+    isConnected: appleConnected,
+    syncEnabled: appleIntegration?.syncEnabled || false,
+    lastSyncAt: appleIntegration?.lastSyncAt || null,
+    syncDirection: (appleIntegration?.syncDirection as SyncDirection) || 'to_external', // Apple is subscription-based
   });
 
   return result;
@@ -148,6 +170,8 @@ export async function disconnectCalendar(
       return disconnectGoogleCalendar(providerId);
     case 'outlook':
       return disconnectOutlookCalendar(providerId);
+    case 'apple':
+      return disconnectAppleCalendar(providerId);
     default:
       return { success: false };
   }
