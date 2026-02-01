@@ -37,7 +37,7 @@ export default function NewPatientPage() {
     email: '',
     phone: '',
     dob: '',
-    gender: '' as 'm' | 'f' | '',
+    gender: '' as 'male' | 'female' | 'other' | 'prefer_not_to_say' | '',
     address1: '',
     address2: '',
     city: '',
@@ -132,17 +132,33 @@ export default function NewPatientPage() {
       // Format phone to just numbers
       const phoneNumbers = formData.phone.replace(/\D/g, '');
       
+      // Build payload matching API schema
+      const payload: Record<string, unknown> = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: phoneNumbers,
+        dob: formData.dob,
+        gender: formData.gender,
+        address1: formData.address1,
+        address2: formData.address2 || undefined,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip,
+      };
+
+      // Add notes to metadata if provided
+      if (formData.notes) {
+        payload.metadata = { notes: formData.notes };
+      }
+
       const response = await fetch('/api/patients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...formData,
-          phone: phoneNumbers,
-          gender: formData.gender as 'm' | 'f',
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -240,8 +256,10 @@ export default function NewPatientPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="">Select gender</option>
-                <option value="m">Male</option>
-                <option value="f">Female</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
               </select>
             </div>
           </div>
