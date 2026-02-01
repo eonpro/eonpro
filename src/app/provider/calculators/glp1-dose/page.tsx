@@ -26,29 +26,43 @@ import {
   type TitrationStep,
 } from '@/lib/calculators';
 
+const ML_OPTIONS = [1, 2, 3, 4, 5];
+
 export default function ProviderGLP1DoseCalculatorPage() {
   const [medication, setMedication] = useState<GLP1Medication>('semaglutide');
   const [concentration, setConcentration] = useState(5);
   const [units, setUnits] = useState('');
+  const [selectedMl, setSelectedMl] = useState<number | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<TitrationStep | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   const medInfo = useMemo(() => getMedicationInfo(medication), [medication]);
+  const isTirzepatide = medication === 'tirzepatide';
 
   // Update concentration when medication changes
   useMemo(() => {
-    setConcentration(medInfo.concentrations[1]?.value || medInfo.concentrations[0].value);
+    setConcentration(medInfo.concentrations[0].value);
     setSelectedWeek(null);
     setUnits('');
-  }, [medication]);
+    setSelectedMl(null);
+  }, [medication, medInfo.concentrations]);
 
   const result = useMemo(() => {
-    const unitsNum = parseFloat(units || '0');
-    if (unitsNum <= 0) return null;
-    return convertDose(unitsNum, 'units', concentration);
-  }, [units, concentration]);
+    if (isTirzepatide) {
+      // For Tirzepatide, use mL directly
+      if (!selectedMl || selectedMl <= 0) return null;
+      const mg = selectedMl * concentration;
+      const unitsVal = selectedMl * 100;
+      return { mg, mL: selectedMl, units: unitsVal };
+    } else {
+      // For Semaglutide, use units
+      const unitsNum = parseFloat(units || '0');
+      if (unitsNum <= 0) return null;
+      return convertDose(unitsNum, 'units', concentration);
+    }
+  }, [isTirzepatide, selectedMl, units, concentration]);
 
   const calculatedUnits = useMemo(() => {
     if (!selectedWeek) return null;
@@ -63,7 +77,9 @@ export default function ProviderGLP1DoseCalculatorPage() {
     return validateDose(medication, result.mg);
   }, [medication, result]);
 
-  const fillPercentage = Math.min(100, (parseFloat(units || '0') / 100) * 100);
+  const fillPercentage = isTirzepatide
+    ? Math.min(100, ((selectedMl || 0) / 5) * 100)
+    : Math.min(100, (parseFloat(units || '0') / 100) * 100);
 
   const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -74,6 +90,12 @@ export default function ProviderGLP1DoseCalculatorPage() {
   const generateDocumentation = () => {
     if (!result) return '';
     const dose = selectedWeek?.dose || result.mg;
+    if (isTirzepatide) {
+      return `${medInfo.name} ${dose} mg SC weekly
+Concentration: ${concentration} mg/mL
+Volume: ${typeof result.mL === 'number' ? result.mL : result.mL} mL
+${notes ? `\nNotes: ${notes}` : ''}`;
+    }
     return `${medInfo.name} ${dose} mg SC weekly
 Concentration: ${concentration} mg/mL
 Units: ${calculatedUnits?.units || result.units} units
@@ -163,36 +185,75 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
             </div>
           </div>
 
-          {/* Units Input */}
+          {/* Dose Input */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h2 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
               <Syringe className="h-5 w-5 text-green-500" />
-              Enter Units or Select Dose
+              {isTirzepatide ? 'Select mL Amount' : 'Enter Units or Select Dose'}
             </h2>
 
             <div className="grid gap-6 md:grid-cols-2">
               {/* Manual Entry */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Manual Units Entry
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={units}
-                    onChange={(e) => {
-                      setUnits(e.target.value);
-                      setSelectedWeek(null);
-                    }}
-                    placeholder="0"
-                    min="0"
-                    max="100"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-4 text-center text-3xl font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-medium uppercase tracking-wider text-gray-400">
-                    insulin units
-                  </span>
-                </div>
+                {isTirzepatide ? (
+                  <>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Select Volume (mL)
+                    </label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {ML_OPTIONS.map((ml) => (
+                        <button
+                          key={ml}
+                          onClick={() => {
+                            setSelectedMl(ml);
+                            setSelectedWeek(null);
+                          }}
+                          className={`rounded-xl border-2 p-4 text-center transition-all ${
+                            selectedMl === ml
+                              ? 'border-amber-500 bg-amber-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <p className="text-2xl font-bold text-gray-900">{ml}</p>
+                          <p className="text-xs text-gray-500">mL</p>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* mL to mg display */}
+                    {selectedMl && (
+                      <div className="mt-4 rounded-xl bg-amber-50 p-4 text-center">
+                        <p className="text-sm text-amber-700">
+                          {selectedMl} mL × {concentration} mg/mL ={' '}
+                          <span className="font-bold">{selectedMl * concentration} mg</span>
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Manual Units Entry
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={units}
+                        onChange={(e) => {
+                          setUnits(e.target.value);
+                          setSelectedWeek(null);
+                        }}
+                        placeholder="0"
+                        min="0"
+                        max="100"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-4 text-center text-3xl font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                      />
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-medium uppercase tracking-wider text-gray-400">
+                        insulin units
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 {/* Syringe Visualization */}
                 <div className="mt-4 flex justify-center">
@@ -208,18 +269,31 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
                               : 'linear-gradient(to top, #F59E0B, #FBBF24)',
                         }}
                       />
-                      {[0, 25, 50, 75, 100].map((mark) => (
-                        <div
-                          key={mark}
-                          className="absolute left-0 flex w-full items-center"
-                          style={{ bottom: `${mark}%` }}
-                        >
-                          <div className="h-0.5 w-3 bg-gray-300" />
-                          <span className="ml-1 text-[9px] font-semibold text-gray-400">
-                            {mark}
-                          </span>
-                        </div>
-                      ))}
+                      {isTirzepatide
+                        ? [0, 1, 2, 3, 4, 5].map((mark) => (
+                            <div
+                              key={mark}
+                              className="absolute left-0 flex w-full items-center"
+                              style={{ bottom: `${(mark / 5) * 100}%` }}
+                            >
+                              <div className="h-0.5 w-3 bg-gray-300" />
+                              <span className="ml-1 text-[9px] font-semibold text-gray-400">
+                                {mark}
+                              </span>
+                            </div>
+                          ))
+                        : [0, 25, 50, 75, 100].map((mark) => (
+                            <div
+                              key={mark}
+                              className="absolute left-0 flex w-full items-center"
+                              style={{ bottom: `${mark}%` }}
+                            >
+                              <div className="h-0.5 w-3 bg-gray-300" />
+                              <span className="ml-1 text-[9px] font-semibold text-gray-400">
+                                {mark}
+                              </span>
+                            </div>
+                          ))}
                     </div>
                   </div>
                 </div>
@@ -232,6 +306,7 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
                 </label>
                 <div className="max-h-80 space-y-2 overflow-y-auto pr-2">
                   {medInfo.titrationSchedule.map((schedule, i) => {
+                    const scheduleMl = schedule.dose / concentration;
                     const scheduleUnits = getUnitsForDose(schedule.dose, concentration);
                     const isSelected = selectedWeek?.week === schedule.week;
                     return (
@@ -239,7 +314,11 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
                         key={schedule.week}
                         onClick={() => {
                           setSelectedWeek(schedule);
-                          setUnits(scheduleUnits.toString());
+                          if (isTirzepatide) {
+                            setSelectedMl(Math.round(scheduleMl * 10) / 10);
+                          } else {
+                            setUnits(scheduleUnits.toString());
+                          }
                         }}
                         className={`flex w-full items-center justify-between rounded-xl p-3 transition-all ${
                           isSelected
@@ -262,7 +341,11 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-gray-900">{schedule.dose} mg</p>
-                          <p className="text-xs text-gray-500">{scheduleUnits} units</p>
+                          <p className="text-xs text-gray-500">
+                            {isTirzepatide
+                              ? `${scheduleMl.toFixed(2)} mL`
+                              : `${scheduleUnits} units`}
+                          </p>
                         </div>
                       </button>
                     );
@@ -323,23 +406,29 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
               <div className="mb-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-white/20 p-4 backdrop-blur-sm">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wider opacity-80">
-                    Units
+                    {isTirzepatide ? 'Volume' : 'Units'}
                   </p>
-                  <p className="text-3xl font-bold">{units || '0'}</p>
+                  <p className="text-3xl font-bold">
+                    {isTirzepatide ? `${selectedMl || 0} mL` : units || '0'}
+                  </p>
                 </div>
                 <div className="rounded-xl bg-white/20 p-4 backdrop-blur-sm">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wider opacity-80">
                     Milligrams
                   </p>
-                  <p className="text-3xl font-bold">{result?.mg.toFixed(2) || '0'}</p>
+                  <p className="text-3xl font-bold">{result?.mg.toFixed(0) || '0'}</p>
                 </div>
               </div>
 
               <div className="rounded-xl bg-white/30 p-4 text-center backdrop-blur-sm">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider opacity-80">
-                  Volume to Inject
+                  {isTirzepatide ? 'Total Dose' : 'Volume to Inject'}
                 </p>
-                <p className="text-2xl font-bold">{result?.mL.toFixed(3) || '0'} mL</p>
+                <p className="text-2xl font-bold">
+                  {isTirzepatide
+                    ? `${result?.mg.toFixed(0) || '0'} mg`
+                    : `${result?.mL.toFixed(3) || '0'} mL`}
+                </p>
               </div>
             </div>
           </div>
@@ -384,31 +473,55 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="mb-3 font-semibold text-gray-900">Conversion Formula</h3>
             <div className="space-y-3">
-              <div className="rounded-xl bg-gray-50 p-3">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Units to mL
-                </p>
-                <p className="font-mono text-gray-900">
-                  {units || '0'} units ÷ 100 = {result?.mL.toFixed(3) || '0'} mL
-                </p>
-              </div>
-              <div className="rounded-xl bg-gray-50 p-3">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  mL to mg
-                </p>
-                <p className="font-mono text-gray-900">
-                  {result?.mL.toFixed(3) || '0'} mL × {concentration} mg/mL ={' '}
-                  {result?.mg.toFixed(2) || '0'} mg
-                </p>
-              </div>
-              <div className="rounded-xl bg-blue-50 p-3">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-blue-600">
-                  Quick Reference
-                </p>
-                <p className="font-mono font-semibold text-blue-900">
-                  100 units = 1 mL = {concentration} mg
-                </p>
-              </div>
+              {isTirzepatide ? (
+                <>
+                  <div className="rounded-xl bg-gray-50 p-3">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      mL to mg
+                    </p>
+                    <p className="font-mono text-gray-900">
+                      {selectedMl || 0} mL × {concentration} mg/mL = {result?.mg.toFixed(0) || '0'}{' '}
+                      mg
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-amber-50 p-3">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-600">
+                      Quick Reference
+                    </p>
+                    <p className="font-mono font-semibold text-amber-900">
+                      1 mL = {concentration} mg
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-xl bg-gray-50 p-3">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Units to mL
+                    </p>
+                    <p className="font-mono text-gray-900">
+                      {units || '0'} units ÷ 100 = {result?.mL.toFixed(3) || '0'} mL
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 p-3">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      mL to mg
+                    </p>
+                    <p className="font-mono text-gray-900">
+                      {result?.mL.toFixed(3) || '0'} mL × {concentration} mg/mL ={' '}
+                      {result?.mg.toFixed(2) || '0'} mg
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-blue-50 p-3">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-blue-600">
+                      Quick Reference
+                    </p>
+                    <p className="font-mono font-semibold text-blue-900">
+                      100 units = 1 mL = {concentration} mg
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { ArrowLeft, Info, AlertTriangle, Syringe, ChevronRight, Check } from 'lucide-react';
 
-// Tirzepatide concentration options
+// Tirzepatide concentration options (compounded)
 const concentrations = [
-  { value: 5, label: '5 mg/mL' },
   { value: 10, label: '10 mg/mL' },
-  { value: 15, label: '15 mg/mL' },
-  { value: 20, label: '20 mg/mL' },
+  { value: 30, label: '30 mg/mL' },
 ];
+
+// mL selection options
+const ML_OPTIONS = [1, 2, 3, 4, 5];
 
 // Standard dosing schedule for Tirzepatide
 const dosingSchedule = [
@@ -28,27 +29,23 @@ export default function TirzepatideDoseCalculatorPage() {
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
 
-  const [units, setUnits] = useState('');
+  const [selectedMl, setSelectedMl] = useState<number | null>(null);
   const [concentration, setConcentration] = useState(10);
   const [selectedWeek, setSelectedWeek] = useState<(typeof dosingSchedule)[0] | null>(null);
 
   const result = useMemo(() => {
-    const unitsNum = parseFloat(units || '0');
-    if (unitsNum <= 0 || concentration <= 0) return null;
+    if (!selectedMl || selectedMl <= 0 || concentration <= 0) return null;
 
-    // Convert units to mg
-    // Insulin syringes: 100 units = 1 mL
-    const mL = unitsNum / 100;
-    const mg = mL * concentration;
+    const mg = selectedMl * concentration;
 
     return {
-      mg: mg.toFixed(2),
-      mL: mL.toFixed(3),
+      mg: mg.toFixed(0),
+      mL: selectedMl,
     };
-  }, [units, concentration]);
+  }, [selectedMl, concentration]);
 
-  // Syringe visual fill percentage (max 100 units)
-  const fillPercentage = Math.min(100, (parseFloat(units || '0') / 100) * 100);
+  // Syringe visual fill percentage (max 5 mL)
+  const fillPercentage = Math.min(100, ((selectedMl || 0) / 5) * 100);
 
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
@@ -62,7 +59,7 @@ export default function TirzepatideDoseCalculatorPage() {
           Back to Calculators
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900">Tirzepatide Dose Calculator</h1>
-        <p className="mt-1 text-gray-500">Convert units to mg for your injection</p>
+        <p className="mt-1 text-gray-500">Select your mL volume to calculate your dose</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -71,45 +68,57 @@ export default function TirzepatideDoseCalculatorPage() {
           {/* Concentration Selection */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h2 className="mb-4 font-semibold text-gray-900">Vial Concentration</h2>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3">
               {concentrations.map((c) => (
                 <button
                   key={c.value}
                   onClick={() => setConcentration(c.value)}
-                  className={`rounded-xl px-3 py-3 text-sm font-medium transition-all ${
+                  className={`rounded-xl px-4 py-4 text-center font-medium transition-all ${
                     concentration === c.value
                       ? 'text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                   style={concentration === c.value ? { backgroundColor: '#3B82F6' } : {}}
                 >
-                  {c.label}
+                  <p className="text-2xl font-bold">{c.value}</p>
+                  <p className="text-sm">mg/mL</p>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Units Input */}
+          {/* mL Selection */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 font-semibold text-gray-900">Enter Units</h2>
-            <div className="relative">
-              <input
-                type="number"
-                value={units}
-                onChange={(e) => {
-                  setUnits(e.target.value);
-                  setSelectedWeek(null);
-                }}
-                placeholder="0"
-                min="0"
-                max="100"
-                step="1"
-                className="w-full rounded-xl border border-gray-200 px-4 py-4 pr-16 text-center text-3xl font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 font-medium text-gray-400">
-                units
-              </span>
+            <h2 className="mb-4 font-semibold text-gray-900">Select Volume (mL)</h2>
+            <div className="grid grid-cols-5 gap-2">
+              {ML_OPTIONS.map((ml) => (
+                <button
+                  key={ml}
+                  onClick={() => {
+                    setSelectedMl(ml);
+                    setSelectedWeek(null);
+                  }}
+                  className={`rounded-xl border-2 p-4 text-center transition-all ${
+                    selectedMl === ml
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <p className="text-2xl font-bold text-gray-900">{ml}</p>
+                  <p className="text-xs text-gray-500">mL</p>
+                </button>
+              ))}
             </div>
+
+            {/* mL to mg display */}
+            {selectedMl && (
+              <div className="mt-4 rounded-xl bg-blue-50 p-4 text-center">
+                <p className="text-sm text-blue-700">
+                  {selectedMl} mL × {concentration} mg/mL ={' '}
+                  <span className="font-bold">{selectedMl * concentration} mg</span>
+                </p>
+              </div>
+            )}
 
             {/* Syringe Visualization */}
             <div className="mt-6 flex items-center justify-center">
@@ -121,26 +130,18 @@ export default function TirzepatideDoseCalculatorPage() {
                     className="absolute bottom-0 left-0 right-0 rounded-b-md bg-blue-400 transition-all duration-500 ease-out"
                     style={{ height: `${fillPercentage}%` }}
                   />
-                  {/* Measurement lines */}
-                  {[0, 20, 40, 60, 80, 100].map((mark) => (
+                  {/* Measurement lines - 0 to 5 mL */}
+                  {[0, 1, 2, 3, 4, 5].map((mark) => (
                     <div
                       key={mark}
                       className="absolute left-0 right-0 flex items-center"
-                      style={{ bottom: `${mark}%` }}
+                      style={{ bottom: `${(mark / 5) * 100}%` }}
                     >
                       <div className="h-0.5 w-2 bg-gray-400" />
                       <span className="ml-1 text-[8px] text-gray-500">{mark}</span>
                     </div>
                   ))}
                 </div>
-                {/* Plunger */}
-                <div
-                  className="absolute left-1/2 w-8 -translate-x-1/2 rounded-t-lg bg-gray-400 transition-all duration-500"
-                  style={{
-                    bottom: `calc(${fillPercentage}% + 192px)`,
-                    height: `calc(100% - ${fillPercentage}%)`,
-                  }}
-                />
                 {/* Needle */}
                 <div className="absolute -bottom-8 left-1/2 h-8 w-0.5 -translate-x-1/2 bg-gray-400" />
                 <div className="absolute -bottom-10 left-1/2 h-2 w-1 -translate-x-1/2 rounded-b-sm bg-gray-500" />
@@ -152,30 +153,31 @@ export default function TirzepatideDoseCalculatorPage() {
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h2 className="mb-4 font-semibold text-gray-900">Or Select Your Dose Week</h2>
             <div className="space-y-2">
-              {dosingSchedule.map((schedule) => (
-                <button
-                  key={schedule.week}
-                  onClick={() => {
-                    setSelectedWeek(schedule);
-                    const mL = schedule.dose / concentration;
-                    const calculatedUnits = Math.round(mL * 100 * 10) / 10;
-                    setUnits(calculatedUnits.toString());
-                  }}
-                  className={`flex w-full items-center justify-between rounded-xl border-2 p-4 transition-all ${
-                    selectedWeek?.week === schedule.week
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900">{schedule.label}</p>
-                    <p className="text-sm text-gray-500">{schedule.dose} mg</p>
-                  </div>
-                  <span className="rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
-                    {Math.round((schedule.dose / concentration) * 100 * 10) / 10} units
-                  </span>
-                </button>
-              ))}
+              {dosingSchedule.map((schedule) => {
+                const scheduleMl = schedule.dose / concentration;
+                return (
+                  <button
+                    key={schedule.week}
+                    onClick={() => {
+                      setSelectedWeek(schedule);
+                      setSelectedMl(Math.round(scheduleMl * 10) / 10);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl border-2 p-4 transition-all ${
+                      selectedWeek?.week === schedule.week
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">{schedule.label}</p>
+                      <p className="text-sm text-gray-500">{schedule.dose} mg</p>
+                    </div>
+                    <span className="rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
+                      {scheduleMl.toFixed(2)} mL
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -188,8 +190,8 @@ export default function TirzepatideDoseCalculatorPage() {
 
             <div className="mb-4 grid grid-cols-2 gap-4">
               <div className="rounded-xl bg-white/20 p-4 text-center backdrop-blur">
-                <p className="mb-1 text-sm font-medium text-white/80">Units</p>
-                <p className="text-4xl font-semibold text-white">{units || '0'}</p>
+                <p className="mb-1 text-sm font-medium text-white/80">Volume</p>
+                <p className="text-4xl font-semibold text-white">{selectedMl || '0'} mL</p>
               </div>
               <div className="rounded-xl bg-white/20 p-4 text-center backdrop-blur">
                 <p className="mb-1 text-sm font-medium text-white/80">Milligrams</p>
@@ -198,8 +200,8 @@ export default function TirzepatideDoseCalculatorPage() {
             </div>
 
             <div className="rounded-xl bg-white/15 p-4 text-center backdrop-blur">
-              <p className="text-sm font-medium text-white/80">Volume</p>
-              <p className="text-2xl font-semibold text-white">{result?.mL || '0'} mL</p>
+              <p className="text-sm font-medium text-white/80">Total Dose</p>
+              <p className="text-2xl font-semibold text-white">{result?.mg || '0'} mg</p>
             </div>
           </div>
 
@@ -209,17 +211,17 @@ export default function TirzepatideDoseCalculatorPage() {
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
                 <span className="rounded bg-white px-2 py-1 font-mono text-gray-700">
-                  100 units = 1 mL
-                </span>
-              </div>
-              <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
-                <span className="rounded bg-white px-2 py-1 font-mono text-gray-700">
-                  1 mL × {concentration} mg/mL = {concentration} mg
+                  mL × Concentration = Dose
                 </span>
               </div>
               <div className="flex items-center gap-3 rounded-lg bg-blue-50 p-3">
                 <span className="rounded bg-blue-100 px-2 py-1 font-mono text-blue-700">
-                  {units || '0'} units ÷ 100 × {concentration} = {result?.mg || '0'} mg
+                  {selectedMl || '0'} mL × {concentration} mg/mL = {result?.mg || '0'} mg
+                </span>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg bg-green-50 p-3">
+                <span className="rounded bg-green-100 px-2 py-1 font-mono text-green-700">
+                  1 mL = {concentration} mg
                 </span>
               </div>
             </div>
@@ -241,7 +243,7 @@ export default function TirzepatideDoseCalculatorPage() {
             </div>
           </div>
 
-          {/* Tirzepatide vs Semaglutide Info */}
+          {/* Tirzepatide Info */}
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />

@@ -136,10 +136,8 @@ export const TIRZEPATIDE_INFO: MedicationInfo = {
   indication:
     'Chronic weight management in adults with BMI ≥30 or ≥27 with weight-related comorbidity',
   concentrations: [
-    { value: 5, label: '5 mg/mL', color: '#3B82F6' },
     { value: 10, label: '10 mg/mL', color: '#10B981' },
-    { value: 15, label: '15 mg/mL', color: '#8B5CF6' },
-    { value: 20, label: '20 mg/mL', color: '#F59E0B' },
+    { value: 30, label: '30 mg/mL', color: '#8B5CF6' },
   ],
   titrationSchedule: [
     {
