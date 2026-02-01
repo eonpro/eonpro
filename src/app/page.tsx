@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, Search, Clock, ChevronRight, ClipboardList,
-  UserPlus, CreditCard, RefreshCw, FileText
+  DollarSign, Settings, LogOut, Search, Clock, ChevronRight,
+  UserPlus, CreditCard, RefreshCw, FileText, Key, Pill
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -37,12 +37,15 @@ interface DashboardStats {
 
 const navItems = [
   { icon: Home, path: '/', label: 'Home', active: true },
+  { icon: UserPlus, path: '/admin/intakes', label: 'Intakes' },
   { icon: Users, path: '/admin/patients', label: 'Patients' },
+  { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
   { icon: Store, path: '/admin/products', label: 'Products' },
-  { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
   { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
+  { icon: CreditCard, path: '/admin/stripe-dashboard', label: 'Stripe' },
+  { icon: Key, path: '/admin/registration-codes', label: 'Registration Codes' },
   { icon: Settings, path: '/admin/settings', label: 'Settings' },
 ];
 
