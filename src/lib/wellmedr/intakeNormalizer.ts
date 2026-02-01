@@ -10,6 +10,11 @@
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import type { IntakeSection, NormalizedIntake, NormalizedPatient, WellmedrPayload } from "./types";
 import { logger } from '@/lib/logger';
+import {
+  smartParseAddress,
+  normalizeState as normalizeStateFromLib,
+  normalizeZip,
+} from '@/lib/address';
 
 // Re-export types for convenience
 export type { IntakeSection, NormalizedIntake, NormalizedPatient } from "./types";
@@ -269,11 +274,6 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
     patient.phone = sanitizePhone(String(payload['phone']));
   }
 
-  // State
-  if (payload['state']) {
-    patient.state = normalizeStateInput(String(payload['state']));
-  }
-
   // Date of Birth
   if (payload['dob']) {
     patient.dob = normalizeDateInput(String(payload['dob']));
@@ -282,6 +282,92 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   // Gender/Sex
   if (payload['sex']) {
     patient.gender = normalizeGenderInput(String(payload['sex']));
+  }
+
+  // ========================================
+  // ADDRESS PARSING - Enterprise Solution
+  // ========================================
+  // Parse address from various possible field formats:
+  // 1. Combined strings: shipping_address, billing_address, address
+  // 2. Individual fields: address1, city, state, zip
+
+  // Check for combined address strings (from Airtable)
+  const combinedAddressFields = [
+    'shipping_address',
+    'billing_address',
+    'address',
+  ] as const;
+
+  let addressParsed = false;
+
+  for (const field of combinedAddressFields) {
+    const rawAddress = payload[field];
+    if (rawAddress && typeof rawAddress === 'string' && rawAddress.trim()) {
+      logger.info('[Wellmedr Normalizer] Parsing combined address', {
+        field,
+        rawAddressLength: rawAddress.length,
+        rawAddressPreview: rawAddress.substring(0, 50) + (rawAddress.length > 50 ? '...' : ''),
+      });
+
+      const parsed = smartParseAddress(rawAddress);
+
+      // Only use parsed values if we got meaningful data
+      if (parsed.address1 || parsed.city || parsed.state || parsed.zip) {
+        patient.address1 = parsed.address1 || '';
+        patient.address2 = parsed.address2 || '';
+        patient.city = parsed.city || '';
+        patient.state = parsed.state || '';
+        patient.zip = parsed.zip || '';
+        addressParsed = true;
+
+        logger.info('[Wellmedr Normalizer] Address parsed successfully', {
+          address1: patient.address1.substring(0, 30),
+          city: patient.city,
+          state: patient.state,
+          zip: patient.zip,
+        });
+        break; // Stop after first successful parse
+      }
+    }
+  }
+
+  // If no combined address was parsed, try individual fields
+  if (!addressParsed) {
+    // Street address
+    if (payload['address1'] || payload['street_address']) {
+      patient.address1 = String(payload['address1'] || payload['street_address']).trim();
+    }
+
+    // Address line 2
+    if (payload['address2']) {
+      patient.address2 = String(payload['address2']).trim();
+    }
+
+    // City
+    if (payload['city']) {
+      patient.city = String(payload['city']).trim();
+    }
+
+    // ZIP
+    if (payload['zip'] || payload['zipCode'] || payload['zip_code']) {
+      patient.zip = normalizeZip(String(payload['zip'] || payload['zipCode'] || payload['zip_code']));
+    }
+  }
+
+  // State - handle separately as it might come from its own field
+  // even when other address fields are parsed from combined string
+  if (payload['state']) {
+    const stateValue = String(payload['state']).trim();
+    // Use the state from payload if we don't already have one,
+    // or if the parsed state is empty
+    if (!patient.state || patient.state === '') {
+      patient.state = normalizeStateInput(stateValue);
+    }
+  }
+
+  // Final state normalization to ensure 2-letter code
+  if (patient.state) {
+    patient.state = normalizeStateFromLib(patient.state);
   }
 
   return patient;

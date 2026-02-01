@@ -4806,3 +4806,39 @@ model CalendarSubscription {
 
   @@index([providerId])
 }
+
+// ============================================================================
+// Address Validation Analytics
+// ============================================================================
+
+model AddressValidationLog {
+  id               Int       @id @default(autoincrement())
+  
+  // Event Classification
+  eventType        String    // PARSE_SUCCESS, SMARTY_VALIDATED, etc.
+  source           String    // webhook, intake, manual, migration
+  inputFormat      String    // combined_string, individual_fields, json
+  
+  // Context (optional - for debugging)
+  clinicId         Int?
+  patientId        Int?
+  
+  // Validation Results
+  wasStandardized  Boolean   @default(false)
+  confidence       Int?      // 0-100 confidence score
+  processingTimeMs Int?      // Time taken to process
+  
+  // Error Tracking
+  errorMessage     String?
+  
+  // Truncated input preview (NOT full PHI)
+  inputPreview     String?
+  
+  // Audit
+  createdAt        DateTime  @default(now())
+
+  @@index([eventType])
+  @@index([clinicId])
+  @@index([source])
+  @@index([createdAt])
+}

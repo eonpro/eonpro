@@ -58,6 +58,20 @@ export interface WellmedrPayload {
   'dob'?: string;
   'sex'?: string;
   
+  // Address Fields (from Airtable)
+  // These may come as combined strings or individual fields
+  'shipping_address'?: string;  // Combined: "123 Main St, City, State, 12345"
+  'billing_address'?: string;   // Combined: "123 Main St, City, State, 12345"
+  'address'?: string;           // Combined address string
+  'address1'?: string;          // Street address line 1
+  'address2'?: string;          // Street address line 2 (apt, suite)
+  'street_address'?: string;    // Alternative field name
+  'city'?: string;              // City name
+  'zip'?: string;               // ZIP code
+  'zipCode'?: string;           // Alternative ZIP field name
+  'zip_code'?: string;          // Alternative ZIP field name
+  'country'?: string;           // Country (default: US)
+
   // Body Metrics
   'feet'?: string;
   'inches'?: string;
