@@ -46,8 +46,6 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
         primaryColor: true,
         secondaryColor: true,
         accentColor: true,
-        backgroundColor: true,
-        buttonTextColor: true,
         customCss: true,
       },
     });
@@ -62,9 +60,9 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
       faviconUrl: clinic.faviconUrl,
       primaryColor: clinic.primaryColor,
       secondaryColor: clinic.secondaryColor,
-      accentColor: clinic.accentColor || '#d3f931',
-      backgroundColor: clinic.backgroundColor || '#F9FAFB',
-      buttonTextColor: clinic.buttonTextColor || 'auto',
+      accentColor: (clinic as any).accentColor || '#d3f931',
+      backgroundColor: (clinic as any).backgroundColor || '#F9FAFB',
+      buttonTextColor: (clinic as any).buttonTextColor || 'auto',
       customCss: clinic.customCss,
     };
 
@@ -169,8 +167,6 @@ export const PATCH = withAuth(async (request: NextRequest, user: AuthUser) => {
         primaryColor: true,
         secondaryColor: true,
         accentColor: true,
-        backgroundColor: true,
-        buttonTextColor: true,
         customCss: true,
       },
     });

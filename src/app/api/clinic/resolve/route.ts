@@ -17,9 +17,14 @@ import { logger } from '@/lib/logger';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const domain = searchParams.get('domain');
+    // Support both 'domain' and '_main' parameters (some proxies may rename params)
+    const domain = searchParams.get('domain') || searchParams.get('_main');
 
     if (!domain) {
+      logger.warn('[ClinicResolve] Missing domain parameter', {
+        params: Object.fromEntries(searchParams.entries()),
+        url: request.url,
+      });
       return NextResponse.json(
         { error: 'domain parameter is required', code: 'DOMAIN_REQUIRED' },
         { status: 400 }
@@ -72,10 +77,9 @@ export async function GET(request: NextRequest) {
     logger.info('[ClinicResolve] Clinic resolved', { domain, clinicId: clinic.id, clinicName: clinic.name });
 
     // Return only public branding data
-    // Note: buttonTextColor is optional - if column doesn't exist yet, default to 'auto'
+    // Note: buttonTextColor and backgroundColor are optional - if columns don't exist yet, use defaults
     const buttonTextColor = (clinic as any).buttonTextColor || 'auto';
-    // backgroundColor from branding
-    const backgroundColor = clinic.backgroundColor || '#F9FAFB';
+    const backgroundColor = (clinic as any).backgroundColor || '#F9FAFB';
 
     return NextResponse.json({
       clinicId: clinic.id,
@@ -99,9 +103,12 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const errorId = crypto.randomUUID().slice(0, 8);
+    const searchParams = new URL(request.url).searchParams;
     logger.error(`[CLINIC_RESOLVE_GET] Error ${errorId}:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
+      domain: searchParams.get('domain') || searchParams.get('_main'),
+      url: request.url,
     });
     return NextResponse.json(
       { error: 'Failed to resolve clinic', errorId, code: 'CLINIC_RESOLVE_ERROR' },
@@ -135,7 +142,6 @@ async function resolveClinicFromDomain(domain: string) {
       primaryColor: true,
       secondaryColor: true,
       accentColor: true,
-      backgroundColor: true,
       supportEmail: true,
       phone: true,
     },
@@ -173,7 +179,6 @@ async function resolveClinicFromDomain(domain: string) {
           primaryColor: true,
           secondaryColor: true,
           accentColor: true,
-          backgroundColor: true,
           supportEmail: true,
           phone: true,
         },
@@ -187,6 +192,12 @@ async function resolveClinicFromDomain(domain: string) {
 
     if (parts.length >= 3 && !skipSubdomains.includes(parts[0])) {
       const subdomain = parts[0];
+      logger.info('[ClinicResolve] Looking up eonpro.io subdomain', {
+        subdomain,
+        domain: normalizedDomain,
+        parts,
+      });
+
       clinic = await prisma.clinic.findFirst({
         where: {
           subdomain,
@@ -203,10 +214,22 @@ async function resolveClinicFromDomain(domain: string) {
           primaryColor: true,
           secondaryColor: true,
           accentColor: true,
-          backgroundColor: true,
           supportEmail: true,
           phone: true,
         },
+      });
+
+      if (!clinic) {
+        logger.warn('[ClinicResolve] No ACTIVE clinic found for subdomain', {
+          subdomain,
+          domain: normalizedDomain,
+        });
+      }
+    } else {
+      logger.info('[ClinicResolve] Subdomain skipped or invalid', {
+        subdomain: parts[0],
+        partsLength: parts.length,
+        isSkipped: skipSubdomains.includes(parts[0]),
       });
     }
   }
@@ -232,7 +255,6 @@ async function resolveClinicFromDomain(domain: string) {
           primaryColor: true,
           secondaryColor: true,
           accentColor: true,
-          backgroundColor: true,
           supportEmail: true,
           phone: true,
         },

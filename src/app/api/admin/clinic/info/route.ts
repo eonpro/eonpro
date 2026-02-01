@@ -43,8 +43,6 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
         primaryColor: true,
         secondaryColor: true,
         accentColor: true,
-        backgroundColor: true,
-        buttonTextColor: true,
         logoUrl: true,
         iconUrl: true,
         faviconUrl: true,
@@ -83,7 +81,12 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ clinic });
   } catch (error) {
-    logger.error('Error fetching clinic info:', error);
+    logger.error('Error fetching clinic info:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id,
+      clinicId: user.clinicId,
+    });
     return NextResponse.json(
       { error: 'Failed to fetch clinic information' },
       { status: 500 }
@@ -190,8 +193,6 @@ export const PATCH = withAuth(async (request: NextRequest, user: AuthUser) => {
         primaryColor: true,
         secondaryColor: true,
         accentColor: true,
-        backgroundColor: true,
-        buttonTextColor: true,
         logoUrl: true,
         iconUrl: true,
         faviconUrl: true,
