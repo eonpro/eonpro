@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home, Users, Building2, ShoppingCart, Store, TrendingUp,
+  Home, Users, ShoppingCart, Store, TrendingUp,
   DollarSign, Settings, LogOut, ChevronRight, ClipboardList
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -21,7 +21,6 @@ const getNavItems = (userRole: string | null) => {
   return [
     { icon: Home, path: '/', label: 'Home' },
     { icon: Users, path: patientsPath, label: 'Patients' },
-    { icon: Building2, path: '/admin/clinics', label: 'Clinics' },
     { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
     { icon: Store, path: '/admin/products', label: 'Products' },
     { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },

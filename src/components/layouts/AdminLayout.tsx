@@ -4,14 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home, Users, Building2, ShoppingCart, Store, TrendingUp,
+  Home, Users, ShoppingCart, Store, TrendingUp,
   DollarSign, Settings, LogOut, ChevronRight
 } from 'lucide-react';
 
 const navItems = [
   { icon: Home, path: '/admin', label: 'Dashboard' },
   { icon: Users, path: '/admin/patients', label: 'Patients' },
-  { icon: Building2, path: '/admin/clinics', label: 'Clinics' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },

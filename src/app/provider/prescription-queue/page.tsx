@@ -240,12 +240,55 @@ function getPatientAddress(patient: { address1?: string | null; address2?: strin
   const state = patient.state || '';
   const zip = patient.zip || '';
 
+  // Check if existing data looks INVALID and needs re-parsing
+  // This handles cases where data was incorrectly stored from a combined string
+  const zipLooksInvalid = zip && !isZipCode(zip) && !isStateName(zip); // zip="Texas" is invalid
+  const stateLooksInvalid = state && state.length > 2 && !isStateName(state); // state="Texas" when it should be "TX"
+  const stateLooksLikeZip = state && isZipCode(state); // state="95425" is wrong
+  const cityLooksLikeApt = city && isApartmentString(city); // city="130" or "APT F" is wrong
+  const zipIsStateName = zip && isStateName(zip); // zip="Texas" means state got put in zip field
+
+  const dataLooksCorrupted = zipLooksInvalid || stateLooksInvalid || stateLooksLikeZip || cityLooksLikeApt || zipIsStateName;
+
   // Check if address1 looks like a combined string that needs parsing
   const hasSeparateComponents = city || state || zip || addr2;
   const looksLikeCombined = addr1 && addr1.includes(',') && !hasSeparateComponents;
 
-  if (looksLikeCombined) {
+  // Parse if: no separate components, OR data looks corrupted and addr1 has commas
+  if (looksLikeCombined || (dataLooksCorrupted && addr1 && addr1.includes(','))) {
     return parseAddressString(addr1);
+  }
+
+  // If data looks corrupted but addr1 doesn't have commas, try to fix what we can
+  if (dataLooksCorrupted) {
+    let fixedCity = city;
+    let fixedState = state;
+    let fixedZip = zip;
+    let fixedAddr2 = addr2;
+
+    // If zip contains a state name, swap it
+    if (zipIsStateName) {
+      fixedState = normalizeState(zip);
+      fixedZip = '';
+    }
+
+    // If city looks like an apartment number, move it
+    if (cityLooksLikeApt && !fixedAddr2) {
+      fixedAddr2 = city;
+      fixedCity = '';
+    }
+
+    // If state looks invalid but could be part of "City State", try to extract
+    if (stateLooksInvalid && city) {
+      const combined = `${city} ${state}`;
+      const cityState = extractCityState(combined);
+      if (cityState) {
+        fixedCity = cityState.city;
+        fixedState = cityState.state;
+      }
+    }
+
+    return { address1: addr1, address2: fixedAddr2, city: fixedCity, state: fixedState, zip: fixedZip };
   }
 
   return { address1: addr1, address2: addr2, city, state, zip };

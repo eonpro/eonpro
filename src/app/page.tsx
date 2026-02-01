@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home, Users, Building2, ShoppingCart, Store, TrendingUp,
+  Home, Users, ShoppingCart, Store, TrendingUp,
   DollarSign, Settings, LogOut, Search, Clock, ChevronRight, ClipboardList,
   UserPlus, CreditCard, RefreshCw, FileText
 } from 'lucide-react';
@@ -38,7 +38,6 @@ interface DashboardStats {
 const navItems = [
   { icon: Home, path: '/', label: 'Home', active: true },
   { icon: Users, path: '/admin/patients', label: 'Patients' },
-  { icon: Building2, path: '/admin/clinics', label: 'Clinics' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },
