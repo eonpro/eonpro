@@ -191,6 +191,32 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
     }
   };
 
+  const handleCancelInvoice = async (invoiceId: number) => {
+    const reason = prompt('Please provide a reason for cancelling this invoice (optional):');
+    if (reason === null) return; // User clicked cancel on prompt
+
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/v2/invoices/${invoiceId}/actions`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', reason: reason || undefined }),
+      });
+
+      if (res.ok) {
+        toast.success('Invoice cancelled successfully');
+        fetchBillingData();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to cancel invoice');
+      }
+    } catch (err: any) {
+      logger.error('Error cancelling invoice:', err);
+      toast.error('Failed to cancel invoice');
+    }
+  };
+
   const handleRefund = async (paymentId: number | undefined, amount: number, reason: string, stripeInvoiceId?: string | null) => {
     try {
       const headers = getAuthHeaders();
@@ -415,10 +441,13 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                               {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="text-green-600 hover:text-green-800 font-medium">Send</button>}
                               {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="text-amber-600 hover:text-amber-800 font-medium">Void</button>}
                               {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
-                                <button onClick={() => {
-                                  const invoicePayment = payments.find((p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED');
-                                  setRefundModal(invoicePayment ? { invoiceId: invoice.id, paymentId: invoicePayment.id, maxAmount: invoice.amountPaid } : { invoiceId: invoice.id, stripeInvoiceId: invoice.stripeInvoiceId, maxAmount: invoice.amountPaid });
-                                }} className="text-purple-600 hover:text-purple-800 font-medium">Refund</button>
+                                <>
+                                  <button onClick={() => {
+                                    const invoicePayment = payments.find((p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED');
+                                    setRefundModal(invoicePayment ? { invoiceId: invoice.id, paymentId: invoicePayment.id, maxAmount: invoice.amountPaid } : { invoiceId: invoice.id, stripeInvoiceId: invoice.stripeInvoiceId, maxAmount: invoice.amountPaid });
+                                  }} className="text-purple-600 hover:text-purple-800 font-medium">Refund</button>
+                                  <button onClick={() => handleCancelInvoice(invoice.id)} className="text-red-600 hover:text-red-800 font-medium">Cancel</button>
+                                </>
                               )}
                               {/* Edit and Delete for unpaid invoices */}
                               {(invoice.status === 'DRAFT' || invoice.status === 'OPEN' || invoice.status === 'VOID') && (
@@ -476,10 +505,13 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                       {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">Send</button>}
                       {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors">Void</button>}
                       {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
-                        <button onClick={() => {
-                          const invoicePayment = payments.find((p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED');
-                          setRefundModal(invoicePayment ? { invoiceId: invoice.id, paymentId: invoicePayment.id, maxAmount: invoice.amountPaid } : { invoiceId: invoice.id, stripeInvoiceId: invoice.stripeInvoiceId, maxAmount: invoice.amountPaid });
-                        }} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">Refund</button>
+                        <>
+                          <button onClick={() => {
+                            const invoicePayment = payments.find((p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED');
+                            setRefundModal(invoicePayment ? { invoiceId: invoice.id, paymentId: invoicePayment.id, maxAmount: invoice.amountPaid } : { invoiceId: invoice.id, stripeInvoiceId: invoice.stripeInvoiceId, maxAmount: invoice.amountPaid });
+                          }} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">Refund</button>
+                          <button onClick={() => handleCancelInvoice(invoice.id)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">Cancel</button>
+                        </>
                       )}
                       {/* Edit and Delete for unpaid invoices */}
                       {(invoice.status === 'DRAFT' || invoice.status === 'OPEN' || invoice.status === 'VOID') && (

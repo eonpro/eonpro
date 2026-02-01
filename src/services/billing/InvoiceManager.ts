@@ -698,6 +698,44 @@ export class InvoiceManager {
       include: { patient: true, clinic: true },
     });
   }
+
+  /**
+   * Cancel an invoice - works for any status
+   * For PAID invoices, this marks as CANCELLED without automatic refund
+   * (refund should be handled separately if needed)
+   */
+  async cancelInvoice(invoiceId: number, reason?: string): Promise<any> {
+    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
+
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+
+    // For unpaid invoices in Stripe, void them
+    if (this.stripeClient && invoice.stripeInvoiceId && invoice.status !== 'PAID') {
+      try {
+        await this.stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
+      } catch (stripeError: any) {
+        logger.warn('Stripe void failed during cancel', { error: stripeError.message });
+      }
+    }
+
+    const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
+    return await basePrisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: 'CANCELLED',
+        prescriptionProcessed: true, // Remove from prescription queue
+        metadata: {
+          ...invoiceMetadata,
+          cancelledAt: new Date().toISOString(),
+          cancelReason: reason,
+          previousStatus: invoice.status,
+        } as unknown as Prisma.InputJsonValue,
+      },
+      include: { patient: true, clinic: true },
+    });
+  }
   
   /**
    * Mark invoice as uncollectible

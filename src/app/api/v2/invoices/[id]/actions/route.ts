@@ -11,6 +11,7 @@
  * - pay: Record a payment
  * - refund: Issue a refund
  * - mark_uncollectible: Mark as uncollectible
+ * - cancel: Cancel an invoice (works for any status)
  * - apply_credit: Apply a credit
  * - add_line_item: Add line item to draft
  * - remove_line_item: Remove line item from draft
@@ -52,6 +53,11 @@ const refundActionSchema = z.object({
 
 const markUncollectibleSchema = z.object({
   action: z.literal('mark_uncollectible'),
+  reason: z.string().optional(),
+});
+
+const cancelActionSchema = z.object({
+  action: z.literal('cancel'),
   reason: z.string().optional(),
 });
 
@@ -105,6 +111,7 @@ const actionSchema = z.discriminatedUnion('action', [
   payActionSchema,
   refundActionSchema,
   markUncollectibleSchema,
+  cancelActionSchema,
   applyCreditSchema,
   addLineItemSchema,
   removeLineItemSchema,
@@ -200,6 +207,15 @@ export async function POST(
         });
       }
       
+      case 'cancel': {
+        const invoice = await invoiceManager.cancelInvoice(invoiceId, validated.reason);
+        return NextResponse.json({
+          success: true,
+          invoice,
+          message: 'Invoice cancelled successfully',
+        });
+      }
+
       case 'apply_credit': {
         const invoice = await invoiceManager.applyCredit(invoiceId, validated.amount, validated.description);
         return NextResponse.json({
