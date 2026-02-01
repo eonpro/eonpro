@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { X, GitMerge, Loader2, AlertTriangle, Check, ArrowRight, Search, User } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Types for the merge preview
 interface RelationCounts {
@@ -164,14 +165,20 @@ export default function MergePatientModal({
 
     setSearching(true);
     try {
-      const response = await fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10&includeContact=true`);
-      if (!response.ok) throw new Error('Failed to search patients');
+      const response = await apiFetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10&includeContact=true`);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to search patients');
+      }
       const data = await response.json();
       // Filter out the source patient from results (API returns 'patients' not 'data')
       const filtered = (data.patients || []).filter((p: PatientSummary) => p.id !== sourcePatient.id);
       setSearchResults(filtered);
-    } catch (err) {
-      console.error('Search error:', err);
+    } catch (err: unknown) {
+      // Don't show error for auth issues - they're handled globally
+      if (!(err as { isAuthError?: boolean })?.isAuthError) {
+        console.error('Search error:', err);
+      }
       setSearchResults([]);
     } finally {
       setSearching(false);
@@ -194,7 +201,7 @@ export default function MergePatientModal({
     setError('');
 
     try {
-      const response = await fetch('/api/patients/merge/preview', {
+      const response = await apiFetch('/api/patients/merge/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -205,13 +212,17 @@ export default function MergePatientModal({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || 'Failed to load merge preview');
+        throw new Error(data.error || data.message || 'Failed to load merge preview');
       }
 
       const data = await response.json();
       setPreview(data.preview);
       setStep('preview');
     } catch (err: unknown) {
+      // Don't show error for auth issues - they're handled globally
+      if ((err as { isAuthError?: boolean })?.isAuthError) {
+        return;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to load merge preview';
       setError(errorMessage);
     } finally {
@@ -234,7 +245,7 @@ export default function MergePatientModal({
     setError('');
 
     try {
-      const response = await fetch('/api/patients/merge', {
+      const response = await apiFetch('/api/patients/merge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -245,12 +256,17 @@ export default function MergePatientModal({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || 'Failed to merge patients');
+        throw new Error(data.error || data.message || 'Failed to merge patients');
       }
 
       const data = await response.json();
       onMergeComplete(data.mergedPatient.id);
     } catch (err: unknown) {
+      // Don't show error for auth issues - they're handled globally
+      if ((err as { isAuthError?: boolean })?.isAuthError) {
+        setMerging(false);
+        return;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to merge patients';
       setError(errorMessage);
       setMerging(false);

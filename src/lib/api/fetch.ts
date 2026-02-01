@@ -231,8 +231,10 @@ async function handleResponseError(response: Response): Promise<Response> {
       errorCode === 'PROVIDER_NOT_FOUND' ||
       errorCode === 'ACCESS_DENIED' ||
       errorCode === 'PERMISSION_DENIED' ||
+      errorCode === 'FORBIDDEN' ||
       errorMessage.toLowerCase().includes('access denied') ||
       errorMessage.toLowerCase().includes('permission denied') ||
+      errorMessage.toLowerCase().includes('insufficient permissions') ||
       errorMessage.toLowerCase().includes('not authorized') ||
       (response.status === 403 && errorMessage.toLowerCase().includes('only providers'));
 

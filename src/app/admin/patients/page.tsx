@@ -23,7 +23,20 @@ interface Patient {
   lastPaymentAmount?: string | null;
   lastOrderStatus?: string | null;
   clinicName?: string | null;
+  tags?: string[];
+  source?: string | null;
 }
+
+// Treatment type options for Overtime Men's Clinic filtering
+const TREATMENT_FILTERS = [
+  { value: 'all', label: 'All Treatments' },
+  { value: 'peptides', label: 'Peptides' },
+  { value: 'nad-plus', label: 'NAD+' },
+  { value: 'sexual-health', label: 'Better Sex' },
+  { value: 'trt', label: 'TRT' },
+  { value: 'labs', label: 'Baseline/Labs' },
+  { value: 'weight-loss', label: 'Weight Loss' },
+];
 
 interface PaginationMeta {
   count: number;
@@ -56,6 +69,7 @@ export default function AdminPatientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [treatmentFilter, setTreatmentFilter] = useState('all');
   const [mergePatient, setMergePatient] = useState<Patient | null>(null);
   const [deletePatient, setDeletePatient] = useState<Patient | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
@@ -152,7 +166,9 @@ export default function AdminPatientsPage() {
   // Apply client-side status filter to loaded patients
   const filteredPatients = patients.filter(patient => {
     const matchesStatus = statusFilter === 'all' || patient.status?.toLowerCase() === statusFilter;
-    return matchesStatus;
+    const matchesTreatment = treatmentFilter === 'all' || 
+      (patient.tags && patient.tags.some(tag => tag === treatmentFilter));
+    return matchesStatus && matchesTreatment;
   });
 
   // Pagination calculations
@@ -310,6 +326,18 @@ export default function AdminPatientsPage() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="pending">Pending</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={treatmentFilter}
+              onChange={(e) => setTreatmentFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
+            >
+              {TREATMENT_FILTERS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
         </div>
