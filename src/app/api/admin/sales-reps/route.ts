@@ -74,7 +74,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
     });
 
     // Transform response
-    const salesRepsData = salesReps.map((rep) => ({
+    const salesRepsData = salesReps.map((rep: typeof salesReps[number]) => ({
       id: rep.id,
       firstName: rep.firstName,
       lastName: rep.lastName,

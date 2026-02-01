@@ -13,6 +13,7 @@ import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 const bulkReassignSchema = z.object({
   fromSalesRepId: z.number().positive('Source sales rep ID is required'),
@@ -122,7 +123,7 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
 
     // Perform bulk reassignment in a transaction
     const reassignedCount = await prisma.$transaction(
-      async (tx) => {
+      async (tx: Prisma.TransactionClient) => {
         let count = 0;
 
         for (const assignment of activeAssignments) {

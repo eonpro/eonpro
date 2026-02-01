@@ -9,10 +9,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 const assignSchema = z.object({
   salesRepId: z.number().positive('Sales rep ID must be a positive number'),
@@ -34,9 +35,13 @@ interface RouteContext {
 async function handleGet(
   req: NextRequest,
   user: AuthUser,
-  context: RouteContext
+  context?: RouteContext
 ): Promise<Response> {
   try {
+    if (!context?.params) {
+      return NextResponse.json({ error: 'Missing route parameters' }, { status: 400 });
+    }
+
     const { id } = await context.params;
     const patientId = parseInt(id, 10);
 
@@ -128,7 +133,7 @@ async function handleGet(
             assignedBy: assignment.assignedBy,
           }
         : null,
-      history: history.map((h) => ({
+      history: history.map((h: typeof history[number]) => ({
         id: h.id,
         salesRep: h.salesRep,
         assignedAt: h.assignedAt,
@@ -155,9 +160,13 @@ async function handleGet(
 async function handlePost(
   req: NextRequest,
   user: AuthUser,
-  context: RouteContext
+  context?: RouteContext
 ): Promise<Response> {
   try {
+    if (!context?.params) {
+      return NextResponse.json({ error: 'Missing route parameters' }, { status: 400 });
+    }
+
     const { id } = await context.params;
     const patientId = parseInt(id, 10);
 
@@ -220,7 +229,7 @@ async function handlePost(
     }
 
     // Use transaction to deactivate existing assignment and create new one
-    const assignment = await prisma.$transaction(async (tx) => {
+    const assignment = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Deactivate any existing active assignment
       const existingAssignment = await tx.patientSalesRepAssignment.findFirst({
         where: {
@@ -299,9 +308,13 @@ async function handlePost(
 async function handleDelete(
   req: NextRequest,
   user: AuthUser,
-  context: RouteContext
+  context?: RouteContext
 ): Promise<Response> {
   try {
+    if (!context?.params) {
+      return NextResponse.json({ error: 'Missing route parameters' }, { status: 400 });
+    }
+
     const { id } = await context.params;
     const patientId = parseInt(id, 10);
 
@@ -380,6 +393,6 @@ async function handleDelete(
   }
 }
 
-export const GET = withAdminAuth(handleGet);
-export const POST = withAdminAuth(handlePost);
-export const DELETE = withAdminAuth(handleDelete);
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin'] });
+export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin'] });
+export const DELETE = withAuth(handleDelete, { roles: ['super_admin', 'admin'] });

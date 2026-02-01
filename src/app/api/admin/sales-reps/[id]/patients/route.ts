@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
@@ -40,9 +40,13 @@ interface RouteContext {
 async function handleGet(
   req: NextRequest,
   user: AuthUser,
-  context: RouteContext
+  context?: RouteContext
 ): Promise<Response> {
   try {
+    if (!context?.params) {
+      return NextResponse.json({ error: 'Missing route parameters' }, { status: 400 });
+    }
+
     const { id } = await context.params;
     const salesRepId = parseInt(id, 10);
 
@@ -87,8 +91,10 @@ async function handleGet(
       select: { patientId: true, assignedAt: true },
     });
 
-    const patientIds = assignments.map((a) => a.patientId);
-    const assignmentMap = new Map(assignments.map((a) => [a.patientId, a.assignedAt]));
+    const patientIds = assignments.map((a: { patientId: number }) => a.patientId);
+    const assignmentMap = new Map(
+      assignments.map((a: { patientId: number; assignedAt: Date }) => [a.patientId, a.assignedAt])
+    );
 
     if (patientIds.length === 0) {
       return NextResponse.json({
@@ -157,7 +163,7 @@ async function handleGet(
     ]);
 
     // Transform response
-    const patientsData = patients.map((patient) => {
+    const patientsData = patients.map((patient: typeof patients[number]) => {
       const lastPayment = patient.payments?.[0];
       const lastOrder = patient.orders?.[0];
 
@@ -209,4 +215,4 @@ async function handleGet(
   }
 }
 
-export const GET = withAdminAuth(handleGet);
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin'] });

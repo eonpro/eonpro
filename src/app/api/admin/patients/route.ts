@@ -65,10 +65,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
         select: { patientId: true },
       });
-      assignedPatientIds = assignments.map((a) => a.patientId);
+      const mappedIds = assignments.map((a: { patientId: number }) => a.patientId);
+      assignedPatientIds = mappedIds;
 
       // If sales rep has no assigned patients, return empty result
-      if (assignedPatientIds.length === 0) {
+      if (mappedIds.length === 0) {
         return NextResponse.json({
           patients: [],
           meta: {
@@ -136,7 +137,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
         select: { patientId: true },
       });
-      const salesRepPatientIds = salesRepAssignments.map((a) => a.patientId);
+      const salesRepPatientIds = salesRepAssignments.map((a: { patientId: number }) => a.patientId);
       whereClause.id = { in: filteredIds.filter((id) => salesRepPatientIds.includes(id)) };
     }
 
