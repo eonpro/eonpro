@@ -423,6 +423,7 @@ export default function AdminPatientsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Treatment</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -461,6 +462,31 @@ export default function AdminPatientsPage() {
                       {patient.dateOfBirth && !isEncryptedData(patient.dateOfBirth)
                         ? new Date(patient.dateOfBirth).toLocaleDateString()
                         : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-wrap gap-1">
+                        {patient.tags?.includes('peptides') && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">Peptides</span>
+                        )}
+                        {patient.tags?.includes('nad-plus') && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">NAD+</span>
+                        )}
+                        {patient.tags?.includes('sexual-health') && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-pink-100 text-pink-700">Better Sex</span>
+                        )}
+                        {patient.tags?.includes('trt') && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700">TRT</span>
+                        )}
+                        {patient.tags?.includes('labs') && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-teal-100 text-teal-700">Labs</span>
+                        )}
+                        {patient.tags?.includes('weight-loss') && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Weight Loss</span>
+                        )}
+                        {!patient.tags?.some(t => ['peptides', 'nad-plus', 'sexual-health', 'trt', 'labs', 'weight-loss'].includes(t)) && (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
