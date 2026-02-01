@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "next dev -p ${PORT:-3001}",
-    "build": "rm -rf node_modules/.prisma && prisma generate && prisma db push --skip-generate && next build",
+    "build": "rm -rf node_modules/.prisma && prisma generate && prisma db push --skip-generate --accept-data-loss && next build",
     "start": "next start",
     "postinstall": "rm -rf node_modules/.prisma && prisma generate",
     "db:migrate": "prisma migrate deploy",
