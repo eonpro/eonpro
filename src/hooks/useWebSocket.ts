@@ -76,6 +76,17 @@ export function useWebSocket(options: WebSocketOptions = {}) {
     if (!isBrowser) return;
     if (socketRef.current?.connected) return;
 
+    // Skip WebSocket on Vercel (serverless doesn't support persistent connections)
+    const isVercel = typeof window !== 'undefined' && 
+      (window.location.hostname.includes('.vercel.app') || 
+       window.location.hostname.includes('eonpro.io'));
+    
+    if (isVercel) {
+      // Silently skip WebSocket on Vercel - use polling/refresh instead
+      setState(prev => ({ ...prev, status: 'disconnected', error: null }));
+      return;
+    }
+
     const token = getLocalStorageItem('auth-token') || 
                   getLocalStorageItem('provider-token') ||
                   getLocalStorageItem('admin-token');
