@@ -1,9 +1,9 @@
 /**
  * Unified Intake Processor
- * 
+ *
  * This module provides a centralized way to process intake form submissions
  * from multiple sources (Heyflow, MedLink, WeightLossIntake, Internal).
- * 
+ *
  * Usage:
  *   const processor = new IntakeProcessor({ source: 'heyflow' });
  *   const result = await processor.process(normalizedIntake, options);
@@ -15,6 +15,7 @@ import { logger } from "@/lib/logger";
 import { generateIntakePdf } from "@/services/intakePdfService";
 import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
 import { trackReferral } from "@/services/influencerService";
+import { attributeFromIntake } from "@/services/affiliate/attributionService";
 import type { NormalizedIntake, NormalizedPatient } from "@/lib/heyflow/types";
 
 export type IntakeSource = 'heyflow' | 'medlink' | 'weightlossintake' | 'eonpro' | 'internal';
@@ -103,7 +104,7 @@ export class IntakeProcessor {
     // Step 5: Track referral (if promo code provided)
     if (options.promoCode) {
       try {
-        await this.trackReferral(patient.id, options.promoCode, options.referralSource);
+        await this.trackReferral(patient.id, options.promoCode, clinicId, options.referralSource);
       } catch (error: any) {
         this.errors.push(`Referral tracking failed: ${error.message}`);
       }
@@ -159,7 +160,7 @@ export class IntakeProcessor {
       if (clinic) {
         return clinic.id;
       }
-      
+
       logger.warn(`[INTAKE ${this.requestId}] Clinic not found: ${options.clinicSubdomain}`);
     }
 
@@ -175,10 +176,10 @@ export class IntakeProcessor {
     options: ProcessIntakeOptions
   ): Promise<{ patient: any; isNew: boolean }> {
     const patientData = this.normalizePatientData(normalized.patient);
-    
+
     // Build match filters
     const matchFilters: Prisma.PatientWhereInput[] = [];
-    
+
     if (patientData.email && patientData.email !== 'unknown@example.com') {
       matchFilters.push({ email: patientData.email });
     }
@@ -200,7 +201,7 @@ export class IntakeProcessor {
       if (clinicId) {
         whereClause.clinicId = clinicId;
       }
-      
+
       existingPatient = await prisma.patient.findFirst({ where: whereClause });
     }
 
@@ -230,7 +231,7 @@ export class IntakeProcessor {
     } else {
       // Create new patient - use clinic-specific counter
       const patientNumber = await this.getNextPatientId(clinicId ?? undefined);
-      
+
       const patient = await prisma.patient.create({
         data: {
           ...patientData,
@@ -287,7 +288,7 @@ export class IntakeProcessor {
 
     // Store intake JSON for display (PDF bytes require DB migration for intakeData field)
     const intakeDataBuffer = Buffer.from(JSON.stringify(intakeDataToStore), 'utf8');
-    
+
     let document;
     if (existingDocument) {
       document = await prisma.patientDocument.update({
@@ -327,19 +328,59 @@ export class IntakeProcessor {
   }
 
   /**
-   * Track referral/promo code
+   * Track referral/promo code in both legacy and modern affiliate systems
    */
-  private async trackReferral(patientId: number, promoCode: string, referralSource?: string): Promise<void> {
-    await trackReferral(
-      patientId,
-      promoCode.trim().toUpperCase(),
-      referralSource || this.source,
-      {
-        source: this.source,
-        timestamp: new Date().toISOString(),
+  private async trackReferral(
+    patientId: number,
+    promoCode: string,
+    clinicId: number | null,
+    referralSource?: string
+  ): Promise<void> {
+    const normalizedCode = promoCode.trim().toUpperCase();
+
+    // Track in legacy influencer system (for backward compatibility)
+    try {
+      await trackReferral(
+        patientId,
+        normalizedCode,
+        referralSource || this.source,
+        {
+          source: this.source,
+          timestamp: new Date().toISOString(),
+        }
+      );
+      logger.info(`[INTAKE ${this.requestId}] Legacy referral tracked: ${normalizedCode}`);
+    } catch (error) {
+      logger.warn(`[INTAKE ${this.requestId}] Legacy referral tracking failed:`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    // Track in modern affiliate system (if clinic is known)
+    if (clinicId) {
+      try {
+        const attribution = await attributeFromIntake(
+          patientId,
+          normalizedCode,
+          clinicId,
+          this.source
+        );
+
+        if (attribution) {
+          logger.info(`[INTAKE ${this.requestId}] Modern affiliate attribution created`, {
+            affiliateId: attribution.affiliateId,
+            refCode: attribution.refCode,
+            touchId: attribution.touchId,
+          });
+        } else {
+          logger.debug(`[INTAKE ${this.requestId}] No modern affiliate found for code: ${normalizedCode}`);
+        }
+      } catch (error) {
+        logger.warn(`[INTAKE ${this.requestId}] Modern affiliate attribution failed:`, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
-    );
-    logger.info(`[INTAKE ${this.requestId}] Referral tracked: ${promoCode}`);
+    }
   }
 
   /**

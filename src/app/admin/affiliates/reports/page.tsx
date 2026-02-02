@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -11,6 +11,11 @@ import {
   Award,
   AlertTriangle,
   FileText,
+  MousePointer,
+  Target,
+  Trophy,
+  Medal,
+  Crown,
 } from 'lucide-react';
 
 interface ReportData {
@@ -42,6 +47,29 @@ interface ReportData {
   };
 }
 
+interface LeaderboardEntry {
+  rank: number;
+  affiliateId: number;
+  displayName: string;
+  status: string;
+  value: number;
+  formattedValue: string;
+  refCodes: string[];
+  percentOfTotal: number;
+}
+
+interface LeaderboardData {
+  metric: string;
+  period: string;
+  entries: LeaderboardEntry[];
+  totals: {
+    totalAffiliates: number;
+    totalValue: number;
+  };
+}
+
+type LeaderboardMetric = 'conversions' | 'revenue' | 'clicks' | 'conversionRate';
+
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -61,12 +89,13 @@ export default function AffiliateReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d' | 'ytd'>('30d');
+  
+  // Leaderboard state
+  const [leaderboardMetric, setLeaderboardMetric] = useState<LeaderboardMetric>('conversions');
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [period]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
     
@@ -113,7 +142,35 @@ export default function AffiliateReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
+
+  const fetchLeaderboard = useCallback(async () => {
+    setLeaderboardLoading(true);
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+    
+    try {
+      const response = await fetch(
+        `/api/admin/affiliates/leaderboard?metric=${leaderboardMetric}&period=${period}&limit=10`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+
+      if (response.ok) {
+        setLeaderboardData(await response.json());
+      }
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }, [leaderboardMetric, period]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
 
   const handleExport = (type: 'affiliates' | 'commissions' | '1099') => {
     // In real implementation, this would trigger a download
@@ -272,6 +329,131 @@ export default function AffiliateReportsPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Leaderboard Section */}
+      <div className="mt-6 rounded-xl bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-yellow-500" />
+            <h2 className="text-lg font-semibold text-gray-900">Performance Leaderboard</h2>
+          </div>
+          
+          {/* Metric Tabs */}
+          <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+            {([
+              { key: 'conversions', label: 'Conversions', icon: TrendingUp },
+              { key: 'revenue', label: 'Revenue', icon: DollarSign },
+              { key: 'clicks', label: 'Clicks', icon: MousePointer },
+              { key: 'conversionRate', label: 'Conv. Rate', icon: Target },
+            ] as const).map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setLeaderboardMetric(key)}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                  leaderboardMetric === key
+                    ? 'bg-white text-violet-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {leaderboardLoading ? (
+          <div className="flex h-48 items-center justify-center">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+          </div>
+        ) : leaderboardData && leaderboardData.entries.length > 0 ? (
+          <div className="space-y-2">
+            {leaderboardData.entries.map((entry, index) => (
+              <div
+                key={entry.affiliateId}
+                className={`flex items-center gap-4 rounded-lg p-3 transition-colors ${
+                  index === 0 ? 'bg-yellow-50' :
+                  index === 1 ? 'bg-gray-50' :
+                  index === 2 ? 'bg-orange-50' :
+                  'hover:bg-gray-50'
+                }`}
+              >
+                {/* Rank Badge */}
+                <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                  index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                  index === 1 ? 'bg-gray-300 text-gray-700' :
+                  index === 2 ? 'bg-orange-400 text-orange-900' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {index === 0 ? <Crown className="h-4 w-4" /> :
+                   index === 1 || index === 2 ? <Medal className="h-4 w-4" /> :
+                   entry.rank}
+                </div>
+
+                {/* Affiliate Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{entry.displayName}</p>
+                  <p className="text-xs text-gray-500">
+                    {entry.refCodes.length > 0 
+                      ? `Codes: ${entry.refCodes.slice(0, 2).join(', ')}${entry.refCodes.length > 2 ? ` +${entry.refCodes.length - 2}` : ''}`
+                      : 'No codes'
+                    }
+                  </p>
+                </div>
+
+                {/* Value */}
+                <div className="text-right">
+                  <p className={`font-bold ${
+                    index < 3 ? 'text-lg' : 'text-base'
+                  } ${
+                    leaderboardMetric === 'revenue' ? 'text-green-600' :
+                    leaderboardMetric === 'conversions' ? 'text-violet-600' :
+                    leaderboardMetric === 'clicks' ? 'text-blue-600' :
+                    'text-orange-600'
+                  }`}>
+                    {entry.formattedValue}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {entry.percentOfTotal.toFixed(1)}% of total
+                  </p>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="hidden sm:block w-24">
+                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        leaderboardMetric === 'revenue' ? 'bg-green-500' :
+                        leaderboardMetric === 'conversions' ? 'bg-violet-500' :
+                        leaderboardMetric === 'clicks' ? 'bg-blue-500' :
+                        'bg-orange-500'
+                      }`}
+                      style={{ width: `${Math.min(entry.percentOfTotal * 2, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex h-48 flex-col items-center justify-center text-center">
+            <Trophy className="mx-auto h-10 w-10 text-gray-300" />
+            <p className="mt-2 text-gray-500">No leaderboard data available</p>
+            <p className="text-sm text-gray-400">Affiliates will appear here once they have activity</p>
+          </div>
+        )}
+
+        {/* View Code Performance Link */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <a
+            href="/admin/affiliates/code-performance"
+            className="inline-flex items-center gap-2 text-sm text-violet-600 hover:text-violet-700"
+          >
+            <Target className="h-4 w-4" />
+            View detailed code performance
+          </a>
         </div>
       </div>
 

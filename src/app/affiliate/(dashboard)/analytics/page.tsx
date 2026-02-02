@@ -86,11 +86,14 @@ interface DashboardData {
 
 interface RefCodeStats {
   refCode: string;
+  description: string | null;
   clicks: number;
   conversions: number;
   revenueCents: number;
   commissionCents: number;
   conversionRate: number;
+  trend: number;
+  isNew: boolean;
 }
 
 interface TrafficSource {
@@ -497,7 +500,7 @@ export default function AffiliateAnalyticsPage() {
 
         {/* Two Column Layout */}
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Ref Code Performance */}
+          {/* Ref Code Performance - Enhanced */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -517,29 +520,69 @@ export default function AffiliateAnalyticsPage() {
             {refCodeStats.length > 0 ? (
               <div className="space-y-3">
                 {refCodeStats.slice(0, 5).map((ref, index) => (
-                  <div key={ref.refCode} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium ${
-                        index === 0 ? 'bg-amber-100 text-amber-700' :
-                        index === 1 ? 'bg-gray-200 text-gray-700' :
-                        index === 2 ? 'bg-orange-100 text-orange-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {index + 1}
+                  <div key={ref.refCode} className="p-3 bg-gray-50 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium ${
+                          index === 0 ? 'bg-amber-100 text-amber-700' :
+                          index === 1 ? 'bg-gray-200 text-gray-700' :
+                          index === 2 ? 'bg-orange-100 text-orange-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">{ref.refCode}</p>
+                            {ref.isNew && (
+                              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                                New
+                              </span>
+                            )}
+                          </div>
+                          {ref.description && (
+                            <p className="text-xs text-gray-400">{ref.description}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{ref.refCode}</p>
-                        <p className="text-xs text-gray-500">
-                          {formatNumber(ref.clicks)} clicks &bull; {ref.conversionRate.toFixed(1)}% CVR
-                        </p>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">{formatCurrency(ref.commissionCents)}</p>
+                        <div className="flex items-center justify-end gap-1 text-xs">
+                          {ref.trend >= 0 ? (
+                            <TrendingUp className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3 text-red-500" />
+                          )}
+                          <span className={ref.trend >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {Math.abs(ref.trend).toFixed(0)}%
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">{formatCurrency(ref.commissionCents)}</p>
-                      <p className="text-xs text-gray-500">{ref.conversions} sales</p>
+                    {/* Mini funnel visualization */}
+                    <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-gray-100">
+                      <div className="text-center">
+                        <p className="text-lg font-semibold text-blue-600">{formatNumber(ref.clicks)}</p>
+                        <p className="text-xs text-gray-500">Clicks</p>
+                      </div>
+                      <div className="text-center relative">
+                        <p className="text-lg font-semibold text-green-600">{formatNumber(ref.conversions)}</p>
+                        <p className="text-xs text-gray-500">Conversions</p>
+                        <span className="absolute -left-2 top-1/2 -translate-y-1/2 text-gray-300">→</span>
+                      </div>
+                      <div className="text-center relative">
+                        <p className="text-lg font-semibold text-purple-600">{ref.conversionRate.toFixed(1)}%</p>
+                        <p className="text-xs text-gray-500">Conv. Rate</p>
+                        <span className="absolute -left-2 top-1/2 -translate-y-1/2 text-gray-300">→</span>
+                      </div>
                     </div>
                   </div>
                 ))}
+                {refCodeStats.length > 5 && (
+                  <p className="text-xs text-center text-gray-400 pt-2">
+                    And {refCodeStats.length - 5} more codes...
+                  </p>
+                )}
               </div>
             ) : summary?.refCodes && summary.refCodes.length > 0 ? (
               <div className="space-y-3">
@@ -555,7 +598,7 @@ export default function AffiliateAnalyticsPage() {
                   </div>
                 ))}
                 <p className="text-xs text-gray-400 text-center pt-2">
-                  Detailed stats coming soon
+                  Performance data will appear as your codes get used
                 </p>
               </div>
             ) : (

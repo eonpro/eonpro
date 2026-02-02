@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -20,6 +20,10 @@ import {
   Trash2,
   X,
   MoreHorizontal,
+  BarChart3,
+  Target,
+  MousePointer,
+  Trophy,
 } from 'lucide-react';
 
 interface Clinic {
@@ -85,6 +89,35 @@ interface CommissionPlan {
   clinicId: number;
 }
 
+interface CrossClinicAnalytics {
+  totals: {
+    totalClinics: number;
+    totalAffiliates: number;
+    activeAffiliates: number;
+    totalCodes: number;
+    totalClicks: number;
+    totalConversions: number;
+    totalRevenue: number;
+    avgConversionRate: number;
+  };
+  clinicBreakdown: Array<{
+    clinicId: number;
+    clinicName: string;
+    totalCodes: number;
+    totalClicks: number;
+    totalConversions: number;
+    totalRevenue: number;
+    activeAffiliates: number;
+  }>;
+  topCodes: Array<{
+    code: string;
+    affiliateName: string;
+    clinicName: string;
+    conversions: number;
+    revenue: number;
+  }>;
+}
+
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -146,9 +179,39 @@ export default function SuperAdminAffiliatesPage() {
   // Actions dropdown
   const [openActionMenu, setOpenActionMenu] = useState<number | null>(null);
 
+  // Analytics state
+  const [analytics, setAnalytics] = useState<CrossClinicAnalytics | null>(null);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(true);
+
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    const token = localStorage.getItem('auth-token');
+    
+    try {
+      const response = await fetch(
+        `/api/super-admin/affiliates/analytics?period=${analyticsPeriod}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      
+      if (response.ok) {
+        setAnalytics(await response.json());
+      }
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [analyticsPeriod]);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   const fetchData = async () => {
     const token = localStorage.getItem('auth-token');
@@ -439,6 +502,179 @@ export default function SuperAdminAffiliatesPage() {
           </button>
         </div>
       )}
+
+      {/* Cross-Clinic Analytics Dashboard */}
+      <div className="mb-6">
+        <button
+          onClick={() => setShowAnalytics(!showAnalytics)}
+          className="flex items-center gap-2 mb-4 text-gray-600 hover:text-gray-900"
+        >
+          <BarChart3 className="h-5 w-5" />
+          <span className="font-medium">Cross-Clinic Analytics</span>
+          <ChevronDown className={`h-4 w-4 transition-transform ${showAnalytics ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showAnalytics && (
+          <div className="space-y-4">
+            {/* Period Filter */}
+            <div className="flex justify-end">
+              <div className="flex rounded-lg border border-gray-200 bg-white p-1">
+                {(['7d', '30d', '90d', 'all'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setAnalyticsPeriod(p)}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                      analyticsPeriod === p
+                        ? 'bg-[#4fa77e] text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {p === 'all' ? 'All Time' : p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {analyticsLoading ? (
+              <div className="flex h-32 items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#4fa77e] border-t-transparent" />
+              </div>
+            ) : analytics && (
+              <>
+                {/* Overview Stats */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-[#4fa77e]/10 p-2 text-[#4fa77e]">
+                        <Target className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900">{analytics.totals.totalCodes}</p>
+                        <p className="text-sm text-gray-500">Total Ref Codes</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
+                        <MousePointer className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900">{analytics.totals.totalClicks.toLocaleString()}</p>
+                        <p className="text-sm text-gray-500">Total Clicks</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-green-100 p-2 text-green-600">
+                        <TrendingUp className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900">{analytics.totals.totalConversions.toLocaleString()}</p>
+                        <p className="text-sm text-gray-500">Total Conversions</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-yellow-100 p-2 text-yellow-600">
+                        <DollarSign className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(analytics.totals.totalRevenue)}</p>
+                        <p className="text-sm text-gray-500">Total Revenue</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clinic Breakdown & Top Codes */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* Clinic Breakdown */}
+                  <div className="rounded-xl bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-gray-400" />
+                        Performance by Clinic
+                      </h3>
+                    </div>
+                    {analytics.clinicBreakdown.length > 0 ? (
+                      <div className="space-y-3">
+                        {analytics.clinicBreakdown.slice(0, 5).map((clinic, i) => (
+                          <div key={clinic.clinicId} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                                i === 0 ? 'bg-[#4fa77e] text-white' :
+                                i === 1 ? 'bg-gray-200 text-gray-700' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                                {i + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-medium text-gray-900 truncate">{clinic.clinicName}</p>
+                                <p className="text-xs text-gray-500">
+                                  {clinic.activeAffiliates} affiliates · {clinic.totalCodes} codes
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <p className="font-medium text-gray-900">{clinic.totalConversions}</p>
+                              <p className="text-xs text-green-600">{formatCurrency(clinic.totalRevenue)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-gray-500 py-4">No clinic data available</p>
+                    )}
+                  </div>
+
+                  {/* Top Performing Codes */}
+                  <div className="rounded-xl bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                        <Trophy className="h-5 w-5 text-yellow-500" />
+                        Top Performing Codes
+                      </h3>
+                    </div>
+                    {analytics.topCodes.length > 0 ? (
+                      <div className="space-y-3">
+                        {analytics.topCodes.slice(0, 5).map((code, i) => (
+                          <div key={code.code} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                                i === 0 ? 'bg-yellow-100 text-yellow-700' :
+                                i === 1 ? 'bg-gray-100 text-gray-700' :
+                                i === 2 ? 'bg-orange-100 text-orange-700' :
+                                'bg-gray-50 text-gray-500'
+                              }`}>
+                                {i + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-mono font-medium text-gray-900">{code.code}</p>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {code.affiliateName} · {code.clinicName}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <p className="font-medium text-gray-900">{code.conversions}</p>
+                              <p className="text-xs text-green-600">{formatCurrency(code.revenue)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-gray-500 py-4">No code data available</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Stats Summary */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">

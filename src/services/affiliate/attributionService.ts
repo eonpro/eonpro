@@ -1,9 +1,9 @@
 /**
  * Affiliate Attribution Service
- * 
+ *
  * Resolves which affiliate should receive credit for a conversion
  * based on configurable attribution models.
- * 
+ *
  * Supports:
  * - First-click attribution (for new patients)
  * - Last-click attribution (for returning patients)
@@ -73,7 +73,7 @@ async function findTouches(
 
   // Build where clause based on available identifiers
   const identifierConditions: any[] = [];
-  
+
   if (visitorFingerprint) {
     identifierConditions.push({ visitorFingerprint });
   }
@@ -114,7 +114,7 @@ async function findTouches(
  */
 function applyFirstClick(touches: TouchInfo[]): TouchInfo[] {
   if (touches.length === 0) return [];
-  
+
   return touches.map((touch, index) => ({
     ...touch,
     weight: index === 0 ? 1 : 0,
@@ -126,7 +126,7 @@ function applyFirstClick(touches: TouchInfo[]): TouchInfo[] {
  */
 function applyLastClick(touches: TouchInfo[]): TouchInfo[] {
   if (touches.length === 0) return [];
-  
+
   return touches.map((touch, index) => ({
     ...touch,
     weight: index === touches.length - 1 ? 1 : 0,
@@ -138,7 +138,7 @@ function applyLastClick(touches: TouchInfo[]): TouchInfo[] {
  */
 function applyLinear(touches: TouchInfo[]): TouchInfo[] {
   if (touches.length === 0) return [];
-  
+
   const weight = 1 / touches.length;
   return touches.map(touch => ({
     ...touch,
@@ -152,19 +152,19 @@ function applyLinear(touches: TouchInfo[]): TouchInfo[] {
  */
 function applyTimeDecay(touches: TouchInfo[]): TouchInfo[] {
   if (touches.length === 0) return [];
-  
+
   const now = Date.now();
   const halfLife = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
-  
+
   // Calculate raw weights based on exponential decay
   const rawWeights = touches.map(touch => {
     const age = now - touch.createdAt.getTime();
     return Math.pow(0.5, age / halfLife);
   });
-  
+
   // Normalize weights to sum to 1
   const totalWeight = rawWeights.reduce((sum, w) => sum + w, 0);
-  
+
   return touches.map((touch, index) => ({
     ...touch,
     weight: totalWeight > 0 ? rawWeights[index] / totalWeight : 0,
@@ -183,10 +183,10 @@ function applyPosition(touches: TouchInfo[]): TouchInfo[] {
       weight: 0.5,
     }));
   }
-  
+
   const middleCount = touches.length - 2;
   const middleWeight = 0.2 / middleCount;
-  
+
   return touches.map((touch, index) => {
     let weight: number;
     if (index === 0) {
@@ -430,5 +430,144 @@ export async function isNewPatient(patientId: number): Promise<boolean> {
     return paymentCount === 0;
   } catch {
     return true; // Assume new if check fails
+  }
+}
+
+/**
+ * Attribute a patient from intake form promo/affiliate code
+ *
+ * This is called when a patient submits an intake form with a promo code.
+ * It bridges the legacy influencer system to the modern affiliate system.
+ *
+ * @param patientId - The patient ID to attribute
+ * @param promoCode - The promo/affiliate code from the intake form
+ * @param clinicId - The clinic ID (required for ref code lookup)
+ * @param source - The intake source (heyflow, medlink, etc.)
+ * @returns The attribution result or null if no matching affiliate found
+ */
+export async function attributeFromIntake(
+  patientId: number,
+  promoCode: string,
+  clinicId: number,
+  source: string = 'intake'
+): Promise<AttributionResult | null> {
+  const normalizedCode = promoCode.trim().toUpperCase();
+
+  try {
+    // Check if patient already has attribution
+    const existingPatient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { attributionAffiliateId: true },
+    });
+
+    if (existingPatient?.attributionAffiliateId) {
+      logger.info('[Attribution] Patient already has attribution, skipping', {
+        patientId,
+        existingAffiliateId: existingPatient.attributionAffiliateId,
+        newCode: normalizedCode,
+      });
+      return null;
+    }
+
+    // Look up the ref code in the modern affiliate system
+    const refCode = await prisma.affiliateRefCode.findFirst({
+      where: {
+        refCode: normalizedCode,
+        clinicId,
+        isActive: true,
+      },
+      include: {
+        affiliate: {
+          select: {
+            id: true,
+            status: true,
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    if (!refCode) {
+      logger.info('[Attribution] No affiliate ref code found for intake', {
+        code: normalizedCode,
+        clinicId,
+      });
+      return null;
+    }
+
+    if (refCode.affiliate.status !== 'ACTIVE') {
+      logger.warn('[Attribution] Affiliate not active, skipping attribution', {
+        code: normalizedCode,
+        affiliateId: refCode.affiliateId,
+        status: refCode.affiliate.status,
+      });
+      return null;
+    }
+
+    // Create an AffiliateTouch record for tracking
+    const touch = await prisma.affiliateTouch.create({
+      data: {
+        clinicId,
+        affiliateId: refCode.affiliateId,
+        refCode: normalizedCode,
+        touchType: 'POSTBACK', // Direct conversion from intake form
+        landingPage: `/intake/${source}`,
+        utmSource: source,
+        utmMedium: 'intake_form',
+        utmCampaign: 'promo_code',
+        convertedPatientId: patientId,
+        convertedAt: new Date(),
+        // Generate a fingerprint for deduplication
+        visitorFingerprint: `intake-${patientId}-${Date.now()}`,
+      },
+    });
+
+    // Update patient with attribution data
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: {
+        attributionAffiliateId: refCode.affiliateId,
+        attributionRefCode: normalizedCode,
+        attributionFirstTouchAt: new Date(),
+        // Also add affiliate tag
+        tags: {
+          push: `affiliate:${normalizedCode}`,
+        },
+      },
+    });
+
+    // Increment the affiliate's lifetime conversions
+    await prisma.affiliate.update({
+      where: { id: refCode.affiliateId },
+      data: {
+        lifetimeConversions: { increment: 1 },
+      },
+    });
+
+    logger.info('[Attribution] Successfully attributed patient from intake', {
+      patientId,
+      affiliateId: refCode.affiliateId,
+      affiliateName: refCode.affiliate.displayName,
+      refCode: normalizedCode,
+      touchId: touch.id,
+      source,
+    });
+
+    return {
+      affiliateId: refCode.affiliateId,
+      refCode: normalizedCode,
+      touchId: touch.id,
+      model: 'INTAKE_DIRECT',
+      confidence: 'high',
+      weight: 1,
+    };
+  } catch (error) {
+    logger.error('[Attribution] Failed to attribute from intake', {
+      patientId,
+      promoCode: normalizedCode,
+      clinicId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return null;
   }
 }

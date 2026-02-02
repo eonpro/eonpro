@@ -1,169 +1,166 @@
 /**
- * Affiliate Ref Code Stats API
- * 
- * GET /api/affiliate/ref-codes/stats?from=YYYY-MM-DD&to=YYYY-MM-DD
- * 
- * Returns performance stats for each ref code belonging to the authenticated affiliate.
- * Includes clicks, conversions, revenue, and commission per ref code.
- * 
- * @security Affiliate role only
+ * Affiliate Ref Codes Stats API
+ *
+ * Returns detailed performance metrics for each ref code:
+ * - Clicks, conversions, revenue, commission per code
+ * - Conversion rate and performance trends
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAffiliateAuth, type AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
-interface RefCodeStats {
-  refCode: string;
-  description: string | null;
-  clicks: number;
-  conversions: number;
-  revenueCents: number;
-  commissionCents: number;
-  conversionRate: number;
-}
+async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
+  const searchParams = req.nextUrl.searchParams;
+  const from = searchParams.get('from');
+  const to = searchParams.get('to');
 
-export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
+  if (!user.affiliateId) {
+    return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
+  }
+
+  const affiliateId = user.affiliateId;
+
   try {
-    // Get affiliate from user
-    const affiliate = await prisma.affiliate.findUnique({
-      where: { userId: user.id },
-      select: { id: true, clinicId: true, status: true }
-    });
-
-    if (!affiliate) {
-      return NextResponse.json({ error: 'Affiliate profile not found' }, { status: 404 });
-    }
-
-    if (affiliate.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Affiliate account is not active' }, { status: 403 });
-    }
-
-    // Parse date filters
-    const { searchParams } = new URL(req.url);
-    const fromStr = searchParams.get('from');
-    const toStr = searchParams.get('to');
-    
-    const fromDate = fromStr ? new Date(fromStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const toDate = toStr ? new Date(toStr + 'T23:59:59.999Z') : new Date();
+    // Calculate date range
+    const dateFrom = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const dateTo = to ? new Date(to) : new Date();
+    dateTo.setHours(23, 59, 59, 999);
 
     // Get all ref codes for this affiliate
     const refCodes = await prisma.affiliateRefCode.findMany({
       where: {
-        affiliateId: affiliate.id,
-        clinicId: affiliate.clinicId,
+        affiliateId,
+        isActive: true,
       },
       select: {
+        id: true,
         refCode: true,
         description: true,
-      }
-    });
-
-    if (refCodes.length === 0) {
-      return NextResponse.json({
-        refCodes: [],
-        dateRange: {
-          from: fromDate.toISOString(),
-          to: toDate.toISOString(),
-        }
-      });
-    }
-
-    const refCodeList = refCodes.map((r: { refCode: string }) => r.refCode);
-
-    // Get clicks per ref code (from AffiliateTouch)
-    const clicksData = await prisma.affiliateTouch.groupBy({
-      by: ['refCode'],
-      where: {
-        affiliateId: affiliate.id,
-        clinicId: affiliate.clinicId,
-        refCode: { in: refCodeList },
-        createdAt: {
-          gte: fromDate,
-          lte: toDate,
-        }
+        createdAt: true,
       },
-      _count: true,
     });
 
-    // Get conversions and revenue per ref code (from AffiliateCommissionEvent)
-    // Note: Commission events are linked via touch, need to join through touch table
-    const conversionsData = await prisma.$queryRaw<Array<{
-      ref_code: string;
-      conversions: bigint;
-      revenue_cents: bigint;
-      commission_cents: bigint;
-    }>>`
-      SELECT 
-        t."refCode" as ref_code,
-        COUNT(DISTINCT ce.id) as conversions,
-        COALESCE(SUM(ce."eventAmountCents"), 0) as revenue_cents,
-        COALESCE(SUM(ce."commissionAmountCents"), 0) as commission_cents
-      FROM "AffiliateTouch" t
-      INNER JOIN "AffiliateCommissionEvent" ce ON ce."touchId" = t.id
-      WHERE t."affiliateId" = ${affiliate.id}
-        AND t."clinicId" = ${affiliate.clinicId}
-        AND t."refCode" = ANY(${refCodeList})
-        AND ce."status" != 'REVERSED'
-        AND ce."occurredAt" >= ${fromDate}
-        AND ce."occurredAt" <= ${toDate}
-      GROUP BY t."refCode"
-    `;
+    // Get stats for each ref code
+    const refCodeStats = await Promise.all(
+      refCodes.map(async (code: { id: number; refCode: string; description: string | null; createdAt: Date }) => {
+        // Get clicks (touches) in date range
+        const clicksResult = await prisma.affiliateTouch.aggregate({
+          where: {
+            refCode: code.refCode,
+            affiliateId,
+            createdAt: {
+              gte: dateFrom,
+              lte: dateTo,
+            },
+          },
+          _count: true,
+        });
 
-    // Build click map
-    const clickMap = new Map<string, number>();
-    for (const row of clicksData) {
-      clickMap.set(row.refCode, row._count);
-    }
+        // Get conversions (touches that converted) in date range
+        const conversionsResult = await prisma.affiliateTouch.aggregate({
+          where: {
+            refCode: code.refCode,
+            affiliateId,
+            convertedAt: {
+              gte: dateFrom,
+              lte: dateTo,
+            },
+          },
+          _count: true,
+        });
 
-    // Build conversion map
-    const conversionMap = new Map<string, {
-      conversions: number;
-      revenueCents: number;
-      commissionCents: number;
-    }>();
-    for (const row of conversionsData) {
-      conversionMap.set(row.ref_code, {
-        conversions: Number(row.conversions),
-        revenueCents: Number(row.revenue_cents),
-        commissionCents: Number(row.commission_cents),
-      });
-    }
+        // Get revenue and commission from commission events
+        const commissionResult = await prisma.affiliateCommissionEvent.aggregate({
+          where: {
+            affiliateId,
+            createdAt: {
+              gte: dateFrom,
+              lte: dateTo,
+            },
+            status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+          },
+          _sum: {
+            orderAmountCents: true,
+            commissionAmountCents: true,
+          },
+        });
 
-    // Combine data for each ref code
-    const refCodeStats: RefCodeStats[] = refCodes.map((rc: { refCode: string; description: string | null }) => {
-      const clicks = clickMap.get(rc.refCode) || 0;
-      const convData = conversionMap.get(rc.refCode) || {
-        conversions: 0,
-        revenueCents: 0,
-        commissionCents: 0,
-      };
-      
-      return {
-        refCode: rc.refCode,
-        description: rc.description,
-        clicks,
-        conversions: convData.conversions,
-        revenueCents: convData.revenueCents,
-        commissionCents: convData.commissionCents,
-        conversionRate: clicks > 0 ? (convData.conversions / clicks) * 100 : 0,
-      };
-    });
+        // Get daily trend for this code (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Sort by commission (highest first)
-    refCodeStats.sort((a, b) => b.commissionCents - a.commissionCents);
+        // Calculate trend (comparing last 7 days to previous 7 days)
+        const prevPeriodClicks = await prisma.affiliateTouch.count({
+          where: {
+            refCode: code.refCode,
+            affiliateId,
+            createdAt: {
+              gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+              lt: sevenDaysAgo,
+            },
+          },
+        });
+
+        const recentClicks = clicksResult._count;
+        const trend = prevPeriodClicks > 0
+          ? ((recentClicks - prevPeriodClicks) / prevPeriodClicks) * 100
+          : recentClicks > 0 ? 100 : 0;
+
+        const clicks = clicksResult._count;
+        const conversions = conversionsResult._count;
+        const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+
+        return {
+          refCode: code.refCode,
+          description: code.description,
+          createdAt: code.createdAt.toISOString(),
+          clicks,
+          conversions,
+          conversionRate,
+          revenueCents: commissionResult._sum.orderAmountCents || 0,
+          commissionCents: commissionResult._sum.commissionAmountCents || 0,
+          trend,
+          isNew: new Date(code.createdAt) > sevenDaysAgo,
+        };
+      })
+    );
+
+    // Sort by conversions (highest first)
+    refCodeStats.sort((a, b) => b.conversions - a.conversions);
+
+    // Calculate totals
+    const totals = {
+      totalCodes: refCodeStats.length,
+      totalClicks: refCodeStats.reduce((sum, c) => sum + c.clicks, 0),
+      totalConversions: refCodeStats.reduce((sum, c) => sum + c.conversions, 0),
+      totalRevenueCents: refCodeStats.reduce((sum, c) => sum + c.revenueCents, 0),
+      totalCommissionCents: refCodeStats.reduce((sum, c) => sum + c.commissionCents, 0),
+      avgConversionRate: refCodeStats.length > 0
+        ? refCodeStats.reduce((sum, c) => sum + c.conversionRate, 0) / refCodeStats.length
+        : 0,
+    };
 
     return NextResponse.json({
       refCodes: refCodeStats,
-      dateRange: {
-        from: fromDate.toISOString(),
-        to: toDate.toISOString(),
-      }
+      totals,
+      period: {
+        from: dateFrom.toISOString(),
+        to: dateTo.toISOString(),
+      },
+    });
+  } catch (error) {
+    logger.error('[AffiliateRefCodeStats] Failed to fetch ref code stats', {
+      affiliateId,
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-  } catch (error) {
-    logger.error('[Affiliate Ref Code Stats] Error fetching stats', error);
-    return NextResponse.json({ error: 'Failed to fetch ref code stats' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch ref code stats' },
+      { status: 500 }
+    );
   }
-}, { roles: ['affiliate', 'super_admin', 'admin'] });
+}
+
+export const GET = withAffiliateAuth(handler);
