@@ -6,6 +6,9 @@ import { upsertPatientFromIntake } from "@/lib/medlink/patientService";
 import { generateIntakePdf } from "@/services/intakePdfService";
 import { storeIntakePdf } from "@/services/storage/intakeStorage";
 import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
+import { trackReferral } from "@/services/influencerService";
+import { attributeFromIntake } from "@/services/affiliate/attributionService";
+import { extractPromoCode } from "@/lib/overtime/intakeNormalizer";
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
@@ -116,6 +119,34 @@ export async function POST(req: NextRequest) {
 
     // Upsert patient
     const patient = await upsertPatientFromIntake(normalized);
+
+    // Extract and track promo/affiliate code
+    const promoCode = extractPromoCode(payload);
+    if (promoCode) {
+      logger.debug(`[MEDLINK WEBHOOK] Found promo code: ${promoCode}`);
+      // Track in legacy system (Influencer/ReferralTracking)
+      try {
+        await trackReferral(patient.id, promoCode);
+        logger.debug(`[MEDLINK WEBHOOK] Tracked referral in legacy system for code: ${promoCode}`);
+      } catch (trackError: any) {
+        logger.warn(`[MEDLINK WEBHOOK] Failed to track referral in legacy system: ${trackError.message}`);
+      }
+      // Track in modern system (Affiliate/AffiliateTouch)
+      try {
+        const patientRecord = await prisma.patient.findUnique({
+          where: { id: patient.id },
+          select: { clinicId: true },
+        });
+        if (patientRecord?.clinicId) {
+          const result = await attributeFromIntake(patient.id, promoCode, patientRecord.clinicId, 'heyflow');
+          if (result) {
+            logger.debug(`[MEDLINK WEBHOOK] Tracked attribution in modern system: ${result.refCode}`);
+          }
+        }
+      } catch (modernError: any) {
+        logger.warn(`[MEDLINK WEBHOOK] Failed to track in modern system: ${modernError.message}`);
+      }
+    }
 
     // Generate PDF
     const pdfContent = await generateIntakePdf(normalized, patient);

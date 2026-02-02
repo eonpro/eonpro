@@ -7,6 +7,9 @@ import { generateIntakePdf } from "@/services/intakePdfService";
 import { storeIntakePdf } from "@/services/storage/intakeStorage";
 import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
 import { logWebhookAttempt } from "@/lib/webhookLogger";
+import { trackReferral } from "@/services/influencerService";
+import { attributeFromIntake } from "@/services/affiliate/attributionService";
+import { extractPromoCode } from "@/lib/overtime/intakeNormalizer";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from '@/lib/logger';
 
@@ -216,6 +219,35 @@ export async function POST(req: NextRequest) {
       logger.debug("[HEYFLOW V2] Creating/updating patient...");
       const patient = await upsertPatientFromIntake(normalized);
       logger.debug(`[HEYFLOW V2] Patient ID: ${patient.id}`);
+
+      // Extract and track promo/affiliate code
+      const promoCode = extractPromoCode(payload);
+      if (promoCode) {
+        logger.debug(`[HEYFLOW V2] Found promo code: ${promoCode}`);
+        // Track in legacy system (Influencer/ReferralTracking)
+        try {
+          await trackReferral(patient.id, promoCode);
+          logger.debug(`[HEYFLOW V2] Tracked referral in legacy system for code: ${promoCode}`);
+        } catch (trackError: any) {
+          logger.warn(`[HEYFLOW V2] Failed to track referral in legacy system: ${trackError.message}`);
+        }
+        // Track in modern system (Affiliate/AffiliateTouch)
+        try {
+          // Get clinic ID from patient
+          const patientRecord = await prisma.patient.findUnique({
+            where: { id: patient.id },
+            select: { clinicId: true },
+          });
+          if (patientRecord?.clinicId) {
+            const result = await attributeFromIntake(patient.id, promoCode, patientRecord.clinicId, 'heyflow-v2');
+            if (result) {
+              logger.debug(`[HEYFLOW V2] Tracked attribution in modern system: ${result.refCode}`);
+            }
+          }
+        } catch (modernError: any) {
+          logger.warn(`[HEYFLOW V2] Failed to track in modern system: ${modernError.message}`);
+        }
+      }
 
       // Generate PDF
       logger.debug("[HEYFLOW V2] Generating PDF...");
