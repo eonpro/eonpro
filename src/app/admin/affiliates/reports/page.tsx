@@ -107,33 +107,22 @@ export default function AffiliateReportsPage() {
       if (response.ok) {
         setData(await response.json());
       } else {
-        // Mock data for demo
+        // Show empty state instead of mock data
         setData({
           overview: {
-            totalAffiliates: 47,
-            activeAffiliates: 32,
-            totalConversions: 1284,
-            totalRevenueCents: 12847500,
-            totalCommissionCents: 1284750,
-            pendingPayoutCents: 324500,
+            totalAffiliates: 0,
+            activeAffiliates: 0,
+            totalConversions: 0,
+            totalRevenueCents: 0,
+            totalCommissionCents: 0,
+            pendingPayoutCents: 0,
           },
-          topAffiliates: [
-            { id: 1, name: 'John Smith', conversions: 156, revenueCents: 1850000, commissionCents: 185000 },
-            { id: 2, name: 'Sarah Johnson', conversions: 134, revenueCents: 1620000, commissionCents: 162000 },
-            { id: 3, name: 'Mike Williams', conversions: 98, revenueCents: 1240000, commissionCents: 124000 },
-            { id: 4, name: 'Emily Brown', conversions: 87, revenueCents: 980000, commissionCents: 98000 },
-            { id: 5, name: 'David Lee', conversions: 72, revenueCents: 840000, commissionCents: 84000 },
-          ],
-          trends: Array.from({ length: 14 }, (_, i) => ({
-            date: new Date(Date.now() - (13 - i) * 24 * 60 * 60 * 1000).toISOString(),
-            conversions: Math.floor(Math.random() * 50) + 20,
-            revenueCents: Math.floor(Math.random() * 500000) + 200000,
-            commissionCents: Math.floor(Math.random() * 50000) + 20000,
-          })),
+          topAffiliates: [],
+          trends: [],
           fraud: {
-            openAlerts: 12,
-            criticalAlerts: 2,
-            confirmedFraudCents: 45000,
+            openAlerts: 0,
+            criticalAlerts: 0,
+            confirmedFraudCents: 0,
           },
         });
       }
