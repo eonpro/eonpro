@@ -480,7 +480,7 @@ function HomePageInner() {
                       </tr>
                     ) : (
                       filteredIntakes.map((patient) => (
-                        <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => router.push(`/patients/${patient.id}`)}>
+                        <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => { window.location.href = `/patients/${patient.id}`; }}>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div

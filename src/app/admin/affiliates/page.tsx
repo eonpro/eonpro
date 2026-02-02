@@ -426,7 +426,7 @@ export default function AdminAffiliatesPage() {
                 </td>
                 <td className="whitespace-nowrap px-6 py-4 text-right">
                   <button
-                    onClick={() => router.push(`/admin/affiliates/${affiliate.id}`)}
+                    onClick={() => { window.location.href = `/admin/affiliates/${affiliate.id}`; }}
                     className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                   >
                     <Eye className="h-5 w-5" />

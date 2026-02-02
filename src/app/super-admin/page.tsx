@@ -245,7 +245,7 @@ export default function SuperAdminDashboard() {
                     </td>
                     <td className="px-6 py-4">
                       <button
-                        onClick={() => router.push(`/super-admin/clinics/${clinic.id}`)}
+                        onClick={() => { window.location.href = `/super-admin/clinics/${clinic.id}`; }}
                         className="text-[#4fa77e] hover:text-[#3d9268] text-sm font-medium"
                       >
                         Manage

@@ -364,8 +364,7 @@ export default function PatientSidebar({ patient, currentTab, affiliateCode, cur
           onClose={() => setShowMergeModal(false)}
           onMergeComplete={(mergedPatientId) => {
             setShowMergeModal(false);
-            router.push(`/patients/${mergedPatientId}`);
-            router.refresh();
+            window.location.href = `/patients/${mergedPatientId}`;
           }}
         />
       )}

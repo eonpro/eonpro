@@ -554,7 +554,7 @@ export default function IntakeFormsPage() {
                       Preview
                     </button>
                     <button
-                      onClick={() => router.push(`/intake-forms/${template.id}/edit`)}
+                      onClick={() => { window.location.href = `/intake-forms/${template.id}/edit`; }}
                       className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
                     >
                       Edit

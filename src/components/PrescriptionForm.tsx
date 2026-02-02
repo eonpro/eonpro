@@ -492,16 +492,16 @@ export default function PrescriptionForm({
       if (onSuccess) {
         onSuccess();
       } else if (redirectPath) {
-        router.push(redirectPath);
+        window.location.href = redirectPath;
       } else if (selectedPatientId) {
         // Navigate to patient profile with prescriptions tab if we have a patient ID
-        router.push(`/patients/${selectedPatientId}?tab=prescriptions&submitted=1`);
+        window.location.href = `/patients/${selectedPatientId}?tab=prescriptions&submitted=1`;
       } else if (data.patientId) {
         // Use patient ID from the API response (for newly created patients)
-        router.push(`/patients/${data.patientId}?tab=prescriptions&submitted=1`);
+        window.location.href = `/patients/${data.patientId}?tab=prescriptions&submitted=1`;
       } else {
         // Fallback to orders dashboard (should rarely happen)
-        router.push("/orders/dashboard?submitted=1");
+        window.location.href = "/orders/dashboard?submitted=1";
       }
     } catch (err: any) {
       logger.error("Prescription fetch error:", err);

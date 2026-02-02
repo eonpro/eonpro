@@ -87,7 +87,7 @@ export default function IntakesPage() {
   }, [searchTerm, intakes]);
 
   const handleRowClick = (patientId: number) => {
-    router.push(`/patients/${patientId}`);
+    window.location.href = `/patients/${patientId}`;
   };
 
   if (loading) {

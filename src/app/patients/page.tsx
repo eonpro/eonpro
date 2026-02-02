@@ -512,7 +512,7 @@ export default function PatientsPage() {
                 <tr 
                   key={patient.id} 
                   className="hover:bg-emerald-50 cursor-pointer transition-colors"
-                  onClick={() => router.push(`/patients/${patient.id}`)}
+                  onClick={() => { window.location.href = `/patients/${patient.id}`; }}
                 >
                   <td className="border px-2 py-1">
                     <div className="flex items-center gap-2">
