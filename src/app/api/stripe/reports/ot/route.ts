@@ -564,7 +564,7 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
           : '0%',
     },
     byAffiliate: affiliates,
-    recentConversions: conversions.slice(0, 20).map((e) => ({
+    recentConversions: conversions.slice(0, 20).map((e: typeof conversions[number]) => ({
       id: e.id,
       affiliateName: e.affiliate?.name || 'Unknown',
       patientName: e.patient
@@ -634,30 +634,30 @@ async function generatePatientReport(stripe: Stripe, clinicId: number, filters: 
       patientSpending[patient.id].transactions++;
 
       const chargeDate = new Date(charge.created * 1000);
-      if (
-        !patientSpending[patient.id].firstPurchase ||
-        chargeDate < patientSpending[patient.id].firstPurchase
-      ) {
+      const currentFirstPurchase = patientSpending[patient.id].firstPurchase;
+      if (!currentFirstPurchase || chargeDate < currentFirstPurchase) {
         patientSpending[patient.id].firstPurchase = chargeDate;
       }
     }
   }
 
-  const spendingValues = Object.values(patientSpending).map((p) => p.total);
-  const totalPatientSpending = spendingValues.reduce((sum, s) => sum + s, 0);
+  type PatientSpendingValue = { total: number; transactions: number; firstPurchase: Date | null };
+  const spendingValues = Object.values(patientSpending).map((p: PatientSpendingValue) => p.total);
+  const totalPatientSpending = spendingValues.reduce((sum: number, s: number) => sum + s, 0);
   const payingPatients = Object.keys(patientSpending).length;
 
   // Acquisition channels
+  type PatientRecord = typeof newPatients[number];
   const channelBreakdown = {
-    affiliate: newPatients.filter((p) => p.attributionAffiliateId).length,
-    direct: newPatients.filter((p) => !p.attributionAffiliateId && !p.attributionRefCode).length,
-    referralCode: newPatients.filter((p) => p.attributionRefCode && !p.attributionAffiliateId)
+    affiliate: newPatients.filter((p: PatientRecord) => p.attributionAffiliateId).length,
+    direct: newPatients.filter((p: PatientRecord) => !p.attributionAffiliateId && !p.attributionRefCode).length,
+    referralCode: newPatients.filter((p: PatientRecord) => p.attributionRefCode && !p.attributionAffiliateId)
       .length,
   };
 
   // Calculate LTV buckets
   const ltvBuckets = {
-    'No purchases': newPatients.filter((p) => !patientSpending[p.id]).length,
+    'No purchases': newPatients.filter((p: PatientRecord) => !patientSpending[p.id]).length,
     'Under $200': spendingValues.filter((s) => s > 0 && s < 20000).length,
     '$200-$500': spendingValues.filter((s) => s >= 20000 && s < 50000).length,
     '$500-$1000': spendingValues.filter((s) => s >= 50000 && s < 100000).length,
