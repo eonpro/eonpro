@@ -54,19 +54,22 @@ async function main() {
     // 1. Database Connectivity
     await checkDatabaseConnectivity(prisma);
 
-    // 2. Schema Validation
+    // 2. Migration Status Check
+    await checkMigrationStatus(prisma);
+
+    // 3. Schema Validation
     await checkSchemaIntegrity(prisma);
 
-    // 3. Schema Drift Detection (Prisma schema vs actual DB)
+    // 4. Schema Drift Detection (Prisma schema vs actual DB)
     await checkSchemaDrift(prisma);
 
-    // 4. Critical Data Queries
+    // 5. Critical Data Queries
     await checkCriticalDataQueries(prisma);
 
-    // 5. Data Integrity
+    // 6. Data Integrity
     await checkDataIntegrity(prisma);
 
-    // 6. API Endpoints (if in same environment)
+    // 7. API Endpoints (if in same environment)
     await checkCriticalEndpoints();
 
   } catch (error: any) {
@@ -102,7 +105,7 @@ async function main() {
 }
 
 async function checkDatabaseConnectivity(prisma: PrismaClient) {
-  console.log(`${BLUE}[1/5]${RESET} Checking database connectivity...`);
+  console.log(`${BLUE}[1/7]${RESET} Checking database connectivity...`);
   
   try {
     const result = await prisma.$queryRaw`SELECT 1 as connected`;
@@ -124,8 +127,75 @@ async function checkDatabaseConnectivity(prisma: PrismaClient) {
   }
 }
 
+async function checkMigrationStatus(prisma: PrismaClient) {
+  console.log(`${BLUE}[2/7]${RESET} Checking migration status...`);
+  
+  try {
+    // Query the _prisma_migrations table
+    const migrations = await prisma.$queryRaw<Array<{
+      id: string;
+      migration_name: string;
+      finished_at: Date | null;
+      applied_steps_count: number;
+      logs: string | null;
+    }>>`
+      SELECT id, migration_name, finished_at, applied_steps_count, logs
+      FROM "_prisma_migrations" 
+      ORDER BY started_at DESC 
+      LIMIT 20
+    `;
+    
+    // Check for failed migrations (finished_at is null)
+    const failedMigrations = migrations.filter(m => m.finished_at === null);
+    
+    if (failedMigrations.length > 0) {
+      results.push({
+        name: 'Migration Status',
+        passed: false,
+        critical: true, // Failed migrations are critical
+        message: `${failedMigrations.length} migration(s) in failed state`,
+        details: failedMigrations.map(m => `  - ${m.migration_name}`)
+      });
+      console.log(`  ${RED}✗${RESET} ${failedMigrations.length} failed migration(s) detected`);
+      failedMigrations.forEach(m => {
+        console.log(`    ${RED}→${RESET} ${m.migration_name}`);
+      });
+    } else {
+      results.push({
+        name: 'Migration Status',
+        passed: true,
+        critical: true,
+        message: `${migrations.length} migration(s) applied successfully`,
+      });
+      console.log(`  ${GREEN}✓${RESET} All migrations applied (${migrations.length} total)`);
+      if (migrations.length > 0) {
+        console.log(`    Latest: ${migrations[0].migration_name}`);
+      }
+    }
+  } catch (error: any) {
+    // If _prisma_migrations table doesn't exist, using db push
+    if (error.message.includes('does not exist') || error.message.includes('_prisma_migrations')) {
+      results.push({
+        name: 'Migration Status',
+        passed: true,
+        critical: false,
+        message: 'Using prisma db push (no migration history)',
+      });
+      console.log(`  ${YELLOW}⚠${RESET} No migration history table found (using db push)`);
+    } else {
+      results.push({
+        name: 'Migration Status',
+        passed: false,
+        critical: true,
+        message: `Failed to check migration status: ${error.message}`,
+      });
+      console.log(`  ${RED}✗${RESET} Migration status check failed`);
+    }
+  }
+}
+
 async function checkSchemaIntegrity(prisma: PrismaClient) {
-  console.log(`${BLUE}[2/5]${RESET} Validating database schema...`);
+  console.log(`${BLUE}[3/7]${RESET} Validating database schema...`);
 
   // Critical tables and their required columns
   // NOTE: When adding new columns to Clinic, add them here BEFORE deploying code that uses them
@@ -219,7 +289,7 @@ async function checkSchemaIntegrity(prisma: PrismaClient) {
  * new columns are added to the Prisma schema but migrations haven't been run.
  */
 async function checkSchemaDrift(prisma: PrismaClient) {
-  console.log(`${BLUE}[3/6]${RESET} Checking for schema drift...`);
+  console.log(`${BLUE}[4/7]${RESET} Checking for schema drift...`);
 
   // Models that are frequently updated and need drift detection
   // Add new columns here when they are added to the Prisma schema
@@ -314,7 +384,7 @@ async function checkSchemaDrift(prisma: PrismaClient) {
 }
 
 async function checkCriticalDataQueries(prisma: PrismaClient) {
-  console.log(`${BLUE}[4/6]${RESET} Testing critical data queries...`);
+  console.log(`${BLUE}[5/7]${RESET} Testing critical data queries...`);
 
   const queries = [
     {
@@ -365,7 +435,7 @@ async function checkCriticalDataQueries(prisma: PrismaClient) {
 }
 
 async function checkDataIntegrity(prisma: PrismaClient) {
-  console.log(`${BLUE}[5/6]${RESET} Checking data integrity...`);
+  console.log(`${BLUE}[6/7]${RESET} Checking data integrity...`);
 
   const issues: string[] = [];
 
@@ -436,7 +506,7 @@ async function checkDataIntegrity(prisma: PrismaClient) {
 }
 
 async function checkCriticalEndpoints() {
-  console.log(`${BLUE}[6/6]${RESET} Checking critical API endpoints...`);
+  console.log(`${BLUE}[7/7]${RESET} Checking critical API endpoints...`);
 
   // Only run if we have an API URL
   const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL;

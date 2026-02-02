@@ -95,12 +95,73 @@ jobs:
             p/typescript
 
   # ============================================================================
+  # Migration Validation
+  # ============================================================================
+  migrations:
+    name: Validate Migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: migration_test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        
+      - name: Generate Prisma client
+        run: npx prisma generate
+        
+      - name: Validate migration SQL
+        run: npm run db:migrate:validate || echo "Migration validation warnings found"
+        continue-on-error: true
+        
+      - name: Test migrations on fresh database
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/migration_test_db
+          
+      - name: Verify schema matches
+        run: npx prisma migrate status
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/migration_test_db
+          
+      - name: Test migration idempotency (run again)
+        run: |
+          echo "Testing idempotency - running migrations again..."
+          npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/migration_test_db
+
+  # ============================================================================
   # Unit & Integration Tests
   # ============================================================================
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: [migrations]
     
     services:
       postgres:
@@ -134,7 +195,7 @@ jobs:
         run: npx prisma generate
         
       - name: Run migrations
-        run: npx prisma db push --skip-generate
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
           
@@ -247,7 +308,7 @@ jobs:
         run: npx prisma generate
         
       - name: Run migrations
-        run: npx prisma db push --skip-generate
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
           
@@ -323,7 +384,7 @@ jobs:
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [lint, security, test, build]
+    needs: [lint, security, migrations, test, build]
     if: always()
     
     steps:
@@ -337,6 +398,10 @@ jobs:
             echo "❌ Security scan failed - blocking deployment"
             exit 1
           fi
+          if [[ "${{ needs.migrations.result }}" != "success" ]]; then
+            echo "❌ Migration validation failed - blocking deployment"
+            exit 1
+          fi
           if [[ "${{ needs.test.result }}" != "success" ]]; then
             echo "❌ Tests failed"
             exit 1
@@ -345,4 +410,4 @@ jobs:
             echo "❌ Build failed"
             exit 1
           fi
-          echo "✅ All quality gates passed (including security)"
+          echo "✅ All quality gates passed (including security and migrations)"

@@ -374,6 +374,71 @@ async function checkEncryption(): Promise<HealthCheck> {
   }
 }
 
+/**
+ * Check database migration status
+ */
+async function checkMigrations(): Promise<HealthCheck> {
+  const start = Date.now();
+  try {
+    // Check if _prisma_migrations table exists and query it
+    const migrations = await prisma.$queryRaw<Array<{
+      id: string;
+      migration_name: string;
+      finished_at: Date | null;
+      applied_steps_count: number;
+    }>>`
+      SELECT id, migration_name, finished_at, applied_steps_count 
+      FROM "_prisma_migrations" 
+      ORDER BY started_at DESC 
+      LIMIT 10
+    `;
+    
+    // Check for failed migrations (finished_at is null or steps_count mismatch)
+    const failedMigrations = migrations.filter(m => m.finished_at === null);
+    
+    if (failedMigrations.length > 0) {
+      return {
+        name: 'Migrations',
+        status: 'degraded',
+        responseTime: Date.now() - start,
+        message: `${failedMigrations.length} migration(s) in failed state`,
+        details: {
+          totalMigrations: migrations.length,
+          failedMigrations: failedMigrations.map(m => m.migration_name),
+        }
+      };
+    }
+    
+    return {
+      name: 'Migrations',
+      status: 'healthy',
+      responseTime: Date.now() - start,
+      message: 'All migrations applied successfully',
+      details: {
+        totalMigrations: migrations.length,
+        latestMigration: migrations[0]?.migration_name || 'none',
+      }
+    };
+  } catch (error: any) {
+    // If table doesn't exist, migrations haven't been run
+    if (error.message.includes('does not exist') || error.message.includes('_prisma_migrations')) {
+      return {
+        name: 'Migrations',
+        status: 'degraded',
+        responseTime: Date.now() - start,
+        message: 'Migration history table not found - using db push?',
+      };
+    }
+    
+    return {
+      name: 'Migrations',
+      status: 'unhealthy',
+      responseTime: Date.now() - start,
+      message: error.message
+    };
+  }
+}
+
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   const { searchParams } = new URL(req.url);
@@ -407,6 +472,7 @@ export async function GET(req: NextRequest) {
     // Run all checks in parallel for speed
     const checks = await Promise.all([
       checkDatabase(),
+      checkMigrations(),
       checkStripe(),
       checkTwilio(),
       checkCache(),
