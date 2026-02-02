@@ -157,7 +157,7 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   // ═══════════════════════════════════════════════════════════════════
   // Body Metrics
   'ideal weight': 'Ideal/Goal Weight (lbs)',
-  'BMI': 'BMI',
+  // Note: 'BMI' already defined above in Body Metrics section
   
   // Medical History - Weight Loss
   'Allergy Type': 'Allergy Type',
