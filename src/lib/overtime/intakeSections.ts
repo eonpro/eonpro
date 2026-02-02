@@ -1016,9 +1016,22 @@ const REFERRAL_SECTION = {
       placeholder: "Enter influencer code if you have one"
     },
     {
+      id: "affiliateCode",
+      label: "Affiliate Code",
+      aliases: [
+        "affiliate-code", "affiliatecode", "AFFILIATE CODE",
+        "Who Recommended Us?", "whorecommendedus", "who-recommended-us",
+        "Who reccomended OT Mens Health to you?", // Typo in Airtable
+        "Who recommended OT Mens Health to you?",
+        "partner-code", "partnercode", "PARTNER CODE"
+      ],
+      inputType: "text",
+      placeholder: "Affiliate or partner code"
+    },
+    {
       id: "referralSource",
       label: "How Did You Hear About Us?",
-      aliases: ["referral-source", "referralsource", "howdidyouhearaboutus"],
+      aliases: ["referral-source", "referralsource", "howdidyouhearaboutus", "How did you hear..."],
       inputType: "text",
       placeholder: "e.g., Google, Instagram, Friend"
     },

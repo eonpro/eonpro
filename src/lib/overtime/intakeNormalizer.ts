@@ -258,14 +258,34 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   // REFERRAL & MARKETING (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
   'How did you hear about us?': 'How Did You Hear About Us?',
-  'Who reccomended OT Mens Health to you?': 'Who Recommended Us?',  // Note: typo in Peptide Airtable
-  'Who recommended OT Mens Health to you?': 'Who Recommended Us?',  // Correct spelling in TRT
+  'Who reccomended OT Mens Health to you?': 'Affiliate Code',  // Note: typo in Peptide Airtable - this contains the affiliate code
+  'Who recommended OT Mens Health to you?': 'Affiliate Code',  // Correct spelling in TRT - this contains the affiliate code
+  'Who Recommended Us?': 'Affiliate Code',
   'Referrer': 'Referrer',
+  // Promo codes
   'promo-code': 'Promo Code',
-  'influencer-code': 'Influencer Code',
-  'referral-code': 'Referral Code',
+  'promoCode': 'Promo Code',
+  'Promo Code': 'Promo Code',
   'PROMO CODE': 'Promo Code',
+  // Influencer codes
+  'influencer-code': 'Influencer Code',
+  'influencerCode': 'Influencer Code',
+  'Influencer Code': 'Influencer Code',
   'INFLUENCER CODE': 'Influencer Code',
+  // Affiliate codes
+  'affiliate-code': 'Affiliate Code',
+  'affiliateCode': 'Affiliate Code',
+  'Affiliate Code': 'Affiliate Code',
+  'AFFILIATE CODE': 'Affiliate Code',
+  // Partner codes
+  'partner-code': 'Affiliate Code',
+  'partnerCode': 'Affiliate Code',
+  'Partner Code': 'Affiliate Code',
+  'PARTNER CODE': 'Affiliate Code',
+  // Referral codes
+  'referral-code': 'Referral Code',
+  'referralCode': 'Referral Code',
+  'REFERRAL CODE': 'Referral Code',
   
   // ═══════════════════════════════════════════════════════════════════
   // CONSENT (Airtable exact names)
@@ -531,13 +551,17 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
   // Referral & Marketing (Airtable exact names)
   const referralFields = [
     // Airtable exact names (both spelling variants)
-    'How did you hear about us?', 
+    'How did you hear about us?',
     'Who reccomended OT Mens Health to you?',  // Peptide table (typo)
     'Who recommended OT Mens Health to you?',  // TRT table (correct)
+    'Who Recommended Us?',
     'Referrer',
-    // Promo codes
-    'promo-code', 'promoCode', 'influencer-code', 'influencerCode', 
-    'referral-code', 'PROMO CODE', 'INFLUENCER CODE',
+    // Promo codes & Affiliate codes
+    'promo-code', 'promoCode', 'Promo Code', 'PROMO CODE',
+    'influencer-code', 'influencerCode', 'Influencer Code', 'INFLUENCER CODE',
+    'affiliate-code', 'affiliateCode', 'Affiliate Code', 'AFFILIATE CODE',
+    'partner-code', 'partnerCode', 'Partner Code', 'PARTNER CODE',
+    'referral-code', 'referralCode', 'Referral Code', 'REFERRAL CODE',
   ];
   
   // Consent Fields (Airtable exact names)
