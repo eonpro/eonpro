@@ -17,10 +17,15 @@ import {
 
 interface StripeStatus {
   connected: boolean;
+  accountType?: 'dedicated' | 'connect' | 'platform' | null;
   accountId: string | null;
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
+  businessName?: string;
+  subdomain?: string;
+  message?: string;
+  warning?: string;
 }
 
 export default function FinanceSettingsPage() {
@@ -115,8 +120,20 @@ export default function FinanceSettingsPage() {
               <CreditCard className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Stripe Connect</h3>
-              <p className="text-sm text-gray-500">Payment processing configuration</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {displayStripeStatus.accountType === 'dedicated'
+                  ? 'Dedicated Stripe Account'
+                  : displayStripeStatus.accountType === 'platform'
+                    ? 'Platform Stripe Account'
+                    : 'Stripe Connect'}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {displayStripeStatus.accountType === 'dedicated'
+                  ? 'Your clinic has a dedicated Stripe account'
+                  : displayStripeStatus.accountType === 'platform'
+                    ? 'Using platform-level payment processing'
+                    : 'Payment processing configuration'}
+              </p>
             </div>
           </div>
           {displayStripeStatus.connected ? (
@@ -135,8 +152,14 @@ export default function FinanceSettingsPage() {
         {displayStripeStatus.connected ? (
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Account ID</p>
-              <p className="text-sm font-mono text-gray-900">{displayStripeStatus.accountId}</p>
+              <p className="text-sm text-gray-500">
+                {displayStripeStatus.accountType === 'dedicated' ? 'Account Type' : 'Account ID'}
+              </p>
+              <p className="text-sm font-mono text-gray-900">
+                {displayStripeStatus.accountType === 'dedicated'
+                  ? `Dedicated (${displayStripeStatus.subdomain || 'clinic'})`
+                  : displayStripeStatus.accountId}
+              </p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-500">Status</p>
@@ -152,14 +175,20 @@ export default function FinanceSettingsPage() {
           </div>
         ) : null}
 
+        {displayStripeStatus.message && (
+          <p className="text-sm text-gray-600 mb-4">{displayStripeStatus.message}</p>
+        )}
+
         <div className="flex gap-3">
-          <Link
-            href="/admin/settings/stripe"
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
-          >
-            <Settings className="h-4 w-4" />
-            Manage Stripe
-          </Link>
+          {displayStripeStatus.accountType !== 'dedicated' && (
+            <Link
+              href="/admin/settings/stripe"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              <Settings className="h-4 w-4" />
+              Manage Stripe
+            </Link>
+          )}
           <a
             href="https://dashboard.stripe.com"
             target="_blank"
