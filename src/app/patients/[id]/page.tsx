@@ -500,6 +500,124 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   const vitals = extractVitals();
 
   // ═══════════════════════════════════════════════════════════════════
+  // AFFILIATE CODE EXTRACTION
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Extract affiliate/promo code from intake data
+   * Checks multiple field names: "Who Recommended Us?", "Promo Code", "Influencer Code", "Affiliate Code"
+   */
+  const extractAffiliateCode = (): string | null => {
+    const affiliateLabels = [
+      'who recommended us',
+      'who recommended',
+      'who reccomended', // Common typo
+      'promo code',
+      'promocode',
+      'influencer code',
+      'influencercode',
+      'affiliate code',
+      'affiliatecode',
+      'referral code',
+      'referralcode',
+      'partner code',
+      'referred by',
+    ];
+
+    // Generic sources to skip (not actual affiliate codes)
+    const genericSources = [
+      'instagram', 'facebook', 'google', 'tiktok', 'youtube', 'twitter',
+      'friend', 'family', 'other', 'n/a', 'none', '-', 'word of mouth',
+      'social media', 'online', 'web search', 'advertisement', 'ad',
+    ];
+
+    // Source 1: Document data with sections array
+    const intakeDoc = documentsWithParsedData.find(
+      (d: any) =>
+        d.category === 'MEDICAL_INTAKE_FORM' &&
+        d.data &&
+        typeof d.data === 'object' &&
+        !Buffer.isBuffer(d.data) &&
+        !(d.data.type === 'Buffer')
+    );
+
+    if (intakeDoc?.data) {
+      // Check sections array
+      if (intakeDoc.data.sections && Array.isArray(intakeDoc.data.sections)) {
+        for (const section of intakeDoc.data.sections) {
+          if (section.entries && Array.isArray(section.entries)) {
+            for (const entry of section.entries) {
+              const entryLabel = (entry.label || '').toLowerCase();
+              for (const label of affiliateLabels) {
+                if (entryLabel.includes(label) && entry.value && entry.value !== '') {
+                  const value = String(entry.value).trim();
+                  if (!genericSources.includes(value.toLowerCase()) && value.length > 1) {
+                    return value.toUpperCase();
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Check answers array directly
+      if (intakeDoc.data.answers && Array.isArray(intakeDoc.data.answers)) {
+        for (const answer of intakeDoc.data.answers) {
+          const answerLabel = (answer.label || '').toLowerCase();
+          for (const label of affiliateLabels) {
+            if (answerLabel.includes(label) && answer.value && answer.value !== '') {
+              const value = String(answer.value).trim();
+              if (!genericSources.includes(value.toLowerCase()) && value.length > 1) {
+                return value.toUpperCase();
+              }
+            }
+          }
+        }
+      }
+
+      // Check flat key-value pairs
+      for (const label of affiliateLabels) {
+        const searchKey = label.replace(/[^a-z0-9]/g, '');
+        for (const [key, value] of Object.entries(intakeDoc.data)) {
+          const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (normalizedKey.includes(searchKey) && value && value !== '') {
+            const strValue = String(value).trim();
+            if (!genericSources.includes(strValue.toLowerCase()) && strValue.length > 1) {
+              return strValue.toUpperCase();
+            }
+          }
+        }
+      }
+    }
+
+    // Source 2: IntakeSubmissions responses
+    if (patientWithDecryptedPHI.intakeSubmissions?.length > 0) {
+      for (const submission of patientWithDecryptedPHI.intakeSubmissions) {
+        if (submission.responses && Array.isArray(submission.responses)) {
+          for (const response of submission.responses) {
+            const questionText = (
+              response.question?.text || response.question?.label || ''
+            ).toLowerCase();
+            for (const label of affiliateLabels) {
+              if (questionText.includes(label) && response.value && response.value !== '') {
+                const value = String(response.value).trim();
+                if (!genericSources.includes(value.toLowerCase()) && value.length > 1) {
+                  return value.toUpperCase();
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const affiliateCode = extractAffiliateCode();
+
+  // ═══════════════════════════════════════════════════════════════════
   // HEALTH RISK COLOR HELPERS
   // ═══════════════════════════════════════════════════════════════════
 
@@ -587,7 +705,11 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     <div className="min-h-screen bg-[#efece7] p-6">
       <div className="flex gap-6">
         {/* Left Sidebar - Patient Info & Navigation */}
-        <PatientSidebar patient={patientWithDecryptedPHI} currentTab={currentTab} />
+        <PatientSidebar
+          patient={patientWithDecryptedPHI}
+          currentTab={currentTab}
+          affiliateCode={affiliateCode}
+        />
 
         {/* Main Content Area */}
         <div className="min-w-0 flex-1">

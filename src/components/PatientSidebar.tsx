@@ -25,6 +25,7 @@ interface PatientSidebarProps {
     zip: string;
   };
   currentTab: string;
+  affiliateCode?: string | null;
 }
 
 const navItems = [
@@ -39,7 +40,7 @@ const navItems = [
   { id: 'appointments', label: 'Appointments', icon: 'Ap' },
 ];
 
-export default function PatientSidebar({ patient, currentTab }: PatientSidebarProps) {
+export default function PatientSidebar({ patient, currentTab, affiliateCode }: PatientSidebarProps) {
   const router = useRouter();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -213,6 +214,28 @@ export default function PatientSidebar({ patient, currentTab }: PatientSidebarPr
         <p className="text-sm font-medium text-gray-900 mb-3">
           ID #{patient.patientId || String(patient.id).padStart(6, '0')}
         </p>
+
+        {/* Affiliate Code Badge */}
+        {affiliateCode && (
+          <div className="mb-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-purple-100 text-purple-700 border border-purple-200">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"
+                />
+              </svg>
+              #{affiliateCode}
+            </span>
+          </div>
+        )}
 
         {/* Address */}
         <a

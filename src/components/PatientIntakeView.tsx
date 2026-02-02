@@ -108,11 +108,12 @@ const DEFAULT_INTAKE_SECTIONS = [
     ],
   },
   {
-    title: "Referral & Metadata",
+    title: "Referral & Promo Code",
     icon: ClipboardList,
     editable: true,
     fields: [
-      { id: "referralSource", label: "Referral Source", aliases: ["referralsource", "howdidyouhearaboutus"], inputType: "text", placeholder: "How did they hear about us?" },
+      { id: "affiliateCode", label: "Affiliate Code", aliases: ["affiliatecode", "affiliate-code", "promocode", "promo-code", "influencercode", "influencer-code", "whorecommended", "whorecommendedus"], inputType: "text", placeholder: "Affiliate/promo code..." },
+      { id: "referralSource", label: "How Did You Hear About Us?", aliases: ["referralsource", "howdidyouhearaboutus", "howdidyouhear"], inputType: "text", placeholder: "How did they hear about us?" },
       { id: "referredBy", label: "Referred By", aliases: ["referredby"], inputType: "text", placeholder: "Referred by..." },
       { id: "qualified", label: "Qualified Status", aliases: ["qualifiedstatus"], inputType: "select", options: ["Pending", "Qualified", "Not Qualified"] },
       { id: "language", label: "Preferred Language", aliases: ["preferredlanguage"], inputType: "select", options: ["English", "Spanish", "French", "Other"] },
