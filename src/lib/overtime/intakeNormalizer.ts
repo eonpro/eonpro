@@ -29,44 +29,130 @@ const STATE_NAME_TO_CODE = US_STATE_OPTIONS.reduce<Record<string, string>>((acc,
 
 /**
  * Field labels for common intake fields
+ * Includes EXACT Airtable field names for OT Mens clinic
  */
 const COMMON_FIELD_LABELS: Record<string, string> = {
-  // Submission Metadata
+  // ═══════════════════════════════════════════════════════════════════
+  // SUBMISSION METADATA
+  // ═══════════════════════════════════════════════════════════════════
   'submission-id': 'Submission ID',
   'submission-date': 'Submission Date',
+  'Response ID': 'Response ID',
+  'Heyflow ID': 'Heyflow ID',
+  'A/B Test ID': 'A/B Test ID',
+  'A/B Test Version': 'A/B Test Version',
+  'URL': 'Source URL',
+  'URL with parameters': 'Full URL with Parameters',
+  'IntakeQ Client ID': 'IntakeQ Client ID',
+  'IntakeQ Status': 'IntakeQ Status',
   
-  // Patient Identity
+  // ═══════════════════════════════════════════════════════════════════
+  // PATIENT IDENTITY (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'First name': 'First Name',
+  'first name': 'First Name',
   'first-name': 'First Name',
+  'Last name': 'Last Name',
+  'last name': 'Last Name',
   'last-name': 'Last Name',
   'email': 'Email',
+  'Email': 'Email',
+  'phone number': 'Phone Number',
+  'Phone number': 'Phone Number',
   'phone': 'Phone Number',
-  'state': 'State',
+  'DOB': 'Date of Birth',
   'dob': 'Date of Birth',
-  'sex': 'Biological Sex',
+  'Gender': 'Gender',
   'gender': 'Gender',
+  'sex': 'Biological Sex',
+  'State': 'State',
+  'state': 'State',
   
-  // Body Metrics
+  // ═══════════════════════════════════════════════════════════════════
+  // ADDRESS (Airtable bracket notation)
+  // ═══════════════════════════════════════════════════════════════════
+  'Address': 'Full Address',
+  'Address [Street]': 'Street Address',
+  'Address [house]': 'House Number',
+  'Address [City]': 'City',
+  'Address [State]': 'State',
+  'Address [Country]': 'Country',
+  'Address [Zip]': 'ZIP Code',
+  'apartment#': 'Apartment/Unit #',
+  
+  // ═══════════════════════════════════════════════════════════════════
+  // BODY METRICS (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'Height [feet]': 'Height (feet)',
+  'Height [inches]': 'Height (inches)',
   'feet': 'Height (feet)',
   'inches': 'Height (inches)',
   'height': 'Height',
+  'starting weight': 'Starting Weight (lbs)',
+  'Starting weight': 'Starting Weight (lbs)',
   'weight': 'Current Weight (lbs)',
   'current-weight': 'Current Weight (lbs)',
   'bmi': 'BMI',
+  'BMI': 'BMI',
   
-  // Medical History
+  // ═══════════════════════════════════════════════════════════════════
+  // MEDICAL HISTORY (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'Allergies': 'Allergies',
+  'allergies': 'Allergies',
+  'Which allergies': 'Allergy Details',
+  'Conditions': 'Medical Conditions',
+  'conditions': 'Medical Conditions',
+  'Cancer': 'Cancer History',
+  'Chronic Kidney Disease': 'Chronic Kidney Disease',
+  'B12 Deficiency': 'B12 Deficiency',
+  'Bloodowrk': 'Bloodwork Status',  // Note: typo in Airtable
+  'Bloodwork': 'Bloodwork Status',
   'health-conditions': 'Health Conditions',
   'medical-conditions': 'Medical Conditions',
-  'current-medications': 'Current Medications',
-  'allergies': 'Allergies',
   
-  // Promo Codes
+  // ═══════════════════════════════════════════════════════════════════
+  // MEDICATIONS (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'List of medications': 'List of Medications',
+  'Medications [current]': 'Current Medications',
+  'Prescription Medications': 'Prescription Medications',
+  'current-medications': 'Current Medications',
+  
+  // ═══════════════════════════════════════════════════════════════════
+  // LIFESTYLE (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'Drinking': 'Alcohol Consumption',
+  'Activity Level': 'Activity Level',
+  
+  // ═══════════════════════════════════════════════════════════════════
+  // TREATMENT GOALS (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'goals': 'Treatment Goals',
+  'Goals': 'Treatment Goals',
+  'Peptide choice': 'Preferred Peptide',
+  'What are you looking to Optimize?': 'Optimization Goals',
+  'Symptoms': 'Current Symptoms',
+  'symptoms': 'Current Symptoms',
+  
+  // ═══════════════════════════════════════════════════════════════════
+  // REFERRAL & MARKETING (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'How did you hear about us?': 'How Did You Hear About Us?',
+  'Who reccomended OT Mens Health to you?': 'Who Recommended Us?',  // Note: typo in Airtable
+  'Referrer': 'Referrer',
   'promo-code': 'Promo Code',
   'influencer-code': 'Influencer Code',
   'referral-code': 'Referral Code',
   'PROMO CODE': 'Promo Code',
   'INFLUENCER CODE': 'Influencer Code',
   
-  // Consent
+  // ═══════════════════════════════════════════════════════════════════
+  // CONSENT (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  '18+ Consent': 'Age Verification (18+)',
+  'Consent Forms': 'Consent Forms Signed',
+  'marketing consent': 'Marketing Consent',
   'hipaa-agreement': 'HIPAA Agreement',
   'Checkout Completed': 'Checkout Completed',
 };
@@ -241,36 +327,115 @@ export function normalizeOvertimePayload(payload: Record<string, unknown>): Norm
 function buildOvertimeSections(payload: OvertimePayload, treatmentType: OvertimeTreatmentType): IntakeSection[] {
   const sections: IntakeSection[] = [];
   
-  // Common fields for all treatment types
-  const patientIdentityFields = ['first-name', 'firstName', 'last-name', 'lastName', 'email', 'phone', 'state', 'dob', 'dateOfBirth', 'sex', 'gender'];
-  const bodyMetricsFields = ['feet', 'inches', 'height', 'weight', 'current-weight', 'bmi'];
-  const medicalHistoryFields = ['health-conditions', 'medical-conditions', 'current-medications', 'allergies'];
-  const promoFields = ['promo-code', 'promoCode', 'influencer-code', 'influencerCode', 'referral-code', 'PROMO CODE', 'INFLUENCER CODE'];
-  const consentFields = ['hipaa-agreement', 'terms-agreement', 'consent', 'Checkout Completed', 'checkout-completed', 'paid'];
+  // ═══════════════════════════════════════════════════════════════════
+  // AIRTABLE FIELD DEFINITIONS - Exact field names from OT Mens Airtable
+  // ═══════════════════════════════════════════════════════════════════
+  
+  // Patient Identity (both Airtable exact + legacy formats)
+  const patientIdentityFields = [
+    // Airtable exact names
+    'First name', 'Last name', 'email', 'phone number', 'DOB', 'Gender', 'State',
+    // Legacy/alternative formats
+    'first-name', 'firstName', 'last-name', 'lastName', 'Email', 'phone', 'Phone',
+    'dob', 'dateOfBirth', 'sex', 'gender', 'state',
+  ];
+  
+  // Address Fields (Airtable bracket notation)
+  const addressFields = [
+    'Address', 'Address [Street]', 'Address [house]', 'Address [City]', 
+    'Address [State]', 'Address [Country]', 'Address [Zip]', 'apartment#',
+    // Legacy formats
+    'address', 'address1', 'address2', 'city', 'zip', 'zipCode',
+  ];
+  
+  // Body Metrics (Airtable exact + legacy)
+  const bodyMetricsFields = [
+    // Airtable exact names
+    'Height [feet]', 'Height [inches]', 'starting weight', 'BMI',
+    // Legacy formats
+    'feet', 'inches', 'height', 'weight', 'current-weight', 'bmi',
+  ];
+  
+  // Medical History (Airtable exact names)
+  const medicalHistoryFields = [
+    // Airtable exact names
+    'Allergies', 'Which allergies', 'Conditions', 'Cancer', 
+    'Chronic Kidney Disease', 'B12 Deficiency', 'Bloodowrk', 'Bloodwork',
+    // Legacy formats
+    'allergies', 'health-conditions', 'medical-conditions', 'conditions',
+  ];
+  
+  // Medications (Airtable exact names)
+  const medicationsFields = [
+    // Airtable exact names
+    'List of medications', 'Medications [current]', 'Prescription Medications',
+    // Legacy formats
+    'current-medications', 'medications',
+  ];
+  
+  // Lifestyle (Airtable exact names)
+  const lifestyleFields = [
+    'Drinking', 'Activity Level',
+    // Legacy formats
+    'drinking', 'activity-level', 'exercise-frequency',
+  ];
+  
+  // Referral & Marketing (Airtable exact names)
+  const referralFields = [
+    // Airtable exact names
+    'How did you hear about us?', 'Who reccomended OT Mens Health to you?', 'Referrer',
+    // Promo codes
+    'promo-code', 'promoCode', 'influencer-code', 'influencerCode', 
+    'referral-code', 'PROMO CODE', 'INFLUENCER CODE',
+  ];
+  
+  // Consent Fields (Airtable exact names)
+  const consentFields = [
+    // Airtable exact names
+    '18+ Consent', 'Consent Forms', 'marketing consent',
+    // Legacy formats
+    'hipaa-agreement', 'terms-agreement', 'consent', 
+    'Checkout Completed', 'checkout-completed', 'paid',
+  ];
+  
+  // Metadata Fields (to exclude from "Additional Information")
+  const metadataFields = [
+    'Response ID', 'Heyflow ID', 'A/B Test ID', 'A/B Test Version',
+    'URL', 'URL with parameters', 'IntakeQ Client ID', 'IntakeQ Status',
+    'submission-id', 'submissionId', 'submission_id',
+    'submission-date', 'submittedAt', 'createdAt',
+    'treatmentType', 'treatment-type', 'treatment_type',
+  ];
 
-  // Treatment-specific field groups
+  // ═══════════════════════════════════════════════════════════════════
+  // TREATMENT-SPECIFIC FIELD GROUPS
+  // ═══════════════════════════════════════════════════════════════════
   const treatmentFieldGroups: Record<OvertimeTreatmentType, string[][]> = {
     weight_loss: [
-      ['goal-weight', 'ideal-weight', 'target-weight'],
-      ['glp1-experience', 'glp1-last-30', 'glp1-medication-type', 'glp1-dose', 'previous-glp1'],
-      ['preferred-meds', 'medication-preference', 'injections-tablets'],
+      ['goal-weight', 'ideal-weight', 'target-weight', 'Goal weight', 'Ideal weight'],
+      ['glp1-experience', 'glp1-last-30', 'glp1-medication-type', 'glp1-dose', 'previous-glp1', 'GLP-1 Experience'],
+      ['preferred-meds', 'medication-preference', 'injections-tablets', 'Medication Preference'],
       ['weight-loss-motivation', 'weight-loss-history', 'diet-history', 'exercise-frequency'],
       ['men2-history', 'thyroid-cancer', 'pancreatitis', 'gastroparesis', 'bariatric-surgery'],
     ],
     peptides: [
+      // Treatment Goals & Preferences (Airtable exact)
+      ['goals', 'Goals', 'Peptide choice', 'What are you looking to Optimize?'],
+      // Symptoms
+      ['Symptoms', 'symptoms'],
+      // Legacy formats
       ['peptide-experience', 'previous-peptides', 'current-peptides'],
-      ['peptide-goals', 'primary-goal'],
       ['injection-comfort', 'injection-experience', 'preferred-peptide'],
       ['recent-labs', 'lab-date'],
     ],
     nad_plus: [
-      ['nad-experience', 'previous-nad', 'iv-experience'],
+      ['nad-experience', 'previous-nad', 'iv-experience', 'NAD+ Experience'],
       ['energy-level', 'cognitive-goals', 'recovery-goals', 'anti-aging-goals'],
       ['preferred-protocol', 'treatment-frequency'],
       ['chronic-fatigue', 'brain-fog', 'sleep-quality'],
     ],
     better_sex: [
-      ['ed-history', 'ed-duration', 'ed-severity', 'ed-onset'],
+      ['ed-history', 'ed-duration', 'ed-severity', 'ed-onset', 'ED History'],
       ['libido-level', 'performance-anxiety', 'relationship-status'],
       ['previous-ed-meds', 'viagra-experience', 'cialis-experience'],
       ['preferred-medication', 'frequency-needed'],
@@ -310,30 +475,54 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
       });
   };
 
-  // Add common sections
+  // ═══════════════════════════════════════════════════════════════════
+  // BUILD SECTIONS IN ORDER
+  // ═══════════════════════════════════════════════════════════════════
+
+  // 1. Patient Information
   const patientEntries = createEntries(patientIdentityFields);
   if (patientEntries.length > 0) {
     sections.push({ title: 'Patient Information', entries: patientEntries });
   }
 
+  // 2. Address
+  const addressEntries = createEntries(addressFields);
+  if (addressEntries.length > 0) {
+    sections.push({ title: 'Address', entries: addressEntries });
+  }
+
+  // 3. Body Metrics
   const bodyEntries = createEntries(bodyMetricsFields);
   if (bodyEntries.length > 0) {
     sections.push({ title: 'Body Metrics', entries: bodyEntries });
   }
 
+  // 4. Medical History
   const medicalEntries = createEntries(medicalHistoryFields);
   if (medicalEntries.length > 0) {
     sections.push({ title: 'Medical History', entries: medicalEntries });
   }
 
-  // Add treatment-specific sections
+  // 5. Current Medications
+  const medicationsEntries = createEntries(medicationsFields);
+  if (medicationsEntries.length > 0) {
+    sections.push({ title: 'Current Medications', entries: medicationsEntries });
+  }
+
+  // 6. Lifestyle
+  const lifestyleEntries = createEntries(lifestyleFields);
+  if (lifestyleEntries.length > 0) {
+    sections.push({ title: 'Lifestyle', entries: lifestyleEntries });
+  }
+
+  // 7. Treatment-specific sections
   const treatmentLabel = TREATMENT_TYPE_LABELS[treatmentType];
   const treatmentGroups = treatmentFieldGroups[treatmentType] || [];
   
   const sectionNames: Record<OvertimeTreatmentType, string[]> = {
-    weight_loss: ['Weight Goals', 'GLP-1 History', 'Medication Preferences', 'Lifestyle', 'Contraindications'],
-    peptides: ['Peptide Experience', 'Treatment Goals', 'Preferences', 'Lab Work'],
-    nad_plus: ['NAD+ Experience', 'Goals', 'Treatment Preferences', 'Health Assessment'],
+    weight_loss: ['Weight Goals', 'GLP-1 History', 'Medication Preferences', 'Diet & Exercise', 'Contraindications'],
+    peptides: ['Treatment Goals', 'Current Symptoms', 'Peptide Experience', 'Injection Preferences', 'Lab Work'],
+    nad_plus: ['NAD+ Experience', 'Treatment Goals', 'Preferences', 'Health Assessment'],
     better_sex: ['ED History', 'Current Status', 'Previous Treatments', 'Preferences', 'Health Factors'],
     testosterone: ['Symptoms', 'TRT History', 'Lab Results', 'Preferences', 'Contraindications'],
     baseline_bloodwork: ['Lab Preferences', 'Health Assessment', 'Previous Labs', 'Payment'],
@@ -347,26 +536,24 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     }
   });
 
-  // Add promo code section
-  const promoEntries = createEntries(promoFields);
-  if (promoEntries.length > 0) {
-    sections.push({ title: 'Referral & Promo Code', entries: promoEntries });
+  // 8. Referral & Marketing
+  const referralEntries = createEntries(referralFields);
+  if (referralEntries.length > 0) {
+    sections.push({ title: 'Referral & Marketing', entries: referralEntries });
   }
 
-  // Add consent section
+  // 9. Consent & Checkout
   const consentEntries = createEntries(consentFields);
   if (consentEntries.length > 0) {
     sections.push({ title: 'Consent & Checkout', entries: consentEntries });
   }
 
-  // Add any remaining fields not in predefined categories
+  // 10. Any remaining fields (Additional Information)
   const allKnownFields = new Set([
-    ...patientIdentityFields, ...bodyMetricsFields, ...medicalHistoryFields,
-    ...promoFields, ...consentFields,
+    ...patientIdentityFields, ...addressFields, ...bodyMetricsFields,
+    ...medicalHistoryFields, ...medicationsFields, ...lifestyleFields,
+    ...referralFields, ...consentFields, ...metadataFields,
     ...treatmentGroups.flat(),
-    'submission-id', 'submissionId', 'submission_id',
-    'submission-date', 'submittedAt', 'createdAt',
-    'treatmentType', 'treatment-type', 'treatment_type',
   ]);
 
   const otherFields = Object.keys(payload).filter(key => !allKnownFields.has(key));
