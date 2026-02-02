@@ -435,10 +435,11 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
   ];
   
   // Medical History (Airtable exact names - All treatments)
+  // Note: Some Airtable fields have trailing spaces
   const medicalHistoryFields = [
-    // Airtable exact names (shared)
-    'Allergies', 'Which allergies', 'Conditions', 'Cancer', 
-    'Chronic Kidney Disease', 'B12 Deficiency', 'Bloodowrk', 'Bloodwork',
+    // Airtable exact names (shared) - with and without trailing spaces
+    'Allergies', 'Allergies ', 'Which allergies', 'Conditions', 'Cancer', 'Cancer ',
+    'Chronic Kidney Disease', 'Chronic Kidney Disease ', 'B12 Deficiency', 'Bloodowrk', 'Bloodwork',
     // TRT-specific
     'Allergic to', 'List of Allergies', 'Chronic Conditions', 
     'Blood Pressure', 'bloodwork',
@@ -486,9 +487,10 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
   ];
   
   // Consent Fields (Airtable exact names)
+  // Note: Some Airtable fields have trailing spaces
   const consentFields = [
-    // Airtable exact names
-    '18+ Consent', 'Consent Forms', 'marketing consent',
+    // Airtable exact names - with and without trailing spaces
+    '18+ Consent', 'Consent Forms', 'Consent Forms ', 'marketing consent',
     // Legacy formats
     'hipaa-agreement', 'terms-agreement', 'consent', 
     'Checkout Completed', 'checkout-completed', 'paid',
@@ -532,8 +534,8 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     peptides: [
       // Treatment Goals & Preferences (Airtable exact)
       ['goals', 'Goals', 'Peptide choice', 'What are you looking to Optimize?'],
-      // Symptoms
-      ['Symptoms', 'symptoms'],
+      // Symptoms (with and without trailing space)
+      ['Symptoms', 'Symptoms ', 'symptoms'],
       // Legacy formats
       ['peptide-experience', 'previous-peptides', 'current-peptides'],
       ['injection-comfort', 'injection-experience', 'preferred-peptide'],
@@ -574,11 +576,29 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     ],
   };
 
+  // Helper to get field value - handles fields with trailing spaces
+  const getFieldValue = (fieldName: string): unknown => {
+    // Try exact match first
+    if (payload[fieldName as keyof OvertimePayload] !== undefined) {
+      return payload[fieldName as keyof OvertimePayload];
+    }
+    // Try with trailing space (common Airtable issue)
+    if (payload[(fieldName + ' ') as keyof OvertimePayload] !== undefined) {
+      return payload[(fieldName + ' ') as keyof OvertimePayload];
+    }
+    // Try without trailing space
+    const trimmed = fieldName.trim();
+    if (payload[trimmed as keyof OvertimePayload] !== undefined) {
+      return payload[trimmed as keyof OvertimePayload];
+    }
+    return undefined;
+  };
+
   // Helper to create section entries
   const createEntries = (fields: string[]): IntakeSection['entries'] => {
     return fields
       .filter(field => {
-        const value = payload[field as keyof OvertimePayload];
+        const value = getFieldValue(field);
         return value !== undefined && value !== null && value !== '';
       })
       .map(field => {
@@ -587,8 +607,8 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
         return {
           id: field,
           label,
-          value: formatValue(payload[field as keyof OvertimePayload]),
-          rawValue: payload[field as keyof OvertimePayload],
+          value: formatValue(getFieldValue(field)),
+          rawValue: getFieldValue(field),
         };
       });
   };
