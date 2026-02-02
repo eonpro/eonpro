@@ -154,40 +154,67 @@ export const COMMON_FIELD_MAP: Record<string, string> = {
  */
 export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, string>> = {
   weight_loss: {
+    // ═══════════════════════════════════════════════════════════════════
+    // OT Mens - Weight Loss Airtable Table (Heyflow ID: uvvNo2JSHPctHpG87s0x)
+    // Complete field mapping from Airtable screenshot
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Weight Goals
     'ideal weight': 'goal-weight',
     'BMI': 'bmi',
-    'How would your life change by losing weight': 'weight-loss-motivation',
-    'Activity Level': 'activity-level',
-    'Mental Health': 'mental-health-status',
-    'Mental health Diagnosis': 'mental-health-diagnosis',
-    'Chronic Illness': 'has-chronic-illness',
-    'Type of  Chronic Illness': 'chronic-illness-type',
-    'Specific Chronic Illness': 'chronic-illness-details',
-    'Qualifying Conditions': 'qualifying-conditions',
-    'Family History Diagnoses': 'family-history',
-    'Thyroid Cancer': 'thyroid-cancer-history',
-    'Neoplasia type 2 (MEN 2)': 'men2-history',
-    'Gastroparesis': 'gastroparesis',
-    'Type 2 Diabetes': 'type2-diabetes',
-    'Pregnant or Breastfeeding': 'pregnant-breastfeeding',
-    'Past surgery': 'past-surgery',
-    'Surgery Type': 'surgery-type',
-    'Blood Pressure': 'blood-pressure',
+
+    // GLP-1 History
     'GLP-1 History': 'glp1-history',
     'Type of GLP-1': 'glp1-type',
+    'Happy with GLP-1 Dose': 'glp1-dose-satisfaction',
+    'Side Effect History': 'side-effect-history',
+
+    // Semaglutide Specific
     'Semaglutide Dose': 'semaglutide-dose',
     'Semaglutide Side Effects': 'semaglutide-side-effects',
     'Semaglutide Success': 'semaglutide-success',
+
+    // Tirzepatide Specific
     'Tirzepatide Dose': 'tirzepatide-dose',
     'Tirzepatide Side Effects': 'tirzepatide-side-effects',
     'Tirzepatide Success': 'tirzepatide-success',
-    'Happy with GLP-1 Dose': 'glp1-dose-satisfaction',
-    'Medications / Supplements': 'current-medications',
-    'Alcohol Use': 'alcohol-use',
-    'Which Medication /Supplement': 'medication-list',
-    'Side Effect History': 'side-effect-history',
-    'Personalized Treatment': 'treatment-preferences',
+
+    // Weight Loss Motivation
+    'How would your life change by losing weight': 'weight-loss-motivation',
+    'Activity Level': 'activity-level',
+
+    // Contraindications (Critical for GLP-1)
+    'Thyroid Cancer': 'thyroid-cancer-history',
+    'Neoplasia type 2 (MEN 2)': 'men2-history',
     'Pancreatitis': 'pancreatitis-history',
+    'Gastroparesis': 'gastroparesis',
+    'Pregnant or Breastfeeding': 'pregnant-breastfeeding',
+    'Type 2 Diabetes': 'type2-diabetes',
+
+    // Chronic Conditions
+    'Chronic Illness': 'has-chronic-illness',
+    'Type of Chronic Illness': 'chronic-illness-type',
+    'Type of  Chronic Illness': 'chronic-illness-type', // Handle double space variant
+    'Specific Chronic Illness': 'chronic-illness-details',
+    'Family History Diagnoses': 'family-history',
+    'Blood Pressure': 'blood-pressure',
+
+    // Surgery History
+    'Past surgery': 'past-surgery',
+    'Surgery Type': 'surgery-type',
+
+    // Mental Health
+    'Mental Health': 'mental-health-status',
+    'Mental health Diagnosis': 'mental-health-diagnosis',
+
+    // Medications
+    'Medications / Supplements': 'current-medications',
+    'Which Medication /Supplement': 'medication-list',
+    'Alcohol Use': 'alcohol-use',
+
+    // Treatment Preferences
+    'Qualifying Conditions': 'qualifying-conditions',
+    'Personalized Treatment': 'treatment-preferences',
   },
 
   peptides: {
@@ -219,22 +246,43 @@ export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, 
   },
 
   better_sex: {
+    // ═══════════════════════════════════════════════════════════════════
+    // OT Mens - Better Sex Airtable Table (Heyflow ID: 5ypJkFxQN4V4U4PB7R4u)
+    // Complete field mapping from Airtable screenshot
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Symptoms & Duration
     'Symptoms': 'symptoms',
     'How long have you notice': 'symptom-duration',
-    'goals': 'treatment-goals',
-    'Physical Active': 'physical-activity',
     'How often do these sexual issues occur?': 'symptom-frequency',
+
+    // Treatment Goals
+    'goals': 'treatment-goals',
+
+    // Physical Activity & Lifestyle
+    'Physical Active': 'physical-activity',
+    'Smoke/Nicotine': 'smoking-status',
+
+    // Medical History - Cardiovascular (Critical for ED meds)
+    'Heart condition': 'heart-condition',
     'Chest Pains': 'chest-pain-history',
-    'Chronic Illnesses': 'chronic-illnesses',
     'meds with nitrates or nitroglycerin': 'nitrate-medications',
+
+    // Chronic Conditions
+    'Chronic Disease': 'chronic-disease',
+    'Chronic Illnesses': 'chronic-illnesses',
+    'Specific Conditions': 'specific-conditions',
+    'Cancer': 'cancer-history',
+
+    // Medications
     'Medications': 'current-medications',
     'List of Medications': 'medication-list',
-    'Specific Conditions ': 'specific-conditions',
-    'Chronic Disease ': 'chronic-disease',
-    'Heart condition': 'heart-condition',
-    'Cancer ': 'cancer-history',
-    'Smoke/Nicotine': 'smoking-status',
+
+    // Lab Work
     'Labwork': 'recent-labwork',
+
+    // Allergies
+    'Which allergies': 'allergy-details',
   },
 
   testosterone: {

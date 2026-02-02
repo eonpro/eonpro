@@ -461,15 +461,86 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         }
 
         // Find or create patient within transaction
-        let patientRecord = await tx.patient.findFirst({
-          where: {
-            firstName: p.patient.firstName,
-            lastName: p.patient.lastName,
-            dob: p.patient.dob,
-            clinicId: activeClinicId,
-          },
-        });
+        let patientRecord = null;
+        let patientClinicId = activeClinicId; // Default to active clinic
 
+        // CRITICAL FIX: If patientId is provided, use the existing patient directly
+        // This prevents duplicate patient creation across clinics when prescribing
+        // for an existing patient from their profile page
+        if (p.patientId) {
+          // Look up by ID using basePrisma to bypass clinic filter
+          patientRecord = await basePrisma.patient.findUnique({
+            where: { id: p.patientId },
+          });
+
+          if (patientRecord) {
+            // Use the patient's actual clinic for the order
+            patientClinicId = patientRecord.clinicId;
+            logger.info('[PRESCRIPTIONS] Using existing patient by ID', {
+              patientId: patientRecord.id,
+              patientClinicId: patientRecord.clinicId,
+              requestedClinicId: activeClinicId,
+            });
+
+            // SECURITY: Verify provider can prescribe for this patient's clinic
+            // Super admins can prescribe for any clinic
+            if (user.role !== 'super_admin') {
+              let canPrescribeForPatientClinic = false;
+
+              // Check ProviderClinic junction table
+              if (basePrisma.providerClinic) {
+                try {
+                  const assignment = await basePrisma.providerClinic.findFirst({
+                    where: {
+                      providerId: provider.id,
+                      clinicId: patientRecord.clinicId,
+                      isActive: true,
+                    },
+                  });
+                  canPrescribeForPatientClinic = !!assignment;
+                } catch {
+                  // Table may not exist
+                }
+              }
+
+              // Fallback: check provider's direct clinic assignment or shared status
+              if (!canPrescribeForPatientClinic) {
+                canPrescribeForPatientClinic =
+                  provider.clinicId === null || // Shared provider
+                  provider.clinicId === patientRecord.clinicId;
+              }
+
+              if (!canPrescribeForPatientClinic) {
+                logger.security('Provider not authorized for patient clinic', {
+                  userId: user.id,
+                  providerId: provider.id,
+                  providerClinicId: provider.clinicId,
+                  patientClinicId: patientRecord.clinicId,
+                });
+                throw new Error('Provider is not authorized to prescribe for patients in this clinic');
+              }
+            }
+          } else {
+            logger.warn('[PRESCRIPTIONS] Patient ID provided but not found', {
+              patientId: p.patientId,
+            });
+            // Will fall through to name-based lookup below
+          }
+        }
+
+        // Fall back to name-based lookup if no patient found by ID
+        if (!patientRecord) {
+          patientRecord = await tx.patient.findFirst({
+            where: {
+              firstName: p.patient.firstName,
+              lastName: p.patient.lastName,
+              dob: p.patient.dob,
+              clinicId: activeClinicId,
+            },
+          });
+        }
+
+        // Create new patient if not found
         if (!patientRecord) {
           patientRecord = await tx.patient.create({
             data: {
@@ -487,6 +558,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
               clinicId: activeClinicId,
             },
           });
+          patientClinicId = activeClinicId;
           logger.info('[PRESCRIPTIONS] New patient created in transaction', {
             patientId: patientRecord.id,
             clinicId: activeClinicId,
@@ -494,13 +566,14 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         }
 
         // Create order within transaction
+        // CRITICAL: Use patientClinicId to ensure order is in same clinic as patient
         const order = await tx.order.create({
           data: {
             messageId,
             referenceId,
             patientId: patientRecord.id,
             providerId: p.providerId,
-            clinicId: activeClinicId,
+            clinicId: patientClinicId, // Use patient's clinic, not activeClinicId
             shippingMethod: p.shippingMethod,
             primaryMedName: primary.med.name,
             primaryMedStrength: primary.med.strength,

@@ -6,7 +6,8 @@ import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
 import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2, Check, Shield } from 'lucide-react';
 import { WELLMEDR_INTAKE_SECTIONS, hasCustomIntakeSections } from '@/lib/wellmedr/intakeSections';
-import { OVERTIME_INTAKE_SECTIONS, hasOvertimeIntakeSections } from '@/lib/overtime/intakeSections';
+import { getOvertimeIntakeSections, hasOvertimeIntakeSections } from '@/lib/overtime/intakeSections';
+import type { OvertimeTreatmentType } from '@/lib/overtime/treatmentTypes';
 
 /**
  * Default intake display sections - maps fields from WeightLossIntake (eonmeds and other clinics)
@@ -156,6 +157,9 @@ type IntakeData = {
   submittedAt?: Date;
   receivedAt?: string;
   source?: string;
+  treatmentType?: string;
+  treatment_type?: string;
+  treatment?: { type?: string };
   sections?: Array<{
     title: string;
     entries: Array<{ id?: string; label?: string; value?: any }>;
@@ -323,20 +327,6 @@ const formatConsentValue = (value: boolean | string, timestamp?: string): string
 export default function PatientIntakeView({ patient, documents, intakeFormSubmissions = [], clinicSubdomain }: Props) {
   const router = useRouter();
 
-  // Select the appropriate intake sections based on clinic
-  // Wellmedr and Overtime use custom field mappings; other clinics use default
-  const activeSections = useMemo(() => {
-    // Check for Wellmedr clinic
-    if (hasCustomIntakeSections(clinicSubdomain)) {
-      return WELLMEDR_INTAKE_SECTIONS;
-    }
-    // Check for Overtime Men's Clinic
-    if (hasOvertimeIntakeSections(clinicSubdomain)) {
-      return OVERTIME_INTAKE_SECTIONS;
-    }
-    return DEFAULT_INTAKE_SECTIONS;
-  }, [clinicSubdomain]);
-
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(DEFAULT_INTAKE_SECTIONS.map(s => s.title)));
   const [showSendModal, setShowSendModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -350,45 +340,79 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     (doc: any) => doc.category === "MEDICAL_INTAKE_FORM" && (doc.intakeData || doc.data)
   );
 
-  let intakeData: IntakeData = {};
+  // Parse intake data and extract treatment type
+  const { intakeData, treatmentType } = useMemo(() => {
+    let parsed: IntakeData = {};
+    let treatment: OvertimeTreatmentType | null = null;
 
-  if (intakeDoc) {
-    if (intakeDoc.intakeData) {
-      try {
-        intakeData = typeof intakeDoc.intakeData === 'string' 
-          ? JSON.parse(intakeDoc.intakeData) 
-          : intakeDoc.intakeData;
-      } catch (error: any) {
-        logger.error('Error parsing intakeData field:', error);
-      }
-    } else if (intakeDoc.data) {
-      try {
-        let rawData = intakeDoc.data;
-        
-        // Handle various buffer/array formats (Prisma 6.x returns Uint8Array)
-        if (rawData instanceof Uint8Array) {
-          rawData = new TextDecoder().decode(rawData);
-        } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer(rawData)) {
-          rawData = rawData.toString('utf8');
-        } else if (typeof rawData === 'object' && rawData?.type === 'Buffer' && Array.isArray(rawData.data)) {
-          rawData = new TextDecoder().decode(new Uint8Array(rawData.data));
+    if (intakeDoc) {
+      if (intakeDoc.intakeData) {
+        try {
+          parsed = typeof intakeDoc.intakeData === 'string'
+            ? JSON.parse(intakeDoc.intakeData)
+            : intakeDoc.intakeData;
+        } catch (error: any) {
+          logger.error('Error parsing intakeData field:', error);
         }
-        
-        // Parse or use directly
-        if (typeof rawData === 'string') {
-          const trimmed = rawData.trim();
-          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-            intakeData = JSON.parse(trimmed);
+      } else if (intakeDoc.data) {
+        try {
+          let rawData = intakeDoc.data;
+
+          // Handle various buffer/array formats (Prisma 6.x returns Uint8Array)
+          if (rawData instanceof Uint8Array) {
+            rawData = new TextDecoder().decode(rawData);
+          } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer(rawData)) {
+            rawData = rawData.toString('utf8');
+          } else if (typeof rawData === 'object' && rawData?.type === 'Buffer' && Array.isArray(rawData.data)) {
+            rawData = new TextDecoder().decode(new Uint8Array(rawData.data));
           }
-        } else if (typeof rawData === 'object' && rawData !== null) {
-          // Already parsed by page.tsx
-          intakeData = rawData as IntakeData;
+
+          // Parse or use directly
+          if (typeof rawData === 'string') {
+            const trimmed = rawData.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+              parsed = JSON.parse(trimmed);
+            }
+          } else if (typeof rawData === 'object' && rawData !== null) {
+            // Already parsed by page.tsx
+            parsed = rawData as IntakeData;
+          }
+        } catch (error: any) {
+          logger.debug('Data field does not contain valid JSON');
         }
-      } catch (error: any) {
-        logger.debug('Data field does not contain valid JSON');
+      }
+
+      // Extract treatment type from parsed data
+      // Check multiple possible field names
+      const rawTreatment = (parsed as any).treatmentType
+        || (parsed as any).treatment_type
+        || (parsed as any).treatment?.type;
+
+      if (rawTreatment && typeof rawTreatment === 'string') {
+        // Validate it's a known Overtime treatment type
+        const validTypes: OvertimeTreatmentType[] = ['weight_loss', 'peptides', 'nad_plus', 'better_sex', 'testosterone', 'baseline_bloodwork'];
+        if (validTypes.includes(rawTreatment as OvertimeTreatmentType)) {
+          treatment = rawTreatment as OvertimeTreatmentType;
+        }
       }
     }
-  }
+
+    return { intakeData: parsed, treatmentType: treatment };
+  }, [intakeDoc]);
+
+  // Select the appropriate intake sections based on clinic and treatment type
+  // Wellmedr and Overtime use custom field mappings; other clinics use default
+  const activeSections = useMemo(() => {
+    // Check for Wellmedr clinic
+    if (hasCustomIntakeSections(clinicSubdomain)) {
+      return WELLMEDR_INTAKE_SECTIONS;
+    }
+    // Check for Overtime Men's Clinic - use treatment-specific sections
+    if (hasOvertimeIntakeSections(clinicSubdomain)) {
+      return getOvertimeIntakeSections(treatmentType);
+    }
+    return DEFAULT_INTAKE_SECTIONS;
+  }, [clinicSubdomain, treatmentType]);
 
   // Build a map of all answers from various sources
   const buildAnswerMap = useCallback(() => {

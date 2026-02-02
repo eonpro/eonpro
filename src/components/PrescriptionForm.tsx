@@ -466,10 +466,16 @@ export default function PrescriptionForm({
   async function submit() {
     try {
       setIsSubmitting(true);
+      // Include patientId when prescribing for an existing patient
+      // This prevents duplicate patient creation across clinics
+      const submissionData = {
+        ...form,
+        patientId: selectedPatientId || null,
+      };
       const res = await fetch("/api/prescriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(submissionData),
       });
       const data = await res.json();
       if (!res.ok) {

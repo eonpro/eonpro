@@ -587,13 +587,20 @@ class PrismaWithClinicFilter {
   get savedReport() { return this.client.savedReport; }
   get reportExport() { return this.client.reportExport; }
 
-  // Expose transaction support
-  async $transaction(fn: (tx: any) => Promise<any>) {
+  // Expose transaction support with proper options forwarding
+  async $transaction<T>(
+    fn: (tx: any) => Promise<T>,
+    options?: {
+      maxWait?: number;
+      timeout?: number;
+      isolationLevel?: Prisma.TransactionIsolationLevel;
+    }
+  ): Promise<T> {
     return this.client.$transaction(async (tx) => {
       // Create wrapped transaction client
       const wrappedTx = new PrismaWithClinicFilter(tx as PrismaClient);
       return fn(wrappedTx);
-    });
+    }, options); // CRITICAL: Forward transaction options (timeout, isolation level)
   }
 
   // Expose other Prisma client methods

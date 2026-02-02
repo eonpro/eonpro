@@ -77,6 +77,7 @@ export const rxSchema = z.object({
 
 export const prescriptionSchema = z.object({
   patient: patientSchema,
+  patientId: z.number().nullable().optional(), // Existing patient ID - if provided, skips name-based lookup
   rxs: z.array(rxSchema).min(1),
   shippingMethod: z.number(),
   signatureDataUrl: z.string().nullable().optional(),

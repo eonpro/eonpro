@@ -1,9 +1,9 @@
 /**
  * Overtime Men's Clinic Intake Normalizer
- *
+ * 
  * Normalizes intake form data from 6 different treatment-specific Heyflow forms
  * received via Airtable automation.
- *
+ * 
  * This normalizer is EXCLUSIVELY for the Overtime Men's Clinic (subdomain: ot).
  */
 
@@ -45,7 +45,7 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'URL with parameters': 'Full URL with Parameters',
   'IntakeQ Client ID': 'IntakeQ Client ID',
   'IntakeQ Status': 'IntakeQ Status',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // PATIENT IDENTITY (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
@@ -67,44 +67,7 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'sex': 'Biological Sex',
   'State': 'State',
   'state': 'State',
-
-  // ═══════════════════════════════════════════════════════════════════
-  // WEIGHT LOSS - Airtable exact field names (OT Mens - Weight Loss)
-  // ═══════════════════════════════════════════════════════════════════
-  'ideal weight': 'Ideal Weight (lbs)',
-  'starting weight': 'Starting Weight (lbs)',
-  'GLP-1 History': 'GLP-1 History',
-  'Type of GLP-1': 'Type of GLP-1',
-  'Semaglutide Dose': 'Semaglutide Dose',
-  'Semaglutide Side Effects': 'Semaglutide Side Effects',
-  'Semaglutide Success': 'Semaglutide Success',
-  'Tirzepatide Dose': 'Tirzepatide Dose',
-  'Tirzepatide Side Effects': 'Tirzepatide Side Effects',
-  'Tirzepatide Success': 'Tirzepatide Success',
-  'Happy with GLP-1 Dose': 'Happy with GLP-1 Dose',
-  'Side Effect History': 'Side Effect History',
-  'Thyroid Cancer': 'Thyroid Cancer History',
-  'Neoplasia type 2 (MEN 2)': 'MEN2 History (GLP-1 Contraindication)',
-  'Pancreatitis': 'Pancreatitis History',
-  'Gastroparesis': 'Gastroparesis',
-  'Pregnant or Breastfeeding': 'Pregnant or Breastfeeding',
-  'Qualifying Conditions': 'Qualifying Conditions',
-  'Personalized Treatment': 'Personalized Treatment',
-  'How would your life change by losing weight': 'Weight Loss Motivation',
-  'Family History Diagnoses': 'Family History Diagnoses',
-  'Type 2 Diabetes': 'Type 2 Diabetes',
-  'Mental Health': 'Mental Health History',
-  'Mental health Diagnosis': 'Mental Health Diagnosis',
-  'Chronic Illness': 'Chronic Illness',
-  'Specific Chronic Illness': 'Specific Chronic Illness',
-  'Type of Chronic Illness': 'Type of Chronic Illness',
-  'Past surgery': 'Past Surgery',
-  'Surgery Type': 'Surgery Type',
-  'Medications / Supplements': 'Medications / Supplements',
-  'Which Medication /Supplement': 'Which Medication / Supplement',
-  'Alcohol Use': 'Alcohol Use',
-  'Allergy Type': 'Allergy Type',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // ADDRESS (Airtable bracket notation)
   // ═══════════════════════════════════════════════════════════════════
@@ -116,7 +79,7 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'Address [Country]': 'Country',
   'Address [Zip]': 'ZIP Code',
   'apartment#': 'Apartment/Unit #',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // BODY METRICS (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
@@ -125,12 +88,13 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'feet': 'Height (feet)',
   'inches': 'Height (inches)',
   'height': 'Height',
+  'starting weight': 'Starting Weight (lbs)',
   'Starting weight': 'Starting Weight (lbs)',
   'weight': 'Current Weight (lbs)',
   'current-weight': 'Current Weight (lbs)',
   'bmi': 'BMI',
   'BMI': 'BMI',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // MEDICAL HISTORY (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
@@ -146,7 +110,7 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'Bloodwork': 'Bloodwork Status',
   'health-conditions': 'Health Conditions',
   'medical-conditions': 'Medical Conditions',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // MEDICATIONS (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
@@ -154,13 +118,13 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'Medications [current]': 'Current Medications',
   'Prescription Medications': 'Prescription Medications',
   'current-medications': 'Current Medications',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // LIFESTYLE (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
   'Drinking': 'Alcohol Consumption',
   'Activity Level': 'Activity Level',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // TREATMENT GOALS (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
@@ -170,7 +134,7 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'What are you looking to Optimize?': 'Optimization Goals',
   'Symptoms': 'Current Symptoms',
   'symptoms': 'Current Symptoms',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // TRT-SPECIFIC FIELDS (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
@@ -187,18 +151,65 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'Main Results to achieve': 'Main Results to Achieve',
   'Previous Therapies (Hormone, Pept, GLP1)': 'Previous Hormone/Peptide Therapies',
   'Self Administration': 'Self Administration Preference',
-
+  
   // ═══════════════════════════════════════════════════════════════════
-  // BASELINE/BLOODWORK-SPECIFIC FIELDS (Airtable exact names)
+  // WEIGHT LOSS SPECIFIC FIELDS (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
-  'Chronic Disease': 'Chronic Disease',
-  'List of disease': 'List of Diseases',
-  'Specific Supplements': 'Specific Supplements',
-  'changes in body': 'Changes in Body',
-  'Health areas insights': 'Health Areas of Interest',
-  'Importance of tracking results': 'Importance of Tracking Results',
-  'Why Labs': 'Why Labs / Reason for Testing',
-
+  // Body Metrics
+  'ideal weight': 'Ideal/Goal Weight (lbs)',
+  'BMI': 'BMI',
+  
+  // Medical History - Weight Loss
+  'Allergy Type': 'Allergy Type',
+  'Chronic Illness': 'Chronic Illness',
+  'Specific Chronic Illness': 'Specific Chronic Illness',
+  'Type of Chronic Illness': 'Type of Chronic Illness',
+  'Family History Diagnoses': 'Family History Diagnoses',
+  'Gastroparesis': 'Gastroparesis',
+  'Thyroid Cancer': 'Thyroid Cancer History',
+  'Neoplasia type 2 (MEN 2)': 'MEN2 Syndrome (Contraindication)',
+  'Pancreatitis': 'Pancreatitis History',
+  'Type 2 Diabetes': 'Type 2 Diabetes',
+  'Mental Health': 'Mental Health Status',
+  'Mental health Diagnosis': 'Mental Health Diagnosis',
+  
+  // Medications - Weight Loss
+  'Medications / Supplements': 'Current Medications/Supplements',
+  'Which Medication /Supplement': 'Medication/Supplement Details',
+  
+  // Lifestyle - Weight Loss
+  'Alcohol Use': 'Alcohol Use',
+  
+  // GLP-1 History
+  'GLP-1 History': 'GLP-1 Experience',
+  'Happy with GLP-1 Dose': 'Satisfied with Current GLP-1 Dose',
+  'Type of GLP-1': 'Type of GLP-1 Used',
+  
+  // Semaglutide Specific
+  'Semaglutide Dose': 'Semaglutide Dose',
+  'Semaglutide Side Effects': 'Semaglutide Side Effects',
+  'Semaglutide Success': 'Semaglutide Success/Results',
+  
+  // Tirzepatide Specific
+  'Tirzepatide Dose': 'Tirzepatide Dose',
+  'Tirzepatide Side Effects': 'Tirzepatide Side Effects',
+  'Tirzepatide Success': 'Tirzepatide Success/Results',
+  
+  // Side Effects & History
+  'Side Effect History': 'Side Effect History',
+  
+  // Weight Loss Goals
+  'How would your life change by losing weight': 'Weight Loss Motivation',
+  'Personalized Treatment': 'Personalized Treatment Preference',
+  'Qualifying Conditions': 'Qualifying Conditions',
+  
+  // Surgery
+  'Past surgery': 'Past Surgery',
+  'Surgery Type': 'Surgery Type',
+  
+  // Pregnancy (Contraindication)
+  'Pregnant or Breastfeeding': 'Pregnant or Breastfeeding',
+  
   // ═══════════════════════════════════════════════════════════════════
   // REFERRAL & MARKETING (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
@@ -209,15 +220,9 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'promo-code': 'Promo Code',
   'influencer-code': 'Influencer Code',
   'referral-code': 'Referral Code',
-  'affiliate-code': 'Affiliate Code',
-  'partner-code': 'Partner Code',
   'PROMO CODE': 'Promo Code',
   'INFLUENCER CODE': 'Influencer Code',
-  'AFFILIATE CODE': 'Affiliate Code',
-  'PARTNER CODE': 'Partner Code',
-  'Affiliate Code': 'Affiliate Code',
-  'Partner Code': 'Partner Code',
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // CONSENT (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
@@ -233,7 +238,6 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
  */
 const TREATMENT_FIELD_LABELS: Record<OvertimeTreatmentType, Record<string, string>> = {
   weight_loss: {
-    // Legacy kebab-case fields
     'goal-weight': 'Goal Weight (lbs)',
     'glp1-experience': 'GLP-1 Experience',
     'glp1-last-30': 'Used GLP-1 in Last 30 Days',
@@ -250,43 +254,6 @@ const TREATMENT_FIELD_LABELS: Record<OvertimeTreatmentType, Record<string, strin
     'pancreatitis': 'Pancreatitis History',
     'gastroparesis': 'Gastroparesis',
     'bariatric-surgery': 'Previous Bariatric Surgery',
-
-    // ═══════════════════════════════════════════════════════════════════
-    // OT Mens - Weight Loss Airtable exact field names (Heyflow ID: uvvNo2JSHPctHpG87s0x)
-    // ═══════════════════════════════════════════════════════════════════
-    'ideal weight': 'Ideal Weight (lbs)',
-    'starting weight': 'Starting Weight (lbs)',
-    'GLP-1 History': 'GLP-1 History',
-    'Type of GLP-1': 'Type of GLP-1 Medication',
-    'Semaglutide Dose': 'Semaglutide Dose',
-    'Semaglutide Side Effects': 'Semaglutide Side Effects',
-    'Semaglutide Success': 'Semaglutide Success/Effectiveness',
-    'Tirzepatide Dose': 'Tirzepatide Dose',
-    'Tirzepatide Side Effects': 'Tirzepatide Side Effects',
-    'Tirzepatide Success': 'Tirzepatide Success/Effectiveness',
-    'Happy with GLP-1 Dose': 'Satisfaction with Current GLP-1 Dose',
-    'Side Effect History': 'Side Effect History',
-    'Thyroid Cancer': 'Thyroid Cancer History (Contraindication)',
-    'Neoplasia type 2 (MEN 2)': 'MEN2 History (GLP-1 Contraindication)',
-    'Pancreatitis': 'Pancreatitis History (Contraindication)',
-    'Gastroparesis': 'Gastroparesis (Contraindication)',
-    'Pregnant or Breastfeeding': 'Pregnant or Breastfeeding (Contraindication)',
-    'Qualifying Conditions': 'Qualifying Conditions for Treatment',
-    'Personalized Treatment': 'Personalized Treatment Preference',
-    'How would your life change by losing weight': 'Weight Loss Motivation & Goals',
-    'Family History Diagnoses': 'Family History Diagnoses',
-    'Type 2 Diabetes': 'Type 2 Diabetes',
-    'Mental Health': 'Mental Health History',
-    'Mental health Diagnosis': 'Mental Health Diagnosis',
-    'Chronic Illness': 'Chronic Illness',
-    'Specific Chronic Illness': 'Specific Chronic Illness',
-    'Type of Chronic Illness': 'Type of Chronic Illness',
-    'Past surgery': 'Past Surgery History',
-    'Surgery Type': 'Surgery Type',
-    'Medications / Supplements': 'Current Medications / Supplements',
-    'Which Medication /Supplement': 'Which Medication / Supplement',
-    'Alcohol Use': 'Alcohol Consumption',
-    'Allergy Type': 'Allergy Type',
   },
   peptides: {
     'peptide-experience': 'Peptide Experience',
@@ -314,7 +281,6 @@ const TREATMENT_FIELD_LABELS: Record<OvertimeTreatmentType, Record<string, strin
     'sleep-quality': 'Sleep Quality',
   },
   better_sex: {
-    // Legacy kebab-case fields
     'ed-history': 'ED History',
     'ed-duration': 'Duration of ED',
     'ed-severity': 'ED Severity',
@@ -330,43 +296,6 @@ const TREATMENT_FIELD_LABELS: Record<OvertimeTreatmentType, Record<string, strin
     'cardiovascular-health': 'Cardiovascular Health',
     'blood-pressure': 'Blood Pressure',
     'nitrate-use': 'Nitrate Use (Contraindication)',
-
-    // ═══════════════════════════════════════════════════════════════════
-    // OT Mens - Better Sex Airtable exact field names (Heyflow ID: 5ypJkFxQN4V4U4PB7R4u)
-    // ═══════════════════════════════════════════════════════════════════
-
-    // Symptoms & Duration
-    'Symptoms': 'Current Symptoms',
-    'How long have you notice': 'Symptom Duration',
-    'How often do these sexual issues occur?': 'Symptom Frequency',
-
-    // Treatment Goals
-    'goals': 'Treatment Goals',
-
-    // Physical Activity & Lifestyle
-    'Physical Active': 'Physical Activity Level',
-    'Smoke/Nicotine': 'Smoking/Nicotine Use',
-
-    // Cardiovascular - Critical for ED meds
-    'Heart condition': 'Heart Condition (Contraindication)',
-    'Chest Pains': 'Chest Pain History',
-    'meds with nitrates or nitroglycerin': 'Nitrate Medications (Contraindication)',
-
-    // Chronic Conditions
-    'Chronic Disease': 'Chronic Disease',
-    'Chronic Illnesses': 'Chronic Illnesses',
-    'Specific Conditions': 'Specific Medical Conditions',
-    'Cancer': 'Cancer History',
-
-    // Medications
-    'Medications': 'Current Medications',
-    'List of Medications': 'Medication List',
-
-    // Lab Work
-    'Labwork': 'Recent Lab Work',
-
-    // Allergies
-    'Which allergies': 'Allergy Details',
   },
   testosterone: {
     'trt-symptoms': 'TRT Symptoms Checklist',
@@ -414,12 +343,12 @@ const TREATMENT_FIELD_LABELS: Record<OvertimeTreatmentType, Record<string, strin
 
 /**
  * Normalize Overtime intake payload
- *
+ * 
  * @param payload - Raw payload from Airtable webhook
  * @returns Normalized intake data with treatment type
  */
 export function normalizeOvertimePayload(payload: Record<string, unknown>): NormalizedIntake & { treatmentType: OvertimeTreatmentType } {
-  logger.debug("[Overtime Normalizer] Processing payload", {
+  logger.debug("[Overtime Normalizer] Processing payload", { 
     keys: Object.keys(payload || {}).slice(0, 15),
     hasSubmissionId: !!(payload?.['submission-id'] || payload?.submissionId),
   });
@@ -430,18 +359,18 @@ export function normalizeOvertimePayload(payload: Record<string, unknown>): Norm
 
   // Extract submission metadata
   const submissionId = String(
-    payload['submission-id'] ||
-    payload.submissionId ||
-    payload.submission_id ||
+    payload['submission-id'] || 
+    payload.submissionId || 
+    payload.submission_id || 
     `overtime-${treatmentType}-${Date.now()}`
   );
-
+  
   const submittedAtValue = payload['submission-date'] || payload.submittedAt || payload.createdAt || Date.now();
   const submittedAt = new Date(submittedAtValue as string | number | Date);
 
   // Build sections from payload
   const sections = buildOvertimeSections(payload as OvertimePayload, treatmentType);
-
+  
   // Flatten entries for answers array
   const flatEntries = sections.flatMap((section) =>
     section.entries.map((entry) => ({ ...entry, section: section.title }))
@@ -450,7 +379,7 @@ export function normalizeOvertimePayload(payload: Record<string, unknown>): Norm
   // Build patient from payload
   const patient = buildOvertimePatient(payload as OvertimePayload);
 
-  logger.info("[Overtime Normalizer] Normalized patient", {
+  logger.info("[Overtime Normalizer] Normalized patient", { 
     name: `${patient.firstName} ${patient.lastName}`,
     email: patient.email,
     state: patient.state,
@@ -473,11 +402,11 @@ export function normalizeOvertimePayload(payload: Record<string, unknown>): Norm
  */
 function buildOvertimeSections(payload: OvertimePayload, treatmentType: OvertimeTreatmentType): IntakeSection[] {
   const sections: IntakeSection[] = [];
-
+  
   // ═══════════════════════════════════════════════════════════════════
   // AIRTABLE FIELD DEFINITIONS - Exact field names from OT Mens Airtable
   // ═══════════════════════════════════════════════════════════════════
-
+  
   // Patient Identity (both Airtable exact + legacy formats)
   const patientIdentityFields = [
     // Airtable exact names
@@ -486,37 +415,42 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     'first-name', 'firstName', 'last-name', 'lastName', 'Email', 'phone', 'Phone',
     'dob', 'dateOfBirth', 'sex', 'gender', 'state',
   ];
-
+  
   // Address Fields (Airtable bracket notation)
   const addressFields = [
-    'Address', 'Address [Street]', 'Address [house]', 'Address [City]',
+    'Address', 'Address [Street]', 'Address [house]', 'Address [City]', 
     'Address [State]', 'Address [Country]', 'Address [Zip]', 'apartment#',
     // Legacy formats
     'address', 'address1', 'address2', 'city', 'zip', 'zipCode',
   ];
-
-  // Body Metrics (Airtable exact + legacy)
+  
+  // Body Metrics (Airtable exact + legacy - All treatments)
   const bodyMetricsFields = [
     // Airtable exact names
     'Height [feet]', 'Height [inches]', 'starting weight', 'BMI',
+    // Weight Loss specific
+    'ideal weight',
     // Legacy formats
     'feet', 'inches', 'height', 'weight', 'current-weight', 'bmi',
   ];
-
+  
   // Medical History (Airtable exact names - All treatments)
   const medicalHistoryFields = [
     // Airtable exact names (shared)
-    'Allergies', 'Which allergies', 'Conditions', 'Cancer',
+    'Allergies', 'Which allergies', 'Conditions', 'Cancer', 
     'Chronic Kidney Disease', 'B12 Deficiency', 'Bloodowrk', 'Bloodwork',
     // TRT-specific
-    'Allergic to', 'List of Allergies', 'Chronic Conditions',
+    'Allergic to', 'List of Allergies', 'Chronic Conditions', 
     'Blood Pressure', 'bloodwork',
-    // Baseline-specific
-    'Chronic Disease', 'List of disease',
+    // Weight Loss specific
+    'Allergy Type', 'Chronic Illness', 'Specific Chronic Illness', 'Type of Chronic Illness',
+    'Family History Diagnoses', 'Gastroparesis', 'Thyroid Cancer', 
+    'Neoplasia type 2 (MEN 2)', 'Pancreatitis', 'Type 2 Diabetes',
+    'Mental Health', 'Mental health Diagnosis',
     // Legacy formats
     'allergies', 'health-conditions', 'medical-conditions', 'conditions',
   ];
-
+  
   // Medications (Airtable exact names - All treatments)
   const medicationsFields = [
     // Airtable exact names (shared)
@@ -524,47 +458,42 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     // TRT-specific
     'List of medications, vitamins, supplements', 'Medications, vitamins, Supplements',
     'Specific Medications',
-    // Baseline-specific
-    'Specific Supplements',
+    // Weight Loss specific
+    'Medications / Supplements', 'Which Medication /Supplement',
     // Legacy formats
     'current-medications', 'medications',
   ];
-
-  // Lifestyle (Airtable exact names)
+  
+  // Lifestyle (Airtable exact names - All treatments)
   const lifestyleFields = [
     'Drinking', 'Activity Level',
+    // Weight Loss specific
+    'Alcohol Use',
     // Legacy formats
     'drinking', 'activity-level', 'exercise-frequency',
   ];
-
+  
   // Referral & Marketing (Airtable exact names)
   const referralFields = [
     // Airtable exact names (both spelling variants)
-    'How did you hear about us?',
+    'How did you hear about us?', 
     'Who reccomended OT Mens Health to you?',  // Peptide table (typo)
     'Who recommended OT Mens Health to you?',  // TRT table (correct)
     'Referrer',
     // Promo codes
-    'promo-code', 'promoCode', 'promo_code', 'PROMO CODE', 'Promo Code',
-    // Influencer codes
-    'influencer-code', 'influencerCode', 'influencer_code', 'INFLUENCER CODE', 'Influencer Code',
-    // Referral codes
-    'referral-code', 'referralCode', 'referral_code', 'REFERRAL CODE', 'Referral Code',
-    // Affiliate codes (OT clinic Heyflow forms)
-    'affiliate-code', 'affiliateCode', 'affiliate_code', 'AFFILIATE CODE', 'Affiliate Code',
-    // Partner codes
-    'partner-code', 'partnerCode', 'partner_code', 'PARTNER CODE', 'Partner Code',
+    'promo-code', 'promoCode', 'influencer-code', 'influencerCode', 
+    'referral-code', 'PROMO CODE', 'INFLUENCER CODE',
   ];
-
+  
   // Consent Fields (Airtable exact names)
   const consentFields = [
     // Airtable exact names
     '18+ Consent', 'Consent Forms', 'marketing consent',
     // Legacy formats
-    'hipaa-agreement', 'terms-agreement', 'consent',
+    'hipaa-agreement', 'terms-agreement', 'consent', 
     'Checkout Completed', 'checkout-completed', 'paid',
   ];
-
+  
   // Metadata Fields (to exclude from "Additional Information")
   const metadataFields = [
     'Response ID', 'Heyflow ID', 'A/B Test ID', 'A/B Test Version',
@@ -579,30 +508,26 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
   // ═══════════════════════════════════════════════════════════════════
   const treatmentFieldGroups: Record<OvertimeTreatmentType, string[][]> = {
     weight_loss: [
-      // Weight Goals
-      ['goal-weight', 'ideal-weight', 'target-weight', 'Goal weight', 'Ideal weight', 'ideal weight', 'starting weight', 'Starting weight'],
-      // GLP-1 History & Experience (Airtable exact names)
-      ['glp1-experience', 'glp1-last-30', 'glp1-medication-type', 'glp1-dose', 'previous-glp1', 'GLP-1 Experience',
-       'GLP-1 History', 'Type of GLP-1', 'Happy with GLP-1 Dose', 'Side Effect History'],
-      // Semaglutide Specific (Airtable exact names)
+      // Weight Goals (Airtable exact)
+      ['ideal weight', 'goal-weight', 'ideal-weight', 'target-weight'],
+      // GLP-1 History & Experience (Airtable exact)
+      ['GLP-1 History', 'Happy with GLP-1 Dose', 'Type of GLP-1'],
+      // Semaglutide Experience (Airtable exact)
       ['Semaglutide Dose', 'Semaglutide Side Effects', 'Semaglutide Success'],
-      // Tirzepatide Specific (Airtable exact names)
+      // Tirzepatide Experience (Airtable exact)
       ['Tirzepatide Dose', 'Tirzepatide Side Effects', 'Tirzepatide Success'],
-      // Medication Preferences
-      ['preferred-meds', 'medication-preference', 'injections-tablets', 'Medication Preference',
-       'Personalized Treatment', 'Qualifying Conditions'],
-      // Weight Loss Motivation & Goals
-      ['weight-loss-motivation', 'weight-loss-history', 'diet-history', 'exercise-frequency',
-       'How would your life change by losing weight'],
-      // Contraindications (Airtable exact names)
-      ['men2-history', 'thyroid-cancer', 'pancreatitis', 'gastroparesis', 'bariatric-surgery',
-       'Thyroid Cancer', 'Neoplasia type 2 (MEN 2)', 'Pancreatitis', 'Gastroparesis',
-       'Pregnant or Breastfeeding', 'Type 2 Diabetes'],
-      // Chronic Conditions (Airtable exact names)
-      ['Chronic Illness', 'Specific Chronic Illness', 'Type of Chronic Illness',
-       'Family History Diagnoses', 'Past surgery', 'Surgery Type'],
-      // Mental Health (Airtable exact names)
-      ['Mental Health', 'Mental health Diagnosis'],
+      // Side Effects
+      ['Side Effect History'],
+      // Weight Loss Goals & Motivation (Airtable exact)
+      ['How would your life change by losing weight', 'Personalized Treatment', 'Qualifying Conditions'],
+      // Surgery History (Airtable exact)
+      ['Past surgery', 'Surgery Type'],
+      // Contraindications (Airtable exact)
+      ['Pregnant or Breastfeeding', 'Neoplasia type 2 (MEN 2)', 'Thyroid Cancer', 'Pancreatitis', 'Gastroparesis'],
+      // Legacy formats
+      ['glp1-experience', 'glp1-last-30', 'glp1-medication-type', 'glp1-dose', 'previous-glp1'],
+      ['preferred-meds', 'medication-preference', 'injections-tablets'],
+      ['weight-loss-motivation', 'weight-loss-history', 'diet-history', 'exercise-frequency'],
     ],
     peptides: [
       // Treatment Goals & Preferences (Airtable exact)
@@ -621,22 +546,11 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
       ['chronic-fatigue', 'brain-fog', 'sleep-quality'],
     ],
     better_sex: [
-      // Symptoms & Duration (Airtable exact names)
-      ['ed-history', 'ed-duration', 'ed-severity', 'ed-onset', 'ED History',
-       'Symptoms', 'How long have you notice', 'How often do these sexual issues occur?'],
-      // Treatment Goals
-      ['goals', 'libido-level', 'performance-anxiety', 'relationship-status'],
-      // Physical Activity & Lifestyle
-      ['Physical Active', 'Smoke/Nicotine'],
-      // Cardiovascular - Critical for ED meds (Airtable exact names)
-      ['Heart condition', 'Chest Pains', 'meds with nitrates or nitroglycerin',
-       'cardiovascular-health', 'blood-pressure', 'nitrate-use'],
-      // Chronic Conditions (Airtable exact names)
-      ['Chronic Disease', 'Chronic Illnesses', 'Specific Conditions', 'Cancer', 'diabetes'],
-      // Medications (Airtable exact names)
-      ['Medications', 'List of Medications', 'previous-ed-meds', 'viagra-experience', 'cialis-experience'],
-      // Lab Work
-      ['Labwork', 'preferred-medication', 'frequency-needed'],
+      ['ed-history', 'ed-duration', 'ed-severity', 'ed-onset', 'ED History'],
+      ['libido-level', 'performance-anxiety', 'relationship-status'],
+      ['previous-ed-meds', 'viagra-experience', 'cialis-experience'],
+      ['preferred-medication', 'frequency-needed'],
+      ['cardiovascular-health', 'blood-pressure', 'nitrate-use', 'diabetes'],
     ],
     testosterone: [
       // Treatment Goals (Airtable exact)
@@ -653,12 +567,8 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
       ['prostate-history', 'heart-disease', 'blood-clot-history', 'sleep-apnea', 'fertility-concerns'],
     ],
     baseline_bloodwork: [
-      // Reason for Labs (Airtable exact)
-      ['Why Labs', 'reason-for-labs', 'treatment-interest'],
-      // Health Assessment (Airtable exact)
-      ['Health areas insights', 'changes in body', 'Importance of tracking results'],
-      // Legacy fields
       ['lab-location', 'preferred-lab', 'fasting-available', 'preferred-time', 'mobile-phlebotomy'],
+      ['reason-for-labs', 'symptoms', 'treatment-interest'],
       ['last-lab-date', 'previous-lab-results', 'has-recent-labs'],
       ['insurance-coverage', 'self-pay'],
     ],
@@ -726,17 +636,14 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
   // 7. Treatment-specific sections
   const treatmentLabel = TREATMENT_TYPE_LABELS[treatmentType];
   const treatmentGroups = treatmentFieldGroups[treatmentType] || [];
-
+  
   const sectionNames: Record<OvertimeTreatmentType, string[]> = {
-    weight_loss: ['Weight Goals', 'GLP-1 History', 'Semaglutide Experience', 'Tirzepatide Experience',
-                  'Treatment Preferences', 'Weight Loss Motivation', 'Contraindications',
-                  'Chronic Conditions', 'Mental Health'],
+    weight_loss: ['Weight Goals', 'GLP-1 History', 'Semaglutide Experience', 'Tirzepatide Experience', 'Side Effects', 'Motivation & Goals', 'Surgery History', 'Contraindications', 'GLP-1 Legacy', 'Medication Preferences', 'Diet & Exercise'],
     peptides: ['Treatment Goals', 'Current Symptoms', 'Peptide Experience', 'Injection Preferences', 'Lab Work'],
     nad_plus: ['NAD+ Experience', 'Treatment Goals', 'Preferences', 'Health Assessment'],
-    better_sex: ['Symptoms & Duration', 'Treatment Goals', 'Physical Activity', 'Cardiovascular Health',
-                  'Chronic Conditions', 'Medications', 'Lab Work & Preferences'],
+    better_sex: ['ED History', 'Current Status', 'Previous Treatments', 'Preferences', 'Health Factors'],
     testosterone: ['Treatment Goals', 'Previous Therapies', 'Lab Results', 'Administration Preferences', 'Symptoms', 'Contraindications'],
-    baseline_bloodwork: ['Reason for Labs', 'Health Assessment', 'Lab Preferences', 'Previous Labs', 'Payment'],
+    baseline_bloodwork: ['Lab Preferences', 'Health Assessment', 'Previous Labs', 'Payment'],
   };
 
   treatmentGroups.forEach((fields, index) => {
@@ -1051,36 +958,17 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
  */
 export function extractPromoCode(payload: Record<string, unknown>): string | null {
   const promoFields = [
-    // Promo code variations
     'promo-code',
     'promoCode',
     'promo_code',
-    'PROMO CODE',
-    'Promo Code',
-    // Influencer code variations
     'influencer-code',
     'influencerCode',
     'influencer_code',
-    'INFLUENCER CODE',
-    'Influencer Code',
-    // Referral code variations
     'referral-code',
     'referralCode',
     'referral_code',
-    'REFERRAL CODE',
-    'Referral Code',
-    // Affiliate code variations (OT clinic Heyflow forms)
-    'affiliate-code',
-    'affiliateCode',
-    'affiliate_code',
-    'AFFILIATE CODE',
-    'Affiliate Code',
-    // Partner code variations
-    'partner-code',
-    'partnerCode',
-    'partner_code',
-    'PARTNER CODE',
-    'Partner Code',
+    'PROMO CODE',
+    'INFLUENCER CODE',
   ];
 
   for (const field of promoFields) {
@@ -1124,21 +1012,21 @@ function normalizeStateInput(value?: string): string {
   if (!value) return "";
   const trimmed = value.trim();
   if (!trimmed) return "";
-
+  
   const normalizedUpper = trimmed.toUpperCase();
-
+  
   if (STATE_CODE_SET.has(normalizedUpper)) return normalizedUpper;
-
+  
   const alphaOnly = trimmed.replace(/[^a-zA-Z]/g, " ").trim().toUpperCase();
   if (STATE_CODE_SET.has(alphaOnly)) return alphaOnly;
   if (STATE_NAME_TO_CODE[normalizedUpper]) return STATE_NAME_TO_CODE[normalizedUpper];
   if (STATE_NAME_TO_CODE[alphaOnly]) return STATE_NAME_TO_CODE[alphaOnly];
-
+  
   const fuzzy = US_STATE_OPTIONS.find((state: any) =>
     alphaOnly.includes(state.label.toUpperCase())
   );
   if (fuzzy) return fuzzy.value.toUpperCase();
-
+  
   return normalizedUpper.length === 2 ? normalizedUpper : trimmed;
 }
 
@@ -1146,21 +1034,21 @@ function normalizeDateInput(value?: string): string {
   if (!value) return "";
   const trimmed = value.trim();
   if (!trimmed) return "";
-
+  
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-
+  
   const slashParts = trimmed.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (slashParts) {
     const [, mm, dd, yyyy] = slashParts;
     return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
   }
-
+  
   const dashParts = trimmed.match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
   if (dashParts) {
     const [, mm, dd, yyyy] = dashParts;
     return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
   }
-
+  
   const digits = trimmed.replace(/[^\d]/g, " ").trim().split(/\s+/);
   if (digits.length === 3) {
     let [first, second, third] = digits;
@@ -1177,7 +1065,7 @@ function normalizeDateInput(value?: string): string {
       return `${third}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
     }
   }
-
+  
   return trimmed;
 }
 
@@ -1202,11 +1090,11 @@ function capitalizeWords(value: string): string {
 function normalizeGenderInput(value?: string): string {
   if (!value) return "";
   const lower = value.trim().toLowerCase();
-
+  
   if (lower === 'f' || lower === 'female' || lower === 'woman') return "Female";
   if (lower === 'm' || lower === 'male' || lower === 'man') return "Male";
   if (lower.startsWith("f") || lower.startsWith("w")) return "Female";
   if (lower.startsWith("m")) return "Male";
-
+  
   return value;
 }

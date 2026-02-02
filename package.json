@@ -62,7 +62,10 @@
     "analyze": "ANALYZE=true npm run build",
     "clean": "rm -rf .next node_modules coverage test-results",
     "prod:reset": "tsx scripts/production-reset.ts",
-    "prod:cleanup": "tsx scripts/cleanup-all-data.ts"
+    "prod:cleanup": "tsx scripts/cleanup-all-data.ts",
+    "verify:overtime": "tsx scripts/verify-overtime-setup.ts",
+    "test:overtime-intake": "tsx scripts/test-overtime-intake.ts",
+    "sync:overtime": "tsx -e \"fetch('http://localhost:3000/api/integrations/overtime/sync', {method:'POST',headers:{'Authorization':'Bearer '+process.env.OVERTIME_SYNC_API_KEY}}).then(r=>r.json()).then(console.log)\""
   },
   "lint-staged": {
     "*.{ts,tsx}": [
