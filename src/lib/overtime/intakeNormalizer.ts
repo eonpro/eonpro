@@ -1083,11 +1083,27 @@ function formatFieldLabel(field: string): string {
     .join(' ');
 }
 
+/**
+ * Check if a value looks like an Airtable record ID (e.g., "recN2wx0VEVQzs32Y")
+ * These are 17-character strings starting with "rec"
+ */
+function isAirtableRecordId(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  // Airtable record IDs start with "rec" followed by 14 alphanumeric characters
+  return /^rec[a-zA-Z0-9]{14}$/.test(value);
+}
+
 function formatValue(value: unknown): string {
   if (Array.isArray(value)) {
-    return value.map(formatValue).join(", ");
+    // Filter out Airtable record IDs from arrays
+    const filtered = value.filter(v => !isAirtableRecordId(v));
+    return filtered.map(formatValue).join(", ");
   }
   if (value === null || value === undefined) {
+    return "";
+  }
+  // Skip Airtable record IDs - they're not useful display values
+  if (isAirtableRecordId(value)) {
     return "";
   }
   if (typeof value === "boolean") {
