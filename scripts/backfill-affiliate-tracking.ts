@@ -24,41 +24,38 @@ async function backfillAffiliateTracking() {
 
   console.log(`Processing patient ${patientId} with code ${promoCode}...`);
 
-  // Step 1: Check if Influencer exists for this code
+  // Step 1: Find the affiliate ref code
+  const affiliateRefCode = await prisma.affiliateRefCode.findFirst({
+    where: { refCode: promoCode },
+    include: { affiliate: { include: { user: true, clinic: true } } },
+  });
+
+  if (!affiliateRefCode) {
+    console.log(`No AffiliateRefCode found for ${promoCode}, skipping...`);
+    return;
+  }
+
+  console.log(`Found AffiliateRefCode: ${affiliateRefCode.refCode} -> ${affiliateRefCode.affiliate.displayName}`);
+
+  // Step 2: Check if Influencer exists for this code (legacy system)
   let influencer = await prisma.influencer.findUnique({
     where: { promoCode },
   });
 
   if (!influencer) {
-    // Create influencer based on Affiliate data
-    const affiliate = await prisma.affiliate.findFirst({
-      where: {
-        refCodes: { some: { refCode: promoCode } },
-      },
-      include: {
-        user: true,
-        clinic: true,
+    // Create legacy Influencer record from Affiliate data
+    console.log(`Creating legacy Influencer record for ${promoCode}...`);
+    influencer = await prisma.influencer.create({
+      data: {
+        promoCode,
+        name: affiliateRefCode.affiliate.displayName,
+        email: affiliateRefCode.affiliate.user.email,
+        clinicId: affiliateRefCode.affiliate.clinicId,
+        status: 'ACTIVE',
+        commissionRate: 0.10,
       },
     });
-
-    if (affiliate) {
-      console.log(`Found affiliate ${affiliate.displayName} for code ${promoCode}`);
-      // Create legacy Influencer record
-      influencer = await prisma.influencer.create({
-        data: {
-          promoCode,
-          name: affiliate.displayName,
-          email: affiliate.user.email,
-          clinicId: affiliate.clinicId,
-          status: 'ACTIVE',
-          commissionRate: 0.10,
-        },
-      });
-      console.log(`Created Influencer record: ${influencer.id}`);
-    } else {
-      console.log(`No affiliate found for code ${promoCode}, skipping...`);
-      return;
-    }
+    console.log(`Created Influencer record: ${influencer.id}`);
   } else {
     console.log(`Influencer already exists: ${influencer.id} (${influencer.name})`);
   }
@@ -86,11 +83,6 @@ async function backfillAffiliateTracking() {
   }
 
   // Step 3: Check modern system - AffiliateTouch
-  const affiliateRefCode = await prisma.affiliateRefCode.findFirst({
-    where: { refCode: promoCode },
-    include: { affiliate: true },
-  });
-
   if (affiliateRefCode) {
     // Use a fingerprint based on patient ID for backfill
     const fingerprint = `patient-${patientId}-backfill`;
