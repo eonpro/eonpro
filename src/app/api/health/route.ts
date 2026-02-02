@@ -394,7 +394,7 @@ async function checkMigrations(): Promise<HealthCheck> {
     `;
     
     // Check for failed migrations (finished_at is null or steps_count mismatch)
-    const failedMigrations = migrations.filter(m => m.finished_at === null);
+    const failedMigrations = migrations.filter((m: { finished_at: Date | null }) => m.finished_at === null);
     
     if (failedMigrations.length > 0) {
       return {
@@ -404,7 +404,7 @@ async function checkMigrations(): Promise<HealthCheck> {
         message: `${failedMigrations.length} migration(s) in failed state`,
         details: {
           totalMigrations: migrations.length,
-          failedMigrations: failedMigrations.map(m => m.migration_name),
+          failedMigrations: failedMigrations.map((m: { migration_name: string }) => m.migration_name),
         }
       };
     }

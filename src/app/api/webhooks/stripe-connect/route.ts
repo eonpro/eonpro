@@ -212,7 +212,7 @@ async function handleCapabilityUpdated(event: Stripe.Event) {
   // Get the account to sync full status
   if (typeof capability.account === 'string') {
     try {
-      const account = await stripe.accounts.retrieve(capability.account);
+      const account = await getStripe().accounts.retrieve(capability.account);
       await handleAccountUpdated(account);
     } catch (err) {
       logger.error('[STRIPE CONNECT WEBHOOK] Failed to retrieve account for capability update', {
