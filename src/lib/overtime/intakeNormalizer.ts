@@ -136,10 +136,28 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'symptoms': 'Current Symptoms',
   
   // ═══════════════════════════════════════════════════════════════════
+  // TRT-SPECIFIC FIELDS (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'Allergic to': 'Allergic To (Details)',
+  'List of Allergies': 'List of Allergies',
+  'Blood Pressure': 'Blood Pressure',
+  'bloodwork': 'Bloodwork Status',
+  'Chronic Conditions': 'Chronic Conditions',
+  'Lab Results': 'Lab Results (Attachment)',
+  'List of medications, vitamins, supplements': 'Medications, Vitamins & Supplements',
+  'Medications, vitamins, Supplements': 'Current Medications & Supplements',
+  'Specific Medications': 'Specific Medications',
+  'Main Results to acchive': 'Main Results to Achieve',  // Note: typo in Airtable
+  'Main Results to achieve': 'Main Results to Achieve',
+  'Previous Therapies (Hormone, Pept, GLP1)': 'Previous Hormone/Peptide Therapies',
+  'Self Administration': 'Self Administration Preference',
+  
+  // ═══════════════════════════════════════════════════════════════════
   // REFERRAL & MARKETING (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
   'How did you hear about us?': 'How Did You Hear About Us?',
-  'Who reccomended OT Mens Health to you?': 'Who Recommended Us?',  // Note: typo in Airtable
+  'Who reccomended OT Mens Health to you?': 'Who Recommended Us?',  // Note: typo in Peptide Airtable
+  'Who recommended OT Mens Health to you?': 'Who Recommended Us?',  // Correct spelling in TRT
   'Referrer': 'Referrer',
   'promo-code': 'Promo Code',
   'influencer-code': 'Influencer Code',
@@ -356,19 +374,25 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     'feet', 'inches', 'height', 'weight', 'current-weight', 'bmi',
   ];
   
-  // Medical History (Airtable exact names)
+  // Medical History (Airtable exact names - Peptides + TRT)
   const medicalHistoryFields = [
-    // Airtable exact names
+    // Airtable exact names (shared)
     'Allergies', 'Which allergies', 'Conditions', 'Cancer', 
     'Chronic Kidney Disease', 'B12 Deficiency', 'Bloodowrk', 'Bloodwork',
+    // TRT-specific
+    'Allergic to', 'List of Allergies', 'Chronic Conditions', 
+    'Blood Pressure', 'bloodwork',
     // Legacy formats
     'allergies', 'health-conditions', 'medical-conditions', 'conditions',
   ];
   
-  // Medications (Airtable exact names)
+  // Medications (Airtable exact names - Peptides + TRT)
   const medicationsFields = [
-    // Airtable exact names
+    // Airtable exact names (shared)
     'List of medications', 'Medications [current]', 'Prescription Medications',
+    // TRT-specific
+    'List of medications, vitamins, supplements', 'Medications, vitamins, Supplements',
+    'Specific Medications',
     // Legacy formats
     'current-medications', 'medications',
   ];
@@ -382,8 +406,11 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
   
   // Referral & Marketing (Airtable exact names)
   const referralFields = [
-    // Airtable exact names
-    'How did you hear about us?', 'Who reccomended OT Mens Health to you?', 'Referrer',
+    // Airtable exact names (both spelling variants)
+    'How did you hear about us?', 
+    'Who reccomended OT Mens Health to you?',  // Peptide table (typo)
+    'Who recommended OT Mens Health to you?',  // TRT table (correct)
+    'Referrer',
     // Promo codes
     'promo-code', 'promoCode', 'influencer-code', 'influencerCode', 
     'referral-code', 'PROMO CODE', 'INFLUENCER CODE',
@@ -442,10 +469,17 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
       ['cardiovascular-health', 'blood-pressure', 'nitrate-use', 'diabetes'],
     ],
     testosterone: [
+      // Treatment Goals (Airtable exact)
+      ['Main Results to acchive', 'Main Results to achieve', 'goals', 'Goals'],
+      // Previous Therapies
+      ['Previous Therapies (Hormone, Pept, GLP1)', 'previous-trt', 'current-trt', 'trt-duration'],
+      // Lab Results
+      ['Lab Results', 'recent-testosterone-level', 'free-testosterone', 'total-testosterone', 'estradiol-level', 'psa-level', 'hematocrit'],
+      // Administration Preferences
+      ['Self Administration', 'preferred-administration', 'injection-comfort', 'trt-type', 'injection-frequency'],
+      // Legacy symptom fields
       ['trt-symptoms', 'fatigue-level', 'muscle-loss', 'libido-changes', 'mood-changes', 'brain-fog', 'sleep-issues', 'weight-gain'],
-      ['previous-trt', 'current-trt', 'trt-duration', 'trt-type', 'injection-frequency'],
-      ['recent-testosterone-level', 'free-testosterone', 'total-testosterone', 'estradiol-level', 'psa-level', 'hematocrit'],
-      ['preferred-administration', 'injection-comfort'],
+      // Legacy contraindications
       ['prostate-history', 'heart-disease', 'blood-clot-history', 'sleep-apnea', 'fertility-concerns'],
     ],
     baseline_bloodwork: [
@@ -524,7 +558,7 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     peptides: ['Treatment Goals', 'Current Symptoms', 'Peptide Experience', 'Injection Preferences', 'Lab Work'],
     nad_plus: ['NAD+ Experience', 'Treatment Goals', 'Preferences', 'Health Assessment'],
     better_sex: ['ED History', 'Current Status', 'Previous Treatments', 'Preferences', 'Health Factors'],
-    testosterone: ['Symptoms', 'TRT History', 'Lab Results', 'Preferences', 'Contraindications'],
+    testosterone: ['Treatment Goals', 'Previous Therapies', 'Lab Results', 'Administration Preferences', 'Symptoms', 'Contraindications'],
     baseline_bloodwork: ['Lab Preferences', 'Health Assessment', 'Previous Labs', 'Payment'],
   };
 
