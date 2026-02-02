@@ -1,13 +1,29 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { logger } from '../../../lib/logger';
 
 import { useSearchParams } from "next/navigation";
 import ProviderCalendar from "@/components/ProviderCalendar";
 import CalendarSync from "@/components/CalendarSync";
 import AppointmentModal from "@/components/AppointmentModal";
-import { Calendar, Clock, Video, Users, Bell, Settings, Plus } from "lucide-react";
+import { Calendar, Clock, Video, Users, Bell, Settings, Plus, Loader2 } from "lucide-react";
+
+interface Appointment {
+  id: number;
+  patientId: number;
+  patientName: string;
+  patientEmail: string;
+  patientPhone: string;
+  date: Date;
+  duration: number;
+  type: string;
+  zoomLink?: string;
+  zoomMeetingId?: string;
+  status: string;
+  reason?: string;
+  notes?: string;
+}
 
 function ProviderCalendarContent() {
   const searchParams = useSearchParams();
@@ -16,6 +32,62 @@ function ProviderCalendarContent() {
   const [showSyncSettings, setShowSyncSettings] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [preSelectedPatient, setPreSelectedPatient] = useState<any>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch appointments from database
+  const fetchAppointments = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Get current month's date range for initial load
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+      const response = await fetch(
+        `/api/scheduling/appointments?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch appointments');
+      }
+
+      const data = await response.json();
+
+      // Transform API response to component format
+      const transformedAppointments: Appointment[] = (data.appointments || []).map((apt: any) => ({
+        id: apt.id,
+        patientId: apt.patientId,
+        patientName: apt.patient ? `${apt.patient.firstName} ${apt.patient.lastName}` : 'Unknown Patient',
+        patientEmail: apt.patient?.email || '',
+        patientPhone: apt.patient?.phone || '',
+        date: new Date(apt.startTime),
+        duration: apt.duration || 30,
+        type: apt.type === 'VIDEO' ? 'telehealth' : apt.type === 'IN_PERSON' ? 'in-person' : 'phone',
+        zoomLink: apt.zoomJoinUrl || apt.videoLink,
+        zoomMeetingId: apt.zoomMeetingId,
+        status: apt.status?.toLowerCase() || 'scheduled',
+        reason: apt.reason,
+        notes: apt.notes,
+      }));
+
+      setAppointments(transformedAppointments);
+    } catch (err) {
+      logger.error('Error fetching appointments:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load appointments');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
 
   // Check for query parameters and pre-selected patient on mount
   useEffect(() => {
@@ -36,34 +108,6 @@ function ProviderCalendarContent() {
     }
   }, [searchParams]);
 
-  // Mock appointments for demonstration
-  const [appointments, setAppointments] = useState([
-    {
-      id: 1,
-      patientName: "Rebecca Pignano",
-      patientEmail: "rebecca@eonmeds.com",
-      patientPhone: "3857856102",
-      date: new Date(2024, 10, 29, 10, 0),
-      duration: 30,
-      type: "telehealth",
-      zoomLink: "https://zoom.us/j/123456789",
-      status: "confirmed",
-      reminders: ["1 day before", "1 hour before"]
-    },
-    {
-      id: 2,
-      patientName: "John Smith",
-      patientEmail: "john@example.com",
-      patientPhone: "555-1234",
-      date: new Date(2024, 10, 29, 14, 30),
-      duration: 30,
-      type: "telehealth",
-      zoomLink: "https://zoom.us/j/987654321",
-      status: "confirmed",
-      reminders: ["1 day before", "1 hour before"]
-    }
-  ]);
-
   const handleCreateAppointment = (date?: Date) => {
     setSelectedDate(date || null);
     setSelectedAppointment(null);
@@ -75,24 +119,34 @@ function ProviderCalendarContent() {
     setShowAppointmentModal(true);
   };
 
-  const handleSaveAppointment = (appointmentData: any) => {
-    if (selectedAppointment) {
-      // Update existing appointment
-      setAppointments(prev => 
-        prev.map(apt => apt.id === selectedAppointment.id ? { ...apt, ...appointmentData } : apt)
-      );
-    } else {
-      // Create new appointment
-      const newAppointment = {
-        id: Date.now(),
-        ...appointmentData,
-        zoomLink: `https://zoom.us/j/${Math.floor(Math.random() * 999999999)}`,
-        status: "confirmed",
-        reminders: ["1 day before", "1 hour before"]
-      };
-      setAppointments(prev => [...prev, newAppointment]);
+  const handleSaveAppointment = async (appointmentData: any) => {
+    // The AppointmentModal now handles the API call directly
+    // This callback receives the created/updated appointment from the API
+
+    if (appointmentData.id) {
+      // Check if this is an update or a new appointment
+      const existingIndex = appointments.findIndex(apt => apt.id === appointmentData.id);
+
+      if (existingIndex >= 0) {
+        // Update existing appointment in state
+        setAppointments(prev =>
+          prev.map(apt => apt.id === appointmentData.id ? {
+            ...apt,
+            ...appointmentData,
+          } : apt)
+        );
+      } else {
+        // Add new appointment to state
+        setAppointments(prev => [...prev, appointmentData]);
+      }
     }
+
+    // Refresh appointments from server to ensure we have the latest data
+    await fetchAppointments();
+
     setShowAppointmentModal(false);
+    setSelectedAppointment(null);
+    setPreSelectedPatient(null);
   };
 
   return (
@@ -103,6 +157,9 @@ function ProviderCalendarContent() {
           <div className="flex items-center gap-3">
             <Calendar className="w-6 h-6 text-[#4fa77e]" />
             <h1 className="text-2xl font-bold text-gray-900">Provider Calendar</h1>
+            {isLoading && (
+              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            )}
           </div>
           
           <div className="flex items-center gap-3">
@@ -264,6 +321,21 @@ function ProviderCalendarContent() {
         </div>
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-800 text-sm">
+            {error}
+            <button
+              onClick={fetchAppointments}
+              className="ml-2 underline hover:no-underline"
+            >
+              Try again
+            </button>
+          </p>
+        </div>
+      )}
+
       {/* Appointment Modal */}
       {showAppointmentModal && (
         <AppointmentModal
@@ -271,6 +343,7 @@ function ProviderCalendarContent() {
           onClose={() => {
             setShowAppointmentModal(false);
             setPreSelectedPatient(null);
+            setSelectedAppointment(null);
           }}
           onSave={handleSaveAppointment}
           selectedDate={selectedDate}

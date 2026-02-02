@@ -429,18 +429,20 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
     zip: "",
   };
 
-  // First Name (check multiple field variations)
-  const firstName = payload['first-name'] || payload['firstName'] || payload['first_name'] ||
-                    payload['fname'] || payload['fName'] || payload['First Name'] ||
-                    payload['First name'] || payload['FIRST NAME'];
+  // First Name (check Airtable exact names + variations)
+  // Airtable uses: "First name" (with space, lowercase 'n')
+  const firstName = payload['First name'] || payload['first name'] || payload['First Name'] ||
+                    payload['first-name'] || payload['firstName'] || payload['first_name'] ||
+                    payload['fname'] || payload['fName'] || payload['FIRST NAME'];
   if (firstName) {
     patient.firstName = capitalizeWords(String(firstName));
   }
 
-  // Last Name (check multiple field variations)
-  const lastName = payload['last-name'] || payload['lastName'] || payload['last_name'] ||
-                   payload['lname'] || payload['lName'] || payload['Last Name'] ||
-                   payload['Last name'] || payload['LAST NAME'];
+  // Last Name (check Airtable exact names + variations)
+  // Airtable uses: "Last name" (with space, lowercase 'n')
+  const lastName = payload['Last name'] || payload['last name'] || payload['Last Name'] ||
+                   payload['last-name'] || payload['lastName'] || payload['last_name'] ||
+                   payload['lname'] || payload['lName'] || payload['LAST NAME'];
   if (lastName) {
     patient.lastName = capitalizeWords(String(lastName));
   }
@@ -501,11 +503,13 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
     patient.email = String(emailField).trim().toLowerCase();
   }
 
-  // Phone (check multiple field variations)
-  const phoneField = payload['phone'] || payload['Phone'] || payload['PHONE'] ||
+  // Phone (check Airtable exact names + variations)
+  // Airtable uses: "phone number" (lowercase, with space)
+  const phoneField = payload['phone number'] || payload['Phone number'] || payload['Phone Number'] ||
+                     payload['phone'] || payload['Phone'] || payload['PHONE'] ||
                      payload['phone-number'] || payload['phoneNumber'] || payload['phone_number'] ||
                      payload['mobile'] || payload['cell'] || payload['telephone'] ||
-                     payload['Phone Number'] || payload['Mobile Number'];
+                     payload['Mobile Number'];
   if (phoneField) {
     patient.phone = sanitizePhone(String(phoneField));
   }
@@ -552,18 +556,46 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
   }
 
   // If no combined address, try individual fields
+  // Airtable uses bracket notation: "Address [City]", "Address [Street]", etc.
   if (!addressParsed) {
-    if (payload['address1'] || payload['street_address']) {
-      patient.address1 = String(payload['address1'] || payload['street_address']).trim();
+    // Street address
+    const street = payload['Address [Street]'] || payload['Address [street]'] ||
+                   payload['address1'] || payload['street_address'] || payload['street'];
+    if (street) {
+      patient.address1 = String(street).trim();
     }
-    if (payload['address2']) {
-      patient.address2 = String(payload['address2']).trim();
+
+    // House number (Airtable specific)
+    const house = payload['Address [house]'] || payload['Address [House]'];
+    if (house && patient.address1) {
+      patient.address1 = `${house} ${patient.address1}`;
+    } else if (house) {
+      patient.address1 = String(house).trim();
     }
-    if (payload['city']) {
-      patient.city = String(payload['city']).trim();
+
+    // Apartment
+    const apt = payload['apartment#'] || payload['apartment'] || payload['address2'] || payload['apt'];
+    if (apt) {
+      patient.address2 = String(apt).trim();
     }
-    if (payload['zip'] || payload['zipCode'] || payload['zip_code']) {
-      patient.zip = normalizeZip(String(payload['zip'] || payload['zipCode'] || payload['zip_code']));
+
+    // City
+    const city = payload['Address [City]'] || payload['Address [city]'] || payload['city'] || payload['City'];
+    if (city) {
+      patient.city = String(city).trim();
+    }
+
+    // Zip
+    const zip = payload['Address [Zip]'] || payload['Address [zip]'] ||
+                payload['zip'] || payload['zipCode'] || payload['zip_code'] || payload['Zip'];
+    if (zip) {
+      patient.zip = normalizeZip(String(zip));
+    }
+
+    // State from address (Airtable specific)
+    const addressState = payload['Address [State]'] || payload['Address [state]'];
+    if (addressState && !patient.state) {
+      patient.state = normalizeStateInput(String(addressState));
     }
   }
 
@@ -584,6 +616,21 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
   // Final state normalization
   if (patient.state) {
     patient.state = normalizeStateFromLib(patient.state);
+  }
+
+  // Height/Weight - store in notes or additional fields if available
+  // Airtable uses: "Height [feet]", "Height [inches]", "starting weight"
+  const heightFeet = payload['Height [feet]'] || payload['height [feet]'] || payload['feet'];
+  const heightInches = payload['Height [inches]'] || payload['height [inches]'] || payload['inches'];
+  const weight = payload['starting weight'] || payload['Starting weight'] || payload['weight'] || payload['Weight'];
+
+  // Log height/weight for debugging (these could be added to patient metadata later)
+  if (heightFeet || heightInches || weight) {
+    logger.debug('[Overtime Normalizer] Height/Weight data found', {
+      heightFeet,
+      heightInches,
+      weight,
+    });
   }
 
   // Log extracted patient data for debugging

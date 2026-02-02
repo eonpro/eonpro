@@ -75,10 +75,19 @@ export default function AppointmentModal({
     
     setPatientsLoading(true);
     try {
-      const response = await fetch(`/api/patients/search?q=${encodeURIComponent(query)}&limit=10`);
+      const response = await fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10&includeContact=true`);
       if (response.ok) {
         const data = await response.json();
-        setPatients(data.patients || []);
+        // Map API response to Patient interface
+        const mappedPatients = (data.patients || []).map((p: any) => ({
+          id: p.id,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          email: p.email || '',
+          phone: p.phone || '',
+          dob: p.dateOfBirth || p.dob || '',
+        }));
+        setPatients(mappedPatients);
       } else {
         logger.error('Failed to fetch patients');
         setPatients([]);
@@ -477,6 +486,15 @@ export default function AppointmentModal({
                           </p>
                         </div>
                       )}
+
+                      {error && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-sm text-red-800 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4" />
+                            {error}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -510,28 +528,47 @@ export default function AppointmentModal({
                       {patientMode === 'existing' ? (
                         <>
                           {/* Search */}
-                          <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search patients..."
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                          />
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              placeholder="Search patients (min 2 characters)..."
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded pr-8"
+                            />
+                            {patientsLoading && (
+                              <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                            )}
+                          </div>
 
                           {/* Patient List */}
                           <div className="border rounded max-h-32 overflow-y-auto">
-                            {filteredPatients.map(patient => (
-                              <button
-                                key={patient.id}
-                                onClick={() => handlePatientSelect(patient)}
-                                className={`w-full text-left px-2 py-1.5 hover:bg-gray-50 transition-colors border-b last:border-b-0 ${
-                                  selectedPatient?.id === patient.id ? 'bg-green-50' : ''
-                                }`}
-                              >
-                                <div className="text-sm font-medium">{patient.firstName} {patient.lastName}</div>
-                                <div className="text-xs text-gray-600">{patient.email}</div>
-                              </button>
-                            ))}
+                            {patientsLoading ? (
+                              <div className="px-2 py-4 text-center text-sm text-gray-500">
+                                Searching patients...
+                              </div>
+                            ) : filteredPatients.length > 0 ? (
+                              filteredPatients.map(patient => (
+                                <button
+                                  key={patient.id}
+                                  onClick={() => handlePatientSelect(patient)}
+                                  className={`w-full text-left px-2 py-1.5 hover:bg-gray-50 transition-colors border-b last:border-b-0 ${
+                                    selectedPatient?.id === patient.id ? 'bg-green-50' : ''
+                                  }`}
+                                >
+                                  <div className="text-sm font-medium">{patient.firstName} {patient.lastName}</div>
+                                  <div className="text-xs text-gray-600">{patient.email}</div>
+                                </button>
+                              ))
+                            ) : searchQuery.length >= 2 ? (
+                              <div className="px-2 py-4 text-center text-sm text-gray-500">
+                                No patients found. Try a different search or add a new patient.
+                              </div>
+                            ) : (
+                              <div className="px-2 py-4 text-center text-sm text-gray-500">
+                                Type at least 2 characters to search
+                              </div>
+                            )}
                           </div>
 
                           {selectedPatient && (
@@ -716,6 +753,24 @@ export default function AppointmentModal({
                         </div>
                       )}
 
+                      {/* Note about Zoom meeting creation */}
+                      {formData.type === 'telehealth' && !formData.zoomLink && (
+                        <div className="p-2 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-xs text-blue-700">
+                            A Zoom meeting will be created when you schedule this appointment.
+                          </p>
+                        </div>
+                      )}
+
+                      {error && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-sm text-red-800 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4" />
+                            {error}
+                          </p>
+                        </div>
+                      )}
+
                     </div>
                   )}
                 </>
@@ -757,9 +812,17 @@ export default function AppointmentModal({
                   ) : (
                     <button
                       onClick={handleSave}
-                      className="px-3 py-1.5 text-sm bg-[#4fa77e] text-white rounded hover:bg-[#3f8660]"
+                      disabled={isSaving}
+                      className="px-3 py-1.5 text-sm bg-[#4fa77e] text-white rounded hover:bg-[#3f8660] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      Schedule
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Scheduling...
+                        </>
+                      ) : (
+                        'Schedule'
+                      )}
                     </button>
                   )}
                 </div>
