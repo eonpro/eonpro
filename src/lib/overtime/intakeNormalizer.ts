@@ -933,33 +933,162 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
   }
 
   // Address parsing
-  const combinedAddressFields = ['shipping_address', 'billing_address', 'address'] as const;
+  // ========================================
+  // Priority 1: Try Heyflow address component (id-38a5bae0) which can be JSON
+  // ========================================
   let addressParsed = false;
 
-  for (const field of combinedAddressFields) {
+  // Heyflow address component field names
+  const heyflowAddressFields = ['id-38a5bae0', 'Address', 'address'] as const;
+
+  for (const field of heyflowAddressFields) {
     const rawAddress = payload[field];
-    if (rawAddress && typeof rawAddress === 'string' && rawAddress.trim()) {
-      logger.debug('[Overtime Normalizer] Parsing combined address', {
+    if (!rawAddress) continue;
+
+    // Check if it's a JSON object with address components
+    let addressJson: Record<string, string> | null = null;
+
+    if (typeof rawAddress === 'object' && rawAddress !== null) {
+      addressJson = rawAddress as Record<string, string>;
+    } else if (typeof rawAddress === 'string') {
+      // Try to parse as JSON
+      const trimmed = rawAddress.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          addressJson = JSON.parse(trimmed);
+        } catch {
+          // Not valid JSON, will be handled as combined string below
+        }
+      }
+    }
+
+    if (addressJson) {
+      logger.info('[Overtime Normalizer] Found Heyflow address JSON component', {
         field,
-        rawAddressLength: rawAddress.length,
+        keys: Object.keys(addressJson),
       });
 
-      const parsed = smartParseAddress(rawAddress);
+      // Extract street address from JSON
+      const street = addressJson.street || addressJson.address1 || addressJson.street_1 ||
+                     addressJson.address || addressJson.Street || addressJson.line1;
+      const house = addressJson.house || addressJson.house_number || addressJson.House;
+      const apt = addressJson.apartment || addressJson.apt || addressJson.unit ||
+                  addressJson.suite || addressJson.Apartment || addressJson.address2;
+      const city = addressJson.city || addressJson.City;
+      const state = addressJson.state_code || addressJson.state || addressJson.State;
+      const zip = addressJson.zip || addressJson.zip_code || addressJson.postal_code ||
+                  addressJson.zipcode || addressJson.postalCode || addressJson.Zip;
+      const formattedAddress = addressJson.formattedAddress || addressJson.formatted_address ||
+                               addressJson.full_address || addressJson.fullAddress;
 
-      if (parsed.address1 || parsed.city || parsed.state || parsed.zip) {
+      // Compose street address
+      const composedStreet = [house, street].filter(Boolean).join(' ').trim();
+      if (composedStreet) {
+        patient.address1 = composedStreet;
+      } else if (formattedAddress) {
+        // Parse the formatted address
+        const parsed = smartParseAddress(formattedAddress);
         patient.address1 = parsed.address1 || '';
-        patient.address2 = parsed.address2 || '';
-        patient.city = parsed.city || '';
-        patient.state = parsed.state || '';
-        patient.zip = parsed.zip || '';
+        patient.address2 = parsed.address2 || apt || '';
+        patient.city = parsed.city || city || '';
+        patient.state = parsed.state || (state ? normalizeStateInput(String(state)) : '');
+        patient.zip = parsed.zip || (zip ? normalizeZip(String(zip)) : '');
         addressParsed = true;
+        break;
+      }
+
+      if (apt) patient.address2 = String(apt).trim();
+      if (city) patient.city = String(city).trim();
+      if (state) patient.state = normalizeStateInput(String(state));
+      if (zip) patient.zip = normalizeZip(String(zip));
+
+      if (patient.address1 || patient.city || patient.state || patient.zip) {
+        addressParsed = true;
+        logger.info('[Overtime Normalizer] Address extracted from Heyflow JSON', {
+          address1: patient.address1,
+          city: patient.city,
+          state: patient.state,
+          zip: patient.zip,
+        });
         break;
       }
     }
   }
 
-  // If no combined address, try individual fields
-  // Airtable uses bracket notation: "Address [City]", "Address [Street]", etc.
+  // ========================================
+  // Priority 2: Try combined address strings
+  // ========================================
+  if (!addressParsed) {
+    const combinedAddressFields = ['shipping_address', 'billing_address', 'address', 'Address'] as const;
+
+    for (const field of combinedAddressFields) {
+      const rawAddress = payload[field];
+      if (rawAddress && typeof rawAddress === 'string' && rawAddress.trim()) {
+        // Skip if it looks like just a state code
+        if (rawAddress.trim().length <= 2) continue;
+
+        logger.debug('[Overtime Normalizer] Parsing combined address string', {
+          field,
+          rawAddressLength: rawAddress.length,
+          preview: rawAddress.substring(0, 50),
+        });
+
+        const parsed = smartParseAddress(rawAddress);
+
+        if (parsed.address1 || parsed.city || parsed.state || parsed.zip) {
+          patient.address1 = parsed.address1 || '';
+          patient.address2 = parsed.address2 || '';
+          patient.city = parsed.city || '';
+          patient.state = parsed.state || '';
+          patient.zip = parsed.zip || '';
+          addressParsed = true;
+          logger.info('[Overtime Normalizer] Address parsed from combined string', {
+            address1: patient.address1,
+            city: patient.city,
+            state: patient.state,
+            zip: patient.zip,
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  // ========================================
+  // Priority 3: Try Heyflow address sub-fields (id-38a5bae0-*)
+  // ========================================
+  if (!addressParsed) {
+    const heyflowStreet = payload['id-38a5bae0-street'] || payload['id-38a5bae0-Street'];
+    const heyflowHouse = payload['id-38a5bae0-house'] || payload['id-38a5bae0-House'];
+    const heyflowCity = payload['id-38a5bae0-city'] || payload['id-38a5bae0-City'];
+    const heyflowState = payload['id-38a5bae0-state_code'] || payload['id-38a5bae0-state'] || payload['id-38a5bae0-State'];
+    const heyflowZip = payload['id-38a5bae0-zip'] || payload['id-38a5bae0-zip_code'] ||
+                       payload['id-38a5bae0-postal_code'] || payload['id-38a5bae0-Zip'];
+    const heyflowApt = payload['id-0d142f9e'] || payload['apartment#'];
+
+    if (heyflowStreet || heyflowCity || heyflowState || heyflowZip) {
+      const composedStreet = [heyflowHouse, heyflowStreet].filter(Boolean).join(' ').trim();
+      if (composedStreet) patient.address1 = String(composedStreet);
+      if (heyflowApt) patient.address2 = String(heyflowApt).trim();
+      if (heyflowCity) patient.city = String(heyflowCity).trim();
+      if (heyflowState) patient.state = normalizeStateInput(String(heyflowState));
+      if (heyflowZip) patient.zip = normalizeZip(String(heyflowZip));
+
+      addressParsed = !!(patient.address1 || patient.city || patient.zip);
+      if (addressParsed) {
+        logger.info('[Overtime Normalizer] Address extracted from Heyflow sub-fields', {
+          address1: patient.address1,
+          city: patient.city,
+          state: patient.state,
+          zip: patient.zip,
+        });
+      }
+    }
+  }
+
+  // ========================================
+  // Priority 4: Try Airtable bracket notation and legacy individual fields
+  // ========================================
   if (!addressParsed) {
     // Street address
     const street = payload['Address [Street]'] || payload['Address [street]'] ||

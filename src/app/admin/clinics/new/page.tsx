@@ -26,6 +26,7 @@ export default function NewClinicPage() {
     timezone: 'America/New_York',
     primaryColor: '#3B82F6',
     secondaryColor: '#10B981',
+    patientIdPrefix: '',
     features: {
       STRIPE_SUBSCRIPTIONS: false,
       TWILIO_SMS: false,
@@ -208,9 +209,30 @@ export default function NewClinicPage() {
                 <option value="America/Los_Angeles">Pacific Time</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Patient ID Prefix
+              </label>
+              <input
+                type="text"
+                value={formData.patientIdPrefix}
+                onChange={(e) => {
+                  // Validate: 2-5 uppercase letters only
+                  const value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5);
+                  updateFormData('patientIdPrefix', value);
+                }}
+                placeholder="e.g., EON, WEL, OT"
+                maxLength={5}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                2-5 uppercase letters. Patient IDs will look like: {formData.patientIdPrefix || 'XXX'}-123
+              </p>
+            </div>
           </div>
         </div>
-        
+
         {/* Plan & Status */}
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Plan & Status</h2>

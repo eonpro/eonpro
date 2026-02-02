@@ -31,6 +31,7 @@ interface ClinicSettings {
   primaryColor: string;
   secondaryColor: string;
   customCss?: string | null;
+  patientIdPrefix?: string | null;
   settings: any;
   features: any;
   integrations: any;
@@ -317,6 +318,27 @@ export default function ClinicSettingsPage({
                   <option value="America/Denver">Mountain Time</option>
                   <option value="America/Los_Angeles">Pacific Time</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Patient ID Prefix
+                </label>
+                <input
+                  type="text"
+                  value={formData.patientIdPrefix || ''}
+                  onChange={(e) => {
+                    // Validate: 2-5 uppercase letters only
+                    const value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5);
+                    updateFormData('patientIdPrefix', value);
+                  }}
+                  placeholder="e.g., EON, WEL, OT"
+                  maxLength={5}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  2-5 uppercase letters. Patient IDs will look like: {formData.patientIdPrefix || 'XXX'}-123
+                </p>
               </div>
             </div>
           </div>

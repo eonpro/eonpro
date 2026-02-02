@@ -13,6 +13,7 @@ import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/mo
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
+import { generatePatientId } from '@/lib/patients';
 
 /**
  * WELLMEDR INTAKE Webhook - WELLMEDR CLINIC ONLY
@@ -881,56 +882,10 @@ function normalizePatientData(patient: any) {
   };
 }
 
+// Patient ID generation now uses the shared utility from @/lib/patients
+// which handles clinic prefixes (e.g., WEL-123, EON-456)
 async function getNextPatientId(clinicId: number): Promise<string> {
-  try {
-    // Use atomic increment to prevent race conditions
-    const counter = await prisma.patientCounter.upsert({
-      where: { clinicId },
-      create: { clinicId, current: 1 },
-      update: { current: { increment: 1 } },
-    });
-
-    const nextId = (counter as { current: number }).current.toString().padStart(6, "0");
-
-    // Verify this ID isn't already in use (sanity check)
-    const existingWithId = await prisma.patient.findFirst({
-      where: { clinicId, patientId: nextId },
-      select: { id: true },
-    });
-
-    if (existingWithId) {
-      // Counter is out of sync - find the highest used patientId and update counter
-      const highestPatient = await prisma.patient.findFirst({
-        where: {
-          clinicId,
-          patientId: { not: null },
-        },
-        orderBy: { patientId: 'desc' },
-        select: { patientId: true },
-      });
-
-      if (highestPatient?.patientId) {
-        const highestNum = parseInt(highestPatient.patientId.replace(/\D/g, ''), 10) || 0;
-        const newCurrent = highestNum + 1;
-
-        // Update counter to be above the highest used value
-        await prisma.patientCounter.update({
-          where: { clinicId },
-          data: { current: newCurrent },
-        });
-
-        logger.warn(`[getNextPatientId] Counter was out of sync. Reset to ${newCurrent} for clinic ${clinicId}`);
-        return newCurrent.toString().padStart(6, "0");
-      }
-    }
-
-    return nextId;
-  } catch (error) {
-    // Fallback: use timestamp-based ID that's unlikely to conflict
-    const fallbackId = `WM${Date.now().toString().slice(-10)}`;
-    logger.warn(`[getNextPatientId] Using fallback ID: ${fallbackId}`, { error });
-    return fallbackId;
-  }
+  return generatePatientId(clinicId);
 }
 
 function sanitizePhone(value?: string) {

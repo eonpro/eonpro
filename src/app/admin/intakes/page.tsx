@@ -398,7 +398,7 @@ export default function AdminIntakesPage() {
                           <div className="text-sm font-medium text-gray-900">
                             {patient.firstName} {patient.lastName}
                           </div>
-                          <div className="text-sm text-gray-500">ID: {patient.id}</div>
+                          <div className="text-sm text-gray-500">ID: {patient.patientId || patient.id}</div>
                         </div>
                       </div>
                     </td>

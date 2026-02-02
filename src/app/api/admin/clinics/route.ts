@@ -115,6 +115,11 @@ export const POST = withSuperAdminAuth(async (request: NextRequest, user: AuthUs
     }
 
     // Create the clinic
+    // Generate default patientIdPrefix from subdomain if not provided
+    const patientIdPrefix = body.patientIdPrefix
+      ? body.patientIdPrefix.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5)
+      : body.subdomain.toUpperCase().slice(0, 3);
+
     const clinic = await prisma.clinic.create({
       data: {
         name: body.name,
@@ -131,6 +136,7 @@ export const POST = withSuperAdminAuth(async (request: NextRequest, user: AuthUs
         primaryColor: body.primaryColor || '#3B82F6',
         secondaryColor: body.secondaryColor || '#10B981',
         timezone: body.timezone || 'America/New_York',
+        patientIdPrefix: patientIdPrefix || null,
         address: body.address || {},
         settings: body.settings || {
           allowPatientRegistration: true,

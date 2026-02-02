@@ -1,9 +1,9 @@
 /**
  * Patient Utilities
  * =================
- * 
+ *
  * Utility functions for patient management
- * 
+ *
  * @module lib/patients
  */
 
@@ -16,3 +16,12 @@ export {
   type PatientStatusType,
   type PatientStatusResult
 } from './patientStatus';
+
+export {
+  generatePatientId,
+  previewNextPatientId,
+  isValidPatientIdFormat,
+  parsePatientId,
+  type GeneratePatientIdOptions,
+  type GeneratePatientIdResult
+} from './patientIdGenerator';

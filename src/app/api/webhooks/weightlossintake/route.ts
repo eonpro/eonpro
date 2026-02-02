@@ -11,6 +11,7 @@ import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/mo
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
+import { generatePatientId } from '@/lib/patients';
 
 /**
  * WEIGHTLOSSINTAKE Webhook - EONMEDS CLINIC ONLY (BULLETPROOF VERSION)
@@ -703,18 +704,10 @@ function normalizePatientData(patient: any) {
   };
 }
 
+// Patient ID generation uses the shared utility from @/lib/patients
+// which handles clinic prefixes (e.g., EON-123, WEL-456)
 async function getNextPatientId(clinicId: number = 1): Promise<string> {
-  try {
-    const counter = await withRetry(() => prisma.patientCounter.upsert({
-      where: { clinicId },
-      create: { clinicId, current: 1 },
-      update: { current: { increment: 1 } },
-    }));
-    return (counter as { current: number }).current.toString().padStart(6, "0");
-  } catch {
-    // Fallback: use timestamp-based ID
-    return `WLI${Date.now().toString().slice(-8)}`;
-  }
+  return generatePatientId(clinicId);
 }
 
 function sanitizePhone(value?: string) {

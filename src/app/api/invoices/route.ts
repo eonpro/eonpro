@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
               firstName: true,
               lastName: true,
               email: true,
+              profileStatus: true,
             },
           },
         },
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest) {
       dueDate: inv.dueDate,
       paidAt: inv.paidAt,
       lineItems: inv.lineItems,
+      metadata: inv.metadata, // Include metadata for refund info and source
       createdAt: inv.createdAt,
       updatedAt: inv.updatedAt,
     }));

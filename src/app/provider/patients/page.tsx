@@ -8,6 +8,7 @@ import { Users, Search, UserPlus, X, Loader2, ChevronDown } from "lucide-react";
 
 interface Patient {
   id: number;
+  patientId?: string | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -434,7 +435,7 @@ export default function ProviderPatientsPage() {
                     >
                       <td className="py-3 px-4">
                         <div className="font-medium">{patient.firstName} {patient.lastName}</div>
-                        <div className="text-sm text-gray-500">ID: {patient.id}</div>
+                        <div className="text-sm text-gray-500">ID: {patient.patientId || patient.id}</div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-sm">{patient.email || <span className="text-gray-400">No email</span>}</div>

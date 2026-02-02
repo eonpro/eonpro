@@ -12,6 +12,7 @@ import {
   PieChart,
   FileBarChart,
   Settings,
+  UserPlus,
 } from 'lucide-react';
 
 const financeNavItems = [
@@ -22,6 +23,7 @@ const financeNavItems = [
   { icon: RefreshCcw, path: '/admin/finance/reconciliation', label: 'Reconciliation' },
   { icon: FileText, path: '/admin/finance/invoices', label: 'Invoices' },
   { icon: PieChart, path: '/admin/finance/subscriptions', label: 'Subscriptions' },
+  { icon: UserPlus, path: '/admin/finance/pending-profiles', label: 'Pending Profiles' },
   { icon: FileBarChart, path: '/admin/finance/reports', label: 'Reports' },
   { icon: Settings, path: '/admin/finance/settings', label: 'Settings' },
 ];

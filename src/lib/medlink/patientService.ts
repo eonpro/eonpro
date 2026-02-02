@@ -1,5 +1,6 @@
 import type { Patient, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { generatePatientId } from "@/lib/patients";
 import type { NormalizedIntake, NormalizedPatient } from "./types";
 
 type NormalizedPatientForCreate = {
@@ -57,25 +58,24 @@ export async function upsertPatientFromIntake(
     return updated;
   }
 
-  const created = await prisma.$transaction(async (tx: any) => {
-    // Use clinic-specific counter (default to clinic 1 if not specified)
-    const clinicIdForCounter = options?.clinicId || 1;
-    const patientId = await getNextPatientId(tx, clinicIdForCounter);
-    return tx.patient.create({
-      data: {
-        ...normalized,
-        patientId,
-        clinicId: options?.clinicId || null,
-        tags: allTags,
-        notes: `Created via MedLink submission ${intake.submissionId}`,
-        source: "webhook",
-        sourceMetadata: {
-          type: "heyflow",
-          submissionId: intake.submissionId,
-          timestamp: new Date().toISOString()
-        }
-      },
-    });
+  // Generate patient ID using the shared utility (handles clinic prefixes)
+  const clinicIdForCounter = options?.clinicId || 1;
+  const patientId = await generatePatientId(clinicIdForCounter);
+
+  const created = await prisma.patient.create({
+    data: {
+      ...normalized,
+      patientId,
+      clinicId: options?.clinicId || null,
+      tags: allTags,
+      notes: `Created via MedLink submission ${intake.submissionId}`,
+      source: "webhook",
+      sourceMetadata: {
+        type: "heyflow",
+        submissionId: intake.submissionId,
+        timestamp: new Date().toISOString()
+      }
+    },
   });
 
   return created;
@@ -113,15 +113,6 @@ function buildMatchFilters(patient: NormalizedPatient) {
     });
   }
   return filters;
-}
-
-async function getNextPatientId(tx: Prisma.TransactionClient, clinicId: number = 1) {
-  const counter = await tx.patientCounter.upsert({
-    where: { clinicId },
-    create: { clinicId, current: 1 },
-    update: { current: { increment: 1 } },
-  });
-  return counter.current.toString().padStart(6, "0");
 }
 
 function sanitizePhone(value?: string) {

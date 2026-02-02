@@ -16,6 +16,7 @@ import { generateIntakePdf } from "@/services/intakePdfService";
 import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
 import { trackReferral } from "@/services/influencerService";
 import { attributeFromIntake } from "@/services/affiliate/attributionService";
+import { generatePatientId } from "@/lib/patients";
 import type { NormalizedIntake, NormalizedPatient } from "@/lib/heyflow/types";
 
 export type IntakeSource = 'heyflow' | 'medlink' | 'weightlossintake' | 'eonpro' | 'internal';
@@ -433,17 +434,10 @@ export class IntakeProcessor {
     };
   }
 
+  // Patient ID generation uses the shared utility from @/lib/patients
+  // which handles clinic prefixes (e.g., EON-123, WEL-456)
   private async getNextPatientId(clinicId: number = 1): Promise<string> {
-    try {
-      const counter = await prisma.patientCounter.upsert({
-        where: { clinicId },
-        create: { clinicId, current: 1 },
-        update: { current: { increment: 1 } },
-      });
-      return counter.current.toString().padStart(6, '0');
-    } catch {
-      return `${this.source.toUpperCase().slice(0, 3)}${Date.now().toString().slice(-8)}`;
-    }
+    return generatePatientId(clinicId);
   }
 
   private sanitizePhone(value?: string): string {

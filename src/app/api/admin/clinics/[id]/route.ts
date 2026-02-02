@@ -62,6 +62,7 @@ export async function GET(
         logoUrl: true,
         faviconUrl: true,
         customCss: true,
+        patientIdPrefix: true,
         settings: true,
         features: true,
         integrations: true,
@@ -160,6 +161,11 @@ export async function PATCH(
       }
     }
     
+    // Validate and clean patientIdPrefix if provided
+    const patientIdPrefix = body.patientIdPrefix !== undefined
+      ? (body.patientIdPrefix ? body.patientIdPrefix.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5) : null)
+      : undefined;
+
     // Update the clinic (use explicit select for backwards compatibility)
     const updated = await prisma.clinic.update({
       where: { id: clinicId },
@@ -182,6 +188,7 @@ export async function PATCH(
         primaryColor: body.primaryColor,
         secondaryColor: body.secondaryColor,
         customCss: body.customCss,
+        patientIdPrefix: patientIdPrefix,
         settings: body.settings,
         features: body.features,
         integrations: body.integrations,
@@ -207,6 +214,7 @@ export async function PATCH(
         logoUrl: true,
         faviconUrl: true,
         customCss: true,
+        patientIdPrefix: true,
         settings: true,
         features: true,
         integrations: true,
@@ -223,7 +231,7 @@ export async function PATCH(
         }
       }
     });
-    
+
     // Create audit log
     await prisma.clinicAuditLog.create({
       data: {

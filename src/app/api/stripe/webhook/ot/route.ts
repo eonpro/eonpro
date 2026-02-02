@@ -551,7 +551,7 @@ async function processOTWebhookEvent(
       }
 
       // ================================================================
-      // Refund/Chargeback Events - Commission Reversal
+      // Refund/Chargeback Events - Commission Reversal + Invoice Update
       // ================================================================
       case 'charge.refunded':
       case 'charge.dispute.created': {
@@ -561,11 +561,37 @@ async function processOTWebhookEvent(
             ? eventObject.charge
             : eventObject.id;
 
-        logger.info('[OT STRIPE WEBHOOK] Processing refund/dispute for commission reversal', {
+        logger.info('[OT STRIPE WEBHOOK] Processing refund/dispute', {
           eventType: event.type,
           chargeId,
           clinicId,
         });
+
+        // Import refund handler
+        const { handleStripeRefund, extractRefundDataFromCharge } = await import(
+          '@/services/stripe/paymentMatchingService'
+        );
+
+        // Handle refund - update invoice and payment status
+        if (event.type === 'charge.refunded') {
+          const charge = eventObject as Stripe.Charge;
+          const refundData = extractRefundDataFromCharge(charge);
+
+          if (refundData) {
+            const refundResult = await handleStripeRefund(refundData, event.id);
+            if (!refundResult.success) {
+              logger.warn('[OT STRIPE WEBHOOK] Failed to update invoice for refund', {
+                error: refundResult.error,
+                chargeId,
+              });
+            } else {
+              logger.info('[OT STRIPE WEBHOOK] Invoice updated for refund', {
+                invoiceId: refundResult.invoiceId,
+                chargeId,
+              });
+            }
+          }
+        }
 
         // Reverse commission if applicable
         if (reverseCommissionForRefund) {

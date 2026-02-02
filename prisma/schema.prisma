@@ -1844,9 +1844,10 @@ model Clinic {
   status       ClinicStatus @default(ACTIVE)
 
   // Configuration
-  settings     Json // UI settings, themes, branding
-  features     Json // Enabled features per clinic
-  integrations Json // API keys, webhooks per clinic
+  settings        Json // UI settings, themes, branding
+  features        Json // Enabled features per clinic
+  integrations    Json // API keys, webhooks per clinic
+  patientIdPrefix String? // e.g., "EON", "WEL", "OT" - prefix for patient IDs
 
   // Stripe Connect Integration
   stripeAccountId          String?   @unique // Connected account ID (acct_xxx)

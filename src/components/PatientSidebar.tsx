@@ -59,6 +59,14 @@ export default function PatientSidebar({ patient, currentTab, affiliateCode, cur
     if (!clean) return "—";
     // Check if the value looks like encrypted data
     if (clean.includes(':') && clean.length > 50) return "—";
+    // Check for placeholder dates (1900-01-01, 1899-12-31, etc.)
+    if (clean.startsWith('1900') || clean.startsWith('1899')) return "—";
+    if (clean === '01/01/1900' || clean === '12/31/1899') return "—";
+    // Parse and check year
+    const dobDate = new Date(clean);
+    const year = dobDate.getFullYear();
+    if (isNaN(year) || year < 1920) return "—"; // Unrealistic DOB
+    // Format output
     if (clean.includes("/")) return clean;
     const parts = clean.split("-");
     if (parts.length === 3) {
@@ -72,11 +80,15 @@ export default function PatientSidebar({ patient, currentTab, affiliateCode, cur
     if (!dob) return '';
     // Check if the value looks like encrypted data
     if (dob.includes(':') && dob.length > 50) return '';
+    // Check for placeholder dates
+    if (dob.startsWith('1900') || dob.startsWith('1899')) return '';
     const birthDate = new Date(dob);
     // Check if date is valid
     if (isNaN(birthDate.getTime())) return '';
+    const year = birthDate.getFullYear();
+    if (year < 1920) return ''; // Unrealistic DOB
     const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
+    let age = today.getFullYear() - year;
     const m = today.getMonth() - birthDate.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
     return age;

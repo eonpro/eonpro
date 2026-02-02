@@ -2,6 +2,7 @@ import { US_STATE_OPTIONS } from "@/lib/usStates";
 import type { IntakeSection, NormalizedIntake, NormalizedPatient } from "./types";
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { smartParseAddress } from '@/lib/address';
 
 // Re-export types for convenience
 export type { IntakeSection, NormalizedIntake, NormalizedPatient } from "./types";
@@ -536,7 +537,22 @@ function applyDerivedFields(
   if (composedStreet) {
     patient.address1 = composedStreet;
   } else if (!patient.address1 && addressJson?.formattedAddress) {
-    patient.address1 = addressJson.formattedAddress;
+    // Parse the formatted address to extract components
+    const parsed = smartParseAddress(addressJson.formattedAddress);
+    if (parsed.address1) {
+      patient.address1 = parsed.address1;
+      if (!patient.address2 && parsed.address2) patient.address2 = parsed.address2;
+      if (!patient.city && parsed.city) patient.city = parsed.city;
+      if (!patient.state && parsed.state) patient.state = parsed.state;
+      if (!patient.zip && parsed.zip) patient.zip = parsed.zip;
+      logger.info('[Heyflow Normalizer] Parsed formattedAddress', {
+        formattedAddress: addressJson.formattedAddress.substring(0, 50),
+        parsed: { address1: parsed.address1, city: parsed.city, state: parsed.state, zip: parsed.zip },
+      });
+    } else {
+      // Fallback: use formattedAddress as-is if parsing fails
+      patient.address1 = addressJson.formattedAddress;
+    }
   } else if (!patient.address1 && typeof addressJson === "string") {
     patient.address1 = addressJson;
   }
@@ -546,7 +562,7 @@ function applyDerivedFields(
   }
 
   const city = firstNonEmpty(getEntryValue(index, "id-38a5bae0-city"), addressJson?.city);
-  if (city) {
+  if (city && !patient.city) {
     patient.city = city;
   }
 

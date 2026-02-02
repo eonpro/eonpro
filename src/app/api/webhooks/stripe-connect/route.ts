@@ -1,11 +1,11 @@
 /**
  * STRIPE CONNECT WEBHOOK HANDLER
- * 
+ *
  * Handles Stripe Connect webhook events for automatic account status sync.
  * Events handled:
  * - account.updated - When a connected account's status changes
  * - account.application.deauthorized - When a user disconnects their account
- * 
+ *
  * Webhook URL: https://yourdomain.com/api/webhooks/stripe-connect
  */
 
@@ -16,9 +16,21 @@ import { prisma } from '@/lib/db';
 
 // Stripe Connect Platform Account (SEPARATE from EonMeds)
 // This is the EONpro platform's Stripe account used for Connect functionality
-const stripe = new Stripe(process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY || '', {
-  apiVersion: '2026-01-28.clover',
-});
+// Lazy initialization to avoid build-time errors
+let stripeClient: Stripe | null = null;
+
+function getStripe(): Stripe {
+  if (!stripeClient) {
+    const secretKey = process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY;
+    if (!secretKey) {
+      throw new Error('STRIPE_CONNECT_PLATFORM_SECRET_KEY not configured');
+    }
+    stripeClient = new Stripe(secretKey, {
+      apiVersion: '2026-01-28.clover',
+    });
+  }
+  return stripeClient;
+}
 
 // Webhook secret for Connect events (from EONpro Platform's Stripe Dashboard)
 const CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
@@ -44,6 +56,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.text();
+    const stripe = getStripe();
     event = stripe.webhooks.constructEvent(body, signature, CONNECT_WEBHOOK_SECRET);
   } catch (err: any) {
     logger.error('[STRIPE CONNECT WEBHOOK] Signature verification failed:', err.message);

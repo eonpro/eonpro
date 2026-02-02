@@ -12,9 +12,21 @@ import { prisma } from '@/lib/db';
 
 // Stripe Connect Platform Account (SEPARATE from EonMeds)
 // This is the EONpro platform's Stripe account used for Connect functionality
-const stripe = new Stripe(process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY || '', {
-  apiVersion: '2026-01-28.clover',
-});
+// Lazy initialization to avoid build-time errors
+let stripeClient: Stripe | null = null;
+
+function getStripe(): Stripe {
+  if (!stripeClient) {
+    const secretKey = process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY;
+    if (!secretKey) {
+      throw new Error('STRIPE_CONNECT_PLATFORM_SECRET_KEY not configured');
+    }
+    stripeClient = new Stripe(secretKey, {
+      apiVersion: '2026-01-28.clover',
+    });
+  }
+  return stripeClient;
+}
 
 /**
  * GET /api/stripe/connect/oauth/callback
@@ -60,6 +72,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Exchange code for access token and account ID
+    const stripe = getStripe();
     const response = await stripe.oauth.token({
       grant_type: 'authorization_code',
       code: code,

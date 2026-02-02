@@ -1,5 +1,6 @@
 import type { Patient, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { generatePatientId } from "@/lib/patients";
 import type { NormalizedIntake, NormalizedPatient } from "./types";
 
 type NormalizedPatientForCreate = {
@@ -42,23 +43,23 @@ export async function upsertPatientFromIntake(intake: NormalizedIntake): Promise
     return updated;
   }
 
-  const created = await prisma.$transaction(async (tx: any) => {
-    // Use default clinic counter (clinic 1 = EONMEDS)
-    const patientId = await getNextPatientId(tx, 1);
-    return tx.patient.create({
-      data: {
-        ...normalized,
-        patientId,
-        tags: hashtags,
-        notes: `Created via MedLink submission ${intake.submissionId}`,
-        source: "webhook",
-        sourceMetadata: {
-          type: "heyflow",
-          submissionId: intake.submissionId,
-          timestamp: new Date().toISOString()
-        }
-      },
-    });
+  // Generate patient ID using the shared utility (handles clinic prefixes)
+  // Default to clinic 1 = EONMEDS
+  const patientId = await generatePatientId(1);
+
+  const created = await prisma.patient.create({
+    data: {
+      ...normalized,
+      patientId,
+      tags: hashtags,
+      notes: `Created via MedLink submission ${intake.submissionId}`,
+      source: "webhook",
+      sourceMetadata: {
+        type: "heyflow",
+        submissionId: intake.submissionId,
+        timestamp: new Date().toISOString()
+      }
+    },
   });
 
   return created;
@@ -96,15 +97,6 @@ function buildMatchFilters(patient: NormalizedPatient) {
     });
   }
   return filters;
-}
-
-async function getNextPatientId(tx: Prisma.TransactionClient, clinicId: number = 1) {
-  const counter = await tx.patientCounter.upsert({
-    where: { clinicId },
-    create: { clinicId, current: 1 },
-    update: { current: { increment: 1 } },
-  });
-  return counter.current.toString().padStart(6, "0");
 }
 
 function sanitizePhone(value?: string) {

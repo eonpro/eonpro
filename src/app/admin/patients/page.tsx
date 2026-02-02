@@ -540,7 +540,7 @@ export default function AdminPatientsPage() {
                           <div className="text-sm font-medium text-gray-900">
                             {patient.firstName} {patient.lastName}
                           </div>
-                          <div className="text-sm text-gray-500">ID: {patient.id}</div>
+                          <div className="text-sm text-gray-500">ID: {patient.patientId || patient.id}</div>
                         </div>
                       </div>
                     </td>
@@ -549,9 +549,17 @@ export default function AdminPatientsPage() {
                       <div className="text-sm text-gray-500">{displayContact(patient.phone)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {patient.dateOfBirth && !isEncryptedData(patient.dateOfBirth)
-                        ? new Date(patient.dateOfBirth).toLocaleDateString()
-                        : '-'}
+                      {(() => {
+                        if (!patient.dateOfBirth || isEncryptedData(patient.dateOfBirth)) return '-';
+                        // Check for placeholder dates (1900-01-01, 1899-12-31, etc.)
+                        const dob = patient.dateOfBirth;
+                        if (dob.startsWith('1900') || dob.startsWith('1899') || dob === '01/01/1900') return '-';
+                        const dobDate = new Date(dob);
+                        const year = dobDate.getFullYear();
+                        // Hide any DOB before 1920 (unrealistic) or invalid
+                        if (isNaN(year) || year < 1920) return '-';
+                        return dobDate.toLocaleDateString();
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-wrap gap-1">

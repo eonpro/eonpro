@@ -14,6 +14,7 @@ import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/mo
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
+import { generatePatientId } from '@/lib/patients';
 
 /**
  * OVERTIME MEN'S CLINIC INTAKE Webhook
@@ -840,51 +841,10 @@ function normalizePatientData(patient: any) {
   };
 }
 
+// Patient ID generation now uses the shared utility from @/lib/patients
+// which handles clinic prefixes (e.g., OT-123, EON-456)
 async function getNextPatientId(clinicId: number): Promise<string> {
-  try {
-    const counter = await prisma.patientCounter.upsert({
-      where: { clinicId },
-      create: { clinicId, current: 1 },
-      update: { current: { increment: 1 } },
-    });
-
-    const nextId = (counter as { current: number }).current.toString().padStart(6, "0");
-
-    const existingWithId = await prisma.patient.findFirst({
-      where: { clinicId, patientId: nextId },
-      select: { id: true },
-    });
-
-    if (existingWithId) {
-      const highestPatient = await prisma.patient.findFirst({
-        where: {
-          clinicId,
-          patientId: { not: null },
-        },
-        orderBy: { patientId: 'desc' },
-        select: { patientId: true },
-      });
-
-      if (highestPatient?.patientId) {
-        const highestNum = parseInt(highestPatient.patientId.replace(/\D/g, ''), 10) || 0;
-        const newCurrent = highestNum + 1;
-
-        await prisma.patientCounter.update({
-          where: { clinicId },
-          data: { current: newCurrent },
-        });
-
-        logger.warn(`[getNextPatientId] Counter was out of sync. Reset to ${newCurrent} for clinic ${clinicId}`);
-        return newCurrent.toString().padStart(6, "0");
-      }
-    }
-
-    return nextId;
-  } catch (error) {
-    const fallbackId = `OT${Date.now().toString().slice(-10)}`;
-    logger.warn(`[getNextPatientId] Using fallback ID: ${fallbackId}`, { error });
-    return fallbackId;
-  }
+  return generatePatientId(clinicId);
 }
 
 function sanitizePhone(value?: string) {

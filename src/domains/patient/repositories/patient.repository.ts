@@ -17,6 +17,7 @@ import { type PrismaClient, type Prisma } from '@prisma/client';
 import { Errors } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { generatePatientId } from '@/lib/patients';
 import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 import type {
@@ -336,16 +337,10 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
     },
 
     async create(input: CreatePatientInput, audit: AuditContext): Promise<PatientEntity> {
-      return db.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Generate next patient ID - CLINIC-SPECIFIC
-        // Each clinic has its own counter starting from 1
-        const counter = await tx.patientCounter.upsert({
-          where: { clinicId: input.clinicId },
-          create: { clinicId: input.clinicId, current: 1 },
-          update: { current: { increment: 1 } },
-        });
-        const patientId = counter.current.toString().padStart(6, '0');
+      // Generate patient ID using the shared utility (handles clinic prefixes like EON-123, WEL-456)
+      const patientId = await generatePatientId(input.clinicId);
 
+      return db.$transaction(async (tx: Prisma.TransactionClient) => {
         // Encrypt PHI fields
         const encryptedData = encryptPatientPHI(input as Record<string, unknown>, [...PHI_FIELDS]);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   FileText,
@@ -17,6 +17,9 @@ import {
   MoreVertical,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
+  AlertTriangle,
+  Undo2,
 } from 'lucide-react';
 
 interface Invoice {
@@ -28,6 +31,7 @@ interface Invoice {
     firstName: string;
     lastName: string;
     email: string;
+    profileStatus?: string;
   };
   description?: string;
   amount: number;
@@ -37,6 +41,14 @@ interface Invoice {
   dueDate: string | null;
   paidAt: string | null;
   createdAt: string;
+  metadata?: {
+    refund?: {
+      amount: number;
+      refundedAt: string;
+      isFullRefund: boolean;
+    };
+    source?: string;
+  };
 }
 
 interface InvoiceStats {
@@ -62,12 +74,9 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [syncingId, setSyncingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    loadInvoices();
-  }, [page, statusFilter]);
-
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('auth-token') || 
@@ -127,6 +136,42 @@ export default function InvoicesPage() {
       setInvoices([]);
     } finally {
       setLoading(false);
+    }
+  }, [page, statusFilter]);
+
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices]);
+
+  const syncInvoice = async (invoiceId: number) => {
+    setSyncingId(invoiceId);
+    try {
+      const token = localStorage.getItem('auth-token') ||
+                    localStorage.getItem('super_admin-token') ||
+                    localStorage.getItem('admin-token') ||
+                    localStorage.getItem('token');
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch(`/api/invoices/${invoiceId}/sync`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.updated) {
+          // Refresh invoices list
+          loadInvoices();
+        }
+        return data;
+      }
+    } catch (error) {
+      console.error('Failed to sync invoice:', error);
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -280,12 +325,17 @@ export default function InvoicesPage() {
                     </tr>
                   ) : (
                     filteredInvoices.map((invoice) => {
-                      const patientName = invoice.patient 
+                      const patientName = invoice.patient
                         ? `${invoice.patient.firstName} ${invoice.patient.lastName}`.trim()
                         : 'Unknown';
                       const patientEmail = invoice.patient?.email || '';
                       const invoiceNumber = invoice.invoiceNumber || invoice.stripeInvoiceId || `INV-${invoice.id}`;
-                      
+                      const isIncompletePatient = invoice.patient?.firstName === 'Unknown' ||
+                                                  invoice.patient?.lastName === 'Customer' ||
+                                                  patientEmail.includes('@placeholder.local');
+                      const hasRefund = invoice.metadata?.refund;
+                      const isFromStripe = invoice.metadata?.source === 'stripe_webhook';
+
                       return (
                         <tr key={invoice.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4">
@@ -293,16 +343,54 @@ export default function InvoicesPage() {
                             <p className="text-xs text-gray-400">{new Date(invoice.createdAt).toLocaleDateString()}</p>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm font-medium text-gray-900">{patientName}</p>
-                            <p className="text-sm text-gray-500">{patientEmail}</p>
+                            <div className="flex items-center gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                                  {patientName}
+                                  {isIncompletePatient && (
+                                    <span title="Incomplete profile - needs review">
+                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {patientEmail.includes('@placeholder.local')
+                                    ? <span className="text-amber-600 text-xs">No email on file</span>
+                                    : patientEmail
+                                  }
+                                </p>
+                              </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm font-semibold text-gray-900">{formatCurrency(invoice.amount || 0)}</p>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {formatCurrency(invoice.amount || 0)}
+                              </p>
+                              {hasRefund && (
+                                <p className="text-xs text-red-600 flex items-center gap-1">
+                                  <Undo2 className="h-3 w-3" />
+                                  Refunded: {formatCurrency(hasRefund.amount)}
+                                </p>
+                              )}
+                              {invoice.amountPaid !== undefined && invoice.amountPaid !== invoice.amount && (
+                                <p className="text-xs text-gray-500">
+                                  Paid: {formatCurrency(invoice.amountPaid)}
+                                </p>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(invoice.status)}`}>
-                              {invoice.status}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full w-fit ${getStatusColor(invoice.status)}`}>
+                                {invoice.status}
+                              </span>
+                              {hasRefund && (
+                                <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 w-fit">
+                                  {hasRefund.isFullRefund ? 'REFUNDED' : 'PARTIAL REFUND'}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4">
                             <p className="text-sm text-gray-600">
@@ -310,7 +398,21 @@ export default function InvoicesPage() {
                             </p>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              {isFromStripe && (
+                                <button
+                                  onClick={() => syncInvoice(invoice.id)}
+                                  disabled={syncingId === invoice.id}
+                                  className="p-1.5 hover:bg-blue-50 rounded text-blue-600 disabled:opacity-50"
+                                  title="Sync from Stripe"
+                                >
+                                  {syncingId === invoice.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-4 w-4" />
+                                  )}
+                                </button>
+                              )}
                               {invoice.status === 'DRAFT' && (
                                 <button className="p-1.5 hover:bg-gray-100 rounded" title="Send">
                                   <Send className="h-4 w-4 text-gray-500" />
