@@ -94,6 +94,8 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'current-weight': 'Current Weight (lbs)',
   'bmi': 'BMI',
   'BMI': 'BMI',
+  'BMI ': 'BMI',
+  'Bmi': 'BMI',
   
   // ═══════════════════════════════════════════════════════════════════
   // MEDICAL HISTORY (Airtable exact names)
@@ -427,7 +429,8 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
   // Body Metrics (Airtable exact + legacy - All treatments)
   const bodyMetricsFields = [
     // Airtable exact names
-    'Height [feet]', 'Height [inches]', 'starting weight', 'BMI',
+    'Height [feet]', 'Height [inches]', 'starting weight', 
+    'BMI', 'BMI ', 'bmi', 'Bmi',
     // Weight Loss specific
     'ideal weight',
     // Legacy formats
