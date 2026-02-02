@@ -77,6 +77,8 @@ export const AIRTABLE_TABLE_TO_TREATMENT: Record<string, OvertimeTreatmentType> 
   'nad+': 'nad_plus',
   'NAD+': 'nad_plus',
   'nadplus': 'nad_plus',
+  'nad': 'nad_plus',
+  'NAD': 'nad_plus',
 
   'better_sex': 'better_sex',
   'better-sex': 'better_sex',
