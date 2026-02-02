@@ -334,24 +334,36 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
     }
   }
 
-  // Email
-  if (payload['email']) {
-    patient.email = String(payload['email']).trim().toLowerCase();
+  // Email (check multiple field variations including Heyflow combined fields)
+  const emailField = payload['email'] || payload['Email'] || payload['EMAIL'] ||
+                     payload['email-address'] || payload['emailAddress'] || payload['email_address'] ||
+                     payload['e-mail'] || payload['Email Address'];
+  if (emailField) {
+    patient.email = String(emailField).trim().toLowerCase();
   }
 
-  // Phone
-  if (payload['phone']) {
-    patient.phone = sanitizePhone(String(payload['phone']));
+  // Phone (check multiple field variations)
+  const phoneField = payload['phone'] || payload['Phone'] || payload['PHONE'] ||
+                     payload['phone-number'] || payload['phoneNumber'] || payload['phone_number'] ||
+                     payload['mobile'] || payload['cell'] || payload['telephone'] ||
+                     payload['Phone Number'] || payload['Mobile Number'];
+  if (phoneField) {
+    patient.phone = sanitizePhone(String(phoneField));
   }
 
-  // Date of Birth
-  if (payload['dob']) {
-    patient.dob = normalizeDateInput(String(payload['dob']));
+  // Date of Birth (check Heyflow naming: "Date of birth" -> date-of-birth)
+  const dob = payload['dob'] || payload['DOB'] || payload['dateOfBirth'] || payload['date_of_birth'] ||
+              payload['date-of-birth'] || payload['Date of birth'] || payload['Date of Birth'] ||
+              payload['birthday'] || payload['birthdate'] || payload['birth-date'] || payload['birth_date'];
+  if (dob) {
+    patient.dob = normalizeDateInput(String(dob));
   }
 
-  // Gender/Sex
-  if (payload['sex']) {
-    patient.gender = normalizeGenderInput(String(payload['sex']));
+  // Gender/Sex (check Heyflow naming)
+  const gender = payload['sex'] || payload['Sex'] || payload['gender'] || payload['Gender'] ||
+                 payload['GENDER'] || payload['SEX'];
+  if (gender) {
+    patient.gender = normalizeGenderInput(String(gender));
   }
 
   // ========================================

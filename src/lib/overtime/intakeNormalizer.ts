@@ -401,6 +401,20 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
  * Build patient data from Overtime payload
  */
 function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
+  // Log all incoming keys for debugging field mapping issues
+  const payloadKeys = Object.keys(payload || {});
+  logger.info('[Overtime Normalizer] Building patient from payload', {
+    totalKeys: payloadKeys.length,
+    keys: payloadKeys.slice(0, 30), // First 30 keys for debugging
+    // Log specific field presence for patient data
+    hasName: payloadKeys.some(k => k.toLowerCase().includes('name')),
+    hasEmail: payloadKeys.some(k => k.toLowerCase().includes('email')),
+    hasPhone: payloadKeys.some(k => k.toLowerCase().includes('phone')),
+    hasDob: payloadKeys.some(k => k.toLowerCase().includes('dob') || k.toLowerCase().includes('birth')),
+    hasState: payloadKeys.some(k => k.toLowerCase().includes('state')),
+    hasAddress: payloadKeys.some(k => k.toLowerCase().includes('address')),
+  });
+
   const patient: NormalizedPatient = {
     firstName: "Unknown",
     lastName: "Unknown",
@@ -479,24 +493,34 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
     }
   }
 
-  // Email
-  if (payload['email']) {
-    patient.email = String(payload['email']).trim().toLowerCase();
+  // Email (check multiple field variations including Heyflow combined fields)
+  const emailField = payload['email'] || payload['Email'] || payload['EMAIL'] ||
+                     payload['email-address'] || payload['emailAddress'] || payload['email_address'] ||
+                     payload['e-mail'] || payload['Email Address'];
+  if (emailField) {
+    patient.email = String(emailField).trim().toLowerCase();
   }
 
-  // Phone
-  if (payload['phone']) {
-    patient.phone = sanitizePhone(String(payload['phone']));
+  // Phone (check multiple field variations)
+  const phoneField = payload['phone'] || payload['Phone'] || payload['PHONE'] ||
+                     payload['phone-number'] || payload['phoneNumber'] || payload['phone_number'] ||
+                     payload['mobile'] || payload['cell'] || payload['telephone'] ||
+                     payload['Phone Number'] || payload['Mobile Number'];
+  if (phoneField) {
+    patient.phone = sanitizePhone(String(phoneField));
   }
 
-  // Date of Birth
-  const dob = payload['dob'] || payload['dateOfBirth'] || payload['date_of_birth'];
+  // Date of Birth (check Heyflow naming: "Date of birth" -> date-of-birth)
+  const dob = payload['dob'] || payload['DOB'] || payload['dateOfBirth'] || payload['date_of_birth'] ||
+              payload['date-of-birth'] || payload['Date of birth'] || payload['Date of Birth'] ||
+              payload['birthday'] || payload['birthdate'] || payload['birth-date'] || payload['birth_date'];
   if (dob) {
     patient.dob = normalizeDateInput(String(dob));
   }
 
-  // Gender/Sex
-  const gender = payload['sex'] || payload['gender'];
+  // Gender/Sex (check Heyflow naming)
+  const gender = payload['sex'] || payload['Sex'] || payload['gender'] || payload['Gender'] ||
+                 payload['GENDER'] || payload['SEX'];
   if (gender) {
     patient.gender = normalizeGenderInput(String(gender));
   }
@@ -543,9 +567,15 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
     }
   }
 
-  // State - handle separately
-  if (payload['state']) {
-    const stateValue = String(payload['state']).trim();
+  // State - handle separately with Heyflow variations
+  // Heyflow field: "Select the state you live in" -> select-the-state-you-live-in
+  const stateField = payload['state'] || payload['State'] || payload['STATE'] ||
+                     payload['select-the-state-you-live-in'] || payload['select_the_state_you_live_in'] ||
+                     payload['Select the state you live in'] || payload['state-you-live-in'] ||
+                     payload['your-state'] || payload['yourState'] || payload['your_state'] ||
+                     payload['residence-state'] || payload['residenceState'];
+  if (stateField) {
+    const stateValue = String(stateField).trim();
     if (!patient.state || patient.state === '') {
       patient.state = normalizeStateInput(stateValue);
     }
@@ -555,6 +585,18 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
   if (patient.state) {
     patient.state = normalizeStateFromLib(patient.state);
   }
+
+  // Log extracted patient data for debugging
+  logger.info('[Overtime Normalizer] Patient data extracted', {
+    firstName: patient.firstName,
+    lastName: patient.lastName,
+    email: patient.email !== 'unknown@example.com' ? '(provided)' : '(missing)',
+    phone: patient.phone ? '(provided)' : '(missing)',
+    dob: patient.dob ? '(provided)' : '(missing)',
+    gender: patient.gender || '(missing)',
+    state: patient.state || '(missing)',
+    hasAddress: !!(patient.address1 || patient.city || patient.zip),
+  });
 
   return patient;
 }
