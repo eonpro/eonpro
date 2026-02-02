@@ -32,24 +32,27 @@ interface CodePerformance {
   affiliateId: number;
   affiliateName: string;
   affiliateStatus: string;
-  clicks: number;
-  conversions: number;
+  uses: number;       // Code uses (someone wrote the code in intake)
+  clicks: number;     // Alias for uses (backward compatibility)
+  conversions: number; // Paying customers
   revenue: number;
   conversionRate: number;
-  lastClickAt: string | null;
+  lastUseAt: string | null;
+  lastClickAt: string | null;  // Alias for lastUseAt
   lastConversionAt: string | null;
   createdAt: string;
 }
 
 interface Totals {
   totalCodes: number;
-  totalClicks: number;
+  totalUses: number;
+  totalClicks: number;  // Alias for totalUses
   totalConversions: number;
   totalRevenue: number;
   avgConversionRate: number;
 }
 
-type SortField = 'code' | 'affiliateName' | 'clicks' | 'conversions' | 'revenue' | 'conversionRate';
+type SortField = 'code' | 'affiliateName' | 'uses' | 'clicks' | 'conversions' | 'revenue' | 'conversionRate';
 type SortOrder = 'asc' | 'desc';
 
 function formatCurrency(cents: number): string {
@@ -142,16 +145,16 @@ export default function CodePerformancePage() {
   };
 
   const handleExport = () => {
-    const headers = ['Code', 'Affiliate', 'Status', 'Clicks', 'Conversions', 'Revenue', 'Conversion Rate', 'Last Click', 'Last Conversion'];
+    const headers = ['Code', 'Affiliate', 'Status', 'Uses', 'Conversions', 'Revenue', 'Conversion Rate', 'Last Use', 'Last Conversion'];
     const rows = codes.map(c => [
       c.code,
       c.affiliateName,
       c.affiliateStatus,
-      c.clicks,
+      c.uses ?? c.clicks,
       c.conversions,
       (c.revenue / 100).toFixed(2),
       c.conversionRate.toFixed(2) + '%',
-      c.lastClickAt || '',
+      c.lastUseAt ?? c.lastClickAt ?? '',
       c.lastConversionAt || '',
     ]);
     
@@ -166,7 +169,10 @@ export default function CodePerformancePage() {
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+    // Handle "uses" and "clicks" as the same sort field
+    const effectiveSortBy = sortBy === 'clicks' ? 'uses' : sortBy;
+    const effectiveField = field === 'clicks' ? 'uses' : field;
+    if (effectiveSortBy !== effectiveField) return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
     return sortOrder === 'asc' 
       ? <ArrowUp className="h-4 w-4 text-violet-600" />
       : <ArrowDown className="h-4 w-4 text-violet-600" />;
@@ -219,8 +225,8 @@ export default function CodePerformancePage() {
                 <MousePointer className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{totals.totalClicks.toLocaleString()}</p>
-                <p className="text-sm text-gray-500">Total Clicks</p>
+                <p className="text-2xl font-bold text-gray-900">{(totals.totalUses ?? totals.totalClicks).toLocaleString()}</p>
+                <p className="text-sm text-gray-500">Total Uses</p>
               </div>
             </div>
           </div>
@@ -328,11 +334,11 @@ export default function CodePerformancePage() {
                   </th>
                   <th
                     className="cursor-pointer px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                    onClick={() => handleSort('clicks')}
+                    onClick={() => handleSort('uses')}
                   >
                     <div className="flex items-center justify-end gap-1">
-                      Clicks
-                      <SortIcon field="clicks" />
+                      Uses
+                      <SortIcon field="uses" />
                     </div>
                   </th>
                   <th
@@ -410,7 +416,7 @@ export default function CodePerformancePage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right text-gray-700">
-                      {code.clicks.toLocaleString()}
+                      {(code.uses ?? code.clicks).toLocaleString()}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right">
                       <span className={`font-medium ${
@@ -435,9 +441,9 @@ export default function CodePerformancePage() {
                         <span title={`Last conversion: ${formatDate(code.lastConversionAt)}`}>
                           {formatDate(code.lastConversionAt)}
                         </span>
-                      ) : code.lastClickAt ? (
-                        <span title={`Last click: ${formatDate(code.lastClickAt)}`}>
-                          {formatDate(code.lastClickAt)}
+                      ) : (code.lastUseAt ?? code.lastClickAt) ? (
+                        <span title={`Last use: ${formatDate(code.lastUseAt ?? code.lastClickAt)}`}>
+                          {formatDate(code.lastUseAt ?? code.lastClickAt)}
                         </span>
                       ) : (
                         '-'

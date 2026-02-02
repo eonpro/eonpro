@@ -1,6 +1,6 @@
 /**
  * Admin Affiliate Code Performance API
- * 
+ *
  * Returns performance metrics for all affiliate ref codes:
  * - Code, Affiliate Name, Clicks, Conversions, Revenue, Conversion Rate
  * - Sortable by any column
@@ -17,11 +17,13 @@ interface CodePerformance {
   affiliateId: number;
   affiliateName: string;
   affiliateStatus: string;
-  clicks: number;
-  conversions: number;
+  uses: number;  // Code uses (someone entered the code in intake)
+  clicks: number;  // Alias for uses (for backward compatibility)
+  conversions: number;  // Actual paying customers
   revenue: number; // in cents
   conversionRate: number; // percentage
-  lastClickAt: string | null;
+  lastUseAt: string | null;
+  lastClickAt: string | null;  // Alias for lastUseAt
   lastConversionAt: string | null;
   createdAt: string;
 }
@@ -30,7 +32,8 @@ interface CodePerformanceResponse {
   codes: CodePerformance[];
   totals: {
     totalCodes: number;
-    totalClicks: number;
+    totalUses: number;
+    totalClicks: number;  // Alias for totalUses
     totalConversions: number;
     totalRevenue: number;
     avgConversionRate: number;
@@ -162,9 +165,12 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     type ModernRefCode = typeof modernRefCodes[number];
     type LegacyInfluencer = typeof legacyInfluencers[number];
 
-    // Combine both systems
+    // Build a Set of modern ref codes for deduplication
+    const modernCodeSet = new Set(modernRefCodes.map((rc: ModernRefCode) => rc.refCode.toUpperCase()));
+
+    // Combine both systems, but deduplicate (prefer modern over legacy)
     const refCodes: RefCodeWithAffiliate[] = [
-      // Modern affiliate ref codes
+      // Modern affiliate ref codes (primary)
       ...modernRefCodes.map((rc: ModernRefCode) => ({
         refCode: rc.refCode,
         affiliateId: rc.affiliateId,
@@ -176,9 +182,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           status: rc.affiliate.status,
         },
       })),
-      // Legacy influencer codes
+      // Legacy influencer codes (only if not already in modern system)
       ...legacyInfluencers
-        .filter((inf: LegacyInfluencer) => inf.promoCode)
+        .filter((inf: LegacyInfluencer) =>
+          inf.promoCode && !modernCodeSet.has(inf.promoCode.toUpperCase())
+        )
         .map((inf: LegacyInfluencer) => ({
           refCode: inf.promoCode!,
           affiliateId: inf.id,
@@ -195,10 +203,10 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     // Get performance metrics for each code
     const codePerformances: CodePerformance[] = await Promise.all(
       refCodes.map(async (refCode: RefCodeWithAffiliate) => {
-        let clicks = 0;
-        let conversions = 0;
+        let uses = 0;  // Code uses (intake submissions with this code)
+        let conversions = 0;  // Actual paying customers
         let revenue = 0;
-        let lastClickAt: Date | null = null;
+        let lastUseAt: Date | null = null;
         let lastConversionAt: Date | null = null;
 
         try {
@@ -213,10 +221,20 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
                 },
               },
             });
-            conversions = referralCount;
-            clicks = referralCount; // For legacy, clicks = conversions (no click tracking)
+            // Legacy system doesn't differentiate uses from conversions
+            // All referral tracking entries are considered "uses"
+            uses = referralCount;
 
-            // Get last referral
+            // For conversions, check if there's revenue (commission events)
+            const legacyCommissions = await prisma.commission.count({
+              where: {
+                influencer: { promoCode: refCode.refCode },
+                createdAt: { gte: dateFrom, lte: dateTo },
+              },
+            });
+            conversions = legacyCommissions;
+
+            // Get last referral (use)
             const lastReferral = await prisma.referralTracking.findFirst({
               where: {
                 promoCode: refCode.refCode,
@@ -224,11 +242,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
               orderBy: { createdAt: 'desc' },
               select: { createdAt: true },
             });
-            lastConversionAt = lastReferral?.createdAt || null;
-            lastClickAt = lastConversionAt;
+            lastUseAt = lastReferral?.createdAt || null;
           } else {
           // For modern codes, get data from AffiliateTouch table
-          const clicksResult = await prisma.affiliateTouch.aggregate({
+          // Uses = all touch records (someone used the code)
+          const usesResult = await prisma.affiliateTouch.aggregate({
             where: {
               refCode: refCode.refCode,
               ...clinicFilter,
@@ -239,13 +257,15 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             },
             _count: true,
           });
-          clicks = clicksResult._count;
+          uses = usesResult._count;
 
+          // Conversions = touches with convertedAt set (paying customers)
           const conversionsResult = await prisma.affiliateTouch.aggregate({
             where: {
               refCode: refCode.refCode,
               ...clinicFilter,
-              convertedAt: {
+              convertedAt: { not: null },
+              createdAt: {
                 gte: dateFrom,
                 lte: dateTo,
               },
@@ -275,8 +295,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           });
           revenue = revenueResult._sum.orderAmountCents || 0;
 
-          // Get last click
-          const lastClickRecord = await prisma.affiliateTouch.findFirst({
+          // Get last use (most recent touch)
+          const lastUseRecord = await prisma.affiliateTouch.findFirst({
             where: {
               refCode: refCode.refCode,
               ...clinicFilter,
@@ -284,8 +304,9 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             orderBy: { createdAt: 'desc' },
             select: { createdAt: true },
           });
-          lastClickAt = lastClickRecord?.createdAt || null;
+          lastUseAt = lastUseRecord?.createdAt || null;
 
+          // Get last conversion (most recent converted touch)
           const lastConversionRecord = await prisma.affiliateTouch.findFirst({
             where: {
               refCode: refCode.refCode,
@@ -298,18 +319,20 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           lastConversionAt = lastConversionRecord?.convertedAt || null;
         }
 
-        const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+        const conversionRate = uses > 0 ? (conversions / uses) * 100 : 0;
 
         return {
           code: refCode.refCode,
           affiliateId: refCode.affiliateId,
           affiliateName: refCode.affiliate.displayName,
           affiliateStatus: String(refCode.affiliate.status),
-          clicks,
+          uses,
+          clicks: uses,  // Backward compatibility alias
           conversions,
           revenue,
           conversionRate,
-          lastClickAt: lastClickAt?.toISOString() || null,
+          lastUseAt: lastUseAt?.toISOString() || null,
+          lastClickAt: lastUseAt?.toISOString() || null,  // Backward compatibility alias
           lastConversionAt: lastConversionAt?.toISOString() || null,
           createdAt: refCode.createdAt.toISOString(),
         };
@@ -324,10 +347,12 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             affiliateId: refCode.affiliateId,
             affiliateName: refCode.affiliate.displayName,
             affiliateStatus: String(refCode.affiliate.status),
+            uses: 0,
             clicks: 0,
             conversions: 0,
             revenue: 0,
             conversionRate: 0,
+            lastUseAt: null,
             lastClickAt: null,
             lastConversionAt: null,
             createdAt: refCode.createdAt.toISOString(),
@@ -346,8 +371,9 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         case 'affiliateName':
           comparison = a.affiliateName.localeCompare(b.affiliateName);
           break;
-        case 'clicks':
-          comparison = a.clicks - b.clicks;
+        case 'uses':
+        case 'clicks':  // Backward compatibility
+          comparison = a.uses - b.uses;
           break;
         case 'conversions':
           comparison = a.conversions - b.conversions;
@@ -358,8 +384,9 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         case 'conversionRate':
           comparison = a.conversionRate - b.conversionRate;
           break;
-        case 'lastClickAt':
-          comparison = (a.lastClickAt || '').localeCompare(b.lastClickAt || '');
+        case 'lastUseAt':
+        case 'lastClickAt':  // Backward compatibility
+          comparison = (a.lastUseAt || '').localeCompare(b.lastUseAt || '');
           break;
         default:
           comparison = a.conversions - b.conversions;
@@ -368,9 +395,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     });
 
     // Calculate totals
+    const totalUses = sortedPerformances.reduce((sum, c) => sum + c.uses, 0);
     const totals = {
       totalCodes: sortedPerformances.length,
-      totalClicks: sortedPerformances.reduce((sum, c) => sum + c.clicks, 0),
+      totalUses,
+      totalClicks: totalUses,  // Backward compatibility alias
       totalConversions: sortedPerformances.reduce((sum, c) => sum + c.conversions, 0),
       totalRevenue: sortedPerformances.reduce((sum, c) => sum + c.revenue, 0),
       avgConversionRate: sortedPerformances.length > 0
