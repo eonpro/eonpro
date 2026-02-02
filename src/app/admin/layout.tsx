@@ -314,32 +314,37 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             const active = isActive(item.path);
             const isClinicsTab = item.path === '/admin/clinics';
 
+            // Use button with direct navigation for reliability
+            const handleNavClick = (e: React.MouseEvent) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('[Nav] Button clicked:', item.path);
+
+              // Handle special case for Clinics tab
+              if (item.path === '/admin/clinics' && hasMultipleClinics && userRole !== 'super_admin') {
+                setShowClinicSwitchModal(true);
+                return;
+              }
+
+              // Navigate using window.location for maximum reliability
+              if (active) {
+                console.log('[Nav] Same page, reloading');
+                window.location.reload();
+              } else {
+                console.log('[Nav] Navigating to:', item.path);
+                window.location.href = item.path;
+              }
+            };
+
             return (
-              <Link
+              <button
                 key={item.path}
-                href={item.path}
-                onClick={(e) => {
-                  console.log('[Nav] Clicked:', item.path, { active, pathname });
-
-                  // Handle special case for Clinics tab
-                  if (item.path === '/admin/clinics' && hasMultipleClinics && userRole !== 'super_admin') {
-                    e.preventDefault();
-                    setShowClinicSwitchModal(true);
-                    return;
-                  }
-
-                  // If clicking the same page, force reload
-                  if (active) {
-                    e.preventDefault();
-                    window.location.reload();
-                    return;
-                  }
-
-                  // Log navigation attempt
-                  console.log('[Nav] Navigating to:', item.path);
+                onClick={handleNavClick}
+                onMouseDown={(e) => {
+                  console.log('[Nav] MouseDown:', item.path);
                 }}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer w-full text-left ${
                   active
                     ? ''
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -354,7 +359,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       : item.label}
                   </span>
                 )}
-              </Link>
+              </button>
             );
           })}
         </nav>
