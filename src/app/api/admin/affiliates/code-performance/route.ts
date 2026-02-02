@@ -203,9 +203,14 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
 
         if (refCode.isLegacy) {
           // For legacy codes, get data from ReferralTracking table
+          // Use case-insensitive search via contains (promoCode stored as-is)
           const referralCount = await prisma.referralTracking.count({
             where: {
-              promoCode: { equals: refCode.refCode, mode: 'insensitive' },
+              OR: [
+                { promoCode: refCode.refCode },
+                { promoCode: refCode.refCode.toUpperCase() },
+                { promoCode: refCode.refCode.toLowerCase() },
+              ],
               createdAt: {
                 gte: dateFrom,
                 lte: dateTo,
@@ -218,7 +223,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           // Get last referral
           const lastReferral = await prisma.referralTracking.findFirst({
             where: {
-              promoCode: { equals: refCode.refCode, mode: 'insensitive' },
+              OR: [
+                { promoCode: refCode.refCode },
+                { promoCode: refCode.refCode.toUpperCase() },
+                { promoCode: refCode.refCode.toLowerCase() },
+              ],
             },
             orderBy: { createdAt: 'desc' },
             select: { createdAt: true },
