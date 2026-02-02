@@ -478,7 +478,9 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
   });
 
   // Get conversion events and their payments
-  const conversions = affiliateEvents.filter((e) => e.eventType === 'CONVERSION');
+  const conversions = affiliateEvents.filter(
+    (e: (typeof affiliateEvents)[number]) => e.eventType === 'CONVERSION'
+  );
 
   // Aggregate by affiliate
   const affiliateBreakdown: Record<
