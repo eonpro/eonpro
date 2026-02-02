@@ -153,6 +153,17 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   'Self Administration': 'Self Administration Preference',
   
   // ═══════════════════════════════════════════════════════════════════
+  // BASELINE/BLOODWORK-SPECIFIC FIELDS (Airtable exact names)
+  // ═══════════════════════════════════════════════════════════════════
+  'Chronic Disease': 'Chronic Disease',
+  'List of disease': 'List of Diseases',
+  'Specific Supplements': 'Specific Supplements',
+  'changes in body': 'Changes in Body',
+  'Health areas insights': 'Health Areas of Interest',
+  'Importance of tracking results': 'Importance of Tracking Results',
+  'Why Labs': 'Why Labs / Reason for Testing',
+  
+  // ═══════════════════════════════════════════════════════════════════
   // REFERRAL & MARKETING (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
   'How did you hear about us?': 'How Did You Hear About Us?',
@@ -374,7 +385,7 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     'feet', 'inches', 'height', 'weight', 'current-weight', 'bmi',
   ];
   
-  // Medical History (Airtable exact names - Peptides + TRT)
+  // Medical History (Airtable exact names - All treatments)
   const medicalHistoryFields = [
     // Airtable exact names (shared)
     'Allergies', 'Which allergies', 'Conditions', 'Cancer', 
@@ -382,17 +393,21 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     // TRT-specific
     'Allergic to', 'List of Allergies', 'Chronic Conditions', 
     'Blood Pressure', 'bloodwork',
+    // Baseline-specific
+    'Chronic Disease', 'List of disease',
     // Legacy formats
     'allergies', 'health-conditions', 'medical-conditions', 'conditions',
   ];
   
-  // Medications (Airtable exact names - Peptides + TRT)
+  // Medications (Airtable exact names - All treatments)
   const medicationsFields = [
     // Airtable exact names (shared)
     'List of medications', 'Medications [current]', 'Prescription Medications',
     // TRT-specific
     'List of medications, vitamins, supplements', 'Medications, vitamins, Supplements',
     'Specific Medications',
+    // Baseline-specific
+    'Specific Supplements',
     // Legacy formats
     'current-medications', 'medications',
   ];
@@ -483,8 +498,12 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
       ['prostate-history', 'heart-disease', 'blood-clot-history', 'sleep-apnea', 'fertility-concerns'],
     ],
     baseline_bloodwork: [
+      // Reason for Labs (Airtable exact)
+      ['Why Labs', 'reason-for-labs', 'treatment-interest'],
+      // Health Assessment (Airtable exact)
+      ['Health areas insights', 'changes in body', 'Importance of tracking results'],
+      // Legacy fields
       ['lab-location', 'preferred-lab', 'fasting-available', 'preferred-time', 'mobile-phlebotomy'],
-      ['reason-for-labs', 'symptoms', 'treatment-interest'],
       ['last-lab-date', 'previous-lab-results', 'has-recent-labs'],
       ['insurance-coverage', 'self-pay'],
     ],
@@ -559,7 +578,7 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
     nad_plus: ['NAD+ Experience', 'Treatment Goals', 'Preferences', 'Health Assessment'],
     better_sex: ['ED History', 'Current Status', 'Previous Treatments', 'Preferences', 'Health Factors'],
     testosterone: ['Treatment Goals', 'Previous Therapies', 'Lab Results', 'Administration Preferences', 'Symptoms', 'Contraindications'],
-    baseline_bloodwork: ['Lab Preferences', 'Health Assessment', 'Previous Labs', 'Payment'],
+    baseline_bloodwork: ['Reason for Labs', 'Health Assessment', 'Lab Preferences', 'Previous Labs', 'Payment'],
   };
 
   treatmentGroups.forEach((fields, index) => {
