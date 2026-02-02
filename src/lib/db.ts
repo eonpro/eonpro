@@ -545,6 +545,9 @@ class PrismaWithClinicFilter {
   // SMS logs (system-wide)
   get smsLog() { return this.client.smsLog; }
 
+  // Notifications (user-scoped, not clinic-scoped - users see their own notifications)
+  get notification() { return this.client.notification; }
+
   // Policy management (system-wide, SOC 2 compliance)
   get policy() { return this.client.policy; }
   get policyApproval() { return this.client.policyApproval; }
