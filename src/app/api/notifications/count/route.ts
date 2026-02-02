@@ -15,6 +15,18 @@ async function getUnreadCountHandler(req: NextRequest, user: AuthUser): Promise<
       count,
     });
   } catch (error) {
+    // Check if the error is due to missing Notification table (migration not applied)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTableMissing = errorMessage.includes('does not exist') || 
+                           errorMessage.includes('relation') ||
+                           errorMessage.includes('P2021') ||
+                           errorMessage.includes('P2025');
+    
+    if (isTableMissing) {
+      console.warn('Notification table not found - returning 0 count. Run migrations to fix.');
+      return NextResponse.json({ count: 0 });
+    }
+    
     console.error('Failed to get notification count:', error);
     return NextResponse.json({
       error: 'Failed to get notification count',

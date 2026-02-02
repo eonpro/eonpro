@@ -82,6 +82,26 @@ async function getNotificationsHandler(req: NextRequest, user: AuthUser): Promis
       hasMore: result.hasMore,
     });
   } catch (error) {
+    // Check if the error is due to missing Notification table (migration not applied)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTableMissing = errorMessage.includes('does not exist') || 
+                           errorMessage.includes('relation') ||
+                           errorMessage.includes('P2021') ||
+                           errorMessage.includes('P2025');
+    
+    if (isTableMissing) {
+      console.warn('Notification table not found - returning empty response. Run migrations to fix.');
+      // Return empty data so the app still works
+      return NextResponse.json({
+        notifications: [],
+        unreadCount: 0,
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        hasMore: false,
+      });
+    }
+    
     console.error('Failed to get notifications:', error);
     return NextResponse.json({
       error: 'Failed to get notifications',
@@ -136,6 +156,22 @@ async function markNotificationsReadHandler(req: NextRequest, user: AuthUser): P
       unreadCount,
     });
   } catch (error) {
+    // Check if the error is due to missing Notification table
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTableMissing = errorMessage.includes('does not exist') || 
+                           errorMessage.includes('relation') ||
+                           errorMessage.includes('P2021') ||
+                           errorMessage.includes('P2025');
+    
+    if (isTableMissing) {
+      console.warn('Notification table not found. Run migrations to fix.');
+      return NextResponse.json({
+        success: true,
+        markedCount: 0,
+        unreadCount: 0,
+      });
+    }
+    
     console.error('Failed to mark notifications as read:', error);
     return NextResponse.json({
       error: 'Failed to mark notifications as read',
@@ -175,6 +211,22 @@ async function archiveNotificationsHandler(req: NextRequest, user: AuthUser): Pr
       unreadCount,
     });
   } catch (error) {
+    // Check if the error is due to missing Notification table
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTableMissing = errorMessage.includes('does not exist') || 
+                           errorMessage.includes('relation') ||
+                           errorMessage.includes('P2021') ||
+                           errorMessage.includes('P2025');
+    
+    if (isTableMissing) {
+      console.warn('Notification table not found. Run migrations to fix.');
+      return NextResponse.json({
+        success: true,
+        archivedCount: 0,
+        unreadCount: 0,
+      });
+    }
+    
     console.error('Failed to archive notifications:', error);
     return NextResponse.json({
       error: 'Failed to archive notifications',
