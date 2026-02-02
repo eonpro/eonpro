@@ -1,11 +1,23 @@
--- CreateEnum
-CREATE TYPE "NotificationCategory" AS ENUM ('PRESCRIPTION', 'PATIENT', 'ORDER', 'SYSTEM', 'APPOINTMENT', 'MESSAGE', 'PAYMENT', 'REFILL');
+-- CreateEnum (if not exists)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'NotificationCategory') THEN
+        CREATE TYPE "NotificationCategory" AS ENUM ('PRESCRIPTION', 'PATIENT', 'ORDER', 'SYSTEM', 'APPOINTMENT', 'MESSAGE', 'PAYMENT', 'REFILL');
+    END IF;
+END
+$$;
 
--- CreateEnum
-CREATE TYPE "NotificationPriority" AS ENUM ('LOW', 'NORMAL', 'HIGH', 'URGENT');
+-- CreateEnum (if not exists)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'NotificationPriority') THEN
+        CREATE TYPE "NotificationPriority" AS ENUM ('LOW', 'NORMAL', 'HIGH', 'URGENT');
+    END IF;
+END
+$$;
 
--- CreateTable
-CREATE TABLE "Notification" (
+-- CreateTable (if not exists)
+CREATE TABLE IF NOT EXISTS "Notification" (
     "id" SERIAL NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -27,23 +39,35 @@ CREATE TABLE "Notification" (
     CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE INDEX "Notification_userId_isRead_idx" ON "Notification"("userId", "isRead");
+-- CreateIndex (if not exists)
+CREATE INDEX IF NOT EXISTS "Notification_userId_isRead_idx" ON "Notification"("userId", "isRead");
 
--- CreateIndex
-CREATE INDEX "Notification_userId_createdAt_idx" ON "Notification"("userId", "createdAt" DESC);
+-- CreateIndex (if not exists)
+CREATE INDEX IF NOT EXISTS "Notification_userId_createdAt_idx" ON "Notification"("userId", "createdAt" DESC);
 
--- CreateIndex
-CREATE INDEX "Notification_userId_isArchived_idx" ON "Notification"("userId", "isArchived");
+-- CreateIndex (if not exists)
+CREATE INDEX IF NOT EXISTS "Notification_userId_isArchived_idx" ON "Notification"("userId", "isArchived");
 
--- CreateIndex
-CREATE INDEX "Notification_clinicId_category_idx" ON "Notification"("clinicId", "category");
+-- CreateIndex (if not exists)
+CREATE INDEX IF NOT EXISTS "Notification_clinicId_category_idx" ON "Notification"("clinicId", "category");
 
--- CreateIndex
-CREATE INDEX "Notification_sourceType_sourceId_idx" ON "Notification"("sourceType", "sourceId");
+-- CreateIndex (if not exists)
+CREATE INDEX IF NOT EXISTS "Notification_sourceType_sourceId_idx" ON "Notification"("sourceType", "sourceId");
 
--- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (if not exists)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Notification_userId_fkey') THEN
+        ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END
+$$;
 
--- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- AddForeignKey (if not exists)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'Notification_clinicId_fkey') THEN
+        ALTER TABLE "Notification" ADD CONSTRAINT "Notification_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END
+$$;

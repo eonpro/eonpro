@@ -8,6 +8,7 @@ const { execSync } = require('child_process');
 
 const FAILED_MIGRATIONS = [
   '20260202_add_profile_status',
+  '20260202_add_notifications',
 ];
 
 console.log('🔧 Checking for failed migrations to resolve...');
