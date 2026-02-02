@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, Component, ErrorInfo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, UserPlus, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck, Bell
+  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck, Bell, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import { 
@@ -14,6 +14,57 @@ import {
   NotificationToastContainer 
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+
+// Error Boundary to catch and recover from React errors
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class AdminErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('[AdminErrorBoundary] Caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#efece7] flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-4 text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
+            <p className="text-gray-600 mb-6">
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 // Default EONPRO logos
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
@@ -84,20 +135,24 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         setUserClinics(data.clinics || []);
         setActiveClinicId(data.activeClinicId);
         setHasMultipleClinics(data.hasMultipleClinics || false);
+      } else {
+        // Non-blocking - just log the error
+        console.warn('Failed to fetch user clinics:', response.status);
       }
     } catch (error) {
+      // Non-blocking - just log the error
       console.error('Error fetching user clinics:', error);
     }
   };
 
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
     try {
+      const user = localStorage.getItem('user');
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
       const parsedUser = JSON.parse(user);
       const role = parsedUser.role?.toLowerCase();
       if (role !== 'admin' && role !== 'super_admin') {
@@ -108,9 +163,12 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       setUserRole(role);
       setLoading(false);
 
-      // Fetch user's clinics for multi-clinic support
-      fetchUserClinics();
-    } catch {
+      // Fetch user's clinics for multi-clinic support (non-blocking)
+      fetchUserClinics().catch(err => {
+        console.error('Error fetching user clinics:', err);
+      });
+    } catch (error) {
+      console.error('Error initializing admin layout:', error);
       localStorage.removeItem('user');
       router.push('/login');
     }
@@ -455,11 +513,13 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClinicBrandingProvider>
-      <NotificationProvider>
-        <AdminLayoutInner>{children}</AdminLayoutInner>
-        <NotificationToastContainer />
-      </NotificationProvider>
-    </ClinicBrandingProvider>
+    <AdminErrorBoundary>
+      <ClinicBrandingProvider>
+        <NotificationProvider>
+          <AdminLayoutInner>{children}</AdminLayoutInner>
+          <NotificationToastContainer />
+        </NotificationProvider>
+      </ClinicBrandingProvider>
+    </AdminErrorBoundary>
   );
 }
