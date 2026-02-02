@@ -96,6 +96,21 @@ export default function ProviderNotificationsPage() {
     refresh,
   } = useNotificationContext();
 
+  // Filter notifications by search and category (must be before callbacks that use it)
+  const filteredNotifications = notifications.filter((n: Notification) => {
+    // Category filter
+    if (filterCategory && n.category !== filterCategory) return false;
+    // Unread filter
+    if (showUnreadOnly && n.isRead) return false;
+    // Search filter
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      n.title.toLowerCase().includes(query) ||
+      n.message.toLowerCase().includes(query)
+    );
+  });
+
   // Toggle selection
   const toggleSelection = useCallback((id: number) => {
     setSelectedIds(prev => {
@@ -158,21 +173,6 @@ export default function ProviderNotificationsPage() {
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
   };
-
-  // Filter notifications by search and category
-  const filteredNotifications = notifications.filter((n: Notification) => {
-    // Category filter
-    if (filterCategory && n.category !== filterCategory) return false;
-    // Unread filter
-    if (showUnreadOnly && n.isRead) return false;
-    // Search filter
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      n.title.toLowerCase().includes(query) ||
-      n.message.toLowerCase().includes(query)
-    );
-  });
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
