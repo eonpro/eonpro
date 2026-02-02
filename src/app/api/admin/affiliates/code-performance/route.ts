@@ -200,6 +200,18 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         })),
     ];
 
+    logger.info('[CodePerformance] Processing codes', {
+      userId: user.id,
+      userRole: user.role,
+      userClinicId: user.clinicId,
+      clinicFilter,
+      dateFrom: dateFrom.toISOString(),
+      dateTo: dateTo.toISOString(),
+      modernRefCodesCount: modernRefCodes.length,
+      legacyInfluencersCount: legacyInfluencers.length,
+      totalRefCodesCount: refCodes.length,
+    });
+
     // Get performance metrics for each code
     const codePerformances: CodePerformance[] = await Promise.all(
       refCodes.map(async (refCode: RefCodeWithAffiliate) => {
@@ -258,6 +270,18 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             _count: true,
           });
           uses = usesResult._count;
+
+          // Debug logging for specific codes
+          if (refCode.refCode === 'TEAMSAV') {
+            logger.info('[CodePerformance] TEAMSAV debug', {
+              code: refCode.refCode,
+              isLegacy: refCode.isLegacy,
+              usesCount: uses,
+              clinicFilter,
+              dateFrom: dateFrom.toISOString(),
+              dateTo: dateTo.toISOString(),
+            });
+          }
 
           // Conversions = touches with convertedAt set (paying customers)
           const conversionsResult = await prisma.affiliateTouch.aggregate({
