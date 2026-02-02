@@ -274,10 +274,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         _count: true,
       });
 
-      fraudData.openAlerts = fraudAlerts.reduce((sum, a) => sum + a._count, 0);
+      type FraudAlert = typeof fraudAlerts[number];
+      fraudData.openAlerts = fraudAlerts.reduce((sum: number, a: FraudAlert) => sum + a._count, 0);
       fraudData.criticalAlerts = fraudAlerts
-        .filter(a => a.severity === 'CRITICAL')
-        .reduce((sum, a) => sum + a._count, 0);
+        .filter((a: FraudAlert) => a.severity === 'CRITICAL')
+        .reduce((sum: number, a: FraudAlert) => sum + a._count, 0);
     } catch {
       // Fraud table may not exist - ignore
     }
