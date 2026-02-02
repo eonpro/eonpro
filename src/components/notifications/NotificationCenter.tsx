@@ -76,6 +76,8 @@ interface NotificationCenterProps {
   notificationsPath?: string;
   /** Render mode: 'dropdown' or 'panel' */
   mode?: 'dropdown' | 'panel';
+  /** Dropdown position: 'left' or 'right' */
+  dropdownPosition?: 'left' | 'right';
 }
 
 // ============================================================================
@@ -210,6 +212,7 @@ function NotificationItem({ notification, onRead, onArchive, onClick, compact }:
 export default function NotificationCenter({ 
   notificationsPath = '/notifications',
   mode = 'dropdown',
+  dropdownPosition = 'right',
 }: NotificationCenterProps) {
   const router = useRouter();
   const { branding } = useClinicBranding();
@@ -423,7 +426,9 @@ export default function NotificationCenter({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-            className="absolute right-0 mt-2 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
+            className={`absolute mt-2 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden ${
+              dropdownPosition === 'left' ? 'left-0' : 'right-0'
+            }`}
           >
             {/* Header */}
             <div className="p-4 border-b border-gray-100">

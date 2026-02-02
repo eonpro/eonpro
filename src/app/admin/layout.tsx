@@ -326,7 +326,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.path}
                 href={item.path}
-                onClick={(e) => handleClinicsClick(e, item.path)}
+                onClick={(e) => {
+                  console.log('[Nav] Clicked:', item.path);
+                  handleClinicsClick(e, item.path);
+                }}
                 title={!sidebarExpanded ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   active
@@ -352,7 +355,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
           {/* Notification Center */}
           <div className={`flex ${sidebarExpanded ? 'items-center gap-3 px-3' : 'justify-center'}`}>
-            <NotificationCenter notificationsPath="/admin/notifications" />
+            <NotificationCenter notificationsPath="/admin/notifications" dropdownPosition="left" />
             {sidebarExpanded && (
               <span className="text-sm font-medium text-gray-600">Notifications</span>
             )}
