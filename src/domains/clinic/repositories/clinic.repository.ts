@@ -202,12 +202,12 @@ class ClinicRepositoryImpl implements IClinicRepository {
   }
 
   /**
-   * Find clinic by subdomain
+   * Find clinic by subdomain (case-insensitive)
    */
   async findBySubdomain(subdomain: string): Promise<ClinicBasic | null> {
     try {
-      return await this.prisma.clinic.findUnique({
-        where: { subdomain },
+      return await this.prisma.clinic.findFirst({
+        where: { subdomain: { equals: subdomain, mode: 'insensitive' } },
         select: CLINIC_BASIC_SELECT,
       });
     } catch (error) {
@@ -263,12 +263,12 @@ class ClinicRepositoryImpl implements IClinicRepository {
   }
 
   /**
-   * Check if clinic exists by subdomain
+   * Check if clinic exists by subdomain (case-insensitive)
    */
   async existsBySubdomain(subdomain: string): Promise<boolean> {
     try {
-      const clinic = await this.prisma.clinic.findUnique({
-        where: { subdomain },
+      const clinic = await this.prisma.clinic.findFirst({
+        where: { subdomain: { equals: subdomain, mode: 'insensitive' } },
         select: { id: true },
       });
       return !!clinic;

@@ -165,7 +165,7 @@ async function resolveClinicFromDomain(domain: string) {
       const subdomain = parts[0];
       clinic = await prisma.clinic.findFirst({
         where: {
-          subdomain,
+          subdomain: { equals: subdomain, mode: 'insensitive' },
           status: 'ACTIVE',
         },
         select: {
@@ -200,7 +200,7 @@ async function resolveClinicFromDomain(domain: string) {
 
       clinic = await prisma.clinic.findFirst({
         where: {
-          subdomain,
+          subdomain: { equals: subdomain, mode: 'insensitive' },
           status: 'ACTIVE',
         },
         select: {
@@ -241,7 +241,7 @@ async function resolveClinicFromDomain(domain: string) {
     if (!skipSubdomains.includes(subdomain)) {
       clinic = await prisma.clinic.findFirst({
         where: {
-          subdomain,
+          subdomain: { equals: subdomain, mode: 'insensitive' },
           status: 'ACTIVE',
         },
         select: {

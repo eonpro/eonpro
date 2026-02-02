@@ -289,9 +289,9 @@ async function loginHandler(req: NextRequest) {
         const subdomain = extractSubdomain(host);
 
         if (subdomain) {
-          // Find clinic by subdomain
+          // Find clinic by subdomain (case-insensitive)
           const subdomainClinic = await basePrisma.clinic.findFirst({
-            where: { subdomain, status: 'ACTIVE' },
+            where: { subdomain: { equals: subdomain, mode: 'insensitive' }, status: 'ACTIVE' },
             select: { id: true },
           });
 
