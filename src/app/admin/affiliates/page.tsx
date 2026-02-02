@@ -15,6 +15,8 @@ import {
   Eye,
   Copy,
   Check,
+  BarChart3,
+  Target,
 } from 'lucide-react';
 
 interface Affiliate {
@@ -220,7 +222,21 @@ export default function AdminAffiliatesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Affiliates</h1>
           <p className="text-gray-500">Manage your affiliate partners</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => router.push('/admin/affiliates/reports')}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <BarChart3 className="h-5 w-5" />
+            Reports
+          </button>
+          <button
+            onClick={() => router.push('/admin/affiliates/code-performance')}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Target className="h-5 w-5" />
+            Code Performance
+          </button>
           <button
             onClick={() => router.push('/admin/affiliates/commission-plans')}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"

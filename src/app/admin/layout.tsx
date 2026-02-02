@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, UserPlus, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill
+  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -33,6 +33,7 @@ const baseNavItems = [
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
+  { icon: UserCheck, path: '/admin/affiliates', label: 'Affiliates' },
   { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
   { icon: CreditCard, path: '/admin/stripe-dashboard', label: 'Stripe' },
   { icon: Key, path: '/admin/registration-codes', label: 'Registration Codes' },
