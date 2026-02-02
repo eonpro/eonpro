@@ -1,7 +1,13 @@
--- Add patientIdPrefix column to Clinic table
+-- Add patientIdPrefix column to Clinic table (idempotent)
 -- This column stores the prefix for patient IDs (e.g., "EON", "WEL", "OT")
 
-ALTER TABLE "Clinic" ADD COLUMN "patientIdPrefix" TEXT;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Clinic' AND column_name = 'patientIdPrefix') THEN
+        ALTER TABLE "Clinic" ADD COLUMN "patientIdPrefix" TEXT;
+    END IF;
+END
+$$;
 
 -- Set default prefixes based on subdomain for existing clinics
 UPDATE "Clinic" SET "patientIdPrefix" = 'OT' WHERE subdomain = 'ot' AND "patientIdPrefix" IS NULL;

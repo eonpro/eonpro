@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "prisma generate && prisma db push --accept-data-loss && next build",
   "crons": [
     {
       "path": "/api/integrations/overtime/sync",
