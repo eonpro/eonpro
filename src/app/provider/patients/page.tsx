@@ -431,7 +431,7 @@ export default function ProviderPatientsPage() {
                     <tr
                       key={patient.id}
                       className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => { router.push(`/patients/${patient.id}`); }}
+                      onClick={() => { window.location.href = `/patients/${patient.id}`; }}
                     >
                       <td className="py-3 px-4">
                         <div className="font-medium">{patient.firstName} {patient.lastName}</div>
@@ -462,13 +462,21 @@ export default function ProviderPatientsPage() {
                       <td className="py-3 px-4">
                         <div className="flex gap-2">
                           <button
-                            onClick={(e) => { e.stopPropagation(); router.push(`/patients/${patient.id}`); }}
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              e.preventDefault();
+                              window.location.href = `/patients/${patient.id}`; 
+                            }}
                             className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
                           >
                             View
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); router.push(`/patients/${patient.id}?tab=chat`); }}
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              e.preventDefault();
+                              window.location.href = `/patients/${patient.id}?tab=chat`; 
+                            }}
                             className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                           >
                             Message
