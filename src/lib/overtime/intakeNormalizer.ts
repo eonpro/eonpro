@@ -201,9 +201,7 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   // ═══════════════════════════════════════════════════════════════════
   // WEIGHT LOSS SPECIFIC FIELDS (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
-  // Body Metrics
-  'ideal weight': 'Ideal/Goal Weight (lbs)',
-  // Note: 'BMI' already defined above in Body Metrics section
+  // Note: 'ideal weight' and 'BMI' already defined above in Body Metrics section
   
   // Medical History - Weight Loss
   'Allergy Type': 'Allergy Type',
