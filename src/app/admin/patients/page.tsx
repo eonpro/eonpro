@@ -306,7 +306,7 @@ export default function AdminPatientsPage() {
           <p className="text-gray-600 mt-1">Patients who have made a payment or received a prescription</p>
         </div>
         <button
-          onClick={() => router.push('/admin/patients/new')}
+          onClick={() => window.location.href = '/admin/patients/new'}
           className="px-4 py-2 text-white rounded-lg transition-colors flex items-center gap-2"
           style={{
             backgroundColor: 'var(--brand-primary, #4fa77e)',
@@ -432,7 +432,7 @@ export default function AdminPatientsPage() {
           onMergeComplete={(mergedPatientId) => {
             setMergePatient(null);
             fetchPatients(currentPage, debouncedSearch);
-            router.push(`/patients/${mergedPatientId}`);
+            window.location.href = `/patients/${mergedPatientId}`);
           }}
         />
       )}
@@ -524,7 +524,7 @@ export default function AdminPatientsPage() {
                   <tr
                     key={patient.id}
                     className="hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => router.push(`/patients/${patient.id}`)}
+                    onClick={() => window.location.href = `/patients/${patient.id}`)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -641,7 +641,7 @@ export default function AdminPatientsPage() {
                     <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => router.push(`/patients/${patient.id}`)}
+                          onClick={() => window.location.href = `/patients/${patient.id}`)}
                           className="p-2 text-gray-600 rounded-lg transition-colors"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
@@ -656,7 +656,7 @@ export default function AdminPatientsPage() {
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => router.push(`/patients/${patient.id}/edit`)}
+                          onClick={() => window.location.href = `/patients/${patient.id}/edit`)}
                           className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
                         >

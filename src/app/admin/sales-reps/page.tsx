@@ -242,7 +242,7 @@ export default function SalesRepsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
                         onClick={() =>
-                          router.push(`/admin/patients?salesRepId=${rep.id}`)
+                          window.location.href = `/admin/patients?salesRepId=${rep.id}`)
                         }
                         className="inline-flex items-center gap-1 text-sm text-sky-600 hover:text-sky-700"
                       >

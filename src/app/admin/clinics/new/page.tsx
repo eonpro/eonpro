@@ -70,7 +70,7 @@ export default function NewClinicPage() {
         throw new Error(data.error || 'Failed to create clinic');
       }
       
-      router.push(`/admin/clinics/${data.id}/settings`);
+      window.location.href = `/admin/clinics/${data.id}/settings`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setSaving(false);

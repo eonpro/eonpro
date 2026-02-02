@@ -358,7 +358,7 @@ export default function AdminRxQueuePage() {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => router.push(`/patients/${item.patientId}`)}
+                        onClick={() => window.location.href = `/patients/${item.patientId}`)}
                         className="p-2 text-gray-600 rounded-lg transition-colors hover:bg-opacity-10"
                         style={{
                           '--tw-bg-opacity': '0.1'

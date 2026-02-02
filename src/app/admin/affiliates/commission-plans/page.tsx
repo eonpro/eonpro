@@ -288,7 +288,7 @@ export default function CommissionPlansPage() {
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => router.push('/admin/affiliates')}
+          onClick={() => window.location.href = '/admin/affiliates')}
           className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ChevronLeft className="h-4 w-4" />
