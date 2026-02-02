@@ -106,6 +106,25 @@ export function getStripeConnectPlatformKey(): string | undefined {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DEDICATED CLINIC ACCOUNTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * OT (Overtime) Clinic Stripe Configuration
+ * This is a dedicated Stripe account for ot.eonpro.io
+ */
+export const OT_STRIPE_CONFIG = {
+  secretKey: process.env.OT_STRIPE_SECRET_KEY,
+  publishableKey: process.env.NEXT_PUBLIC_OT_STRIPE_PUBLISHABLE_KEY,
+  webhookSecret: process.env.OT_STRIPE_WEBHOOK_SECRET,
+  isConfigured: (): boolean => !!process.env.OT_STRIPE_SECRET_KEY,
+  isTestMode: (): boolean => {
+    const key = process.env.OT_STRIPE_SECRET_KEY;
+    return !key || key.includes('_test_');
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // STRIPE CLIENT FACTORY
 // ═══════════════════════════════════════════════════════════════════════════
 
