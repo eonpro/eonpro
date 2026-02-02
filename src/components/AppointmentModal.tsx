@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { logger } from '../lib/logger';
 
-import { X, User, Mail, Phone, Calendar, Clock, Video, Send, Bell, Plus, Search, Check, Copy, Link2, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, User, Mail, Phone, Calendar, Clock, Video, Send, Bell, Plus, Search, Check, Copy, Link2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 interface Patient {
   id: number;
@@ -21,6 +21,8 @@ interface AppointmentModalProps {
   selectedDate?: Date | null;
   appointment?: any;
   preSelectedPatient?: any;
+  providerId?: number;
+  clinicId?: number;
 }
 
 export default function AppointmentModal({ 
@@ -29,7 +31,9 @@ export default function AppointmentModal({
   onSave, 
   selectedDate,
   appointment,
-  preSelectedPatient 
+  preSelectedPatient,
+  providerId,
+  clinicId,
 }: AppointmentModalProps) {
   const [step, setStep] = useState<'details' | 'patient' | 'notifications'>('details');
   const [patientMode, setPatientMode] = useState<'existing' | 'new'>('existing');
@@ -37,6 +41,11 @@ export default function AppointmentModal({
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     date: selectedDate || new Date(),
@@ -57,16 +66,42 @@ export default function AppointmentModal({
     zoomLink: '',
   });
 
-  // Mock patients for demonstration
-  const mockPatients: Patient[] = [
-    { id: 1, firstName: "Rebecca", lastName: "Pignano", email: "rebecca@eonmeds.com", phone: "3857856102", dob: "07/28/1997" },
-    { id: 2, firstName: "John", lastName: "Smith", email: "john@example.com", phone: "555-1234", dob: "01/15/1985" },
-    { id: 3, firstName: "Sarah", lastName: "Johnson", email: "sarah@example.com", phone: "555-5678", dob: "03/22/1990" },
-  ];
+  // Fetch patients from database
+  const fetchPatients = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setPatients([]);
+      return;
+    }
+    
+    setPatientsLoading(true);
+    try {
+      const response = await fetch(`/api/patients/search?q=${encodeURIComponent(query)}&limit=10`);
+      if (response.ok) {
+        const data = await response.json();
+        setPatients(data.patients || []);
+      } else {
+        logger.error('Failed to fetch patients');
+        setPatients([]);
+      }
+    } catch (err) {
+      logger.error('Error fetching patients:', err);
+      setPatients([]);
+    } finally {
+      setPatientsLoading(false);
+    }
+  }, []);
 
-  const filteredPatients = mockPatients.filter(p => 
-    `${p.firstName} ${p.lastName} ${p.email} ${p.phone}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Debounced patient search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.length >= 2) {
+        fetchPatients(searchQuery);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchPatients]);
+
+  const filteredPatients = patients;
 
   useEffect(() => {
     if (appointment) {
@@ -122,81 +157,143 @@ export default function AppointmentModal({
     });
   };
 
-  // Generate Zoom link when type is telehealth
-  useEffect(() => {
-    if (formData.type === 'telehealth' && !formData.zoomLink) {
-      const meetingId = Math.random().toString(36).substring(2, 11);
-      setFormData(prev => ({
-        ...prev,
-        zoomLink: `https://zoom.us/j/${meetingId}`
-      }));
-    }
-  }, [formData.type]);
+  // Note: Zoom link will be created by the backend when appointment is saved
+  // No local generation needed - the API creates real Zoom meetings
 
   const handleSave = async () => {
-    const appointmentDate = new Date(formData.date);
-    const [hours, minutes] = formData.time.split(':').map(Number);
-    appointmentDate.setHours(hours, minutes);
+    setError(null);
+    setIsSaving(true);
 
-    // If it's a new patient, create their profile first
-    let patientId = selectedPatient?.id;
-    if (patientMode === 'new' && !selectedPatient) {
-      try {
-        // Create new patient profile in the system
-        const response = await fetch('/api/patients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            firstName: formData.patientFirstName,
-            lastName: formData.patientLastName,
-            email: formData.patientEmail,
-            phone: formData.patientPhone,
-            dob: formData.patientDob,
-            gender: 'f', // Default to female, can be updated later in patient profile
-            address1: 'To be provided', // To be updated later
-            city: 'To be provided',
-            state: 'FL', // Default state
-            zip: '00000',
-          }),
-        });
-        
-        if (response.ok) {
-          const newPatient = await response.json();
-          patientId = newPatient.id;
-          logger.info('New patient profile created:', newPatient);
-        } else {
-          logger.error('Failed to create patient profile');
+    try {
+      const appointmentDate = new Date(formData.date);
+      const [hours, minutes] = formData.time.split(':').map(Number);
+      appointmentDate.setHours(hours, minutes, 0, 0);
+
+      // Calculate end time based on duration
+      const endTime = new Date(appointmentDate.getTime() + parseInt(formData.duration) * 60 * 1000);
+
+      // If it's a new patient, create their profile first
+      let patientId = selectedPatient?.id;
+      if (patientMode === 'new' && !selectedPatient) {
+        try {
+          const response = await fetch('/api/patients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              firstName: formData.patientFirstName,
+              lastName: formData.patientLastName,
+              email: formData.patientEmail,
+              phone: formData.patientPhone,
+              dob: formData.patientDob,
+              gender: 'f',
+              address1: 'To be provided',
+              city: 'To be provided',
+              state: 'FL',
+              zip: '00000',
+            }),
+          });
+          
+          if (response.ok) {
+            const newPatient = await response.json();
+            patientId = newPatient.id;
+            logger.info('New patient profile created', { patientId });
+          } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create patient profile');
+          }
+        } catch (err) {
+          logger.error('Error creating patient:', err);
+          setError(err instanceof Error ? err.message : 'Failed to create patient');
+          setIsSaving(false);
+          return;
         }
-      } catch (error) {
-        logger.error('Error creating patient:', error);
       }
+
+      if (!patientId) {
+        setError('Please select a patient or create a new one');
+        setIsSaving(false);
+        return;
+      }
+
+      // Map appointment type to backend enum
+      const typeMap: Record<string, string> = {
+        'telehealth': 'VIDEO',
+        'in-person': 'IN_PERSON',
+        'phone': 'PHONE',
+      };
+
+      // Create appointment via API - this will also create the Zoom meeting
+      const appointmentPayload = {
+        clinicId: clinicId,
+        patientId: patientId,
+        providerId: providerId || 1, // Fallback for testing
+        startTime: appointmentDate.toISOString(),
+        endTime: endTime.toISOString(),
+        duration: parseInt(formData.duration),
+        type: typeMap[formData.type] || 'VIDEO',
+        reason: formData.reason || undefined,
+        notes: formData.notes || undefined,
+        title: `Appointment with ${formData.patientFirstName} ${formData.patientLastName}`,
+      };
+
+      const response = await fetch('/api/scheduling/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appointmentPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create appointment');
+      }
+
+      const result = await response.json();
+      const createdAppointment = result.appointment;
+
+      // Update form with the real Zoom link from the backend
+      if (createdAppointment.zoomJoinUrl) {
+        setFormData(prev => ({
+          ...prev,
+          zoomLink: createdAppointment.zoomJoinUrl,
+        }));
+      }
+
+      // Show confirmation message
+      setShowConfirmation(true);
+
+      // Pass the created appointment back to parent
+      const appointmentData = {
+        id: createdAppointment.id,
+        date: appointmentDate,
+        duration: parseInt(formData.duration),
+        type: formData.type,
+        reason: formData.reason,
+        notes: formData.notes,
+        patientId: patientId,
+        patientName: `${formData.patientFirstName} ${formData.patientLastName}`,
+        patientEmail: formData.patientEmail,
+        patientPhone: formData.patientPhone,
+        patientDob: formData.patientDob,
+        zoomLink: createdAppointment.zoomJoinUrl || createdAppointment.videoLink,
+        zoomMeetingId: createdAppointment.zoomMeetingId,
+        status: createdAppointment.status,
+        emailReminders: formData.emailReminders,
+        smsReminders: formData.smsReminders,
+      };
+
+      // Wait briefly to show confirmation, then close
+      setTimeout(() => {
+        onSave(appointmentData);
+        setShowConfirmation(false);
+        onClose();
+      }, 2000);
+
+    } catch (err) {
+      logger.error('Error saving appointment:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save appointment');
+    } finally {
+      setIsSaving(false);
     }
-
-    const appointmentData = {
-      date: appointmentDate,
-      duration: parseInt(formData.duration),
-      type: formData.type,
-      reason: formData.reason,
-      notes: formData.notes,
-      patientId: patientId,
-      patientName: `${formData.patientFirstName} ${formData.patientLastName}`,
-      patientEmail: formData.patientEmail,
-      patientPhone: formData.patientPhone,
-      patientDob: formData.patientDob,
-      zoomLink: formData.type === 'telehealth' ? formData.zoomLink : undefined,
-      emailReminders: formData.emailReminders,
-      smsReminders: formData.smsReminders,
-    };
-
-    // Show confirmation message
-    setShowConfirmation(true);
-    
-    // Simulate sending notifications and saving appointment
-    setTimeout(() => {
-      onSave(appointmentData);
-      setShowConfirmation(false);
-      onClose();
-    }, 3000);
   };
 
   if (!isOpen) return null;
