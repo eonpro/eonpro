@@ -191,12 +191,24 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             const Icon = item.icon;
             const active = isActive(item.path, item.exact);
             const showBadge = item.hasBadge && rxQueueCount > 0;
+            
+            // Use button with direct navigation for reliability
+            const handleNavClick = (e: React.MouseEvent) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (active) {
+                window.location.reload();
+              } else {
+                window.location.href = item.path;
+              }
+            };
+            
             return (
-              <Link
+              <button
                 key={item.path}
-                href={item.path}
+                onClick={handleNavClick}
                 title={!sidebarExpanded ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}` : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative w-full text-left ${
                   active
                     ? ''
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -219,7 +231,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     {rxQueueCount > 99 ? '99+' : rxQueueCount}
                   </span>
                 )}
-              </Link>
+              </button>
             );
           })}
 
@@ -233,10 +245,16 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <Link
+                  <button
                     key={item.path}
-                    href={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
+                    onClick={() => {
+                      if (active) {
+                        window.location.reload();
+                      } else {
+                        window.location.href = item.path;
+                      }
+                    }}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all w-full text-left ${
                       active
                         ? ''
                         : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -245,7 +263,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
-                  </Link>
+                  </button>
                 );
               })}
             </div>
@@ -258,11 +276,17 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <Link
+                  <button
                     key={item.path}
-                    href={item.path}
+                    onClick={() => {
+                      if (active) {
+                        window.location.reload();
+                      } else {
+                        window.location.href = item.path;
+                      }
+                    }}
                     title={item.label}
-                    className={`flex items-center justify-center p-2.5 rounded-xl transition-all ${
+                    className={`flex items-center justify-center p-2.5 rounded-xl transition-all w-full ${
                       active
                         ? ''
                         : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -270,7 +294,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
                   >
                     <Icon className="h-4 w-4" />
-                  </Link>
+                  </button>
                 );
               })}
             </div>

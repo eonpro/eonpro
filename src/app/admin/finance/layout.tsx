@@ -1,7 +1,6 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -60,9 +59,15 @@ export default function FinanceLayout({
               const Icon = item.icon;
               const active = isActive(item.path, item.exact);
               return (
-                <Link
+                <button
                   key={item.path}
-                  href={item.path}
+                  onClick={() => {
+                    if (active) {
+                      window.location.reload();
+                    } else {
+                      window.location.href = item.path;
+                    }
+                  }}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                     active
                       ? 'border-emerald-500 text-emerald-600'
@@ -71,7 +76,7 @@ export default function FinanceLayout({
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
-                </Link>
+                </button>
               );
             })}
           </nav>
