@@ -182,11 +182,29 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       }
     });
   } catch (error) {
-    logger.error('Error fetching internal users:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
+    // Log detailed error for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = (error as any)?.code || 'unknown';
+    
+    logger.error('Error fetching internal users:', {
+      message: errorMessage,
+      code: errorCode,
+      userId: user.id,
+      clinicId: user.clinicId,
+      role: user.role,
+    });
+    
+    // Return empty array instead of 500 - allows app to function
+    return NextResponse.json({
+      ok: true,
+      data: [],
+      meta: {
+        total: 0,
+        userClinicId: user.clinicId,
+        accessibleClinics: 0,
+        error: 'Failed to fetch users - feature temporarily unavailable'
+      }
+    });
   }
 }
 
