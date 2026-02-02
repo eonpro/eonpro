@@ -9,6 +9,8 @@ const { execSync } = require('child_process');
 const FAILED_MIGRATIONS = [
   '20260202_add_profile_status',
   '20260202_add_notifications',
+  '20260202_add_patient_id_prefix',
+  '20260202_backfill_patient_id_prefixes',
 ];
 
 console.log('🔧 Checking for failed migrations to resolve...');

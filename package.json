@@ -10,9 +10,11 @@
   },
   "scripts": {
     "dev": "next dev -p ${PORT:-3001}",
-    "build": "rm -rf node_modules/.prisma && prisma generate && prisma db push --skip-generate --accept-data-loss && next build",
+    "build": "rm -rf node_modules/.prisma && prisma generate && next build",
+    "build:with-push": "rm -rf node_modules/.prisma && prisma generate && prisma db push --skip-generate --accept-data-loss && next build",
     "start": "next start",
     "postinstall": "rm -rf node_modules/.prisma && prisma generate",
+    "vercel-build": "npm run db:migrate:safe && npm run build",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:safe": "node scripts/pre-migrate.js && prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
