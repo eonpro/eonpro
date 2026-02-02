@@ -432,7 +432,7 @@ export default function AdminPatientsPage() {
           onMergeComplete={(mergedPatientId) => {
             setMergePatient(null);
             fetchPatients(currentPage, debouncedSearch);
-            window.location.href = `/patients/${mergedPatientId}`);
+            window.location.href = `/patients/${mergedPatientId}`;
           }}
         />
       )}
@@ -524,7 +524,7 @@ export default function AdminPatientsPage() {
                   <tr
                     key={patient.id}
                     className="hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => window.location.href = `/patients/${patient.id}`)}
+                    onClick={() => window.location.href = `/patients/${patient.id}`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -641,7 +641,7 @@ export default function AdminPatientsPage() {
                     <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => window.location.href = `/patients/${patient.id}`)}
+                          onClick={() => window.location.href = `/patients/${patient.id}`}
                           className="p-2 text-gray-600 rounded-lg transition-colors"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
@@ -656,7 +656,7 @@ export default function AdminPatientsPage() {
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => window.location.href = `/patients/${patient.id}/edit`)}
+                          onClick={() => window.location.href = `/patients/${patient.id}/edit`}
                           className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
                         >

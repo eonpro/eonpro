@@ -309,7 +309,7 @@ export default function AdminAffiliateApplicationsPage() {
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => window.location.href = '/admin/affiliates')}
+          onClick={() => window.location.href = '/admin/affiliates'}
           className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -596,7 +596,7 @@ export default function AdminAffiliateApplicationsPage() {
             {selectedApplication.status === 'APPROVED' && selectedApplication.affiliate && (
               <div className="mt-6">
                 <button
-                  onClick={() => window.location.href = `/admin/affiliates/${selectedApplication.affiliate!.id}`)}
+                  onClick={() => window.location.href = `/admin/affiliates/${selectedApplication.affiliate!.id}`}
                   className="w-full rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700"
                 >
                   View Affiliate Profile
