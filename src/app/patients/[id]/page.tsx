@@ -115,6 +115,21 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
               orderBy: { createdAt: 'desc' },
               take: 10,
             },
+            // Include sales rep assignment
+            salesRepAssignments: {
+              where: { isActive: true },
+              orderBy: { assignedAt: 'desc' },
+              take: 1,
+              include: {
+                salesRep: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
           },
         });
       });
@@ -709,6 +724,10 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           patient={patientWithDecryptedPHI}
           currentTab={currentTab}
           affiliateCode={affiliateCode}
+          currentSalesRep={
+            patientWithDecryptedPHI.salesRepAssignments?.[0]?.salesRep || null
+          }
+          userRole={user.role}
         />
 
         {/* Main Content Area */}

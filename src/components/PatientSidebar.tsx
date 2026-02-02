@@ -7,6 +7,7 @@ import { Trash2, GitMerge } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
+import SalesRepDropdown from './SalesRepDropdown';
 
 interface PatientSidebarProps {
   patient: {
@@ -26,6 +27,12 @@ interface PatientSidebarProps {
   };
   currentTab: string;
   affiliateCode?: string | null;
+  currentSalesRep?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  } | null;
+  userRole?: string;
 }
 
 const navItems = [
@@ -40,7 +47,7 @@ const navItems = [
   { id: 'appointments', label: 'Appointments', icon: 'Ap' },
 ];
 
-export default function PatientSidebar({ patient, currentTab, affiliateCode }: PatientSidebarProps) {
+export default function PatientSidebar({ patient, currentTab, affiliateCode, currentSalesRep, userRole }: PatientSidebarProps) {
   const router = useRouter();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -242,7 +249,7 @@ export default function PatientSidebar({ patient, currentTab, affiliateCode }: P
           href={googleMapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-gray-600 block mb-6 transition-colors"
+          className="text-sm text-gray-600 block mb-4 transition-colors"
           style={{ '--hover-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
           onMouseEnter={(e) => e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)'}
           onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
@@ -251,6 +258,17 @@ export default function PatientSidebar({ patient, currentTab, affiliateCode }: P
           {formattedAddress2 && <p>{formattedAddress2}</p>}
           {cityStateZip && <p>{cityStateZip}</p>}
         </a>
+
+        {/* Sales Rep Assignment - Only shown for clinics that use sales reps */}
+        {userRole && (
+          <div className="mb-6">
+            <SalesRepDropdown
+              patientId={patient.id}
+              currentSalesRep={currentSalesRep}
+              userRole={userRole}
+            />
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="space-y-1 mb-6">
