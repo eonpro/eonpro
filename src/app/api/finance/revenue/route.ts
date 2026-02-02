@@ -22,7 +22,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clinicId = getClinicContext();
+    // Get clinic ID from context or fall back to user's clinic
+    const contextClinicId = getClinicContext();
+    const clinicId = contextClinicId || user.clinicId;
+
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }

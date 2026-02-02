@@ -150,11 +150,90 @@ All processed payments are logged to `PaymentReconciliation` table with:
 
 Critical payment failures trigger alerts to `PAYMENT_ALERT_WEBHOOK_URL` if configured.
 
+## Financial Reporting
+
+OT has comprehensive financial reporting available at `/api/stripe/reports/ot`.
+
+### Report Types
+
+| Report Type | Description | Use Case |
+|-------------|-------------|----------|
+| `executive` | High-level KPIs and metrics | Leadership dashboards |
+| `revenue` | Detailed revenue breakdown with trends | Financial analysis |
+| `affiliate` | Affiliate attribution and commission tracking | Partner management |
+| `patients` | Patient acquisition and lifetime value | Growth metrics |
+| `transactions` | Detailed transaction log with filtering | Accounting |
+| `products` | Product/treatment performance analysis | Product management |
+| `reconciliation` | Payment reconciliation for accounting | Month-end close |
+
+### API Usage
+
+```bash
+# Executive summary (last 30 days)
+GET /api/stripe/reports/ot?type=executive
+
+# Revenue report with weekly grouping
+GET /api/stripe/reports/ot?type=revenue&groupBy=week&startDate=2026-01-01
+
+# Transaction detail with CSV export
+GET /api/stripe/reports/ot?type=transactions&export=csv
+
+# Affiliate performance report
+GET /api/stripe/reports/ot?type=affiliate&startDate=2026-01-01&endDate=2026-01-31
+
+# Full reconciliation report
+GET /api/stripe/reports/ot?type=reconciliation
+```
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `type` | string | `executive` | Report type (see above) |
+| `startDate` | ISO date | 30 days ago | Start of reporting period |
+| `endDate` | ISO date | Today | End of reporting period |
+| `groupBy` | `day`/`week`/`month` | `day` | Time period grouping |
+| `export` | `csv`/`json` | `json` | Export format |
+| `limit` | number | `100` | Max transactions (transactions report) |
+| `cursor` | string | - | Pagination cursor (transactions report) |
+
+### Executive Report KPIs
+
+- **Total Revenue** - Gross revenue from all successful charges
+- **Net Revenue** - After refunds
+- **Total Transactions** - Count of successful payments
+- **Average Order Value** - Revenue / transactions
+- **New Patients** - Patients created in period
+- **Refund Rate** - Refunds / transactions
+- **Dispute Rate** - Disputes / transactions
+- **Top Products** - Revenue breakdown by treatment type
+- **Daily Revenue Chart** - Day-by-day revenue trend
+
+### Reconciliation Report
+
+The reconciliation report provides accounting-ready data:
+
+- Total charges, refunds, fees, and payouts
+- Current Stripe balance (available + pending)
+- Expected vs actual balance calculation
+- Fee breakdown by type (Stripe fees, etc.)
+- Payout history with arrival dates
+
+### Data Isolation
+
+Reports are **strictly isolated** to OT's Stripe account:
+
+1. Endpoint requires admin role + OT clinic access
+2. Only super_admins can access without OT clinic context
+3. All Stripe API calls use OT's dedicated credentials
+4. No cross-clinic data leakage possible
+
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `src/app/api/stripe/webhook/ot/route.ts` | OT webhook endpoint |
+| `src/app/api/stripe/reports/ot/route.ts` | OT financial reports endpoint |
 | `src/lib/stripe/connect.ts` | Multi-tenant Stripe routing |
 | `src/lib/stripe/config.ts` | OT Stripe configuration |
 | `src/services/stripe/paymentMatchingService.ts` | Patient matching logic |
