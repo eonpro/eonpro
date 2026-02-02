@@ -1045,27 +1045,60 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
 }
 
 /**
- * Extract promo/influencer code from payload
+ * Extract promo/influencer/affiliate code from payload
+ * Checks multiple field names used by different intake forms
  */
 export function extractPromoCode(payload: Record<string, unknown>): string | null {
   const promoFields = [
+    // Direct promo code fields
     'promo-code',
     'promoCode',
     'promo_code',
+    'PROMO CODE',
+    'Promo Code',
+    // Influencer code fields
     'influencer-code',
     'influencerCode',
     'influencer_code',
+    'INFLUENCER CODE',
+    'Influencer Code',
+    // Referral code fields
     'referral-code',
     'referralCode',
     'referral_code',
-    'PROMO CODE',
-    'INFLUENCER CODE',
+    'REFERRAL CODE',
+    'Referral Code',
+    // Affiliate code fields (OT clinic Heyflow forms)
+    'affiliate-code',
+    'affiliateCode',
+    'affiliate_code',
+    'AFFILIATE CODE',
+    'Affiliate Code',
+    // Partner code fields
+    'partner-code',
+    'partnerCode',
+    'partner_code',
+    'PARTNER CODE',
+    'Partner Code',
+    // "Who recommended" fields - these often contain the actual affiliate code
+    'Who reccomended OT Mens Health to you?',  // Typo in Airtable
+    'Who recommended OT Mens Health to you?',
+    'Who Recommended Us?',
+    'who_recommended',
+    'whoRecommended',
+    'Referrer',
+    'referrer',
   ];
 
   for (const field of promoFields) {
     const value = payload[field];
     if (value && typeof value === 'string' && value.trim()) {
-      return value.trim().toUpperCase();
+      const trimmed = value.trim();
+      // Skip generic answers like "Instagram", "Facebook", "Google", etc.
+      const genericSources = ['instagram', 'facebook', 'google', 'tiktok', 'youtube', 'twitter', 'friend', 'family', 'other', 'n/a', 'none', '-'];
+      if (!genericSources.includes(trimmed.toLowerCase())) {
+        return trimmed.toUpperCase();
+      }
     }
   }
 
