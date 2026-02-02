@@ -446,18 +446,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       },
     };
 
-    // Add debug info to help troubleshoot
-    const debug = {
-      userRole: user.role,
-      userClinicId: user.clinicId,
-      clinicFilter,
-      dateFrom: dateFrom.toISOString(),
-      dateTo: dateTo.toISOString(),
-      modernRefCodesCount: modernRefCodes.length,
-      legacyInfluencersCount: legacyInfluencers.length,
-    };
-
-    return NextResponse.json({ ...response, _debug: debug });
+    return NextResponse.json(response);
   } catch (error) {
     logger.error('[CodePerformance] Failed to fetch code performance', {
       userId: user.id,
