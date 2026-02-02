@@ -83,15 +83,59 @@ const COMMON_FIELD_LABELS: Record<string, string> = {
   // ═══════════════════════════════════════════════════════════════════
   // BODY METRICS (Airtable exact names)
   // ═══════════════════════════════════════════════════════════════════
+  // Height fields - all variations
   'Height [feet]': 'Height (feet)',
-  'Height [inches]': 'Height (inches)',
+  'Height [feet] ': 'Height (feet)',
+  'height [feet]': 'Height (feet)',
+  'Height [Feet]': 'Height (feet)',
+  'Height (feet)': 'Height (feet)',
+  'Height (Feet)': 'Height (feet)',
+  'Feet': 'Height (feet)',
   'feet': 'Height (feet)',
+  'feet ': 'Height (feet)',
+  
+  'Height [inches]': 'Height (inches)',
+  'Height [inches] ': 'Height (inches)',
+  'height [inches]': 'Height (inches)',
+  'Height [Inches]': 'Height (inches)',
+  'Height (inches)': 'Height (inches)',
+  'Height (Inches)': 'Height (inches)',
+  'Inches': 'Height (inches)',
   'inches': 'Height (inches)',
+  'inches ': 'Height (inches)',
+  
+  'Height': 'Height',
   'height': 'Height',
+  'height ': 'Height',
+  
+  // Weight fields - all variations
   'starting weight': 'Starting Weight (lbs)',
+  'starting weight ': 'Starting Weight (lbs)',
   'Starting weight': 'Starting Weight (lbs)',
+  'Starting Weight': 'Starting Weight (lbs)',
+  'Starting Weight ': 'Starting Weight (lbs)',
+  'start weight': 'Starting Weight (lbs)',
+  
+  'current weight': 'Current Weight (lbs)',
+  'Current weight': 'Current Weight (lbs)',
+  'Current Weight': 'Current Weight (lbs)',
+  'Current Weight ': 'Current Weight (lbs)',
   'weight': 'Current Weight (lbs)',
+  'Weight': 'Current Weight (lbs)',
+  'Weight ': 'Current Weight (lbs)',
   'current-weight': 'Current Weight (lbs)',
+  
+  'ideal weight': 'Ideal/Goal Weight (lbs)',
+  'ideal weight ': 'Ideal/Goal Weight (lbs)',
+  'Ideal weight': 'Ideal/Goal Weight (lbs)',
+  'Ideal Weight': 'Ideal/Goal Weight (lbs)',
+  'Ideal Weight ': 'Ideal/Goal Weight (lbs)',
+  'goal weight': 'Goal Weight (lbs)',
+  'Goal weight': 'Goal Weight (lbs)',
+  'Goal Weight': 'Goal Weight (lbs)',
+  'Goal Weight ': 'Goal Weight (lbs)',
+  'target weight': 'Target Weight (lbs)',
+  'Target Weight': 'Target Weight (lbs)',
   'bmi': 'BMI',
   'BMI': 'BMI',
   'BMI ': 'BMI',
@@ -429,12 +473,21 @@ function buildOvertimeSections(payload: OvertimePayload, treatmentType: Overtime
   // Body Metrics (Airtable exact + legacy - All treatments)
   const bodyMetricsFields = [
     // Airtable exact names
-    'Height [feet]', 'Height [inches]', 'starting weight', 
+    // Height - all variations
+    'Height [feet]', 'Height [feet] ', 'height [feet]', 'Height [Feet]',
+    'Height (feet)', 'Height (Feet)', 'Feet', 'feet', 'feet ',
+    'Height [inches]', 'Height [inches] ', 'height [inches]', 'Height [Inches]',
+    'Height (inches)', 'Height (Inches)', 'Inches', 'inches', 'inches ',
+    'Height', 'height', 'height ',
+    // Weight - all variations
+    'starting weight', 'starting weight ', 'Starting weight', 'Starting Weight', 'Starting Weight ',
+    'current weight', 'Current weight', 'Current Weight', 'Current Weight ',
+    'weight', 'Weight', 'Weight ',
+    'ideal weight', 'ideal weight ', 'Ideal weight', 'Ideal Weight', 'Ideal Weight ',
+    'goal weight', 'Goal weight', 'Goal Weight', 'Goal Weight ',
+    'target weight', 'Target Weight',
+    // BMI - all variations
     'BMI', 'BMI ', 'bmi', 'Bmi',
-    // Weight Loss specific
-    'ideal weight',
-    // Legacy formats
-    'feet', 'inches', 'height', 'weight', 'current-weight', 'bmi',
   ];
   
   // Medical History (Airtable exact names - All treatments)
@@ -948,16 +1001,33 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
 
   // Height/Weight - store in notes or additional fields if available
   // Airtable uses: "Height [feet]", "Height [inches]", "starting weight"
-  const heightFeet = payload['Height [feet]'] || payload['height [feet]'] || payload['feet'];
-  const heightInches = payload['Height [inches]'] || payload['height [inches]'] || payload['inches'];
-  const weight = payload['starting weight'] || payload['Starting weight'] || payload['weight'] || payload['Weight'];
+  const heightFeet = 
+    payload['Height [feet]'] || payload['Height [feet] '] || 
+    payload['height [feet]'] || payload['Height [Feet]'] ||
+    payload['Height (feet)'] || payload['Height (Feet)'] ||
+    payload['Feet'] || payload['feet'] || payload['feet '];
+  
+  const heightInches = 
+    payload['Height [inches]'] || payload['Height [inches] '] ||
+    payload['height [inches]'] || payload['Height [Inches]'] ||
+    payload['Height (inches)'] || payload['Height (Inches)'] ||
+    payload['Inches'] || payload['inches'] || payload['inches '];
+  
+  const weight = 
+    payload['starting weight'] || payload['starting weight '] ||
+    payload['Starting weight'] || payload['Starting Weight'] || payload['Starting Weight '] ||
+    payload['current weight'] || payload['Current weight'] || payload['Current Weight'] || payload['Current Weight '] ||
+    payload['weight'] || payload['Weight'] || payload['Weight '];
+    
+  const bmi = payload['BMI'] || payload['BMI '] || payload['bmi'] || payload['Bmi'];
 
-  // Log height/weight for debugging (these could be added to patient metadata later)
-  if (heightFeet || heightInches || weight) {
-    logger.debug('[Overtime Normalizer] Height/Weight data found', {
+  // Log height/weight/BMI for debugging (these could be added to patient metadata later)
+  if (heightFeet || heightInches || weight || bmi) {
+    logger.debug('[Overtime Normalizer] Height/Weight/BMI data found', {
       heightFeet,
       heightInches,
       weight,
+      bmi,
     });
   }
 
