@@ -63,7 +63,7 @@ const priorityColors = {
 };
 
 const categories: NotificationCategory[] = [
-  'PRESCRIPTION', 'PATIENT', 'ORDER', 'SYSTEM', 
+  'PRESCRIPTION', 'PATIENT', 'ORDER', 'SYSTEM',
   'APPOINTMENT', 'MESSAGE', 'PAYMENT', 'REFILL'
 ];
 
@@ -209,7 +209,7 @@ function NotificationItem({ notification, onRead, onArchive, onClick, compact }:
 // Main Component
 // ============================================================================
 
-export default function NotificationCenter({ 
+export default function NotificationCenter({
   notificationsPath = '/notifications',
   mode = 'dropdown',
   dropdownPosition = 'right',
@@ -250,39 +250,39 @@ export default function NotificationCenter({
   // Filter notifications
   const filteredNotifications = useMemo(() => {
     let result = notifications;
-    
+
     if (activeTab === 'unread') {
       result = result.filter(n => !n.isRead);
     }
-    
+
     if (filterCategory) {
       result = result.filter(n => n.category === filterCategory);
     }
-    
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(n => 
+      result = result.filter(n =>
         n.title.toLowerCase().includes(query) ||
         n.message.toLowerCase().includes(query)
       );
     }
-    
+
     return result;
   }, [notifications, activeTab, filterCategory, searchQuery]);
 
   // Group notifications by date
   const groupedNotifications = useMemo(() => {
     if (!preferences.groupSimilar) return { today: filteredNotifications, earlier: [] };
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     const todayNotifs: Notification[] = [];
     const yesterdayNotifs: Notification[] = [];
     const earlierNotifs: Notification[] = [];
-    
+
     filteredNotifications.forEach(n => {
       const date = new Date(n.createdAt);
       if (date >= today) {
@@ -293,7 +293,7 @@ export default function NotificationCenter({
         earlierNotifs.push(n);
       }
     });
-    
+
     return { today: todayNotifs, yesterday: yesterdayNotifs, earlier: earlierNotifs };
   }, [filteredNotifications, preferences.groupSimilar]);
 
@@ -319,18 +319,18 @@ export default function NotificationCenter({
         e.preventDefault();
         setIsOpen(prev => !prev);
       }
-      
+
       // Escape to close
       if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
       }
-      
+
       // R to refresh when open
       if (e.key === 'r' && isOpen && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         refresh();
       }
-      
+
       // M to mark all as read when open
       if (e.key === 'm' && isOpen && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
@@ -356,7 +356,7 @@ export default function NotificationCenter({
   // Render notification group
   const renderNotificationGroup = (title: string, notifs: Notification[]) => {
     if (notifs.length === 0) return null;
-    
+
     return (
       <div key={title}>
         <div className="px-4 py-2 bg-gray-50 border-y border-gray-100">
@@ -396,7 +396,7 @@ export default function NotificationCenter({
         ) : (
           <Bell className="h-5 w-5" />
         )}
-        
+
         {/* Unread Badge */}
         {unreadCount > 0 && !isDndActive && (
           <motion.span
@@ -410,7 +410,7 @@ export default function NotificationCenter({
         )}
 
         {/* Connection Status */}
-        <span 
+        <span
           className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
             isConnected ? 'bg-green-500' : 'bg-gray-400'
           }`}
@@ -426,9 +426,12 @@ export default function NotificationCenter({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-            className={`absolute mt-2 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden ${
+            className={`absolute mt-2 w-[420px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-gray-100 z-[100] overflow-hidden ${
               dropdownPosition === 'left' ? 'left-0' : 'right-0'
             }`}
+            style={{
+              maxHeight: 'calc(100vh - 120px)',
+            }}
           >
             {/* Header */}
             <div className="p-4 border-b border-gray-100">
@@ -436,7 +439,7 @@ export default function NotificationCenter({
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-semibold text-gray-900">Notifications</h3>
                   {unreadCount > 0 && (
-                    <span 
+                    <span
                       className="px-2 py-0.5 text-xs font-semibold rounded-full text-white"
                       style={{ backgroundColor: primaryColor }}
                     >
@@ -452,20 +455,20 @@ export default function NotificationCenter({
                     {isConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
                     {isConnected ? 'Live' : 'Offline'}
                   </div>
-                  
+
                   {/* DND Toggle */}
                   <button
                     onClick={toggleDnd}
                     className={`p-1.5 rounded-lg transition-colors ${
-                      isDndActive 
-                        ? 'text-orange-600 bg-orange-50' 
+                      isDndActive
+                        ? 'text-orange-600 bg-orange-50'
                         : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                     }`}
                     title={isDndActive ? 'Turn off Do Not Disturb' : 'Turn on Do Not Disturb'}
                   >
                     {isDndActive ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
                   </button>
-                  
+
                   {/* Settings */}
                   <button
                     onClick={() => setShowSettings(!showSettings)}
@@ -476,7 +479,7 @@ export default function NotificationCenter({
                   >
                     <Settings className="h-4 w-4" />
                   </button>
-                  
+
                   <button
                     onClick={() => setIsOpen(false)}
                     className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -499,21 +502,21 @@ export default function NotificationCenter({
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                   />
                 </div>
-                
+
                 {/* Category Filter */}
                 <div className="relative">
                   <button
                     onClick={() => setShowFilters(!showFilters)}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${
-                      filterCategory 
-                        ? 'border-blue-200 bg-blue-50 text-blue-700' 
+                      filterCategory
+                        ? 'border-blue-200 bg-blue-50 text-blue-700'
                         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
                     <Filter className="h-4 w-4" />
                     <ChevronDown className="h-3 w-3" />
                   </button>
-                  
+
                   {showFilters && (
                     <motion.div
                       initial={{ opacity: 0, y: -5 }}
@@ -677,8 +680,8 @@ export default function NotificationCenter({
                   <Bell className="h-12 w-12 mb-3 opacity-30" />
                   <p className="text-sm font-medium text-gray-600">No notifications</p>
                   <p className="text-xs mt-1">
-                    {searchQuery || filterCategory || activeTab === 'unread' 
-                      ? 'Try different filters' 
+                    {searchQuery || filterCategory || activeTab === 'unread'
+                      ? 'Try different filters'
                       : "You're all caught up!"}
                   </p>
                 </div>

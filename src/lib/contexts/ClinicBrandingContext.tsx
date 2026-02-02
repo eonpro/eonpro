@@ -276,7 +276,16 @@ export function ClinicBrandingProvider({
       if (isBrowser) {
         try {
           const domain = window.location.hostname;
-          const resolveResponse = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
+
+          // Add timeout to prevent hanging
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+          const resolveResponse = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`, {
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
           if (resolveResponse.ok) {
             const resolveData = await resolveResponse.json();
 
@@ -290,9 +299,15 @@ export function ClinicBrandingProvider({
             if (resolveData.clinicId) {
               cId = resolveData.clinicId;
             }
+          } else {
+            console.warn('[ClinicBranding] Failed to resolve clinic, using defaults');
           }
         } catch (resolveErr) {
-          console.log('Could not resolve clinic from domain');
+          if ((resolveErr as Error).name === 'AbortError') {
+            console.warn('[ClinicBranding] Timeout resolving clinic domain');
+          } else {
+            console.warn('[ClinicBranding] Could not resolve clinic from domain:', resolveErr);
+          }
         }
       }
 
@@ -329,22 +344,42 @@ export function ClinicBrandingProvider({
         return;
       }
 
-      const response = await fetch(`/api/patient-portal/branding?clinicId=${cId}`);
+      // Add timeout to prevent hanging
+      const brandingController = new AbortController();
+      const brandingTimeoutId = setTimeout(() => brandingController.abort(), 5000);
 
-      if (!response.ok) {
-        if (response.status === 404) {
+      try {
+        const response = await fetch(`/api/patient-portal/branding?clinicId=${cId}`, {
+          signal: brandingController.signal,
+        });
+        clearTimeout(brandingTimeoutId);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.warn('[ClinicBranding] Clinic not found, using defaults');
+            setBranding(defaultBranding);
+            return;
+          }
+          console.warn('[ClinicBranding] Failed to fetch branding:', response.status);
           setBranding(defaultBranding);
           return;
         }
-        throw new Error('Failed to fetch clinic branding');
-      }
 
-      const data = await response.json();
-      setBranding({
-        ...defaultBranding,
-        ...data,
-        features: { ...defaultFeatures, ...data.features },
-      });
+        const data = await response.json();
+        setBranding({
+          ...defaultBranding,
+          ...data,
+          features: { ...defaultFeatures, ...data.features },
+        });
+      } catch (brandingErr) {
+        clearTimeout(brandingTimeoutId);
+        if ((brandingErr as Error).name === 'AbortError') {
+          console.warn('[ClinicBranding] Timeout fetching branding');
+        } else {
+          console.warn('[ClinicBranding] Error fetching branding:', brandingErr);
+        }
+        setBranding(defaultBranding);
+      }
     } catch (err) {
       console.error('Error fetching clinic branding:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');

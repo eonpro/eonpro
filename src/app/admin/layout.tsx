@@ -8,10 +8,10 @@ import {
   DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck, Bell, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
-import { 
-  NotificationProvider, 
-  NotificationCenter, 
-  NotificationToastContainer 
+import {
+  NotificationProvider,
+  NotificationCenter,
+  NotificationToastContainer
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
@@ -244,14 +244,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Handle Clinics tab click - for multi-clinic admins (not super_admin), show switch modal
-  const handleClinicsClick = (e: React.MouseEvent, path: string) => {
-    if (path === '/admin/clinics' && hasMultipleClinics && userRole !== 'super_admin') {
-      e.preventDefault();
-      setShowClinicSwitchModal(true);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
@@ -327,11 +319,27 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 key={item.path}
                 href={item.path}
                 onClick={(e) => {
-                  console.log('[Nav] Clicked:', item.path);
-                  handleClinicsClick(e, item.path);
+                  console.log('[Nav] Clicked:', item.path, { active, pathname });
+
+                  // Handle special case for Clinics tab
+                  if (item.path === '/admin/clinics' && hasMultipleClinics && userRole !== 'super_admin') {
+                    e.preventDefault();
+                    setShowClinicSwitchModal(true);
+                    return;
+                  }
+
+                  // If clicking the same page, force reload
+                  if (active) {
+                    e.preventDefault();
+                    window.location.reload();
+                    return;
+                  }
+
+                  // Log navigation attempt
+                  console.log('[Nav] Navigating to:', item.path);
                 }}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
                   active
                     ? ''
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -442,11 +450,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
                         <img
                           src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
-                          alt={clinic.name} 
+                          alt={clinic.name}
                           className="w-8 h-8 rounded-lg object-contain"
                         />
                       ) : (
-                        <div 
+                        <div
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
                           style={{ backgroundColor: clinic.primaryColor || primaryColor }}
                         >
