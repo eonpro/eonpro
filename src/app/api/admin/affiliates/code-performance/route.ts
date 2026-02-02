@@ -201,40 +201,32 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         let lastClickAt: Date | null = null;
         let lastConversionAt: Date | null = null;
 
-        if (refCode.isLegacy) {
-          // For legacy codes, get data from ReferralTracking table
-          // Use case-insensitive search via contains (promoCode stored as-is)
-          const referralCount = await prisma.referralTracking.count({
-            where: {
-              OR: [
-                { promoCode: refCode.refCode },
-                { promoCode: refCode.refCode.toUpperCase() },
-                { promoCode: refCode.refCode.toLowerCase() },
-              ],
-              createdAt: {
-                gte: dateFrom,
-                lte: dateTo,
+        try {
+          if (refCode.isLegacy) {
+            // For legacy codes, get data from ReferralTracking table
+            const referralCount = await prisma.referralTracking.count({
+              where: {
+                promoCode: refCode.refCode,
+                createdAt: {
+                  gte: dateFrom,
+                  lte: dateTo,
+                },
               },
-            },
-          });
-          conversions = referralCount;
-          clicks = referralCount; // For legacy, clicks = conversions (no click tracking)
+            });
+            conversions = referralCount;
+            clicks = referralCount; // For legacy, clicks = conversions (no click tracking)
 
-          // Get last referral
-          const lastReferral = await prisma.referralTracking.findFirst({
-            where: {
-              OR: [
-                { promoCode: refCode.refCode },
-                { promoCode: refCode.refCode.toUpperCase() },
-                { promoCode: refCode.refCode.toLowerCase() },
-              ],
-            },
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true },
-          });
-          lastConversionAt = lastReferral?.createdAt || null;
-          lastClickAt = lastConversionAt;
-        } else {
+            // Get last referral
+            const lastReferral = await prisma.referralTracking.findFirst({
+              where: {
+                promoCode: refCode.refCode,
+              },
+              orderBy: { createdAt: 'desc' },
+              select: { createdAt: true },
+            });
+            lastConversionAt = lastReferral?.createdAt || null;
+            lastClickAt = lastConversionAt;
+          } else {
           // For modern codes, get data from AffiliateTouch table
           const clicksResult = await prisma.affiliateTouch.aggregate({
             where: {
@@ -312,7 +304,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           code: refCode.refCode,
           affiliateId: refCode.affiliateId,
           affiliateName: refCode.affiliate.displayName,
-          affiliateStatus: refCode.affiliate.status,
+          affiliateStatus: String(refCode.affiliate.status),
           clicks,
           conversions,
           revenue,
@@ -321,6 +313,26 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           lastConversionAt: lastConversionAt?.toISOString() || null,
           createdAt: refCode.createdAt.toISOString(),
         };
+        } catch (err) {
+          // Return empty metrics if query fails for this code
+          logger.warn('[CodePerformance] Failed to get metrics for code', {
+            code: refCode.refCode,
+            error: err instanceof Error ? err.message : 'Unknown',
+          });
+          return {
+            code: refCode.refCode,
+            affiliateId: refCode.affiliateId,
+            affiliateName: refCode.affiliate.displayName,
+            affiliateStatus: String(refCode.affiliate.status),
+            clicks: 0,
+            conversions: 0,
+            revenue: 0,
+            conversionRate: 0,
+            lastClickAt: null,
+            lastConversionAt: null,
+            createdAt: refCode.createdAt.toISOString(),
+          };
+        }
       })
     );
 

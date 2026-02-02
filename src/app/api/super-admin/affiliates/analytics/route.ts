@@ -144,10 +144,10 @@ async function handler(req: NextRequest): Promise<Response> {
       totalClinics: clinics.length,
       totalAffiliates: await prisma.affiliate.count(),
       activeAffiliates: await prisma.affiliate.count({ where: { status: 'ACTIVE' } }),
-      totalCodes: clinicBreakdown.reduce((sum, c) => sum + c.totalCodes, 0),
-      totalClicks: clinicBreakdown.reduce((sum, c) => sum + c.totalClicks, 0),
-      totalConversions: clinicBreakdown.reduce((sum, c) => sum + c.totalConversions, 0),
-      totalRevenue: clinicBreakdown.reduce((sum, c) => sum + c.totalRevenue, 0),
+      totalCodes: clinicBreakdown.reduce((sum: number, c: ClinicBreakdown) => sum + c.totalCodes, 0),
+      totalClicks: clinicBreakdown.reduce((sum: number, c: ClinicBreakdown) => sum + c.totalClicks, 0),
+      totalConversions: clinicBreakdown.reduce((sum: number, c: ClinicBreakdown) => sum + c.totalConversions, 0),
+      totalRevenue: clinicBreakdown.reduce((sum: number, c: ClinicBreakdown) => sum + c.totalRevenue, 0),
       avgConversionRate: 0,
     };
     
@@ -245,7 +245,7 @@ async function handler(req: NextRequest): Promise<Response> {
 
     const response: CrossClinicAnalyticsResponse = {
       totals,
-      clinicBreakdown: clinicBreakdown.sort((a, b) => b.totalConversions - a.totalConversions),
+      clinicBreakdown: clinicBreakdown.sort((a: ClinicBreakdown, b: ClinicBreakdown) => b.totalConversions - a.totalConversions),
       topCodes,
       trends,
     };
