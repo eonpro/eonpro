@@ -5,9 +5,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, UserPlus, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck
+  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck, Bell
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
+import { 
+  NotificationProvider, 
+  NotificationCenter, 
+  NotificationToastContainer 
+} from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
 // Default EONPRO logos
@@ -285,8 +290,16 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="px-3">
+        {/* Notifications & Logout */}
+        <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
+          {/* Notification Center */}
+          <div className={`flex ${sidebarExpanded ? 'items-center gap-3 px-3' : 'justify-center'}`}>
+            <NotificationCenter notificationsPath="/admin/notifications" />
+            {sidebarExpanded && (
+              <span className="text-sm font-medium text-gray-600">Notifications</span>
+            )}
+          </div>
+
           <button
             onClick={handleLogout}
             title={!sidebarExpanded ? "Logout" : undefined}
@@ -443,7 +456,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClinicBrandingProvider>
-      <AdminLayoutInner>{children}</AdminLayoutInner>
+      <NotificationProvider>
+        <AdminLayoutInner>{children}</AdminLayoutInner>
+        <NotificationToastContainer />
+      </NotificationProvider>
     </ClinicBrandingProvider>
   );
 }

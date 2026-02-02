@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { notificationService } from '@/services/notification';
 import { WebhookStatus } from '@prisma/client';
 import xml2js from 'xml2js';
 
@@ -215,6 +216,48 @@ async function processOrderStatus(data: any) {
           note: `Status Update: ${status}${shippingStatus ? `, Shipping: ${shippingStatus}` : ''}`
         }
       });
+
+      // ═══════════════════════════════════════════════════════════════
+      // NOTIFY ADMINS - Order tracking update from Lifefile
+      // ═══════════════════════════════════════════════════════════════
+      if (trackingNumber || shippingStatus) {
+        try {
+          // Get patient info for notification
+          const patient = await prisma.patient.findUnique({
+            where: { id: order.patientId },
+            select: { id: true, firstName: true, lastName: true, clinicId: true },
+          });
+
+          if (patient && patient.clinicId) {
+            const statusLabel = trackingNumber 
+              ? `Tracking: ${trackingNumber}` 
+              : `Status: ${shippingStatus || status}`;
+
+            await notificationService.notifyAdmins({
+              clinicId: patient.clinicId,
+              category: 'ORDER',
+              priority: 'NORMAL',
+              title: 'Tracking Update',
+              message: `Order for ${patient.firstName} ${patient.lastName}: ${statusLabel}`,
+              actionUrl: `/patients/${patient.id}?tab=prescriptions`,
+              metadata: {
+                orderId: order.id,
+                patientId: patient.id,
+                trackingNumber,
+                shippingStatus,
+                lifefileOrderId: orderId,
+              },
+              sourceType: 'webhook',
+              sourceId: `lifefile-${orderId}-${eventType}`,
+            });
+          }
+        } catch (notifyError) {
+          // Non-blocking - log but don't fail webhook
+          logger.warn(`[LIFEFILE DATA PUSH] Failed to send admin notification`, {
+            error: notifyError instanceof Error ? notifyError.message : 'Unknown error',
+          });
+        }
+      }
     } else {
       logger.warn(`[LIFEFILE DATA PUSH] Order not found: ${orderId || referenceId}`);
     }

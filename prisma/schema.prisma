@@ -30,8 +30,11 @@ model Patient {
   address2         String?
   patientId        String? // Unique within clinic (see @@unique below)
   stripeCustomerId String?  @unique
-  source           String   @default("manual") // "webhook", "api", "manual", "referral", "import"
+  source           String   @default("manual") // "webhook", "api", "manual", "referral", "import", "stripe"
   sourceMetadata   Json? // Additional source details (e.g., webhook URL, referrer ID, import batch)
+  
+  // Profile completion status - tracks patients auto-created from payments that need additional info
+  profileStatus    ProfileStatus @default(ACTIVE)
 
   // Affiliate Attribution (HIPAA-safe: only used for commission tracking, not in clinical notes)
   attributionAffiliateId  Int? // The affiliate who referred this patient
@@ -78,6 +81,7 @@ model Patient {
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
+  @@index([profileStatus]) // For efficiently querying pending profiles
 }
 
 model Order {
@@ -393,6 +397,15 @@ enum ReconciliationStatus {
   CREATED // New patient created
   FAILED // Processing failed
   SKIPPED // Intentionally skipped (e.g., duplicate)
+}
+
+// Profile completion status for patients created from Stripe payments
+// Used to track patients that need additional information or merging
+enum ProfileStatus {
+  ACTIVE // Complete profile, normal patient
+  PENDING_COMPLETION // Auto-created from payment with incomplete info (missing email/name)
+  MERGED // Profile was merged into another patient (retained for audit)
+  ARCHIVED // Soft deleted or archived
 }
 
 model PaymentMethod {
@@ -880,6 +893,9 @@ model User {
   salesRepAssignments   PatientSalesRepAssignment[] @relation("SalesRepAssignments")
   assignmentsMadeByUser PatientSalesRepAssignment[] @relation("AssignmentsMadeBy")
   assignmentsRemovedBy  PatientSalesRepAssignment[] @relation("AssignmentsRemovedBy")
+
+  // In-App Notifications
+  notifications Notification[]
 
   @@index([email])
   @@index([role, status])
@@ -2008,6 +2024,9 @@ model Clinic {
   // Telehealth & Calendar
   telehealthSessions    TelehealthSession[]
   calendarSubscriptions CalendarSubscription[]
+
+  // In-App Notifications
+  notifications Notification[]
 
   @@index([subdomain])
   @@index([status])
@@ -4880,4 +4899,62 @@ model AddressValidationLog {
   @@index([clinicId])
   @@index([source])
   @@index([createdAt])
+}
+
+// ============================================================================
+// In-App Notification System
+// ============================================================================
+
+enum NotificationCategory {
+  PRESCRIPTION // RX queue, prescription status changes
+  PATIENT // New intake, patient updates
+  ORDER // Shipping, delivery, tracking updates
+  SYSTEM // Alerts, maintenance, system notifications
+  APPOINTMENT // Scheduling, reminders
+  MESSAGE // Internal messages, chat
+  PAYMENT // Payment received, failed, refunds
+  REFILL // Refill requests, approvals
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Recipient
+  userId   Int
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinicId Int?
+  clinic   Clinic? @relation(fields: [clinicId], references: [id])
+
+  // Content
+  category  NotificationCategory
+  priority  NotificationPriority @default(NORMAL)
+  title     String
+  message   String
+  actionUrl String? // Link to relevant page/resource
+  metadata  Json? // Additional context (patientId, orderId, etc.)
+
+  // Status
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  isArchived Boolean   @default(false)
+  archivedAt DateTime?
+
+  // Source tracking (for deduplication and audit)
+  sourceType String? // 'webhook', 'system', 'user', 'cron'
+  sourceId   String? // External reference (webhook ID, order ID, etc.)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, isArchived])
+  @@index([clinicId, category])
+  @@index([sourceType, sourceId])
 }

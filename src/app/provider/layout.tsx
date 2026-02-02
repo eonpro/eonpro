@@ -6,9 +6,14 @@ import Link from 'next/link';
 import {
   Home, Users, Calendar, MessageSquare, FileText, TestTube,
   Pill, BookOpen, Settings, LogOut, ChevronRight, Search, Activity,
-  Stethoscope, ClipboardList
+  Stethoscope, ClipboardList, Bell
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
+import { 
+  NotificationProvider, 
+  NotificationCenter, 
+  NotificationToastContainer 
+} from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
 // Default EONPRO logos
@@ -272,8 +277,16 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
           )}
         </nav>
 
-        {/* User Info & Logout */}
+        {/* Notifications & User Info */}
         <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
+          {/* Notification Center */}
+          <div className={`flex ${sidebarExpanded ? 'items-center gap-3 px-3' : 'justify-center'}`}>
+            <NotificationCenter notificationsPath="/provider/notifications" />
+            {sidebarExpanded && (
+              <span className="text-sm font-medium text-gray-600">Notifications</span>
+            )}
+          </div>
+
           {sidebarExpanded && userName && (
             <div className="px-3 py-2 text-xs text-gray-500 truncate">
               {userName}
@@ -308,7 +321,10 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
 export default function ProviderLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClinicBrandingProvider>
-      <ProviderLayoutInner>{children}</ProviderLayoutInner>
+      <NotificationProvider>
+        <ProviderLayoutInner>{children}</ProviderLayoutInner>
+        <NotificationToastContainer />
+      </NotificationProvider>
     </ClinicBrandingProvider>
   );
 }

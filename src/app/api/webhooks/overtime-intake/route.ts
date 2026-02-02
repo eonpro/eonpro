@@ -8,6 +8,7 @@ import { generateIntakePdf } from "@/services/intakePdfService";
 import { storeIntakePdf } from "@/services/storage/intakeStorage";
 import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
 import { trackReferral } from "@/services/influencerService";
+import { notificationService } from "@/services/notification";
 import { logger } from '@/lib/logger';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
@@ -210,13 +211,49 @@ export async function POST(req: NextRequest) {
     const text = await req.text();
     payload = (safeParseJSON(text) || {}) as OvertimePayload;
 
+    // Log all keys for debugging
+    const allKeys = Object.keys(payload);
     logger.info(`[OVERTIME-INTAKE ${requestId}] Payload:`, {
-      keys: Object.keys(payload).slice(0, 15),
+      keys: allKeys.slice(0, 20),
+      totalKeys: allKeys.length,
       submissionId: payload['submission-id'] || payload.submissionId,
       treatmentType: payload.treatmentType || payload['treatment-type'],
       hasEmail: !!payload['email'],
-      hasFirstName: !!payload['first-name'] || !!payload['firstName'],
+      hasFirstName: !!payload['first-name'] || !!payload['firstName'] || !!payload['First name'],
       hasPromoCode: !!(payload['promo-code'] || payload['PROMO CODE'] || payload['influencer-code']),
+    });
+
+    // Log address-related fields for debugging
+    const addressKeys = allKeys.filter(k =>
+      k.toLowerCase().includes('address') ||
+      k.toLowerCase().includes('street') ||
+      k.toLowerCase().includes('city') ||
+      k.toLowerCase().includes('zip') ||
+      k.toLowerCase().includes('postal') ||
+      k.includes('38a5bae0') || // Heyflow address component
+      k.includes('0d142f9e')    // Heyflow apartment component
+    );
+
+    if (addressKeys.length > 0) {
+      const addressData: Record<string, unknown> = {};
+      for (const key of addressKeys) {
+        const value = payload[key as keyof typeof payload];
+        addressData[key] = typeof value === 'string' ? value.substring(0, 100) : value;
+      }
+      logger.info(`[OVERTIME-INTAKE ${requestId}] Address fields found:`, {
+        keys: addressKeys,
+        values: addressData,
+      });
+    } else {
+      logger.warn(`[OVERTIME-INTAKE ${requestId}] ⚠️ No address fields found in payload! Only State field will be used.`);
+    }
+
+    // Log state field specifically
+    const stateValue = payload['state'] || payload['State'] || payload['Address [State]'] ||
+                       payload['id-38a5bae0-state'] || payload['id-38a5bae0-state_code'];
+    logger.info(`[OVERTIME-INTAKE ${requestId}] State field:`, {
+      stateValue,
+      hasState: !!stateValue
     });
   } catch (err) {
     logger.warn(`[OVERTIME-INTAKE ${requestId}] Failed to parse payload, using empty object`);
@@ -237,6 +274,21 @@ export async function POST(req: NextRequest) {
   try {
     normalized = normalizeOvertimePayload(payload);
     logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Normalized: ${normalized.patient.firstName} ${normalized.patient.lastName}`);
+
+    // Log extracted address data
+    const extractedAddress = {
+      address1: normalized.patient.address1,
+      address2: normalized.patient.address2,
+      city: normalized.patient.city,
+      state: normalized.patient.state,
+      zip: normalized.patient.zip,
+    };
+    const hasFullAddress = !!(extractedAddress.address1 && extractedAddress.city && extractedAddress.state && extractedAddress.zip);
+    logger.info(`[OVERTIME-INTAKE ${requestId}] Extracted address:`, {
+      ...extractedAddress,
+      hasFullAddress,
+      onlyHasState: !!(extractedAddress.state && !extractedAddress.address1 && !extractedAddress.city && !extractedAddress.zip),
+    });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.warn(`[OVERTIME-INTAKE ${requestId}] Normalization failed, using fallback:`, { error: errMsg });
@@ -666,6 +718,37 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   const duration = Date.now() - startTime;
   recordSuccess("overtime-intake", duration);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // NOTIFY PROVIDERS - New patient ready for prescription
+  // ═══════════════════════════════════════════════════════════════════
+  if (isComplete && isNewPatient) {
+    try {
+      await notificationService.notifyProviders({
+        clinicId,
+        category: 'PRESCRIPTION',
+        priority: 'HIGH',
+        title: 'New Patient Ready for Rx',
+        message: `${patient.firstName} ${patient.lastName} completed ${treatmentLabel} intake and is ready for prescription review.`,
+        actionUrl: `/provider/prescription-queue?patientId=${patient.id}`,
+        metadata: {
+          patientId: patient.id,
+          patientName: `${patient.firstName} ${patient.lastName}`,
+          treatmentType,
+          treatmentLabel,
+          submissionId: normalized.submissionId,
+        },
+        sourceType: 'webhook',
+        sourceId: `overtime-intake-${normalized.submissionId}`,
+      });
+      logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Sent notification to providers`);
+    } catch (notifyError) {
+      // Non-blocking - log but don't fail webhook
+      logger.warn(`[OVERTIME-INTAKE ${requestId}] Failed to send provider notification`, {
+        error: notifyError instanceof Error ? notifyError.message : 'Unknown error',
+      });
+    }
+  }
 
   logger.info(`[OVERTIME-INTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`);
 
