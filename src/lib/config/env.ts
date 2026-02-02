@@ -39,6 +39,10 @@ const envSchema = z.object({
   EONMEDS_STRIPE_SECRET_KEY: z.string().optional(),
   EONMEDS_STRIPE_WEBHOOK_SECRET: z.string().optional(),
   NEXT_PUBLIC_EONMEDS_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  // Overtime (OT) Clinic Stripe Account (dedicated account like EonMeds)
+  OT_STRIPE_SECRET_KEY: z.string().optional(),
+  OT_STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  NEXT_PUBLIC_OT_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   // EONpro Platform Stripe Connect (separate account for Connect functionality)
   STRIPE_CONNECT_PLATFORM_SECRET_KEY: z.string().optional(),
   STRIPE_CONNECT_CLIENT_ID: z.string().optional(),
