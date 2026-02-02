@@ -7,6 +7,9 @@
 
 import type { OvertimeTreatmentType } from './types';
 
+// Re-export the type for convenience
+export type { OvertimeTreatmentType } from './types';
+
 /**
  * Treatment type constants
  */
