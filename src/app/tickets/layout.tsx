@@ -4,15 +4,16 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home, Ticket, Settings, LogOut, ChevronRight, ArrowLeft
+  Ticket, LogOut, ArrowLeft
 } from 'lucide-react';
 import {
   NotificationProvider,
   NotificationCenter,
   NotificationToastContainer
 } from '@/components/notifications';
+import { ClinicBrandingProvider } from '@/lib/contexts/ClinicBrandingContext';
 
-export default function TicketsLayout({ children }: { children: React.ReactNode }) {
+function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
@@ -64,42 +65,50 @@ export default function TicketsLayout({ children }: { children: React.ReactNode 
   }
 
   return (
-    <NotificationProvider>
-      <div className="min-h-screen bg-[#efece7]">
-        {/* Top Navigation Bar */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link 
-              href={getBackPath()}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span className="text-sm font-medium">Back to Dashboard</span>
-            </Link>
-            <div className="h-6 w-px bg-gray-300" />
-            <div className="flex items-center gap-2">
-              <Ticket className="h-5 w-5 text-[#4fa77e]" />
-              <span className="text-lg font-semibold text-gray-900">Ticket Management</span>
-            </div>
+    <div className="min-h-screen bg-[#efece7]">
+      {/* Top Navigation Bar */}
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link 
+            href={getBackPath()}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-sm font-medium">Back to Dashboard</span>
+          </Link>
+          <div className="h-6 w-px bg-gray-300" />
+          <div className="flex items-center gap-2">
+            <Ticket className="h-5 w-5 text-[#4fa77e]" />
+            <span className="text-lg font-semibold text-gray-900">Ticket Management</span>
           </div>
-          <div className="flex items-center gap-4">
-            <NotificationCenter notificationsPath="/admin/notifications" />
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="text-sm">Logout</span>
-            </button>
-          </div>
-        </header>
+        </div>
+        <div className="flex items-center gap-4">
+          <NotificationCenter notificationsPath="/admin/notifications" />
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="text-sm">Logout</span>
+          </button>
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <main className="p-6">
-          {children}
-        </main>
-      </div>
-      <NotificationToastContainer />
-    </NotificationProvider>
+      {/* Main Content */}
+      <main className="p-6">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+export default function TicketsLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClinicBrandingProvider>
+      <NotificationProvider>
+        <TicketsLayoutInner>{children}</TicketsLayoutInner>
+        <NotificationToastContainer />
+      </NotificationProvider>
+    </ClinicBrandingProvider>
   );
 }
