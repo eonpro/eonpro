@@ -196,10 +196,11 @@ async function postHandler(request: NextRequest, user: any) {
 }
 
 // Export handlers with authentication
+// Include all staff roles that should have access to internal chat
 export const GET = withAuth(getHandler, { 
-  roles: ['admin', 'provider', 'influencer'] 
+  roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'influencer'] 
 });
 
 export const POST = withAuth(postHandler, { 
-  roles: ['admin', 'provider', 'influencer'] 
+  roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'influencer'] 
 });

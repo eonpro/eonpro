@@ -7,6 +7,12 @@ import {
   Shield, Building2, Settings, LogOut, ChevronRight, Users, DollarSign, UserCog, Activity
 } from 'lucide-react';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
+import InternalChat from '@/components/InternalChat';
+import {
+  NotificationProvider,
+  NotificationCenter,
+  NotificationToastContainer
+} from '@/components/notifications';
 
 const navItems = [
   { icon: Shield, path: '/super-admin', label: 'Dashboard', exact: true },
@@ -24,6 +30,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
+  const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -39,6 +46,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         router.push('/login');
         return;
       }
+      setUserId(parsedUser.id || null);
       setUserName(`${parsedUser.firstName || ''} ${parsedUser.lastName || ''}`.trim() || parsedUser.email);
       setLoading(false);
     } catch {
@@ -76,91 +84,107 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="min-h-screen bg-[#efece7] flex">
-      {/* Sidebar */}
-      <aside
-        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
-          sidebarExpanded ? 'w-56' : 'w-20'
-        }`}
-      >
-        {/* Logo */}
-        <div className="flex items-center justify-center mb-6 px-4">
-          <Link href="/super-admin">
-            {sidebarExpanded ? (
-              <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
-                alt="EONPRO"
-                className="h-10 w-auto"
-              />
-            ) : (
-              <img
-                src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
-                alt="EONPRO"
-                className="h-10 w-10 object-contain"
-              />
-            )}
-          </Link>
-        </div>
-
-        {/* Expand Button */}
-        <button
-          onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 focus:outline-none transition-all ${
-            sidebarExpanded ? 'rotate-180' : ''
+    <NotificationProvider>
+      <div className="min-h-screen bg-[#efece7] flex">
+        {/* Sidebar */}
+        <aside
+          className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
+            sidebarExpanded ? 'w-56' : 'w-20'
           }`}
         >
-          <ChevronRight className="h-3 w-3 text-gray-400" />
-        </button>
+          {/* Logo */}
+          <div className="flex items-center justify-center mb-6 px-4">
+            <Link href="/super-admin">
+              {sidebarExpanded ? (
+                <img
+                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  alt="EONPRO"
+                  className="h-10 w-auto"
+                />
+              ) : (
+                <img
+                  src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
+                  alt="EONPRO"
+                  className="h-10 w-10 object-contain"
+                />
+              )}
+            </Link>
+          </div>
 
-        {/* Navigation Icons */}
-        <nav className="flex-1 flex flex-col px-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path, item.exact);
-            return (
-              <Link
-                key={item.path}
-                href={item.path}
-                title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                  active
-                    ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                }`}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {sidebarExpanded && (
-                  <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* User Info & Logout */}
-        <div className="px-3 space-y-2">
-          {sidebarExpanded && userName && (
-            <div className="px-3 py-2 text-xs text-gray-500 truncate">
-              {userName}
-            </div>
-          )}
+          {/* Expand Button */}
           <button
-            onClick={handleLogout}
-            title={!sidebarExpanded ? "Logout" : undefined}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all w-full"
+            onClick={() => setSidebarExpanded(!sidebarExpanded)}
+            className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 focus:outline-none transition-all ${
+              sidebarExpanded ? 'rotate-180' : ''
+            }`}
           >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            {sidebarExpanded && (
-              <span className="text-sm font-medium whitespace-nowrap">Sign Out</span>
-            )}
+            <ChevronRight className="h-3 w-3 text-gray-400" />
           </button>
-        </div>
-      </aside>
 
-      {/* Main Content */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
-        {children}
-      </main>
-    </div>
+          {/* Navigation Icons */}
+          <nav className="flex-1 flex flex-col px-3 space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path, item.exact);
+              return (
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  title={!sidebarExpanded ? item.label : undefined}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                    active
+                      ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                  }`}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {sidebarExpanded && (
+                    <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Notifications & User Info & Logout */}
+          <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
+            {/* Notification Center */}
+            <div className={`flex ${sidebarExpanded ? 'items-center gap-3 px-3' : 'justify-center'}`}>
+              <NotificationCenter notificationsPath="/super-admin/notifications" dropdownPosition="left" />
+              {sidebarExpanded && (
+                <span className="text-sm font-medium text-gray-600">Notifications</span>
+              )}
+            </div>
+
+            {sidebarExpanded && userName && (
+              <div className="px-3 py-2 text-xs text-gray-500 truncate">
+                {userName}
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              title={!sidebarExpanded ? "Logout" : undefined}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all w-full"
+            >
+              <LogOut className="h-5 w-5 flex-shrink-0" />
+              {sidebarExpanded && (
+                <span className="text-sm font-medium whitespace-nowrap">Sign Out</span>
+              )}
+            </button>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
+          {children}
+        </main>
+
+        {/* Internal Team Chat */}
+        {userId && (
+          <InternalChat currentUserId={userId} currentUserRole="super_admin" />
+        )}
+      </div>
+      <NotificationToastContainer />
+    </NotificationProvider>
   );
 }
