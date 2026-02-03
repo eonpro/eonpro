@@ -128,7 +128,7 @@ async function handler(req: NextRequest): Promise<Response> {
                 createdAt: { gte: dateFrom },
                 status: { in: ['PENDING', 'APPROVED', 'PAID'] },
               },
-              _sum: { orderAmountCents: true },
+              _sum: { eventAmountCents: true },
             }),
           ]);
 
@@ -138,7 +138,7 @@ async function handler(req: NextRequest): Promise<Response> {
             totalCodes: codes,
             totalClicks: clicks,
             totalConversions: conversions,
-            totalRevenue: revenue._sum.orderAmountCents || 0,
+            totalRevenue: revenue._sum.eventAmountCents || 0,
             activeAffiliates: affiliates,
           };
         } catch (clinicErr) {
@@ -212,7 +212,7 @@ async function handler(req: NextRequest): Promise<Response> {
                 createdAt: { gte: dateFrom },
                 status: { in: ['PENDING', 'APPROVED', 'PAID'] },
               },
-              _sum: { orderAmountCents: true },
+              _sum: { eventAmountCents: true },
             }),
           ]);
 
@@ -221,7 +221,7 @@ async function handler(req: NextRequest): Promise<Response> {
             affiliateName: code.affiliate.displayName,
             clinicName: code.clinic.name,
             conversions,
-            revenue: revenue._sum.orderAmountCents || 0,
+            revenue: revenue._sum.eventAmountCents || 0,
           };
         } catch (codeErr) {
           logger.error('[SuperAdmin Analytics] Failed for code', {
@@ -271,14 +271,14 @@ async function handler(req: NextRequest): Promise<Response> {
               createdAt: { gte: dayStart, lte: dayEnd },
               status: { in: ['PENDING', 'APPROVED', 'PAID'] },
             },
-            _sum: { orderAmountCents: true },
+            _sum: { eventAmountCents: true },
           }),
         ]);
 
         trends.push({
           date: dayStart.toISOString(),
           conversions: dayConversions,
-          revenue: dayRevenue._sum.orderAmountCents || 0,
+          revenue: dayRevenue._sum.eventAmountCents || 0,
         });
       } catch (dayErr) {
         trends.push({

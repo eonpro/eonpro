@@ -82,7 +82,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
             status: { in: ['PENDING', 'APPROVED', 'PAID'] },
           },
           _sum: {
-            orderAmountCents: true,
+            eventAmountCents: true,
             commissionAmountCents: true,
           },
         });
@@ -119,7 +119,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
           clicks,
           conversions,
           conversionRate,
-          revenueCents: commissionResult._sum.orderAmountCents || 0,
+          revenueCents: commissionResult._sum.eventAmountCents || 0,
           commissionCents: commissionResult._sum.commissionAmountCents || 0,
           trend,
           isNew: new Date(code.createdAt) > sevenDaysAgo,

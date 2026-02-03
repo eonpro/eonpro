@@ -24,6 +24,7 @@ import {
   InternalError,
   isAppError,
   NotFoundError,
+  ServiceUnavailableError,
   ValidationError,
   type ValidationErrorDetail,
 } from './AppError';
