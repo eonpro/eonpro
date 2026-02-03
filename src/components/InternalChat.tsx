@@ -84,7 +84,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       if (response.ok) {
         const data = await response.json();
         const userList = Array.isArray(data) ? data : (data.data || []);
-        setUsers(userList.filter((u: User) => u.id !== currentUserId));
+        // Use Number() for safe comparison in case of type mismatches
+        setUsers(userList.filter((u: User) => Number(u.id) !== Number(currentUserId)));
       } else {
         logger.error('Failed to fetch users:', response.status);
         setUsers([]);
