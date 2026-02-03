@@ -6,7 +6,7 @@ import {
   Settings, Building2, Users, Shield, Bell, CreditCard, Globe, Save,
   ExternalLink, CheckCircle, Clock, Link2, Plus, Pencil, Trash2,
   X, Eye, EyeOff, AlertCircle, Loader2, Palette, BarChart3,
-  FileText, RefreshCw, Search, ChevronDown, ChevronRight
+  FileText, RefreshCw, Search, ChevronDown, ChevronRight, UserCircle, Camera
 } from 'lucide-react';
 
 // Types
@@ -156,6 +156,22 @@ export default function AdminSettingsPage() {
   const [logFilter, setLogFilter] = useState({ action: '', page: 1 });
   const [logPagination, setLogPagination] = useState({ total: 0, totalPages: 1 });
 
+  // Profile picture state
+  const [myProfile, setMyProfile] = useState<{
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    role: string;
+    avatarUrl: string | null;
+  } | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [profileFirstName, setProfileFirstName] = useState('');
+  const [profileLastName, setProfileLastName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
   // Load initial data
   useEffect(() => {
     loadClinicInfo();
@@ -171,7 +187,129 @@ export default function AdminSettingsPage() {
     if (activeTab === 'audit' && auditLogs.length === 0) {
       loadAuditLogs();
     }
+    if (activeTab === 'my-profile' && !myProfile) {
+      loadMyProfile();
+    }
   }, [activeTab]);
+
+  const loadMyProfile = async () => {
+    try {
+      const [profileRes, avatarRes] = await Promise.all([
+        fetch('/api/user/profile'),
+        fetch('/api/user/profile-picture'),
+      ]);
+
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        const avatarData = avatarRes.ok ? await avatarRes.json() : {};
+
+        const profile = {
+          id: profileData.id,
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          email: profileData.email,
+          phone: profileData.phone,
+          role: profileData.role,
+          avatarUrl: avatarData.avatarUrl || profileData.avatarUrl,
+        };
+
+        setMyProfile(profile);
+        setProfileFirstName(profile.firstName);
+        setProfileLastName(profile.lastName);
+        setProfilePhone(profile.phone || '');
+      }
+    } catch (err) {
+      console.error('Failed to load profile:', err);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a valid image file (JPEG, PNG, WebP, or GIF)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/user/profile-picture', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMyProfile((prev) => prev ? { ...prev, avatarUrl: data.avatarUrl } : null);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to upload image');
+      }
+    } catch {
+      alert('Failed to upload image');
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!confirm('Are you sure you want to remove your profile picture?')) return;
+
+    setUploadingAvatar(true);
+    try {
+      const res = await fetch('/api/user/profile-picture', { method: 'DELETE' });
+      if (res.ok) {
+        setMyProfile((prev) => prev ? { ...prev, avatarUrl: null } : null);
+      }
+    } catch {
+      alert('Failed to remove image');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const saveMyProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: profileFirstName,
+          lastName: profileLastName,
+          phone: profilePhone || null,
+        }),
+      });
+
+      if (res.ok) {
+        setMyProfile((prev) => prev ? {
+          ...prev,
+          firstName: profileFirstName,
+          lastName: profileLastName,
+          phone: profilePhone || null,
+        } : null);
+        alert('Profile saved successfully!');
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to save profile');
+      }
+    } catch {
+      alert('Failed to save profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const loadClinicInfo = async () => {
     try {
@@ -403,6 +541,7 @@ export default function AdminSettingsPage() {
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart3 },
+    { id: 'my-profile', name: 'My Profile', icon: UserCircle },
     { id: 'clinic', name: 'Clinic Info', icon: Building2 },
     { id: 'users', name: 'User Management', icon: Users },
     { id: 'settings', name: 'General Settings', icon: Settings },
@@ -571,6 +710,144 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* My Profile Tab */}
+          {activeTab === 'my-profile' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">My Profile</h2>
+                <p className="text-gray-600 text-sm">Manage your profile picture and personal information</p>
+              </div>
+
+              {/* Profile Picture */}
+              <div className="flex items-start gap-6 p-6 bg-gray-50 rounded-xl">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center">
+                    {myProfile?.avatarUrl ? (
+                      <img
+                        src={myProfile.avatarUrl}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-3xl font-bold text-emerald-700">
+                        {myProfile?.firstName?.[0]}{myProfile?.lastName?.[0]}
+                      </span>
+                    )}
+                  </div>
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                      <Loader2 className="h-6 w-6 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1">
+                  <h3 className="font-medium text-gray-900 mb-1">Profile Picture</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Your profile picture will be displayed in chats and throughout the platform.
+                  </p>
+
+                  <div className="flex gap-3">
+                    <label className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 cursor-pointer flex items-center gap-2">
+                      <Camera className="h-4 w-4" />
+                      {myProfile?.avatarUrl ? 'Change' : 'Upload'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                        disabled={uploadingAvatar}
+                      />
+                    </label>
+                    {myProfile?.avatarUrl && (
+                      <button
+                        onClick={handleRemoveAvatar}
+                        disabled={uploadingAvatar}
+                        className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Max 5MB. Supported: JPEG, PNG, WebP, GIF
+                  </p>
+                </div>
+              </div>
+
+              {/* Personal Information */}
+              <div className="pt-6 border-t">
+                <h3 className="font-medium text-gray-900 mb-4">Personal Information</h3>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                    <input
+                      type="text"
+                      value={profileFirstName}
+                      onChange={(e) => setProfileFirstName(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      value={profileLastName}
+                      onChange={(e) => setProfileLastName(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={myProfile?.email || ''}
+                      disabled
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Contact support to change email</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={profilePhone}
+                      onChange={(e) => setProfilePhone(e.target.value)}
+                      placeholder="(555) 555-5555"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Info */}
+              <div className="pt-6 border-t">
+                <h3 className="font-medium text-gray-900 mb-4">Account Information</h3>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="text-gray-500">Role</span>
+                    <span className="font-medium text-gray-900 capitalize">{myProfile?.role?.toLowerCase().replace('_', ' ')}</span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="text-gray-500">User ID</span>
+                    <span className="font-mono text-gray-900">{myProfile?.id}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button
+                  onClick={saveMyProfile}
+                  disabled={savingProfile}
+                  className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Profile
+                </button>
               </div>
             </div>
           )}

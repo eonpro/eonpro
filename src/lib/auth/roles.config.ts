@@ -135,6 +135,7 @@ export const SUPER_ADMIN_CONFIG: RoleConfig = {
       { label: 'Dashboard', path: '/super-admin/dashboard', icon: 'LayoutDashboard' },
       { label: 'Clinics', path: '/admin/clinics', icon: 'Building2' },
       { label: 'Global Users', path: '/super-admin/users', icon: 'Users' },
+      { label: 'Tickets', path: '/tickets', icon: 'Ticket', badge: 'count' },
       { label: 'System Health', path: '/super-admin/system', icon: 'Activity' },
       { label: 'Security', path: '/super-admin/security', icon: 'Shield' },
       { label: 'Financials', path: '/super-admin/financials', icon: 'DollarSign' },
@@ -219,6 +220,7 @@ export const ADMIN_CONFIG: RoleConfig = {
         ]
       },
       { label: 'Orders', path: '/orders', icon: 'ShoppingCart' },
+      { label: 'Tickets', path: '/tickets', icon: 'Ticket', badge: 'count' },
       { label: 'Intake Forms', path: '/intake-forms', icon: 'ClipboardList' },
       { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp' },
       { label: 'Billing', path: '/admin/billing', icon: 'DollarSign' },
@@ -227,6 +229,7 @@ export const ADMIN_CONFIG: RoleConfig = {
     quick: [
       { label: 'Add Patient', action: 'add-patient', icon: 'UserPlus', color: 'blue' },
       { label: 'Create Order', action: 'create-order', icon: 'ShoppingBag', color: 'green' },
+      { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
       { label: 'View Reports', action: 'view-reports', icon: 'FileBarChart', color: 'purple' },
     ]
   },

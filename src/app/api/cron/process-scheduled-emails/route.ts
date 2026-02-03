@@ -113,7 +113,7 @@ async function processScheduledEmails(req: NextRequest) {
     });
 
     // Step 2: Mark emails as PROCESSING (atomic update to prevent duplicates)
-    const emailIds = pendingEmails.map((e) => e.id);
+    const emailIds = pendingEmails.map((e: { id: number }) => e.id);
     await prisma.scheduledEmail.updateMany({
       where: { id: { in: emailIds }, status: 'PENDING' },
       data: { status: 'PROCESSING' },

@@ -496,7 +496,7 @@ export async function getAutomationStats(days: number = 30): Promise<{
 
   // Group by trigger
   const byTrigger: Record<string, number> = {};
-  for (const log of logs) {
+  for (const log of logs as Array<{ sourceId: string | null; status: string }>) {
     if (log.sourceId) {
       byTrigger[log.sourceId] = (byTrigger[log.sourceId] || 0) + 1;
     }

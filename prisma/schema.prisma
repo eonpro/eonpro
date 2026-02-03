@@ -838,6 +838,9 @@ model User {
   emailDigestFrequency      String?   @default("weekly") // "daily", "weekly", "never"
   lastEmailDigestSentAt     DateTime?
 
+  // Profile Picture
+  avatarUrl String? // URL to user's profile picture in S3
+
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   createdById             Int?
@@ -874,6 +877,9 @@ model User {
   ticketsResolved     Ticket[]              @relation("TicketsResolved")
   ticketsOwned        Ticket[]              @relation("TicketsOwned")
   ticketsLastWorked   Ticket[]              @relation("TicketsLastWorked")
+  ticketsLastReopened Ticket[]              @relation("TicketsLastReopened")
+  ticketsLockedBy     Ticket[]              @relation("TicketsLockedBy")
+  ticketsClosedBy     Ticket[]              @relation("TicketsClosedBy")
   assignmentsMade     TicketAssignment[]    @relation("AssignmentsMade")
   assignmentsReceived TicketAssignment[]    @relation("AssignmentsReceived")
   ticketComments      TicketComment[]       @relation("TicketComments")
@@ -882,6 +888,19 @@ model User {
   escalationsMade     TicketEscalation[]    @relation("EscalationsMade")
   escalationsReceived TicketEscalation[]    @relation("EscalationsReceived")
   clinicAuditLogs     ClinicAuditLog[] // Multi-clinic audit logs
+
+  // Enterprise Ticket System Relations
+  ticketTeamMemberships     TicketTeamMember[]
+  ticketWatching            TicketWatcher[]
+  ticketWatchersAdded       TicketWatcher[]        @relation("WatcherAddedBy")
+  ticketRelationsCreated    TicketRelation[]
+  ticketAttachmentsUploaded TicketAttachment[]
+  ticketActivities          TicketActivity[]
+  ticketMerges              TicketMerge[]
+  ticketMacros              TicketMacro[]
+  ticketTemplates           TicketTemplate[]
+  ticketAutomationRules     TicketAutomationRule[]
+  ticketSavedViews          TicketSavedView[]
 
   // Scheduling & Care Plan Relations
   appointmentsCreated Appointment[]      @relation("AppointmentCreatedBy")
@@ -905,9 +924,9 @@ model User {
   notifications Notification[]
 
   // Email System Relations
-  emailLogs                  EmailLog[]
-  scheduledEmails            ScheduledEmail[]
-  notificationPreferences    UserNotificationPreference?
+  emailLogs               EmailLog[]
+  scheduledEmails         ScheduledEmail[]
+  notificationPreferences UserNotificationPreference?
 
   @@index([email])
   @@index([role, status])
@@ -1612,12 +1631,13 @@ model Ticket {
   clinic       Clinic?            @relation(fields: [clinicId], references: [id])
   updatedAt    DateTime           @updatedAt
   ticketNumber String             @unique @default("")
-  title        String
-  description  String
-  priority     TicketPriority     @default(MEDIUM)
-  status       TicketStatus       @default(OPEN)
+  title        String             @db.VarChar(500)
+  description  String             @db.Text
+  priority     TicketPriority     @default(P3_MEDIUM)
+  status       TicketStatus       @default(NEW)
   disposition  TicketDisposition?
   category     TicketCategory     @default(GENERAL)
+  source       TicketSource       @default(INTERNAL)
 
   // Related entities
   patientId        Int?
@@ -1626,11 +1646,21 @@ model Ticket {
   order            Order?   @relation(fields: [orderId], references: [id])
   isNonClientIssue Boolean  @default(false)
 
+  // Reporter (who created/reported the issue - may differ from createdBy for external sources)
+  reporterEmail String? // For external reporters (email/phone submissions)
+  reporterName  String? // For external reporters
+  reporterPhone String? // For phone-submitted tickets
+
   // People involved
   createdById  Int
-  createdBy    User  @relation("TicketsCreated", fields: [createdById], references: [id])
+  createdBy    User      @relation("TicketsCreated", fields: [createdById], references: [id])
   assignedToId Int?
-  assignedTo   User? @relation("TicketsAssigned", fields: [assignedToId], references: [id])
+  assignedTo   User?     @relation("TicketsAssigned", fields: [assignedToId], references: [id])
+  assignedAt   DateTime? // When current assignment was made
+
+  // Team assignment
+  teamId Int?
+  team   TicketTeam? @relation("TeamTickets", fields: [teamId], references: [id])
 
   // Activity tracking
   assignments   TicketAssignment[]
@@ -1646,24 +1676,71 @@ model Ticket {
   lastWorkedById Int?
   lastWorkedBy   User?     @relation("TicketsLastWorked", fields: [lastWorkedById], references: [id])
   lastWorkedAt   DateTime?
+  lastActivityAt DateTime  @default(now()) // Last activity timestamp for sorting
 
   // Resolution
   resolvedAt      DateTime?
   resolvedById    Int?
   resolvedBy      User?     @relation("TicketsResolved", fields: [resolvedById], references: [id])
-  resolutionNotes String?
+  resolutionNotes String?   @db.Text
+  rootCause       String?   @db.VarChar(500) // Root cause analysis
   resolutionTime  Int? // Total time to resolution in minutes
   actualWorkTime  Int? // Actual time worked in minutes
 
-  // Additional data
-  tags         Json? // Array of tags
-  customFields Json? // Custom field values
-  attachments  Json? // File references
+  // Reopen tracking
+  reopenCount      Int       @default(0)
+  lastReopenedAt   DateTime?
+  lastReopenedById Int?
+  lastReopenedBy   User?     @relation("TicketsLastReopened", fields: [lastReopenedById], references: [id])
 
+  // Additional data
+  tags         String[] @default([]) // Array of tags
+  customFields Json? // Custom field values
+
+  // Internal quick note (not a full comment)
+  internalNote String? @db.Text
+
+  // Parent-Child hierarchy for complex issues
+  parentTicketId Int?
+  parentTicket   Ticket?  @relation("TicketChildren", fields: [parentTicketId], references: [id])
+  childTickets   Ticket[] @relation("TicketChildren")
+
+  // Collision detection for concurrent editing
+  currentViewers Json? // {userId: timestamp} for real-time viewing indicators
+  lockedById     Int? // User currently editing
+  lockedBy       User?     @relation("TicketsLockedBy", fields: [lockedById], references: [id])
+  lockedAt       DateTime?
+
+  // Due date (independent of SLA)
+  dueDate DateTime?
+
+  // Enterprise relations
+  watchers        TicketWatcher[]
+  relations       TicketRelation[]
+  attachmentFiles TicketAttachment[]
+  activities      TicketActivity[]
+  csat            TicketCsat?
+  mergedTickets   TicketMerge[]      @relation("MergedInto")
+  mergedFrom      TicketMerge?       @relation("MergedFrom")
+
+  // Closed timestamp
+  closedAt   DateTime?
+  closedById Int?
+  closedBy   User?     @relation("TicketsClosedBy", fields: [closedById], references: [id])
+
+  @@index([clinicId, status, priority])
+  @@index([clinicId, status, createdAt(sort: Desc)])
+  @@index([clinicId, assignedToId, status])
+  @@index([clinicId, teamId, status])
+  @@index([clinicId, category, status])
   @@index([status, priority, createdAt])
   @@index([assignedToId, status])
   @@index([patientId])
+  @@index([orderId])
   @@index([ticketNumber])
+  @@index([parentTicketId])
+  @@index([lastActivityAt(sort: Desc)])
+  @@index([dueDate])
 }
 
 model TicketAssignment {
@@ -1745,18 +1822,24 @@ model TicketEscalation {
 }
 
 model TicketSLA {
-  id               Int       @id @default(autoincrement())
-  createdAt        DateTime  @default(now())
-  ticketId         Int       @unique
-  ticket           Ticket    @relation(fields: [ticketId], references: [id])
-  firstResponseDue DateTime? // When first response is due
-  firstResponseAt  DateTime? // When first response occurred
-  resolutionDue    DateTime // When resolution is due
-  resolvedAt       DateTime? // When actually resolved
-  breached         Boolean   @default(false)
+  id               Int              @id @default(autoincrement())
+  createdAt        DateTime         @default(now())
+  ticketId         Int              @unique
+  ticket           Ticket           @relation(fields: [ticketId], references: [id])
+  firstResponseDue DateTime?
+  firstResponseAt  DateTime?
+  resolutionDue    DateTime?
+  resolvedAt       DateTime?
+  breached         Boolean          @default(false)
   breachReason     String?
+  slaPolicyId      Int?
+  slaPolicy        SlaPolicyConfig? @relation(fields: [slaPolicyId], references: [id])
+  pausedAt         DateTime?
+  totalPausedTime  Int              @default(0)
+  warningNotified  Boolean          @default(false)
 
   @@index([resolutionDue, breached])
+  @@index([slaPolicyId])
 }
 
 // Enums for Internal Communication
@@ -1769,6 +1852,14 @@ enum InternalMessageType {
 }
 
 enum TicketPriority {
+  // Enterprise priority levels
+  P5_PLANNING // Enhancement request, no urgency
+  P4_LOW // Minor issue, cosmetic
+  P3_MEDIUM // Moderate impact (default)
+  P2_HIGH // Major impact, workaround available
+  P1_URGENT // Critical, blocking issue
+  P0_CRITICAL // System down, emergency
+  // Legacy values for backward compatibility
   LOW
   MEDIUM
   HIGH
@@ -1776,14 +1867,19 @@ enum TicketPriority {
 }
 
 enum TicketStatus {
-  OPEN
-  IN_PROGRESS
-  PENDING
-  ON_HOLD
-  ESCALATED
-  RESOLVED
-  CLOSED
-  CANCELLED
+  // Workflow stages
+  NEW // Just created, not yet triaged
+  OPEN // Triaged, awaiting action
+  IN_PROGRESS // Actively being worked on
+  PENDING // Generic waiting (legacy)
+  PENDING_CUSTOMER // Waiting for customer/reporter response
+  PENDING_INTERNAL // Waiting for internal resource
+  ON_HOLD // Paused (SLA clock stops)
+  ESCALATED // Escalated to higher tier
+  RESOLVED // Solution provided
+  CLOSED // Verified resolved, ticket complete
+  CANCELLED // Cancelled/withdrawn
+  REOPENED // Previously resolved, reopened
 }
 
 enum TicketDisposition {
@@ -1801,18 +1897,52 @@ enum TicketDisposition {
 }
 
 enum TicketCategory {
-  GENERAL
-  BILLING
+  // Patient Related
+  PATIENT_ISSUE
+  PATIENT_COMPLAINT
+  PATIENT_REQUEST
+
+  // Order Related
+  ORDER_ISSUE
+  ORDER_MODIFICATION
+  SHIPPING_ISSUE
+  REFUND_REQUEST
+
+  // Clinical
   PRESCRIPTION
-  APPOINTMENT
-  TECHNICAL_ISSUE
+  PRESCRIPTION_ISSUE
+  PROVIDER_INQUIRY
+  CLINICAL_QUESTION
   MEDICATION_QUESTION
-  INSURANCE
-  DELIVERY
   SIDE_EFFECTS
   DOSAGE
   REFILL
+
+  // Technical
+  SYSTEM_BUG
+  FEATURE_REQUEST
+  ACCESS_ISSUE
+  INTEGRATION_ERROR
+  TECHNICAL_ISSUE
   PORTAL_ACCESS
+
+  // Administrative
+  BILLING
+  BILLING_ISSUE
+  COMPLIANCE_ISSUE
+  DATA_CORRECTION
+  ACCOUNT_ISSUE
+  INSURANCE
+
+  // Scheduling
+  APPOINTMENT
+  SCHEDULING_ISSUE
+
+  // General
+  GENERAL
+  GENERAL_INQUIRY
+  FEEDBACK
+  DELIVERY
   OTHER
 }
 
@@ -1840,6 +1970,422 @@ enum TicketAction {
   CLOSED
   MERGED
   SPLIT
+  PRIORITY_CHANGED
+  CATEGORY_CHANGED
+  ATTACHMENT_ADDED
+  WATCHER_ADDED
+  WATCHER_REMOVED
+  LINKED
+  UNLINKED
+  SLA_BREACH_WARNING
+  SLA_BREACHED
+  AUTO_ASSIGNED
+  AUTO_ESCALATED
+  AUTO_CLOSED
+  MENTIONED
+  TIME_LOGGED
+}
+
+// ===== ENTERPRISE TICKET SYSTEM ENUMS =====
+
+enum TicketSource {
+  INTERNAL
+  PATIENT_PORTAL
+  PHONE
+  EMAIL
+  CHAT
+  FORM
+  SYSTEM
+  API
+}
+
+enum TicketActivityType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  CATEGORY_CHANGED
+  ASSIGNED
+  UNASSIGNED
+  REASSIGNED
+  ESCALATED
+  COMMENT_ADDED
+  INTERNAL_NOTE_ADDED
+  ATTACHMENT_ADDED
+  RESOLVED
+  REOPENED
+  CLOSED
+  LINKED
+  UNLINKED
+  MERGED
+  SPLIT
+  SLA_BREACH_WARNING
+  SLA_BREACHED
+  SLA_PAUSED
+  SLA_RESUMED
+  AUTO_ASSIGNED
+  AUTO_ESCALATED
+  AUTO_CLOSED
+  AUTOMATION_TRIGGERED
+  WATCHER_ADDED
+  WATCHER_REMOVED
+  MENTIONED
+  VIEWED
+  LOCKED
+  UNLOCKED
+  TIME_LOGGED
+}
+
+enum SlaMetricType {
+  FIRST_RESPONSE
+  RESOLUTION
+  NEXT_RESPONSE
+}
+
+enum AutomationTrigger {
+  ON_CREATE
+  ON_UPDATE
+  ON_STATUS_CHANGE
+  ON_ASSIGNMENT
+  ON_PRIORITY_CHANGE
+  ON_CATEGORY_CHANGE
+  ON_COMMENT_ADDED
+  ON_SLA_WARNING
+  ON_SLA_BREACH
+  ON_NO_ACTIVITY
+  ON_REOPEN
+  SCHEDULED
+}
+
+enum AutomationActionType {
+  SET_PRIORITY
+  SET_STATUS
+  SET_CATEGORY
+  ADD_TAG
+  REMOVE_TAG
+  ASSIGN_TO_USER
+  ASSIGN_TO_TEAM
+  ADD_WATCHER
+  SEND_NOTIFICATION
+  SEND_EMAIL
+  ADD_COMMENT
+  ADD_INTERNAL_NOTE
+  ESCALATE
+  CLOSE_TICKET
+  APPLY_MACRO
+}
+
+// =====================================================
+// ENTERPRISE TICKET SYSTEM - ADDITIONAL MODELS
+// =====================================================
+
+model TicketTeam {
+  id                  Int                @id @default(autoincrement())
+  clinicId            Int
+  clinic              Clinic             @relation(fields: [clinicId], references: [id])
+  name                String
+  description         String?
+  color               String?
+  icon                String?
+  defaultPriority     TicketPriority?
+  defaultSlaPolicyId  Int?
+  defaultSlaPolicy    SlaPolicyConfig?   @relation(fields: [defaultSlaPolicyId], references: [id])
+  autoAssignEnabled   Boolean            @default(false)
+  roundRobinEnabled   Boolean            @default(false)
+  maxTicketsPerMember Int?
+  isActive            Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  members             TicketTeamMember[]
+  tickets             Ticket[]           @relation("TeamTickets")
+  macros              TicketMacro[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId, isActive])
+}
+
+model TicketTeamMember {
+  id                 Int        @id @default(autoincrement())
+  teamId             Int
+  team               TicketTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId             Int
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isLead             Boolean    @default(false)
+  skills             String[]   @default([])
+  capacity           Int        @default(10)
+  currentTicketCount Int        @default(0)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model TicketWatcher {
+  id              Int      @id @default(autoincrement())
+  ticketId        Int
+  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifyOnComment Boolean  @default(true)
+  notifyOnStatus  Boolean  @default(true)
+  notifyOnAssign  Boolean  @default(false)
+  notifyOnResolve Boolean  @default(true)
+  addedById       Int?
+  addedBy         User?    @relation("WatcherAddedBy", fields: [addedById], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@unique([ticketId, userId])
+  @@index([userId])
+}
+
+model TicketRelation {
+  id             Int      @id @default(autoincrement())
+  ticketId       Int
+  ticket         Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  relationType   String
+  relatedId      Int
+  relatedDisplay String?
+  relationNote   String?
+  createdById    Int
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@unique([ticketId, relationType, relatedId])
+  @@index([ticketId])
+  @@index([relationType, relatedId])
+}
+
+model TicketAttachment {
+  id           Int       @id @default(autoincrement())
+  ticketId     Int
+  ticket       Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  commentId    Int?
+  uploadedById Int
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
+  fileName     String
+  fileType     String
+  fileSize     Int
+  fileUrl      String
+  thumbnailUrl String?
+  isPublic     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([ticketId])
+  @@index([commentId])
+}
+
+model TicketActivity {
+  id           Int                   @id @default(autoincrement())
+  ticketId     Int
+  ticket       Ticket                @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId       Int?
+  user         User?                 @relation(fields: [userId], references: [id])
+  activityType TicketActivityType
+  fieldChanged String?
+  oldValue     String?
+  newValue     String?
+  details      Json?
+  automationId Int?
+  automation   TicketAutomationRule? @relation(fields: [automationId], references: [id])
+  createdAt    DateTime              @default(now())
+  ipAddress    String?
+  userAgent    String?
+
+  @@index([ticketId, createdAt(sort: Desc)])
+  @@index([ticketId, activityType])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model TicketMerge {
+  id                     Int      @id @default(autoincrement())
+  sourceTicketId         Int      @unique
+  sourceTicket           Ticket   @relation("MergedFrom", fields: [sourceTicketId], references: [id])
+  targetTicketId         Int
+  targetTicket           Ticket   @relation("MergedInto", fields: [targetTicketId], references: [id])
+  mergedById             Int
+  mergedBy               User     @relation(fields: [mergedById], references: [id])
+  reason                 String?
+  commentsTransferred    Int      @default(0)
+  attachmentsTransferred Int      @default(0)
+  createdAt              DateTime @default(now())
+
+  @@index([targetTicketId])
+}
+
+model SlaPolicyConfig {
+  id                   Int                  @id @default(autoincrement())
+  clinicId             Int
+  clinic               Clinic               @relation(fields: [clinicId], references: [id])
+  name                 String
+  description          String?
+  priority             TicketPriority?
+  category             TicketCategory?
+  isDefault            Boolean              @default(false)
+  firstResponseMinutes Int
+  resolutionMinutes    Int
+  nextResponseMinutes  Int?
+  businessHoursId      Int?
+  businessHours        TicketBusinessHours? @relation(fields: [businessHoursId], references: [id])
+  respectBusinessHours Boolean              @default(true)
+  escalateOnBreach     Boolean              @default(true)
+  warningThresholdPct  Int                  @default(80)
+  escalateToTeamId     Int?
+  escalateToUserId     Int?
+  isActive             Boolean              @default(true)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  ticketSlas           TicketSLA[]
+  teams                TicketTeam[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId, isActive])
+  @@index([clinicId, priority])
+  @@index([clinicId, category])
+}
+
+model TicketBusinessHours {
+  id          Int               @id @default(autoincrement())
+  clinicId    Int
+  clinic      Clinic            @relation(fields: [clinicId], references: [id])
+  name        String
+  timezone    String            @default("America/New_York")
+  schedule    Json
+  holidays    Json              @default("[]")
+  isDefault   Boolean           @default(false)
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  slaPolicies SlaPolicyConfig[]
+
+  @@unique([clinicId, name])
+}
+
+model TicketMacro {
+  id              Int             @id @default(autoincrement())
+  clinicId        Int
+  clinic          Clinic          @relation(fields: [clinicId], references: [id])
+  name            String
+  description     String?
+  category        TicketCategory?
+  teamId          Int?
+  team            TicketTeam?     @relation(fields: [teamId], references: [id])
+  responseTitle   String?
+  responseContent String          @db.Text
+  isHtmlContent   Boolean         @default(false)
+  setStatus       TicketStatus?
+  setPriority     TicketPriority?
+  setCategory     TicketCategory?
+  addTags         String[]        @default([])
+  removeTags      String[]        @default([])
+  isPersonal      Boolean         @default(false)
+  createdById     Int
+  createdBy       User            @relation(fields: [createdById], references: [id])
+  usageCount      Int             @default(0)
+  lastUsedAt      DateTime?
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([clinicId, isActive])
+  @@index([clinicId, category])
+  @@index([createdById])
+  @@index([teamId])
+}
+
+model TicketTemplate {
+  id                  Int            @id @default(autoincrement())
+  clinicId            Int
+  clinic              Clinic         @relation(fields: [clinicId], references: [id])
+  name                String
+  description         String?
+  category            TicketCategory
+  titleTemplate       String
+  descriptionTemplate String         @db.Text
+  priority            TicketPriority @default(MEDIUM)
+  source              TicketSource   @default(INTERNAL)
+  defaultTeamId       Int?
+  defaultAssigneeId   Int?
+  tags                String[]       @default([])
+  customFieldsSchema  Json?
+  isActive            Boolean        @default(true)
+  createdById         Int
+  createdBy           User           @relation(fields: [createdById], references: [id])
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@unique([clinicId, name])
+  @@index([clinicId, category])
+  @@index([clinicId, isActive])
+}
+
+model TicketAutomationRule {
+  id                 Int               @id @default(autoincrement())
+  clinicId           Int
+  clinic             Clinic            @relation(fields: [clinicId], references: [id])
+  name               String
+  description        String?
+  trigger            AutomationTrigger
+  conditions         Json
+  actions            Json
+  priority           Int               @default(100)
+  stopOnMatch        Boolean           @default(false)
+  scheduleExpression String?
+  lastScheduledRun   DateTime?
+  executionCount     Int               @default(0)
+  lastExecutedAt     DateTime?
+  lastErrorAt        DateTime?
+  lastError          String?
+  isActive           Boolean           @default(true)
+  createdById        Int
+  createdBy          User              @relation(fields: [createdById], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  activities         TicketActivity[]
+
+  @@index([clinicId, trigger, isActive])
+  @@index([clinicId, isActive])
+}
+
+model TicketSavedView {
+  id          Int      @id @default(autoincrement())
+  clinicId    Int
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  name        String
+  description String?
+  icon        String?
+  color       String?
+  filters     Json
+  sortField   String   @default("createdAt")
+  sortOrder   String   @default("desc")
+  columns     String[] @default(["ticketNumber", "title", "status", "priority", "assignedTo", "createdAt"])
+  isPersonal  Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  position    Int      @default(0)
+  createdById Int
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clinicId, isPersonal])
+  @@index([createdById])
+}
+
+model TicketCsat {
+  id          Int       @id @default(autoincrement())
+  ticketId    Int       @unique
+  ticket      Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  score       Int
+  feedback    String?   @db.Text
+  sentAt      DateTime
+  respondedAt DateTime?
+  surveyToken String    @unique @default(uuid())
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([ticketId])
+  @@index([surveyToken])
 }
 
 // ===== MULTI-CLINIC SUPPORT =====
@@ -1935,35 +2481,44 @@ model Clinic {
   schemaName  String? // Optional: for schema-per-clinic
 
   // Relations
-  users               User[]
-  providers           Provider[]
-  patients            Patient[]
-  inviteCodes         ClinicInviteCode[]
-  orders              Order[]
-  tickets             Ticket[]
-  intakeTemplates     IntakeFormTemplate[]
-  invoices            Invoice[]
-  payments            Payment[]
-  paymentMethods      PaymentMethod[]
-  subscriptions       Subscription[]
-  soapNotes           SOAPNote[]
-  documents           PatientDocument[]
-  auditLogs           ClinicAuditLog[]
-  aiConversations     AIConversation[]
-  influencers         Influencer[]
-  referralTrackings   ReferralTracking[]
-  commissions         Commission[]
-  internalMessages    InternalMessage[]
-  webhookLogs         WebhookLog[]
-  integrationConfigs  Integration[]
-  apiKeys             ApiKey[]
-  webhookConfigs      WebhookConfig[]
-  systemSettings      SystemSettings[]
-  userClinics         UserClinic[] // Multi-clinic user assignments
-  providerClinics     ProviderClinic[] // ENTERPRISE: Multi-clinic provider assignments
-  salesRepAssignments PatientSalesRepAssignment[] // Sales rep patient assignments
-  reconciliations     PaymentReconciliation[]
-  patientCounter      PatientCounter? // Clinic-specific patient numbering
+  users           User[]
+  providers       Provider[]
+  patients        Patient[]
+  inviteCodes     ClinicInviteCode[]
+  orders          Order[]
+  tickets         Ticket[]
+  intakeTemplates IntakeFormTemplate[]
+
+  // Enterprise Ticket System
+  ticketTeams           TicketTeam[]
+  slaPolicies           SlaPolicyConfig[]
+  ticketBusinessHours   TicketBusinessHours[]
+  ticketMacros          TicketMacro[]
+  ticketTemplates       TicketTemplate[]
+  ticketAutomationRules TicketAutomationRule[]
+  ticketSavedViews      TicketSavedView[]
+  invoices              Invoice[]
+  payments              Payment[]
+  paymentMethods        PaymentMethod[]
+  subscriptions         Subscription[]
+  soapNotes             SOAPNote[]
+  documents             PatientDocument[]
+  auditLogs             ClinicAuditLog[]
+  aiConversations       AIConversation[]
+  influencers           Influencer[]
+  referralTrackings     ReferralTracking[]
+  commissions           Commission[]
+  internalMessages      InternalMessage[]
+  webhookLogs           WebhookLog[]
+  integrationConfigs    Integration[]
+  apiKeys               ApiKey[]
+  webhookConfigs        WebhookConfig[]
+  systemSettings        SystemSettings[]
+  userClinics           UserClinic[] // Multi-clinic user assignments
+  providerClinics       ProviderClinic[] // ENTERPRISE: Multi-clinic provider assignments
+  salesRepAssignments   PatientSalesRepAssignment[] // Sales rep patient assignments
+  reconciliations       PaymentReconciliation[]
+  patientCounter        PatientCounter? // Clinic-specific patient numbering
 
   // Scheduling & Care Plan Relations
   appointments         Appointment[]
@@ -5044,9 +5599,9 @@ model EmailLog {
   retryCount   Int     @default(0)
 
   // Bounce/Complaint Details
-  bounceType       String? // "Permanent", "Transient", "Undetermined"
-  bounceSubType    String? // "General", "NoEmail", "Suppressed", etc.
-  complaintType    String? // "abuse", "auth-failure", "fraud", etc.
+  bounceType    String? // "Permanent", "Transient", "Undetermined"
+  bounceSubType String? // "General", "NoEmail", "Suppressed", etc.
+  complaintType String? // "abuse", "auth-failure", "fraud", etc.
 
   // Source Tracking
   sourceType String? // "automation", "manual", "notification", "digest"
@@ -5089,7 +5644,7 @@ model ScheduledEmail {
   subject      String?
   template     String // EmailTemplate enum value
   templateData Json
-  priority     String @default("NORMAL")
+  priority     String  @default("NORMAL")
 
   // Scheduling
   scheduledFor DateTime

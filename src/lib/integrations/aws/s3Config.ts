@@ -51,6 +51,7 @@ export enum FileCategory {
   CONSENT_FORMS = 'consent-forms',
   INTAKE_FORMS = 'intake-forms',
   BRANDING = 'branding', // Clinic branding assets (logo, icon, favicon)
+  PROFILE_PICTURES = 'profile-pictures', // User profile pictures
   OTHER = 'other',
 }
 
@@ -110,6 +111,7 @@ export const STORAGE_CONFIG = {
     PROVIDERS: 'providers',
     CLINICS: 'clinics',
     BRANDING: 'branding',
+    PROFILE_PICTURES: 'profile-pictures',
     TEMP: 'temp',
     ARCHIVES: 'archives',
   },

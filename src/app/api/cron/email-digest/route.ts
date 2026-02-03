@@ -161,7 +161,7 @@ async function processEmailDigests(req: NextRequest) {
         }
 
         // Group notifications by category
-        const byCategory = notifications.reduce(
+        const byCategory = notifications.reduce<Record<NotificationCategory, typeof notifications>>(
           (acc, notification) => {
             const cat = notification.category;
             if (!acc[cat]) {
@@ -174,25 +174,28 @@ async function processEmailDigests(req: NextRequest) {
         );
 
         // Build category summaries
-        const categorySummaries = Object.entries(byCategory).map(([category, notifs]) => ({
-          name: CATEGORY_NAMES[category as NotificationCategory] || category,
-          count: notifs.length,
-          items: notifs.slice(0, 5).map((n) => ({
-            title: n.title,
-            message: n.message.length > 100 ? n.message.substring(0, 100) + '...' : n.message,
-            actionUrl: n.actionUrl,
-            priority: n.priority,
-            createdAt: n.createdAt.toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-            }),
-          })),
-        }));
+        const categorySummaries = Object.entries(byCategory).map(([category, notifs]) => {
+          const typedNotifs = notifs as typeof notifications;
+          return {
+            name: CATEGORY_NAMES[category as NotificationCategory] || category,
+            count: typedNotifs.length,
+            items: typedNotifs.slice(0, 5).map((n) => ({
+              title: n.title,
+              message: n.message.length > 100 ? n.message.substring(0, 100) + '...' : n.message,
+              actionUrl: n.actionUrl,
+              priority: n.priority,
+              createdAt: n.createdAt.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+              }),
+            })),
+          };
+        });
 
         // Count high priority items
         const highPriorityCount = notifications.filter(
-          (n) => n.priority === 'HIGH' || n.priority === 'URGENT'
+          (n: { priority: string }) => n.priority === 'HIGH' || n.priority === 'URGENT'
         ).length;
 
         // Send the digest email

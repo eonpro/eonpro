@@ -22,3 +22,4 @@ export * from './clinic';
 export * from './patient';
 export * from './provider';
 export * from './order';
+export * from './ticket';

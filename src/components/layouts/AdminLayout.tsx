@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, Users, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight
+  DollarSign, Settings, LogOut, ChevronRight, Ticket
 } from 'lucide-react';
 
 const navItems = [
   { icon: Home, path: '/admin', label: 'Dashboard' },
   { icon: Users, path: '/admin/patients', label: 'Patients' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
+  { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
   { icon: DollarSign, path: '/admin/finance', label: 'Finance' },

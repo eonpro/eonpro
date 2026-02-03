@@ -20,11 +20,11 @@ export interface AWSSESConfig {
 
 // Load configuration from environment
 export const sesConfig: AWSSESConfig = {
-  region: process.env.AWS_SES_REGION || process.env.AWS_REGION || 'us-east-1',
+  region: process.env.AWS_SES_REGION || process.env.AWS_REGION || 'us-east-2',
   accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  fromEmail: process.env.AWS_SES_FROM_EMAIL || 'noreply@lifefile.com',
-  fromName: process.env.AWS_SES_FROM_NAME || 'Lifefile Health',
+  fromEmail: process.env.AWS_SES_FROM_EMAIL || 'contact@eonpro.io',
+  fromName: process.env.AWS_SES_FROM_NAME || 'EONPRO',
   replyToEmail: process.env.AWS_SES_REPLY_TO_EMAIL,
   configurationSet: process.env.AWS_SES_CONFIGURATION_SET,
   maxSendRate: parseInt(process.env.AWS_SES_MAX_SEND_RATE || '14'),

@@ -32,11 +32,13 @@ export const GET = withAuth(
           phone: true,
           providerId: true,
           patientId: true,
+          influencerId: true,
           status: true,
           emailVerified: true,
           twoFactorEnabled: true,
           lastLogin: true,
           createdAt: true,
+          avatarUrl: true, // Profile picture URL
           clinic: {
             select: {
               id: true,
@@ -123,6 +125,8 @@ export const GET = withAuth(
           phone: userData.phone,
           providerId: userData.providerId,
           patientId: userData.patientId,
+          influencerId: userData.influencerId,
+          avatarUrl: userData.avatarUrl,
           status: userData.status,
           emailVerified: userData.emailVerified,
           twoFactorEnabled: userData.twoFactorEnabled,
@@ -148,5 +152,6 @@ export const GET = withAuth(
       });
     }
   },
-  { roles: ['provider', 'admin', 'super_admin', 'staff', 'patient'] }
+  // All authenticated users can access their own profile
+  { roles: ['super_admin', 'admin', 'provider', 'influencer', 'affiliate', 'patient', 'staff', 'support', 'sales_rep'] }
 );

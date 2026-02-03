@@ -16,7 +16,8 @@ import {
   BillingIcon,
   NotificationsIcon,
   AuditIcon,
-  TransactionsIcon
+  TransactionsIcon,
+  ProfileIcon
 } from '@/components/icons/SettingsIcons';
 
 interface SettingsSection {
@@ -33,6 +34,12 @@ const settingsSections: SettingsSection[] = [
     title: 'Overview',
     icon: <ChartIcon className="w-5 h-5" />,
     href: '/settings',
+  },
+  {
+    id: 'profile',
+    title: 'Profile',
+    icon: <ProfileIcon className="w-5 h-5" />,
+    href: '/settings/profile',
   },
   {
     id: 'general',
