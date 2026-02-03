@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { useNotificationContext, type ToastNotification } from './NotificationProvider';
 import type { NotificationCategory } from '@/hooks/useNotifications';
-import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
 // ============================================================================
 // Category Configuration - Apple-style icons and colors
@@ -289,7 +288,6 @@ function ProgressBar({ toast }: { toast: ToastNotification }) {
 
 export default function NotificationToastContainer() {
   const router = useRouter();
-  const { branding } = useClinicBranding();
   const {
     toasts,
     dismissToast,
