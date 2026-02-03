@@ -11,6 +11,7 @@
 import { type Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 import type {
   Order,
   Rx,
@@ -25,6 +26,11 @@ import type {
   OrderListFilters,
   OrderListResult,
 } from '../types';
+
+/**
+ * PHI fields that need decryption for patient data
+ */
+const PATIENT_PHI_FIELDS = ['firstName', 'lastName', 'email', 'phone'] as const;
 
 /**
  * Select fields for order with patient
@@ -53,6 +59,17 @@ const ORDER_WITH_PATIENT_SELECT = {
       id: true,
       firstName: true,
       lastName: true,
+    },
+  },
+  rxs: {
+    select: {
+      id: true,
+      medName: true,
+      strength: true,
+      form: true,
+      quantity: true,
+      refills: true,
+      sig: true,
     },
   },
 } as const;
@@ -113,6 +130,78 @@ const ORDER_WITH_DETAILS_SELECT = {
   },
 } as const;
 
+// ============================================================================
+// PHI Decryption Helpers
+// ============================================================================
+
+/**
+ * Decrypt patient PHI fields within an order
+ * Handles decryption failures gracefully by returning raw data
+ */
+function decryptOrderPatient<T extends { patient?: Record<string, unknown> | null }>(
+  order: T
+): T {
+  if (!order.patient) {
+    return order;
+  }
+
+  try {
+    const decryptedPatient = decryptPatientPHI(
+      order.patient as Record<string, unknown>,
+      [...PATIENT_PHI_FIELDS]
+    );
+    return {
+      ...order,
+      patient: decryptedPatient,
+    };
+  } catch (error) {
+    // If decryption fails, return order with original patient data
+    // This handles cases where data might not be encrypted yet (migration period)
+    logger.warn('Failed to decrypt patient PHI in order, returning raw data', {
+      orderId: (order as Record<string, unknown>).id,
+      patientId: order.patient?.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return order;
+  }
+}
+
+/**
+ * Decrypt patient and provider PHI fields within an order with details
+ */
+function decryptOrderDetails<T extends { patient?: Record<string, unknown> | null; provider?: Record<string, unknown> | null }>(
+  order: T
+): T {
+  let result = order;
+
+  // Decrypt patient PHI
+  if (result.patient) {
+    result = decryptOrderPatient(result);
+  }
+
+  // Decrypt provider PHI (firstName, lastName are also PHI)
+  if (result.provider) {
+    try {
+      const decryptedProvider = decryptPatientPHI(
+        result.provider as Record<string, unknown>,
+        ['firstName', 'lastName']
+      );
+      result = {
+        ...result,
+        provider: decryptedProvider,
+      };
+    } catch (error) {
+      logger.warn('Failed to decrypt provider PHI in order, returning raw data', {
+        orderId: (order as Record<string, unknown>).id,
+        providerId: result.provider?.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  return result;
+}
+
 export const orderRepository = {
   // ============================================================================
   // Order CRUD
@@ -138,7 +227,12 @@ export const orderRepository = {
       select: ORDER_WITH_PATIENT_SELECT,
     });
 
-    return order as OrderWithPatient | null;
+    if (!order) {
+      return null;
+    }
+
+    // Decrypt patient PHI fields before returning
+    return decryptOrderPatient(order) as OrderWithPatient;
   },
 
   /**
@@ -150,7 +244,12 @@ export const orderRepository = {
       select: ORDER_WITH_DETAILS_SELECT,
     });
 
-    return order as OrderWithDetails | null;
+    if (!order) {
+      return null;
+    }
+
+    // Decrypt patient and provider PHI fields before returning
+    return decryptOrderDetails(order) as OrderWithDetails;
   },
 
   /**
@@ -234,9 +333,12 @@ export const orderRepository = {
       take: limit,
     });
 
+    // Decrypt patient PHI fields before returning
+    const decryptedOrders = orders.map((order: typeof orders[number]) => decryptOrderPatient(order));
+
     return {
-      orders: orders as OrderWithPatient[],
-      count: orders.length,
+      orders: decryptedOrders as OrderWithPatient[],
+      count: decryptedOrders.length,
     };
   },
 
@@ -262,7 +364,8 @@ export const orderRepository = {
       take: 100,
     });
 
-    return orders as OrderWithPatient[];
+    // Decrypt patient PHI fields before returning
+    return orders.map((order: typeof orders[number]) => decryptOrderPatient(order)) as OrderWithPatient[];
   },
 
   /**
@@ -464,7 +567,8 @@ export const orderRepository = {
       take: limit,
     });
 
-    return orders as OrderWithDetails[];
+    // Decrypt patient and provider PHI fields before returning
+    return orders.map((order: typeof orders[number]) => decryptOrderDetails(order)) as OrderWithDetails[];
   },
 
   /**
@@ -478,7 +582,8 @@ export const orderRepository = {
       take: limit,
     });
 
-    return orders as OrderWithPatient[];
+    // Decrypt patient PHI fields before returning
+    return orders.map((order: typeof orders[number]) => decryptOrderPatient(order)) as OrderWithPatient[];
   },
 
   // ============================================================================
@@ -547,7 +652,12 @@ export const orderRepository = {
         clinicId: order.clinicId,
       });
 
-      return completeOrder as OrderWithDetails;
+      if (!completeOrder) {
+        throw new Error('Failed to fetch created order');
+      }
+
+      // Decrypt patient and provider PHI fields before returning
+      return decryptOrderDetails(completeOrder) as OrderWithDetails;
     });
   },
 };

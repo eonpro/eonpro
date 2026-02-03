@@ -99,6 +99,15 @@ export interface OrderWithPatient extends Order {
     firstName: string;
     lastName: string;
   };
+  rxs?: Array<{
+    id: number;
+    medName: string;
+    strength: string;
+    form: string;
+    quantity: string;
+    refills: string;
+    sig: string;
+  }>;
 }
 
 /**
