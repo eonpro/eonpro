@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -32,9 +33,9 @@ model Patient {
   stripeCustomerId String?  @unique
   source           String   @default("manual") // "webhook", "api", "manual", "referral", "import", "stripe"
   sourceMetadata   Json? // Additional source details (e.g., webhook URL, referrer ID, import batch)
-  
+
   // Profile completion status - tracks patients auto-created from payments that need additional info
-  profileStatus    ProfileStatus @default(ACTIVE)
+  profileStatus ProfileStatus @default(ACTIVE)
 
   // Affiliate Attribution (HIPAA-safe: only used for commission tracking, not in clinical notes)
   attributionAffiliateId  Int? // The affiliate who referred this patient
@@ -2002,6 +2003,9 @@ model Clinic {
 
   // Lifefile Shipping Updates
   shippingUpdates PatientShippingUpdate[]
+
+  // Medication Beyond Use Date Configuration
+  defaultBudDays Int @default(90) // Default Beyond Use Date in days for multi-shipment scheduling
 
   // Gamification
   challenges Challenge[]
@@ -4336,6 +4340,18 @@ model RefillQueue {
   nextRefillDate     DateTime // When the refill becomes due
   lastRefillDate     DateTime? // When the previous refill was completed
 
+  // Multi-Shipment Scheduling (for BUD constraints)
+  shipmentNumber Int? // Which shipment in the series (1, 2, 3, 4)
+  totalShipments Int? // Total number of shipments for this package
+  parentRefillId Int? // Links to the first refill in multi-shipment series
+  parentRefill   RefillQueue?  @relation("RefillShipmentSeries", fields: [parentRefillId], references: [id])
+  childRefills   RefillQueue[] @relation("RefillShipmentSeries")
+  budDays        Int           @default(90) // Beyond Use Date in days
+
+  // Notification Tracking
+  reminderSentAt    DateTime? // When advance reminder was sent to staff
+  patientNotifiedAt DateTime? // When patient was notified about upcoming shipment
+
   // Status Flow
   status RefillStatus @default(SCHEDULED)
 
@@ -4377,6 +4393,7 @@ model RefillQueue {
   @@index([subscriptionId])
   @@index([nextRefillDate])
   @@index([status, nextRefillDate])
+  @@index([parentRefillId])
 }
 
 // ===== FINANCIAL ANALYTICS SYSTEM =====
@@ -4915,6 +4932,7 @@ enum NotificationCategory {
   MESSAGE // Internal messages, chat
   PAYMENT // Payment received, failed, refunds
   REFILL // Refill requests, approvals
+  SHIPMENT // Multi-shipment scheduling reminders (BUD)
 }
 
 enum NotificationPriority {
