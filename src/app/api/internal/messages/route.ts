@@ -22,24 +22,30 @@ async function getHandler(request: NextRequest, user: any) {
       unreadOnly
     });
 
-    const whereClause: any = {
-      OR: [
-        { senderId: userId },
-        { recipientId: userId },
-        { AND: [
-          { channelId: { not: null } },
-          { channelId }
-        ]}
-      ]
-    };
-
+    // Build where clause based on parameters
+    let whereClause: any;
+    
     if (unreadOnly) {
-      whereClause.isRead = false;
-      whereClause.recipientId = userId;
+      // For unread messages, only get messages sent TO the user that are unread
+      whereClause = {
+        recipientId: userId,
+        isRead: false
+      };
+    } else if (channelId) {
+      // For channel messages
+      whereClause = { channelId };
+    } else {
+      // Default: get all messages where user is sender or recipient
+      whereClause = {
+        OR: [
+          { senderId: userId },
+          { recipientId: userId }
+        ]
+      };
     }
 
     const messages = await prisma.internalMessage.findMany({
-      where: channelId ? { channelId } : whereClause,
+      where: whereClause,
       include: {
         sender: {
           select: {
@@ -86,7 +92,7 @@ async function getHandler(request: NextRequest, user: any) {
     // Mark messages as read
     if (!unreadOnly) {
       const messageIds = messages
-        .filter((m: { recipientId: number; isRead: boolean }) => m.recipientId === userId && !m.isRead)
+        .filter((m: { recipientId: number | null; isRead: boolean }) => m.recipientId === userId && !m.isRead)
         .map((m: { id: number }) => m.id);
       
       if (messageIds.length > 0) {
