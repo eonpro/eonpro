@@ -847,17 +847,10 @@ export async function processIncomingSMS(
   messageSid: string
 ): Promise<string> {
   try {
-    // Use mock service if Twilio not configured
-    const useMock = !isTwilioConfigured() || process.env.TWILIO_USE_MOCK === 'true';
-
-    if (useMock) {
-      return await mockProcessIncomingSMS(from, body, messageSid);
-    }
-
     const messageBody = body.toLowerCase().trim();
     const formattedPhone = formatPhoneNumber(from);
 
-    // Find patient
+    // Find patient (needed for opt-out processing)
     const patient = await prisma.patient.findFirst({
       where: {
         OR: [
@@ -869,18 +862,25 @@ export async function processIncomingSMS(
       select: { id: true, clinicId: true },
     });
 
-    // Check for opt-out keywords (TCPA compliance - highest priority)
+    // TCPA Compliance: Check for opt-out keywords FIRST (highest priority, even in mock mode)
     if (isOptOutKeyword(messageBody)) {
       await processOptOut(from, patient?.clinicId, patient?.id, messageSid);
       logger.info('[SMS_OPT_OUT_RECEIVED]', { from, messageSid });
       return 'You have been unsubscribed from SMS messages. Reply START to resubscribe.';
     }
 
-    // Check for opt-in keywords
+    // Check for opt-in keywords (also process in mock mode)
     if (isOptInKeyword(messageBody)) {
       await processOptIn(from, patient?.clinicId, patient?.id);
       logger.info('[SMS_OPT_IN_RECEIVED]', { from, messageSid });
       return 'You have been resubscribed to SMS messages. Reply STOP to unsubscribe anytime.';
+    }
+
+    // Use mock service for other keywords if Twilio not configured
+    const useMock = !isTwilioConfigured() || process.env.TWILIO_USE_MOCK === 'true';
+
+    if (useMock) {
+      return await mockProcessIncomingSMS(from, body, messageSid);
     }
 
     // Check for appointment keywords

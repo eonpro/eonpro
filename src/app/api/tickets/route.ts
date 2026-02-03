@@ -9,12 +9,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { withAuth, AuthUser } from '@/lib/auth';
-import { ticketService } from '@/domains/ticket';
-import { handleApiError } from '@/domains/shared/errors';
+import { withAuth } from '@/lib/auth';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type { TicketListFilters, TicketListOptions, CreateTicketInput } from '@/domains/ticket';
-import type { TicketStatus, TicketPriority, TicketCategory, TicketSource } from '@prisma/client';
 
 /**
  * GET /api/tickets
@@ -22,148 +19,84 @@ import type { TicketStatus, TicketPriority, TicketCategory, TicketSource } from 
  */
 export const GET = withAuth(async (request, { user }) => {
   try {
+    logger.info('[API] Tickets GET - starting', { userId: user.id, role: user.role });
+
     const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
+    const skip = (page - 1) * limit;
 
-    // Parse filters
-    const filters: TicketListFilters = {};
+    // Build where clause based on user role
+    const whereClause = user.role !== 'SUPER_ADMIN' && user.clinicId
+      ? { clinicId: user.clinicId }
+      : {};
 
-    // Clinic filter (super admin can filter by clinic)
-    const clinicIdParam = searchParams.get('clinicId');
-    if (clinicIdParam) {
-      filters.clinicId = parseInt(clinicIdParam, 10);
-    }
+    // Query tickets
+    const [tickets, total] = await Promise.all([
+      prisma.ticket.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          ticketNumber: true,
+          title: true,
+          status: true,
+          priority: true,
+          category: true,
+          source: true,
+          createdAt: true,
+          updatedAt: true,
+          lastActivityAt: true,
+          dueDate: true,
+          assignedTo: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              patientId: true,
+            },
+          },
+        },
+      }),
+      prisma.ticket.count({ where: whereClause }),
+    ]);
 
-    // Status filter (can be multiple)
-    const statusParam = searchParams.getAll('status');
-    if (statusParam.length > 0) {
-      filters.status = statusParam as TicketStatus[];
-    }
+    const totalPages = Math.ceil(total / limit);
 
-    // Priority filter
-    const priorityParam = searchParams.getAll('priority');
-    if (priorityParam.length > 0) {
-      filters.priority = priorityParam as TicketPriority[];
-    }
+    logger.info('[API] Tickets GET - success', { count: tickets.length, total });
 
-    // Category filter
-    const categoryParam = searchParams.getAll('category');
-    if (categoryParam.length > 0) {
-      filters.category = categoryParam as TicketCategory[];
-    }
-
-    // Source filter
-    const sourceParam = searchParams.getAll('source');
-    if (sourceParam.length > 0) {
-      filters.source = sourceParam as TicketSource[];
-    }
-
-    // Assignment filters
-    const assignedToIdParam = searchParams.get('assignedToId');
-    if (assignedToIdParam) {
-      filters.assignedToId = assignedToIdParam === 'null' ? null : parseInt(assignedToIdParam, 10);
-    }
-
-    const teamIdParam = searchParams.get('teamId');
-    if (teamIdParam) {
-      filters.teamId = teamIdParam === 'null' ? null : parseInt(teamIdParam, 10);
-    }
-
-    // Boolean filters
-    if (searchParams.get('isUnassigned') === 'true') {
-      filters.isUnassigned = true;
-    }
-    if (searchParams.get('myTickets') === 'true') {
-      filters.myTickets = true;
-    }
-    if (searchParams.get('myWatched') === 'true') {
-      filters.myWatched = true;
-    }
-    if (searchParams.get('hasSlaBreach') === 'true') {
-      filters.hasSlaBreach = true;
-    }
-
-    // Related entity filters
-    const patientIdParam = searchParams.get('patientId');
-    if (patientIdParam) {
-      filters.patientId = parseInt(patientIdParam, 10);
-    }
-
-    const orderIdParam = searchParams.get('orderId');
-    if (orderIdParam) {
-      filters.orderId = parseInt(orderIdParam, 10);
-    }
-
-    // Search
-    const search = searchParams.get('search');
-    if (search) {
-      filters.search = search;
-    }
-
-    // Tags
-    const tagsParam = searchParams.getAll('tags');
-    if (tagsParam.length > 0) {
-      filters.tags = tagsParam;
-    }
-
-    // Date filters
-    const createdAfter = searchParams.get('createdAfter');
-    if (createdAfter) {
-      filters.createdAfter = new Date(createdAfter);
-    }
-
-    const createdBefore = searchParams.get('createdBefore');
-    if (createdBefore) {
-      filters.createdBefore = new Date(createdBefore);
-    }
-
-    // Parse options
-    const options: TicketListOptions = {
-      page: parseInt(searchParams.get('page') || '1', 10),
-      limit: Math.min(parseInt(searchParams.get('limit') || '20', 10), 100),
-      sortBy: (searchParams.get('sortBy') as TicketListOptions['sortBy']) || 'createdAt',
-      sortOrder: (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
-    };
-
-    // Build user context - map all valid roles
-    const roleMap: Record<string, 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient'> = {
-      'super_admin': 'super_admin',
-      'admin': 'admin',
-      'provider': 'provider',
-      'staff': 'staff',
-      'support': 'staff',
-      'sales_rep': 'staff',
-      'patient': 'patient',
-    };
-    
-    const normalizedRole = roleMap[user.role.toLowerCase()] || 'staff';
-    
-    const userContext = {
-      id: user.id,
-      email: user.email,
-      role: normalizedRole,
-      clinicId: user.clinicId || undefined,
-    };
-
-    logger.info('[API] Fetching tickets', { userId: user.id, role: normalizedRole, clinicId: user.clinicId });
-
-    const result = await ticketService.list(filters, options, userContext);
-
-    return NextResponse.json(result);
+    return NextResponse.json({
+      tickets,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasMore: page < totalPages,
+      },
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    
-    logger.error('[API] Failed to fetch tickets', { 
-      error: errorMessage,
-      stack: errorStack,
-    });
-    
-    // Return detailed error for debugging (temporarily)
+    logger.error('[API] Tickets GET - error', { error: errorMessage });
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch tickets', 
-        details: errorMessage,
-      },
+      { error: 'Failed to fetch tickets', details: errorMessage },
       { status: 500 }
     );
   }
@@ -177,26 +110,6 @@ export const POST = withAuth(async (request, { user }) => {
   try {
     const body = await request.json();
 
-    // Build user context - map all valid roles
-    const roleMap: Record<string, 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient'> = {
-      'super_admin': 'super_admin',
-      'admin': 'admin',
-      'provider': 'provider',
-      'staff': 'staff',
-      'support': 'staff',
-      'sales_rep': 'staff',
-      'patient': 'patient',
-    };
-    
-    const normalizedRole = roleMap[user.role.toLowerCase()] || 'staff';
-    
-    const userContext = {
-      id: user.id,
-      email: user.email,
-      role: normalizedRole,
-      clinicId: user.clinicId || undefined,
-    };
-
     // Use user's clinic if not specified
     const clinicId = body.clinicId || user.clinicId;
 
@@ -207,27 +120,74 @@ export const POST = withAuth(async (request, { user }) => {
       );
     }
 
-    const input: CreateTicketInput = {
-      clinicId,
-      title: body.title,
-      description: body.description,
-      category: body.category,
-      priority: body.priority,
-      source: body.source,
-      assignedToId: body.assignedToId,
-      teamId: body.teamId,
-      patientId: body.patientId,
-      orderId: body.orderId,
-      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
-      tags: body.tags,
-      customFields: body.customFields,
-      reporterEmail: body.reporterEmail,
-      reporterName: body.reporterName,
-      reporterPhone: body.reporterPhone,
-      parentTicketId: body.parentTicketId,
-    };
+    // Validate required fields
+    if (!body.title?.trim()) {
+      return NextResponse.json(
+        { error: 'Title is required' },
+        { status: 400 }
+      );
+    }
 
-    const ticket = await ticketService.create(input, userContext);
+    if (!body.description?.trim()) {
+      return NextResponse.json(
+        { error: 'Description is required' },
+        { status: 400 }
+      );
+    }
+
+    // Generate ticket number
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { subdomain: true },
+    });
+    const prefix = clinic?.subdomain?.toUpperCase().slice(0, 3) || 'TKT';
+    const ticketCount = await prisma.ticket.count({ where: { clinicId } });
+    const ticketNumber = `${prefix}-${String(ticketCount + 1).padStart(6, '0')}`;
+
+    // Create ticket
+    const ticket = await prisma.ticket.create({
+      data: {
+        clinicId,
+        ticketNumber,
+        title: body.title,
+        description: body.description,
+        category: body.category || 'GENERAL',
+        priority: body.priority || 'P3_MEDIUM',
+        source: body.source || 'INTERNAL',
+        status: 'NEW',
+        createdById: user.id,
+        assignedToId: body.assignedToId,
+        teamId: body.teamId,
+        patientId: body.patientId,
+        orderId: body.orderId,
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
+        tags: body.tags || [],
+        customFields: body.customFields,
+        reporterEmail: body.reporterEmail,
+        reporterName: body.reporterName,
+        reporterPhone: body.reporterPhone,
+        parentTicketId: body.parentTicketId,
+        assignedAt: body.assignedToId ? new Date() : null,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
 
     logger.info('[API] Ticket created', {
       ticketId: ticket.id,
@@ -243,6 +203,11 @@ export const POST = withAuth(async (request, { user }) => {
       { status: 201 }
     );
   } catch (error) {
-    return handleApiError(error, { route: 'POST /api/tickets' });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('[API] Tickets POST - error', { error: errorMessage });
+    return NextResponse.json(
+      { error: 'Failed to create ticket', details: errorMessage },
+      { status: 500 }
+    );
   }
 });
