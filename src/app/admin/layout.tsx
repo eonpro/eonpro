@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, UserPlus, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck, Bell, AlertTriangle, RefreshCw
+  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck, Bell, AlertTriangle, RefreshCw, Ticket
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -87,6 +87,7 @@ const baseNavItems = [
   { icon: Users, path: '/admin/patients', label: 'Patients' },
   { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
+  { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
   { icon: UserCheck, path: '/admin/affiliates', label: 'Affiliates' },

@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
 
 interface VerificationResult {
@@ -57,9 +58,7 @@ export async function storeVerificationCode(
 
     logger.info(`Verification code stored for ${email} (${type})`);
     return true;
-  } catch (error: any) {
-    // @ts-ignore
-   
+  } catch (error) {
     logger.error('Failed to store verification code:', error);
     return false;
   }
@@ -138,9 +137,7 @@ export async function verifyOTPCode(
       message: 'Email verified successfully',
       email,
     };
-  } catch (error: any) {
-    // @ts-ignore
-   
+  } catch (error) {
     logger.error('Error verifying OTP code:', error);
     return {
       success: false,
@@ -150,8 +147,7 @@ export async function verifyOTPCode(
 }
 
 /**
- * Send verification email (mock implementation)
- * In production, integrate with email service like SendGrid/AWS SES
+ * Send verification email via AWS SES
  */
 export async function sendVerificationEmail(
   email: string,
@@ -159,42 +155,34 @@ export async function sendVerificationEmail(
   type: 'email_verification' | 'password_reset'
 ): Promise<boolean> {
   try {
-    // Mock email sending
-    logger.info(`[EMAIL] Sending ${type} to ${email}`);
-    logger.info(`[EMAIL] Verification code: ${code}`);
-    
-    // In production, use actual email service:
-    // await sendGrid.send({
-    //   to: email,
-    //   from: 'noreply@lifefile.com',
-    //   subject: type === 'email_verification' 
-    //     ? 'Verify your email address'
-    //     : 'Reset your password',
-    //   html: generateEmailTemplate(code, type),
-    // });
+    const subject = type === 'email_verification' 
+      ? 'Verify Your Email Address - EONPRO'
+      : 'Reset Your Password - EONPRO';
 
-    // For development, also log to console for testing
-    logger.info(`
-    ========================================
-    ${type === 'email_verification' ? 'EMAIL VERIFICATION' : 'PASSWORD RESET'}
-    ========================================
-    To: ${email}
-    Code: ${code}
-    Expires in: 15 minutes
-    ========================================
-    `);
+    const result = await sendEmail({
+      to: email,
+      subject,
+      html: generateEmailTemplate(code, type),
+      text: `Your ${type === 'email_verification' ? 'verification' : 'password reset'} code is: ${code}. This code expires in 15 minutes.`,
+      sourceType: 'manual',
+      sourceId: `${type}-${Date.now()}`,
+    });
 
-    return true;
-  } catch (error: any) {
-    // @ts-ignore
-   
+    if (result.success) {
+      logger.info(`Verification email sent to ${email}`, { type, messageId: result.messageId });
+      return true;
+    } else {
+      logger.error(`Failed to send verification email to ${email}`, { type, error: result.error });
+      return false;
+    }
+  } catch (error: unknown) {
     logger.error('Failed to send verification email:', error);
     return false;
   }
 }
 
 /**
- * Generate email HTML template
+ * Generate email HTML template with EONPRO branding
  */
 function generateEmailTemplate(code: string, type: 'email_verification' | 'password_reset'): string {
   const title = type === 'email_verification' 
@@ -209,34 +197,50 @@ function generateEmailTemplate(code: string, type: 'email_verification' | 'passw
     <!DOCTYPE html>
     <html>
       <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+          .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 30px 20px; text-align: center; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+          .content { padding: 30px; }
           .code-box { 
-            background: #f4f4f4; 
-            border: 2px solid #4CAF50; 
+            background: #F3F4F6; 
+            border: 2px dashed #4F46E5; 
+            border-radius: 8px;
             padding: 20px; 
-            margin: 30px 0; 
+            margin: 24px 0; 
             text-align: center; 
-            font-size: 32px; 
+            font-size: 36px; 
             font-weight: bold; 
-            letter-spacing: 5px;
+            letter-spacing: 8px;
+            color: #4F46E5;
           }
-          .footer { margin-top: 30px; text-align: center; color: #666; font-size: 14px; }
+          .warning { background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 4px; margin: 20px 0; }
+          .footer { padding: 20px; text-align: center; color: #6B7280; font-size: 13px; border-top: 1px solid #E5E7EB; }
+          .footer a { color: #4F46E5; text-decoration: none; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header">
-            <h1>${title}</h1>
-          </div>
-          <p>${message}</p>
-          <div class="code-box">${code}</div>
-          <p>This code will expire in 15 minutes for security reasons.</p>
-          <p>If you didn't request this, please ignore this email.</p>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} Lifefile. All rights reserved.</p>
+          <div class="card">
+            <div class="header">
+              <h1>${title}</h1>
+            </div>
+            <div class="content">
+              <p>${message}</p>
+              <div class="code-box">${code}</div>
+              <div class="warning">
+                <strong>⏱️ This code expires in 15 minutes</strong> for security reasons.
+              </div>
+              <p style="color: #6B7280; font-size: 14px;">If you didn't request this code, you can safely ignore this email. Someone may have entered your email address by mistake.</p>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} EONPRO. All rights reserved.</p>
+              <p><a href="https://eonpro.io">eonpro.io</a></p>
+            </div>
           </div>
         </div>
       </body>
@@ -272,9 +276,7 @@ export async function cleanupExpiredCodes(): Promise<void> {
       
       logger.info(`Cleaned up ${expiredRecords.length} expired verification codes`);
     }
-  } catch (error: any) {
-    // @ts-ignore
-   
+  } catch (error) {
     logger.error('Failed to cleanup expired codes:', error);
   }
 }

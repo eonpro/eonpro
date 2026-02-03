@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   Home, Users, Calendar, MessageSquare, FileText, TestTube,
   Pill, BookOpen, Settings, LogOut, ChevronRight, Search, Activity,
-  Stethoscope, ClipboardList, Bell
+  Stethoscope, ClipboardList, Bell, Ticket
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import { 
@@ -30,6 +30,7 @@ const mainNavItems = [
   { icon: TestTube, path: '/provider/labs', label: 'Lab Results' },
   { icon: FileText, path: '/provider/soap-notes', label: 'SOAP Notes' },
   { icon: MessageSquare, path: '/provider/messages', label: 'Messages' },
+  { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: BookOpen, path: '/provider/resources', label: 'Resources' },
   { icon: Settings, path: '/provider/settings', label: 'Settings' },
 ];
