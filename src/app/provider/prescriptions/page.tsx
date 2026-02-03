@@ -161,105 +161,105 @@ export default function ProviderPrescriptionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Pill className="h-6 w-6" />
-            Prescriptions
-          </h1>
-          <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            New Prescription
-          </button>
+    <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-xl font-semibold flex items-center gap-2">
+              <Pill className="h-5 w-5" />
+              Prescriptions
+            </h1>
+            <button className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 flex items-center gap-1.5">
+              <Plus className="h-4 w-4" />
+              New Prescription
+            </button>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="flex gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by patient or medication..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">All Prescriptions</option>
+              <option value="active">Active</option>
+              <option value="refill-requested">Refill Requested</option>
+              <option value="expired">Expired</option>
+              <option value="discontinued">Discontinued</option>
+            </select>
+          </div>
         </div>
 
-        {/* Search and Filter */}
-        <div className="flex gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by patient or medication..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-            />
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-indigo-500">
+            <div className="text-xl font-bold text-indigo-600">{prescriptions.length}</div>
+            <div className="text-xs text-gray-500">Total Prescriptions</div>
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="all">All Prescriptions</option>
-            <option value="active">Active</option>
-            <option value="refill-requested">Refill Requested</option>
-            <option value="expired">Expired</option>
-            <option value="discontinued">Discontinued</option>
-          </select>
+          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500">
+            <div className="text-xl font-bold text-green-600">
+              {prescriptions.filter(p => p.status === "active").length}
+            </div>
+            <div className="text-xs text-gray-500">Active</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-yellow-500">
+            <div className="text-xl font-bold text-yellow-600">
+              {prescriptions.filter(p => p.status === "refill-requested").length}
+            </div>
+            <div className="text-xs text-gray-500">Refill Requests</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-red-500">
+            <div className="text-xl font-bold text-red-600">
+              {prescriptions.filter(p => p.status === "expired").length}
+            </div>
+            <div className="text-xs text-gray-500">Expired</div>
+          </div>
         </div>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-indigo-600">{prescriptions.length}</div>
-          <div className="text-sm text-gray-600">Total Prescriptions</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-green-600">
-            {prescriptions.filter(p => p.status === "active").length}
-          </div>
-          <div className="text-sm text-gray-600">Active</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-yellow-600">
-            {prescriptions.filter(p => p.status === "refill-requested").length}
-          </div>
-          <div className="text-sm text-gray-600">Refill Requests</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-red-600">
-            {prescriptions.filter(p => p.status === "expired").length}
-          </div>
-          <div className="text-sm text-gray-600">Expired</div>
-        </div>
-      </div>
-
-      {/* Prescriptions List */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
+        {/* Prescriptions List */}
+        <div className="bg-white rounded-lg shadow-sm">
           {filteredPrescriptions.length === 0 ? (
-            <div className="text-center py-12">
-              <Pill className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">
+            <div className="text-center py-10 px-4">
+              <Pill className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">
                 {searchTerm ? "No prescriptions match your search" : "No prescriptions yet"}
               </p>
-              <p className="text-sm text-gray-400 mt-2">
+              <p className="text-xs text-gray-400 mt-1">
                 Prescriptions will appear here when you create orders for patients.
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4">Rx #</th>
-                    <th className="text-left py-3 px-4">Patient</th>
-                    <th className="text-left py-3 px-4">Medication</th>
-                    <th className="text-left py-3 px-4">Dosage & Frequency</th>
-                    <th className="text-left py-3 px-4">Status</th>
-                    <th className="text-left py-3 px-4">Refills</th>
-                    <th className="text-left py-3 px-4">Last Filled</th>
-                    <th className="text-left py-3 px-4">Actions</th>
+                    <th className="text-left py-2.5 px-3 font-medium text-gray-600 whitespace-nowrap">Rx #</th>
+                    <th className="text-left py-2.5 px-3 font-medium text-gray-600 whitespace-nowrap">Patient</th>
+                    <th className="text-left py-2.5 px-3 font-medium text-gray-600 whitespace-nowrap">Medication</th>
+                    <th className="text-left py-2.5 px-3 font-medium text-gray-600 whitespace-nowrap">Dosage & Frequency</th>
+                    <th className="text-left py-2.5 px-3 font-medium text-gray-600 whitespace-nowrap">Status</th>
+                    <th className="text-left py-2.5 px-3 font-medium text-gray-600 whitespace-nowrap">Refills</th>
+                    <th className="text-left py-2.5 px-3 font-medium text-gray-600 whitespace-nowrap">Last Filled</th>
+                    <th className="text-left py-2.5 px-3 font-medium text-gray-600 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {filteredPrescriptions.map((rx) => (
-                    <tr key={`${rx.id}-${rx.orderId}`} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium">{rx.id}</td>
-                      <td className="py-3 px-4">
+                    <tr key={`${rx.id}-${rx.orderId}`} className="hover:bg-gray-50">
+                      <td className="py-2.5 px-3 font-medium text-gray-900">{rx.id}</td>
+                      <td className="py-2.5 px-3">
                         <Link
                           href={`/patients/${rx.patientId}`}
                           className="font-medium text-green-700 hover:underline"
@@ -267,38 +267,36 @@ export default function ProviderPrescriptionsPage() {
                           {rx.patientName}
                         </Link>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium">{rx.medication}</div>
-                        <div className="text-sm text-gray-500">Duration: {rx.duration}</div>
+                      <td className="py-2.5 px-3">
+                        <div className="font-medium text-gray-900 max-w-[180px] truncate" title={rx.medication}>{rx.medication}</div>
+                        <div className="text-xs text-gray-500">Duration: {rx.duration}</div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div>{rx.dosage}</div>
-                        <div className="text-sm text-gray-500 max-w-[200px] truncate" title={rx.frequency}>
+                      <td className="py-2.5 px-3">
+                        <div className="text-gray-900">{rx.dosage}</div>
+                        <div className="text-xs text-gray-500 max-w-[150px] truncate" title={rx.frequency}>
                           {rx.frequency}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getStatusColor(rx.status)}`}>
+                      <td className="py-2.5 px-3">
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(rx.status)}`}>
                           {getStatusIcon(rx.status)}
                           {rx.status.replace("-", " ")}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium">{rx.refillsRemaining}</div>
-                        <div className="text-sm text-gray-500">remaining</div>
+                      <td className="py-2.5 px-3">
+                        <div className="font-medium text-gray-900">{rx.refillsRemaining}</div>
+                        <div className="text-xs text-gray-500">remaining</div>
                       </td>
-                      <td className="py-3 px-4 text-sm">
+                      <td className="py-2.5 px-3 text-gray-600">
                         {rx.lastFilled ? new Date(rx.lastFilled).toLocaleDateString() : "—"}
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex gap-2">
-                          <Link
-                            href={`/patients/${rx.patientId}?tab=prescriptions`}
-                            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                          >
-                            View
-                          </Link>
-                        </div>
+                      <td className="py-2.5 px-3">
+                        <Link
+                          href={`/patients/${rx.patientId}?tab=prescriptions`}
+                          className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium"
+                        >
+                          View
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -307,19 +305,19 @@ export default function ProviderPrescriptionsPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Pending Actions */}
-      {prescriptions.filter(p => p.status === "refill-requested").length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-yellow-600" />
-            <span className="font-medium text-yellow-800">
-              {prescriptions.filter(p => p.status === "refill-requested").length} refill requests pending approval
-            </span>
+        {/* Pending Actions */}
+        {prescriptions.filter(p => p.status === "refill-requested").length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <span className="text-sm font-medium text-yellow-800">
+                {prescriptions.filter(p => p.status === "refill-requested").length} refill requests pending approval
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
