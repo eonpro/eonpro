@@ -15,6 +15,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
  * - Excludes patients (they use patient chat)
  * - Only shows ACTIVE users
  * - Can exclude self with ?excludeSelf=true
+ * - ALWAYS shows super_admin users (Platform Administrators) for support access
  */
 async function getHandler(request: NextRequest, user: AuthUser) {
   try {
@@ -66,13 +67,16 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     };
 
     // Apply clinic filter for non-super-admin users
+    // BUT always include super_admin users (Platform Administrators) for support access
     if (accessibleClinicIds.length > 0) {
       // Users can be in a clinic via:
       // 1. Their primary clinicId field
       // 2. Their UserClinic entries
+      // 3. OR they are a super_admin (always visible for platform support)
       whereClause.OR = [
         { clinicId: { in: accessibleClinicIds } },
-        { userClinics: { some: { clinicId: { in: accessibleClinicIds }, isActive: true } } }
+        { userClinics: { some: { clinicId: { in: accessibleClinicIds }, isActive: true } } },
+        { role: 'super_admin' } // Always show Platform Administrators
       ];
     }
 
@@ -158,18 +162,31 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         }
       });
 
+      // Special display name for super_admin
+      const displayRole = u.role === 'super_admin' ? 'Platform Admin' : u.role;
+      const isSuperAdmin = u.role === 'super_admin';
+
       return {
         id: u.id,
         firstName: u.firstName || '',
         lastName: u.lastName || '',
         email: u.email,
-        role: u.role,
+        role: displayRole,
+        originalRole: u.role,
         clinicId: u.clinicId,
-        clinicName: clinicNames[0] || null,
-        clinics: clinicNames, // All clinics for multi-clinic users
+        clinicName: isSuperAdmin ? 'All Clinics' : (clinicNames[0] || null),
+        clinics: isSuperAdmin ? ['All Clinics'] : clinicNames,
         specialty: u.provider?.titleLine || null,
-        isOnline: false // Placeholder for future real-time presence
+        isOnline: false, // Placeholder for future real-time presence
+        isPlatformAdmin: isSuperAdmin // Flag for UI to highlight
       };
+    });
+
+    // Sort to put Platform Admins at the top for easy access
+    transformedUsers.sort((a, b) => {
+      if (a.isPlatformAdmin && !b.isPlatformAdmin) return -1;
+      if (!a.isPlatformAdmin && b.isPlatformAdmin) return 1;
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
     });
 
     return NextResponse.json({
