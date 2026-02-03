@@ -25,7 +25,7 @@ interface RouteParams {
  * GET /api/tickets/[id]/watchers
  * Get all watchers for a ticket
  */
-export const GET = withAuth(async (request, { user }, { params }: RouteParams) => {
+export const GET = withAuth(async (request, user, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);
@@ -59,7 +59,7 @@ export const GET = withAuth(async (request, { user }, { params }: RouteParams) =
  * POST /api/tickets/[id]/watchers
  * Add a watcher to a ticket
  */
-export const POST = withAuth(async (request, { user }, { params }: RouteParams) => {
+export const POST = withAuth(async (request, user, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);
@@ -116,7 +116,7 @@ export const POST = withAuth(async (request, { user }, { params }: RouteParams) 
  * DELETE /api/tickets/[id]/watchers
  * Remove a watcher from a ticket
  */
-export const DELETE = withAuth(async (request, { user }, { params }: RouteParams) => {
+export const DELETE = withAuth(async (request, user, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);

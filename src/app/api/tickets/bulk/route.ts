@@ -19,7 +19,7 @@ import type { BulkUpdateTicketsInput, MergeTicketsInput } from '@/domains/ticket
  * POST /api/tickets/bulk
  * Bulk update multiple tickets
  */
-export const POST = withAuth(async (request, { user }) => {
+export const POST = withAuth(async (request, user) => {
   try {
     const body = await request.json();
 

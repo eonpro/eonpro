@@ -230,6 +230,32 @@ function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma
         return new BadRequestError('Input value is too long');
 
       // =====================================================
+      // SCHEMA MISMATCH ERRORS - Return 503 Service Unavailable
+      // These indicate migrations need to be applied
+      // =====================================================
+
+      // P2010: Raw query failed (often schema mismatch)
+      case 'P2010':
+        return new ServiceUnavailableError(
+          'Database schema update in progress. Please try again in a moment.',
+          10
+        );
+
+      // P2021: Table does not exist
+      case 'P2021':
+        return new ServiceUnavailableError(
+          'System update in progress. Please try again in a moment.',
+          10
+        );
+
+      // P2022: Column does not exist
+      case 'P2022':
+        return new ServiceUnavailableError(
+          'System update in progress. Please try again in a moment.',
+          10
+        );
+
+      // =====================================================
       // CONNECTION ERRORS - Return 503 Service Unavailable
       // These indicate the database is temporarily unavailable
       // =====================================================
@@ -268,8 +294,21 @@ function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma
     }
   }
 
-  // Validation errors
+  // Validation errors - check if it's a schema mismatch
   if (error instanceof Prisma.PrismaClientValidationError) {
+    const errorMessage = error.message.toLowerCase();
+    // Schema mismatch indicators
+    if (
+      errorMessage.includes('unknown field') ||
+      errorMessage.includes('unknown argument') ||
+      errorMessage.includes('does not exist') ||
+      errorMessage.includes('unknown type')
+    ) {
+      return new ServiceUnavailableError(
+        'System update in progress. Please try again in a moment.',
+        10
+      );
+    }
     return new BadRequestError('Invalid data format');
   }
 

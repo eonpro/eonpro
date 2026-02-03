@@ -490,7 +490,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                   </div>
                 ) : (
                   messages.map((message, index) => {
-                    const isOwn = message.senderId === currentUserId;
+                    // Use Number() to ensure correct comparison (API might return different types)
+                    const isOwn = Number(message.senderId) === Number(currentUserId);
                     const showTimestamp = index === 0 ||
                       new Date(message.createdAt).getTime() - new Date(messages[index - 1].createdAt).getTime() > 300000;
 

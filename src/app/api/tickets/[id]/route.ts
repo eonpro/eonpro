@@ -24,7 +24,7 @@ interface RouteParams {
  * GET /api/tickets/[id]
  * Get ticket details by ID or ticket number
  */
-export const GET = withAuth(async (request, { user }, { params }: RouteParams) => {
+export const GET = withAuth(async (request, user, { params }: RouteParams) => {
   try {
     const { id } = await params;
 
@@ -61,7 +61,7 @@ export const GET = withAuth(async (request, { user }, { params }: RouteParams) =
  * PATCH /api/tickets/[id]
  * Update a ticket
  */
-export const PATCH = withAuth(async (request, { user }, { params }: RouteParams) => {
+export const PATCH = withAuth(async (request, user, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);
@@ -122,7 +122,7 @@ export const PATCH = withAuth(async (request, { user }, { params }: RouteParams)
  * DELETE /api/tickets/[id]
  * Soft delete a ticket (changes status to CANCELLED)
  */
-export const DELETE = withAuth(async (request, { user }, { params }: RouteParams) => {
+export const DELETE = withAuth(async (request, user, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);

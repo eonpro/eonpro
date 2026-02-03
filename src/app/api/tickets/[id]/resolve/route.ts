@@ -38,7 +38,7 @@ const VALID_DISPOSITIONS: TicketDisposition[] = [
  * POST /api/tickets/[id]/resolve
  * Resolve a ticket with disposition and resolution notes
  */
-export const POST = withAuth(async (request, { user }, { params }: RouteParams) => {
+export const POST = withAuth(async (request, user, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);

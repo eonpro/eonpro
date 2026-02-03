@@ -33,7 +33,7 @@ function isSchemaMismatchError(error: unknown): boolean {
  * GET /api/tickets/stats
  * Get ticket statistics for dashboard
  */
-export const GET = withAuth(async (request, { user }) => {
+export const GET = withAuth(async (request, user) => {
   try {
     const { searchParams } = new URL(request.url);
 

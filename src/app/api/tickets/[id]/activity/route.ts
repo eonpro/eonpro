@@ -20,7 +20,7 @@ interface RouteParams {
  * GET /api/tickets/[id]/activity
  * Get activity log for a ticket (audit trail)
  */
-export const GET = withAuth(async (request, { user }, { params }: RouteParams) => {
+export const GET = withAuth(async (request, user, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);
