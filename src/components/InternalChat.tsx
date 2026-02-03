@@ -175,13 +175,23 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   useEffect(() => {
     if (isOpen && selectedRecipient) {
+      // Poll every 15 seconds instead of 5 to reduce database load
       const interval = setInterval(() => {
         fetchMessages();
-        fetchUnreadCount();
-      }, 5000);
+      }, 15000);
       return () => clearInterval(interval);
     }
-  }, [isOpen, selectedRecipient, fetchMessages, fetchUnreadCount]);
+  }, [isOpen, selectedRecipient, fetchMessages]);
+
+  // Separate unread count polling - less frequent
+  useEffect(() => {
+    if (isOpen) {
+      const interval = setInterval(() => {
+        fetchUnreadCount();
+      }, 30000); // Every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [isOpen, fetchUnreadCount]);
 
   // ===========================================================================
   // Handlers
