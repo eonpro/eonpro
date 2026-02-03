@@ -4,7 +4,7 @@ import { prescriptionSchema } from "@/lib/validate";
 import { generatePrescriptionPDF } from "@/lib/pdf";
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
-import { prisma, basePrisma } from "@/lib/db";
+import { prisma, basePrisma, withRetry } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
 type TransactionClient = Prisma.TransactionClient;
@@ -438,7 +438,15 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     try {
       // ENTERPRISE: Atomic transaction for prescription creation
       // This ensures all records are created together or none at all
-      const transactionResult = await prisma.$transaction(async (tx: TransactionClient) => {
+      // Wrapped with retry for connection pool resilience
+      type TransactionResult = {
+        order: Order & { patient?: Patient | null };
+        patient: Patient;
+        isNew: boolean;
+      };
+
+      const transactionResult = await withRetry<TransactionResult>(
+        () => prisma.$transaction(async (tx: TransactionClient) => {
         // Check for duplicate submission (idempotency)
         const existingOrder = await tx.order.findFirst({
           where: {
@@ -611,7 +619,20 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       }, {
         isolationLevel: 'Serializable',
         timeout: 30000,
-      });
+      }),
+        {
+          maxRetries: 3,
+          initialDelayMs: 200,
+          maxDelayMs: 2000,
+          // Retry on connection pool and timeout errors
+          retryOn: (error) => {
+            const msg = error.message.toLowerCase();
+            return msg.includes('connection') ||
+                   msg.includes('timeout') ||
+                   msg.includes('pool');
+          },
+        }
+      );
 
       // If duplicate, return existing order info
       if (!transactionResult.isNew) {

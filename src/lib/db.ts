@@ -41,23 +41,47 @@ const globalForPrisma = global as unknown as {
 
 /**
  * Get connection limit based on environment
+ *
+ * NOTE: connection_limit=1 is too restrictive and causes pool exhaustion
+ * during transactions with multiple queries. Vercel serverless can handle
+ * 5-10 connections per instance safely, especially with PgBouncer.
  */
 function getConnectionLimit(): number {
-  // In serverless (Vercel), use minimal connections
-  if (process.env.VERCEL) {
-    return 1;
+  // Check for explicit override first
+  const envLimit = process.env.DATABASE_CONNECTION_LIMIT;
+  if (envLimit) {
+    const limit = parseInt(envLimit, 10);
+    return Math.min(limit, 20); // Cap at 20 connections per instance
   }
 
-  // Use env var or default
-  const limit = parseInt(process.env.DATABASE_CONNECTION_LIMIT || '10', 10);
-  return Math.min(limit, 20); // Cap at 20 connections per instance
+  // In serverless (Vercel), use conservative but functional pool size
+  // 1 connection causes pool exhaustion during transactions
+  // 5 connections allows concurrent queries within a transaction
+  if (process.env.VERCEL) {
+    // If using PgBouncer (recommended), can use slightly higher limit
+    const hasPgBouncer = process.env.DATABASE_URL?.includes('pgbouncer=true');
+    return hasPgBouncer ? 10 : 5;
+  }
+
+  // Default for non-serverless environments
+  return 10;
 }
 
 /**
- * Get pool timeout
+ * Get pool timeout in seconds
+ *
+ * NOTE: 10 seconds is often too short for high-concurrency scenarios.
+ * 20-30 seconds provides better resilience during traffic spikes.
  */
 function getPoolTimeout(): number {
-  return parseInt(process.env.DATABASE_POOL_TIMEOUT || '10', 10);
+  const envTimeout = process.env.DATABASE_POOL_TIMEOUT;
+  if (envTimeout) {
+    return parseInt(envTimeout, 10);
+  }
+
+  // Default: 20 seconds for serverless (handles cold starts better)
+  // 15 seconds for traditional deployments
+  return process.env.VERCEL ? 20 : 15;
 }
 
 /**
@@ -85,16 +109,35 @@ function buildConnectionUrl(): string {
 
   try {
     const url = new URL(baseUrl);
-    const isVercel = !!process.env.VERCEL;
     const isProd = process.env.NODE_ENV === 'production';
-    
-    // Only add parameters if not already present
-    if (!url.searchParams.has('connection_limit')) {
-      const limit = isVercel ? 1 : getConnectionLimit();
-      url.searchParams.set('connection_limit', limit.toString());
+
+    // Connection limit handling:
+    // 1. If DATABASE_CONNECTION_LIMIT env var is set, ALWAYS use it (override URL)
+    // 2. Otherwise, if URL doesn't have connection_limit, use getConnectionLimit()
+    // 3. If URL has connection_limit and no env override, keep URL value
+    // IMPORTANT: Do NOT use connection_limit=1 for Vercel - it causes pool exhaustion
+    const explicitLimit = process.env.DATABASE_CONNECTION_LIMIT;
+    if (explicitLimit) {
+      // Explicit env var always wins - override whatever is in URL
+      url.searchParams.set('connection_limit', explicitLimit);
+    } else if (!url.searchParams.has('connection_limit')) {
+      // No explicit override and URL doesn't have it - use calculated default
+      url.searchParams.set('connection_limit', getConnectionLimit().toString());
+    } else {
+      // URL has connection_limit but no explicit override
+      // Check if it's dangerously low (1) and warn
+      const urlLimit = url.searchParams.get('connection_limit');
+      if (urlLimit === '1') {
+        logger.warn('[Prisma] DATABASE_URL has connection_limit=1 which may cause pool exhaustion. ' +
+          'Set DATABASE_CONNECTION_LIMIT env var to override.');
+      }
     }
-    
-    if (!url.searchParams.has('pool_timeout')) {
+
+    // Pool timeout handling - similar logic
+    const explicitTimeout = process.env.DATABASE_POOL_TIMEOUT;
+    if (explicitTimeout) {
+      url.searchParams.set('pool_timeout', explicitTimeout);
+    } else if (!url.searchParams.has('pool_timeout')) {
       url.searchParams.set('pool_timeout', getPoolTimeout().toString());
     }
 
