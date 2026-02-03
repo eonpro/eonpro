@@ -3,9 +3,24 @@ generator client {
   binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
+// ============================================================================
+// DATABASE CONNECTION CONFIGURATION
+// ============================================================================
+// For serverless environments (Vercel), use connection pooling:
+//
+// DATABASE_URL: Pooled connection through PgBouncer or Supabase Pooler
+//   Format: postgresql://user:pass@host:6543/db?pgbouncer=true&connection_limit=1
+//
+// DIRECT_DATABASE_URL: Direct connection for migrations and introspection
+//   Format: postgresql://user:pass@host:5432/db
+//
+// If DIRECT_DATABASE_URL is not set, Prisma will use DATABASE_URL for both.
+// This is fine for non-pooled connections but will cause issues with PgBouncer.
+// ============================================================================
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 model Patient {

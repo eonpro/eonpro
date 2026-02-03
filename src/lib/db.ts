@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { logger } from './logger';
+import { connectionPool, withRetry, withTimeout } from './database/connection-pool';
 // PHI extension disabled - SSN field no longer exists in schema
 // import { createPrismaWithPHI, PrismaWithPHI } from './database/phi-extension';
 
@@ -11,11 +12,15 @@ const clinicContextStorage = new AsyncLocalStorage<{ clinicId?: number }>();
 const globalForPrisma = global as unknown as {
   prisma?: PrismaClient;
   currentClinicId?: number; // DEPRECATED: Use clinicContextStorage instead
+  healthCheckStarted?: boolean;
+  shutdownRegistered?: boolean;
 };
 
 // ============================================================================
 // DATABASE CONNECTION POOLING CONFIGURATION
 // ============================================================================
+//
+// This module now integrates with ConnectionPoolManager for proper pool management.
 //
 // For production, use PgBouncer or Prisma Accelerate for connection pooling.
 //
@@ -53,6 +58,59 @@ function getConnectionLimit(): number {
  */
 function getPoolTimeout(): number {
   return parseInt(process.env.DATABASE_POOL_TIMEOUT || '10', 10);
+}
+
+/**
+ * Build DATABASE_URL with proper connection pool parameters
+ * This ensures serverless environments have correct settings even if
+ * the environment variable doesn't include them
+ */
+function buildConnectionUrl(): string {
+  const baseUrl = process.env.DATABASE_URL || '';
+  
+  if (!baseUrl) {
+    logger.warn('[Prisma] DATABASE_URL not set');
+    return '';
+  }
+
+  // Skip URL modification for Prisma Accelerate URLs
+  if (baseUrl.startsWith('prisma://')) {
+    return baseUrl;
+  }
+
+  // Skip modification for SQLite (development)
+  if (baseUrl.startsWith('file:')) {
+    return baseUrl;
+  }
+
+  try {
+    const url = new URL(baseUrl);
+    const isVercel = !!process.env.VERCEL;
+    const isProd = process.env.NODE_ENV === 'production';
+    
+    // Only add parameters if not already present
+    if (!url.searchParams.has('connection_limit')) {
+      const limit = isVercel ? 1 : getConnectionLimit();
+      url.searchParams.set('connection_limit', limit.toString());
+    }
+    
+    if (!url.searchParams.has('pool_timeout')) {
+      url.searchParams.set('pool_timeout', getPoolTimeout().toString());
+    }
+
+    // Add connect timeout for better failure detection
+    if (!url.searchParams.has('connect_timeout') && isProd) {
+      url.searchParams.set('connect_timeout', '10');
+    }
+
+    return url.toString();
+  } catch (error) {
+    // If URL parsing fails, return original (might be a connection string format)
+    logger.warn('[Prisma] Could not parse DATABASE_URL for pool config', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+    return baseUrl;
+  }
 }
 
 // Models that require clinic isolation (lowercase for comparison)
@@ -104,11 +162,17 @@ const CLINIC_ISOLATED_MODELS = [
 /**
  * Create Prisma client with multi-clinic isolation and connection pooling
  * Using query extension pattern for Prisma v4+
+ * 
+ * Integrates with ConnectionPoolManager for:
+ * - Proper connection URL with pool parameters
+ * - Health check monitoring
+ * - Graceful shutdown handling
  */
 function createPrismaClient() {
   const isProd = process.env.NODE_ENV === 'production';
   const connectionLimit = getConnectionLimit();
   const poolTimeout = getPoolTimeout();
+  const connectionUrl = buildConnectionUrl();
 
   // Log configuration
   logger.info('Prisma client configuration', {
@@ -117,6 +181,7 @@ function createPrismaClient() {
     poolTimeout,
     isVercel: !!process.env.VERCEL,
     hasPgBouncer: process.env.DATABASE_URL?.includes('pgbouncer=true'),
+    hasConnectionLimit: connectionUrl.includes('connection_limit='),
   });
 
   const client = new PrismaClient({
@@ -125,11 +190,10 @@ function createPrismaClient() {
       : isProd
         ? ["error"]  // Only errors in production
         : ["warn", "error"],
-    // Prisma handles connection pooling internally
-    // For serverless, set connection_limit in DATABASE_URL
+    // Use the built connection URL with proper pool parameters
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: connectionUrl,
       },
     },
   });
@@ -139,24 +203,89 @@ function createPrismaClient() {
     // @ts-ignore - Prisma v5 middleware
     client.$use?.(async (params, next) => {
       const start = Date.now();
-      const result = await next(params);
-      const duration = Date.now() - start;
+      try {
+        const result = await next(params);
+        const duration = Date.now() - start;
 
-      // Log slow queries (> 1 second)
-      if (duration > 1000) {
-        logger.warn('Slow database query detected', {
-          model: params.model,
-          action: params.action,
-          duration,
-          args: isProd ? '[redacted]' : params.args,
-        });
+        // Log slow queries (> 1 second)
+        if (duration > 1000) {
+          logger.warn('Slow database query detected', {
+            model: params.model,
+            action: params.action,
+            duration,
+            args: isProd ? '[redacted]' : params.args,
+          });
+        }
+
+        // Record metrics for connection pool monitoring
+        connectionPool.recordQuery(duration, true);
+
+        return result;
+      } catch (error) {
+        const duration = Date.now() - start;
+        connectionPool.recordQuery(duration, false);
+        throw error;
       }
-
-      return result;
     });
   }
 
   return client;
+}
+
+/**
+ * Start connection health monitoring
+ * Only starts once, safe to call multiple times
+ */
+function startHealthMonitoring(client: PrismaClient): void {
+  if (globalForPrisma.healthCheckStarted) {
+    return;
+  }
+
+  const isProd = process.env.NODE_ENV === 'production';
+  const isVercel = !!process.env.VERCEL;
+
+  // Start health checks in production (but not too aggressively in serverless)
+  if (isProd && !isVercel) {
+    connectionPool.startHealthCheck(client);
+    globalForPrisma.healthCheckStarted = true;
+    logger.info('[Prisma] Health monitoring started');
+  }
+}
+
+/**
+ * Register graceful shutdown handlers
+ * Ensures connections are properly closed before process exits
+ */
+function registerShutdownHandlers(client: PrismaClient): void {
+  if (globalForPrisma.shutdownRegistered || typeof process === 'undefined') {
+    return;
+  }
+
+  const shutdown = async (signal: string) => {
+    logger.info(`[Prisma] Received ${signal}, initiating graceful shutdown`);
+    
+    try {
+      // Stop health checks first
+      await connectionPool.shutdown();
+      
+      // Disconnect Prisma client
+      await client.$disconnect();
+      
+      logger.info('[Prisma] Graceful shutdown complete');
+    } catch (error) {
+      logger.error('[Prisma] Error during shutdown', { 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  };
+
+  // Register shutdown handlers (only in non-serverless environments)
+  if (!process.env.VERCEL) {
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    globalForPrisma.shutdownRegistered = true;
+    logger.debug('[Prisma] Shutdown handlers registered');
+  }
 }
 
 // Create the base client
@@ -165,6 +294,10 @@ const basePrisma = globalForPrisma.prisma ?? createPrismaClient();
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = basePrisma;
 }
+
+// Initialize health monitoring and shutdown handlers
+startHealthMonitoring(basePrisma);
+registerShutdownHandlers(basePrisma);
 
 /**
  * Wrapper for Prisma client with clinic filtering
@@ -705,3 +838,27 @@ export { clinicContextStorage };
 // for field-level encryption in repositories
 
 // export const prismaWithPHI: PrismaWithPHI = createPrismaWithPHI(basePrisma);
+
+// ============================================================================
+// CONNECTION UTILITIES FOR API ROUTES
+// ============================================================================
+// Export retry and timeout utilities for use in critical API routes
+
+export { withRetry, withTimeout } from './database/connection-pool';
+export { connectionPool };
+
+/**
+ * Get connection pool health status
+ * Useful for health check endpoints
+ */
+export function getConnectionPoolHealth() {
+  return connectionPool.getHealthStatus();
+}
+
+/**
+ * Get connection pool metrics
+ * Useful for monitoring endpoints
+ */
+export function getConnectionPoolMetrics() {
+  return connectionPool.getMetrics();
+}

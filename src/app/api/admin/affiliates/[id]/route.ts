@@ -136,8 +136,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           status: { in: ['PENDING', 'APPROVED', 'PAID'] },
         },
         _sum: {
-          orderAmountCents: true,
-          commissionCents: true,
+          eventAmountCents: true,
+          commissionAmountCents: true,
         },
       });
 
@@ -148,7 +148,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           status: 'APPROVED',
         },
         _sum: {
-          commissionCents: true,
+          commissionAmountCents: true,
         },
       });
 
@@ -157,7 +157,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         id: event.id,
         type: 'commission',
         description: `Commission ${event.status.toLowerCase()} - Order #${event.orderId || 'N/A'}`,
-        amountCents: event.commissionCents,
+        amountCents: event.commissionAmountCents,
         createdAt: event.createdAt.toISOString(),
       }));
 
@@ -194,9 +194,9 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           totalClicks,
           totalConversions,
           conversionRate,
-          totalRevenueCents: commissionAgg._sum.orderAmountCents || 0,
-          totalCommissionCents: commissionAgg._sum.commissionCents || 0,
-          pendingCommissionCents: pendingAgg._sum.commissionCents || 0,
+          totalRevenueCents: commissionAgg._sum.eventAmountCents || 0,
+          totalCommissionCents: commissionAgg._sum.commissionAmountCents || 0,
+          pendingCommissionCents: pendingAgg._sum.commissionAmountCents || 0,
         },
         recentActivity,
       };

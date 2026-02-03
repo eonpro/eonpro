@@ -46,7 +46,7 @@ interface TicketDetail {
   rootCause?: string | null;
   disposition?: string | null;
   reopenCount: number;
-  tagsArray?: string[];
+  tags?: string[];
   assignedTo?: {
     id: number;
     firstName: string;
@@ -698,14 +698,14 @@ export default function TicketDetailPage() {
           )}
 
           {/* Tags */}
-          {ticket.tagsArray && ticket.tagsArray.length > 0 && (
+          {ticket.tags && ticket.tags.length > 0 && (
             <div className="rounded-lg border border-gray-200 bg-white p-6">
               <h2 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
                 <TagIcon className="h-4 w-4" />
                 Tags
               </h2>
               <div className="flex flex-wrap gap-2">
-                {ticket.tagsArray.map((tag, index) => (
+                {ticket.tags.map((tag, index) => (
                   <span
                     key={index}
                     className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700"

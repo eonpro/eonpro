@@ -151,7 +151,7 @@ function buildWhereClause(
 
   // Tags filter
   if (filters.tags && filters.tags.length > 0) {
-    where.tagsArray = { hasSome: filters.tags };
+    where.tags = { hasSome: filters.tags };
   }
 
   // SLA breach filter
@@ -237,7 +237,7 @@ export const ticketRepository = {
         patientId: data.patientId,
         orderId: data.orderId,
         dueDate: data.dueDate,
-        tagsArray: data.tags || [],
+        tags: data.tags || [],
         customFields: data.customFields,
         reporterEmail: data.reporterEmail,
         reporterName: data.reporterName,
@@ -540,7 +540,7 @@ export const ticketRepository = {
     if (data.priority !== undefined) updateData.priority = data.priority;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.dueDate !== undefined) updateData.dueDate = data.dueDate;
-    if (data.tags !== undefined) updateData.tagsArray = data.tags;
+    if (data.tags !== undefined) updateData.tags = data.tags;
     if (data.customFields !== undefined) updateData.customFields = data.customFields;
     if (data.internalNote !== undefined) updateData.internalNote = data.internalNote;
 
