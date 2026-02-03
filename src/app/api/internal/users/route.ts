@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { UserRole, UserStatus } from '@prisma/client';
 
 /**
  * GET /api/internal/users - Fetch team members for internal chat
@@ -60,23 +61,23 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const whereClause: Record<string, unknown> = {
       // Exclude patients - they use patient chat
       NOT: {
-        role: 'patient'
+        role: UserRole.PATIENT
       },
       // Only active users
-      status: 'ACTIVE'
+      status: UserStatus.ACTIVE
     };
 
     // Apply clinic filter for non-super-admin users
-    // BUT always include super_admin users (Platform Administrators) for support access
+    // BUT always include SUPER_ADMIN users (Platform Administrators) for support access
     if (accessibleClinicIds.length > 0) {
       // Users can be in a clinic via:
       // 1. Their primary clinicId field
       // 2. Their UserClinic entries
-      // 3. OR they are a super_admin (always visible for platform support)
+      // 3. OR they are a SUPER_ADMIN (always visible for platform support)
       whereClause.OR = [
         { clinicId: { in: accessibleClinicIds } },
         { userClinics: { some: { clinicId: { in: accessibleClinicIds }, isActive: true } } },
-        { role: 'super_admin' } // Always show Platform Administrators
+        { role: UserRole.SUPER_ADMIN } // Always show Platform Administrators
       ];
     }
 
@@ -162,9 +163,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         }
       });
 
-      // Special display name for super_admin
-      const displayRole = u.role === 'super_admin' ? 'Platform Admin' : u.role;
-      const isSuperAdmin = u.role === 'super_admin';
+      // Special display name for SUPER_ADMIN
+      const displayRole = u.role === UserRole.SUPER_ADMIN ? 'Platform Admin' : u.role;
+      const isSuperAdmin = u.role === UserRole.SUPER_ADMIN;
 
       return {
         id: u.id,
