@@ -3,9 +3,17 @@
  * 
  * Comprehensive prescription directions with storage, administration,
  * warnings, and missed dose instructions.
+ *
+ * INSULIN SYRINGE UNITS (100-unit/mL syringes):
+ * All injectable sigs include both mL and units for patient clarity.
+ * Conversion: 1 mL = 100 units, so multiply mL by 100.
+ * Format: "X mg (Y mL / Z units)" where Z = Y * 100
  */
 
-import { MEDS, MedicationConfig } from './medications';
+import { MEDS, MedicationConfig, mlToUnits, formatVolume } from './medications';
+
+// Re-export utility functions for use elsewhere
+export { mlToUnits, formatVolume };
 
 // ============================================================================
 // TYPES
@@ -107,11 +115,12 @@ export const ADMINISTRATION_PRESETS = {
     route: 'Subcutaneous injection',
     sites: ['Abdomen (at least 2 inches from belly button)', 'Front of thigh', 'Upper outer arm'],
     timing: 'Once weekly, on the same day each week, with or without food',
-    specialTechnique: 'Pinch skin, insert needle at 45-90° angle, inject slowly, hold for 5-10 seconds before removing.',
+    specialTechnique: 'Use a 100-unit insulin syringe (U-100). Pinch skin, insert needle at 45-90° angle, inject slowly, hold for 5-10 seconds before removing.',
     preparationSteps: [
       'Wash hands thoroughly',
       'Allow medication to reach room temperature (15-30 min)',
       'Inspect solution - should be clear and colorless',
+      'Draw correct dose into insulin syringe (1 mL = 100 units)',
       'Clean injection site with alcohol swab',
       'Rotate injection sites to prevent lipodystrophy',
     ],
@@ -120,23 +129,23 @@ export const ADMINISTRATION_PRESETS = {
     route: 'Subcutaneous injection',
     sites: ['Abdomen (at least 2 inches from belly button)', 'Inner arm'],
     timing: 'As directed, typically at bedtime on an empty stomach',
-    specialTechnique: 'Use insulin syringe. Inject slowly into pinched skin fold.',
+    specialTechnique: 'Use a 100-unit insulin syringe (U-100). Inject slowly into pinched skin fold.',
     preparationSteps: [
       'Wash hands thoroughly',
       'Clean injection site with alcohol swab',
-      'Draw correct dose into syringe',
-      'Remove air bubbles',
+      'Draw correct dose into insulin syringe (1 mL = 100 units)',
+      'Remove air bubbles by tapping syringe',
     ],
   },
   INTRAMUSCULAR: {
     route: 'Intramuscular injection',
     sites: ['Gluteal muscle (upper outer quadrant)', 'Deltoid muscle', 'Vastus lateralis (outer thigh)'],
     timing: 'As directed, typically once weekly',
-    specialTechnique: 'Use 1-1.5 inch needle. Inject into muscle at 90° angle. Aspirate before injecting.',
+    specialTechnique: 'Use 1-1.5 inch needle (22-25 gauge). Inject into muscle at 90° angle. Aspirate before injecting. For SubQ, use insulin syringe.',
     preparationSteps: [
       'Warm medication to body temperature',
       'Wash hands and clean injection site',
-      'Draw medication into syringe',
+      'Draw medication into syringe (1 mL = 100 units if using insulin syringe)',
       'Inject slowly over 30 seconds',
     ],
   },
@@ -267,7 +276,7 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     phase: 'initiation',
     weekRange: '1-4',
     targetDose: '2.5 mg',
-    sig: 'Inject 2.5 mg (0.25 mL) subcutaneously once weekly for 4 weeks to initiate therapy. Inject on the same day each week. Rotate injection sites.',
+    sig: 'Inject 2.5 mg (0.25 mL / 25 units) subcutaneously once weekly for 4 weeks to initiate therapy. Inject on the same day each week. Rotate injection sites.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -284,7 +293,7 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     phase: 'escalation',
     weekRange: '5-8',
     targetDose: '5 mg',
-    sig: 'Inject 5 mg (0.5 mL) subcutaneously once weekly. Continue if tolerating initiation dose well. Monitor for GI side effects.',
+    sig: 'Inject 5 mg (0.5 mL / 50 units) subcutaneously once weekly. Continue if tolerating initiation dose well. Monitor for GI side effects.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -298,7 +307,7 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     phase: 'escalation',
     weekRange: '9-12',
     targetDose: '7.5 mg',
-    sig: 'Inject 7.5 mg (0.75 mL) subcutaneously once weekly. Titrate only if prior dose was well tolerated. Report any persistent nausea or GI symptoms.',
+    sig: 'Inject 7.5 mg (0.75 mL / 75 units) subcutaneously once weekly. Titrate only if prior dose was well tolerated. Report any persistent nausea or GI symptoms.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -311,7 +320,7 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Maintenance - 10 mg',
     phase: 'maintenance',
     targetDose: '10 mg',
-    sig: 'Inject 10 mg (1 mL) subcutaneously once weekly for maintenance therapy. Continue lifestyle modifications including diet and exercise.',
+    sig: 'Inject 10 mg (1 mL / 100 units) subcutaneously once weekly for maintenance therapy. Continue lifestyle modifications including diet and exercise.',
     quantity: '1',
     refills: '2',
     daysSupply: 28,
@@ -324,7 +333,7 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Maximum - 15 mg',
     phase: 'maintenance',
     targetDose: '15 mg',
-    sig: 'Inject 15 mg (1.5 mL) subcutaneously once weekly. Maximum dose. Monitor weight loss progress and metabolic parameters.',
+    sig: 'Inject 15 mg (1.5 mL / 150 units*) subcutaneously once weekly. Maximum dose. Monitor weight loss progress and metabolic parameters. *Note: May require two draws with a 100-unit syringe.',
     quantity: '1',
     refills: '2',
     daysSupply: 28,
@@ -341,7 +350,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     phase: 'initiation',
     weekRange: '1-4',
     targetDose: '0.25 mg',
-    sig: 'Inject 0.25 mg (0.25 mL) subcutaneously once weekly for 4 weeks to initiate therapy. Rotate injection sites between abdomen, thigh, and upper arm.',
+    sig: 'Inject 0.25 mg (0.25 mL / 25 units) subcutaneously once weekly for 4 weeks to initiate therapy. Rotate injection sites between abdomen, thigh, and upper arm.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -355,7 +364,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     phase: 'escalation',
     weekRange: '5-8',
     targetDose: '0.5 mg',
-    sig: 'Inject 0.5 mg (0.5 mL) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.',
+    sig: 'Inject 0.5 mg (0.5 mL / 50 units) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -369,7 +378,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     phase: 'escalation',
     weekRange: '9-12',
     targetDose: '1 mg',
-    sig: 'Inject 1 mg (1 mL) subcutaneously once weekly. Continue lifestyle counseling. Monitor fasting glucose if diabetic.',
+    sig: 'Inject 1 mg (1 mL / 100 units) subcutaneously once weekly. Continue lifestyle counseling. Monitor fasting glucose if diabetic.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -382,7 +391,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Maintenance - 1.7 mg',
     phase: 'maintenance',
     targetDose: '1.7 mg',
-    sig: 'Inject 1.7 mg subcutaneously once weekly for weight maintenance. Continue diet and exercise program.',
+    sig: 'Inject 1.7 mg (1.7 mL / 170 units*) subcutaneously once weekly for weight maintenance. Continue diet and exercise program. *Note: May require two draws with a 100-unit syringe.',
     quantity: '1',
     refills: '2',
     daysSupply: 28,
@@ -395,7 +404,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Maximum - 2.4 mg',
     phase: 'maintenance',
     targetDose: '2.4 mg',
-    sig: 'Inject 2.4 mg subcutaneously once weekly. Maximum dose for weight management. Monitor for efficacy and tolerance.',
+    sig: 'Inject 2.4 mg (2.4 mL / 240 units*) subcutaneously once weekly. Maximum dose for weight management. Monitor for efficacy and tolerance. *Note: Requires multiple draws with a 100-unit syringe.',
     quantity: '1',
     refills: '2',
     daysSupply: 28,
@@ -411,7 +420,7 @@ export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Standard - 100 mg Weekly',
     phase: 'standard',
     targetDose: '100 mg',
-    sig: 'Inject 0.5 mL (100 mg) intramuscularly once weekly. Rotate injection sites between gluteal and vastus lateralis muscles.',
+    sig: 'Inject 100 mg (0.5 mL / 50 units) intramuscularly or subcutaneously once weekly. Rotate injection sites between gluteal, deltoid, or vastus lateralis muscles.',
     quantity: '10',
     refills: '1',
     daysSupply: 70,
@@ -424,7 +433,7 @@ export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Standard - 200 mg Biweekly',
     phase: 'standard',
     targetDose: '200 mg',
-    sig: 'Inject 1 mL (200 mg) intramuscularly every 10-14 days as directed. Rotate injection sites.',
+    sig: 'Inject 200 mg (1 mL / 100 units) intramuscularly every 10-14 days as directed. Rotate injection sites.',
     quantity: '10',
     refills: '1',
     daysSupply: 100,
@@ -437,7 +446,7 @@ export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'TRT - 50 mg Twice Weekly',
     phase: 'standard',
     targetDose: '50 mg x 2',
-    sig: 'Inject 0.25 mL (50 mg) subcutaneously twice weekly (e.g., Monday and Thursday) for stable testosterone levels. Use insulin syringe.',
+    sig: 'Inject 50 mg (0.25 mL / 25 units) subcutaneously twice weekly (e.g., Monday and Thursday) for stable testosterone levels. Use insulin syringe.',
     quantity: '10',
     refills: '2',
     daysSupply: 70,
@@ -449,6 +458,23 @@ export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     },
     warnings: WARNINGS_PRESETS.TESTOSTERONE,
     missedDose: 'If a dose is missed, inject as soon as remembered. Maintain 3-4 day spacing between doses.',
+  },
+  {
+    label: 'Low Dose - 80 mg Weekly',
+    phase: 'standard',
+    targetDose: '80 mg',
+    sig: 'Inject 80 mg (0.4 mL / 40 units) subcutaneously once weekly. Lower dose for patients with elevated hematocrit or sensitive to testosterone.',
+    quantity: '10',
+    refills: '2',
+    daysSupply: 87,
+    storage: STORAGE_PRESETS.TESTOSTERONE,
+    administration: {
+      ...ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+      route: 'Subcutaneous injection',
+      timing: 'Once weekly, same day each week',
+    },
+    warnings: WARNINGS_PRESETS.TESTOSTERONE,
+    missedDose: 'If a dose is missed, inject as soon as remembered. Do not double dose.',
   },
 ];
 
@@ -556,7 +582,7 @@ export const SERMORELIN_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Nightly - 0.3 mg',
     phase: 'standard',
     targetDose: '0.3 mg',
-    sig: 'Inject 0.3 mg (0.15 mL) subcutaneously nightly before bed on an empty stomach (at least 2-3 hours after last meal).',
+    sig: 'Inject 0.3 mg (0.15 mL / 15 units) subcutaneously nightly before bed on an empty stomach (at least 2-3 hours after last meal).',
     quantity: '1',
     refills: '1',
     daysSupply: 30,
@@ -581,7 +607,7 @@ export const SERMORELIN_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: '5 Nights Weekly',
     phase: 'standard',
     targetDose: '0.3 mg x 5',
-    sig: 'Inject 0.3 mg subcutaneously nightly Monday through Friday before bed on an empty stomach. Hold on weekends.',
+    sig: 'Inject 0.3 mg (0.15 mL / 15 units) subcutaneously nightly Monday through Friday before bed on an empty stomach. Hold on weekends.',
     quantity: '1',
     refills: '1',
     daysSupply: 30,
@@ -592,6 +618,22 @@ export const SERMORELIN_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     },
     warnings: WARNINGS_PRESETS.PEPTIDE,
     missedDose: 'If a weeknight dose is missed, skip it. Do not make up missed doses.',
+  },
+  {
+    label: 'Low Dose - 0.2 mg Nightly',
+    phase: 'standard',
+    targetDose: '0.2 mg',
+    sig: 'Inject 0.2 mg (0.1 mL / 10 units) subcutaneously nightly before bed on an empty stomach. Lower starting dose.',
+    quantity: '1',
+    refills: '1',
+    daysSupply: 45,
+    storage: STORAGE_PRESETS.REFRIGERATED_PEPTIDE,
+    administration: {
+      ...ADMINISTRATION_PRESETS.SUBCUTANEOUS_PEPTIDE,
+      timing: 'Nightly at bedtime, on an empty stomach',
+    },
+    warnings: WARNINGS_PRESETS.PEPTIDE,
+    missedDose: 'If a dose is missed, skip it and resume the next evening. Do not double dose.',
   },
 ];
 

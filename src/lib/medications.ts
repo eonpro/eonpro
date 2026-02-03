@@ -20,24 +20,54 @@ export type MedicationConfig = {
   sigTemplates?: SigTemplate[];
 };
 
+// ============================================================================
+// INSULIN SYRINGE CONVERSION
+// ============================================================================
+// For 100-unit insulin syringes (U-100):
+// 1 mL = 100 units
+// 0.5 mL = 50 units
+// 0.25 mL = 25 units
+// 0.1 mL = 10 units
+// etc.
+//
+// Format in sigs: "X mg (Y mL / Z units)" where Z = Y * 100
+// This helps patients understand dosing when using insulin syringes.
+// ============================================================================
+
+/**
+ * Convert mL to insulin syringe units (assuming 100-unit/mL syringe)
+ */
+export function mlToUnits(ml: number): number {
+  return Math.round(ml * 100);
+}
+
+/**
+ * Format injection volume with both mL and units
+ * Example: formatVolume(0.25) => "0.25 mL / 25 units"
+ */
+export function formatVolume(ml: number): string {
+  const units = mlToUnits(ml);
+  return `${ml} mL / ${units} units`;
+}
+
 const SEMAGLUTIDE_TEMPLATES: SigTemplate[] = [
   {
     label: "Weeks 1-4 · 0.25 mg",
-    sig: "Inject 0.25 mg (0.25 mL) subcutaneously once weekly for 4 weeks. Rotate injection sites. Keep refrigerated.",
+    sig: "Inject 0.25 mg (0.25 mL / 25 units) subcutaneously once weekly for 4 weeks. Rotate injection sites. Keep refrigerated.",
     quantity: "1",
     refills: "0",
     daysSupply: 28,
   },
   {
     label: "Weeks 5-8 · 0.5 mg",
-    sig: "Inject 0.5 mg (0.5 mL) subcutaneously once weekly. Titrate only if tolerated. Rotate injection sites.",
+    sig: "Inject 0.5 mg (0.5 mL / 50 units) subcutaneously once weekly. Titrate only if tolerated. Rotate injection sites.",
     quantity: "1",
     refills: "0",
     daysSupply: 28,
   },
   {
     label: "Maintenance · 1 mg",
-    sig: "Inject 1 mg (1 mL) subcutaneously once weekly. Continue lifestyle counseling and monitor fasting glucose.",
+    sig: "Inject 1 mg (1 mL / 100 units) subcutaneously once weekly. Continue lifestyle counseling and monitor fasting glucose.",
     quantity: "1",
     refills: "1",
     daysSupply: 28,
@@ -47,21 +77,24 @@ const SEMAGLUTIDE_TEMPLATES: SigTemplate[] = [
 const TIRZEPATIDE_TEMPLATES: SigTemplate[] = [
   {
     label: "Initiation · 2.5 mg",
-    sig: "Inject 2.5 mg (0.25 mL) subcutaneously once weekly for 4 weeks to initiate therapy.",
+    sig: "Inject 2.5 mg (0.25 mL / 25 units) subcutaneously once weekly for 4 weeks to initiate therapy.",
     quantity: "1",
     refills: "0",
+    daysSupply: 28,
   },
   {
     label: "Escalation · 5 mg",
-    sig: "Inject 5 mg (0.5 mL) subcutaneously once weekly if patient tolerates initiation dose.",
+    sig: "Inject 5 mg (0.5 mL / 50 units) subcutaneously once weekly if patient tolerates initiation dose.",
     quantity: "1",
     refills: "0",
+    daysSupply: 28,
   },
   {
     label: "Maintenance · 10 mg",
-    sig: "Inject 10 mg (1 mL) subcutaneously once weekly for maintenance/weight management.",
+    sig: "Inject 10 mg (1 mL / 100 units) subcutaneously once weekly for maintenance/weight management.",
     quantity: "1",
     refills: "1",
+    daysSupply: 28,
   },
 ];
 
@@ -82,15 +115,24 @@ const ENCLO_TEMPLATE_PULSE: SigTemplate = {
 const TESTOSTERONE_TEMPLATES: SigTemplate[] = [
   {
     label: "Weekly 100 mg",
-    sig: "Inject 0.5 mL (100 mg) intramuscularly once weekly. Rotate injection sites.",
+    sig: "Inject 100 mg (0.5 mL / 50 units) intramuscularly or subcutaneously once weekly. Rotate injection sites.",
     quantity: "10",
     refills: "1",
+    daysSupply: 70,
   },
   {
     label: "Biweekly 200 mg",
-    sig: "Inject 1 mL (200 mg) intramuscularly every 10-14 days as directed.",
+    sig: "Inject 200 mg (1 mL / 100 units) intramuscularly every 10-14 days as directed. Rotate injection sites.",
     quantity: "10",
     refills: "1",
+    daysSupply: 100,
+  },
+  {
+    label: "Twice Weekly 50 mg x2",
+    sig: "Inject 50 mg (0.25 mL / 25 units) subcutaneously twice weekly (e.g., Monday and Thursday) for stable testosterone levels.",
+    quantity: "10",
+    refills: "2",
+    daysSupply: 70,
   },
 ];
 
@@ -112,15 +154,17 @@ const ANASTROZOLE_TEMPLATES: SigTemplate[] = [
 const SERMORELIN_TEMPLATES: SigTemplate[] = [
   {
     label: "Nightly 0.3 mg",
-    sig: "Inject 0.3 mg (0.15 mL) subcutaneously nightly before bed on an empty stomach.",
+    sig: "Inject 0.3 mg (0.15 mL / 15 units) subcutaneously nightly before bed on an empty stomach.",
     quantity: "1",
     refills: "1",
+    daysSupply: 30,
   },
   {
     label: "5 nights/week",
-    sig: "Inject 0.3 mg subcutaneously nightly Monday through Friday; hold on weekends.",
+    sig: "Inject 0.3 mg (0.15 mL / 15 units) subcutaneously nightly Monday through Friday; hold on weekends.",
     quantity: "1",
     refills: "1",
+    daysSupply: 30,
   },
 ];
 
