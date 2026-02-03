@@ -107,29 +107,80 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
     setLoading(true);
     try {
+      // DEBUG: Log what localStorage has vs what props have
+      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      let storedUserId: number | null = null;
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          storedUserId = parsed.id ? Number(parsed.id) : null;
+        } catch (e) {
+          console.error('[InternalChat] Failed to parse stored user:', e);
+        }
+      }
+
+      console.log('[InternalChat] User ID comparison:', {
+        propsCurrentUserId: currentUserId,
+        propsCurrentUserIdType: typeof currentUserId,
+        localStorageUserId: storedUserId,
+        localStorageUserIdType: typeof storedUserId,
+        match: Number(currentUserId) === storedUserId,
+      });
+
       const response = await fetch('/api/internal/messages');
       if (response.ok) {
         const data = await response.json();
-        const messageList = Array.isArray(data) ? data : data.data || [];
+        // Handle both old format (array) and new format (object with messages and _meta)
+        const messageList = Array.isArray(data) ? data : (data.messages || data.data || []);
+        const apiUserId = data._meta?.authenticatedUserId;
+
+        // CRITICAL: Detect and handle auth mismatch between client and server
+        if (apiUserId && Number(apiUserId) !== Number(currentUserId)) {
+          console.error('[InternalChat] ❌ AUTH MISMATCH DETECTED!', {
+            clientUserId: currentUserId,
+            serverUserId: apiUserId,
+            serverUserRole: data._meta?.authenticatedUserRole,
+            localStorageUserId: storedUserId,
+          });
+          // The API returned messages for a DIFFERENT user than the client expects
+          // This is the root cause of the one-way messaging bug
+          logger.error('Auth mismatch: client and server have different user IDs');
+
+          // Force re-authentication to fix the mismatch
+          // Clear localStorage and redirect to login
+          if (typeof window !== 'undefined') {
+            console.warn('[InternalChat] Forcing re-authentication due to session mismatch');
+            localStorage.removeItem('user');
+            // Clear all auth cookies
+            const authCookies = ['auth-token', 'admin-token', 'super_admin-token', 'provider-token', 'patient-token', 'staff-token', 'support-token'];
+            authCookies.forEach(name => {
+              document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+            });
+            window.location.href = '/login?reason=session_mismatch';
+            return; // Stop processing
+          }
+        }
 
         // IMPORTANT: Ensure numeric comparison - IDs might come as strings from localStorage/JSON
         const myId = Number(currentUserId);
         const theirId = Number(selectedRecipient.id);
 
-        // Debug logging
+        // Debug logging - enhanced
         console.log('[InternalChat] Filtering messages:', {
           currentUserId,
           myId,
+          apiAuthenticatedUserId: apiUserId,
+          authMatch: apiUserId ? Number(apiUserId) === myId : 'N/A',
           selectedRecipientId: selectedRecipient.id,
           theirId,
           totalMessages: messageList.length,
-          sampleMessages: messageList.slice(0, 3).map((m: Message) => ({
+          // Show ALL messages for debugging
+          allMessages: messageList.map((m: Message) => ({
             id: m.id,
             senderId: m.senderId,
-            senderIdType: typeof m.senderId,
             recipientId: m.recipientId,
-            recipientIdType: typeof m.recipientId,
-            msg: m.message?.substring(0, 20),
+            senderName: m.sender ? `${m.sender.firstName} ${m.sender.lastName}` : 'unknown',
+            msg: m.message?.substring(0, 30),
           })),
         });
 
@@ -163,7 +214,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       const response = await fetch('/api/internal/messages?unreadOnly=true');
       if (response.ok) {
         const data = await response.json();
-        const messageList: Message[] = Array.isArray(data) ? data : data.data || [];
+        // Handle both old format (array) and new format (object with messages)
+        const messageList: Message[] = Array.isArray(data) ? data : (data.messages || data.data || []);
         const newCount = messageList.length;
 
         // Check if we have NEW unread messages (count increased)

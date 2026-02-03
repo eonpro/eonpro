@@ -1,14 +1,23 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { withAuth } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 // GET /api/internal/messages - Fetch messages
-async function getHandler(request: NextRequest, user: any) {
+async function getHandler(request: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(request.url);
     // Use authenticated user's ID instead of accepting it from query
     const userId = user.id;
+
+    // DEBUG: Log auth user info to diagnose one-way messaging bug
+    console.log('[InternalMessages API] Auth user from middleware:', {
+      userId: user.id,
+      userIdType: typeof user.id,
+      email: user.email,
+      role: user.role,
+      clinicId: user.clinicId,
+    });
     const channelId = searchParams.get('channelId');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -107,7 +116,16 @@ async function getHandler(request: NextRequest, user: any) {
       }
     }
 
-    return NextResponse.json(messages);
+    // Return messages with the authenticated user ID for client-side validation
+    // This helps detect auth mismatches where localStorage user != JWT user
+    return NextResponse.json({
+      messages,
+      _meta: {
+        authenticatedUserId: userId,
+        authenticatedUserRole: user.role,
+        timestamp: new Date().toISOString(),
+      }
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : '';
@@ -125,7 +143,7 @@ async function getHandler(request: NextRequest, user: any) {
 }
 
 // POST /api/internal/messages - Send a message
-async function postHandler(request: NextRequest, user: any) {
+async function postHandler(request: NextRequest, user: AuthUser) {
   try {
     const body = await request.json();
     // Use authenticated user as sender

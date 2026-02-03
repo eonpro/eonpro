@@ -182,8 +182,25 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   }, [userRole]);
 
   const handleLogout = () => {
+    // Clear all localStorage items
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
+    localStorage.removeItem('admin-token');
+    localStorage.removeItem('provider-token');
+    localStorage.removeItem('super_admin-token');
+    localStorage.removeItem('clinics');
+    localStorage.removeItem('activeClinicId');
+
+    // Clear all auth cookies to prevent session mismatch on next login
+    const authCookies = [
+      'auth-token', 'admin-token', 'super_admin-token',
+      'provider-token', 'patient-token', 'staff-token',
+      'support-token', 'affiliate-token', 'influencer-token'
+    ];
+    authCookies.forEach(name => {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    });
+
     router.push('/login');
   };
 
