@@ -190,6 +190,9 @@ function isPrismaError(error: unknown): error is Prisma.PrismaClientKnownRequest
 
 /**
  * Convert Prisma errors to appropriate AppError
+ *
+ * Connection-related errors (P1xxx) return 503 Service Unavailable
+ * to properly indicate the service is temporarily unavailable.
  */
 function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma.PrismaClientUnknownRequestError | Prisma.PrismaClientValidationError | Prisma.PrismaClientInitializationError): AppError {
   // Known request errors
@@ -226,10 +229,38 @@ function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma
       case 'P2000':
         return new BadRequestError('Input value is too long');
 
-      // Database connection error
+      // =====================================================
+      // CONNECTION ERRORS - Return 503 Service Unavailable
+      // These indicate the database is temporarily unavailable
+      // =====================================================
+
+      // P1001: Can't reach database server
       case 'P1001':
+        return new ServiceUnavailableError(
+          'Database server is unreachable. Please try again in a moment.',
+          5 // Retry after 5 seconds
+        );
+
+      // P1002: Database server timed out
       case 'P1002':
-        return new DatabaseError('Database connection failed');
+        return new ServiceUnavailableError(
+          'Database connection timed out. Please try again.',
+          5
+        );
+
+      // P1008: Operations timed out
+      case 'P1008':
+        return new ServiceUnavailableError(
+          'Database operation timed out. Please try again.',
+          5
+        );
+
+      // P1017: Server closed the connection
+      case 'P1017':
+        return new ServiceUnavailableError(
+          'Database connection was closed. Please try again.',
+          3
+        );
 
       // Default
       default:
@@ -242,12 +273,29 @@ function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma
     return new BadRequestError('Invalid data format');
   }
 
-  // Initialization errors
+  // Initialization errors - treat as 503 since DB isn't ready
   if (error instanceof Prisma.PrismaClientInitializationError) {
-    return new DatabaseError('Database initialization failed');
+    return new ServiceUnavailableError(
+      'Database is initializing. Please try again in a moment.',
+      10
+    );
   }
 
-  // Unknown Prisma error
+  // Unknown Prisma error - check for connection-related messages
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
+  if (
+    errorMessage.includes('connection') ||
+    errorMessage.includes('timeout') ||
+    errorMessage.includes('econnrefused') ||
+    errorMessage.includes('econnreset') ||
+    errorMessage.includes('pool')
+  ) {
+    return new ServiceUnavailableError(
+      'Database connection issue. Please try again.',
+      5
+    );
+  }
+
   return new DatabaseError('Database operation failed');
 }
 

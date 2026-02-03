@@ -1,11 +1,13 @@
 /**
  * Prescription Status Notification System
  * Automatically sends SMS and chat notifications to patients
+ * 
+ * Uses the centralized SMS service for TCPA compliance, rate limiting, and audit logging.
  */
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import twilio from 'twilio';
+import { sendSMS as sendSMSCentralized, SMSResponse } from '@/lib/integrations/twilio/smsService';
 
 /** Prescription status values (matching schema-rx-tracking.prisma) */
 type PrescriptionStatus = 
@@ -175,55 +177,63 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
 }
 
 /**
- * Send SMS notification via Twilio
+ * Send SMS notification via centralized SMS service
+ * Handles TCPA compliance, rate limiting, and audit logging
  */
-async function sendSMS(phone: string, message: string, notificationId: number): Promise<void> {
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-    logger.info('Twilio not configured, skipping SMS', { phone, message });
-    
-    // Update notification as sent (demo mode)
-    await prisma.prescriptionNotification.update({
-      where: { id: notificationId },
-      data: {
-        status: 'SENT',
-        sentAt: new Date(),
-        deliveredAt: new Date(),
-      }
-    });
-    
-    return;
-  }
-
+async function sendSMS(phone: string, message: string, notificationId: number, patientId?: number, clinicId?: number): Promise<void> {
   try {
-    const client = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-
-    const formattedPhone = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
-    
-    const twilioMessage = await client.messages.create({
+    const result = await sendSMSCentralized({
+      to: phone,
       body: message,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: formattedPhone
+      patientId,
+      clinicId,
+      templateType: 'PRESCRIPTION_STATUS',
     });
 
-    await prisma.prescriptionNotification.update({
-      where: { id: notificationId },
-      data: {
-        status: 'SENT',
-        sentAt: new Date(),
-        externalId: twilioMessage.sid,
-        externalStatus: twilioMessage.status,
-      }
-    });
+    if (result.success) {
+      await prisma.prescriptionNotification.update({
+        where: { id: notificationId },
+        data: {
+          status: 'SENT',
+          sentAt: new Date(),
+          externalId: result.messageId,
+          externalStatus: 'sent',
+        }
+      });
 
-    logger.info('SMS notification sent', { 
-      notificationId, 
-      messageSid: twilioMessage.sid 
-    });
+      logger.info('SMS notification sent', { 
+        notificationId, 
+        messageSid: result.messageId 
+      });
+    } else if (result.blocked) {
+      // Mark as cancelled if blocked (opt-out, quiet hours, rate limit)
+      await prisma.prescriptionNotification.update({
+        where: { id: notificationId },
+        data: {
+          status: 'CANCELLED',
+          errorMessage: result.blockReason,
+        }
+      });
+
+      logger.info('SMS notification blocked', { 
+        notificationId, 
+        reason: result.blockReason 
+      });
+    } else {
+      // Mark as failed
+      await prisma.prescriptionNotification.update({
+        where: { id: notificationId },
+        data: {
+          status: 'FAILED',
+          failedAt: new Date(),
+          errorMessage: result.error,
+        }
+      });
+
+      throw new Error(result.error || 'Failed to send SMS');
+    }
   } catch (error: any) {
-    logger.error('Failed to send SMS', error);
+    logger.error('Failed to send SMS', { error: error.message, notificationId });
     
     await prisma.prescriptionNotification.update({
       where: { id: notificationId },
@@ -350,9 +360,14 @@ export async function sendPrescriptionNotification(
         }
       });
 
-      // Send SMS asynchronously
-      sendSMS(prescription.patient.phone, smsMessage, smsNotification.id)
-        .catch(err => logger.error('SMS send failed', err));
+      // Send SMS asynchronously via centralized service
+      sendSMS(
+        prescription.patient.phone, 
+        smsMessage, 
+        smsNotification.id,
+        prescription.patient.id,
+        prescription.order?.clinicId ?? undefined
+      ).catch(err => logger.error('SMS send failed', { error: err.message }));
     }
 
     // Send chat notification
@@ -406,7 +421,12 @@ export async function retryFailedNotifications(): Promise<void> {
       include: {
         prescription: {
           include: {
-            patient: true
+            patient: {
+              select: {
+                id: true,
+                clinicId: true,
+              }
+            }
           }
         }
       },
@@ -418,7 +438,9 @@ export async function retryFailedNotifications(): Promise<void> {
         await sendSMS(
           notification.recipientPhone, 
           notification.message, 
-          notification.id
+          notification.id,
+          notification.prescription.patientId,
+          notification.prescription.patient?.clinicId ?? undefined
         );
       } else if (notification.type === 'CHAT') {
         await sendChatMessage(

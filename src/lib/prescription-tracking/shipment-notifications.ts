@@ -4,11 +4,13 @@
  * 
  * Handles SMS and notification delivery for multi-shipment scheduling.
  * Sends reminders to patients about upcoming shipments based on BUD (Beyond Use Date) constraints.
+ * 
+ * Uses the centralized SMS service for TCPA compliance, rate limiting, and audit logging.
  */
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import twilio from 'twilio';
+import { sendSMS, SMSResponse } from '@/lib/integrations/twilio/smsService';
 
 // ============================================================================
 // Types
@@ -141,64 +143,55 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
   return carriers[carrier.toLowerCase()] || `https://www.google.com/search?q=${trackingNumber}+tracking`;
 }
 
-/**
- * Format phone number for Twilio
- */
-function formatPhoneNumber(phone: string): string {
-  // Remove all non-digits
-  const digits = phone.replace(/\D/g, '');
-  
-  // Add country code if not present
-  if (digits.length === 10) {
-    return `+1${digits}`;
-  } else if (digits.length === 11 && digits.startsWith('1')) {
-    return `+${digits}`;
-  } else if (phone.startsWith('+')) {
-    return phone;
-  }
-  
-  return `+1${digits}`;
-}
-
 // ============================================================================
 // SMS Sending Functions
 // ============================================================================
 
 /**
- * Send SMS via Twilio
+ * Send shipment SMS via centralized service
+ * Uses the main SMS service for TCPA compliance, rate limiting, and logging
  */
-async function sendSMS(phone: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  // Check Twilio configuration
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
-    logger.info('[Shipment SMS] Twilio not configured, logging message instead', { phone, message });
-    return { success: true, messageId: 'demo-mode' };
-  }
+async function sendShipmentSMS(
+  phone: string, 
+  message: string, 
+  patientId: number, 
+  templateType: string
+): Promise<SMSResponse> {
+  // Get patient's clinic for proper routing
+  const patient = await prisma.patient.findUnique({
+    where: { id: patientId },
+    select: { clinicId: true },
+  });
 
-  try {
-    const client = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
+  const result = await sendSMS({
+    to: phone,
+    body: message,
+    patientId,
+    clinicId: patient?.clinicId,
+    templateType,
+  });
 
-    const formattedPhone = formatPhoneNumber(phone);
-
-    const twilioMessage = await client.messages.create({
-      body: message,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: formattedPhone,
-    });
-
+  if (result.success) {
     logger.info('[Shipment SMS] Sent successfully', {
-      to: formattedPhone,
-      messageId: twilioMessage.sid,
+      patientId,
+      messageId: result.messageId,
+      templateType,
     });
-
-    return { success: true, messageId: twilioMessage.sid };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[Shipment SMS] Failed to send', { phone, error: errorMessage });
-    return { success: false, error: errorMessage };
+  } else if (result.blocked) {
+    logger.info('[Shipment SMS] Blocked', {
+      patientId,
+      reason: result.blockReason,
+      templateType,
+    });
+  } else {
+    logger.error('[Shipment SMS] Failed to send', {
+      patientId,
+      error: result.error,
+      templateType,
+    });
   }
+
+  return result;
 }
 
 // ============================================================================
@@ -215,31 +208,14 @@ export async function sendShipmentReminderSMS(input: ShipmentReminderSMSInput): 
     ? SMS_TEMPLATES.FINAL_SHIPMENT_REMINDER(input)
     : SMS_TEMPLATES.SHIPMENT_REMINDER(input);
 
-  const result = await sendSMS(input.phone, message);
+  const templateType = isFinalShipment ? 'FINAL_SHIPMENT_REMINDER' : 'SHIPMENT_REMINDER';
+  const result = await sendShipmentSMS(input.phone, message, input.patientId, templateType);
 
-  if (!result.success) {
+  if (!result.success && !result.blocked) {
     throw new Error(result.error || 'Failed to send SMS');
   }
-
-  // Log the notification in the database for audit
-  try {
-    await prisma.smsLog.create({
-      data: {
-        patientId: input.patientId,
-        phone: input.phone,
-        message,
-        status: 'SENT',
-        twilioSid: result.messageId,
-        templateType: 'SHIPMENT_REMINDER',
-      },
-    });
-  } catch (logError) {
-    // Non-fatal, just log the error
-    logger.warn('[Shipment SMS] Failed to log SMS to database', {
-      patientId: input.patientId,
-      error: logError instanceof Error ? logError.message : 'Unknown error',
-    });
-  }
+  
+  // Note: Logging is now handled by the centralized SMS service
 }
 
 /**
@@ -254,28 +230,10 @@ export async function sendShipmentProcessingSMS(input: {
   medicationName: string;
 }): Promise<void> {
   const message = SMS_TEMPLATES.SHIPMENT_PROCESSING(input);
-  const result = await sendSMS(input.phone, message);
+  const result = await sendShipmentSMS(input.phone, message, input.patientId, 'SHIPMENT_PROCESSING');
 
-  if (!result.success) {
+  if (!result.success && !result.blocked) {
     throw new Error(result.error || 'Failed to send SMS');
-  }
-
-  // Log the notification
-  try {
-    await prisma.smsLog.create({
-      data: {
-        patientId: input.patientId,
-        phone: input.phone,
-        message,
-        status: 'SENT',
-        twilioSid: result.messageId,
-        templateType: 'SHIPMENT_PROCESSING',
-      },
-    });
-  } catch (logError) {
-    logger.warn('[Shipment SMS] Failed to log SMS to database', {
-      patientId: input.patientId,
-    });
   }
 }
 
@@ -284,28 +242,10 @@ export async function sendShipmentProcessingSMS(input: {
  */
 export async function sendShipmentShippedSMS(input: ShipmentConfirmationSMSInput): Promise<void> {
   const message = SMS_TEMPLATES.SHIPMENT_SHIPPED(input);
-  const result = await sendSMS(input.phone, message);
+  const result = await sendShipmentSMS(input.phone, message, input.patientId, 'SHIPMENT_SHIPPED');
 
-  if (!result.success) {
+  if (!result.success && !result.blocked) {
     throw new Error(result.error || 'Failed to send SMS');
-  }
-
-  // Log the notification
-  try {
-    await prisma.smsLog.create({
-      data: {
-        patientId: input.patientId,
-        phone: input.phone,
-        message,
-        status: 'SENT',
-        twilioSid: result.messageId,
-        templateType: 'SHIPMENT_SHIPPED',
-      },
-    });
-  } catch (logError) {
-    logger.warn('[Shipment SMS] Failed to log SMS to database', {
-      patientId: input.patientId,
-    });
   }
 }
 
@@ -322,28 +262,10 @@ export async function sendNextShipmentScheduledSMS(input: {
   nextShipmentDate: Date;
 }): Promise<void> {
   const message = SMS_TEMPLATES.NEXT_SHIPMENT_SCHEDULED(input);
-  const result = await sendSMS(input.phone, message);
+  const result = await sendShipmentSMS(input.phone, message, input.patientId, 'NEXT_SHIPMENT_SCHEDULED');
 
-  if (!result.success) {
+  if (!result.success && !result.blocked) {
     throw new Error(result.error || 'Failed to send SMS');
-  }
-
-  // Log the notification
-  try {
-    await prisma.smsLog.create({
-      data: {
-        patientId: input.patientId,
-        phone: input.phone,
-        message,
-        status: 'SENT',
-        twilioSid: result.messageId,
-        templateType: 'NEXT_SHIPMENT_SCHEDULED',
-      },
-    });
-  } catch (logError) {
-    logger.warn('[Shipment SMS] Failed to log SMS to database', {
-      patientId: input.patientId,
-    });
   }
 }
 

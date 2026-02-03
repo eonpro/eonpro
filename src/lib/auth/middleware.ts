@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, JWTPayload } from 'jose';
+import { Prisma } from '@prisma/client';
 import { JWT_SECRET, AUTH_CONFIG } from './config';
 import { setClinicContext, runWithClinicContext, prisma } from '@/lib/db';
 import { validateSession } from './session-manager';
@@ -548,6 +549,30 @@ export function withAuth<T = unknown>(
     } catch (error) {
       setClinicContext(undefined);
 
+      // Distinguish database connection errors from authentication errors
+      // This helps with debugging and allows clients to retry on transient failures
+      if (isDatabaseConnectionError(error)) {
+        logger.error('Database connection error in auth middleware', error as Error, { 
+          requestId,
+          errorType: 'DATABASE_CONNECTION'
+        });
+
+        return NextResponse.json(
+          {
+            error: 'Service temporarily unavailable. Please try again.',
+            code: 'SERVICE_UNAVAILABLE',
+            requestId,
+            retryAfter: 5,
+          },
+          { 
+            status: 503,
+            headers: {
+              'Retry-After': '5',
+            }
+          }
+        );
+      }
+
       logger.error('Authentication middleware error', error as Error, { requestId });
 
       return NextResponse.json(
@@ -560,6 +585,41 @@ export function withAuth<T = unknown>(
       );
     }
   };
+}
+
+/**
+ * Check if an error is a database connection error
+ * These should return 503 instead of 500 to indicate temporary unavailability
+ */
+function isDatabaseConnectionError(error: unknown): boolean {
+  // Prisma known request errors with connection-related codes
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const connectionErrorCodes = ['P1001', 'P1002', 'P1008', 'P1017'];
+    return connectionErrorCodes.includes(error.code);
+  }
+
+  // Prisma initialization errors (database not ready)
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    return true;
+  }
+
+  // Check for connection-related error messages
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    const connectionPatterns = [
+      'connection',
+      'econnrefused',
+      'econnreset',
+      'timeout',
+      'pool',
+      'too many connections',
+      'database server',
+      'cannot connect',
+    ];
+    return connectionPatterns.some(pattern => message.includes(pattern));
+  }
+
+  return false;
 }
 
 /**

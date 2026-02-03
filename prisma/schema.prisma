@@ -81,6 +81,13 @@ model Patient {
   superbills              Superbill[]
   carePlans               CarePlan[]
   smsLogs                 SmsLog[]
+  smsOptOuts              SmsOptOut[]
+  
+  // SMS Consent (TCPA Compliance)
+  smsConsent              Boolean  @default(true)
+  smsConsentAt            DateTime?
+  smsConsentSource        String? // webhook, patient_portal, admin, etc.
+  
   discountUsages          DiscountUsage[]
   affiliateReferrals      AffiliateReferral[]
   chatMessages            PatientChatMessage[]
@@ -2545,6 +2552,9 @@ model Clinic {
   carePlans            CarePlan[]
   carePlanTemplates    CarePlanTemplate[]
   smsLogs              SmsLog[]
+  smsOptOuts           SmsOptOut[]
+  smsQuietHours        SmsQuietHours[]
+  smsRateLimits        SmsRateLimit[]
   patientChatMessages  PatientChatMessage[]
 
   // Health Tracking Logs
@@ -3046,10 +3056,87 @@ model SmsLog {
   error      String? // Error message if failed
   metadata   Json? // Additional data
 
+  // Enhanced delivery tracking
+  deliveredAt     DateTime?
+  failedAt        DateTime?
+  errorCode       String?
+  price           Decimal?  @db.Decimal(10, 4)
+  priceUnit       String?
+  segments        Int       @default(1)
+  templateType    String?   // APPOINTMENT_REMINDER, PRESCRIPTION_READY, etc.
+  isOptOutResponse Boolean  @default(false)
+  queuedForRetry  Boolean   @default(false)
+  retryCount      Int       @default(0)
+  statusUpdatedAt DateTime?
+
   @@index([patientId, createdAt])
   @@index([fromPhone])
   @@index([toPhone])
   @@index([clinicId])
+  @@index([status, createdAt])
+  @@index([messageSid, status])
+}
+
+// ===== SMS OPT-OUT (TCPA Compliance) =====
+model SmsOptOut {
+  id            Int       @id @default(autoincrement())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  phone         String    // E.164 format
+  clinicId      Int       @default(0) // 0 = global opt-out
+  clinic        Clinic?   @relation(fields: [clinicId], references: [id], map: "SmsOptOut_clinic_fkey")
+  patientId     Int?
+  patient       Patient?  @relation(fields: [patientId], references: [id])
+  reason        String    @default("STOP") // STOP, UNSUBSCRIBE, MANUAL, etc.
+  optedOutAt    DateTime  @default(now())
+  optedInAt     DateTime? // If they re-subscribe
+  isActive      Boolean   @default(true)
+  source        String    @default("sms") // sms, admin, patient_portal
+  lastMessageSid String?  // Last message received that triggered opt-out
+
+  @@unique([phone, clinicId])
+  @@index([phone])
+  @@index([clinicId])
+  @@index([patientId])
+}
+
+// ===== SMS QUIET HOURS =====
+model SmsQuietHours {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clinicId    Int
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  name        String   @default("Default Quiet Hours")
+  startHour   Int      @default(21) // 9 PM
+  startMinute Int      @default(0)
+  endHour     Int      @default(8)  // 8 AM
+  endMinute   Int      @default(0)
+  timezone    String   @default("America/New_York")
+  isActive    Boolean  @default(true)
+  daysOfWeek  Int[]    @default([0, 1, 2, 3, 4, 5, 6]) // All days
+
+  @@unique([clinicId, name])
+  @@index([clinicId, isActive])
+}
+
+// ===== SMS RATE LIMITING =====
+model SmsRateLimit {
+  id               Int       @id @default(autoincrement())
+  phone            String
+  clinicId         Int       @default(0) // 0 = global rate limit
+  clinic           Clinic?   @relation(fields: [clinicId], references: [id], map: "SmsRateLimit_clinic_fkey")
+  messageCount     Int       @default(0)
+  windowStart      DateTime  @default(now())
+  dailyCount       Int       @default(0)
+  dailyWindowStart DateTime  @default(now())
+  lastMessageAt    DateTime?
+  isBlocked        Boolean   @default(false)
+  blockedUntil     DateTime?
+  blockReason      String?
+
+  @@unique([phone, clinicId])
+  @@index([phone])
 }
 
 // ===== PATIENT CHAT SYSTEM =====
