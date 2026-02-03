@@ -42,6 +42,11 @@ export interface ScheduleRefillInput {
   medicationForm?: string;
   planName?: string;
   nextRefillDate?: Date;
+  // Multi-shipment tracking (BUD)
+  shipmentNumber?: number;
+  totalShipments?: number;
+  parentRefillId?: number;
+  budDays?: number;
 }
 
 export interface RefillQueueWithRelations extends RefillQueue {
@@ -180,6 +185,11 @@ export async function scheduleRefill(
     medicationForm,
     planName,
     nextRefillDate,
+    // Multi-shipment tracking
+    shipmentNumber,
+    totalShipments,
+    parentRefillId,
+    budDays,
   } = input;
 
   const intervalDays = calculateIntervalDays(vialCount);
@@ -199,6 +209,11 @@ export async function scheduleRefill(
       medicationStrength,
       medicationForm,
       planName,
+      // Multi-shipment tracking (BUD)
+      shipmentNumber: shipmentNumber ?? 1,
+      totalShipments: totalShipments ?? 1,
+      parentRefillId,
+      budDays: budDays ?? 90,
     },
   });
 
@@ -220,6 +235,8 @@ export async function scheduleRefill(
     subscriptionId,
     vialCount,
     nextRefillDate: refillDate,
+    shipmentNumber: shipmentNumber ?? 1,
+    totalShipments: totalShipments ?? 1,
   });
 
   return refill;
@@ -227,10 +244,21 @@ export async function scheduleRefill(
 
 /**
  * Schedule refill from subscription (called when subscription is created/renewed)
+ *
+ * For multi-month packages (6+months), this creates a multi-shipment schedule
+ * based on medication Beyond Use Date (BUD) constraints.
+ *
  * @param subscriptionOrId - Either a Subscription object or a subscription ID
+ * @param options - Optional configuration
  */
 export async function scheduleRefillFromSubscription(
-  subscriptionOrId: (Subscription & { patient?: Patient }) | number
+  subscriptionOrId: (Subscription & { patient?: Patient }) | number,
+  options?: {
+    /** Override the default BUD (Beyond Use Date) in days */
+    budDays?: number;
+    /** Force multi-shipment even for shorter packages */
+    forceMultiShipment?: boolean;
+  }
 ): Promise<RefillQueue | null> {
   // Fetch subscription if ID was passed
   let subscription: Subscription & { patient?: Patient };
@@ -264,6 +292,51 @@ export async function scheduleRefillFromSubscription(
     return null;
   }
 
+  // Import shipment schedule service dynamically to avoid circular dependencies
+  const {
+    createShipmentScheduleForSubscription,
+    getPackageMonthsFromSubscription,
+    requiresMultiShipment,
+    DEFAULT_BUD_DAYS,
+  } = await import('@/lib/shipment-schedule');
+
+  // Check if this is a multi-month package that needs multi-shipment scheduling
+  const packageMonths = getPackageMonthsFromSubscription(subscription);
+  const budDays = options?.budDays ?? DEFAULT_BUD_DAYS;
+  const needsMultiShipment = options?.forceMultiShipment || requiresMultiShipment(packageMonths, budDays);
+
+  if (needsMultiShipment) {
+    logger.info('[RefillQueue] Detected multi-month package, creating shipment schedule', {
+      subscriptionId: subscription.id,
+      packageMonths,
+      budDays,
+    });
+
+    try {
+      const { shipments, totalShipments } = await createShipmentScheduleForSubscription(
+        subscription.id,
+        options?.budDays
+      );
+
+      logger.info('[RefillQueue] Created multi-shipment schedule', {
+        subscriptionId: subscription.id,
+        totalShipments,
+        firstShipmentId: shipments[0]?.id,
+      });
+
+      // Return the first shipment (immediate one)
+      return shipments[0] || null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[RefillQueue] Failed to create multi-shipment schedule, falling back to single refill', {
+        subscriptionId: subscription.id,
+        error: message,
+      });
+      // Fall through to single refill scheduling
+    }
+  }
+
+  // Standard single refill scheduling
   return scheduleRefill({
     clinicId: subscription.clinicId,
     patientId: subscription.patientId,

@@ -3,6 +3,10 @@ export {
   default 
 } from './notificationService';
 
+export {
+  notificationEvents,
+} from './notificationEvents';
+
 export type {
   CreateNotificationInput,
   BroadcastNotificationInput,

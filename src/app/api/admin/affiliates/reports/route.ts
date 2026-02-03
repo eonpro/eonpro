@@ -126,8 +126,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         status: { in: ['PENDING', 'APPROVED', 'PAID'] },
       },
       _sum: {
-        orderAmountCents: true,
-        commissionCents: true,
+        eventAmountCents: true,
+        commissionAmountCents: true,
       },
     });
 
@@ -138,7 +138,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         status: 'APPROVED',
       },
       _sum: {
-        commissionCents: true,
+        commissionAmountCents: true,
       },
     });
 
@@ -190,8 +190,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         id: a.id,
         name: a.displayName,
         conversions: a.commissionEvents.length,
-        revenueCents: a.commissionEvents.reduce((sum: number, e: ModernCommissionEvent) => sum + (e.orderAmountCents || 0), 0),
-        commissionCents: a.commissionEvents.reduce((sum: number, e: ModernCommissionEvent) => sum + (e.commissionCents || 0), 0),
+        revenueCents: a.commissionEvents.reduce((sum: number, e: ModernCommissionEvent) => sum + (e.eventAmountCents || 0), 0),
+        commissionCents: a.commissionEvents.reduce((sum: number, e: ModernCommissionEvent) => sum + (e.commissionAmountCents || 0), 0),
       })),
       ...topLegacyInfluencers.map((i: LegacyInfluencer) => ({
         id: i.id + 100000, // Offset to avoid ID collision
@@ -244,16 +244,16 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           status: { in: ['PENDING', 'APPROVED', 'PAID'] },
         },
         _sum: {
-          orderAmountCents: true,
-          commissionCents: true,
+          eventAmountCents: true,
+          commissionAmountCents: true,
         },
       });
 
       trends.push({
         date: dayStart.toISOString(),
         conversions: modernDayConversions + legacyDayConversions,
-        revenueCents: dayCommissions._sum.orderAmountCents || 0,
-        commissionCents: dayCommissions._sum.commissionCents || 0,
+        revenueCents: dayCommissions._sum.eventAmountCents || 0,
+        commissionCents: dayCommissions._sum.commissionAmountCents || 0,
       });
     }
 
@@ -288,9 +288,9 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         totalAffiliates: combinedTotalAffiliates,
         activeAffiliates: combinedActiveAffiliates,
         totalConversions,
-        totalRevenueCents: commissionAgg._sum.orderAmountCents || 0,
-        totalCommissionCents: commissionAgg._sum.commissionCents || 0,
-        pendingPayoutCents: pendingPayouts._sum.commissionCents || 0,
+        totalRevenueCents: commissionAgg._sum.eventAmountCents || 0,
+        totalCommissionCents: commissionAgg._sum.commissionAmountCents || 0,
+        pendingPayoutCents: pendingPayouts._sum.commissionAmountCents || 0,
       },
       topAffiliates,
       trends,

@@ -203,6 +203,38 @@ export default function AffiliateReportsPage() {
         </div>
       </div>
 
+      {/* Navigation Tabs */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <a
+          href="/admin/affiliates"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <Users className="h-5 w-5" />
+          Affiliates
+        </a>
+        <a
+          href="/admin/affiliates/code-performance"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <Target className="h-5 w-5" />
+          Code Performance
+        </a>
+        <a
+          href="/admin/affiliates/commission-plans"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <DollarSign className="h-5 w-5" />
+          Plans
+        </a>
+        <a
+          href="/admin/affiliates/applications"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <Users className="h-5 w-5" />
+          Applications
+        </a>
+      </div>
+
       {/* Overview Stats */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl bg-white p-5 shadow-sm">

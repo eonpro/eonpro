@@ -125,13 +125,13 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             status: { in: ['PENDING', 'APPROVED', 'PAID'] },
           },
           _sum: {
-            orderAmountCents: true,
+            eventAmountCents: true,
           },
         });
 
         const clicks = clicksResult._count;
         const conversions = conversionsResult._count;
-        const revenue = revenueResult._sum.orderAmountCents || 0;
+        const revenue = revenueResult._sum.eventAmountCents || 0;
         const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
 
         return {

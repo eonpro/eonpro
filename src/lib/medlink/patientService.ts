@@ -1,6 +1,7 @@
 import type { Patient, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generatePatientId } from "@/lib/patients";
+import { logger } from "@/lib/logger";
 import type { NormalizedIntake, NormalizedPatient } from "./types";
 
 type NormalizedPatientForCreate = {
@@ -17,6 +18,18 @@ type NormalizedPatientForCreate = {
   zip: string;
 };
 
+/**
+ * Upsert a patient from intake form data
+ * 
+ * CRITICAL: Multi-tenant isolation is enforced by:
+ * 1. Always filtering patient searches by clinicId (when provided)
+ * 2. Logging security warnings when cross-clinic matches are detected
+ * 3. Creating new patients with the correct clinicId
+ * 
+ * @param intake - Normalized intake form data
+ * @param options.clinicId - The clinic ID to scope the search and creation
+ * @param options.tags - Additional tags to apply
+ */
 export async function upsertPatientFromIntake(
   intake: NormalizedIntake, 
   options?: { clinicId?: number; tags?: string[] }
@@ -27,30 +40,55 @@ export async function upsertPatientFromIntake(
   const allTags = [...new Set([...hashtags, ...additionalTags])];
 
   const matchFilters = buildMatchFilters(normalized);
-  
-  // If clinicId is provided, scope the search to that clinic
-  if (options?.clinicId) {
-    matchFilters.forEach(filter => {
-      (filter as any).clinicId = options.clinicId;
-    });
-  }
-  
   let existing: Patient | null = null;
 
   if (matchFilters.length > 0) {
-    existing = await // @ts-ignore
-    prisma.patient.findFirst({
-      where: { OR: matchFilters },
+    // CRITICAL: Build the where clause with clinic isolation
+    const whereClause: Prisma.PatientWhereInput = {
+      OR: matchFilters,
+    };
+    
+    // If clinicId is provided, ALWAYS filter by it
+    if (options?.clinicId) {
+      whereClause.clinicId = options.clinicId;
+    }
+    
+    existing = await prisma.patient.findFirst({
+      where: whereClause,
     });
+    
+    // SECURITY AUDIT: Check if matching data exists in another clinic
+    if (!existing && options?.clinicId) {
+      const globalMatch = await prisma.patient.findFirst({
+        where: { OR: matchFilters },
+        select: { id: true, clinicId: true, email: true, patientId: true },
+      });
+      
+      if (globalMatch && globalMatch.clinicId !== options.clinicId) {
+        logger.warn('[MedLinkPatientService] SECURITY: Patient with matching data exists in different clinic', {
+          matchedPatientId: globalMatch.id,
+          matchedPatientDisplayId: globalMatch.patientId,
+          matchedClinicId: globalMatch.clinicId,
+          requestedClinicId: options.clinicId,
+          submissionId: intake.submissionId,
+        });
+      }
+    }
   }
 
   if (existing) {
+    logger.info('[MedLinkPatientService] Updating existing patient', {
+      patientId: existing.id,
+      clinicId: existing.clinicId,
+      submissionId: intake.submissionId,
+    });
+    
     const updated = await prisma.patient.update({
       where: { id: existing.id },
       data: {
         ...normalized,
-        // Update clinicId if patient was orphaned
-        ...(options?.clinicId && !existing.clinicId ? { clinicId: options.clinicId } : {}),
+        // NOTE: Do NOT update clinicId - this would violate multi-tenant isolation
+        // Patients should only be moved between clinics via explicit admin action
         tags: mergeTags(existing.tags, allTags),
         notes: appendNotes(existing.notes, intake.submissionId),
       },
@@ -61,6 +99,12 @@ export async function upsertPatientFromIntake(
   // Generate patient ID using the shared utility (handles clinic prefixes)
   const clinicIdForCounter = options?.clinicId || 1;
   const patientId = await generatePatientId(clinicIdForCounter);
+
+  logger.info('[MedLinkPatientService] Creating new patient', {
+    generatedPatientId: patientId,
+    clinicId: options?.clinicId || null,
+    submissionId: intake.submissionId,
+  });
 
   const created = await prisma.patient.create({
     data: {

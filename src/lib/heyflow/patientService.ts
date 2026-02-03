@@ -1,6 +1,7 @@
 import type { Patient, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generatePatientId } from "@/lib/patients";
+import { logger } from "@/lib/logger";
 import type { NormalizedIntake, NormalizedPatient } from "./types";
 
 type NormalizedPatientForCreate = {
@@ -17,21 +18,62 @@ type NormalizedPatientForCreate = {
   zip: string;
 };
 
-export async function upsertPatientFromIntake(intake: NormalizedIntake): Promise<Patient> {
+/**
+ * Upsert a patient from intake form data
+ * 
+ * CRITICAL: Multi-tenant isolation is enforced by:
+ * 1. Only searching for existing patients within the specified clinic
+ * 2. Creating new patients with the correct clinicId
+ * 
+ * @param intake - Normalized intake form data
+ * @param clinicId - The clinic ID to use (required for multi-tenant isolation)
+ *                   Defaults to 1 (EONMEDS) for backward compatibility with heyflow-intake webhook
+ */
+export async function upsertPatientFromIntake(
+  intake: NormalizedIntake,
+  clinicId: number = 1 // Default to EONMEDS for backward compatibility
+): Promise<Patient> {
   const normalized = normalizePatient(intake.patient);
   const hashtags = collectHashtags(intake);
 
   const matchFilters = buildMatchFilters(normalized);
   let existing: Patient | null = null;
 
+  // CRITICAL: Always filter by clinicId to prevent cross-clinic data leakage
   if (matchFilters.length > 0) {
-    existing = await // @ts-ignore
-    prisma.patient.findFirst({
-      where: { OR: matchFilters },
+    existing = await prisma.patient.findFirst({
+      where: {
+        clinicId: clinicId, // CRITICAL: Enforce clinic isolation
+        OR: matchFilters,
+      },
     });
+    
+    // Log if we would have matched a patient from a different clinic (security audit)
+    if (!existing && matchFilters.length > 0) {
+      const globalMatch = await prisma.patient.findFirst({
+        where: { OR: matchFilters },
+        select: { id: true, clinicId: true, email: true, patientId: true },
+      });
+      
+      if (globalMatch && globalMatch.clinicId !== clinicId) {
+        logger.warn('[HeyflowPatientService] SECURITY: Patient with matching data exists in different clinic', {
+          matchedPatientId: globalMatch.id,
+          matchedPatientDisplayId: globalMatch.patientId,
+          matchedClinicId: globalMatch.clinicId,
+          requestedClinicId: clinicId,
+          submissionId: intake.submissionId,
+        });
+      }
+    }
   }
 
   if (existing) {
+    logger.info('[HeyflowPatientService] Updating existing patient', {
+      patientId: existing.id,
+      clinicId: existing.clinicId,
+      submissionId: intake.submissionId,
+    });
+    
     const updated = await prisma.patient.update({
       where: { id: existing.id },
       data: {
@@ -44,13 +86,19 @@ export async function upsertPatientFromIntake(intake: NormalizedIntake): Promise
   }
 
   // Generate patient ID using the shared utility (handles clinic prefixes)
-  // Default to clinic 1 = EONMEDS
-  const patientId = await generatePatientId(1);
+  const patientId = await generatePatientId(clinicId);
+
+  logger.info('[HeyflowPatientService] Creating new patient', {
+    generatedPatientId: patientId,
+    clinicId: clinicId,
+    submissionId: intake.submissionId,
+  });
 
   const created = await prisma.patient.create({
     data: {
       ...normalized,
       patientId,
+      clinicId, // CRITICAL: Associate patient with correct clinic
       tags: hashtags,
       notes: `Created via MedLink submission ${intake.submissionId}`,
       source: "webhook",

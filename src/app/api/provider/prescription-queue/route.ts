@@ -517,6 +517,23 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Transform invoice data for frontend
     const invoiceItems = invoices.map((invoice: InvoiceWithRelations) => {
+      // CRITICAL: Validate clinic consistency between invoice and patient
+      // This is a defense-in-depth check to catch multi-tenant isolation violations
+      const invoiceClinicId = invoice.clinicId;
+      const patientClinicId = invoice.patient.clinicId;
+      
+      if (invoiceClinicId !== patientClinicId) {
+        logger.error('[PRESCRIPTION-QUEUE] CRITICAL SECURITY: Clinic mismatch detected!', {
+          invoiceId: invoice.id,
+          invoiceClinicId,
+          patientId: invoice.patient.id,
+          patientClinicId,
+          patientDisplayId: invoice.patient.patientId,
+          patientEmail: invoice.patient.email, // For investigation
+        });
+        // We still return the item but flag it so UI can highlight the issue
+      }
+      
       // Extract treatment info from metadata or line items
       const metadata = invoice.metadata as Record<string, unknown> | null;
       const lineItems = invoice.lineItems as Array<Record<string, unknown>> | null;
@@ -694,11 +711,29 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           lifefileEnabled: invoice.clinic.lifefileEnabled,
           practiceName: invoice.clinic.lifefilePracticeName,
         } : null,
+        // CRITICAL: Flag for multi-tenant isolation violation detection
+        // If true, this record has a clinic mismatch between invoice and patient
+        clinicMismatch: invoiceClinicId !== patientClinicId,
+        patientClinicId: patientClinicId, // Include for debugging/fixing
       };
     });
     
     // Transform refill data for frontend
     const refillItems = refills.map((refill: RefillWithRelations) => {
+      // CRITICAL: Validate clinic consistency between refill and patient
+      const refillClinicId = refill.clinicId;
+      const refillPatientClinicId = refill.patient.clinicId;
+      
+      if (refillClinicId !== refillPatientClinicId) {
+        logger.error('[PRESCRIPTION-QUEUE] CRITICAL SECURITY: Clinic mismatch detected in refill!', {
+          refillId: refill.id,
+          refillClinicId,
+          patientId: refill.patient.id,
+          patientClinicId: refillPatientClinicId,
+          patientDisplayId: refill.patient.patientId,
+        });
+      }
+      
       // Get intake completion date if available
       const intakeCompletedAt = refill.patient.intakeSubmissions?.[0]?.completedAt || null;
 
@@ -792,6 +827,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           planName: refill.subscription.planName,
           status: refill.subscription.status,
         } : null,
+        // CRITICAL: Flag for multi-tenant isolation violation detection
+        clinicMismatch: refillClinicId !== refillPatientClinicId,
+        patientClinicId: refillPatientClinicId,
       };
     });
     

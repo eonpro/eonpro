@@ -28,7 +28,8 @@ export type NotificationCategory =
   | 'APPOINTMENT' 
   | 'MESSAGE' 
   | 'PAYMENT' 
-  | 'REFILL';
+  | 'REFILL'
+  | 'SHIPMENT';
 
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 

@@ -526,7 +526,8 @@ export default function PrescriptionForm({
 
   // Confirmation View
   if (showConfirmation) {
-    const selectedProvider = providers.find((p: any) => p.id === form.providerId);
+    // Note: selectedProvider is already computed at component level (line ~208)
+    // using the correct logic for both provider role (selfProvider) and admin role (providers array)
     const shippingMethod = SHIPPING_METHODS.find((m: any) => m.id === form.shippingMethod);
     
     return (

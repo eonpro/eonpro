@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import {
   X,
-  Pin,
-  ChevronRight,
   Pill,
   User,
   Package,
@@ -16,188 +14,286 @@ import {
   CreditCard,
   RefreshCw,
   Bell,
-  Check,
-  Volume2,
-  VolumeX,
+  FileText,
+  Truck,
+  Moon,
 } from 'lucide-react';
 import { useNotificationContext, type ToastNotification } from './NotificationProvider';
 import type { NotificationCategory } from '@/hooks/useNotifications';
+import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
 // ============================================================================
-// Category Icons
+// Category Configuration - Apple-style icons and colors
 // ============================================================================
 
-const categoryConfig: Record<NotificationCategory, { icon: typeof Bell; color: string; bgColor: string }> = {
-  PRESCRIPTION: { icon: Pill, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  PATIENT: { icon: User, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  ORDER: { icon: Package, color: 'text-green-600', bgColor: 'bg-green-100' },
-  SYSTEM: { icon: AlertCircle, color: 'text-orange-600', bgColor: 'bg-orange-100' },
-  APPOINTMENT: { icon: Calendar, color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
-  MESSAGE: { icon: MessageSquare, color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
-  PAYMENT: { icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
-  REFILL: { icon: RefreshCw, color: 'text-pink-600', bgColor: 'bg-pink-100' },
+const categoryConfig: Record<NotificationCategory, {
+  icon: typeof Bell;
+  gradient: string;
+  iconColor: string;
+  label: string;
+}> = {
+  PRESCRIPTION: {
+    icon: Pill,
+    gradient: 'from-purple-500 to-purple-600',
+    iconColor: 'text-white',
+    label: 'Prescriptions'
+  },
+  PATIENT: {
+    icon: FileText,
+    gradient: 'from-blue-500 to-blue-600',
+    iconColor: 'text-white',
+    label: 'New Intake'
+  },
+  ORDER: {
+    icon: Package,
+    gradient: 'from-green-500 to-green-600',
+    iconColor: 'text-white',
+    label: 'Orders'
+  },
+  SYSTEM: {
+    icon: AlertCircle,
+    gradient: 'from-orange-500 to-orange-600',
+    iconColor: 'text-white',
+    label: 'System'
+  },
+  APPOINTMENT: {
+    icon: Calendar,
+    gradient: 'from-cyan-500 to-cyan-600',
+    iconColor: 'text-white',
+    label: 'Appointments'
+  },
+  MESSAGE: {
+    icon: MessageSquare,
+    gradient: 'from-indigo-500 to-indigo-600',
+    iconColor: 'text-white',
+    label: 'New Chat'
+  },
+  PAYMENT: {
+    icon: CreditCard,
+    gradient: 'from-emerald-500 to-emerald-600',
+    iconColor: 'text-white',
+    label: 'Payment'
+  },
+  REFILL: {
+    icon: RefreshCw,
+    gradient: 'from-pink-500 to-pink-600',
+    iconColor: 'text-white',
+    label: 'RX Queue'
+  },
+  SHIPMENT: {
+    icon: Truck,
+    gradient: 'from-amber-500 to-amber-600',
+    iconColor: 'text-white',
+    label: 'Shipment'
+  },
 };
 
-const priorityStyles = {
-  LOW: 'border-l-gray-300',
-  NORMAL: 'border-l-blue-400',
-  HIGH: 'border-l-orange-400 shadow-orange-100',
-  URGENT: 'border-l-red-500 shadow-red-100 animate-pulse-subtle',
-};
-
 // ============================================================================
-// Toast Item
+// Time Formatter
 // ============================================================================
 
-interface ToastItemProps {
-  toast: ToastNotification;
-  onDismiss: () => void;
-  onPin: () => void;
-  onMarkRead: () => void;
-  onClick: () => void;
+function formatTimeAgo(date: Date | string): string {
+  const now = new Date();
+  const then = new Date(date);
+  const diffMs = now.getTime() - then.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+
+  if (diffSecs < 30) return 'now';
+  if (diffMins < 1) return `${diffSecs}s ago`;
+  if (diffMins < 60) return `${diffMins}m ago`;
+  return then.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
-function ToastItem({ toast, onDismiss, onPin, onMarkRead, onClick }: ToastItemProps) {
+// ============================================================================
+// Apple-Style Toast Item
+// ============================================================================
+
+interface AppleToastProps {
+  toast: ToastNotification;
+  onDismiss: () => void;
+  onClick: () => void;
+  position: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+}
+
+function AppleToast({ toast, onDismiss, onClick, position }: AppleToastProps) {
   const config = categoryConfig[toast.category];
   const Icon = config.icon;
-  const [progress, setProgress] = useState(100);
-  const [isHovered, setIsHovered] = useState(false);
+  const [timeAgo, setTimeAgo] = useState(formatTimeAgo(toast.createdAt));
 
-  // Progress bar animation
+  // Swipe to dismiss
+  const x = useMotionValue(0);
+  const opacity = useTransform(x, [-200, 0, 200], [0, 1, 0]);
+  const scale = useTransform(x, [-200, 0, 200], [0.8, 1, 0.8]);
+
+  // Update time ago every 30 seconds
   useEffect(() => {
-    if (toast.isPinned || toast.priority === 'URGENT') return;
-    
-    const duration = toast.expiresAt - Date.now();
-    if (duration <= 0) return;
-
     const interval = setInterval(() => {
-      const remaining = toast.expiresAt - Date.now();
-      const pct = Math.max(0, (remaining / duration) * 100);
-      setProgress(pct);
-      
-      if (pct <= 0) {
-        clearInterval(interval);
-      }
-    }, 50);
-
+      setTimeAgo(formatTimeAgo(toast.createdAt));
+    }, 30000);
     return () => clearInterval(interval);
-  }, [toast.expiresAt, toast.isPinned, toast.priority]);
+  }, [toast.createdAt]);
 
-  // Pause progress on hover
-  useEffect(() => {
-    if (isHovered && !toast.isPinned) {
-      onPin();
+  const handleDragEnd = useCallback((_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (Math.abs(info.offset.x) > 100 || Math.abs(info.velocity.x) > 500) {
+      onDismiss();
     }
-  }, [isHovered, toast.isPinned, onPin]);
+  }, [onDismiss]);
+
+  const isLeft = position.includes('left');
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: 100, scale: 0.9 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 100, scale: 0.9 }}
-      transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`relative bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden w-96 max-w-[calc(100vw-2rem)] border-l-4 ${priorityStyles[toast.priority]}`}
+      initial={{
+        opacity: 0,
+        y: position.includes('top') ? -20 : 20,
+        x: isLeft ? -100 : 100,
+        scale: 0.9
+      }}
+      animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+      exit={{
+        opacity: 0,
+        x: isLeft ? -100 : 100,
+        scale: 0.9,
+        transition: { duration: 0.2 }
+      }}
+      style={{ x, opacity, scale }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.5}
+      onDragEnd={handleDragEnd}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className="relative cursor-pointer select-none"
     >
-      {/* Progress bar */}
-      {!toast.isPinned && toast.priority !== 'URGENT' && (
-        <div className="absolute bottom-0 left-0 h-1 bg-gray-100 w-full">
-          <motion.div
-            className="h-full bg-blue-400"
-            style={{ width: `${progress}%` }}
-            transition={{ duration: 0.1 }}
-          />
-        </div>
-      )}
+      {/* Apple-style glass morphism card */}
+      <div className="relative w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl bg-white/95 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/20">
+        {/* Subtle gradient overlay for depth */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-transparent pointer-events-none" />
 
-      {/* Content */}
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          {/* Icon */}
-          <div className={`flex-shrink-0 w-10 h-10 rounded-xl ${config.bgColor} flex items-center justify-center`}>
-            <Icon className={`h-5 w-5 ${config.color}`} />
-          </div>
+        {/* Content */}
+        <div className="relative p-4">
+          <div className="flex items-start gap-3">
+            {/* App Icon - Apple style with gradient */}
+            <div className={`flex-shrink-0 w-11 h-11 rounded-[12px] bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-lg`}>
+              <Icon className={`h-6 w-6 ${config.iconColor}`} strokeWidth={2} />
+            </div>
 
-          {/* Text */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-gray-900 truncate">
-                {toast.title}
-              </p>
-              {toast.priority === 'URGENT' && (
-                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded uppercase">
-                  Urgent
+            {/* Text Content */}
+            <div className="flex-1 min-w-0 pt-0.5">
+              {/* App Name & Time */}
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                  {config.label}
                 </span>
+                <span className="text-[11px] text-gray-400">
+                  {timeAgo}
+                </span>
+              </div>
+
+              {/* Title */}
+              <h4 className="text-[15px] font-semibold text-gray-900 leading-tight truncate">
+                {toast.title}
+              </h4>
+
+              {/* Message */}
+              <p className="text-[13px] text-gray-600 leading-snug line-clamp-2 mt-0.5">
+                {toast.message}
+              </p>
+
+              {/* Priority Badge */}
+              {toast.priority === 'URGENT' && (
+                <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full uppercase">
+                  <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                  Urgent
+                </div>
               )}
               {toast.priority === 'HIGH' && (
-                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-orange-500 text-white rounded uppercase">
-                  High
-                </span>
+                <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-orange-500 text-white text-[10px] font-bold rounded-full uppercase">
+                  Important
+                </div>
               )}
             </div>
-            <p className="text-sm text-gray-600 line-clamp-2 mt-0.5">
-              {toast.message}
-            </p>
+
+            {/* Close Button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+              className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+            >
+              <X className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
+            </button>
           </div>
 
-          {/* Close button */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-            className="flex-shrink-0 p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {/* Action hint */}
+          {toast.actionUrl && (
+            <div className="flex items-center justify-center mt-3 pt-3 border-t border-gray-100/80">
+              <span className="text-[12px] font-medium text-blue-500">
+                Tap to view details
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-          {toast.actionUrl && (
-            <button
-              onClick={onClick}
-              className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              View details
-              <ChevronRight className="h-3 w-3" />
-            </button>
-          )}
-          
-          <div className="flex-1" />
-          
-          <button
-            onClick={(e) => { e.stopPropagation(); onMarkRead(); }}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
-            title="Mark as read"
-          >
-            <Check className="h-4 w-4" />
-          </button>
-          
-          {!toast.isPinned && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onPin(); }}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-              title="Pin notification"
-            >
-              <Pin className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        {/* Progress indicator for auto-dismiss */}
+        {!toast.isPinned && toast.priority !== 'URGENT' && (
+          <ProgressBar toast={toast} />
+        )}
       </div>
     </motion.div>
   );
 }
 
 // ============================================================================
-// Container
+// Progress Bar Component
+// ============================================================================
+
+function ProgressBar({ toast }: { toast: ToastNotification }) {
+  const [progress, setProgress] = useState(100);
+
+  useEffect(() => {
+    const startTime = Date.now();
+    const duration = toast.expiresAt - startTime;
+
+    if (duration <= 0) return;
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
+      setProgress(remaining);
+
+      if (remaining > 0) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    const frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, [toast.expiresAt]);
+
+  return (
+    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-100 overflow-hidden">
+      <motion.div
+        className="h-full bg-gradient-to-r from-blue-400 to-blue-500"
+        style={{ width: `${progress}%` }}
+        initial={false}
+      />
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Container - Apple Notification Center Style
 // ============================================================================
 
 export default function NotificationToastContainer() {
   const router = useRouter();
-  const { 
-    toasts, 
-    dismissToast, 
-    pinToast, 
+  const { branding } = useClinicBranding();
+  const {
+    toasts,
+    dismissToast,
+    pinToast,
     dismissAllToasts,
     markAsRead,
     preferences,
@@ -206,7 +302,7 @@ export default function NotificationToastContainer() {
   } = useNotificationContext();
 
   // Position classes
-  const positionClasses = {
+  const positionClasses: Record<string, string> = {
     'top-right': 'top-4 right-4',
     'top-left': 'top-4 left-4',
     'bottom-right': 'bottom-4 right-4',
@@ -223,56 +319,97 @@ export default function NotificationToastContainer() {
     }
   };
 
-  if (toasts.length === 0) return null;
+  // Auto-pin on hover
+  const handleMouseEnter = (toastId: string) => {
+    pinToast(toastId);
+  };
+
+  if (toasts.length === 0 && !isDndActive) return null;
 
   return (
-    <div className={`fixed ${positionClasses[preferences.toastPosition]} z-[9999] flex flex-col gap-3`}>
-      {/* DND indicator */}
+    <div
+      className={`fixed ${positionClasses[preferences.toastPosition]} z-[9999] flex flex-col gap-3`}
+      style={{ maxHeight: 'calc(100vh - 2rem)' }}
+    >
+      {/* DND Banner - Apple style */}
       {isDndActive && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-xl shadow-lg"
+          initial={{ opacity: 0, scale: 0.9, y: -10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: -10 }}
+          className="flex items-center gap-3 px-4 py-3 bg-gray-900/95 backdrop-blur-xl text-white rounded-2xl shadow-xl"
         >
-          <VolumeX className="h-4 w-4" />
-          <span>Do Not Disturb is on</span>
+          <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+            <Moon className="h-4 w-4 text-purple-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Do Not Disturb</p>
+            <p className="text-xs text-gray-400">Notifications are silenced</p>
+          </div>
           <button
             onClick={toggleDnd}
-            className="ml-2 px-2 py-0.5 bg-white/20 rounded hover:bg-white/30 transition-colors"
+            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium transition-colors"
           >
-            Turn off
+            Turn Off
           </button>
         </motion.div>
       )}
 
-      {/* Clear all button */}
-      {toasts.length > 1 && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          onClick={dismissAllToasts}
-          className="self-end px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors shadow-lg"
+      {/* Stack counter & clear all */}
+      {toasts.length > 2 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between px-2"
         >
-          Clear all ({toasts.length})
-        </motion.button>
+          <span className="text-xs font-medium text-gray-500">
+            {toasts.length} notifications
+          </span>
+          <button
+            onClick={dismissAllToasts}
+            className="text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors"
+          >
+            Clear All
+          </button>
+        </motion.div>
       )}
 
-      {/* Toasts */}
-      <AnimatePresence mode="popLayout">
-        {toasts.map((toast) => (
-          <ToastItem
-            key={toast.toastId}
-            toast={toast}
-            onDismiss={() => dismissToast(toast.toastId)}
-            onPin={() => pinToast(toast.toastId)}
-            onMarkRead={() => {
-              markAsRead(toast.id);
-              dismissToast(toast.toastId);
-            }}
-            onClick={() => handleToastClick(toast)}
-          />
-        ))}
-      </AnimatePresence>
+      {/* Toast Stack - show max 4 */}
+      <div className="flex flex-col gap-3 overflow-hidden">
+        <AnimatePresence mode="popLayout">
+          {toasts.slice(0, 4).map((toast, index) => (
+            <div
+              key={toast.toastId}
+              onMouseEnter={() => handleMouseEnter(toast.toastId)}
+              style={{
+                // Apple-style stacking effect
+                transform: index > 0 ? `scale(${1 - index * 0.02})` : undefined,
+                opacity: index > 2 ? 0.7 : 1,
+              }}
+            >
+              <AppleToast
+                toast={toast}
+                onDismiss={() => dismissToast(toast.toastId)}
+                onClick={() => handleToastClick(toast)}
+                position={preferences.toastPosition}
+              />
+            </div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Overflow indicator */}
+      {toasts.length > 4 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-2"
+        >
+          <span className="text-xs font-medium text-gray-400">
+            +{toasts.length - 4} more notifications
+          </span>
+        </motion.div>
+      )}
     </div>
   );
 }
