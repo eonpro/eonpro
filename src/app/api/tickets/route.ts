@@ -124,18 +124,36 @@ export const GET = withAuth(async (request, { user }) => {
       sortOrder: (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
     };
 
-    // Build user context
+    // Build user context - map all valid roles
+    const roleMap: Record<string, 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient'> = {
+      'super_admin': 'super_admin',
+      'admin': 'admin',
+      'provider': 'provider',
+      'staff': 'staff',
+      'support': 'staff',
+      'sales_rep': 'staff',
+      'patient': 'patient',
+    };
+    
+    const normalizedRole = roleMap[user.role.toLowerCase()] || 'staff';
+    
     const userContext = {
       id: user.id,
       email: user.email,
-      role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
-      clinicId: user.clinicId,
+      role: normalizedRole,
+      clinicId: user.clinicId || undefined,
     };
+
+    logger.info('[API] Fetching tickets', { userId: user.id, role: normalizedRole, clinicId: user.clinicId });
 
     const result = await ticketService.list(filters, options, userContext);
 
     return NextResponse.json(result);
   } catch (error) {
+    logger.error('[API] Failed to fetch tickets', { 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return handleApiError(error, { route: 'GET /api/tickets' });
   }
 });
@@ -148,12 +166,24 @@ export const POST = withAuth(async (request, { user }) => {
   try {
     const body = await request.json();
 
-    // Build user context
+    // Build user context - map all valid roles
+    const roleMap: Record<string, 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient'> = {
+      'super_admin': 'super_admin',
+      'admin': 'admin',
+      'provider': 'provider',
+      'staff': 'staff',
+      'support': 'staff',
+      'sales_rep': 'staff',
+      'patient': 'patient',
+    };
+    
+    const normalizedRole = roleMap[user.role.toLowerCase()] || 'staff';
+    
     const userContext = {
       id: user.id,
       email: user.email,
-      role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
-      clinicId: user.clinicId,
+      role: normalizedRole,
+      clinicId: user.clinicId || undefined,
     };
 
     // Use user's clinic if not specified
