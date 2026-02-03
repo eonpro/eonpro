@@ -63,6 +63,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
     let patient;
+    let salesRepAssignments: any[] = [];
     try {
       // Wrap query in clinic context for proper multi-tenant isolation
       patient = await runWithClinicContext(clinicId, async () => {
@@ -115,9 +116,16 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
               orderBy: { createdAt: 'desc' },
               take: 10,
             },
-            // Include sales rep assignment
-            salesRepAssignments: {
-              where: { isActive: true },
+          },
+        });
+      });
+
+      // Fetch sales rep assignments separately to handle table not existing gracefully
+      if (patient) {
+        try {
+          salesRepAssignments = await runWithClinicContext(clinicId, async () => {
+            return (prisma as any).patientSalesRepAssignment?.findMany?.({
+              where: { patientId: id, isActive: true },
               orderBy: { assignedAt: 'desc' },
               take: 1,
               include: {
@@ -129,10 +137,17 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                   },
                 },
               },
-            },
-          },
-        });
-      });
+            }) ?? [];
+          });
+        } catch (salesRepError) {
+          // PatientSalesRepAssignment table may not exist yet - this is non-critical
+          logger.warn('Could not fetch sales rep assignments (table may not exist):', {
+            patientId: id,
+            error: salesRepError instanceof Error ? salesRepError.message : String(salesRepError)
+          });
+          salesRepAssignments = [];
+        }
+      }
     } catch (dbError) {
       logger.error('Database error fetching patient:', {
         patientId: id,
@@ -197,6 +212,8 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     patientWithDecryptedPHI = {
       ...patient,
       ...decryptedPatient,
+      // Include salesRepAssignments that were fetched separately
+      salesRepAssignments: salesRepAssignments || [],
     };
   } catch (decryptError) {
     // Log the error but continue with original data
@@ -207,6 +224,8 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     // Use original patient data as fallback
     patientWithDecryptedPHI = {
       ...patient,
+      // Include salesRepAssignments that were fetched separately
+      salesRepAssignments: salesRepAssignments || [],
     };
   }
 

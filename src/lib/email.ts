@@ -23,6 +23,7 @@ import {
   isSESEnabled,
   validateEmail,
 } from '@/lib/integrations/aws/sesConfig';
+import { emailLogService } from '@/services/email/emailLogService';
 
 // Re-export types and enums for convenience
 export { EmailTemplate, EmailPriority, EmailStatus };
@@ -38,6 +39,12 @@ export interface EmailOptions {
   text?: string;
   from?: string;
   replyTo?: string;
+  // Tracking options
+  userId?: number;
+  clinicId?: number;
+  sourceType?: 'automation' | 'manual' | 'notification' | 'digest';
+  sourceId?: string;
+  skipLogging?: boolean; // Skip logging for internal/test emails
 }
 
 /**
@@ -50,6 +57,12 @@ export interface TemplatedEmailOptions {
   subject?: string;
   priority?: EmailPriority;
   replyTo?: string;
+  // Tracking options
+  userId?: number;
+  clinicId?: number;
+  sourceType?: 'automation' | 'manual' | 'notification' | 'digest';
+  sourceId?: string;
+  skipLogging?: boolean; // Skip logging for internal/test emails
 }
 
 /**
@@ -81,7 +94,7 @@ export interface EmailResult {
  * });
  */
 export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
-  const { to, subject, html, text, replyTo } = options;
+  const { to, subject, html, text, replyTo, userId, clinicId, sourceType, sourceId, skipLogging } = options;
 
   // Validate recipients
   const recipients = Array.isArray(to) ? to : [to];
@@ -92,6 +105,24 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
         success: false,
         error: `Invalid email address: ${email}`,
       };
+    }
+  }
+
+  // Check if email is suppressed (bounced/complained)
+  if (!skipLogging) {
+    for (const email of recipients) {
+      try {
+        const isSuppressed = await emailLogService.isEmailSuppressed(email);
+        if (isSuppressed) {
+          logger.warn('Email suppressed - recipient has bounced or complained', { email });
+          return {
+            success: false,
+            error: `Email address ${email} is suppressed due to previous bounce or complaint`,
+          };
+        }
+      } catch {
+        // Non-fatal, continue with send
+      }
     }
   }
 
@@ -112,6 +143,23 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
         messageId: response.messageId,
         provider: isSESEnabled() ? 'aws-ses' : 'mock',
       });
+
+      // Log email to database (non-blocking)
+      if (!skipLogging) {
+        for (const recipientEmail of recipients) {
+          emailLogService.logEmailSent({
+            recipientEmail,
+            recipientUserId: userId,
+            clinicId,
+            subject,
+            messageId: response.messageId,
+            sourceType,
+            sourceId,
+          }).catch((err) => {
+            logger.warn('Failed to log email send', { error: err.message });
+          });
+        }
+      }
 
       return {
         success: true,
@@ -174,7 +222,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
  * });
  */
 export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promise<EmailResult> {
-  const { to, template, data, subject, priority, replyTo } = options;
+  const { to, template, data, subject, priority, replyTo, userId, clinicId, sourceType, sourceId, skipLogging } = options;
 
   // Validate recipients
   const recipients = Array.isArray(to) ? to : [to];
@@ -185,6 +233,24 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
         success: false,
         error: `Invalid email address: ${email}`,
       };
+    }
+  }
+
+  // Check if email is suppressed (bounced/complained)
+  if (!skipLogging) {
+    for (const email of recipients) {
+      try {
+        const isSuppressed = await emailLogService.isEmailSuppressed(email);
+        if (isSuppressed) {
+          logger.warn('Email suppressed - recipient has bounced or complained', { email, template });
+          return {
+            success: false,
+            error: `Email address ${email} is suppressed due to previous bounce or complaint`,
+          };
+        }
+      } catch {
+        // Non-fatal, continue with send
+      }
     }
   }
 
@@ -205,6 +271,25 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
         messageId: response.messageId,
         provider: isSESEnabled() ? 'aws-ses' : 'mock',
       });
+
+      // Log email to database (non-blocking)
+      if (!skipLogging) {
+        for (const recipientEmail of recipients) {
+          emailLogService.logEmailSent({
+            recipientEmail,
+            recipientUserId: userId,
+            clinicId,
+            subject: subject || template,
+            template,
+            templateData: data,
+            messageId: response.messageId,
+            sourceType,
+            sourceId,
+          }).catch((err) => {
+            logger.warn('Failed to log templated email send', { error: err.message });
+          });
+        }
+      }
 
       return {
         success: true,

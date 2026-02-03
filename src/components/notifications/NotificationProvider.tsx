@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useNotifications, type Notification, type NotificationCategory } from '@/hooks/useNotifications';
 import { useWebSocket, EventType } from '@/hooks/useWebSocket';
-import { getLocalStorageItem, setLocalStorageItem } from '@/lib/utils/ssr-safe';
+import { getLocalStorageItem, setLocalStorageItem, isBrowser } from '@/lib/utils/ssr-safe';
+import { useDebouncedCallback } from 'use-debounce';
 
 // ============================================================================
 // Types
@@ -40,6 +41,11 @@ export interface NotificationPreferences {
   
   // Desktop badge
   showDesktopBadge: boolean;
+
+  // Email preferences (synced to database)
+  emailNotificationsEnabled?: boolean;
+  emailDigestEnabled?: boolean;
+  emailDigestFrequency?: 'daily' | 'weekly' | 'never';
 }
 
 export interface ToastNotification extends Notification {
@@ -106,9 +112,70 @@ const defaultPreferences: NotificationPreferences = {
   mutedCategories: [],
   groupSimilar: true,
   showDesktopBadge: true,
+  emailNotificationsEnabled: true,
+  emailDigestEnabled: false,
+  emailDigestFrequency: 'weekly',
 };
 
 const PREFERENCES_STORAGE_KEY = 'notification-preferences';
+
+/**
+ * Convert API preferences to NotificationPreferences format
+ */
+function apiPrefsToLocal(apiPrefs: Record<string, unknown>): Partial<NotificationPreferences> {
+  return {
+    soundEnabled: apiPrefs.soundEnabled as boolean | undefined,
+    soundVolume: apiPrefs.soundVolume as number | undefined,
+    soundForPriorities: apiPrefs.soundForPriorities as ('LOW' | 'NORMAL' | 'HIGH' | 'URGENT')[] | undefined,
+    toastEnabled: apiPrefs.toastEnabled as boolean | undefined,
+    toastDuration: apiPrefs.toastDuration as number | undefined,
+    toastPosition: apiPrefs.toastPosition as 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | undefined,
+    browserNotificationsEnabled: apiPrefs.browserNotificationsEnabled as boolean | undefined,
+    dndEnabled: apiPrefs.dndEnabled as boolean | undefined,
+    dndSchedule: {
+      enabled: apiPrefs.dndScheduleEnabled as boolean ?? false,
+      startTime: apiPrefs.dndStartTime as string ?? '22:00',
+      endTime: apiPrefs.dndEndTime as string ?? '08:00',
+      days: apiPrefs.dndDays as number[] ?? [0, 1, 2, 3, 4, 5, 6],
+    },
+    mutedCategories: apiPrefs.mutedCategories as NotificationCategory[] | undefined,
+    groupSimilar: apiPrefs.groupSimilar as boolean | undefined,
+    showDesktopBadge: apiPrefs.showDesktopBadge as boolean | undefined,
+    emailNotificationsEnabled: apiPrefs.emailNotificationsEnabled as boolean | undefined,
+    emailDigestEnabled: apiPrefs.emailDigestEnabled as boolean | undefined,
+    emailDigestFrequency: apiPrefs.emailDigestFrequency as 'daily' | 'weekly' | 'never' | undefined,
+  };
+}
+
+/**
+ * Convert NotificationPreferences to API format
+ */
+function localPrefsToApi(prefs: Partial<NotificationPreferences>): Record<string, unknown> {
+  const apiPrefs: Record<string, unknown> = {};
+  
+  if (prefs.soundEnabled !== undefined) apiPrefs.soundEnabled = prefs.soundEnabled;
+  if (prefs.soundVolume !== undefined) apiPrefs.soundVolume = prefs.soundVolume;
+  if (prefs.soundForPriorities !== undefined) apiPrefs.soundForPriorities = prefs.soundForPriorities;
+  if (prefs.toastEnabled !== undefined) apiPrefs.toastEnabled = prefs.toastEnabled;
+  if (prefs.toastDuration !== undefined) apiPrefs.toastDuration = prefs.toastDuration;
+  if (prefs.toastPosition !== undefined) apiPrefs.toastPosition = prefs.toastPosition;
+  if (prefs.browserNotificationsEnabled !== undefined) apiPrefs.browserNotificationsEnabled = prefs.browserNotificationsEnabled;
+  if (prefs.dndEnabled !== undefined) apiPrefs.dndEnabled = prefs.dndEnabled;
+  if (prefs.dndSchedule !== undefined) {
+    apiPrefs.dndScheduleEnabled = prefs.dndSchedule.enabled;
+    apiPrefs.dndStartTime = prefs.dndSchedule.startTime;
+    apiPrefs.dndEndTime = prefs.dndSchedule.endTime;
+    apiPrefs.dndDays = prefs.dndSchedule.days;
+  }
+  if (prefs.mutedCategories !== undefined) apiPrefs.mutedCategories = prefs.mutedCategories;
+  if (prefs.groupSimilar !== undefined) apiPrefs.groupSimilar = prefs.groupSimilar;
+  if (prefs.showDesktopBadge !== undefined) apiPrefs.showDesktopBadge = prefs.showDesktopBadge;
+  if (prefs.emailNotificationsEnabled !== undefined) apiPrefs.emailNotificationsEnabled = prefs.emailNotificationsEnabled;
+  if (prefs.emailDigestEnabled !== undefined) apiPrefs.emailDigestEnabled = prefs.emailDigestEnabled;
+  if (prefs.emailDigestFrequency !== undefined) apiPrefs.emailDigestFrequency = prefs.emailDigestFrequency;
+  
+  return apiPrefs;
+}
 
 // ============================================================================
 // Context
@@ -133,7 +200,7 @@ interface NotificationProviderProps {
 }
 
 export function NotificationProvider({ children }: NotificationProviderProps) {
-  // Load preferences from storage
+  // Load preferences from local storage first (for immediate UI)
   const [preferences, setPreferences] = useState<NotificationPreferences>(() => {
     if (typeof window === 'undefined') return defaultPreferences;
     const stored = getLocalStorageItem(PREFERENCES_STORAGE_KEY);
@@ -147,9 +214,77 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     return defaultPreferences;
   });
 
+  // Track if we've synced with the server
+  const hasSyncedRef = useRef(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
   // Toast state
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const toastIdRef = useRef(0);
+
+  // Fetch preferences from API on mount (if authenticated)
+  useEffect(() => {
+    if (!isBrowser || hasSyncedRef.current) return;
+
+    const fetchPreferences = async () => {
+      // Check if user is authenticated
+      const token = getLocalStorageItem('auth-token') ||
+        getLocalStorageItem('provider-token') ||
+        getLocalStorageItem('admin-token');
+
+      if (!token) return;
+
+      try {
+        const response = await fetch('/api/notifications/preferences', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.preferences) {
+            const apiPrefs = apiPrefsToLocal(data.preferences);
+            setPreferences(prev => {
+              const merged = { ...prev, ...apiPrefs };
+              // Also update localStorage
+              setLocalStorageItem(PREFERENCES_STORAGE_KEY, JSON.stringify(merged));
+              return merged;
+            });
+            hasSyncedRef.current = true;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch notification preferences:', error);
+      }
+    };
+
+    fetchPreferences();
+  }, []);
+
+  // Debounced API sync function
+  const syncToApi = useDebouncedCallback(async (prefsToSync: Partial<NotificationPreferences>) => {
+    const token = getLocalStorageItem('auth-token') ||
+      getLocalStorageItem('provider-token') ||
+      getLocalStorageItem('admin-token');
+
+    if (!token) return;
+
+    setIsSyncing(true);
+    try {
+      const apiPrefs = localPrefsToApi(prefsToSync);
+      await fetch('/api/notifications/preferences', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiPrefs),
+      });
+    } catch (error) {
+      console.error('Failed to sync notification preferences:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, 1000); // 1 second debounce
 
   // Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -340,14 +475,17 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     }
   }, [unreadCount, preferences.showDesktopBadge, updateDocumentTitle]);
 
-  // Update preferences
+  // Update preferences (local + API sync)
   const updatePreferences = useCallback((newPrefs: Partial<NotificationPreferences>) => {
     setPreferences(prev => {
       const updated = { ...prev, ...newPrefs };
+      // Update localStorage immediately
       setLocalStorageItem(PREFERENCES_STORAGE_KEY, JSON.stringify(updated));
+      // Sync to API (debounced)
+      syncToApi(newPrefs);
       return updated;
     });
-  }, []);
+  }, [syncToApi]);
 
   // Toggle DND
   const toggleDnd = useCallback(() => {

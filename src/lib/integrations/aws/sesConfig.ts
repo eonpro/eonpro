@@ -82,6 +82,9 @@ export enum EmailTemplate {
   DOCUMENT_RECEIVED = 'document_received',
   SIGNATURE_REQUIRED = 'signature_required',
   
+  // Notification Digest
+  NOTIFICATION_DIGEST = 'notification_digest',
+  
   // Custom
   CUSTOM = 'custom',
 }
@@ -184,6 +187,8 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplate, string> = {
   [EmailTemplate.NEW_PATIENT_ASSIGNED]: 'New Patient Assigned',
   [EmailTemplate.DOCUMENT_RECEIVED]: 'New Document Received',
   [EmailTemplate.SIGNATURE_REQUIRED]: 'Signature Required',
+  
+  [EmailTemplate.NOTIFICATION_DIGEST]: 'Your Weekly Notification Summary',
   
   [EmailTemplate.CUSTOM]: '{{subject}}',
 };

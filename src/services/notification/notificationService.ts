@@ -6,11 +6,13 @@
  * - Real-time WebSocket push
  * - Batch notification creation for role-based broadcasts
  * - Multi-tenant clinic isolation
+ * - Optional email notification delivery
  */
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import webSocketService, { EventType } from '@/lib/realtime/websocket';
+import { sendTemplatedEmail, EmailTemplate, EmailPriority } from '@/lib/email';
 import type { 
   NotificationCategory, 
   NotificationPriority, 
@@ -33,6 +35,11 @@ export interface CreateNotificationInput {
   metadata?: Record<string, unknown>;
   sourceType?: string;
   sourceId?: string;
+  // Email notification options
+  sendEmail?: boolean;
+  emailTemplate?: EmailTemplate;
+  emailSubject?: string;
+  emailData?: Record<string, unknown>;
 }
 
 export interface BroadcastNotificationInput {
@@ -72,6 +79,7 @@ export interface PaginatedNotifications {
 class NotificationService {
   /**
    * Create a single notification and push via WebSocket if user is online
+   * Optionally also sends an email notification if sendEmail is true
    */
   async createNotification(input: CreateNotificationInput): Promise<Notification> {
     try {
@@ -113,10 +121,16 @@ class NotificationService {
       // Push via WebSocket if user is online
       this.pushNotification(notification);
 
+      // Send email notification if requested
+      if (input.sendEmail) {
+        await this.sendEmailNotification(notification, input);
+      }
+
       logger.info('Notification created', {
         notificationId: notification.id,
         userId: notification.userId,
         category: notification.category,
+        emailSent: input.sendEmail || false,
       });
 
       return notification;
@@ -127,6 +141,83 @@ class NotificationService {
         category: input.category,
       });
       throw error;
+    }
+  }
+
+  /**
+   * Send email notification for a notification
+   */
+  private async sendEmailNotification(
+    notification: Notification,
+    input: CreateNotificationInput
+  ): Promise<void> {
+    try {
+      // Get user email and check if email notifications are enabled
+      const user = await prisma.user.findUnique({
+        where: { id: notification.userId },
+        select: {
+          email: true,
+          firstName: true,
+          emailNotificationsEnabled: true,
+        },
+      });
+
+      if (!user) {
+        logger.warn('User not found for email notification', {
+          userId: notification.userId,
+          notificationId: notification.id,
+        });
+        return;
+      }
+
+      // Check if user has email notifications enabled
+      if (!user.emailNotificationsEnabled) {
+        logger.debug('Email notification skipped - user disabled', {
+          userId: notification.userId,
+          notificationId: notification.id,
+        });
+        return;
+      }
+
+      // Use provided template or default to CUSTOM
+      const template = input.emailTemplate || EmailTemplate.CUSTOM;
+      const emailData = input.emailData || {
+        firstName: user.firstName,
+        title: notification.title,
+        message: notification.message,
+        actionUrl: notification.actionUrl,
+        category: notification.category,
+      };
+
+      // Map notification priority to email priority
+      const emailPriority = notification.priority === 'URGENT' || notification.priority === 'HIGH'
+        ? EmailPriority.HIGH
+        : EmailPriority.NORMAL;
+
+      await sendTemplatedEmail({
+        to: user.email,
+        template,
+        data: emailData,
+        subject: input.emailSubject || notification.title,
+        priority: emailPriority,
+        userId: notification.userId,
+        clinicId: notification.clinicId || undefined,
+        sourceType: 'notification',
+        sourceId: String(notification.id),
+      });
+
+      logger.debug('Email notification sent', {
+        notificationId: notification.id,
+        userId: notification.userId,
+        template,
+      });
+    } catch (error) {
+      // Non-blocking - log but don't throw
+      logger.error('Failed to send email notification', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        notificationId: notification.id,
+        userId: notification.userId,
+      });
     }
   }
 

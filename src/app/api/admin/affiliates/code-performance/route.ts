@@ -256,9 +256,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             });
             lastUseAt = lastReferral?.createdAt || null;
           } else {
-          // For modern codes, get data from AffiliateTouch table
-          // Uses = all touch records (someone used the code)
-          const usesResult = await prisma.affiliateTouch.aggregate({
+          // For modern codes, get data from BOTH AffiliateTouch (modern) AND ReferralTracking (legacy)
+          // This is important because legacy tracking data may exist for codes that are now in the modern system
+          
+          // Modern uses from AffiliateTouch
+          const modernUsesResult = await prisma.affiliateTouch.aggregate({
             where: {
               refCode: refCode.refCode,
               ...clinicFilter,
@@ -269,22 +271,37 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             },
             _count: true,
           });
-          uses = usesResult._count;
+          
+          // Legacy uses from ReferralTracking (case-insensitive match)
+          const legacyUsesResult = await prisma.referralTracking.count({
+            where: {
+              promoCode: { equals: refCode.refCode, mode: 'insensitive' },
+              createdAt: {
+                gte: dateFrom,
+                lte: dateTo,
+              },
+            },
+          });
+          
+          uses = modernUsesResult._count + legacyUsesResult;
 
           // Debug logging for specific codes
-          if (refCode.refCode === 'TEAMSAV') {
-            logger.info('[CodePerformance] TEAMSAV debug', {
+          if (['TEAMSAV', 'JACOB10', 'INST69D37F'].includes(refCode.refCode.toUpperCase())) {
+            logger.info('[CodePerformance] Code debug', {
               code: refCode.refCode,
               isLegacy: refCode.isLegacy,
-              usesCount: uses,
+              modernUses: modernUsesResult._count,
+              legacyUses: legacyUsesResult,
+              totalUses: uses,
               clinicFilter,
               dateFrom: dateFrom.toISOString(),
               dateTo: dateTo.toISOString(),
             });
           }
 
-          // Conversions = touches with convertedAt set (paying customers)
-          const conversionsResult = await prisma.affiliateTouch.aggregate({
+          // Conversions = touches with convertedAt set (paying customers) from both systems
+          // Modern conversions from AffiliateTouch
+          const modernConversionsResult = await prisma.affiliateTouch.aggregate({
             where: {
               refCode: refCode.refCode,
               ...clinicFilter,
@@ -296,7 +313,20 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             },
             _count: true,
           });
-          conversions = conversionsResult._count;
+          
+          // Legacy conversions from ReferralTracking (isConverted = true)
+          const legacyConversionsResult = await prisma.referralTracking.count({
+            where: {
+              promoCode: { equals: refCode.refCode, mode: 'insensitive' },
+              isConverted: true,
+              createdAt: {
+                gte: dateFrom,
+                lte: dateTo,
+              },
+            },
+          });
+          
+          conversions = modernConversionsResult._count + legacyConversionsResult;
 
           // Get revenue from commission events
           const revenueResult = await prisma.affiliateCommissionEvent.aggregate({
@@ -314,13 +344,13 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
               status: { in: ['PENDING', 'APPROVED', 'PAID'] },
             },
             _sum: {
-              orderAmountCents: true,
+              eventAmountCents: true,
             },
           });
-          revenue = revenueResult._sum.orderAmountCents || 0;
+          revenue = revenueResult._sum.eventAmountCents || 0;
 
-          // Get last use (most recent touch)
-          const lastUseRecord = await prisma.affiliateTouch.findFirst({
+          // Get last use (most recent touch) from both systems
+          const lastModernUse = await prisma.affiliateTouch.findFirst({
             where: {
               refCode: refCode.refCode,
               ...clinicFilter,
@@ -328,7 +358,23 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             orderBy: { createdAt: 'desc' },
             select: { createdAt: true },
           });
-          lastUseAt = lastUseRecord?.createdAt || null;
+          
+          const lastLegacyUse = await prisma.referralTracking.findFirst({
+            where: {
+              promoCode: { equals: refCode.refCode, mode: 'insensitive' },
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { createdAt: true },
+          });
+          
+          // Use the most recent of the two
+          if (lastModernUse && lastLegacyUse) {
+            lastUseAt = lastModernUse.createdAt > lastLegacyUse.createdAt 
+              ? lastModernUse.createdAt 
+              : lastLegacyUse.createdAt;
+          } else {
+            lastUseAt = lastModernUse?.createdAt || lastLegacyUse?.createdAt || null;
+          }
 
           // Get last conversion (most recent converted touch)
           const lastConversionRecord = await prisma.affiliateTouch.findFirst({

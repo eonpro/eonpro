@@ -7,7 +7,8 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { sendEmail, sendTemplatedEmail, EmailTemplate, EmailPriority } from '@/lib/email';
+import { sendTemplatedEmail, EmailTemplate, EmailPriority } from '@/lib/email';
+import { emailLogService } from '@/services/email/emailLogService';
 
 // ============================================
 // AUTOMATION TRIGGER TYPES
@@ -137,6 +138,8 @@ const DEFAULT_AUTOMATIONS: AutomationConfig[] = [
 export interface TriggerEmailParams {
   trigger: AutomationTrigger;
   recipientEmail: string;
+  recipientUserId?: number;
+  clinicId?: number;
   data: Record<string, unknown>;
   priority?: EmailPriority;
 }
@@ -146,8 +149,8 @@ export interface TriggerEmailParams {
  */
 export async function triggerAutomation(
   params: TriggerEmailParams
-): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const { trigger, recipientEmail, data, priority } = params;
+): Promise<{ success: boolean; messageId?: string; scheduledId?: number; error?: string }> {
+  const { trigger, recipientEmail, recipientUserId, clinicId, data, priority } = params;
 
   try {
     // Get automation config (from database or defaults)
@@ -158,23 +161,42 @@ export async function triggerAutomation(
       return { success: false, error: 'Automation not enabled' };
     }
 
-    // Handle delay if configured
+    const template = config.template || TRIGGER_TEMPLATE_MAP[trigger];
+
+    // Handle delay if configured - use the new ScheduledEmail table
     if (config.delayMinutes && config.delayMinutes > 0) {
-      await scheduleEmail(trigger, recipientEmail, data, config.delayMinutes);
-      return { success: true, messageId: `scheduled-${Date.now()}` };
+      const scheduledEmail = await scheduleEmail({
+        trigger,
+        recipientEmail,
+        recipientUserId,
+        clinicId,
+        template,
+        data,
+        subject: config.customSubject,
+        delayMinutes: config.delayMinutes,
+        priority: priority || EmailPriority.NORMAL,
+      });
+      return { 
+        success: true, 
+        scheduledId: scheduledEmail.id,
+        messageId: `scheduled-${scheduledEmail.id}`,
+      };
     }
 
     // Send immediately
-    const template = config.template || TRIGGER_TEMPLATE_MAP[trigger];
     const result = await sendTemplatedEmail({
       to: recipientEmail,
       template,
       data,
       subject: config.customSubject,
       priority: priority || EmailPriority.NORMAL,
+      userId: recipientUserId,
+      clinicId,
+      sourceType: 'automation',
+      sourceId: trigger,
     });
 
-    // Log the automation
+    // Log the automation (now handled by email service, but still log for analytics)
     await logAutomationSent(trigger, recipientEmail, result.success);
 
     return result;
@@ -185,36 +207,52 @@ export async function triggerAutomation(
   }
 }
 
-/**
- * Schedule an email for later delivery
- */
-async function scheduleEmail(
-  trigger: AutomationTrigger,
-  recipientEmail: string,
-  data: Record<string, unknown>,
-  delayMinutes: number
-): Promise<void> {
-  const scheduledFor = new Date(Date.now() + delayMinutes * 60 * 1000);
+interface ScheduleEmailParams {
+  trigger: AutomationTrigger;
+  recipientEmail: string;
+  recipientUserId?: number;
+  clinicId?: number;
+  template: EmailTemplate;
+  data: Record<string, unknown>;
+  subject?: string;
+  delayMinutes: number;
+  priority?: EmailPriority;
+}
 
-  // Store in database for cron job to process
-  // You can use your existing queue system or create a scheduled_emails table
-  logger.info('Email scheduled', {
-    trigger,
-    recipientEmail,
-    scheduledFor,
-    delayMinutes,
+/**
+ * Schedule an email for later delivery using the ScheduledEmail table
+ */
+async function scheduleEmail(params: ScheduleEmailParams): Promise<{ id: number; scheduledFor: Date }> {
+  const scheduledFor = new Date(Date.now() + params.delayMinutes * 60 * 1000);
+
+  // Store in ScheduledEmail table for cron job to process
+  const scheduledEmail = await prisma.scheduledEmail.create({
+    data: {
+      recipientEmail: params.recipientEmail,
+      recipientUserId: params.recipientUserId,
+      clinicId: params.clinicId,
+      template: params.template,
+      templateData: params.data,
+      subject: params.subject,
+      scheduledFor,
+      priority: params.priority || 'NORMAL',
+      automationTrigger: params.trigger,
+      status: 'PENDING',
+    },
   });
 
-  // TODO: Store in scheduled_emails table or queue
-  // await prisma.scheduledEmail.create({
-  //   data: {
-  //     trigger,
-  //     recipientEmail,
-  //     templateData: data,
-  //     scheduledFor,
-  //     status: 'PENDING',
-  //   },
-  // });
+  logger.info('Email scheduled for later delivery', {
+    id: scheduledEmail.id,
+    trigger: params.trigger,
+    recipientEmail: params.recipientEmail,
+    scheduledFor,
+    delayMinutes: params.delayMinutes,
+  });
+
+  return {
+    id: scheduledEmail.id,
+    scheduledFor,
+  };
 }
 
 /**
@@ -428,17 +466,45 @@ export async function updateAutomation(
 }
 
 /**
- * Get automation statistics
+ * Get automation statistics from EmailLog table
  */
 export async function getAutomationStats(days: number = 30): Promise<{
   totalSent: number;
   byTrigger: Record<string, number>;
   successRate: number;
 }> {
-  // TODO: Query email_logs table
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  // Query EmailLog table for automation emails
+  const logs = await prisma.emailLog.findMany({
+    where: {
+      sourceType: 'automation',
+      createdAt: { gte: startDate },
+    },
+    select: {
+      sourceId: true,
+      status: true,
+    },
+  });
+
+  // Calculate statistics
+  const totalSent = logs.length;
+  const successCount = logs.filter(
+    (log) => ['SENT', 'DELIVERED', 'OPENED', 'CLICKED'].includes(log.status)
+  ).length;
+
+  // Group by trigger
+  const byTrigger: Record<string, number> = {};
+  for (const log of logs) {
+    if (log.sourceId) {
+      byTrigger[log.sourceId] = (byTrigger[log.sourceId] || 0) + 1;
+    }
+  }
+
   return {
-    totalSent: 0,
-    byTrigger: {},
-    successRate: 100,
+    totalSent,
+    byTrigger,
+    successRate: totalSent > 0 ? Math.round((successCount / totalSent) * 100) : 100,
   };
 }
