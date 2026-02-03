@@ -13,17 +13,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  PlusIcon,
-  FunnelIcon,
-  MagnifyingGlassIcon,
-  ChevronDownIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  UserIcon,
-  TagIcon,
-} from '@heroicons/react/24/outline';
+  Plus as PlusIcon,
+  Filter as FunnelIcon,
+  Search as MagnifyingGlassIcon,
+  ChevronDown as ChevronDownIcon,
+  RefreshCw as ArrowPathIcon,
+  AlertTriangle as ExclamationTriangleIcon,
+  CheckCircle as CheckCircleIcon,
+  Clock as ClockIcon,
+  User as UserIcon,
+  Tag as TagIcon,
+} from 'lucide-react';
 
 // Types
 interface TicketListItem {

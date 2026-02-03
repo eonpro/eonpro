@@ -12,9 +12,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ArrowLeftIcon,
-  ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline';
+  ArrowLeft as ArrowLeftIcon,
+  AlertTriangle as ExclamationTriangleIcon,
+} from 'lucide-react';
 
 // Types
 interface User {

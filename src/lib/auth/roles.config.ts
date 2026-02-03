@@ -293,6 +293,7 @@ export const PROVIDER_CONFIG: RoleConfig = {
       { label: 'Lab Results', path: '/provider/labs', icon: 'TestTube' },
       { label: 'SOAP Notes', path: '/provider/soap-notes', icon: 'FileText' },
       { label: 'Messages', path: '/provider/messages', icon: 'MessageSquare' },
+      { label: 'Tickets', path: '/tickets', icon: 'Ticket', badge: 'count' },
       { label: 'Resources', path: '/provider/resources', icon: 'BookOpen' },
       { label: 'Settings', path: '/provider/settings', icon: 'Settings' },
     ],
@@ -300,6 +301,7 @@ export const PROVIDER_CONFIG: RoleConfig = {
       { label: 'Start Consultation', action: 'start-consultation', icon: 'Video', color: 'green' },
       { label: 'Write SOAP Note', action: 'create-soap', icon: 'PenTool', color: 'blue' },
       { label: 'E-Prescribe', action: 'prescribe', icon: 'Pill', color: 'purple' },
+      { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
     ]
   },
   widgets: [
@@ -360,7 +362,7 @@ export const STAFF_CONFIG: RoleConfig = {
       { label: 'Appointments', path: '/staff/appointments', icon: 'Calendar' },
       { label: 'Orders', path: '/staff/orders', icon: 'Package' },
       { label: 'Documents', path: '/staff/documents', icon: 'FileText' },
-      { label: 'Tickets', path: '/staff/tickets', icon: 'Ticket' },
+      { label: 'Tickets', path: '/tickets', icon: 'Ticket', badge: 'count' },
       { label: 'Messages', path: '/staff/messages', icon: 'MessageSquare' },
       { label: 'Resources', path: '/staff/resources', icon: 'HelpCircle' },
     ],
@@ -424,7 +426,7 @@ export const SUPPORT_CONFIG: RoleConfig = {
   navigation: {
     primary: [
       { label: 'Dashboard', path: '/support', icon: 'Home' },
-      { label: 'Tickets', path: '/support/tickets', icon: 'Ticket', badge: 'count' },
+      { label: 'Tickets', path: '/tickets', icon: 'Ticket', badge: 'count' },
       { label: 'Live Chat', path: '/support/chat', icon: 'MessageCircle', badge: 'alert' },
       { label: 'Knowledge Base', path: '/support/kb', icon: 'BookOpen' },
       { label: 'Customers', path: '/support/customers', icon: 'Users' },
@@ -698,19 +700,22 @@ export const SALES_REP_CONFIG: RoleConfig = {
       { label: 'Dashboard', path: '/sales', icon: 'Home' },
       { label: 'My Patients', path: '/sales/patients', icon: 'Users' },
       { label: 'Performance', path: '/sales/performance', icon: 'TrendingUp' },
+      { label: 'Tickets', path: '/tickets', icon: 'Ticket', badge: 'count' },
       { label: 'Messages', path: '/sales/messages', icon: 'MessageSquare' },
       { label: 'Support', path: '/sales/support', icon: 'HelpCircle' },
     ],
     quick: [
       { label: 'View Patient', action: 'view-patient', icon: 'User', color: 'blue' },
+      { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
       { label: 'Send Message', action: 'send-message', icon: 'MessageSquare', color: 'green' },
     ]
   },
   widgets: [
     { id: 'patient-overview', title: 'My Patients', type: 'stat', size: 'large', position: 1 },
-    { id: 'recent-activity', title: 'Recent Activity', type: 'list', size: 'medium', position: 2 },
-    { id: 'conversion-stats', title: 'Conversion Stats', type: 'chart', size: 'medium', position: 3 },
-    { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 4 },
+    { id: 'open-tickets', title: 'Open Tickets', type: 'list', size: 'medium', position: 2 },
+    { id: 'recent-activity', title: 'Recent Activity', type: 'list', size: 'medium', position: 3 },
+    { id: 'conversion-stats', title: 'Conversion Stats', type: 'chart', size: 'medium', position: 4 },
+    { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 5 },
   ],
   restrictions: [
     'Only view assigned patients',

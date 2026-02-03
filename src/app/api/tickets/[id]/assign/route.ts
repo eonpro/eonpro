@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { withAuth } from '@/lib/auth/withAuth';
+import { withAuth, AuthUser } from '@/lib/auth';
 import { ticketService } from '@/domains/ticket';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';

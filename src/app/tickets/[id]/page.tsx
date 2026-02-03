@@ -13,19 +13,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
-  ArrowLeftIcon,
-  PencilIcon,
-  UserPlusIcon,
-  CheckCircleIcon,
-  XMarkIcon,
-  ClockIcon,
-  ChatBubbleLeftRightIcon,
-  PaperClipIcon,
-  EyeIcon,
-  ExclamationTriangleIcon,
-  ArrowPathIcon,
-  TagIcon,
-} from '@heroicons/react/24/outline';
+  ArrowLeft as ArrowLeftIcon,
+  Pencil as PencilIcon,
+  UserPlus as UserPlusIcon,
+  CheckCircle as CheckCircleIcon,
+  X as XMarkIcon,
+  Clock as ClockIcon,
+  MessageSquare as ChatBubbleLeftRightIcon,
+  Paperclip as PaperClipIcon,
+  Eye as EyeIcon,
+  AlertTriangle as ExclamationTriangleIcon,
+  RefreshCw as ArrowPathIcon,
+  Tag as TagIcon,
+} from 'lucide-react';
 
 // Types
 interface TicketDetail {
