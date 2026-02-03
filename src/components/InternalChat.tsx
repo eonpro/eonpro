@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { logger } from '../lib/logger';
@@ -69,9 +69,13 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   const [usersLoading, setUsersLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [lastUnreadMessages, setLastUnreadMessages] = useState<Message[]>([]);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission>('default');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevUnreadCountRef = useRef(0);
 
   // ===========================================================================
   // Data Fetching
@@ -83,7 +87,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       const response = await fetch('/api/internal/users?excludeSelf=true');
       if (response.ok) {
         const data = await response.json();
-        const userList = Array.isArray(data) ? data : (data.data || []);
+        const userList = Array.isArray(data) ? data : data.data || [];
         // Use Number() for safe comparison in case of type mismatches
         setUsers(userList.filter((u: User) => Number(u.id) !== Number(currentUserId)));
       } else {
@@ -106,7 +110,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       const response = await fetch('/api/internal/messages');
       if (response.ok) {
         const data = await response.json();
-        const messageList = Array.isArray(data) ? data : (data.data || []);
+        const messageList = Array.isArray(data) ? data : data.data || [];
 
         // IMPORTANT: Ensure numeric comparison - IDs might come as strings from localStorage/JSON
         const myId = Number(currentUserId);
@@ -125,22 +129,25 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
             senderIdType: typeof m.senderId,
             recipientId: m.recipientId,
             recipientIdType: typeof m.recipientId,
-            msg: m.message?.substring(0, 20)
-          }))
+            msg: m.message?.substring(0, 20),
+          })),
         });
 
         // Use Number() to ensure numeric comparison
         const filteredMessages = messageList.filter((m: Message) => {
           const msgSenderId = Number(m.senderId);
           const msgRecipientId = Number(m.recipientId);
-          return (msgSenderId === myId && msgRecipientId === theirId) ||
-                 (msgSenderId === theirId && msgRecipientId === myId);
+          return (
+            (msgSenderId === myId && msgRecipientId === theirId) ||
+            (msgSenderId === theirId && msgRecipientId === myId)
+          );
         });
 
         console.log('[InternalChat] Filtered result:', filteredMessages.length, 'messages');
 
-        filteredMessages.sort((a: Message, b: Message) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        filteredMessages.sort(
+          (a: Message, b: Message) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
         setMessages(filteredMessages);
       }
@@ -156,24 +163,79 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       const response = await fetch('/api/internal/messages?unreadOnly=true');
       if (response.ok) {
         const data = await response.json();
-        const messageList = Array.isArray(data) ? data : (data.data || []);
-        setUnreadCount(messageList.length);
+        const messageList: Message[] = Array.isArray(data) ? data : data.data || [];
+        const newCount = messageList.length;
+
+        // Check if we have NEW unread messages (count increased)
+        if (newCount > prevUnreadCountRef.current && prevUnreadCountRef.current >= 0) {
+          // Find the new messages
+          const newMessages = messageList.filter(
+            (m: Message) => !lastUnreadMessages.find((old: Message) => old.id === m.id)
+          );
+
+          if (newMessages.length > 0) {
+            // Show browser notification if permitted
+            if (notificationPermission === 'granted' && !isOpen) {
+              const latestMessage = newMessages[0];
+              const senderName = latestMessage.sender
+                ? `${latestMessage.sender.firstName} ${latestMessage.sender.lastName}`.trim()
+                : 'Someone';
+
+              new Notification('New Message', {
+                body: `${senderName}: ${latestMessage.message.substring(0, 50)}${latestMessage.message.length > 50 ? '...' : ''}`,
+                icon: '/favicon.ico',
+                tag: 'internal-chat-notification',
+              });
+            }
+
+            // Auto-open chat if closed and there's a new message
+            if (!isOpen && newMessages.length > 0) {
+              // Flash the chat button instead of auto-opening (less intrusive)
+              // The unread badge will show the count
+            }
+          }
+
+          setLastUnreadMessages(messageList);
+        }
+
+        prevUnreadCountRef.current = newCount;
+        setUnreadCount(newCount);
       }
     } catch (error) {
       logger.error('Error fetching unread count:', error);
     }
-  }, []);
+  }, [isOpen, lastUnreadMessages, notificationPermission]);
 
   // ===========================================================================
   // Effects
   // ===========================================================================
 
+  // Request notification permission on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission);
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then((permission) => {
+          setNotificationPermission(permission);
+        });
+      }
+    }
+  }, []);
+
+  // Poll for unread messages even when chat is closed (for notifications)
+  useEffect(() => {
+    fetchUnreadCount(); // Initial fetch
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 10000); // Check every 10 seconds for new messages
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
+
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
-      fetchUnreadCount();
     }
-  }, [isOpen, fetchUsers, fetchUnreadCount]);
+  }, [isOpen, fetchUsers]);
 
   useEffect(() => {
     if (selectedRecipient) {
@@ -196,16 +258,6 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     }
   }, [isOpen, selectedRecipient, fetchMessages]);
 
-  // Separate unread count polling - less frequent
-  useEffect(() => {
-    if (isOpen) {
-      const interval = setInterval(() => {
-        fetchUnreadCount();
-      }, 30000); // Every 30 seconds
-      return () => clearInterval(interval);
-    }
-  }, [isOpen, fetchUnreadCount]);
-
   // ===========================================================================
   // Handlers
   // ===========================================================================
@@ -226,9 +278,15 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       message: messageText,
       isRead: false,
       messageType: 'DIRECT',
-      sender: { id: currentUserId, firstName: 'You', lastName: '', email: '', role: currentUserRole },
+      sender: {
+        id: currentUserId,
+        firstName: 'You',
+        lastName: '',
+        email: '',
+        role: currentUserRole,
+      },
     };
-    setMessages(prev => [...prev, tempMessage]);
+    setMessages((prev) => [...prev, tempMessage]);
 
     try {
       const response = await fetch('/api/internal/messages', {
@@ -237,21 +295,21 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
         body: JSON.stringify({
           recipientId: selectedRecipient.id,
           message: messageText,
-          messageType: 'DIRECT'
-        })
+          messageType: 'DIRECT',
+        }),
       });
 
       if (response.ok) {
         const sentMessage = await response.json();
-        setMessages(prev => prev.map(m => m.id === tempMessage.id ? sentMessage : m));
+        setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? sentMessage : m)));
       } else {
         // Revert optimistic update
-        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+        setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
         setNewMessage(messageText);
       }
     } catch (error) {
       logger.error('Error sending message:', error);
-      setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+      setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
       setNewMessage(messageText);
     } finally {
       setSendingMessage(false);
@@ -269,13 +327,14 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   // Helpers
   // ===========================================================================
 
-  const filteredUsers = users.filter(user =>
-    `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users.filter(
+    (user) =>
+      `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const platformAdmins = filteredUsers.filter(u => u.isPlatformAdmin);
-  const regularUsers = filteredUsers.filter(u => !u.isPlatformAdmin);
+  const platformAdmins = filteredUsers.filter((u) => u.isPlatformAdmin);
+  const regularUsers = filteredUsers.filter((u) => !u.isPlatformAdmin);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -303,11 +362,16 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       return 'bg-gradient-to-r from-violet-500 to-purple-500 text-white';
     }
     switch (role?.toLowerCase()) {
-      case 'admin': return 'bg-orange-100 text-orange-700';
-      case 'provider': return 'bg-blue-100 text-blue-700';
-      case 'staff': return 'bg-emerald-100 text-emerald-700';
-      case 'support': return 'bg-cyan-100 text-cyan-700';
-      default: return 'bg-gray-100 text-gray-600';
+      case 'admin':
+        return 'bg-orange-100 text-orange-700';
+      case 'provider':
+        return 'bg-blue-100 text-blue-700';
+      case 'staff':
+        return 'bg-emerald-100 text-emerald-700';
+      case 'support':
+        return 'bg-cyan-100 text-cyan-700';
+      default:
+        return 'bg-gray-100 text-gray-600';
     }
   };
 
@@ -334,21 +398,38 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 group"
+        className="group fixed bottom-6 right-6 z-50"
         title="Open Team Chat"
       >
         <div className="relative">
+          {/* Pulsing ring animation when there are unread messages */}
+          {unreadCount > 0 && (
+            <div className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-75" />
+          )}
+
           {/* Glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full blur-lg opacity-40 group-hover:opacity-60 transition-opacity" />
+          <div
+            className={`absolute inset-0 rounded-full blur-lg transition-opacity ${
+              unreadCount > 0
+                ? 'bg-gradient-to-r from-red-500 to-orange-500 opacity-60'
+                : 'bg-gradient-to-r from-blue-500 to-indigo-600 opacity-40 group-hover:opacity-60'
+            }`}
+          />
 
           {/* Button */}
-          <div className="relative bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full p-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-200">
+          <div
+            className={`relative transform rounded-full p-4 text-white shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-2xl ${
+              unreadCount > 0
+                ? 'bg-gradient-to-r from-red-500 to-orange-500'
+                : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+            }`}
+          >
             <MessageCircle className="h-6 w-6" />
           </div>
 
           {/* Badge */}
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shadow-lg animate-pulse">
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] animate-pulse items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-lg">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -364,46 +445,50 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   const UserListItem = ({ user }: { user: User }) => (
     <button
       onClick={() => setSelectedRecipient(user)}
-      className="w-full p-3 flex items-center gap-3 hover:bg-gray-50/80 active:bg-gray-100 transition-colors rounded-xl group"
+      className="group flex w-full items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50/80 active:bg-gray-100"
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
-        <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${getAvatarGradient(user.id, user.isPlatformAdmin)} flex items-center justify-center shadow-sm`}>
-          <span className="text-white font-semibold text-sm">
+        <div
+          className={`h-11 w-11 rounded-full bg-gradient-to-br ${getAvatarGradient(user.id, user.isPlatformAdmin)} flex items-center justify-center shadow-sm`}
+        >
+          <span className="text-sm font-semibold text-white">
             {getInitials(user.firstName, user.lastName)}
           </span>
         </div>
         {/* Online indicator */}
         {user.isOnline && (
-          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
+          <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
         )}
         {/* Platform Admin badge */}
         {user.isPlatformAdmin && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm">
-            <Shield className="w-2.5 h-2.5 text-white" />
+          <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 shadow-sm">
+            <Shield className="h-2.5 w-2.5 text-white" />
           </div>
         )}
       </div>
 
       {/* Info */}
-      <div className="flex-1 min-w-0 text-left">
+      <div className="min-w-0 flex-1 text-left">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-900 truncate text-[15px]">
+          <span className="truncate text-[15px] font-medium text-gray-900">
             {user.firstName} {user.lastName}
           </span>
         </div>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${getRoleStyle(user.role, user.isPlatformAdmin)}`}>
+        <div className="mt-0.5 flex items-center gap-2">
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${getRoleStyle(user.role, user.isPlatformAdmin)}`}
+          >
             {user.isPlatformAdmin ? 'Platform Admin' : user.role}
           </span>
           {user.clinicName && !user.isPlatformAdmin && (
-            <span className="text-xs text-gray-400 truncate">{user.clinicName}</span>
+            <span className="truncate text-xs text-gray-400">{user.clinicName}</span>
           )}
         </div>
       </div>
 
       {/* Chevron */}
-      <ChevronLeft className="w-4 h-4 text-gray-300 rotate-180 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <ChevronLeft className="h-4 w-4 rotate-180 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
   );
 
@@ -414,78 +499,85 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   return (
     <div className="fixed bottom-6 right-6 z-50">
       {/* Container with Apple-style shadow and rounded corners */}
-      <div className="w-[380px] h-[580px] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/50 overflow-hidden flex flex-col">
-
+      <div className="flex h-[580px] w-[380px] flex-col overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-2xl backdrop-blur-xl">
         {/* ===== Header ===== */}
-        <div className="flex-shrink-0 px-4 py-3 border-b border-gray-100 bg-gray-50/80 backdrop-blur-sm">
+        <div className="flex-shrink-0 border-b border-gray-100 bg-gray-50/80 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             {selectedRecipient ? (
               <>
                 <button
                   onClick={() => setSelectedRecipient(null)}
-                  className="p-1.5 -ml-1.5 hover:bg-gray-200/60 rounded-lg transition-colors"
+                  className="-ml-1.5 rounded-lg p-1.5 transition-colors hover:bg-gray-200/60"
                 >
-                  <ChevronLeft className="w-5 h-5 text-blue-500" />
+                  <ChevronLeft className="h-5 w-5 text-blue-500" />
                 </button>
-                <div className="flex-1 flex items-center justify-center gap-2">
-                  <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${getAvatarGradient(selectedRecipient.id, selectedRecipient.isPlatformAdmin)} flex items-center justify-center`}>
-                    <span className="text-white font-medium text-xs">
+                <div className="flex flex-1 items-center justify-center gap-2">
+                  <div
+                    className={`h-8 w-8 rounded-full bg-gradient-to-br ${getAvatarGradient(selectedRecipient.id, selectedRecipient.isPlatformAdmin)} flex items-center justify-center`}
+                  >
+                    <span className="text-xs font-medium text-white">
                       {getInitials(selectedRecipient.firstName, selectedRecipient.lastName)}
                     </span>
                   </div>
                   <div className="text-center">
-                    <p className="font-semibold text-gray-900 text-sm leading-tight">
+                    <p className="text-sm font-semibold leading-tight text-gray-900">
                       {selectedRecipient.firstName} {selectedRecipient.lastName}
                     </p>
                     <p className="text-[10px] text-gray-500">
-                      {selectedRecipient.isPlatformAdmin ? 'Platform Admin' : selectedRecipient.role}
+                      {selectedRecipient.isPlatformAdmin
+                        ? 'Platform Admin'
+                        : selectedRecipient.role}
                     </p>
                   </div>
                 </div>
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                  <MessageCircle className="w-4 h-4 text-white" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
+                  <MessageCircle className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-gray-900 text-[15px] leading-tight">Team Chat</h2>
+                  <h2 className="text-[15px] font-semibold leading-tight text-gray-900">
+                    Team Chat
+                  </h2>
                   <p className="text-[10px] text-gray-500">{users.length} team members</p>
                 </div>
               </div>
             )}
             <button
               onClick={handleClose}
-              className="p-1.5 hover:bg-gray-200/60 rounded-lg transition-colors"
+              className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/60"
             >
-              <X className="w-5 h-5 text-gray-400" />
+              <X className="h-5 w-5 text-gray-400" />
             </button>
           </div>
         </div>
 
         {/* ===== Content Area ===== */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex flex-1 flex-col overflow-hidden">
           {selectedRecipient ? (
             // ===== Chat View =====
             <>
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gradient-to-b from-gray-50/50 to-white">
+              <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white px-4 py-3">
                 {loading && messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                    <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-3" />
+                  <div className="flex h-full flex-col items-center justify-center text-gray-400">
+                    <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-500" />
                     <p className="text-sm">Loading messages...</p>
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
-                    <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${getAvatarGradient(selectedRecipient.id, selectedRecipient.isPlatformAdmin)} flex items-center justify-center mb-4 opacity-50`}>
-                      <span className="text-white font-semibold text-xl">
+                  <div className="flex h-full flex-col items-center justify-center py-12 text-gray-400">
+                    <div
+                      className={`h-16 w-16 rounded-full bg-gradient-to-br ${getAvatarGradient(selectedRecipient.id, selectedRecipient.isPlatformAdmin)} mb-4 flex items-center justify-center opacity-50`}
+                    >
+                      <span className="text-xl font-semibold text-white">
                         {getInitials(selectedRecipient.firstName, selectedRecipient.lastName)}
                       </span>
                     </div>
-                    <p className="font-medium text-gray-600 mb-1">
+                    <p className="mb-1 font-medium text-gray-600">
                       {selectedRecipient.firstName} {selectedRecipient.lastName}
                     </p>
-                    <p className="text-sm text-gray-400 text-center max-w-[200px]">
+                    <p className="max-w-[200px] text-center text-sm text-gray-400">
                       Start a conversation with {selectedRecipient.firstName}
                     </p>
                   </div>
@@ -493,38 +585,45 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                   messages.map((message, index) => {
                     // Use Number() to ensure correct comparison (API might return different types)
                     const isOwn = Number(message.senderId) === Number(currentUserId);
-                    const showTimestamp = index === 0 ||
-                      new Date(message.createdAt).getTime() - new Date(messages[index - 1].createdAt).getTime() > 300000;
+                    const showTimestamp =
+                      index === 0 ||
+                      new Date(message.createdAt).getTime() -
+                        new Date(messages[index - 1].createdAt).getTime() >
+                        300000;
 
                     return (
                       <div key={message.id}>
                         {showTimestamp && (
-                          <p className="text-center text-[10px] text-gray-400 py-2">
+                          <p className="py-2 text-center text-[10px] text-gray-400">
                             {formatTime(message.createdAt)}
                           </p>
                         )}
                         <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                           <div
-                            className={`max-w-[75%] px-3.5 py-2 rounded-2xl ${
+                            className={`max-w-[75%] rounded-2xl px-3.5 py-2 ${
                               isOwn
-                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md'
-                                : 'bg-gray-100 text-gray-900 rounded-bl-md'
+                                ? 'rounded-br-md bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                                : 'rounded-bl-md bg-gray-100 text-gray-900'
                             }`}
                           >
-                            <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
+                            <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
                               {message.message}
                             </p>
-                            <div className={`flex items-center justify-end gap-1 mt-1 ${isOwn ? 'text-blue-200' : 'text-gray-400'}`}>
+                            <div
+                              className={`mt-1 flex items-center justify-end gap-1 ${isOwn ? 'text-blue-200' : 'text-gray-400'}`}
+                            >
                               <span className="text-[10px]">
-                                {new Date(message.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                {new Date(message.createdAt).toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                })}
                               </span>
-                              {isOwn && (
-                                message.isRead ? (
-                                  <CheckCheck className="w-3 h-3" />
+                              {isOwn &&
+                                (message.isRead ? (
+                                  <CheckCheck className="h-3 w-3" />
                                 ) : (
-                                  <Check className="w-3 h-3" />
-                                )
-                              )}
+                                  <Check className="h-3 w-3" />
+                                ))}
                             </div>
                           </div>
                         </div>
@@ -536,7 +635,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
               </div>
 
               {/* Input */}
-              <div className="flex-shrink-0 p-3 border-t border-gray-100 bg-white">
+              <div className="flex-shrink-0 border-t border-gray-100 bg-white p-3">
                 <div className="flex items-center gap-2">
                   <input
                     ref={inputRef}
@@ -545,14 +644,14 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                     placeholder="Message..."
-                    className="flex-1 px-4 py-2.5 bg-gray-100 rounded-full text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-gray-50 transition-all"
+                    className="flex-1 rounded-full bg-gray-100 px-4 py-2.5 text-sm transition-all placeholder:text-gray-400 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                   <button
                     onClick={sendMessage}
                     disabled={!newMessage.trim() || sendingMessage}
-                    className="p-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md disabled:shadow-none"
+                    className="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 p-2.5 text-white shadow-sm transition-all hover:from-blue-600 hover:to-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none"
                   >
-                    <Send className="w-4 h-4" />
+                    <Send className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -562,27 +661,27 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
             <>
               {/* Tabs */}
               <div className="flex-shrink-0 px-4 pt-3">
-                <div className="flex bg-gray-100 rounded-lg p-1">
+                <div className="flex rounded-lg bg-gray-100 p-1">
                   <button
                     onClick={() => setActiveTab('direct')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-all ${
                       activeTab === 'direct'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    <Users className="w-4 h-4" />
+                    <Users className="h-4 w-4" />
                     Direct
                   </button>
                   <button
                     onClick={() => setActiveTab('channels')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-all ${
                       activeTab === 'channels'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    <Hash className="w-4 h-4" />
+                    <Hash className="h-4 w-4" />
                     Channels
                   </button>
                 </div>
@@ -591,13 +690,13 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
               {/* Search */}
               <div className="flex-shrink-0 px-4 py-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search team members..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-gray-50 transition-all"
+                    className="w-full rounded-xl bg-gray-100 py-2.5 pl-9 pr-4 text-sm transition-all placeholder:text-gray-400 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
               </div>
@@ -607,14 +706,14 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                 {activeTab === 'direct' ? (
                   usersLoading ? (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                      <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-3" />
+                      <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-500" />
                       <p className="text-sm">Loading team...</p>
                     </div>
                   ) : filteredUsers.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                      <Users className="w-12 h-12 mb-3 opacity-30" />
+                      <Users className="mb-3 h-12 w-12 opacity-30" />
                       <p className="font-medium text-gray-500">No team members found</p>
-                      <p className="text-sm text-gray-400 mt-1">Try a different search</p>
+                      <p className="mt-1 text-sm text-gray-400">Try a different search</p>
                     </div>
                   ) : (
                     <div className="space-y-1">
@@ -622,12 +721,12 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                       {platformAdmins.length > 0 && (
                         <div className="mb-2">
                           <div className="flex items-center gap-2 px-3 py-2">
-                            <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-                            <span className="text-[11px] font-semibold text-violet-600 uppercase tracking-wide">
+                            <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
                               Platform Support
                             </span>
                           </div>
-                          {platformAdmins.map(user => (
+                          {platformAdmins.map((user) => (
                             <UserListItem key={user.id} user={user} />
                           ))}
                         </div>
@@ -637,14 +736,14 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                       {regularUsers.length > 0 && (
                         <div>
                           {platformAdmins.length > 0 && (
-                            <div className="flex items-center gap-2 px-3 py-2 mt-2">
-                              <Users className="w-3.5 h-3.5 text-gray-400" />
-                              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                            <div className="mt-2 flex items-center gap-2 px-3 py-2">
+                              <Users className="h-3.5 w-3.5 text-gray-400" />
+                              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                                 Team Members
                               </span>
                             </div>
                           )}
-                          {regularUsers.map(user => (
+                          {regularUsers.map((user) => (
                             <UserListItem key={user.id} user={user} />
                           ))}
                         </div>
@@ -654,11 +753,11 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                 ) : (
                   // Channels tab - Coming soon
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-4">
-                      <Hash className="w-8 h-8 text-gray-400" />
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200">
+                      <Hash className="h-8 w-8 text-gray-400" />
                     </div>
                     <p className="font-medium text-gray-500">Channels coming soon</p>
-                    <p className="text-sm text-gray-400 mt-1 text-center max-w-[200px]">
+                    <p className="mt-1 max-w-[200px] text-center text-sm text-gray-400">
                       Group conversations for teams and departments
                     </p>
                   </div>
