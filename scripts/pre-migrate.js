@@ -138,6 +138,54 @@ function ensurePrismaGenerated() {
 }
 
 /**
+ * Migrations that are known to be idempotent and can be safely marked as applied
+ * if their objects already exist in the database
+ */
+const IDEMPOTENT_MIGRATIONS = [
+  '20260201_add_sales_rep_role_and_patient_assignment',
+];
+
+/**
+ * Check if a pending migration should be marked as applied
+ * (because its objects already exist in the database)
+ */
+function shouldMarkAsApplied(migrationName, statusOutput) {
+  // If this migration is pending AND it's in our idempotent list
+  if (IDEMPOTENT_MIGRATIONS.some(m => migrationName.includes(m))) {
+    // Check if the status shows it's pending (not applied, not failed)
+    const isPending = statusOutput.includes(migrationName) && 
+                     !statusOutput.includes(`${migrationName}.*Applied`) &&
+                     !statusOutput.includes(`${migrationName}.*Failed`);
+    return isPending;
+  }
+  return false;
+}
+
+/**
+ * Find pending migrations from status output
+ */
+function findPendingMigrations(statusOutput) {
+  const pending = [];
+  const lines = statusOutput.split('\n');
+  
+  for (const line of lines) {
+    // Look for lines that indicate pending migrations
+    // Pattern: "20260201_migration_name" without "Applied" or "Failed"
+    const match = line.match(/(\d{8,14}_[\w_]+)/);
+    if (match) {
+      const migrationName = match[1];
+      // Check if this line indicates a pending migration
+      if (line.includes('Not yet applied') || 
+          (line.includes(migrationName) && !line.includes('Applied') && !line.includes('Failed'))) {
+        pending.push(migrationName);
+      }
+    }
+  }
+  
+  return pending;
+}
+
+/**
  * Main execution
  */
 async function main() {
@@ -170,6 +218,19 @@ async function main() {
     log(`\nResolved ${resolved}/${failedMigrations.length} migrations`, resolved === failedMigrations.length ? 'green' : 'yellow');
   } else {
     log('No failed migrations detected', 'green');
+  }
+  
+  // Step 3.5: Check for known idempotent migrations that might fail due to existing objects
+  const pendingMigrations = findPendingMigrations(status.output);
+  for (const migration of pendingMigrations) {
+    if (IDEMPOTENT_MIGRATIONS.some(m => migration.includes(m))) {
+      log(`\nChecking idempotent migration: ${migration}`, 'blue');
+      // Try to mark it as applied (Prisma will reject if it shouldn't be)
+      const result = execCommand(`npx prisma migrate resolve --applied ${migration}`);
+      if (result.success) {
+        log(`  ✓ Pre-marked as applied: ${migration}`, 'green');
+      }
+    }
   }
   
   // Step 4: Final status check

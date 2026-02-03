@@ -2,9 +2,15 @@
 -- Date: 2026-02-01
 -- Description: Adds SALES_REP role to UserRole enum and creates PatientSalesRepAssignment table
 --              for tracking sales rep patient assignments with full audit history
+-- NOTE: Made idempotent to handle partial migration failures
 
 -- Add SALES_REP to UserRole enum
-ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'SALES_REP';
+DO $$ 
+BEGIN
+    ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'SALES_REP';
+EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create PatientSalesRepAssignment table
 CREATE TABLE IF NOT EXISTS "PatientSalesRepAssignment" (
@@ -22,21 +28,46 @@ CREATE TABLE IF NOT EXISTS "PatientSalesRepAssignment" (
     CONSTRAINT "PatientSalesRepAssignment_pkey" PRIMARY KEY ("id")
 );
 
--- Add foreign key constraints
-ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_patientId_fkey" 
-    FOREIGN KEY ("patientId") REFERENCES "Patient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Add foreign key constraints (with exception handling for idempotency)
+DO $$ 
+BEGIN
+    ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_patientId_fkey" 
+        FOREIGN KEY ("patientId") REFERENCES "Patient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+END $$;
 
-ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_salesRepId_fkey" 
-    FOREIGN KEY ("salesRepId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ 
+BEGIN
+    ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_salesRepId_fkey" 
+        FOREIGN KEY ("salesRepId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+END $$;
 
-ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_clinicId_fkey" 
-    FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ 
+BEGIN
+    ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_clinicId_fkey" 
+        FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+END $$;
 
-ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_assignedById_fkey" 
-    FOREIGN KEY ("assignedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ 
+BEGIN
+    ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_assignedById_fkey" 
+        FOREIGN KEY ("assignedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+END $$;
 
-ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_removedById_fkey" 
-    FOREIGN KEY ("removedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ 
+BEGIN
+    ALTER TABLE "PatientSalesRepAssignment" ADD CONSTRAINT "PatientSalesRepAssignment_removedById_fkey" 
+        FOREIGN KEY ("removedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create indexes for efficient querying
 CREATE INDEX IF NOT EXISTS "PatientSalesRepAssignment_salesRepId_clinicId_isActive_idx" 
