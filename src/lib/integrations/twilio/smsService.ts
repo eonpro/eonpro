@@ -182,30 +182,37 @@ export async function processOptOut(
     }
 
     // Create or update opt-out record
-    await prisma.smsOptOut.upsert({
+    const existingOptOut = await prisma.smsOptOut.findFirst({
       where: {
-        phone_clinicId: {
-          phone: formattedPhone,
-          clinicId: resolvedClinicId ?? 0, // Use 0 as fallback for global opt-out
-        },
-      },
-      create: {
         phone: formattedPhone,
-        clinicId: resolvedClinicId,
-        patientId: resolvedPatientId,
-        reason: 'STOP',
-        source: 'sms',
-        lastMessageSid: messageSid,
+        clinicId: resolvedClinicId ?? null,
         isActive: true,
-      },
-      update: {
-        isActive: true,
-        optedOutAt: new Date(),
-        optedInAt: null,
-        reason: 'STOP',
-        lastMessageSid: messageSid,
       },
     });
+
+    if (existingOptOut) {
+      await prisma.smsOptOut.update({
+        where: { id: existingOptOut.id },
+        data: {
+          optedOutAt: new Date(),
+          optedInAt: null,
+          reason: 'STOP',
+          lastMessageSid: messageSid,
+        },
+      });
+    } else {
+      await prisma.smsOptOut.create({
+        data: {
+          phone: formattedPhone,
+          clinicId: resolvedClinicId,
+          patientId: resolvedPatientId,
+          reason: 'STOP',
+          source: 'sms',
+          lastMessageSid: messageSid,
+          isActive: true,
+        },
+      });
+    }
 
     // Update patient's SMS consent
     if (resolvedPatientId) {
@@ -355,12 +362,10 @@ export async function checkRateLimit(phone: string, clinicId?: number | null): P
     startOfDay.setHours(0, 0, 0, 0);
 
     // Get or create rate limit record
-    let rateLimit = await prisma.smsRateLimit.findUnique({
+    let rateLimit = await prisma.smsRateLimit.findFirst({
       where: {
-        phone_clinicId: {
-          phone: formattedPhone,
-          clinicId: clinicId ?? 0,
-        },
+        phone: formattedPhone,
+        clinicId: clinicId ?? null,
       },
     });
 

@@ -3083,8 +3083,8 @@ model SmsOptOut {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   phone          String // E.164 format
-  clinicId       Int       @default(0) // 0 = global opt-out
-  clinic         Clinic?   @relation(fields: [clinicId], references: [id], map: "SmsOptOut_clinic_fkey")
+  clinicId       Int? // null = global opt-out
+  clinic         Clinic?   @relation(fields: [clinicId], references: [id])
   patientId      Int?
   patient        Patient?  @relation(fields: [patientId], references: [id])
   reason         String    @default("STOP") // STOP, UNSUBSCRIBE, MANUAL, etc.
@@ -3094,7 +3094,7 @@ model SmsOptOut {
   source         String    @default("sms") // sms, admin, patient_portal
   lastMessageSid String? // Last message received that triggered opt-out
 
-  @@unique([phone, clinicId])
+  @@index([phone, clinicId])
   @@index([phone])
   @@index([clinicId])
   @@index([patientId])
@@ -3124,8 +3124,8 @@ model SmsQuietHours {
 model SmsRateLimit {
   id               Int       @id @default(autoincrement())
   phone            String
-  clinicId         Int       @default(0) // 0 = global rate limit
-  clinic           Clinic?   @relation(fields: [clinicId], references: [id], map: "SmsRateLimit_clinic_fkey")
+  clinicId         Int? // null = global rate limit
+  clinic           Clinic?   @relation(fields: [clinicId], references: [id])
   messageCount     Int       @default(0)
   windowStart      DateTime  @default(now())
   dailyCount       Int       @default(0)
@@ -3135,7 +3135,7 @@ model SmsRateLimit {
   blockedUntil     DateTime?
   blockReason      String?
 
-  @@unique([phone, clinicId])
+  @@index([phone, clinicId])
   @@index([phone])
 }
 

@@ -675,8 +675,11 @@ class PrismaWithClinicFilter {
   get integrationLog() { return this.client.integrationLog; }
   get developerTool() { return this.client.developerTool; }
 
-  // SMS logs (system-wide)
+  // SMS logs and compliance (system-wide)
   get smsLog() { return this.client.smsLog; }
+  get smsOptOut() { return this.client.smsOptOut; }
+  get smsQuietHours() { return this.client.smsQuietHours; }
+  get smsRateLimit() { return this.client.smsRateLimit; }
 
   // Notifications (user-scoped, not clinic-scoped - users see their own notifications)
   get notification() { return this.client.notification; }
