@@ -32,25 +32,25 @@ CREATE INDEX IF NOT EXISTS "SmsOptOut_patientId_idx" ON "SmsOptOut"("patientId")
 -- 2. SMS QUIET HOURS CONFIGURATION
 -- ============================================================================
 
-CREATE TABLE "SmsQuietHours" (
+CREATE TABLE IF NOT EXISTS "SmsQuietHours" (
     "id" SERIAL PRIMARY KEY,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "clinicId" INTEGER NOT NULL,
     "name" TEXT NOT NULL DEFAULT 'Default Quiet Hours',
-    "startHour" INTEGER NOT NULL DEFAULT 21, -- 9 PM
+    "startHour" INTEGER NOT NULL DEFAULT 21,
     "startMinute" INTEGER NOT NULL DEFAULT 0,
-    "endHour" INTEGER NOT NULL DEFAULT 8, -- 8 AM
+    "endHour" INTEGER NOT NULL DEFAULT 8,
     "endMinute" INTEGER NOT NULL DEFAULT 0,
     "timezone" TEXT NOT NULL DEFAULT 'America/New_York',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "daysOfWeek" INTEGER[] NOT NULL DEFAULT ARRAY[0, 1, 2, 3, 4, 5, 6], -- All days by default
+    "daysOfWeek" INTEGER[] NOT NULL DEFAULT ARRAY[0, 1, 2, 3, 4, 5, 6],
     
     CONSTRAINT "SmsQuietHours_clinicId_fkey" FOREIGN KEY ("clinicId") REFERENCES "Clinic"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX "SmsQuietHours_clinicId_name_key" ON "SmsQuietHours"("clinicId", "name");
-CREATE INDEX "SmsQuietHours_clinicId_isActive_idx" ON "SmsQuietHours"("clinicId", "isActive");
+CREATE UNIQUE INDEX IF NOT EXISTS "SmsQuietHours_clinicId_name_key" ON "SmsQuietHours"("clinicId", "name");
+CREATE INDEX IF NOT EXISTS "SmsQuietHours_clinicId_isActive_idx" ON "SmsQuietHours"("clinicId", "isActive");
 
 -- ============================================================================
 -- 3. ENHANCE SMSLOG TABLE FOR DELIVERY TRACKING

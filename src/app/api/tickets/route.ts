@@ -150,11 +150,22 @@ export const GET = withAuth(async (request, { user }) => {
 
     return NextResponse.json(result);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
     logger.error('[API] Failed to fetch tickets', { 
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      error: errorMessage,
+      stack: errorStack,
     });
-    return handleApiError(error, { route: 'GET /api/tickets' });
+    
+    // Return detailed error for debugging (temporarily)
+    return NextResponse.json(
+      { 
+        error: 'Failed to fetch tickets', 
+        details: errorMessage,
+      },
+      { status: 500 }
+    );
   }
 });
 

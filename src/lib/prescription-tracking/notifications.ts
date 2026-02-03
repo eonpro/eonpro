@@ -1,7 +1,7 @@
 /**
  * Prescription Status Notification System
  * Automatically sends SMS and chat notifications to patients
- * 
+ *
  * Uses the centralized SMS service for TCPA compliance, rate limiting, and audit logging.
  */
 
@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 import { sendSMS as sendSMSCentralized, SMSResponse } from '@/lib/integrations/twilio/smsService';
 
 /** Prescription status values (matching schema-rx-tracking.prisma) */
-type PrescriptionStatus = 
+type PrescriptionStatus =
   | 'PENDING'
   | 'SENT_TO_PHARMACY'
   | 'RECEIVED'
@@ -149,16 +149,16 @@ const NOTIFICATION_TEMPLATES = {
  */
 function populateTemplate(template: string, data: Record<string, any>): string {
   let message = template;
-  
+
   Object.keys(data).forEach((key: any) => {
     const value = data[key] || '';
     const regex = new RegExp(`\\{${key}\\}`, 'g');
     message = message.replace(regex, value);
   });
-  
+
   // Remove any remaining placeholders
   message = message.replace(/\{[^}]+\}/g, '');
-  
+
   return message;
 }
 
@@ -172,7 +172,7 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
     'usps': `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`,
     'dhl': `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
   };
-  
+
   return carriers[carrier.toLowerCase()] || '#';
 }
 
@@ -201,9 +201,9 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
         }
       });
 
-      logger.info('SMS notification sent', { 
-        notificationId, 
-        messageSid: result.messageId 
+      logger.info('SMS notification sent', {
+        notificationId,
+        messageSid: result.messageId
       });
     } else if (result.blocked) {
       // Mark as cancelled if blocked (opt-out, quiet hours, rate limit)
@@ -215,9 +215,9 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
         }
       });
 
-      logger.info('SMS notification blocked', { 
-        notificationId, 
-        reason: result.blockReason 
+      logger.info('SMS notification blocked', {
+        notificationId,
+        reason: result.blockReason
       });
     } else {
       // Mark as failed
@@ -234,7 +234,7 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
     }
   } catch (error: any) {
     logger.error('Failed to send SMS', { error: error.message, notificationId });
-    
+
     await prisma.prescriptionNotification.update({
       where: { id: notificationId },
       data: {
@@ -243,7 +243,7 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
         errorMessage: error.message,
       }
     });
-    
+
     throw error;
   }
 }
@@ -252,8 +252,8 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
  * Send chat message (internal platform chat)
  */
 async function sendChatMessage(
-  patientId: number, 
-  message: string, 
+  patientId: number,
+  message: string,
   notificationId: number
 ): Promise<void> {
   try {
@@ -271,7 +271,7 @@ async function sendChatMessage(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to send chat message', { error: errorMessage });
-    
+
     await prisma.prescriptionNotification.update({
       where: { id: notificationId },
       data: {
@@ -280,7 +280,7 @@ async function sendChatMessage(
         errorMessage,
       }
     });
-    
+
     throw error;
   }
 }
@@ -336,11 +336,11 @@ export async function sendPrescriptionNotification(
       pharmacy: prescription.pharmacyName || 'the pharmacy',
       trackingNumber: prescription.trackingNumber,
       carrier: prescription.carrier,
-      estimatedDelivery: prescription.estimatedDeliveryDate ? 
-        prescription.estimatedDeliveryDate.toLocaleDateString() : 
+      estimatedDelivery: prescription.estimatedDeliveryDate ?
+        prescription.estimatedDeliveryDate.toLocaleDateString() :
         'soon',
-      trackingUrl: prescription.trackingNumber && prescription.carrier ? 
-        getTrackingUrl(prescription.carrier, prescription.trackingNumber) : 
+      trackingUrl: prescription.trackingNumber && prescription.carrier ?
+        getTrackingUrl(prescription.carrier, prescription.trackingNumber) :
         '',
       supportPhone: process.env.SUPPORT_PHONE || '1-800-SUPPORT',
     };
@@ -348,7 +348,7 @@ export async function sendPrescriptionNotification(
     // Send SMS notification
     if (shouldSendSMS && prescription.patient.phone) {
       const smsMessage = populateTemplate(templates.sms, templateData);
-      
+
       const smsNotification = await prisma.prescriptionNotification.create({
         data: {
           prescriptionId,
@@ -362,8 +362,8 @@ export async function sendPrescriptionNotification(
 
       // Send SMS asynchronously via centralized service
       sendSMS(
-        prescription.patient.phone, 
-        smsMessage, 
+        prescription.patient.phone,
+        smsMessage,
         smsNotification.id,
         prescription.patient.id,
         prescription.order?.clinicId ?? undefined
@@ -373,7 +373,7 @@ export async function sendPrescriptionNotification(
     // Send chat notification
     if (shouldSendChat) {
       const chatMessage = populateTemplate(templates.chat, templateData);
-      
+
       const chatNotification = await prisma.prescriptionNotification.create({
         data: {
           prescriptionId,
@@ -436,8 +436,8 @@ export async function retryFailedNotifications(): Promise<void> {
     for (const notification of failedNotifications) {
       if (notification.type === 'SMS' && notification.recipientPhone) {
         await sendSMS(
-          notification.recipientPhone, 
-          notification.message, 
+          notification.recipientPhone,
+          notification.message,
           notification.id,
           notification.prescription.patientId,
           notification.prescription.patient?.clinicId ?? undefined
@@ -451,8 +451,8 @@ export async function retryFailedNotifications(): Promise<void> {
       }
     }
 
-    logger.info('Retried failed notifications', { 
-      count: failedNotifications.length 
+    logger.info('Retried failed notifications', {
+      count: failedNotifications.length
     });
 
   } catch (error: unknown) {

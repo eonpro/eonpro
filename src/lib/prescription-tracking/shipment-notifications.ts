@@ -1,10 +1,10 @@
 /**
  * Shipment Notification Service
  * =============================
- * 
+ *
  * Handles SMS and notification delivery for multi-shipment scheduling.
  * Sends reminders to patients about upcoming shipments based on BUD (Beyond Use Date) constraints.
- * 
+ *
  * Uses the centralized SMS service for TCPA compliance, rate limiting, and audit logging.
  */
 
@@ -152,9 +152,9 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
  * Uses the main SMS service for TCPA compliance, rate limiting, and logging
  */
 async function sendShipmentSMS(
-  phone: string, 
-  message: string, 
-  patientId: number, 
+  phone: string,
+  message: string,
+  patientId: number,
   templateType: string
 ): Promise<SMSResponse> {
   // Get patient's clinic for proper routing
@@ -203,7 +203,7 @@ async function sendShipmentSMS(
  */
 export async function sendShipmentReminderSMS(input: ShipmentReminderSMSInput): Promise<void> {
   const isFinalShipment = input.shipmentNumber === input.totalShipments;
-  
+
   const message = isFinalShipment
     ? SMS_TEMPLATES.FINAL_SHIPMENT_REMINDER(input)
     : SMS_TEMPLATES.SHIPMENT_REMINDER(input);
@@ -214,7 +214,7 @@ export async function sendShipmentReminderSMS(input: ShipmentReminderSMSInput): 
   if (!result.success && !result.blocked) {
     throw new Error(result.error || 'Failed to send SMS');
   }
-  
+
   // Note: Logging is now handled by the centralized SMS service
 }
 
