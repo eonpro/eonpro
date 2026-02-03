@@ -107,22 +107,34 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
         const data = await response.json();
         const messageList = Array.isArray(data) ? data : (data.data || []);
 
+        // IMPORTANT: Ensure numeric comparison - IDs might come as strings from localStorage/JSON
+        const myId = Number(currentUserId);
+        const theirId = Number(selectedRecipient.id);
+
         // Debug logging
         console.log('[InternalChat] Filtering messages:', {
           currentUserId,
+          myId,
           selectedRecipientId: selectedRecipient.id,
+          theirId,
           totalMessages: messageList.length,
-          messageIds: messageList.map((m: Message) => ({
+          sampleMessages: messageList.slice(0, 3).map((m: Message) => ({
             id: m.id,
             senderId: m.senderId,
-            recipientId: m.recipientId
+            senderIdType: typeof m.senderId,
+            recipientId: m.recipientId,
+            recipientIdType: typeof m.recipientId,
+            msg: m.message?.substring(0, 20)
           }))
         });
 
-        const filteredMessages = messageList.filter((m: Message) =>
-          (m.senderId === currentUserId && m.recipientId === selectedRecipient.id) ||
-          (m.senderId === selectedRecipient.id && m.recipientId === currentUserId)
-        );
+        // Use Number() to ensure numeric comparison
+        const filteredMessages = messageList.filter((m: Message) => {
+          const msgSenderId = Number(m.senderId);
+          const msgRecipientId = Number(m.recipientId);
+          return (msgSenderId === myId && msgRecipientId === theirId) ||
+                 (msgSenderId === theirId && msgRecipientId === myId);
+        });
 
         console.log('[InternalChat] Filtered result:', filteredMessages.length, 'messages');
 

@@ -48,7 +48,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         router.push('/login');
         return;
       }
-      setUserId(parsedUser.id || null);
+      // Ensure userId is always a number (might be string from localStorage)
+      setUserId(parsedUser.id ? Number(parsedUser.id) : null);
       setUserName(`${parsedUser.firstName || ''} ${parsedUser.lastName || ''}`.trim() || parsedUser.email);
       setLoading(false);
     } catch {

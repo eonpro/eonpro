@@ -348,14 +348,14 @@ function buildDigestContent(
     
     <p style="margin-top: 24px;">
       <a href="${process.env.NEXT_PUBLIC_APP_URL}/notifications" 
-         style="display: inline-block; padding: 12px 24px; background: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+         style="display: inline-block; padding: 12px 24px; background: #059669; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
         View All Notifications
       </a>
     </p>
     
     <p style="color: #6B7280; font-size: 14px; margin-top: 24px;">
       You're receiving this because you enabled weekly digests. 
-      <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings/notifications" style="color: #4F46E5;">Manage preferences</a>
+      <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings/notifications" style="color: #059669;">Manage preferences</a>
     </p>
   `;
 }

@@ -200,15 +200,15 @@ function generateEmailTemplate(code: string, type: 'email_verification' | 'passw
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #efece7; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
           .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
-          .header { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 30px 20px; text-align: center; }
+          .header { background: #059669; color: white; padding: 30px 20px; text-align: center; }
           .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
           .content { padding: 30px; }
           .code-box { 
-            background: #F3F4F6; 
-            border: 2px dashed #4F46E5; 
+            background: #efece7; 
+            border: 2px dashed #059669; 
             border-radius: 8px;
             padding: 20px; 
             margin: 24px 0; 
@@ -216,11 +216,11 @@ function generateEmailTemplate(code: string, type: 'email_verification' | 'passw
             font-size: 36px; 
             font-weight: bold; 
             letter-spacing: 8px;
-            color: #4F46E5;
+            color: #059669;
           }
           .warning { background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 4px; margin: 20px 0; }
           .footer { padding: 20px; text-align: center; color: #6B7280; font-size: 13px; border-top: 1px solid #E5E7EB; }
-          .footer a { color: #4F46E5; text-decoration: none; }
+          .footer a { color: #059669; text-decoration: none; }
         </style>
       </head>
       <body>
@@ -233,12 +233,12 @@ function generateEmailTemplate(code: string, type: 'email_verification' | 'passw
               <p>${message}</p>
               <div class="code-box">${code}</div>
               <div class="warning">
-                <strong>⏱️ This code expires in 15 minutes</strong> for security reasons.
+                <strong>This code expires in 15 minutes</strong> for security reasons.
               </div>
               <p style="color: #6B7280; font-size: 14px;">If you didn't request this code, you can safely ignore this email. Someone may have entered your email address by mistake.</p>
             </div>
             <div class="footer">
-              <p>© ${new Date().getFullYear()} EONPRO. All rights reserved.</p>
+              <p>&copy; ${new Date().getFullYear()} EONPRO. All rights reserved.</p>
               <p><a href="https://eonpro.io">eonpro.io</a></p>
             </div>
           </div>

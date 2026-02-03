@@ -322,14 +322,14 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
         <html>
           <head>
             <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; }
+              body { font-family: Arial, sans-serif; line-height: 1.6; background: #efece7; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: #4F46E5; color: white; padding: 20px; text-align: center; }
-              .content { padding: 20px; background: #f9f9f9; }
+              .header { background: #059669; color: white; padding: 20px; text-align: center; }
+              .content { padding: 20px; background: #ffffff; }
               .button { 
                 display: inline-block; 
                 padding: 12px 24px; 
-                background: #4F46E5; 
+                background: #059669; 
                 color: white; 
                 text-decoration: none; 
                 border-radius: 5px; 
@@ -379,15 +379,15 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
         <html>
           <head>
             <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #efece7; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .header { background: #059669; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
               .header h1 { margin: 0; font-size: 24px; }
               .content { padding: 30px 20px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
               .verify-button { 
                 display: inline-block; 
                 padding: 14px 32px; 
-                background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); 
+                background: #059669; 
                 color: white !important; 
                 text-decoration: none; 
                 border-radius: 8px; 
@@ -396,7 +396,7 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
               }
               .verify-button:hover { opacity: 0.9; }
               .info-box { 
-                background: #F3F4F6; 
+                background: #efece7; 
                 border-radius: 8px; 
                 padding: 16px; 
                 margin: 20px 0;
@@ -435,7 +435,7 @@ async function getTemplateContent(template: EmailTemplate): Promise<{
                 <p class="warning">If you didn't create this account, please ignore this email or contact our support team.</p>
                 
                 <p>If the button above doesn't work, copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; color: #4F46E5; font-size: 12px;">{{verificationLink}}</p>
+                <p style="word-break: break-all; color: #059669; font-size: 12px;">{{verificationLink}}</p>
                 
                 <p>Best regards,<br>The {{clinicName}} Team</p>
               </div>
@@ -685,7 +685,7 @@ Thank you,
               .receipt-link {
                 display: inline-block;
                 padding: 10px 20px;
-                background: #4F46E5;
+                background: #059669;
                 color: white;
                 text-decoration: none;
                 border-radius: 5px;
@@ -827,7 +827,7 @@ Please contact us at {{SUPPORT_EMAIL}} if you need assistance.
               <p>Hello {{firstName}},</p>
               <p>We received a request to reset your password. Click the button below to create a new password:</p>
               <p style="text-align: center;">
-                <a href="{{resetLink}}" style="display: inline-block; padding: 12px 24px; background: #4F46E5; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+                <a href="{{resetLink}}" style="display: inline-block; padding: 12px 24px; background: #059669; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
               </p>
               <p>This link will expire in 1 hour. If you didn't request this, please ignore this email.</p>
               <p>Best regards,<br>{{COMPANY_NAME}}</p>

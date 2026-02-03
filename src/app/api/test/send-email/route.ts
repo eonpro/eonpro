@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       subject: 'Test Email from Lifefile Platform',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #4F46E5;">Test Email</h1>
+          <h1 style="color: #059669;">Test Email</h1>
           <p>This is a test email from the Lifefile Platform email service.</p>
           <p>If you're seeing this, the email service is working correctly!</p>
           <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 20px 0;">

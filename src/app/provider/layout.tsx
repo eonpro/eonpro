@@ -98,7 +98,8 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
         ? `${parsedUser.firstName} ${parsedUser.lastName}`
         : parsedUser.name || parsedUser.email?.split('@')[0] || '';
       setUserName(`Dr. ${displayName}`.trim());
-      setUserId(parsedUser.id || null);
+      // Ensure userId is always a number (might be string from localStorage)
+      setUserId(parsedUser.id ? Number(parsedUser.id) : null);
       setLoading(false);
 
       // Fetch queue count after auth check
