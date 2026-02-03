@@ -457,17 +457,13 @@ export async function attributeFromIntake(
     // Check if patient already has attribution
     const existingPatient = await prisma.patient.findUnique({
       where: { id: patientId },
-      select: { attributionAffiliateId: true },
+      select: { 
+        attributionAffiliateId: true,
+        tags: true,
+      },
     });
 
-    if (existingPatient?.attributionAffiliateId) {
-      logger.info('[Attribution] Patient already has attribution, skipping', {
-        patientId,
-        existingAffiliateId: existingPatient.attributionAffiliateId,
-        newCode: normalizedCode,
-      });
-      return null;
-    }
+    const hasExistingAttribution = !!existingPatient?.attributionAffiliateId;
 
     // Look up the ref code in the modern affiliate system
     const refCode = await prisma.affiliateRefCode.findFirst({
@@ -504,7 +500,8 @@ export async function attributeFromIntake(
       return null;
     }
 
-    // Create an AffiliateTouch record for tracking
+    // ALWAYS create an AffiliateTouch record for tracking "uses"
+    // This tracks the code usage even if patient already has attribution
     const touch = await prisma.affiliateTouch.create({
       data: {
         clinicId,
@@ -516,48 +513,68 @@ export async function attributeFromIntake(
         utmMedium: 'intake_form',
         utmCampaign: 'promo_code',
         convertedPatientId: patientId,
-        convertedAt: new Date(),
+        convertedAt: hasExistingAttribution ? null : new Date(), // Only mark converted if new attribution
         // Generate a fingerprint for deduplication
         visitorFingerprint: `intake-${patientId}-${Date.now()}`,
       },
     });
 
-    // Update patient with attribution data
-    await prisma.patient.update({
-      where: { id: patientId },
-      data: {
-        attributionAffiliateId: refCode.affiliateId,
-        attributionRefCode: normalizedCode,
-        attributionFirstTouchAt: new Date(),
-        // Also add affiliate tag
-        tags: {
-          push: `affiliate:${normalizedCode}`,
-        },
-      },
-    });
-
-    // Increment the affiliate's lifetime conversions
-    await prisma.affiliate.update({
-      where: { id: refCode.affiliateId },
-      data: {
-        lifetimeConversions: { increment: 1 },
-      },
-    });
-
-    logger.info('[Attribution] Successfully attributed patient from intake', {
+    logger.info('[Attribution] Created affiliate touch for intake', {
       patientId,
       affiliateId: refCode.affiliateId,
-      affiliateName: refCode.affiliate.displayName,
       refCode: normalizedCode,
       touchId: touch.id,
-      source,
+      hasExistingAttribution,
     });
+
+    // Only update patient attribution if they don't already have one
+    if (!hasExistingAttribution) {
+      // Check if tag already exists to avoid duplicates
+      const existingTags = Array.isArray(existingPatient?.tags) ? existingPatient.tags as string[] : [];
+      const affiliateTag = `affiliate:${normalizedCode}`;
+      const shouldAddTag = !existingTags.includes(affiliateTag);
+
+      await prisma.patient.update({
+        where: { id: patientId },
+        data: {
+          attributionAffiliateId: refCode.affiliateId,
+          attributionRefCode: normalizedCode,
+          attributionFirstTouchAt: new Date(),
+          // Only add tag if not already present
+          ...(shouldAddTag ? { tags: { push: affiliateTag } } : {}),
+        },
+      });
+
+      // Increment the affiliate's lifetime conversions
+      await prisma.affiliate.update({
+        where: { id: refCode.affiliateId },
+        data: {
+          lifetimeConversions: { increment: 1 },
+        },
+      });
+
+      logger.info('[Attribution] Successfully attributed patient from intake', {
+        patientId,
+        affiliateId: refCode.affiliateId,
+        affiliateName: refCode.affiliate.displayName,
+        refCode: normalizedCode,
+        touchId: touch.id,
+        source,
+      });
+    } else {
+      logger.info('[Attribution] Patient already has attribution, touch tracked but attribution unchanged', {
+        patientId,
+        existingAffiliateId: existingPatient.attributionAffiliateId,
+        newCode: normalizedCode,
+        touchId: touch.id,
+      });
+    }
 
     return {
       affiliateId: refCode.affiliateId,
       refCode: normalizedCode,
       touchId: touch.id,
-      model: 'INTAKE_DIRECT',
+      model: hasExistingAttribution ? 'INTAKE_TOUCH_ONLY' : 'INTAKE_DIRECT',
       confidence: 'high',
       weight: 1,
     };
