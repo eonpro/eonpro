@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Users,
   Plus,
@@ -81,7 +81,6 @@ function formatPercent(bps: number): string {
 }
 
 export default function AdminAffiliatesPage() {
-  const router = useRouter();
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [plans, setPlans] = useState<CommissionPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,34 +222,34 @@ export default function AdminAffiliatesPage() {
           <p className="text-gray-500">Manage your affiliate partners</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => router.push('/admin/affiliates/reports')}
+          <Link
+            href="/admin/affiliates/reports"
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
           >
             <BarChart3 className="h-5 w-5" />
             Reports
-          </button>
-          <button
-            onClick={() => router.push('/admin/affiliates/code-performance')}
+          </Link>
+          <Link
+            href="/admin/affiliates/code-performance"
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
           >
             <Target className="h-5 w-5" />
             Code Performance
-          </button>
-          <button
-            onClick={() => router.push('/admin/affiliates/commission-plans')}
+          </Link>
+          <Link
+            href="/admin/affiliates/commission-plans"
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
           >
             <DollarSign className="h-5 w-5" />
             Plans
-          </button>
-          <button
-            onClick={() => router.push('/admin/affiliates/applications')}
+          </Link>
+          <Link
+            href="/admin/affiliates/applications"
             className="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 font-medium text-violet-600 hover:bg-violet-50"
           >
             <Users className="h-5 w-5" />
             Applications
-          </button>
+          </Link>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
@@ -425,12 +424,12 @@ export default function AdminAffiliatesPage() {
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-6 py-4 text-right">
-                  <button
-                    onClick={() => { window.location.href = `/admin/affiliates/${affiliate.id}`; }}
-                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  <Link
+                    href={`/admin/affiliates/${affiliate.id}`}
+                    className="inline-flex rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                   >
                     <Eye className="h-5 w-5" />
-                  </button>
+                  </Link>
                 </td>
               </tr>
             ))}

@@ -8,6 +8,7 @@ import { generateIntakePdf } from "@/services/intakePdfService";
 import { storeIntakePdf } from "@/services/storage/intakeStorage";
 import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
 import { trackReferral } from "@/services/influencerService";
+import { attributeFromIntake } from "@/services/affiliate/attributionService";
 import { notificationService } from "@/services/notification";
 import { logger } from '@/lib/logger';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
@@ -659,8 +660,10 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   const promoCode = extractPromoCode(payload);
   let referralTracked = false;
+  let modernAffiliateTracked = false;
 
   if (promoCode) {
+    // Track in legacy system (Influencer/ReferralTracking tables)
     try {
       await trackReferral(patient.id, promoCode, "overtime-intake", {
         submissionId: normalized.submissionId,
@@ -671,11 +674,27 @@ export async function POST(req: NextRequest) {
         treatmentLabel,
       });
       referralTracked = true;
-      logger.info(`[OVERTIME-INTAKE ${requestId}] ✓ Promo Code Tracked: ${promoCode}`);
+      logger.info(`[OVERTIME-INTAKE ${requestId}] ✓ Legacy Referral Tracked: ${promoCode}`);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] Promo tracking failed:`, { error: errMsg, promoCode });
-      errors.push(`Promo tracking failed: ${promoCode}`);
+      logger.warn(`[OVERTIME-INTAKE ${requestId}] Legacy referral tracking failed:`, { error: errMsg, promoCode });
+      errors.push(`Legacy referral tracking failed: ${promoCode}`);
+    }
+
+    // Track in modern affiliate system (Affiliate/AffiliateTouch tables)
+    // This enables the new affiliate dashboard, commission tracking, and payouts
+    try {
+      const result = await attributeFromIntake(patient.id, promoCode, clinicId, 'overtime-intake');
+      if (result) {
+        modernAffiliateTracked = true;
+        logger.info(`[OVERTIME-INTAKE ${requestId}] ✓ Modern Affiliate Tracked: ${result.refCode} -> affiliateId=${result.affiliateId}`);
+      } else {
+        logger.debug(`[OVERTIME-INTAKE ${requestId}] No modern affiliate match for code: ${promoCode}`);
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[OVERTIME-INTAKE ${requestId}] Modern affiliate tracking failed:`, { error: errMsg, promoCode });
+      // Don't add to errors array - legacy tracking is the primary system
     }
   }
 
@@ -704,6 +723,7 @@ export async function POST(req: NextRequest) {
           soapNoteId,
           promoCode,
           referralTracked,
+          modernAffiliateTracked,
           errors: errors.length > 0 ? errors : undefined,
         }),
         ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "webhook",
@@ -801,7 +821,8 @@ export async function POST(req: NextRequest) {
     // Affiliate tracking
     affiliate: promoCode ? {
       code: promoCode,
-      tracked: referralTracked,
+      legacyTracked: referralTracked,
+      modernTracked: modernAffiliateTracked,
     } : null,
 
     // Clinic info
