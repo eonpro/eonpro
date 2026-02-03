@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
   Users,
   Plus,
@@ -222,34 +221,34 @@ export default function AdminAffiliatesPage() {
           <p className="text-gray-500">Manage your affiliate partners</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
+          <a
             href="/admin/affiliates/reports"
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
           >
             <BarChart3 className="h-5 w-5" />
             Reports
-          </Link>
-          <Link
+          </a>
+          <a
             href="/admin/affiliates/code-performance"
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
           >
             <Target className="h-5 w-5" />
             Code Performance
-          </Link>
-          <Link
+          </a>
+          <a
             href="/admin/affiliates/commission-plans"
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
           >
             <DollarSign className="h-5 w-5" />
             Plans
-          </Link>
-          <Link
+          </a>
+          <a
             href="/admin/affiliates/applications"
             className="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 font-medium text-violet-600 hover:bg-violet-50"
           >
             <Users className="h-5 w-5" />
             Applications
-          </Link>
+          </a>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
@@ -424,12 +423,12 @@ export default function AdminAffiliatesPage() {
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-6 py-4 text-right">
-                  <Link
+                  <a
                     href={`/admin/affiliates/${affiliate.id}`}
                     className="inline-flex rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                   >
                     <Eye className="h-5 w-5" />
-                  </Link>
+                  </a>
                 </td>
               </tr>
             ))}
