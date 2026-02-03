@@ -149,6 +149,7 @@ export default function TicketsPage() {
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setWarning(null);
 
     try {
       const params = new URLSearchParams();
@@ -175,8 +176,13 @@ export default function TicketsPage() {
       }
 
       const data = await response.json();
-      setTickets(data.tickets);
+      setTickets(data.tickets || []);
       setPagination(data.pagination);
+
+      // Check for system warning (migration pending)
+      if (data.warning) {
+        setWarning(data.warning);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -489,15 +495,28 @@ export default function TicketsPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center">
-                      <TagIcon className="h-12 w-12 text-gray-300" />
-                      <p className="mt-2 text-sm text-gray-500">No tickets found</p>
-                      <button
-                        onClick={() => router.push('/tickets/new')}
-                        className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
-                      >
-                        <PlusIcon className="h-4 w-4" />
-                        Create your first ticket
-                      </button>
+                      {warning ? (
+                        <>
+                          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                            <ExclamationTriangleIcon className="h-8 w-8 text-yellow-600" />
+                          </div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">System Upgrade in Progress</h3>
+                          <p className="text-sm text-gray-500 max-w-md">{warning}</p>
+                          <p className="mt-2 text-xs text-gray-400">This usually takes a few minutes. Please check back shortly.</p>
+                        </>
+                      ) : (
+                        <>
+                          <TagIcon className="h-12 w-12 text-gray-300" />
+                          <p className="mt-2 text-sm text-gray-500">No tickets found</p>
+                          <button
+                            onClick={() => router.push('/tickets/new')}
+                            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                          >
+                            <PlusIcon className="h-4 w-4" />
+                            Create your first ticket
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

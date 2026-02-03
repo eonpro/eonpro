@@ -19,13 +19,13 @@ function isSchemaMismatchError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const msg = error.message.toLowerCase();
   return (
-    msg.includes('relation') && msg.includes('does not exist') ||
-    msg.includes('column') && msg.includes('does not exist') ||
+    (msg.includes('relation') && msg.includes('does not exist')) ||
+    (msg.includes('column') && msg.includes('does not exist')) ||
     msg.includes('p2010') || // Prisma: Raw query failed
     msg.includes('p2021') || // Prisma: Table does not exist
     msg.includes('p2022') || // Prisma: Column does not exist
     msg.includes('invalid input value for enum') ||
-    msg.includes('enum') && msg.includes('does not exist')
+    (msg.includes('enum') && msg.includes('does not exist'))
   );
 }
 
@@ -36,7 +36,7 @@ function isSchemaMismatchError(error: unknown): boolean {
 export const GET = withAuth(async (request, { user }) => {
   try {
     const { searchParams } = new URL(request.url);
-    
+
     // Clinic ID (super admin can view any clinic)
     const clinicIdParam = searchParams.get('clinicId');
     const clinicId = clinicIdParam 

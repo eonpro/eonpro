@@ -10,26 +10,39 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/config';
+import { withAuth } from '@/lib/auth';
+
+/**
+ * Check if the error indicates a missing table or schema issue
+ */
+function isSchemaMismatchError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    (msg.includes('relation') && msg.includes('does not exist')) ||
+    (msg.includes('column') && msg.includes('does not exist')) ||
+    msg.includes('p2010') || // Prisma: Raw query failed
+    msg.includes('p2021') || // Prisma: Table does not exist
+    msg.includes('p2022') || // Prisma: Column does not exist
+    msg.includes('invalid input value for enum') ||
+    (msg.includes('enum') && msg.includes('does not exist'))
+  );
+}
 
 /**
  * GET /api/tickets
  * List tickets with pagination
  */
-export async function GET(request: Request) {
+export const GET = withAuth(async (request, { user }) => {
   try {
-    // Get session for clinic filtering
-    const session = await getServerSession(authOptions);
-    
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
     const skip = (page - 1) * limit;
 
     // Build where clause - filter by clinic if not super admin
-    const whereClause = session?.user?.role !== 'SUPER_ADMIN' && session?.user?.clinicId
-      ? { clinicId: session.user.clinicId }
+    const whereClause = user.role !== 'SUPER_ADMIN' && user.clinicId
+      ? { clinicId: user.clinicId }
       : {};
 
     // Query tickets
@@ -94,23 +107,37 @@ export async function GET(request: Request) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[API] Tickets GET - error', errorMessage);
+
+    // If schema is out of sync, return empty list gracefully
+    if (isSchemaMismatchError(error)) {
+      console.warn('[API] Tickets GET - schema mismatch detected, returning empty list');
+      return NextResponse.json({
+        tickets: [],
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+          hasMore: false,
+        },
+        warning: 'Ticket system is being upgraded. Please wait for migration to complete.',
+      });
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch tickets', details: errorMessage },
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * POST /api/tickets
  * Create a new ticket
  */
-export async function POST(request: Request) {
+export const POST = withAuth(async (request, { user }) => {
   try {
-    // Get session for user info
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
+    if (!user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -120,7 +147,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     // Use user's clinic if not specified
-    const clinicId = body.clinicId || session.user.clinicId;
+    const clinicId = body.clinicId || user.clinicId;
 
     if (!clinicId) {
       return NextResponse.json(
@@ -164,7 +191,7 @@ export async function POST(request: Request) {
         priority: body.priority || 'P3_MEDIUM',
         source: body.source || 'INTERNAL',
         status: 'NEW',
-        createdById: session.user.id,
+        createdById: user.id,
         assignedToId: body.assignedToId || null,
         teamId: body.teamId || null,
         patientId: body.patientId || null,
@@ -214,9 +241,21 @@ export async function POST(request: Request) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[API] Tickets POST - error', errorMessage);
+
+    // If schema is out of sync, return helpful error
+    if (isSchemaMismatchError(error)) {
+      return NextResponse.json(
+        {
+          error: 'Ticket creation temporarily unavailable',
+          message: 'The ticket system is being upgraded. Please try again in a few minutes.',
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to create ticket', details: errorMessage },
       { status: 500 }
     );
   }
-}
+});
