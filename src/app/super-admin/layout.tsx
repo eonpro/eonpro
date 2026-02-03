@@ -13,6 +13,7 @@ import {
   NotificationCenter,
   NotificationToastContainer
 } from '@/components/notifications';
+import { ClinicBrandingProvider } from '@/lib/contexts/ClinicBrandingContext';
 
 const navItems = [
   { icon: Shield, path: '/super-admin', label: 'Dashboard', exact: true },
@@ -84,8 +85,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <NotificationProvider>
-      <div className="min-h-screen bg-[#efece7] flex">
+    <ClinicBrandingProvider>
+      <NotificationProvider>
+        <div className="min-h-screen bg-[#efece7] flex">
         {/* Sidebar */}
         <aside
           className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
@@ -183,8 +185,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         {userId && (
           <InternalChat currentUserId={userId} currentUserRole="super_admin" />
         )}
-      </div>
-      <NotificationToastContainer />
-    </NotificationProvider>
+        </div>
+        <NotificationToastContainer />
+      </NotificationProvider>
+    </ClinicBrandingProvider>
   );
 }
