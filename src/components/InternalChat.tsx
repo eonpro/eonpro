@@ -106,10 +106,26 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       if (response.ok) {
         const data = await response.json();
         const messageList = Array.isArray(data) ? data : (data.data || []);
+
+        // Debug logging
+        console.log('[InternalChat] Filtering messages:', {
+          currentUserId,
+          selectedRecipientId: selectedRecipient.id,
+          totalMessages: messageList.length,
+          messageIds: messageList.map((m: Message) => ({
+            id: m.id,
+            senderId: m.senderId,
+            recipientId: m.recipientId
+          }))
+        });
+
         const filteredMessages = messageList.filter((m: Message) =>
           (m.senderId === currentUserId && m.recipientId === selectedRecipient.id) ||
           (m.senderId === selectedRecipient.id && m.recipientId === currentUserId)
         );
+
+        console.log('[InternalChat] Filtered result:', filteredMessages.length, 'messages');
+
         filteredMessages.sort((a: Message, b: Message) =>
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
