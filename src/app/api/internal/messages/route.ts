@@ -24,7 +24,6 @@ async function getHandler(request: NextRequest, user: any) {
 
     // Build where clause based on parameters
     let whereClause: any;
-    
     if (unreadOnly) {
       // For unread messages, only get messages sent TO the user that are unread
       whereClause = {
@@ -110,9 +109,16 @@ async function getHandler(request: NextRequest, user: any) {
 
     return NextResponse.json(messages);
   } catch (error) {
-    logger.error('Error fetching messages:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    logger.error('Error fetching messages:', {
+      error: errorMessage,
+      stack: errorStack,
+      userId: user?.id,
+      userRole: user?.role
+    });
     return NextResponse.json(
-      { error: 'Failed to fetch messages' },
+      { error: 'Failed to fetch messages', details: errorMessage },
       { status: 500 }
     );
   }
