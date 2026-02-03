@@ -323,15 +323,21 @@ export const orderRepository = {
     }
 
     const limit = filters.limit ?? 100;
+    const offset = filters.offset ?? 0;
 
-    logger.debug('[OrderRepository] list query', { filters, where });
+    logger.debug('[OrderRepository] list query', { filters, where, limit, offset });
 
-    const orders = await prisma.order.findMany({
-      where,
-      select: ORDER_WITH_PATIENT_SELECT,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
+    // Execute query and count in parallel for efficiency
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        select: ORDER_WITH_PATIENT_SELECT,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.order.count({ where }),
+    ]);
 
     // Decrypt patient PHI fields before returning
     const decryptedOrders = orders.map((order: typeof orders[number]) => decryptOrderPatient(order));
@@ -339,6 +345,8 @@ export const orderRepository = {
     return {
       orders: decryptedOrders as OrderWithPatient[],
       count: decryptedOrders.length,
+      total,
+      hasMore: offset + decryptedOrders.length < total,
     };
   },
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Pill, Search, Plus, AlertCircle, CheckCircle, Clock, RefreshCw, Loader2 } from "lucide-react";
+import { Pill, Search, Plus, AlertCircle, CheckCircle, Clock, RefreshCw, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import Link from "next/link";
 
 interface Order {
@@ -46,21 +46,24 @@ interface Prescription {
   lastFilled?: string;
 }
 
+const PAGE_SIZE = 50;
+
 export default function ProviderPrescriptionsPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
-  useEffect(() => {
-    fetchPrescriptions();
-  }, []);
-
-  const fetchPrescriptions = async () => {
+  const fetchPrescriptions = useCallback(async (page: number) => {
+    setLoading(true);
     try {
       const token = localStorage.getItem("auth-token") || localStorage.getItem("provider-token");
-      const response = await fetch("/api/orders?limit=100", {
+      const offset = (page - 1) * PAGE_SIZE;
+      const response = await fetch(`/api/orders?limit=${PAGE_SIZE}&offset=${offset}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -68,6 +71,9 @@ export default function ProviderPrescriptionsPage() {
 
       if (response.ok) {
         const data = await response.json();
+        setTotalOrders(data.total || data.count || 0);
+        setHasMore(data.hasMore || false);
+
         // Transform orders into prescription format
         const rxList: Prescription[] = (data.orders || []).flatMap((order: Order) => {
           // If order has rxs, create a prescription entry for each
@@ -114,7 +120,11 @@ export default function ProviderPrescriptionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPrescriptions(currentPage);
+  }, [currentPage, fetchPrescriptions]);
 
   const mapOrderStatus = (status: string): "active" | "refill-requested" | "expired" | "discontinued" => {
     const s = status?.toLowerCase();
@@ -145,7 +155,7 @@ export default function ProviderPrescriptionsPage() {
   };
 
   const filteredPrescriptions = prescriptions.filter(rx => {
-    const matchesSearch = 
+    const matchesSearch =
       rx.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       rx.medication.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === "all" || rx.status === filterStatus;
@@ -205,14 +215,14 @@ export default function ProviderPrescriptionsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-indigo-500">
-            <div className="text-xl font-bold text-indigo-600">{prescriptions.length}</div>
-            <div className="text-xs text-gray-500">Total Prescriptions</div>
+            <div className="text-xl font-bold text-indigo-600">{totalOrders}</div>
+            <div className="text-xs text-gray-500">Total Orders</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500">
             <div className="text-xl font-bold text-green-600">
               {prescriptions.filter(p => p.status === "active").length}
             </div>
-            <div className="text-xs text-gray-500">Active</div>
+            <div className="text-xs text-gray-500">Active (this page)</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-yellow-500">
             <div className="text-xl font-bold text-yellow-600">
@@ -304,6 +314,18 @@ export default function ProviderPrescriptionsPage() {
               </table>
             </div>
           )}
+
+          {/* Pagination Controls */}
+          {totalOrders > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalItems={totalOrders}
+              pageSize={PAGE_SIZE}
+              hasMore={hasMore}
+              onPageChange={setCurrentPage}
+              loading={loading}
+            />
+          )}
         </div>
 
         {/* Pending Actions */}
@@ -317,6 +339,167 @@ export default function ProviderPrescriptionsPage() {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Pagination Controls Component
+interface PaginationControlsProps {
+  currentPage: number;
+  totalItems: number;
+  pageSize: number;
+  hasMore: boolean;
+  onPageChange: (page: number) => void;
+  loading: boolean;
+}
+
+function PaginationControls({
+  currentPage,
+  totalItems,
+  pageSize,
+  hasMore,
+  onPageChange,
+  loading,
+}: PaginationControlsProps) {
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 7;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+
+      if (currentPage > 3) {
+        pages.push("...");
+      }
+
+      // Show pages around current
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) {
+          pages.push(i);
+        }
+      }
+
+      if (currentPage < totalPages - 2) {
+        pages.push("...");
+      }
+
+      // Always show last page
+      if (!pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-gray-50">
+      {/* Results info */}
+      <div className="text-sm text-gray-600">
+        Showing <span className="font-medium">{startItem}</span> to{" "}
+        <span className="font-medium">{endItem}</span> of{" "}
+        <span className="font-medium">{totalItems}</span> orders
+      </div>
+
+      {/* Page controls */}
+      <div className="flex items-center gap-1">
+        {/* First page */}
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1 || loading}
+          className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="First page"
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </button>
+
+        {/* Previous page */}
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1 || loading}
+          className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Previous page"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        {/* Page numbers */}
+        <div className="flex items-center gap-1 mx-1">
+          {getPageNumbers().map((page, index) =>
+            typeof page === "number" ? (
+              <button
+                key={index}
+                onClick={() => onPageChange(page)}
+                disabled={loading}
+                className={`min-w-[32px] h-8 px-2 text-sm rounded font-medium transition-colors ${
+                  page === currentPage
+                    ? "bg-indigo-600 text-white"
+                    : "hover:bg-gray-200 text-gray-700"
+                } disabled:cursor-not-allowed`}
+              >
+                {page}
+              </button>
+            ) : (
+              <span key={index} className="px-1 text-gray-400">
+                {page}
+              </span>
+            )
+          )}
+        </div>
+
+        {/* Next page */}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={!hasMore || loading}
+          className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Next page"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+
+        {/* Last page */}
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages || loading}
+          className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Last page"
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Page jump */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-gray-600">Go to:</span>
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          value={currentPage}
+          onChange={(e) => {
+            const page = parseInt(e.target.value, 10);
+            if (page >= 1 && page <= totalPages) {
+              onPageChange(page);
+            }
+          }}
+          className="w-16 px-2 py-1 border rounded text-center text-sm focus:ring-2 focus:ring-indigo-500"
+          disabled={loading}
+        />
+        <span className="text-gray-500">of {totalPages}</span>
       </div>
     </div>
   );

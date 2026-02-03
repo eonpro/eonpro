@@ -117,6 +117,7 @@ export const orderService = {
     userContext: UserContext,
     options: {
       limit?: number;
+      offset?: number;
       recent?: string; // e.g., '24h', '7d'
       status?: string | string[];
       patientId?: number;
@@ -134,6 +135,7 @@ export const orderService = {
     // Build filters
     const filters: OrderListFilters = {
       limit: options.limit ?? 100,
+      offset: options.offset ?? 0,
     };
 
     // Clinic filter
@@ -147,7 +149,7 @@ export const orderService = {
     // Patient can only see own orders
     if (userContext.role === 'patient') {
       if (!userContext.patientId) {
-        return { orders: [], count: 0 };
+        return { orders: [], count: 0, total: 0, hasMore: false };
       }
       filters.patientId = userContext.patientId;
     } else if (options.patientId) {

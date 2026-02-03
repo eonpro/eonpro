@@ -42,10 +42,11 @@ const createOrderSchema = z.object({
 
 /**
  * GET /api/orders
- * List orders with filtering
+ * List orders with filtering and pagination
  *
  * Query params:
- * - limit: Max results (default 100)
+ * - limit: Max results per page (default 50)
+ * - offset: Number of results to skip (default 0)
  * - recent: Time filter (e.g., '24h')
  * - status: Filter by status
  * - patientId: Filter by patient
@@ -55,7 +56,8 @@ async function listOrdersHandler(request: NextRequest, user: AuthUser) {
     const { searchParams } = new URL(request.url);
 
     // Parse query parameters
-    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
     const recent = searchParams.get('recent') || undefined;
     const status = searchParams.get('status') || undefined;
     const patientId = searchParams.get('patientId');
@@ -73,16 +75,24 @@ async function listOrdersHandler(request: NextRequest, user: AuthUser) {
     // Use order service - handles clinic isolation, access control
     const result = await orderService.listOrders(userContext, {
       limit,
+      offset,
       recent,
       status,
       patientId: patientId ? parseInt(patientId, 10) : undefined,
     });
 
-    // Include rxs for backward compatibility
-    // The service returns OrderWithPatient, we need to fetch rxs separately if needed
+    // Return paginated results with metadata
     return NextResponse.json({
       orders: result.orders,
       count: result.count,
+      total: result.total,
+      hasMore: result.hasMore,
+      pagination: {
+        limit,
+        offset,
+        total: result.total,
+        hasMore: result.hasMore,
+      },
     });
   } catch (error) {
     return handleApiError(error, {

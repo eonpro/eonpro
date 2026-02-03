@@ -218,6 +218,7 @@ export interface OrderListFilters {
   dateFrom?: Date;
   dateTo?: Date;
   limit?: number;
+  offset?: number;
   hasTrackingNumber?: boolean;
 }
 
@@ -227,6 +228,8 @@ export interface OrderListFilters {
 export interface OrderListResult {
   orders: OrderWithPatient[];
   count: number;
+  total: number;
+  hasMore: boolean;
 }
 
 /**
