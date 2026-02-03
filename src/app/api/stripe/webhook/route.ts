@@ -1,9 +1,9 @@
 /**
  * Stripe Webhook Handler
  * ======================
- *
+ * 
  * CRITICAL PATH: Payment → Invoice → Prescription
- *
+ * 
  * This webhook MUST be bulletproof:
  * 1. NEVER return 500 to Stripe (causes unnecessary retries)
  * 2. ALWAYS log payment events for audit trail
@@ -46,16 +46,15 @@ export async function POST(request: NextRequest) {
       extractPaymentDataFromCharge,
       extractPaymentDataFromPaymentIntent,
       extractPaymentDataFromCheckoutSession,
-      extractPaymentDataFromInvoice,
     } = await import('@/services/stripe/paymentMatchingService');
-
+    
     // Import affiliate commission service
     const {
       processPaymentForCommission,
       reverseCommissionForRefund,
       checkIfFirstPayment,
     } = await import('@/services/affiliate/affiliateCommissionService');
-
+    
     // Import refill queue service for payment auto-matching
     const { autoMatchPendingRefillsForPatient } = await import('@/services/refill/refillQueueService');
 
@@ -99,7 +98,6 @@ export async function POST(request: NextRequest) {
       extractPaymentDataFromCharge,
       extractPaymentDataFromPaymentIntent,
       extractPaymentDataFromCheckoutSession,
-      extractPaymentDataFromInvoice,
       processPaymentForCommission,
       reverseCommissionForRefund,
       checkIfFirstPayment,
@@ -185,7 +183,6 @@ interface ProcessingServices {
   extractPaymentDataFromCharge: any;
   extractPaymentDataFromPaymentIntent: any;
   extractPaymentDataFromCheckoutSession: any;
-  extractPaymentDataFromInvoice: any;
   processPaymentForCommission?: any;
   reverseCommissionForRefund?: any;
   checkIfFirstPayment?: any;
@@ -209,7 +206,6 @@ async function processWebhookEvent(
     extractPaymentDataFromCharge,
     extractPaymentDataFromPaymentIntent,
     extractPaymentDataFromCheckoutSession,
-    extractPaymentDataFromInvoice,
     processPaymentForCommission,
     reverseCommissionForRefund,
     checkIfFirstPayment,
@@ -221,113 +217,7 @@ async function processWebhookEvent(
       // ================================================================
       // Invoice Events
       // ================================================================
-      case 'invoice.payment_succeeded': {
-        const stripeInvoice = event.data.object as Stripe.Invoice;
-        // Type assertion for payment_intent which exists at runtime
-        const invoiceWithPaymentIntent = stripeInvoice as Stripe.Invoice & {
-          payment_intent?: string | Stripe.PaymentIntent | null;
-        };
-        const paymentIntentId = typeof invoiceWithPaymentIntent.payment_intent === 'string'
-          ? invoiceWithPaymentIntent.payment_intent
-          : invoiceWithPaymentIntent.payment_intent?.id || null;
-
-        // First, try to update existing invoice in our system
-        await StripeInvoiceService.updateFromWebhook(stripeInvoice);
-
-        // CRITICAL: Check if we need to match/create a patient for this payment
-        // This handles invoices created directly in Stripe (not through our system)
-        const { prisma } = await import('@/lib/db');
-        const existingInvoice = await prisma.invoice.findUnique({
-          where: { stripeInvoiceId: stripeInvoice.id },
-          include: { patient: true },
-        });
-
-        // If invoice doesn't exist OR patient has placeholder name, process patient matching
-        const needsPatientMatching = !existingInvoice ||
-          (existingInvoice.patient?.firstName === 'Unknown' && existingInvoice.patient?.lastName === 'Customer');
-
-        if (needsPatientMatching) {
-          logger.info('[STRIPE WEBHOOK] Processing patient matching for invoice payment', {
-            stripeInvoiceId: stripeInvoice.id,
-            hasExistingInvoice: !!existingInvoice,
-            existingPatientName: existingInvoice?.patient
-              ? `${existingInvoice.patient.firstName} ${existingInvoice.patient.lastName}`
-              : 'none',
-          });
-
-          const invoicePaymentData = extractPaymentDataFromInvoice(stripeInvoice);
-          const result = await processStripePayment(invoicePaymentData, event.id, event.type);
-
-          if (!result.success) {
-            logger.warn('[STRIPE WEBHOOK] Invoice patient matching failed', {
-              stripeInvoiceId: stripeInvoice.id,
-              error: result.error,
-            });
-            // Don't fail the whole event - invoice update already succeeded
-          } else {
-            // Process affiliate commission if patient was matched
-            if (result.patient?.id && result.patient?.clinicId && processPaymentForCommission) {
-              try {
-                const isFirstPayment = checkIfFirstPayment
-                  ? await checkIfFirstPayment(result.patient.id, paymentIntentId || undefined)
-                  : true;
-
-                await processPaymentForCommission({
-                  clinicId: result.patient.clinicId,
-                  patientId: result.patient.id,
-                  stripeEventId: event.id,
-                  stripeObjectId: stripeInvoice.id,
-                  stripeEventType: event.type,
-                  amountCents: stripeInvoice.amount_paid || 0,
-                  occurredAt: stripeInvoice.status_transitions?.paid_at
-                    ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
-                    : new Date(),
-                  isFirstPayment,
-                });
-              } catch (e) {
-                logger.warn('[STRIPE WEBHOOK] Failed to process affiliate commission for invoice', {
-                  error: e instanceof Error ? e.message : 'Unknown error',
-                  patientId: result.patient.id,
-                });
-              }
-            }
-
-            // Auto-match pending refills
-            if (result.patient?.id && result.patient?.clinicId && autoMatchPendingRefillsForPatient) {
-              try {
-                await autoMatchPendingRefillsForPatient(
-                  result.patient.id,
-                  result.patient.clinicId,
-                  paymentIntentId || undefined,
-                  result.invoice?.id
-                );
-              } catch (e) {
-                logger.warn('[STRIPE WEBHOOK] Failed to auto-match refills for invoice', {
-                  error: e instanceof Error ? e.message : 'Unknown error',
-                  patientId: result.patient.id,
-                });
-              }
-            }
-
-            return {
-              success: true,
-              details: {
-                invoiceId: stripeInvoice.id,
-                status: stripeInvoice.status,
-                patientId: result.patient?.id,
-                patientCreated: result.patientCreated,
-                matchedBy: result.matchResult.matchedBy,
-              },
-            };
-          }
-        }
-
-        return {
-          success: true,
-          details: { invoiceId: stripeInvoice.id, status: stripeInvoice.status },
-        };
-      }
-
+      case 'invoice.payment_succeeded':
       case 'invoice.payment_failed':
       case 'invoice.marked_uncollectible':
       case 'invoice.voided':
@@ -383,10 +273,10 @@ async function processWebhookEvent(
         let commissionResult = null;
         if (result.patient?.id && result.patient?.clinicId && processPaymentForCommission) {
           try {
-            const isFirstPayment = checkIfFirstPayment
+            const isFirstPayment = checkIfFirstPayment 
               ? await checkIfFirstPayment(result.patient.id, paymentIntent.id)
               : true;
-
+            
             commissionResult = await processPaymentForCommission({
               clinicId: result.patient.clinicId,
               patientId: result.patient.id,
@@ -525,7 +415,7 @@ async function processWebhookEvent(
         const chargeId = 'charge' in eventObject && typeof eventObject.charge === 'string'
           ? eventObject.charge
           : eventObject.id;
-
+        
         logger.info('[STRIPE WEBHOOK] Processing refund/dispute for commission reversal', {
           eventType: event.type,
           chargeId,
@@ -596,10 +486,10 @@ async function processWebhookEvent(
         let commissionResult = null;
         if (result.patient?.id && result.patient?.clinicId && processPaymentForCommission) {
           try {
-            const isFirstPayment = checkIfFirstPayment
+            const isFirstPayment = checkIfFirstPayment 
               ? await checkIfFirstPayment(result.patient.id)
               : true;
-
+            
             commissionResult = await processPaymentForCommission({
               clinicId: result.patient.clinicId,
               patientId: result.patient.id,
@@ -728,14 +618,14 @@ async function alertPaymentFailure(
 ): Promise<void> {
   // Extract payment-related data from various Stripe event object types
   const paymentData = event.data.object;
-
+  
   // Helper to safely extract amount from different Stripe object types
   const getAmount = (): number | undefined => {
     if ('amount' in paymentData) return paymentData.amount as number;
     if ('amount_total' in paymentData) return paymentData.amount_total as number;
     return undefined;
   };
-
+  
   // Helper to safely extract email from different Stripe object types
   const getEmail = (): string | undefined => {
     if ('billing_details' in paymentData && paymentData.billing_details?.email) {

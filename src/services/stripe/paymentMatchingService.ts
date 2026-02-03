@@ -249,22 +249,8 @@ export async function enhancePaymentDataWithCustomerInfo(
     });
   }
 
-  // Helper to check if a name is valid (not empty/whitespace/placeholder)
-  const isValidName = (name: string | null): boolean => {
-    if (!name) return false;
-    const trimmed = name.trim();
-    if (trimmed.length === 0) return false;
-    // Check for placeholder names
-    const lowerName = trimmed.toLowerCase();
-    if (lowerName === 'unknown' || lowerName === 'unknown customer' || lowerName === 'customer') {
-      return false;
-    }
-    return true;
-  };
-
-  // If we already have complete data with a VALID name, we can return early
-  // But if the name is empty/placeholder, we should still try to fetch better data
-  if (paymentData.email && isValidName(paymentData.name)) {
+  // If we already have complete data, just check if description has better name
+  if (paymentData.email && paymentData.name) {
     return enhanced;
   }
 
@@ -278,12 +264,11 @@ export async function enhancePaymentDataWithCustomerInfo(
 
     const customerData = await fetchStripeCustomerData(paymentData.customerId);
 
-    // Merge customer data (valid payment data takes priority)
-    // Use helper to check for valid names (not empty/placeholder)
+    // Merge customer data (payment data takes priority)
     enhanced = {
       ...enhanced,
       email: enhanced.email || customerData.email,
-      name: isValidName(enhanced.name) ? enhanced.name : (customerData.name || enhanced.name),
+      name: enhanced.name || customerData.name,
       phone: enhanced.phone || customerData.phone,
       address: enhanced.address || customerData.address,
     };
@@ -332,41 +317,13 @@ export interface PaymentProcessingResult {
 
 /**
  * Find a patient by Stripe customer ID
- *
- * CRITICAL: When clinicId is provided, this function filters by clinic to prevent
- * cross-clinic data leakage. The stripeCustomerId is globally unique, but we still
- * enforce clinic isolation as a defense-in-depth measure.
- *
- * @param customerId - Stripe customer ID (cus_xxx)
- * @param clinicId - Optional clinic ID to enforce multi-tenant isolation
  */
 export async function findPatientByStripeCustomerId(
-  customerId: string,
-  clinicId?: number
+  customerId: string
 ): Promise<Patient | null> {
-  // First, find by stripeCustomerId (which is unique)
-  const patient = await prisma.patient.findUnique({
+  return prisma.patient.findUnique({
     where: { stripeCustomerId: customerId },
   });
-
-  if (!patient) {
-    return null;
-  }
-
-  // CRITICAL: Validate clinic isolation when clinicId is provided
-  // This prevents cross-clinic data leakage even if stripeCustomerId somehow matches
-  if (clinicId && patient.clinicId !== clinicId) {
-    logger.warn('[PaymentMatching] SECURITY: Patient found by stripeCustomerId belongs to different clinic', {
-      stripeCustomerId: customerId,
-      patientId: patient.id,
-      patientClinicId: patient.clinicId,
-      requestedClinicId: clinicId,
-    });
-    // Return null to prevent cross-clinic match
-    return null;
-  }
-
-  return patient;
 }
 
 /**
@@ -495,14 +452,12 @@ export async function matchPatientFromPayment(
   clinicId?: number
 ): Promise<PatientMatchResult> {
   // Priority 1: Match by Stripe customer ID (most reliable)
-  // CRITICAL: Pass clinicId to enforce multi-tenant isolation
   if (paymentData.customerId) {
-    const patient = await findPatientByStripeCustomerId(paymentData.customerId, clinicId);
+    const patient = await findPatientByStripeCustomerId(paymentData.customerId);
     if (patient) {
       logger.debug('[PaymentMatching] Matched by stripeCustomerId', {
         customerId: paymentData.customerId,
         patientId: patient.id,
-        clinicId: patient.clinicId,
       });
       return {
         patient,
@@ -594,29 +549,9 @@ export async function createPatientFromStripePayment(
   paymentData: StripePaymentData,
   clinicId: number
 ): Promise<Patient> {
-  // Validate name - must be non-empty and not a placeholder
-  const rawName = paymentData.name?.trim();
-  const hasValidName = rawName &&
-    rawName.length > 0 &&
-    rawName.toLowerCase() !== 'unknown' &&
-    rawName.toLowerCase() !== 'unknown customer' &&
-    rawName.toLowerCase() !== 'customer';
-
-  const { firstName, lastName } = hasValidName
-    ? splitName(rawName!)
+  const { firstName, lastName } = paymentData.name
+    ? splitName(paymentData.name)
     : { firstName: 'Unknown', lastName: 'Customer' };
-
-  // Log when we're creating with placeholder name for debugging
-  if (!hasValidName) {
-    logger.warn('[PaymentMatching] Creating patient with placeholder name - no valid name found', {
-      customerId: paymentData.customerId,
-      email: paymentData.email,
-      phone: paymentData.phone,
-      description: paymentData.description,
-      rawName: paymentData.name,
-      hasDescription: !!paymentData.description,
-    });
-  }
 
   // Determine if this is a placeholder/incomplete profile
   const hasRealEmail = paymentData.email && !paymentData.email.includes('@placeholder.local');
@@ -951,99 +886,6 @@ export function extractPaymentDataFromPaymentIntent(
       : (piInvoice && typeof piInvoice === 'object') ? piInvoice.id : null,
     metadata: paymentIntent.metadata || {},
     paidAt: new Date(paymentIntent.created * 1000),
-    address,
-  };
-}
-
-/**
- * Extract payment data from a Stripe Invoice object
- *
- * Data sources:
- * 1. customer_name, customer_email - Customer info on invoice
- * 2. description - Often contains "(Customer Name)" pattern
- * 3. metadata - Custom fields on the invoice
- * 4. lines.data - Line items may have customer info
- */
-export function extractPaymentDataFromInvoice(
-  invoice: Stripe.Invoice
-): StripePaymentData {
-  // Try to get email from multiple sources
-  const email = invoice.customer_email ||
-                (invoice.metadata?.email as string) ||
-                (invoice.metadata?.customer_email as string) ||
-                null;
-
-  // Try to get name from multiple sources
-  let name = invoice.customer_name ||
-             (invoice.metadata?.name as string) ||
-             (invoice.metadata?.customer_name as string) ||
-             (invoice.metadata?.full_name as string) ||
-             null;
-
-  // Try to extract from description (e.g., "Invoice 1832 (Jaylan Martin)")
-  const description = invoice.description || null;
-  if (!name && description) {
-    const nameMatch = description.match(/\(([^)]+)\)\s*$/);
-    if (nameMatch && nameMatch[1] && /[a-zA-Z]/.test(nameMatch[1])) {
-      name = nameMatch[1].trim();
-    }
-  }
-
-  // Try to get phone from metadata
-  const phone = (invoice.metadata?.phone as string) ||
-                (invoice.metadata?.phone_number as string) ||
-                null;
-
-  // Get address from customer shipping or billing (if expanded)
-  let address: StripePaymentData['address'] | null = null;
-  if (invoice.customer_shipping?.address) {
-    const addr = invoice.customer_shipping.address;
-    address = {
-      line1: addr.line1,
-      line2: addr.line2,
-      city: addr.city,
-      state: addr.state,
-      postal_code: addr.postal_code,
-      country: addr.country,
-    };
-  }
-
-  logger.debug('[PaymentMatching] Extracted invoice data', {
-    invoiceId: invoice.id,
-    hasEmail: !!email,
-    hasName: !!name,
-    hasPhone: !!phone,
-    emailSource: invoice.customer_email ? 'customer_email' : invoice.metadata?.email ? 'metadata' : 'none',
-    nameSource: invoice.customer_name ? 'customer_name' : invoice.metadata?.name ? 'metadata' : description ? 'description' : 'none',
-  });
-
-  // Type assertion for invoice properties that exist at runtime but may not be in type definitions
-  const invoiceWithPayment = invoice as Stripe.Invoice & {
-    payment_intent?: string | Stripe.PaymentIntent | null;
-    charge?: string | Stripe.Charge | null;
-  };
-
-  return {
-    customerId: typeof invoice.customer === 'string'
-      ? invoice.customer
-      : invoice.customer?.id || null,
-    email,
-    name,
-    phone,
-    amount: invoice.amount_paid || invoice.amount_due || 0,
-    currency: invoice.currency || 'usd',
-    description,
-    paymentIntentId: typeof invoiceWithPayment.payment_intent === 'string'
-      ? invoiceWithPayment.payment_intent
-      : invoiceWithPayment.payment_intent?.id || null,
-    chargeId: typeof invoiceWithPayment.charge === 'string'
-      ? invoiceWithPayment.charge
-      : (invoiceWithPayment.charge as Stripe.Charge | null)?.id || null,
-    stripeInvoiceId: invoice.id,
-    metadata: invoice.metadata || {},
-    paidAt: invoice.status_transitions?.paid_at
-      ? new Date(invoice.status_transitions.paid_at * 1000)
-      : new Date(invoice.created * 1000),
     address,
   };
 }
