@@ -46,53 +46,96 @@ export default function NewPatientPage() {
     notes: '',
   });
 
-  // Initialize Google Maps Autocomplete
+  // Initialize Google Maps Autocomplete with proper loading checks
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).google && addressInputRef.current) {
-      const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, {
-        componentRestrictions: { country: 'us' },
-        fields: ['address_components', 'formatted_address'],
-        types: ['address'],
-      });
+    let autocompleteInstance: any = null;
+    let intervalId: NodeJS.Timeout | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
 
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (place.address_components) {
-          let streetNumber = '';
-          let streetName = '';
-          let city = '';
-          let state = '';
-          let zip = '';
+    const initializeAutocomplete = () => {
+      // Check if Google Maps Places API is fully loaded
+      if (typeof window === 'undefined' ||
+          !(window as any).google?.maps?.places?.Autocomplete ||
+          !addressInputRef.current) {
+        return false;
+      }
 
-          place.address_components.forEach((component: any) => {
-            const types = component.types;
-            if (types.includes('street_number')) {
-              streetNumber = component.long_name;
-            }
-            if (types.includes('route')) {
-              streetName = component.long_name;
-            }
-            if (types.includes('locality')) {
-              city = component.long_name;
-            }
-            if (types.includes('administrative_area_level_1')) {
-              state = component.short_name;
-            }
-            if (types.includes('postal_code')) {
-              zip = component.long_name;
-            }
-          });
+      try {
+        autocompleteInstance = new (window as any).google.maps.places.Autocomplete(
+          addressInputRef.current,
+          {
+            componentRestrictions: { country: 'us' },
+            fields: ['address_components', 'formatted_address'],
+            types: ['address'],
+          }
+        );
 
-          setFormData(prev => ({
-            ...prev,
-            address1: `${streetNumber} ${streetName}`.trim(),
-            city,
-            state,
-            zip,
-          }));
+        autocompleteInstance.addListener('place_changed', () => {
+          const place = autocompleteInstance.getPlace();
+          if (place.address_components) {
+            let streetNumber = '';
+            let streetName = '';
+            let city = '';
+            let state = '';
+            let zip = '';
+
+            place.address_components.forEach((component: any) => {
+              const types = component.types;
+              if (types.includes('street_number')) {
+                streetNumber = component.long_name;
+              }
+              if (types.includes('route')) {
+                streetName = component.long_name;
+              }
+              if (types.includes('locality')) {
+                city = component.long_name;
+              }
+              if (types.includes('administrative_area_level_1')) {
+                state = component.short_name;
+              }
+              if (types.includes('postal_code')) {
+                zip = component.long_name;
+              }
+            });
+
+            setFormData(prev => ({
+              ...prev,
+              address1: `${streetNumber} ${streetName}`.trim(),
+              city,
+              state,
+              zip,
+            }));
+          }
+        });
+
+        return true;
+      } catch (error) {
+        console.error('Error initializing Google Maps Autocomplete:', error);
+        return false;
+      }
+    };
+
+    // Try immediately
+    if (!initializeAutocomplete()) {
+      // Poll for Google Maps to be loaded
+      intervalId = setInterval(() => {
+        if (initializeAutocomplete()) {
+          if (intervalId) clearInterval(intervalId);
+          if (timeoutId) clearTimeout(timeoutId);
         }
-      });
+      }, 500);
+
+      // Timeout after 10 seconds
+      timeoutId = setTimeout(() => {
+        if (intervalId) clearInterval(intervalId);
+      }, 10000);
     }
+
+    // Cleanup
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
