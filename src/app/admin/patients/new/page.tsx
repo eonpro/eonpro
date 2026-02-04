@@ -29,6 +29,7 @@ export default function NewPatientPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
@@ -219,7 +220,13 @@ export default function NewPatientPage() {
       const data = await response.json();
 
       if (response.ok) {
-        router.push('/admin/patients');
+        setSuccess(true);
+        setLoading(false);
+        // Show success briefly then redirect
+        setTimeout(() => {
+          router.push('/admin/intakes');
+        }, 1500);
+        return;
       } else {
         // Parse Zod validation errors
         let errorMessage: string;
@@ -260,6 +267,15 @@ export default function NewPatientPage() {
         <h1 className="text-2xl font-bold text-gray-900">Add New Patient</h1>
         <p className="text-gray-600 mt-1">Enter patient information to create a new record</p>
       </div>
+
+      {success && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Patient created successfully! Redirecting to intakes...
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
@@ -471,15 +487,22 @@ export default function NewPatientPage() {
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || success}
             className={`px-6 py-3 rounded-lg font-medium text-white flex items-center gap-2 transition-colors ${
-              loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
+              loading || success ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
             }`}
           >
             {loading ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                 Creating...
+              </>
+            ) : success ? (
+              <>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Created!
               </>
             ) : (
               <>
