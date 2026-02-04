@@ -160,12 +160,24 @@ export default function NewPatientPage() {
     setError('');
     setLoading(true);
 
-    // Validate required fields
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || 
-        !formData.dob || !formData.gender || !formData.address1 || !formData.city || 
-        !formData.state || !formData.zip) {
-      setError('Please fill in all required fields');
+    // Validate required fields with specific error messages
+    const missingFields: string[] = [];
+    if (!formData.firstName) missingFields.push('First Name');
+    if (!formData.lastName) missingFields.push('Last Name');
+    if (!formData.dob) missingFields.push('Date of Birth');
+    if (!formData.gender) missingFields.push('Gender');
+    if (!formData.email) missingFields.push('Email');
+    if (!formData.phone) missingFields.push('Phone');
+    if (!formData.address1) missingFields.push('Street Address');
+    if (!formData.city) missingFields.push('City');
+    if (!formData.state) missingFields.push('State');
+    if (!formData.zip) missingFields.push('ZIP Code');
+
+    if (missingFields.length > 0) {
+      setError(`Please fill in the following required fields: ${missingFields.join(', ')}`);
       setLoading(false);
+      // Scroll to top to show error
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -210,15 +222,25 @@ export default function NewPatientPage() {
         router.push('/admin/patients');
       } else {
         // Parse Zod validation errors
-        if (data.issues) {
-          const errorMessages = data.issues.map((issue: any) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
-          setError(errorMessages);
+        let errorMessage: string;
+        if (data.details?.fieldErrors) {
+          // Handle Zod flattened errors
+          const fieldErrors = Object.entries(data.details.fieldErrors)
+            .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
+            .join('; ');
+          errorMessage = fieldErrors || data.error || 'Validation failed';
+        } else if (data.issues) {
+          errorMessage = data.issues.map((issue: any) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
         } else {
-          setError(data.error || 'Failed to create patient');
+          errorMessage = data.error || data.message || 'Failed to create patient';
         }
+        setError(errorMessage);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err) {
-      setError('An error occurred while creating the patient');
+      console.error('Patient creation error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred while creating the patient');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -245,7 +267,7 @@ export default function NewPatientPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-8" noValidate>
         {/* Personal Information */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
