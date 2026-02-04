@@ -27,6 +27,7 @@ type Params = {
 import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
 import PatientPrescriptionSummary from '@/components/PatientPrescriptionSummary';
+import PatientQuickSearch from '@/components/PatientQuickSearch';
 import { Patient, Provider, Order } from '@/types/models';
 
 type PageProps = {
@@ -751,6 +752,15 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
 
         {/* Main Content Area */}
         <div className="min-w-0 flex-1">
+          {/* Quick Search Bar */}
+          <div className="mb-4">
+            <PatientQuickSearch
+              currentPatientId={patientWithDecryptedPHI.id}
+              placeholder="Search for another patient..."
+              className="max-w-md"
+            />
+          </div>
+
           {submittedFlag && (currentTab === 'profile' || currentTab === 'prescriptions') && (
             <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
               <svg
