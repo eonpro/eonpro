@@ -11,6 +11,7 @@ import GlobalFetchInterceptor from "@/components/GlobalFetchInterceptor";
 import AffiliateTracker from "@/components/AffiliateTracker";
 import { ToastProvider } from "@/components/Toast";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 // DevAuth removed for production
 import { ClientProviders } from "@/components/providers/ClientProviders";
 // Using Outfit as fallback until Sofia Pro files are added
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 )  : undefined}
         </ErrorBoundary>
         <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );

@@ -99,6 +99,7 @@
     "@stripe/stripe-js": "^8.5.2",
     "@twilio/conversations": "^2.6.5",
     "@types/pdfkit": "^0.17.4",
+    "@vercel/analytics": "^1.6.1",
     "@vercel/speed-insights": "^1.3.1",
     "axios": "^1.6.8",
     "bcryptjs": "^3.0.3",
