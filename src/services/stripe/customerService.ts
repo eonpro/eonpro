@@ -1,6 +1,6 @@
 import { stripe, getStripe } from '@/lib/stripe';
 import { prisma } from '@/lib/db';
-import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import type { Patient } from '@prisma/client';
 import type Stripe from 'stripe';
 import { logger } from '@/lib/logger';
@@ -56,25 +56,26 @@ export class StripeCustomerService {
   private static async createNewCustomer(patient: Patient): Promise<Stripe.Customer> {
     const stripeClient = getStripe();
     
-    // Decrypt PHI fields before sending to Stripe
-    let decryptedPatient = patient;
+    // Decrypt ALL PHI fields before sending to Stripe
+    // This includes name, email, phone, and address fields
+    let decryptedPatient = patient as Record<string, unknown>;
     try {
-      decryptedPatient = decryptPatientPHI(patient, ['email', 'phone']);
+      decryptedPatient = decryptPatientPHI(patient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]);
     } catch (e) {
       logger.debug('Patient data not encrypted, using raw values');
     }
     
-    // Create customer in Stripe
+    // Create customer in Stripe with decrypted values
     const customer = await stripeClient.customers.create({
-      email: decryptedPatient.email,
-      name: `${patient.firstName} ${patient.lastName}`,
-      phone: decryptedPatient.phone,
+      email: decryptedPatient.email as string,
+      name: `${decryptedPatient.firstName || ''} ${decryptedPatient.lastName || ''}`.trim(),
+      phone: decryptedPatient.phone as string,
       address: {
-        line1: patient.address1,
-        line2: patient.address2 || undefined,
-        city: patient.city,
-        state: patient.state,
-        postal_code: patient.zip,
+        line1: decryptedPatient.address1 as string,
+        line2: (decryptedPatient.address2 as string) || undefined,
+        city: decryptedPatient.city as string,
+        state: decryptedPatient.state as string,
+        postal_code: decryptedPatient.zip as string,
         country: 'US',
       },
       metadata: {
@@ -115,25 +116,25 @@ export class StripeCustomerService {
       return await this.createNewCustomer(patient);
     }
     
-    // Decrypt PHI fields before sending to Stripe
-    let decryptedPatient = patient;
+    // Decrypt ALL PHI fields before sending to Stripe
+    let decryptedPatient = patient as Record<string, unknown>;
     try {
-      decryptedPatient = decryptPatientPHI(patient, ['email', 'phone']);
+      decryptedPatient = decryptPatientPHI(patient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]);
     } catch (e) {
       logger.debug('Patient data not encrypted, using raw values');
     }
     
-    // Update existing customer
+    // Update existing customer with decrypted values
     const customer = await stripeClient.customers.update(patient.stripeCustomerId, {
-      email: decryptedPatient.email,
-      name: `${patient.firstName} ${patient.lastName}`,
-      phone: decryptedPatient.phone,
+      email: decryptedPatient.email as string,
+      name: `${decryptedPatient.firstName || ''} ${decryptedPatient.lastName || ''}`.trim(),
+      phone: decryptedPatient.phone as string,
       address: {
-        line1: patient.address1,
-        line2: patient.address2 || undefined,
-        city: patient.city,
-        state: patient.state,
-        postal_code: patient.zip,
+        line1: decryptedPatient.address1 as string,
+        line2: (decryptedPatient.address2 as string) || undefined,
+        city: decryptedPatient.city as string,
+        state: decryptedPatient.state as string,
+        postal_code: decryptedPatient.zip as string,
         country: 'US',
       },
       metadata: {

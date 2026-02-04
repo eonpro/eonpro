@@ -16,6 +16,19 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ShippingStatus, WebhookStatus } from '@prisma/client';
 import { z } from 'zod';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Configuration
 const WEBHOOK_USERNAME = process.env.WELLMEDR_SHIPPING_WEBHOOK_USERNAME || 
@@ -494,6 +507,11 @@ export async function POST(req: NextRequest) {
     logger.info('=' .repeat(60));
 
     // Return success response
+    // Decrypt patient PHI for display in response
+    const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+    const decryptedLastName = safeDecrypt(patient.lastName) || '';
+    const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+
     return NextResponse.json({
       success: true,
       requestId,
@@ -508,7 +526,7 @@ export async function POST(req: NextRequest) {
       patient: {
         id: patient.id,
         patientId: patient.patientId,
-        name: `${patient.firstName} ${patient.lastName}`,
+        name: patientDisplayName,
       },
       order: order ? {
         id: order.id,

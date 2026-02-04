@@ -8,6 +8,19 @@ import { basePrisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { validatePhoneNumber, formatPhoneNumber } from "@/lib/integrations/twilio/smsService";
 import crypto from 'crypto';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Verify Twilio signature for security
 function verifyTwilioSignature(req: NextRequest, body: string): boolean {
@@ -126,6 +139,11 @@ export async function POST(request: NextRequest) {
 
     const threadId = existingThread?.threadId || `sms_${patient.id}_${Date.now()}`;
 
+    // Decrypt patient PHI for sender name
+    const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+    const decryptedLastName = safeDecrypt(patient.lastName) || '';
+    const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+
     // Create the inbound message
     const chatMessage = await basePrisma.patientChatMessage.create({
       data: {
@@ -136,7 +154,7 @@ export async function POST(request: NextRequest) {
         channel: 'SMS',
         senderType: 'PATIENT',
         senderId: null,
-        senderName: `${patient.firstName} ${patient.lastName}`,
+        senderName: patientDisplayName,
         status: 'DELIVERED',
         externalId: messageSid,
         deliveredAt: new Date(),

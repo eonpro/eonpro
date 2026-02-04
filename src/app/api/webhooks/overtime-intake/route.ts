@@ -16,6 +16,19 @@ import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQu
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 /**
  * OVERTIME MEN'S CLINIC INTAKE Webhook
@@ -740,6 +753,12 @@ export async function POST(req: NextRequest) {
   const duration = Date.now() - startTime;
   recordSuccess("overtime-intake", duration);
 
+  // Decrypt patient PHI for display in notifications and response
+  const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+  const decryptedLastName = safeDecrypt(patient.lastName) || '';
+  const decryptedEmail = safeDecrypt(patient.email) || '';
+  const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+
   // ═══════════════════════════════════════════════════════════════════
   // NOTIFY PROVIDERS - New patient ready for prescription
   // ═══════════════════════════════════════════════════════════════════
@@ -750,11 +769,11 @@ export async function POST(req: NextRequest) {
         category: 'PRESCRIPTION',
         priority: 'HIGH',
         title: 'New Patient Ready for Rx',
-        message: `${patient.firstName} ${patient.lastName} completed ${treatmentLabel} intake and is ready for prescription review.`,
+        message: `${patientDisplayName} completed ${treatmentLabel} intake and is ready for prescription review.`,
         actionUrl: `/provider/prescription-queue?patientId=${patient.id}`,
         metadata: {
           patientId: patient.id,
-          patientName: `${patient.firstName} ${patient.lastName}`,
+          patientName: patientDisplayName,
           treatmentType,
           treatmentLabel,
           submissionId: normalized.submissionId,
@@ -794,8 +813,8 @@ export async function POST(req: NextRequest) {
     patient: {
       id: patient.id,
       patientId: patient.patientId,
-      name: `${patient.firstName} ${patient.lastName}`,
-      email: patient.email,
+      name: patientDisplayName,
+      email: decryptedEmail,
       isNew: isNewPatient,
     },
 

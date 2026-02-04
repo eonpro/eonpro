@@ -16,6 +16,19 @@ import {
   eachMonthOfInterval,
 } from 'date-fns';
 import type { DateRange } from './revenueAnalytics';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Types
 export interface PatientLTV {
@@ -180,7 +193,7 @@ export class PatientAnalyticsService {
 
       return {
         patientId: patient.id,
-        patientName: `${patient.firstName} ${patient.lastName}`,
+        patientName: `${safeDecrypt(patient.firstName)} ${safeDecrypt(patient.lastName)}`.trim(),
         totalRevenue,
         paymentCount: payments.length,
         firstPaymentDate: firstPayment,
@@ -529,8 +542,8 @@ export class PatientAnalyticsService {
 
           atRiskPatients.push({
             patientId: patient.id,
-            patientName: `${patient.firstName} ${patient.lastName}`,
-            email: patient.email,
+            patientName: `${safeDecrypt(patient.firstName)} ${safeDecrypt(patient.lastName)}`.trim(),
+            email: safeDecrypt(patient.email),
             riskScore: Math.min(100, riskScore),
             riskFactors,
             lastPaymentDate: lastPayment || null,
@@ -717,8 +730,8 @@ export class PatientAnalyticsService {
       return {
         patient: {
           id: patient.id,
-          name: `${patient.firstName} ${patient.lastName}`,
-          email: patient.email,
+          name: `${safeDecrypt(patient.firstName)} ${safeDecrypt(patient.lastName)}`.trim(),
+          email: safeDecrypt(patient.email),
           createdAt: patient.createdAt,
         },
         summary: {

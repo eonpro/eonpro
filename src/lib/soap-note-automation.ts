@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { generateSOAPNote, type SOAPGenerationInput } from '@/services/ai/openaiService';
 import type { SOAPNote, Patient, PatientDocument, Invoice } from '@prisma/client';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 
 export interface EnsureSoapNoteResult {
   success: boolean;
@@ -75,11 +76,11 @@ export async function ensureSoapNoteExists(
     }
 
     // Step 2: Get patient info
-    const patient = await prisma.patient.findUnique({
+    const rawPatient = await prisma.patient.findUnique({
       where: { id: patientId },
     });
 
-    if (!patient) {
+    if (!rawPatient) {
       logger.warn('[SOAP-AUTOMATION] Patient not found', logContext);
       return {
         success: false,
@@ -89,6 +90,20 @@ export async function ensureSoapNoteExists(
         error: 'Patient not found',
       };
     }
+
+    // CRITICAL: Decrypt patient PHI fields before using them for SOAP note generation
+    // Without this, encrypted values like DOB will cause NaN age calculations and
+    // encrypted names will appear in the SOAP note text
+    const patient = {
+      ...rawPatient,
+      ...decryptPatientPHI(rawPatient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]),
+    } as Patient;
+
+    logger.debug('[SOAP-AUTOMATION] Decrypted patient PHI', {
+      ...logContext,
+      hasDecryptedFirstName: !!patient.firstName && !patient.firstName.includes(':'),
+      hasDecryptedDob: !!patient.dob && !String(patient.dob).includes(':'),
+    });
 
     // Step 2b: Query documents separately to avoid any filtering issues
     const documents = await prisma.patientDocument.findMany({
@@ -121,14 +136,14 @@ export async function ensureSoapNoteExists(
       sources: allDocs.map((d: { source: string | null }) => d.source),
     });
 
-    // Skip test/demo patients
+    // Skip test/demo patients (using decrypted values)
     const isTestPatient =
-      patient.firstName.toLowerCase() === 'unknown' ||
-      patient.lastName.toLowerCase() === 'unknown' ||
-      patient.firstName.toLowerCase().includes('test') ||
-      patient.lastName.toLowerCase().includes('test') ||
-      patient.firstName.toLowerCase().includes('demo') ||
-      patient.lastName.toLowerCase().includes('demo') ||
+      patient.firstName?.toLowerCase() === 'unknown' ||
+      patient.lastName?.toLowerCase() === 'unknown' ||
+      patient.firstName?.toLowerCase().includes('test') ||
+      patient.lastName?.toLowerCase().includes('test') ||
+      patient.firstName?.toLowerCase().includes('demo') ||
+      patient.lastName?.toLowerCase().includes('demo') ||
       patient.email?.toLowerCase().includes('test') ||
       patient.email?.toLowerCase().includes('demo');
 

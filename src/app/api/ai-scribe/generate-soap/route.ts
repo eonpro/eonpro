@@ -17,6 +17,7 @@ import {
 } from '@/lib/ai-scribe/soap-from-transcript.service';
 import { completeSession } from '@/lib/ai-scribe/transcription.service';
 import { prisma } from '@/lib/db';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 
 const generateSOAPSchema = z.object({
   sessionId: z.string().optional(),
@@ -77,7 +78,7 @@ export const POST = withProviderAuth(
       }
 
       // Get patient context
-      const patient = await prisma.patient.findUnique({
+      const rawPatient = await prisma.patient.findUnique({
         where: { id: patientId },
         include: {
           weightLogs: {
@@ -87,16 +88,22 @@ export const POST = withProviderAuth(
         },
       });
 
-      if (!patient) {
+      if (!rawPatient) {
         return NextResponse.json(
           { error: 'Patient not found' },
           { status: 404 }
         );
       }
 
+      // Decrypt patient PHI before using for SOAP generation
+      const patient = {
+        ...rawPatient,
+        ...decryptPatientPHI(rawPatient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]),
+      };
+
       // Build patient context for better SOAP generation
       const patientContext = {
-        name: `${patient.firstName} ${patient.lastName}`,
+        name: `${patient.firstName || ''} ${patient.lastName || ''}`.trim(),
         dob: patient.dob,
         recentVitals: patient.weightLogs[0] ? {
           weight: patient.weightLogs[0].weight,

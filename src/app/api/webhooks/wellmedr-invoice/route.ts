@@ -30,6 +30,19 @@ import {
   normalizeZip,
   extractAddressFromPayload,
 } from '@/lib/address';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // WellMedR clinic configuration
 const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
@@ -358,7 +371,13 @@ export async function POST(req: NextRequest) {
     productName += ` (${plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase()})`;
   }
 
-  const customerName = payload.customer_name || payload.cardholder_name || `${patient.firstName} ${patient.lastName}`;
+  // Decrypt patient PHI for display purposes
+  const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+  const decryptedLastName = safeDecrypt(patient.lastName) || '';
+  const decryptedEmail = safeDecrypt(patient.email) || '';
+  const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+
+  const customerName = payload.customer_name || payload.cardholder_name || patientDisplayName;
 
   // Extract address from ALL possible field variations
   const rawExtractedAddress1 = String(
@@ -731,8 +750,8 @@ export async function POST(req: NextRequest) {
       patient: {
         id: patient.id,
         patientId: patient.patientId,
-        name: `${patient.firstName} ${patient.lastName}`,
-        email: patient.email,
+        name: patientDisplayName,
+        email: decryptedEmail,
       },
       product: productName,
       medicationType: medicationType,

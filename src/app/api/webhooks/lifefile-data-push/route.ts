@@ -4,6 +4,19 @@ import { logger } from '@/lib/logger';
 import { notificationService } from '@/services/notification';
 import { WebhookStatus } from '@prisma/client';
 import xml2js from 'xml2js';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Configuration from environment variables
 // For development/testing, allow fallback to test credentials
@@ -229,6 +242,11 @@ async function processOrderStatus(data: any) {
           });
 
           if (patient && patient.clinicId) {
+            // Decrypt patient PHI for display
+            const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+            const decryptedLastName = safeDecrypt(patient.lastName) || '';
+            const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+
             const statusLabel = trackingNumber 
               ? `Tracking: ${trackingNumber}` 
               : `Status: ${shippingStatus || status}`;
@@ -238,7 +256,7 @@ async function processOrderStatus(data: any) {
               category: 'ORDER',
               priority: 'NORMAL',
               title: 'Tracking Update',
-              message: `Order for ${patient.firstName} ${patient.lastName}: ${statusLabel}`,
+              message: `Order for ${patientDisplayName}: ${statusLabel}`,
               actionUrl: `/patients/${patient.id}?tab=prescriptions`,
               metadata: {
                 orderId: order.id,

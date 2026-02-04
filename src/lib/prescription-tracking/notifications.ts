@@ -8,6 +8,19 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendSMS as sendSMSCentralized, SMSResponse } from '@/lib/integrations/twilio/smsService';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 /** Prescription status values (matching schema-rx-tracking.prisma) */
 type PrescriptionStatus =
@@ -345,8 +358,11 @@ export async function sendPrescriptionNotification(
       supportPhone: process.env.SUPPORT_PHONE || '1-800-SUPPORT',
     };
 
+    // Decrypt patient phone for SMS
+    const decryptedPhone = safeDecrypt(prescription.patient.phone);
+
     // Send SMS notification
-    if (shouldSendSMS && prescription.patient.phone) {
+    if (shouldSendSMS && decryptedPhone) {
       const smsMessage = populateTemplate(templates.sms, templateData);
 
       const smsNotification = await prisma.prescriptionNotification.create({
@@ -356,13 +372,13 @@ export async function sendPrescriptionNotification(
           status: 'PENDING',
           message: smsMessage,
           templateUsed: 'default',
-          recipientPhone: prescription.patient.phone,
+          recipientPhone: decryptedPhone,
         }
       });
 
       // Send SMS asynchronously via centralized service
       sendSMS(
-        prescription.patient.phone,
+        decryptedPhone,
         smsMessage,
         smsNotification.id,
         prescription.patient.id,

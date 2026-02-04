@@ -5,6 +5,7 @@ import { generateSOAPNote, type SOAPGenerationInput } from './openaiService';
 import type { Patient as PrismaPatient, PatientDocument, Provider as PrismaProvider, SOAPNote as PrismaSOAPNote } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { decryptPHI, decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 
 /**
  * SOAP Note Service
@@ -50,7 +51,7 @@ export async function generateSOAPFromIntake(
   intakeDocumentId?: number
 ): Promise<PrismaSOAPNote> {
   // Fetch patient and intake data
-  const patient = await prisma.patient.findUnique({
+  const rawPatient = await prisma.patient.findUnique({
     where: { id: patientId },
     include: {
       documents: intakeDocumentId ? {
@@ -63,18 +64,33 @@ export async function generateSOAPFromIntake(
     }
   });
 
-  if (!patient) {
+  if (!rawPatient) {
     throw new Error('Patient not found');
   }
 
+  // CRITICAL: Decrypt patient PHI fields before using them for SOAP note generation
+  // Without this, encrypted values like DOB will cause NaN age calculations and
+  // encrypted names will appear in the SOAP note text
+  const patient = {
+    ...rawPatient,
+    ...decryptPatientPHI(rawPatient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]),
+  };
+
+  logger.debug('[SOAP Service] Decrypted patient PHI for SOAP generation', {
+    patientId: patient.id,
+    hasDecryptedFirstName: !!patient.firstName && !patient.firstName.includes(':'),
+    hasDecryptedDob: !!patient.dob && !String(patient.dob).includes(':'),
+  });
+
   // Prevent creating SOAP notes for test/dummy patients
+  // Use decrypted values for the check
   const isTestPatient = 
-    patient.firstName.toLowerCase() === 'unknown' ||
-    patient.lastName.toLowerCase() === 'unknown' ||
-    patient.firstName.toLowerCase().includes('test') ||
-    patient.lastName.toLowerCase().includes('test') ||
-    patient.firstName.toLowerCase().includes('demo') ||
-    patient.lastName.toLowerCase().includes('demo') ||
+    patient.firstName?.toLowerCase() === 'unknown' ||
+    patient.lastName?.toLowerCase() === 'unknown' ||
+    patient.firstName?.toLowerCase().includes('test') ||
+    patient.lastName?.toLowerCase().includes('test') ||
+    patient.firstName?.toLowerCase().includes('demo') ||
+    patient.lastName?.toLowerCase().includes('demo') ||
     patient.email?.toLowerCase().includes('test') ||
     patient.email?.toLowerCase().includes('demo');
 
@@ -216,22 +232,28 @@ export async function createManualSOAPNote(
     plan: string;
   }
 ): Promise<PrismaSOAPNote> {
-  const patient = await prisma.patient.findUnique({
+  const rawPatient = await prisma.patient.findUnique({
     where: { id: patientId },
   });
 
-  if (!patient) {
+  if (!rawPatient) {
     throw new Error('Patient not found');
   }
 
+  // Decrypt patient PHI for test patient check
+  const patient = {
+    ...rawPatient,
+    ...decryptPatientPHI(rawPatient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]),
+  };
+
   // Prevent creating SOAP notes for test/dummy patients
   const isTestPatient = 
-    patient.firstName.toLowerCase() === 'unknown' ||
-    patient.lastName.toLowerCase() === 'unknown' ||
-    patient.firstName.toLowerCase().includes('test') ||
-    patient.lastName.toLowerCase().includes('test') ||
-    patient.firstName.toLowerCase().includes('demo') ||
-    patient.lastName.toLowerCase().includes('demo') ||
+    patient.firstName?.toLowerCase() === 'unknown' ||
+    patient.lastName?.toLowerCase() === 'unknown' ||
+    patient.firstName?.toLowerCase().includes('test') ||
+    patient.lastName?.toLowerCase().includes('test') ||
+    patient.firstName?.toLowerCase().includes('demo') ||
+    patient.lastName?.toLowerCase().includes('demo') ||
     patient.email?.toLowerCase().includes('test') ||
     patient.email?.toLowerCase().includes('demo');
 

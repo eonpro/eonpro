@@ -8,6 +8,19 @@ import { prisma, withClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecryptField(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Types
 export interface ExportConfig {
@@ -310,8 +323,8 @@ startxref
 
     return payments.map((p: typeof payments[number]) => ({
       date: format(p.createdAt, 'yyyy-MM-dd'),
-      patientName: p.patient ? `${p.patient.firstName} ${p.patient.lastName}` : 'Unknown',
-      patientEmail: p.patient?.email || '',
+      patientName: p.patient ? `${safeDecryptField(p.patient.firstName)} ${safeDecryptField(p.patient.lastName)}`.trim() : 'Unknown',
+      patientEmail: safeDecryptField(p.patient?.email),
       amount: p.amount / 100,
       fee: (p.fee || 0) / 100,
       netAmount: (p.amount - (p.fee || 0)) / 100,
@@ -350,9 +363,9 @@ startxref
 
     return patients.map((p: typeof patients[number]) => ({
       id: p.id,
-      firstName: p.firstName,
-      lastName: p.lastName,
-      email: p.email,
+      firstName: safeDecryptField(p.firstName),
+      lastName: safeDecryptField(p.lastName),
+      email: safeDecryptField(p.email),
       createdAt: format(p.createdAt, 'yyyy-MM-dd'),
       totalPayments: p.payments.length,
       totalRevenue: p.payments.reduce((sum: number, pay: { amount: number }) => sum + pay.amount, 0) / 100,
@@ -435,8 +448,8 @@ startxref
 
     return subscriptions.map((s: typeof subscriptions[number]) => ({
       id: s.id,
-      patientName: s.patient ? `${s.patient.firstName} ${s.patient.lastName}` : 'Unknown',
-      patientEmail: s.patient?.email || '',
+      patientName: s.patient ? `${safeDecryptField(s.patient.firstName)} ${safeDecryptField(s.patient.lastName)}`.trim() : 'Unknown',
+      patientEmail: safeDecryptField(s.patient?.email),
       planName: s.planName || 'Unknown',
       amount: s.amount / 100,
       interval: s.interval || 'monthly',
@@ -475,8 +488,8 @@ startxref
 
     return invoices.map((inv: typeof invoices[number]) => ({
       invoiceNumber: inv.invoiceNumber || `INV-${inv.id}`,
-      patientName: inv.patient ? `${inv.patient.firstName} ${inv.patient.lastName}` : 'Unknown',
-      patientEmail: inv.patient?.email || '',
+      patientName: inv.patient ? `${safeDecryptField(inv.patient.firstName)} ${safeDecryptField(inv.patient.lastName)}`.trim() : 'Unknown',
+      patientEmail: safeDecryptField(inv.patient?.email),
       amount: inv.total / 100,
       status: inv.status,
       createdAt: format(inv.createdAt, 'yyyy-MM-dd'),

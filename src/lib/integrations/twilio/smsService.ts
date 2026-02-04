@@ -14,6 +14,19 @@ import { prisma } from '@/lib/db';
 import { mockSendSMS, mockProcessIncomingSMS } from './mockService';
 import { logger } from '@/lib/logger';
 import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // ============================================================================
 // Types
@@ -674,7 +687,11 @@ export async function sendAppointmentReminder(
       where: { id: patientId },
     });
 
-    if (!patient || !patient.phone) {
+    // Decrypt PHI fields
+    const decryptedPhone = safeDecrypt(patient?.phone);
+    const decryptedFirstName = safeDecrypt(patient?.firstName);
+
+    if (!patient || !decryptedPhone) {
       return {
         success: false,
         error: 'Patient phone number not found',
@@ -701,13 +718,13 @@ export async function sendAppointmentReminder(
     });
 
     const message = SMS_TEMPLATES.APPOINTMENT_REMINDER(
-      patient.firstName,
+      decryptedFirstName || 'Patient',
       formattedDate,
       doctorName
     );
 
     return await sendSMS({
-      to: patient.phone,
+      to: decryptedPhone,
       body: message,
       patientId: patient.id,
       clinicId: patient.clinicId,
@@ -735,7 +752,11 @@ export async function sendPrescriptionReady(
       where: { id: patientId },
     });
 
-    if (!patient || !patient.phone) {
+    // Decrypt PHI fields
+    const decryptedPhone = safeDecrypt(patient?.phone);
+    const decryptedFirstName = safeDecrypt(patient?.firstName);
+
+    if (!patient || !decryptedPhone) {
       return {
         success: false,
         error: 'Patient phone number not found',
@@ -752,12 +773,12 @@ export async function sendPrescriptionReady(
     }
 
     const message = SMS_TEMPLATES.PRESCRIPTION_READY(
-      patient.firstName,
+      decryptedFirstName || 'Patient',
       prescriptionId
     );
 
     return await sendSMS({
-      to: patient.phone,
+      to: decryptedPhone,
       body: message,
       patientId: patient.id,
       clinicId: patient.clinicId,
@@ -782,7 +803,11 @@ export async function sendLabResultsReady(patientId: number): Promise<SMSRespons
       where: { id: patientId },
     });
 
-    if (!patient || !patient.phone) {
+    // Decrypt PHI fields
+    const decryptedPhone = safeDecrypt(patient?.phone);
+    const decryptedFirstName = safeDecrypt(patient?.firstName);
+
+    if (!patient || !decryptedPhone) {
       return {
         success: false,
         error: 'Patient phone number not found',
@@ -798,10 +823,10 @@ export async function sendLabResultsReady(patientId: number): Promise<SMSRespons
       };
     }
 
-    const message = SMS_TEMPLATES.LAB_RESULTS_READY(patient.firstName);
+    const message = SMS_TEMPLATES.LAB_RESULTS_READY(decryptedFirstName || 'Patient');
 
     return await sendSMS({
-      to: patient.phone,
+      to: decryptedPhone,
       body: message,
       patientId: patient.id,
       clinicId: patient.clinicId,

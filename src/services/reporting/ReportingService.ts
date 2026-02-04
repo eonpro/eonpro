@@ -17,6 +17,19 @@
 import { prisma, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { Patient, Payment, Subscription, Order } from '@prisma/client';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecrypt(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Use singleton Prisma client for reporting
 // Note: For super admin reporting across clinics, use getClinicContext() to control filtering
@@ -758,13 +771,13 @@ export class ReportingService {
       subscriptionsByMonth,
       recentCancellations: recentCancellations.map((s: SubscriptionWithPatient) => ({
         patientId: s.patient.id,
-        patientName: `${s.patient.firstName} ${s.patient.lastName}`,
+        patientName: `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
         cancelledAt: s.canceledAt!,
         monthsActive: monthsBetween(s.startDate, s.canceledAt || new Date())
       })),
       recentPauses: recentPauses.map((s: SubscriptionWithPatient) => ({
         patientId: s.patient.id,
-        patientName: `${s.patient.firstName} ${s.patient.lastName}`,
+        patientName: `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
         pausedAt: s.pausedAt!,
         resumeAt: s.resumeAt || undefined
       }))
@@ -859,7 +872,7 @@ export class ReportingService {
 
     const yesterdayPayments = yesterdayPaymentsRaw.map((p: PaymentWithPatientOrders) => ({
       patientId: p.patient.id,
-      patientName: `${p.patient.firstName} ${p.patient.lastName}`,
+      patientName: `${safeDecrypt(p.patient.firstName)} ${safeDecrypt(p.patient.lastName)}`.trim(),
       amount: p.amount,
       treatment: p.patient.orders[0]?.primaryMedName || 'Unknown',
       paidAt: p.createdAt
@@ -917,7 +930,7 @@ export class ReportingService {
       }
       monthGroups.get(months)!.push({
         id: s.patient.id,
-        name: `${s.patient.firstName} ${s.patient.lastName}`,
+        name: `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
         startDate: s.startDate,
         treatment: s.planName
       });
