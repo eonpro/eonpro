@@ -1703,9 +1703,11 @@ export default function ClinicDetailPage() {
                           </td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                              user.role === 'provider' ? 'bg-blue-100 text-blue-700' :
-                              user.role === 'staff' ? 'bg-green-100 text-green-700' :
+                              user.role === 'admin' || user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                              user.role === 'provider' || user.role === 'PROVIDER' ? 'bg-blue-100 text-blue-700' :
+                              user.role === 'staff' || user.role === 'STAFF' ? 'bg-green-100 text-green-700' :
+                              user.role === 'sales_rep' || user.role === 'SALES_REP' ? 'bg-amber-100 text-amber-700' :
+                              user.role === 'support' || user.role === 'SUPPORT' ? 'bg-cyan-100 text-cyan-700' :
                               'bg-gray-100 text-gray-700'
                             }`}>
                               {user.role}
@@ -1951,6 +1953,7 @@ export default function ClinicDetailPage() {
                   <option value="PROVIDER">Provider - Patient care & prescriptions</option>
                   <option value="STAFF">Staff - Limited administrative access</option>
                   <option value="SUPPORT">Support - Customer service access</option>
+                  <option value="SALES_REP">Sales Rep - Patient assignment & tracking</option>
                 </select>
               </div>
 
@@ -2356,6 +2359,7 @@ export default function ClinicDetailPage() {
                   <option value="PROVIDER">Provider - Patient care & prescriptions</option>
                   <option value="STAFF">Staff - Limited administrative access</option>
                   <option value="SUPPORT">Support - Customer service access</option>
+                  <option value="SALES_REP">Sales Rep - Patient assignment & tracking</option>
                 </select>
               </div>
 

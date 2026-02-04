@@ -15,7 +15,7 @@ import { z } from 'zod';
 const updateUserSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'INFLUENCER', 'PATIENT', 'STAFF', 'SUPPORT']).optional(),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'INFLUENCER', 'PATIENT', 'STAFF', 'SUPPORT', 'SALES_REP']).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION', 'LOCKED']).optional(),
   clinicId: z.number().nullable().optional(),
   permissions: z.array(z.string()).optional(),
@@ -129,14 +129,16 @@ async function updateUserHandler(
 
     // Role hierarchy check
     const roleHierarchy: Record<string, number> = {
-      SUPER_ADMIN: 7,
-      super_admin: 7,
-      ADMIN: 6,
-      admin: 6,
-      PROVIDER: 5,
-      provider: 5,
-      STAFF: 4,
-      staff: 4,
+      SUPER_ADMIN: 8,
+      super_admin: 8,
+      ADMIN: 7,
+      admin: 7,
+      PROVIDER: 6,
+      provider: 6,
+      STAFF: 5,
+      staff: 5,
+      SALES_REP: 4,
+      sales_rep: 4,
       INFLUENCER: 3,
       influencer: 3,
       SUPPORT: 2,
@@ -149,7 +151,7 @@ async function updateUserHandler(
     const targetRoleLevel = roleHierarchy[targetUser.role] || 0;
 
     // Can't modify users with higher or equal roles (except self or if super admin)
-    if (targetRoleLevel >= userRoleLevel && targetUser.id !== user.id && userRoleLevel < 7) {
+    if (targetRoleLevel >= userRoleLevel && targetUser.id !== user.id && userRoleLevel < 8) {
       return NextResponse.json(
         { error: 'You cannot modify users with equal or higher roles' },
         { status: 403 }

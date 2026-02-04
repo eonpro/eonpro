@@ -130,10 +130,10 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
     const normalizedRole = role.toLowerCase();
 
     // Clinic admins can only create certain roles
-    const allowedRoles = ['admin', 'provider', 'staff', 'support'];
+    const allowedRoles = ['admin', 'provider', 'staff', 'support', 'sales_rep'];
     if (!allowedRoles.includes(normalizedRole)) {
       return NextResponse.json(
-        { error: 'Invalid role. Must be ADMIN, PROVIDER, STAFF, or SUPPORT' },
+        { error: 'Invalid role. Must be ADMIN, PROVIDER, STAFF, SUPPORT, or SALES_REP' },
         { status: 400 }
       );
     }

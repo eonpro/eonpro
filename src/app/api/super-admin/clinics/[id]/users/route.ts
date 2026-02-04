@@ -176,10 +176,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, 
     }
 
     // Validate role (case-insensitive) - normalizedRole already defined above
-    const validRoles = ['admin', 'provider', 'staff', 'support'];
+    const validRoles = ['admin', 'provider', 'staff', 'support', 'sales_rep'];
     if (!validRoles.includes(normalizedRole)) {
       return NextResponse.json(
-        { error: 'Invalid role. Must be ADMIN, PROVIDER, STAFF, or SUPPORT' },
+        { error: 'Invalid role. Must be ADMIN, PROVIDER, STAFF, SUPPORT, or SALES_REP' },
         { status: 400 }
       );
     }
