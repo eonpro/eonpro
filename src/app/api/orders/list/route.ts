@@ -15,6 +15,7 @@ import { verifyAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { orderService, orderRepository, type UserContext } from '@/domains/order';
 import { handleApiError } from '@/domains/shared/errors';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,7 +126,12 @@ export async function GET(request: NextRequest) {
           createdAt: shipment.createdAt,
           updatedAt: shipment.updatedAt,
           clinicId: shipment.clinicId,
-          patient: shipment.patient,
+          // Decrypt patient PHI - names are encrypted in database
+          patient: {
+            id: shipment.patient.id,
+            firstName: decryptPHI(shipment.patient.firstName) || 'Unknown',
+            lastName: decryptPHI(shipment.patient.lastName) || '',
+          },
           patientId: shipment.patientId,
           primaryMedName: shipment.medicationName || shipment.order?.primaryMedName || null,
           primaryMedStrength: shipment.medicationStrength || shipment.order?.primaryMedStrength || null,
