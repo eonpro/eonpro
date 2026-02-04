@@ -125,30 +125,44 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             <ChevronRight className="h-3 w-3 text-gray-400" />
           </button>
 
-          {/* Navigation Icons */}
-          <nav className="flex-1 flex flex-col px-3 space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path, item.exact);
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  title={!sidebarExpanded ? item.label : undefined}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                    active
-                      ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
-                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                  }`}
-                >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                  {sidebarExpanded && (
-                    <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
+        {/* Navigation Icons */}
+        <nav className="flex-1 flex flex-col px-3 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path, item.exact);
+
+            // Use button with direct navigation for reliability (consistent with admin layout)
+            const handleNavClick = (e: React.MouseEvent) => {
+              e.preventDefault();
+              e.stopPropagation();
+
+              // Navigate using window.location for maximum reliability
+              if (active) {
+                window.location.reload();
+              } else {
+                window.location.href = item.path;
+              }
+            };
+
+            return (
+              <button
+                key={item.path}
+                onClick={handleNavClick}
+                title={!sidebarExpanded ? item.label : undefined}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer w-full text-left ${
+                  active
+                    ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                }`}
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                {sidebarExpanded && (
+                  <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
           {/* Notifications & User Info & Logout */}
           <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
