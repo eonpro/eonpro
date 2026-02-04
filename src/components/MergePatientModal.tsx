@@ -156,7 +156,7 @@ export default function MergePatientModal({
   const [merging, setMerging] = useState(false);
   const [error, setError] = useState('');
 
-  // Search for patients
+  // Search for patients - Note: Name fields are encrypted, so search by patientId works best
   const searchPatients = useCallback(async (query: string) => {
     if (!query.trim() || query.length < 2) {
       setSearchResults([]);
@@ -165,14 +165,33 @@ export default function MergePatientModal({
 
     setSearching(true);
     try {
-      const response = await apiFetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10&includeContact=true`);
+      const response = await apiFetch(`/api/patients?search=${encodeURIComponent(query)}&limit=20&includeContact=true`);
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to search patients');
       }
       const data = await response.json();
       // Filter out the source patient from results (API returns 'patients' not 'data')
-      const filtered = (data.patients || []).filter((p: PatientSummary) => p.id !== sourcePatient.id);
+      let filtered = (data.patients || []).filter((p: PatientSummary) => p.id !== sourcePatient.id);
+
+      // If no results, try matching decrypted names client-side from recent patients
+      if (filtered.length === 0) {
+        const recentResponse = await apiFetch('/api/patients?limit=50&includeContact=true&recent=7d');
+        if (recentResponse.ok) {
+          const recentData = await recentResponse.json();
+          const queryLower = query.toLowerCase();
+          filtered = (recentData.patients || []).filter((p: PatientSummary) => {
+            if (p.id === sourcePatient.id) return false;
+            const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
+            const patientIdMatch = (p.patientId || '').toLowerCase().includes(queryLower);
+            const nameMatch = fullName.includes(queryLower) ||
+              p.firstName?.toLowerCase().includes(queryLower) ||
+              p.lastName?.toLowerCase().includes(queryLower);
+            return patientIdMatch || nameMatch;
+          });
+        }
+      }
+
       setSearchResults(filtered);
     } catch (err: unknown) {
       // Don't show error for auth issues - they're handled globally
@@ -295,7 +314,7 @@ export default function MergePatientModal({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, email, or patient ID..."
+            placeholder="Search by patient ID (e.g., WEL-78887488) or name..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
             autoFocus
           />
