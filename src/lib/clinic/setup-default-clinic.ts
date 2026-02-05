@@ -65,12 +65,9 @@ export async function setupDefaultClinic() {
     // Update all existing records to belong to this clinic
     const clinicId = defaultClinic.id;
 
-    // Update patients
-    const patientsUpdated = await prisma.patient.updateMany({
-      where: { clinicId: null },
-      data: { clinicId }
-    });
-    logger.info(`Updated ${patientsUpdated.count} patients`);
+    // NOTE: Patient.clinicId is now required (NOT NULL) in the schema
+    // Patients must have a clinicId at creation time, so no migration needed for patients
+    // This was handled by a previous migration script (scripts/fix-orphaned-patients.ts)
 
     // Update providers
     const providersUpdated = await prisma.provider.updateMany({

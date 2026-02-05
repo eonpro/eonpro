@@ -2,20 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-// Type for orphaned patient select result
-interface OrphanedPatient {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  tags?: unknown;
-  createdAt?: Date;
-}
-
 /**
- * Fix Orphaned Patients - Assign to EONMEDS clinic
+ * Fix Orphaned Patients - DEPRECATED
  *
- * POST /api/admin/fix-orphaned-patients
+ * POST/GET /api/admin/fix-orphaned-patients
+ *
+ * NOTE: This endpoint is now DEPRECATED because Patient.clinicId is a required field
+ * in the schema (NOT NULL constraint). All patients must belong to a clinic at creation time.
+ * 
+ * The database constraint prevents orphaned patients from being created, so this
+ * migration script is no longer needed. It's kept for backwards compatibility but
+ * will always return 0 orphaned patients.
  *
  * Requires X-Webhook-Secret header for authentication
  */
@@ -29,116 +26,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Find EONMEDS clinic (use select for backwards compatibility)
-    const eonmedsClinic = await prisma.clinic.findFirst({
-      where: {
-        OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
-      },
-      select: { id: true, name: true, subdomain: true },
-    });
-
-    if (!eonmedsClinic) {
-      return NextResponse.json({ error: 'EONMEDS clinic not found' }, { status: 404 });
-    }
-
-    // Find all orphaned patients (clinicId is null)
-    const orphanedPatients = await prisma.patient.findMany({
-      where: { clinicId: null },
-      select: { id: true, firstName: true, lastName: true, email: true },
-    });
-
-    if (orphanedPatients.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No orphaned patients found',
-        fixed: 0,
-      });
-    }
-
-    // Update all orphaned patients to EONMEDS
-    const result = await prisma.patient.updateMany({
-      where: { clinicId: null },
-      data: {
-        clinicId: eonmedsClinic.id,
-        // Add eonmeds tag if not present (can't do this in updateMany, so we'll do it separately)
-      },
-    });
-
-    // Update tags for each patient
-    for (const patient of orphanedPatients) {
-      const currentPatient = await prisma.patient.findUnique({
-        where: { id: patient.id },
-        select: { tags: true },
-      });
-
-      const currentTags = Array.isArray(currentPatient?.tags) ? currentPatient.tags : [];
-      const tagsArray = currentTags as string[];
-      if (!tagsArray.includes('eonmeds')) {
-        await prisma.patient.update({
-          where: { id: patient.id },
-          data: { tags: [...tagsArray, 'eonmeds', 'migrated'] },
-        });
-      }
-    }
-
-    // Log the fix (find or create system user for audit)
-    let systemUser = await prisma.user.findFirst({
-      where: { email: 'system@eonpro.io' },
-    });
-
-    if (!systemUser) {
-      // Use first admin user if no system user exists
-      systemUser = await prisma.user.findFirst({
-        where: { role: 'SUPER_ADMIN' },
-      });
-    }
-
-    if (systemUser) {
-      await prisma.auditLog.create({
-        data: {
-          action: 'PATIENTS_MIGRATED_TO_CLINIC',
-          resource: 'Patient',
-          resourceId: 0,
-          userId: systemUser.id,
-          details: {
-            message: `Fixed ${result.count} orphaned patients`,
-            patients: orphanedPatients.map((p: OrphanedPatient) => ({
-              id: p.id,
-            })),
-            assignedTo: {
-              clinicId: eonmedsClinic.id,
-              clinicName: eonmedsClinic.name,
-            },
-          },
-          ipAddress: req.headers.get('x-forwarded-for') || 'unknown',
-        },
-      });
-    }
-
-    logger.info('[FIX ORPHANED] Fixed orphaned patients', {
-      count: result.count,
-      clinicId: eonmedsClinic.id,
-    });
+    // Since Patient.clinicId is now required (NOT NULL), there cannot be orphaned patients
+    // The database constraint prevents null clinicId values
+    logger.info('[FIX ORPHANED] Endpoint called - no action needed (clinicId is now required)');
 
     return NextResponse.json({
       success: true,
-      message: `Fixed ${result.count} orphaned patients`,
-      fixed: result.count,
-      patients: orphanedPatients.map((p: OrphanedPatient) => ({
-        id: p.id,
-        name: `${p.firstName} ${p.lastName}`,
-        email: p.email,
-      })),
-      assignedTo: {
-        clinicId: eonmedsClinic.id,
-        clinicName: eonmedsClinic.name,
-      },
+      message: 'No orphaned patients - clinicId is required in current schema',
+      fixed: 0,
+      note: 'This endpoint is deprecated. Patient.clinicId is now a required field (NOT NULL) in the database schema.',
     });
   } catch (error) {
     logger.error('[FIX ORPHANED] Error:', error);
     return NextResponse.json(
       {
-        error: 'Failed to fix orphaned patients',
+        error: 'Failed to process request',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
@@ -146,7 +48,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET - Show orphaned patients without fixing
+// GET - Show orphaned patients status
 export async function GET(req: NextRequest) {
   const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
   const providedSecret = req.headers.get('x-webhook-secret');
@@ -156,32 +58,20 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const orphanedPatients = await prisma.patient.findMany({
-      where: { clinicId: null },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        tags: true,
-        createdAt: true,
-      },
-    });
+    // Since Patient.clinicId is now required (NOT NULL), there cannot be orphaned patients
+    // Get total patient count for reference
+    const totalPatients = await prisma.patient.count();
 
     return NextResponse.json({
-      orphanedCount: orphanedPatients.length,
-      patients: orphanedPatients.map((p: OrphanedPatient) => ({
-        id: p.id,
-        name: `${p.firstName} ${p.lastName}`,
-        email: p.email,
-        tags: p.tags,
-        createdAt: p.createdAt,
-      })),
+      orphanedCount: 0,
+      patients: [],
+      totalPatients,
+      note: 'This endpoint is deprecated. Patient.clinicId is now a required field (NOT NULL) in the database schema. No orphaned patients are possible.',
     });
   } catch (error) {
     return NextResponse.json(
       {
-        error: 'Failed to fetch orphaned patients',
+        error: 'Failed to process request',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }

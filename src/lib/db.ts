@@ -2,6 +2,9 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { logger } from './logger';
 import { connectionPool, withRetry, withTimeout } from './database/connection-pool';
+
+// Re-export Prisma namespace for TransactionClient and other types
+export { Prisma } from "@prisma/client";
 // PHI extension disabled - SSN field no longer exists in schema
 // import { createPrismaWithPHI, PrismaWithPHI } from './database/phi-extension';
 

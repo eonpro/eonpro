@@ -359,19 +359,9 @@ async function checkDataIntegrity(): Promise<DataIntegrityResult> {
       });
     }
 
-    // Check for patients without clinic assignment
-    const unassignedPatients = await prisma.patient.count({
-      where: { clinicId: null },
-    });
-    
-    if (unassignedPatients > 0) {
-      issues.push({
-        type: 'UNASSIGNED_PATIENTS',
-        severity: 'warning',
-        count: unassignedPatients,
-        message: `${unassignedPatients} patients are not assigned to any clinic`,
-      });
-    }
+    // NOTE: Patient.clinicId is now required in schema (NOT NULL constraint)
+    // All patients must belong to a clinic - this is enforced at database level
+    // No need to check for unassigned patients as the constraint prevents them
 
   } catch (error: any) {
     issues.push({
