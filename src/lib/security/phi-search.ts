@@ -35,7 +35,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { db } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
 
@@ -347,7 +347,7 @@ export const PHISearchService = {
     if (select) queryOptions.select = select;
     if (include) queryOptions.include = include;
 
-    const records = (await db.patient.findMany(queryOptions)) as T[];
+    const records = (await prisma.patient.findMany(queryOptions)) as T[];
     const fetchedCount = records.length;
 
     // Decrypt and filter
@@ -419,11 +419,11 @@ export const PHISearchService = {
 
     if (!search) {
       // No search term - use direct count
-      return db.patient.count({ where: baseQuery });
+      return prisma.patient.count({ where: baseQuery });
     }
 
     // With search term - need to fetch and filter
-    const records = await db.patient.findMany({
+    const records = await prisma.patient.findMany({
       where: baseQuery,
       select: searchFields.reduce(
         (acc, field) => ({ ...acc, [field]: true }),
@@ -467,7 +467,7 @@ export const PHISearchService = {
     if (select) queryOptions.select = { ...select, [field]: true };
     if (include) queryOptions.include = include;
 
-    const records = await db.patient.findMany(queryOptions);
+    const records = await prisma.patient.findMany(queryOptions);
 
     for (const record of records) {
       const decrypted = decryptPatientRecord(
