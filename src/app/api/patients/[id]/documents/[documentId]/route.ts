@@ -4,6 +4,8 @@ import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { retrieveFile, deleteFile } from '@/lib/storage/secure-storage';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { isS3Enabled, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
+import { downloadFromS3, deleteFromS3 } from '@/lib/integrations/aws/s3Service';
 
 // GET /api/patients/[id]/documents/[documentId] - Serve document securely
 export const GET = withAuthParams(async (

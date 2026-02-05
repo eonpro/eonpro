@@ -6,6 +6,8 @@ import { Patient, Provider, Order } from '@/types/models';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { storeFile, isAllowedFileType } from '@/lib/storage/secure-storage';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { isS3Enabled } from '@/lib/integrations/aws/s3Config';
+import { uploadToS3, FileCategory } from '@/lib/integrations/aws/s3Service';
 
 export const GET = withAuthParams(async (
   request: NextRequest,
@@ -163,6 +165,18 @@ export const POST = withAuthParams(async (
 
     const uploadedDocuments: { id: number; filename: string; category: string; mimeType: string; uploadedAt: string; size: number; url: string }[] = [];
 
+    // Map category string to FileCategory enum for S3
+    const categoryToFileCategory: Record<string, FileCategory> = {
+      'MEDICAL_RECORDS': FileCategory.MEDICAL_RECORDS,
+      'LAB_RESULTS': FileCategory.LAB_RESULTS,
+      'PRESCRIPTIONS': FileCategory.PRESCRIPTIONS,
+      'IMAGING': FileCategory.IMAGING,
+      'INSURANCE': FileCategory.INSURANCE,
+      'CONSENT_FORMS': FileCategory.CONSENT_FORMS,
+      'INTAKE_FORMS': FileCategory.INTAKE_FORMS,
+      'OTHER': FileCategory.OTHER,
+    };
+
     for (const file of files) {
       // Validate file type
       if (!isAllowedFileType(file.type)) {
@@ -175,20 +189,52 @@ export const POST = withAuthParams(async (
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       
-      // Store file securely outside public directory
-      const storedFile = await storeFile(
-        buffer,
-        file.name,
-        category || 'general',
-        {
+      let storagePath: string;
+      let fileSize: number;
+
+      // Use S3 in production, local storage in development
+      if (isS3Enabled()) {
+        // Upload to S3
+        const s3Category = categoryToFileCategory[category?.toUpperCase()] || FileCategory.OTHER;
+        const s3Result = await uploadToS3({
+          file: buffer,
+          fileName: file.name,
+          category: s3Category,
           patientId,
-          clinicId: patient.clinicId || undefined,
-          uploadedBy: user.id,
-          mimeType: file.type || 'application/octet-stream'
-        }
-      );
+          metadata: {
+            clinicId: patient.clinicId?.toString() || '',
+            uploadedBy: user.id.toString(),
+          },
+          contentType: file.type || 'application/octet-stream',
+        });
+        
+        // Store S3 key as the path
+        storagePath = s3Result.key;
+        fileSize = s3Result.size;
+        
+        logger.info('Document uploaded to S3', {
+          patientId,
+          s3Key: s3Result.key,
+          clinicId: patient.clinicId,
+        });
+      } else {
+        // Development: use local storage
+        const storedFile = await storeFile(
+          buffer,
+          file.name,
+          category || 'general',
+          {
+            patientId,
+            clinicId: patient.clinicId || undefined,
+            uploadedBy: user.id,
+            mimeType: file.type || 'application/octet-stream'
+          }
+        );
+        storagePath = storedFile.path;
+        fileSize = storedFile.size;
+      }
       
-      // Save document record to database (no longer storing file data in DB)
+      // Save document record to database
       const document = await prisma.patientDocument.create({
         data: {
           patientId,
@@ -197,8 +243,8 @@ export const POST = withAuthParams(async (
           mimeType: file.type || 'application/octet-stream',
           category: (category as PatientDocumentCategory) || PatientDocumentCategory.OTHER,
           source: 'upload',
-          // Store the secure path, not a public URL
-          externalUrl: storedFile.path,
+          // Store the S3 key or local path
+          externalUrl: storagePath,
         },
       });
 
@@ -208,7 +254,7 @@ export const POST = withAuthParams(async (
         category: document.category,
         mimeType: document.mimeType || 'application/octet-stream',
         uploadedAt: document.createdAt.toISOString(),
-        size: storedFile.size,
+        size: fileSize,
         // Don't expose the actual file path to the client
         url: `/api/patients/${patientId}/documents/${document.id}`,
       });

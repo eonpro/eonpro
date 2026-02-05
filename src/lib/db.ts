@@ -1,10 +1,10 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient, Prisma } from '@prisma/client';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { logger } from './logger';
 import { connectionPool, withRetry, withTimeout } from './database/connection-pool';
 
 // Re-export Prisma namespace for TransactionClient and other types
-export { Prisma } from "@prisma/client";
+export { Prisma } from '@prisma/client';
 // PHI extension disabled - SSN field no longer exists in schema
 // import { createPrismaWithPHI, PrismaWithPHI } from './database/phi-extension';
 
@@ -94,7 +94,7 @@ function getPoolTimeout(): number {
  */
 function buildConnectionUrl(): string {
   const baseUrl = process.env.DATABASE_URL || '';
-  
+
   if (!baseUrl) {
     logger.warn('[Prisma] DATABASE_URL not set');
     return '';
@@ -152,8 +152,10 @@ function buildConnectionUrl(): string {
       // Check if it's dangerously low (1) and warn
       const urlLimit = url.searchParams.get('connection_limit');
       if (urlLimit === '1') {
-        logger.warn('[Prisma] DATABASE_URL has connection_limit=1 which may cause pool exhaustion. ' +
-          'Set DATABASE_CONNECTION_LIMIT env var to override.');
+        logger.warn(
+          '[Prisma] DATABASE_URL has connection_limit=1 which may cause pool exhaustion. ' +
+            'Set DATABASE_CONNECTION_LIMIT env var to override.'
+        );
       }
     }
 
@@ -173,8 +175,8 @@ function buildConnectionUrl(): string {
     return url.toString();
   } catch (error) {
     // If URL parsing fails, return original (might be a connection string format)
-    logger.warn('[Prisma] Could not parse DATABASE_URL for pool config', { 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    logger.warn('[Prisma] Could not parse DATABASE_URL for pool config', {
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
     return baseUrl;
   }
@@ -190,13 +192,13 @@ const CLINIC_ISOLATED_MODELS = [
   'prescription',
   'soapnote',
   'appointment',
-  'careplan',           // Treatment plans
+  'careplan', // Treatment plans
 
   // Billing models
   'invoice',
   'payment',
   'subscription',
-  'superbill',          // Medical billing
+  'superbill', // Medical billing
 
   // Documents & forms
   'patientdocument',
@@ -216,6 +218,9 @@ const CLINIC_ISOLATED_MODELS = [
   // are NOT in this list because they don't have a clinicId field directly.
   // They are already isolated via their Patient relationship (patient->clinicId).
 
+  // Patient photos (clinic-isolated for ID verification and progress photos)
+  'patientphoto',
+
   // Affiliate/influencer (clinic-specific programs)
   'influencer',
 
@@ -229,7 +234,7 @@ const CLINIC_ISOLATED_MODELS = [
 /**
  * Create Prisma client with multi-clinic isolation and connection pooling
  * Using query extension pattern for Prisma v4+
- * 
+ *
  * Integrates with ConnectionPoolManager for:
  * - Proper connection URL with pool parameters
  * - Health check monitoring
@@ -252,11 +257,12 @@ function createPrismaClient() {
   });
 
   const client = new PrismaClient({
-    log: process.env.NODE_ENV === "development"
-      ? ["warn", "error"]
-      : isProd
-        ? ["error"]  // Only errors in production
-        : ["warn", "error"],
+    log:
+      process.env.NODE_ENV === 'development'
+        ? ['warn', 'error']
+        : isProd
+          ? ['error'] // Only errors in production
+          : ['warn', 'error'],
     // Use the built connection URL with proper pool parameters
     datasources: {
       db: {
@@ -330,18 +336,18 @@ function registerShutdownHandlers(client: PrismaClient): void {
 
   const shutdown = async (signal: string) => {
     logger.info(`[Prisma] Received ${signal}, initiating graceful shutdown`);
-    
+
     try {
       // Stop health checks first
       await connectionPool.shutdown();
-      
+
       // Disconnect Prisma client
       await client.$disconnect();
-      
+
       logger.info('[Prisma] Graceful shutdown complete');
     } catch (error) {
-      logger.error('[Prisma] Error during shutdown', { 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      logger.error('[Prisma] Error during shutdown', {
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   };
@@ -358,7 +364,7 @@ function registerShutdownHandlers(client: PrismaClient): void {
 // Create the base client
 const basePrisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = basePrisma;
 }
 
@@ -422,7 +428,7 @@ class PrismaWithClinicFilter {
 
     return {
       ...where,
-      clinicId: clinicId
+      clinicId: clinicId,
     };
   }
 
@@ -437,15 +443,15 @@ class PrismaWithClinicFilter {
     }
 
     if (Array.isArray(data)) {
-      return data.map(item => ({
+      return data.map((item) => ({
         ...item,
-        clinicId: clinicId
+        clinicId: clinicId,
       }));
     }
 
     return {
       ...data,
-      clinicId: clinicId
+      clinicId: clinicId,
     };
   }
 
@@ -463,8 +469,8 @@ class PrismaWithClinicFilter {
       ...args,
       where: {
         ...args.where,
-        clinicId: clinicId
-      }
+        clinicId: clinicId,
+      },
     };
   }
 
@@ -499,13 +505,22 @@ class PrismaWithClinicFilter {
         // Wrap methods that need clinic filtering
         const methodsToWrap = [
           // Read operations
-          'findUnique', 'findFirst', 'findMany',
-          'findUniqueOrThrow', 'findFirstOrThrow',
-          'count', 'aggregate', 'groupBy',
+          'findUnique',
+          'findFirst',
+          'findMany',
+          'findUniqueOrThrow',
+          'findFirstOrThrow',
+          'count',
+          'aggregate',
+          'groupBy',
           // Write operations
-          'create', 'createMany', 'createManyAndReturn',
-          'update', 'updateMany',
-          'delete', 'deleteMany',
+          'create',
+          'createMany',
+          'createManyAndReturn',
+          'update',
+          'updateMany',
+          'delete',
+          'deleteMany',
           'upsert',
         ];
 
@@ -519,15 +534,25 @@ class PrismaWithClinicFilter {
           const method = prop as string;
 
           // Apply clinic filter based on method type
-          if ([
-            'findUnique', 'findFirst', 'findMany',
-            'findUniqueOrThrow', 'findFirstOrThrow',
-            'count', 'aggregate'
-          ].includes(method)) {
+          if (
+            [
+              'findUnique',
+              'findFirst',
+              'findMany',
+              'findUniqueOrThrow',
+              'findFirstOrThrow',
+              'count',
+              'aggregate',
+            ].includes(method)
+          ) {
             modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where);
           } else if (method === 'groupBy') {
             modifiedArgs = this.applyClinicToGroupBy(modifiedArgs);
-          } else if (method === 'create' || method === 'createMany' || method === 'createManyAndReturn') {
+          } else if (
+            method === 'create' ||
+            method === 'createMany' ||
+            method === 'createManyAndReturn'
+          ) {
             modifiedArgs.data = this.applyClinicToData(modifiedArgs.data);
           } else if (['update', 'updateMany', 'delete', 'deleteMany'].includes(method)) {
             modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where);
@@ -550,8 +575,8 @@ class PrismaWithClinicFilter {
             const clinicId = currentClinicId;
 
             if (Array.isArray(result)) {
-              const invalidRecords = result.filter((record: any) =>
-                record.clinicId && record.clinicId !== clinicId
+              const invalidRecords = result.filter(
+                (record: any) => record.clinicId && record.clinicId !== clinicId
               );
 
               if (invalidRecords.length > 0) {
@@ -564,8 +589,8 @@ class PrismaWithClinicFilter {
                 });
 
                 // Filter out invalid records - never leak data
-                return result.filter((record: any) =>
-                  !record.clinicId || record.clinicId === clinicId
+                return result.filter(
+                  (record: any) => !record.clinicId || record.clinicId === clinicId
                 );
               }
             } else if (typeof result === 'object' && result !== null && 'clinicId' in result) {
@@ -586,7 +611,7 @@ class PrismaWithClinicFilter {
 
           return result;
         };
-      }
+      },
     });
   }
 
@@ -595,203 +620,458 @@ class PrismaWithClinicFilter {
   // ============================================================================
 
   // Core clinical models
-  get patient() { return this.createModelProxy('patient'); }
-  get provider() { return this.createModelProxy('provider'); }
-  get order() { return this.createModelProxy('order'); }
-  get prescription() { return this.createModelProxy('prescription'); }
-  get sOAPNote() { return this.createModelProxy('sOAPNote'); }
-  get appointment() { return this.createModelProxy('appointment'); }
-  get carePlan() { return this.createModelProxy('carePlan'); }
+  get patient() {
+    return this.createModelProxy('patient');
+  }
+  get provider() {
+    return this.createModelProxy('provider');
+  }
+  get order() {
+    return this.createModelProxy('order');
+  }
+  get prescription() {
+    return this.createModelProxy('prescription');
+  }
+  get sOAPNote() {
+    return this.createModelProxy('sOAPNote');
+  }
+  get appointment() {
+    return this.createModelProxy('appointment');
+  }
+  get carePlan() {
+    return this.createModelProxy('carePlan');
+  }
 
   // Billing models
-  get invoice() { return this.createModelProxy('invoice'); }
-  get payment() { return this.createModelProxy('payment'); }
-  get subscription() { return this.createModelProxy('subscription'); }
-  get superbill() { return this.createModelProxy('superbill'); }
+  get invoice() {
+    return this.createModelProxy('invoice');
+  }
+  get payment() {
+    return this.createModelProxy('payment');
+  }
+  get subscription() {
+    return this.createModelProxy('subscription');
+  }
+  get superbill() {
+    return this.createModelProxy('superbill');
+  }
 
   // Documents & forms
-  get patientDocument() { return this.createModelProxy('patientDocument'); }
-  get intakeFormTemplate() { return this.createModelProxy('intakeFormTemplate'); }
+  get patientDocument() {
+    return this.createModelProxy('patientDocument');
+  }
+  get intakeFormTemplate() {
+    return this.createModelProxy('intakeFormTemplate');
+  }
 
   // Communication
-  get internalMessage() { return this.createModelProxy('internalMessage'); }
-  get patientChatMessage() { return this.createModelProxy('patientChatMessage'); }
+  get internalMessage() {
+    return this.createModelProxy('internalMessage');
+  }
+  get patientChatMessage() {
+    return this.createModelProxy('patientChatMessage');
+  }
 
   // Support tickets (clinic-specific)
-  get ticket() { return this.createModelProxy('ticket'); }
-  get ticketComment() { return this.createModelProxy('ticketComment'); }
-  get ticketWorkLog() { return this.createModelProxy('ticketWorkLog'); }
-  get ticketAssignment() { return this.createModelProxy('ticketAssignment'); }
+  get ticket() {
+    return this.createModelProxy('ticket');
+  }
+  get ticketComment() {
+    return this.createModelProxy('ticketComment');
+  }
+  get ticketWorkLog() {
+    return this.createModelProxy('ticketWorkLog');
+  }
+  get ticketAssignment() {
+    return this.createModelProxy('ticketAssignment');
+  }
 
   // Patient health tracking - NOT clinic isolated (isolated via Patient relationship)
-  get patientWaterLog() { return this.client.patientWaterLog; }
-  get patientExerciseLog() { return this.client.patientExerciseLog; }
-  get patientSleepLog() { return this.client.patientSleepLog; }
-  get patientNutritionLog() { return this.client.patientNutritionLog; }
-  get patientWeightLog() { return this.client.patientWeightLog; }
-  get patientMedicationReminder() { return this.client.patientMedicationReminder; }
-  
+  get patientWaterLog() {
+    return this.client.patientWaterLog;
+  }
+  get patientExerciseLog() {
+    return this.client.patientExerciseLog;
+  }
+  get patientSleepLog() {
+    return this.client.patientSleepLog;
+  }
+  get patientNutritionLog() {
+    return this.client.patientNutritionLog;
+  }
+  get patientWeightLog() {
+    return this.client.patientWeightLog;
+  }
+  get patientMedicationReminder() {
+    return this.client.patientMedicationReminder;
+  }
+
   // Shipping updates (clinic-isolated)
-  get patientShippingUpdate() { return this.createModelProxy('patientShippingUpdate'); }
+  get patientShippingUpdate() {
+    return this.createModelProxy('patientShippingUpdate');
+  }
+
+  // Patient photos (clinic-isolated)
+  get patientPhoto() {
+    return this.createModelProxy('patientPhoto');
+  }
 
   // Affiliate/influencer
-  get influencer() { return this.createModelProxy('influencer'); }
+  get influencer() {
+    return this.createModelProxy('influencer');
+  }
 
   // Products
-  get product() { return this.createModelProxy('product'); }
+  get product() {
+    return this.createModelProxy('product');
+  }
 
   // Refill queue (clinic-isolated)
-  get refillQueue() { return this.createModelProxy('refillQueue'); }
+  get refillQueue() {
+    return this.createModelProxy('refillQueue');
+  }
 
   // ============================================================================
   // NON-ISOLATED MODELS (global or user-scoped, not clinic-scoped)
   // ============================================================================
 
   // System-wide models
-  get user() { return this.client.user; }
-  get clinic() { return this.client.clinic; }
-  get systemSettings() { return this.client.systemSettings; }
-  get integration() { return this.client.integration; }
-  get apiKey() { return this.client.apiKey; }
+  get user() {
+    return this.client.user;
+  }
+  get clinic() {
+    return this.client.clinic;
+  }
+  get systemSettings() {
+    return this.client.systemSettings;
+  }
+  get integration() {
+    return this.client.integration;
+  }
+  get apiKey() {
+    return this.client.apiKey;
+  }
 
   // Auth tokens (user-scoped, not clinic-scoped)
-  get passwordResetToken() { return this.client.passwordResetToken; }
-  get emailVerificationToken() { return this.client.emailVerificationToken; }
-  get clinicInviteCode() { return this.client.clinicInviteCode; }
-  get phoneOtp() { return this.client.phoneOtp; }
+  get passwordResetToken() {
+    return this.client.passwordResetToken;
+  }
+  get emailVerificationToken() {
+    return this.client.emailVerificationToken;
+  }
+  get clinicInviteCode() {
+    return this.client.clinicInviteCode;
+  }
+  get phoneOtp() {
+    return this.client.phoneOtp;
+  }
 
   // Payment reconciliation (system-wide)
-  get paymentReconciliation() { return this.client.paymentReconciliation; }
+  get paymentReconciliation() {
+    return this.client.paymentReconciliation;
+  }
 
   // Webhook infrastructure (system-wide)
-  get webhookConfig() { return this.client.webhookConfig; }
-  get webhookDelivery() { return this.client.webhookDelivery; }
-  get webhookLog() { return this.client.webhookLog; }
+  get webhookConfig() {
+    return this.client.webhookConfig;
+  }
+  get webhookDelivery() {
+    return this.client.webhookDelivery;
+  }
+  get webhookLog() {
+    return this.client.webhookLog;
+  }
 
   // Audit logs (need cross-clinic visibility for super admin)
-  get clinicAuditLog() { return this.client.clinicAuditLog; }
-  get userSession() { return this.client.userSession; }
-  get userAuditLog() { return this.client.userAuditLog; }
-  get patientAudit() { return this.client.patientAudit; }
-  get providerAudit() { return this.client.providerAudit; }
-  get orderEvent() { return this.client.orderEvent; }
-  get auditLog() { return this.client.auditLog; }
-  get hIPAAAuditEntry() { return this.client.hIPAAAuditEntry; }
+  get clinicAuditLog() {
+    return this.client.clinicAuditLog;
+  }
+  get userSession() {
+    return this.client.userSession;
+  }
+  get userAuditLog() {
+    return this.client.userAuditLog;
+  }
+  get patientAudit() {
+    return this.client.patientAudit;
+  }
+  get providerAudit() {
+    return this.client.providerAudit;
+  }
+  get orderEvent() {
+    return this.client.orderEvent;
+  }
+  get auditLog() {
+    return this.client.auditLog;
+  }
+  get hIPAAAuditEntry() {
+    return this.client.hIPAAAuditEntry;
+  }
 
   // Multi-clinic junction tables (provider/user to clinic assignments)
-  get userClinic() { return this.client.userClinic; }
-  get providerClinic() { return this.client.providerClinic; }
+  get userClinic() {
+    return this.client.userClinic;
+  }
+  get providerClinic() {
+    return this.client.providerClinic;
+  }
 
   // Counters & sequences (clinic-scoped but handled differently)
-  get patientCounter() { return this.client.patientCounter; }
+  get patientCounter() {
+    return this.client.patientCounter;
+  }
 
   // AI (user-scoped, not clinic-scoped)
-  get aIConversation() { return this.client.aIConversation; }
-  get aIMessage() { return this.client.aIMessage; }
+  get aIConversation() {
+    return this.client.aIConversation;
+  }
+  get aIMessage() {
+    return this.client.aIMessage;
+  }
 
   // Prescriptions (Rx model is separate from prescription)
-  get rx() { return this.client.rx; }
-  get sOAPNoteRevision() { return this.client.sOAPNoteRevision; }
+  get rx() {
+    return this.client.rx;
+  }
+  get sOAPNoteRevision() {
+    return this.client.sOAPNoteRevision;
+  }
 
   // Payment methods (user-scoped)
-  get paymentMethod() { return this.client.paymentMethod; }
+  get paymentMethod() {
+    return this.client.paymentMethod;
+  }
 
   // Referral/affiliate (program-level, not clinic-level)
-  get referralTracking() { return this.client.referralTracking; }
-  get influencerBankAccount() { return this.client.influencerBankAccount; }
-  get commission() { return this.client.commission; }
-  get commissionPayout() { return this.client.commissionPayout; }
-  get affiliateReferral() { return this.client.affiliateReferral; }
-  get affiliateCommission() { return this.client.affiliateCommission; }
-  get affiliateProgram() { return this.client.affiliateProgram; }
-  get affiliateTier() { return this.client.affiliateTier; }
+  get referralTracking() {
+    return this.client.referralTracking;
+  }
+  get influencerBankAccount() {
+    return this.client.influencerBankAccount;
+  }
+  get commission() {
+    return this.client.commission;
+  }
+  get commissionPayout() {
+    return this.client.commissionPayout;
+  }
+  get affiliateReferral() {
+    return this.client.affiliateReferral;
+  }
+  get affiliateCommission() {
+    return this.client.affiliateCommission;
+  }
+  get affiliateProgram() {
+    return this.client.affiliateProgram;
+  }
+  get affiliateTier() {
+    return this.client.affiliateTier;
+  }
 
   // Enterprise affiliate system
-  get affiliate() { return this.client.affiliate; }
-  get affiliateApplication() { return this.client.affiliateApplication; }
-  get affiliateRefCode() { return this.client.affiliateRefCode; }
-  get affiliateOtpCode() { return this.client.affiliateOtpCode; }
-  get affiliateCommissionPlan() { return this.client.affiliateCommissionPlan; }
-  get affiliatePlanAssignment() { return this.client.affiliatePlanAssignment; }
-  get affiliateCommissionEvent() { return this.client.affiliateCommissionEvent; }
-  get affiliateTouch() { return this.client.affiliateTouch; }
-  get affiliateAttributionConfig() { return this.client.affiliateAttributionConfig; }
-  get affiliateCommissionTier() { return this.client.affiliateCommissionTier; }
-  get affiliateProductRate() { return this.client.affiliateProductRate; }
-  get affiliatePromotion() { return this.client.affiliatePromotion; }
-  get affiliatePayoutMethod() { return this.client.affiliatePayoutMethod; }
-  get affiliatePayout() { return this.client.affiliatePayout; }
-  get affiliateTaxDocument() { return this.client.affiliateTaxDocument; }
-  get affiliateFraudAlert() { return this.client.affiliateFraudAlert; }
-  get affiliateIpIntel() { return this.client.affiliateIpIntel; }
-  get affiliateFraudConfig() { return this.client.affiliateFraudConfig; }
+  get affiliate() {
+    return this.client.affiliate;
+  }
+  get affiliateApplication() {
+    return this.client.affiliateApplication;
+  }
+  get affiliateRefCode() {
+    return this.client.affiliateRefCode;
+  }
+  get affiliateOtpCode() {
+    return this.client.affiliateOtpCode;
+  }
+  get affiliateCommissionPlan() {
+    return this.client.affiliateCommissionPlan;
+  }
+  get affiliatePlanAssignment() {
+    return this.client.affiliatePlanAssignment;
+  }
+  get affiliateCommissionEvent() {
+    return this.client.affiliateCommissionEvent;
+  }
+  get affiliateTouch() {
+    return this.client.affiliateTouch;
+  }
+  get affiliateAttributionConfig() {
+    return this.client.affiliateAttributionConfig;
+  }
+  get affiliateCommissionTier() {
+    return this.client.affiliateCommissionTier;
+  }
+  get affiliateProductRate() {
+    return this.client.affiliateProductRate;
+  }
+  get affiliatePromotion() {
+    return this.client.affiliatePromotion;
+  }
+  get affiliatePayoutMethod() {
+    return this.client.affiliatePayoutMethod;
+  }
+  get affiliatePayout() {
+    return this.client.affiliatePayout;
+  }
+  get affiliateTaxDocument() {
+    return this.client.affiliateTaxDocument;
+  }
+  get affiliateFraudAlert() {
+    return this.client.affiliateFraudAlert;
+  }
+  get affiliateIpIntel() {
+    return this.client.affiliateIpIntel;
+  }
+  get affiliateFraudConfig() {
+    return this.client.affiliateFraudConfig;
+  }
 
   // Intake forms (submission-level, not clinic-level)
-  get intakeFormSubmission() { return this.client.intakeFormSubmission; }
-  get intakeFormQuestion() { return this.client.intakeFormQuestion; }
-  get intakeFormResponse() { return this.client.intakeFormResponse; }
-  get intakeFormLink() { return this.client.intakeFormLink; }
+  get intakeFormSubmission() {
+    return this.client.intakeFormSubmission;
+  }
+  get intakeFormQuestion() {
+    return this.client.intakeFormQuestion;
+  }
+  get intakeFormResponse() {
+    return this.client.intakeFormResponse;
+  }
+  get intakeFormLink() {
+    return this.client.intakeFormLink;
+  }
 
   // Ticket metadata (non-isolated - ticket itself is isolated)
-  get ticketStatusHistory() { return this.client.ticketStatusHistory; }
-  get ticketEscalation() { return this.client.ticketEscalation; }
-  get ticketSLA() { return this.client.ticketSLA; }
+  get ticketStatusHistory() {
+    return this.client.ticketStatusHistory;
+  }
+  get ticketEscalation() {
+    return this.client.ticketEscalation;
+  }
+  get ticketSLA() {
+    return this.client.ticketSLA;
+  }
 
   // Developer/API tools (system-wide)
-  get apiUsageLog() { return this.client.apiUsageLog; }
-  get integrationLog() { return this.client.integrationLog; }
-  get developerTool() { return this.client.developerTool; }
+  get apiUsageLog() {
+    return this.client.apiUsageLog;
+  }
+  get integrationLog() {
+    return this.client.integrationLog;
+  }
+  get developerTool() {
+    return this.client.developerTool;
+  }
 
   // SMS logs and compliance (system-wide)
-  get smsLog() { return this.client.smsLog; }
-  get smsOptOut() { return this.client.smsOptOut; }
-  get smsQuietHours() { return this.client.smsQuietHours; }
-  get smsRateLimit() { return this.client.smsRateLimit; }
+  get smsLog() {
+    return this.client.smsLog;
+  }
+  get smsOptOut() {
+    return this.client.smsOptOut;
+  }
+  get smsQuietHours() {
+    return this.client.smsQuietHours;
+  }
+  get smsRateLimit() {
+    return this.client.smsRateLimit;
+  }
 
   // Notifications (user-scoped, not clinic-scoped - users see their own notifications)
-  get notification() { return this.client.notification; }
+  get notification() {
+    return this.client.notification;
+  }
 
   // Policy management (system-wide, SOC 2 compliance)
-  get policy() { return this.client.policy; }
-  get policyApproval() { return this.client.policyApproval; }
-  get policyAcknowledgment() { return this.client.policyAcknowledgment; }
+  get policy() {
+    return this.client.policy;
+  }
+  get policyApproval() {
+    return this.client.policyApproval;
+  }
+  get policyAcknowledgment() {
+    return this.client.policyAcknowledgment;
+  }
 
   // Discounts (system-wide promotions)
-  get discountCode() { return this.client.discountCode; }
-  get discountUsage() { return this.client.discountUsage; }
-  get promotion() { return this.client.promotion; }
+  get discountCode() {
+    return this.client.discountCode;
+  }
+  get discountUsage() {
+    return this.client.discountUsage;
+  }
+  get promotion() {
+    return this.client.promotion;
+  }
 
   // Product bundles (system-wide catalog)
-  get productBundle() { return this.client.productBundle; }
-  get productBundleItem() { return this.client.productBundleItem; }
-  get pricingRule() { return this.client.pricingRule; }
-  get invoiceItem() { return this.client.invoiceItem; }
+  get productBundle() {
+    return this.client.productBundle;
+  }
+  get productBundleItem() {
+    return this.client.productBundleItem;
+  }
+  get pricingRule() {
+    return this.client.pricingRule;
+  }
+  get invoiceItem() {
+    return this.client.invoiceItem;
+  }
 
   // Scheduling models (provider-scoped)
-  get appointmentTypeConfig() { return this.client.appointmentTypeConfig; }
-  get providerAvailability() { return this.client.providerAvailability; }
-  get providerTimeOff() { return this.client.providerTimeOff; }
-  get providerCalendarIntegration() { return this.client.providerCalendarIntegration; }
-  get appointmentReminder() { return this.client.appointmentReminder; }
+  get appointmentTypeConfig() {
+    return this.client.appointmentTypeConfig;
+  }
+  get providerAvailability() {
+    return this.client.providerAvailability;
+  }
+  get providerTimeOff() {
+    return this.client.providerTimeOff;
+  }
+  get providerCalendarIntegration() {
+    return this.client.providerCalendarIntegration;
+  }
+  get appointmentReminder() {
+    return this.client.appointmentReminder;
+  }
 
   // Care plan models
-  get carePlanTemplate() { return this.client.carePlanTemplate; }
-  get carePlanGoal() { return this.client.carePlanGoal; }
-  get carePlanActivity() { return this.client.carePlanActivity; }
-  get carePlanProgress() { return this.client.carePlanProgress; }
+  get carePlanTemplate() {
+    return this.client.carePlanTemplate;
+  }
+  get carePlanGoal() {
+    return this.client.carePlanGoal;
+  }
+  get carePlanActivity() {
+    return this.client.carePlanActivity;
+  }
+  get carePlanProgress() {
+    return this.client.carePlanProgress;
+  }
 
   // Billing codes
-  get billingCode() { return this.client.billingCode; }
-  get superbillItem() { return this.client.superbillItem; }
+  get billingCode() {
+    return this.client.billingCode;
+  }
+  get superbillItem() {
+    return this.client.superbillItem;
+  }
 
   // Subscription actions
-  get subscriptionAction() { return this.client.subscriptionAction; }
-  get retentionOffer() { return this.client.retentionOffer; }
+  get subscriptionAction() {
+    return this.client.subscriptionAction;
+  }
+  get retentionOffer() {
+    return this.client.retentionOffer;
+  }
 
   // Financial Analytics
-  get financialMetrics() { return this.client.financialMetrics; }
-  get savedReport() { return this.client.savedReport; }
-  get reportExport() { return this.client.reportExport; }
+  get financialMetrics() {
+    return this.client.financialMetrics;
+  }
+  get savedReport() {
+    return this.client.savedReport;
+  }
+  get reportExport() {
+    return this.client.reportExport;
+  }
 
   // Expose transaction support with proper options forwarding
   async $transaction<T>(
@@ -810,8 +1090,12 @@ class PrismaWithClinicFilter {
   }
 
   // Expose other Prisma client methods
-  $connect() { return this.client.$connect(); }
-  $disconnect() { return this.client.$disconnect(); }
+  $connect() {
+    return this.client.$connect();
+  }
+  $disconnect() {
+    return this.client.$disconnect();
+  }
   $executeRaw(query: TemplateStringsArray, ...values: unknown[]) {
     return this.client.$executeRaw(query, ...values);
   }
@@ -851,20 +1135,20 @@ type ClinicFilteredTransactionFn = {
 
 /**
  * Prisma client with automatic clinic filtering for multi-tenant isolation.
- * 
+ *
  * NOTE: The `as unknown as` cast is necessary because PrismaWithClinicFilter implements
  * a Proxy-based interception pattern for model operations that TypeScript cannot
  * statically verify. The wrapper provides all PrismaClient model operations with
  * automatic clinicId filtering for HIPAA-compliant data isolation.
- * 
+ *
  * All model operations (findMany, create, update, etc.) automatically:
  * 1. Add clinicId to WHERE clauses (reads)
  * 2. Add clinicId to data (creates)
  * 3. Validate results don't leak cross-clinic data (defense-in-depth)
- * 
+ *
  * The $transaction callback receives a PrismaClient (wrapped), so code should use:
  *   prisma.$transaction(async (tx) => { ... })
- * 
+ *
  * @see CLINIC_ISOLATED_MODELS for list of models with automatic filtering
  */
 export const prisma = new PrismaWithClinicFilter(basePrisma) as unknown as PrismaClient & {
@@ -908,10 +1192,7 @@ export function getClinicContext(): number | undefined {
  * @param callback - The function to execute within the clinic context
  * @returns The result of the callback
  */
-export function runWithClinicContext<T>(
-  clinicId: number | undefined,
-  callback: () => T
-): T {
+export function runWithClinicContext<T>(clinicId: number | undefined, callback: () => T): T {
   return clinicContextStorage.run({ clinicId }, callback);
 }
 
@@ -930,9 +1211,7 @@ export async function withClinicContext<T>(
  * Execute queries without clinic filtering (thread-safe)
  * DANGEROUS: Only use for super admin operations
  */
-export async function withoutClinicFilter<T>(
-  callback: () => Promise<T>
-): Promise<T> {
+export async function withoutClinicFilter<T>(callback: () => Promise<T>): Promise<T> {
   return clinicContextStorage.run({ clinicId: undefined }, callback);
 }
 
