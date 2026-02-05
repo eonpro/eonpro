@@ -26,6 +26,7 @@ type Params = {
 
 import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
+import PatientPhotosView from '@/components/PatientPhotosView';
 import PatientPrescriptionSummary from '@/components/PatientPrescriptionSummary';
 import PatientQuickSearch from '@/components/PatientQuickSearch';
 import WeightProgressSummary from '@/components/WeightProgressSummary';
@@ -334,6 +335,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     'soap-notes',
     'appointments',
     'progress',
+    'photos',
     'billing',
     'chat',
     'documents',
@@ -965,6 +967,11 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
             />
           ) : currentTab === 'chat' ? (
             <PatientChatView patient={patientWithDecryptedPHI} />
+          ) : currentTab === 'photos' ? (
+            <PatientPhotosView
+              patientId={patientWithDecryptedPHI.id}
+              patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
+            />
           ) : null}
         </div>
       </div>

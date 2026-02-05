@@ -133,8 +133,8 @@ async function getPatientContext(patientId: number): Promise<string> {
           orderBy: { createdAt: 'desc' },
           take: 1,
           select: {
-            medication: true,
-            strength: true,
+            primaryMedName: true,
+            primaryMedStrength: true,
             status: true,
           },
         },
@@ -174,7 +174,7 @@ async function getPatientContext(patientId: number): Promise<string> {
 
     if (patient.orders.length > 0) {
       const order = patient.orders[0];
-      context.push(`Current medication: ${order.medication} ${order.strength || ''}`);
+      context.push(`Current medication: ${order.primaryMedName} ${order.primaryMedStrength || ''}`);
       context.push(`Order status: ${order.status}`);
     }
 
@@ -382,7 +382,7 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
         orders: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          select: { medication: true, createdAt: true },
+          select: { primaryMedName: true, createdAt: true },
         },
       },
     });

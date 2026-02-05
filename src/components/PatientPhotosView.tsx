@@ -1,34 +1,29 @@
-"use client";
+'use client';
 
 /**
  * Patient Photos View Component
  *
- * Allows providers to view patient photos with:
- * - Progress photos gallery
- * - ID verification workflow
- * - Medical images review
- * - Verification status management
+ * Displays patient photos for provider/admin review.
+ * Shows progress photos, ID verification, and medical images.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from 'react';
 import {
   Camera,
+  TrendingDown,
   Shield,
   Stethoscope,
+  ChevronRight,
+  Image as ImageIcon,
   CheckCircle,
-  XCircle,
   Clock,
   AlertCircle,
-  TrendingDown,
-  Layers,
+  X,
+  ZoomIn,
   Loader2,
-  ChevronRight,
-  Eye,
   RefreshCw,
-} from "lucide-react";
-import { PhotoGallery, PhotoComparison } from "@/components/patient-portal/photos";
-import { PatientPhotoType, PatientPhotoVerificationStatus } from "@prisma/client";
-import { format, parseISO } from "date-fns";
+} from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
 // =============================================================================
 // Types
@@ -37,23 +32,16 @@ import { format, parseISO } from "date-fns";
 interface Photo {
   id: number;
   createdAt: string;
-  updatedAt: string;
-  type: PatientPhotoType;
+  type: string;
   category: string | null;
   s3Url: string | null;
   thumbnailUrl: string | null;
-  fileSize: number | null;
-  width: number | null;
-  height: number | null;
   title: string | null;
   notes: string | null;
   weight: number | null;
   takenAt: string;
-  verificationStatus: PatientPhotoVerificationStatus;
+  verificationStatus: string;
   verifiedAt: string | null;
-  verificationNotes: string | null;
-  isPrivate: boolean;
-  isDeleted: boolean;
 }
 
 interface PatientPhotosViewProps {
@@ -61,68 +49,90 @@ interface PatientPhotosViewProps {
   patientName: string;
 }
 
-type TabType = "progress" | "verification" | "medical";
-
 // =============================================================================
-// Verification Status Config
+// Helpers
 // =============================================================================
 
-const VERIFICATION_STATUS_CONFIG: Record<
-  PatientPhotoVerificationStatus,
-  { label: string; color: string; icon: React.ElementType }
-> = {
-  NOT_APPLICABLE: { label: "N/A", color: "text-gray-500", icon: CheckCircle },
-  PENDING: { label: "Pending", color: "text-yellow-600", icon: Clock },
-  IN_REVIEW: { label: "In Review", color: "text-blue-600", icon: Clock },
-  VERIFIED: { label: "Verified", color: "text-green-600", icon: CheckCircle },
-  REJECTED: { label: "Rejected", color: "text-red-600", icon: XCircle },
-  EXPIRED: { label: "Expired", color: "text-orange-600", icon: AlertCircle },
+const photoTypeLabels: Record<string, string> = {
+  PROGRESS_FRONT: 'Front View',
+  PROGRESS_SIDE: 'Side View',
+  PROGRESS_BACK: 'Back View',
+  ID_FRONT: 'ID Front',
+  ID_BACK: 'ID Back',
+  SELFIE: 'Selfie',
+  MEDICAL_SKIN: 'Skin Condition',
+  MEDICAL_INJECTION_SITE: 'Injection Site',
+  MEDICAL_OTHER: 'Medical Image',
+  PROFILE_AVATAR: 'Profile Photo',
 };
+
+const categoryLabels: Record<string, { label: string; icon: typeof Camera; color: string }> = {
+  progress: {
+    label: 'Progress Photos',
+    icon: TrendingDown,
+    color: 'text-blue-600 bg-blue-50',
+  },
+  verification: {
+    label: 'ID Verification',
+    icon: Shield,
+    color: 'text-purple-600 bg-purple-50',
+  },
+  medical: {
+    label: 'Medical Images',
+    icon: Stethoscope,
+    color: 'text-teal-600 bg-teal-50',
+  },
+};
+
+const statusConfig: Record<string, { color: string; bgColor: string; label: string; icon: typeof CheckCircle }> = {
+  PENDING: { color: 'text-yellow-700', bgColor: 'bg-yellow-100', label: 'Pending', icon: Clock },
+  IN_REVIEW: { color: 'text-blue-700', bgColor: 'bg-blue-100', label: 'In Review', icon: Clock },
+  VERIFIED: { color: 'text-green-700', bgColor: 'bg-green-100', label: 'Verified', icon: CheckCircle },
+  REJECTED: { color: 'text-red-700', bgColor: 'bg-red-100', label: 'Rejected', icon: AlertCircle },
+  RESUBMIT_REQUIRED: { color: 'text-orange-700', bgColor: 'bg-orange-100', label: 'Resubmit', icon: AlertCircle },
+  NOT_APPLICABLE: { color: 'text-gray-700', bgColor: 'bg-gray-100', label: 'N/A', icon: CheckCircle },
+};
+
+function categorizePhotos(photos: Photo[]) {
+  return {
+    progress: photos.filter((p) =>
+      ['PROGRESS_FRONT', 'PROGRESS_SIDE', 'PROGRESS_BACK'].includes(p.type)
+    ),
+    verification: photos.filter((p) => ['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(p.type)),
+    medical: photos.filter((p) => p.type.startsWith('MEDICAL_')),
+  };
+}
 
 // =============================================================================
 // Component
 // =============================================================================
 
-export default function PatientPhotosView({
-  patientId,
-  patientName,
-}: PatientPhotosViewProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("progress");
+export default function PatientPhotosView({ patientId, patientName }: PatientPhotosViewProps) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [verifyingId, setVerifyingId] = useState<number | null>(null);
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [showCompare, setShowCompare] = useState(false);
-  const [comparePhotos, setComparePhotos] = useState<{
-    before: Photo | null;
-    after: Photo | null;
-  }>({ before: null, after: null });
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [activeCategory, setActiveCategory] = useState<'all' | 'progress' | 'verification' | 'medical'>('all');
 
-  // Fetch photos
   const fetchPhotos = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+
     try {
-      setLoading(true);
-      const token = localStorage.getItem("auth-token") || "";
+      const response = await fetch(`/api/patient-portal/photos?patientId=${patientId}&limit=200`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      const response = await fetch(
-        `/api/patient-portal/photos?patientId=${patientId}&limit=100`,
-        {
-          credentials: "include",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setPhotos(data.photos || []);
-      } else {
-        throw new Error("Failed to load photos");
+      if (!response.ok) {
+        throw new Error('Failed to load photos');
       }
+
+      const data = await response.json();
+      setPhotos(data.photos || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load photos");
+      setError(err instanceof Error ? err.message : 'Failed to load photos');
     } finally {
       setLoading(false);
     }
@@ -132,106 +142,26 @@ export default function PatientPhotosView({
     fetchPhotos();
   }, [fetchPhotos]);
 
-  // Filter photos by type
-  const progressPhotos = photos.filter((p) =>
-    ["PROGRESS_FRONT", "PROGRESS_SIDE", "PROGRESS_BACK"].includes(p.type)
-  );
+  const categorized = categorizePhotos(photos);
 
-  const verificationPhotos = photos.filter((p) =>
-    ["ID_FRONT", "ID_BACK", "SELFIE"].includes(p.type)
-  );
-
-  const medicalPhotos = photos.filter((p) => p.type.startsWith("MEDICAL_"));
-
-  // Get pending verification count
-  const pendingVerificationCount = verificationPhotos.filter(
-    (p) => p.verificationStatus === "PENDING" || p.verificationStatus === "IN_REVIEW"
-  ).length;
-
-  // Handle verification action
-  const handleVerify = async (photoId: number, status: "VERIFIED" | "REJECTED") => {
-    setVerifyingId(photoId);
-    try {
-      const token = localStorage.getItem("auth-token") || "";
-
-      const response = await fetch(`/api/admin/patient-photos/${photoId}/verify`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          status,
-          notes: status === "REJECTED" ? rejectionReason : undefined,
-        }),
-      });
-
-      if (response.ok) {
-        // Update local state
-        setPhotos((prev) =>
-          prev.map((p) =>
-            p.id === photoId
-              ? {
-                  ...p,
-                  verificationStatus: status,
-                  verifiedAt: new Date().toISOString(),
-                  verificationNotes: status === "REJECTED" ? rejectionReason : null,
-                }
-              : p
-          )
-        );
-        setRejectionReason("");
-      } else {
-        const data = await response.json();
-        alert(data.error || "Failed to update verification status");
-      }
-    } catch (err) {
-      console.error("Verification error:", err);
-    } finally {
-      setVerifyingId(null);
-    }
+  const getFilteredPhotos = () => {
+    if (activeCategory === 'all') return photos;
+    return categorized[activeCategory] || [];
   };
 
-  // Setup comparison
-  const setupComparison = () => {
-    const sorted = [...progressPhotos].sort(
-      (a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime()
-    );
-    if (sorted.length >= 2) {
-      setComparePhotos({
-        before: sorted[0],
-        after: sorted[sorted.length - 1],
-      });
-      setShowCompare(true);
-    }
-  };
+  const filteredPhotos = getFilteredPhotos();
 
-  const tabs = [
-    {
-      id: "progress" as TabType,
-      label: "Progress",
-      icon: TrendingDown,
-      count: progressPhotos.length,
-    },
-    {
-      id: "verification" as TabType,
-      label: "Verification",
-      icon: Shield,
-      count: verificationPhotos.length,
-      badge: pendingVerificationCount > 0 ? pendingVerificationCount : undefined,
-    },
-    {
-      id: "medical" as TabType,
-      label: "Medical",
-      icon: Stethoscope,
-      count: medicalPhotos.length,
-    },
-  ];
+  // Group progress photos by date for comparison view
+  const progressPhotosByDate = categorized.progress.reduce((acc: Record<string, Photo[]>, photo) => {
+    const dateKey = format(parseISO(photo.takenAt), 'yyyy-MM-dd');
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(photo);
+    return acc;
+  }, {});
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
       </div>
     );
@@ -239,14 +169,15 @@ export default function PatientPhotosView({
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-        <p className="text-red-600 font-medium">{error}</p>
+      <div className="rounded-xl bg-red-50 p-6 text-center">
+        <AlertCircle className="mx-auto h-8 w-8 text-red-500" />
+        <p className="mt-2 text-red-700">{error}</p>
         <button
           onClick={fetchPhotos}
-          className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-200"
         >
-          Try Again
+          <RefreshCw className="h-4 w-4" />
+          Retry
         </button>
       </div>
     );
@@ -256,243 +187,275 @@ export default function PatientPhotosView({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Camera className="h-6 w-6 text-gray-400" />
+        <div>
           <h2 className="text-lg font-semibold text-gray-900">Patient Photos</h2>
+          <p className="text-sm text-gray-500">
+            {photos.length} photo{photos.length !== 1 ? 's' : ''} for {patientName}
+          </p>
         </div>
         <button
           onClick={fetchPhotos}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
         >
-          <RefreshCw className="h-5 w-5" />
+          <RefreshCw className="h-4 w-4" />
+          Refresh
         </button>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-gray-200 -mb-px">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
+      {/* Category Summary Cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {Object.entries(categoryLabels).map(([key, config]) => {
+          const count = categorized[key as keyof typeof categorized]?.length || 0;
+          const Icon = config.icon;
+          const isActive = activeCategory === key;
+
           return (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                isActive
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              key={key}
+              onClick={() => setActiveCategory(key as any)}
+              className={`rounded-xl p-4 text-left transition-all ${
+                isActive ? 'ring-2 ring-violet-500' : 'hover:shadow-md'
+              } ${config.color}`}
             >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-              <span className="text-xs text-gray-400">({tab.count})</span>
-              {tab.badge && (
-                <span className="ml-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                  {tab.badge}
-                </span>
-              )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Icon className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">{config.label}</p>
+                    <p className="text-sm opacity-75">{count} photos</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 opacity-50" />
+              </div>
             </button>
           );
         })}
       </div>
 
-      {/* Progress Photos Tab */}
-      {activeTab === "progress" && (
-        <div className="space-y-4">
-          {progressPhotos.length > 1 && (
-            <button
-              onClick={setupComparison}
-              className="w-full rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 p-4 text-white flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <Layers className="h-6 w-6" />
-                <div className="text-left">
-                  <p className="font-medium">Compare Progress</p>
-                  <p className="text-sm text-white/80">
-                    View first vs latest photos
+      {/* Category Filter Tabs */}
+      <div className="flex gap-2 border-b border-gray-200 pb-2">
+        {['all', 'progress', 'verification', 'medical'].map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat as any)}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeCategory === cat
+                ? 'bg-violet-100 text-violet-700'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {cat === 'all' ? 'All Photos' : categoryLabels[cat]?.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Photo Grid */}
+      {filteredPhotos.length === 0 ? (
+        <div className="rounded-xl bg-gray-50 py-12 text-center">
+          <Camera className="mx-auto h-12 w-12 text-gray-300" />
+          <p className="mt-2 text-gray-500">No photos found</p>
+          <p className="text-sm text-gray-400">
+            {activeCategory === 'all'
+              ? 'This patient has not uploaded any photos yet.'
+              : `No ${categoryLabels[activeCategory]?.label?.toLowerCase() || activeCategory} photos uploaded.`}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {filteredPhotos.map((photo) => {
+            const status = statusConfig[photo.verificationStatus] || statusConfig.NOT_APPLICABLE;
+            const StatusIcon = status.icon;
+
+            return (
+              <div
+                key={photo.id}
+                onClick={() => setSelectedPhoto(photo)}
+                className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
+              >
+                {/* Photo */}
+                <div className="relative aspect-[3/4] bg-gray-100">
+                  {photo.thumbnailUrl || photo.s3Url ? (
+                    <img
+                      src={photo.thumbnailUrl || photo.s3Url || ''}
+                      alt={photoTypeLabels[photo.type] || photo.type}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-gray-300" />
+                    </div>
+                  )}
+
+                  {/* Verification Badge */}
+                  {['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(photo.type) && (
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <span
+                        className={`inline-flex w-full items-center justify-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${status.bgColor} ${status.color}`}
+                      >
+                        <StatusIcon className="h-3 w-3" />
+                        {status.label}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Zoom Icon on Hover */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/30">
+                    <ZoomIn className="h-8 w-8 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+                  </div>
+                </div>
+
+                {/* Photo Info */}
+                <div className="p-2">
+                  <p className="truncate text-xs font-medium text-gray-700">
+                    {photoTypeLabels[photo.type] || photo.type}
                   </p>
+                  <p className="text-xs text-gray-500">
+                    {format(parseISO(photo.takenAt), 'MMM d, yyyy')}
+                  </p>
+                  {photo.weight && (
+                    <p className="mt-1 text-xs font-medium text-violet-600">{photo.weight} lbs</p>
+                  )}
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          )}
-
-          {progressPhotos.length > 0 ? (
-            <PhotoGallery
-              photos={progressPhotos}
-              showFilters
-              showDateGroups
-              showWeight
-              emptyMessage="No progress photos"
-            />
-          ) : (
-            <div className="text-center py-12 text-gray-500">
-              <Camera className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>No progress photos uploaded</p>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
 
-      {/* Verification Tab */}
-      {activeTab === "verification" && (
-        <div className="space-y-4">
-          {verificationPhotos.length > 0 ? (
-            <div className="grid gap-4">
-              {verificationPhotos.map((photo) => {
-                const statusConfig =
-                  VERIFICATION_STATUS_CONFIG[photo.verificationStatus];
-                const StatusIcon = statusConfig.icon;
-                const needsVerification =
-                  photo.verificationStatus === "PENDING" ||
-                  photo.verificationStatus === "IN_REVIEW";
-
-                return (
-                  <div
-                    key={photo.id}
-                    className="bg-white rounded-xl border border-gray-200 p-4"
-                  >
-                    <div className="flex gap-4">
-                      {/* Thumbnail */}
-                      <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
-                        {photo.s3Url || photo.thumbnailUrl ? (
+      {/* Progress Photo Comparison View */}
+      {activeCategory === 'progress' && Object.keys(progressPhotosByDate).length > 1 && (
+        <div className="mt-8 rounded-xl border border-gray-200 bg-white p-6">
+          <h3 className="mb-4 font-semibold text-gray-900">Progress Timeline</h3>
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {Object.entries(progressPhotosByDate)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([date, datePhotos]) => (
+                <div key={date} className="flex-shrink-0">
+                  <p className="mb-2 text-center text-xs font-medium text-gray-500">
+                    {format(parseISO(date), 'MMM d, yyyy')}
+                  </p>
+                  <div className="flex gap-2">
+                    {datePhotos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        onClick={() => setSelectedPhoto(photo)}
+                        className="h-24 w-20 cursor-pointer overflow-hidden rounded-lg bg-gray-100"
+                      >
+                        {photo.thumbnailUrl || photo.s3Url ? (
                           <img
-                            src={photo.thumbnailUrl || photo.s3Url!}
-                            alt={photo.type}
-                            className="w-full h-full object-cover"
+                            src={photo.thumbnailUrl || photo.s3Url || ''}
+                            alt={photoTypeLabels[photo.type]}
+                            className="h-full w-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Shield className="h-8 w-8 text-gray-300" />
+                          <div className="flex h-full items-center justify-center">
+                            <ImageIcon className="h-6 w-6 text-gray-300" />
                           </div>
                         )}
                       </div>
-
-                      {/* Info */}
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-gray-900">
-                            {photo.type.replace(/_/g, " ")}
-                          </h4>
-                          <span
-                            className={`flex items-center gap-1 text-sm ${statusConfig.color}`}
-                          >
-                            <StatusIcon className="h-4 w-4" />
-                            {statusConfig.label}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-gray-500 mb-2">
-                          Uploaded {format(parseISO(photo.createdAt), "MMM d, yyyy h:mm a")}
-                        </p>
-
-                        {photo.verifiedAt && (
-                          <p className="text-xs text-gray-400">
-                            {photo.verificationStatus === "VERIFIED"
-                              ? "Verified"
-                              : "Reviewed"}{" "}
-                            {format(parseISO(photo.verifiedAt), "MMM d, yyyy")}
-                          </p>
-                        )}
-
-                        {photo.verificationNotes && (
-                          <p className="text-sm text-red-600 mt-1">
-                            Reason: {photo.verificationNotes}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Verification Actions */}
-                    {needsVerification && (
-                      <div className="mt-4 pt-4 border-t border-gray-100">
-                        {verifyingId === photo.id ? (
-                          <div className="flex justify-center py-2">
-                            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                          </div>
-                        ) : (
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => handleVerify(photo.id, "VERIFIED")}
-                              className="flex-1 flex items-center justify-center gap-2 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                              Verify
-                            </button>
-                            <div className="flex-1 flex gap-2">
-                              <input
-                                type="text"
-                                value={rejectionReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                                placeholder="Reason (optional)"
-                                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                              />
-                              <button
-                                onClick={() => handleVerify(photo.id, "REJECTED")}
-                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* View Full Size */}
-                    {photo.s3Url && (
-                      <a
-                        href={photo.s3Url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        <Eye className="h-4 w-4" />
-                        View Full Size
-                      </a>
-                    )}
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-gray-500">
-              <Shield className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>No verification photos uploaded</p>
-            </div>
-          )}
+                  {datePhotos[0]?.weight && (
+                    <p className="mt-1 text-center text-xs font-medium text-violet-600">
+                      {datePhotos[0].weight} lbs
+                    </p>
+                  )}
+                </div>
+              ))}
+          </div>
         </div>
       )}
 
-      {/* Medical Photos Tab */}
-      {activeTab === "medical" && (
-        <div>
-          {medicalPhotos.length > 0 ? (
-            <PhotoGallery
-              photos={medicalPhotos}
-              showFilters
-              showDateGroups
-              emptyMessage="No medical images"
-            />
-          ) : (
-            <div className="text-center py-12 text-gray-500">
-              <Stethoscope className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>No medical images uploaded</p>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Photo Detail Modal */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl bg-white">
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+            >
+              <X className="h-5 w-5" />
+            </button>
 
-      {/* Photo Comparison Modal */}
-      {showCompare && comparePhotos.before && comparePhotos.after && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-auto p-6">
-            <PhotoComparison
-              beforePhoto={comparePhotos.before}
-              afterPhoto={comparePhotos.after}
-              onClose={() => setShowCompare(false)}
-              showFullscreen
-            />
+            <div className="flex flex-col md:flex-row">
+              {/* Image */}
+              <div className="flex-1 bg-gray-900">
+                {selectedPhoto.s3Url ? (
+                  <img
+                    src={selectedPhoto.s3Url}
+                    alt={photoTypeLabels[selectedPhoto.type]}
+                    className="h-full max-h-[70vh] w-full object-contain"
+                  />
+                ) : (
+                  <div className="flex h-96 items-center justify-center">
+                    <ImageIcon className="h-16 w-16 text-gray-600" />
+                  </div>
+                )}
+              </div>
+
+              {/* Details Sidebar */}
+              <div className="w-full p-6 md:w-80">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {photoTypeLabels[selectedPhoto.type] || selectedPhoto.type}
+                </h3>
+
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-medium uppercase text-gray-500">Date Taken</p>
+                    <p className="text-gray-900">
+                      {format(parseISO(selectedPhoto.takenAt), 'MMMM d, yyyy h:mm a')}
+                    </p>
+                  </div>
+
+                  {selectedPhoto.weight && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-gray-500">Weight</p>
+                      <p className="text-lg font-semibold text-violet-600">{selectedPhoto.weight} lbs</p>
+                    </div>
+                  )}
+
+                  {['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(selectedPhoto.type) && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-gray-500">Verification Status</p>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
+                          statusConfig[selectedPhoto.verificationStatus]?.bgColor || 'bg-gray-100'
+                        } ${statusConfig[selectedPhoto.verificationStatus]?.color || 'text-gray-700'}`}
+                      >
+                        {statusConfig[selectedPhoto.verificationStatus]?.label || selectedPhoto.verificationStatus}
+                      </span>
+                      {selectedPhoto.verifiedAt && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          Verified: {format(parseISO(selectedPhoto.verifiedAt), 'MMM d, yyyy')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedPhoto.title && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-gray-500">Title</p>
+                      <p className="text-gray-900">{selectedPhoto.title}</p>
+                    </div>
+                  )}
+
+                  {selectedPhoto.notes && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-gray-500">Notes</p>
+                      <p className="text-gray-700">{selectedPhoto.notes}</p>
+                    </div>
+                  )}
+
+                  {selectedPhoto.category && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-gray-500">Category</p>
+                      <p className="text-gray-700">{selectedPhoto.category}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

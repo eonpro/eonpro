@@ -1,10 +1,10 @@
 /**
  * Send Patient Message API
  * POST /api/messages/send - Send a message to a patient
- * 
+ *
  * This endpoint provides a convenient wrapper for the main patient-chat API,
  * matching the frontend's expected interface.
- * 
+ *
  * ENTERPRISE FEATURES:
  * - Multi-tenant clinic isolation
  * - HIPAA audit logging
@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { basePrisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { withAuth, AuthUser } from "@/lib/auth/middleware";
 import { standardRateLimit } from "@/lib/rateLimit";
@@ -49,14 +49,14 @@ async function canAccessPatient(
   user: AuthUser,
   patientId: number
 ): Promise<{ allowed: boolean; patient?: any; reason?: string }> {
-  const patient = await prisma.patient.findUnique({
+  const patient = await basePrisma.patient.findUnique({
     where: { id: patientId },
-    select: { 
-      id: true, 
-      firstName: true, 
-      lastName: true, 
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
       phone: true,
-      clinicId: true 
+      clinicId: true
     }
   });
 
@@ -79,14 +79,14 @@ async function canAccessPatient(
 
   // Staff must be in same clinic as patient
   if (user.clinicId && patient.clinicId && user.clinicId !== patient.clinicId) {
-    const userClinic = await prisma.userClinic.findFirst({
+    const userClinic = await basePrisma.userClinic.findFirst({
       where: {
         userId: user.id,
         clinicId: patient.clinicId,
         isActive: true
       }
     });
-    
+
     if (!userClinic) {
       logger.security('Cross-clinic send blocked', {
         userId: user.id,
@@ -111,7 +111,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 
     if (!parseResult.success) {
       return NextResponse.json(
-        { 
+        {
           error: 'Invalid input',
           details: parseResult.error.issues.map(i => ({
             field: i.path.join('.'),
@@ -151,7 +151,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
     const senderType = isPatient ? 'PATIENT' : (user.role === 'provider' ? 'PROVIDER' : 'STAFF');
 
     // Create the message
-    const chatMessage = await prisma.patientChatMessage.create({
+    const chatMessage = await basePrisma.patientChatMessage.create({
       data: {
         patientId,
         clinicId: clinicId || null,
@@ -183,7 +183,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
         });
 
         if (smsResult.success) {
-          await prisma.patientChatMessage.update({
+          await basePrisma.patientChatMessage.update({
             where: { id: chatMessage.id },
             data: {
               status: 'DELIVERED',
@@ -193,7 +193,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
           });
           smsStatus = 'delivered';
         } else {
-          await prisma.patientChatMessage.update({
+          await basePrisma.patientChatMessage.update({
             where: { id: chatMessage.id },
             data: {
               status: 'FAILED',
@@ -204,7 +204,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
         }
       } catch (smsError) {
         const errMsg = smsError instanceof Error ? smsError.message : 'SMS error';
-        await prisma.patientChatMessage.update({
+        await basePrisma.patientChatMessage.update({
           where: { id: chatMessage.id },
           data: {
             status: 'FAILED',
@@ -218,7 +218,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 
     // Audit log
     try {
-      await prisma.auditLog.create({
+      await basePrisma.auditLog.create({
         data: {
           action: 'CHAT_SEND',
           resource: 'PatientChatMessage',
@@ -273,15 +273,15 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 }
 
 function formatTimestamp(date: Date): string {
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
   });
 }
 
 // Export with auth and rate limiting
 export const POST = standardRateLimit(
-  withAuth(postHandler, { 
-    roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'patient'] 
+  withAuth(postHandler, {
+    roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'patient']
   })
 );

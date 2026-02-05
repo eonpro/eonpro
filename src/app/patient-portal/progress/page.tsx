@@ -24,7 +24,9 @@ import {
   Coffee,
   Sun,
   Sunset,
+  Camera,
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface WeightLog {
   id: number;
@@ -402,6 +404,31 @@ export default function ProgressPage() {
             showBMI={true}
             onWeightSaved={fetchData}
           />
+
+          {/* Progress Photos Link */}
+          <Link
+            href="/patient-portal/photos/progress"
+            className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-xl"
+                style={{ backgroundColor: `${primaryColor}20` }}
+              >
+                <Camera className="h-6 w-6" style={{ color: primaryColor }} />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">Progress Photos</p>
+                <p className="text-sm text-gray-500">Track your visual transformation</p>
+              </div>
+            </div>
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <Plus className="h-5 w-5 text-white" />
+            </div>
+          </Link>
         </div>
       )}
 

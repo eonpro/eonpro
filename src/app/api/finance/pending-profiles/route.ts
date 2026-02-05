@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma, ProfileStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -79,11 +80,8 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
 
     // Build where clause
     // NOTE: Search is handled in-memory after decryption because PHI fields are encrypted
-    const where: {
-      profileStatus: string;
-      clinicId?: number;
-    } = {
-      profileStatus: status,
+    const where: Prisma.PatientWhereInput = {
+      profileStatus: status as ProfileStatus,
     };
 
     // Clinic filtering for non-super-admins

@@ -223,7 +223,7 @@ export class SubscriptionAnalyticsService {
           interval: true,
           createdAt: true,
           canceledAt: true,
-          cancelReason: true,
+          metadata: true, // Cancel reason may be stored in metadata
         },
       });
 
@@ -272,10 +272,11 @@ export class SubscriptionAnalyticsService {
         ? Math.round((churnedCount / activeAtStart) * 10000) / 100
         : 0;
 
-      // Group by cancel reason
+      // Group by cancel reason (extracted from metadata if available)
       const reasonMap = new Map<string, { count: number; mrr: number }>();
       churnedSubscriptions.forEach((sub: typeof churnedSubscriptions[number]) => {
-        const reason = sub.cancelReason || 'Not specified';
+        const metadata = sub.metadata as Record<string, unknown> | null;
+        const reason = (metadata?.cancelReason as string) || 'Not specified';
         const existing = reasonMap.get(reason);
         const mrr = calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY');
 
@@ -480,7 +481,7 @@ export class SubscriptionAnalyticsService {
             interval: sub.interval,
             startDate: sub.createdAt,
             canceledAt: sub.canceledAt,
-            cancelReason: sub.cancelReason,
+            cancelReason: (sub.metadata as Record<string, unknown> | null)?.cancelReason as string || null,
             lifetimeValue: totalValue._sum.amount || 0,
             paymentCount: payments,
             daysSinceStart: differenceInDays(new Date(), sub.createdAt),
@@ -508,7 +509,7 @@ export class SubscriptionAnalyticsService {
         where: {
           clinicId,
           status: 'ACTIVE',
-          endDate: {
+          endedAt: {
             gte: now,
             lte: futureDate,
           },
@@ -538,7 +539,7 @@ export class SubscriptionAnalyticsService {
         interval: sub.interval,
         startDate: sub.createdAt,
         canceledAt: sub.canceledAt,
-        cancelReason: sub.cancelReason,
+        cancelReason: (sub.metadata as Record<string, unknown> | null)?.cancelReason as string || null,
         lifetimeValue: 0, // Would need additional query
         paymentCount: 0, // Would need additional query
         daysSinceStart: differenceInDays(now, sub.createdAt),
@@ -601,7 +602,7 @@ export class SubscriptionAnalyticsService {
           interval: sub.interval,
           startDate: sub.createdAt,
           canceledAt: sub.canceledAt,
-          cancelReason: sub.cancelReason,
+          cancelReason: (sub.metadata as Record<string, unknown> | null)?.cancelReason as string || null,
           lifetimeValue: 0,
           paymentCount: 0,
           daysSinceStart,
@@ -651,26 +652,16 @@ export class SubscriptionAnalyticsService {
       where,
       orderBy: { createdAt: 'desc' },
       take: 100,
-      include: {
-        performedBy: {
-          select: {
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
     });
 
     return actions.map((action: typeof actions[number]) => ({
       id: action.id,
       subscriptionId: action.subscriptionId,
       action: action.actionType,
-      oldValue: action.oldValue,
-      newValue: action.newValue,
+      oldValue: { planId: action.previousPlanId, amount: action.previousAmount },
+      newValue: { planId: action.newPlanId, amount: action.newAmount },
       createdAt: action.createdAt,
-      performedBy: action.performedBy 
-        ? `${action.performedBy.firstName} ${action.performedBy.lastName}`
-        : null,
+      performedBy: action.performedBy, // String field (user ID, "system", or "patient")
     }));
   }
 }

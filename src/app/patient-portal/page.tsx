@@ -17,6 +17,10 @@ import {
   Ruler,
   Zap,
   Camera,
+  Upload,
+  CheckCircle2,
+  AlertCircle,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTracker';
@@ -43,6 +47,11 @@ export default function PatientPortalDashboard() {
   const [recentShipment, setRecentShipment] = useState<any>(null);
   const [nextReminder, setNextReminder] = useState<any>(null);
   const [intakeVitals, setIntakeVitals] = useState<IntakeVitals | null>(null);
+  const [photoStats, setPhotoStats] = useState<{
+    totalPhotos: number;
+    recentPhoto: string | null;
+    idVerificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' | null;
+  } | null>(null);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -154,6 +163,43 @@ export default function PatientPortalDashboard() {
             time: next.timeOfDay,
           });
         }
+      }
+
+      // Load photo stats for dashboard widget
+      try {
+        const photosRes = await fetch('/api/patient-portal/photos');
+        if (photosRes.ok) {
+          const photosResult = await photosRes.json();
+          if (photosResult.success && photosResult.data) {
+            const photos = photosResult.data;
+            const progressPhotos = photos.filter((p: any) => p.type === 'PROGRESS');
+            const idPhotos = photos.filter((p: any) => p.type === 'ID_FRONT' || p.type === 'ID_BACK');
+
+            // Determine ID verification status
+            let idStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' = 'NOT_SUBMITTED';
+            if (idPhotos.length > 0) {
+              const latestIdPhoto = idPhotos.sort((a: any, b: any) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )[0];
+              idStatus = latestIdPhoto.verificationStatus || 'PENDING';
+            }
+
+            // Get most recent progress photo URL
+            const recentProgressPhoto = progressPhotos.length > 0
+              ? progressPhotos.sort((a: any, b: any) =>
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                )[0]?.url
+              : null;
+
+            setPhotoStats({
+              totalPhotos: photos.length,
+              recentPhoto: recentProgressPhoto,
+              idVerificationStatus: idStatus,
+            });
+          }
+        }
+      } catch (photoError) {
+        console.error('[PatientPortal] Failed to load photo stats:', photoError);
       }
     } catch (error) {
       console.error('Error loading patient data:', error);
@@ -434,6 +480,85 @@ export default function PatientPortalDashboard() {
             <p className="text-sm text-gray-500">Est. {recentShipment.estimatedDelivery}</p>
           </Link>
         )}
+      </div>
+
+      {/* Photos Widget */}
+      <div className="mb-6">
+        <Link href="/patient-portal/photos" className="block">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <div className="rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 p-3">
+                  <Camera className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Progress Photos</h3>
+                  <p className="text-sm text-gray-500">
+                    {photoStats?.totalPhotos
+                      ? `${photoStats.totalPhotos} photo${photoStats.totalPhotos !== 1 ? 's' : ''} uploaded`
+                      : 'Track your transformation'}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </div>
+
+            {/* ID Verification Status Banner */}
+            {photoStats?.idVerificationStatus && (
+              <div className="mt-4">
+                {photoStats.idVerificationStatus === 'VERIFIED' ? (
+                  <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-700">ID Verified</span>
+                  </div>
+                ) : photoStats.idVerificationStatus === 'PENDING' ? (
+                  <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2">
+                    <Clock className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm font-medium text-amber-700">ID Verification Pending</span>
+                  </div>
+                ) : photoStats.idVerificationStatus === 'REJECTED' ? (
+                  <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-sm font-medium text-red-700">ID Needs Resubmission</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                    <Upload className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-600">Upload ID for Verification</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Recent Photo Preview */}
+            {photoStats?.recentPhoto && (
+              <div className="mt-4 flex items-center gap-3">
+                <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-gray-100">
+                  <img
+                    src={photoStats.recentPhoto}
+                    alt="Recent progress"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-700">Latest Progress Photo</p>
+                  <p className="text-xs text-gray-500">Tap to view all photos</p>
+                </div>
+              </div>
+            )}
+
+            {/* Upload Prompt for users with no photos */}
+            {!photoStats?.totalPhotos && (
+              <div className="mt-4 flex items-center gap-3 rounded-lg bg-violet-50 p-3">
+                <ImageIcon className="h-5 w-5 text-violet-600" />
+                <div>
+                  <p className="text-sm font-medium text-violet-700">Start Documenting Your Journey</p>
+                  <p className="text-xs text-violet-600">Upload your first progress photo</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </Link>
       </div>
 
       {/* Quick Actions */}
