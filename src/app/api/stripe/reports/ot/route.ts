@@ -442,7 +442,7 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
           id: true,
           displayName: true,
           refCodes: {
-            select: { code: true },
+            select: { refCode: true },
             take: 1,
           },
         },
@@ -457,9 +457,7 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
         gte: filters.startDate,
         lte: filters.endDate,
       },
-      affiliate: {
-        clinicId,
-      },
+      clinicId,
     },
     include: {
       affiliate: {
@@ -467,25 +465,16 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
           id: true,
           displayName: true,
           refCodes: {
-            select: { code: true },
+            select: { refCode: true },
             take: 1,
           },
-        },
-      },
-      patient: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
         },
       },
     },
   });
 
-  // Get conversion events and their payments
-  const conversions = affiliateEvents.filter(
-    (e: (typeof affiliateEvents)[number]) => e.eventType === 'CONVERSION'
-  );
+  // All commission events count as conversions
+  const conversions = affiliateEvents;
 
   // Aggregate by affiliate
   const affiliateBreakdown: Record<
@@ -521,14 +510,15 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
   }
 
   for (const event of conversions) {
-    if (!event.affiliate) continue;
+    const aff = (event as any).affiliate;
+    if (!aff) continue;
 
-    const affId = event.affiliate.id;
+    const affId = aff.id;
     if (!affiliateBreakdown[affId]) {
       affiliateBreakdown[affId] = {
         id: affId,
-        name: event.affiliate.name,
-        referralCode: event.affiliate.referralCode,
+        name: aff.displayName,
+        referralCode: aff.refCodes?.[0]?.refCode || '',
         signups: 0,
         conversions: 0,
         revenue: 0,
@@ -536,8 +526,8 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
       };
     }
     affiliateBreakdown[affId].conversions++;
-    affiliateBreakdown[affId].revenue += event.saleAmount || 0;
-    affiliateBreakdown[affId].commissionEarned += event.commissionAmount || 0;
+    affiliateBreakdown[affId].revenue += event.eventAmountCents || 0;
+    affiliateBreakdown[affId].commissionEarned += event.commissionAmountCents || 0;
   }
 
   const affiliates = Object.values(affiliateBreakdown)
@@ -570,16 +560,14 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
           : '0%',
     },
     byAffiliate: affiliates,
-    recentConversions: conversions.slice(0, 20).map((e: typeof conversions[number]) => ({
+    recentConversions: conversions.slice(0, 20).map((e: any) => ({
       id: e.id,
-      affiliateName: e.affiliate?.name || 'Unknown',
-      patientName: e.patient
-        ? `${e.patient.firstName || ''} ${e.patient.lastName || ''}`.trim()
-        : 'Unknown',
-      amount: e.saleAmount || 0,
-      amountFormatted: formatCurrency(e.saleAmount || 0),
-      commission: e.commissionAmount || 0,
-      commissionFormatted: formatCurrency(e.commissionAmount || 0),
+      affiliateName: e.affiliate?.displayName || 'Unknown',
+      patientName: 'N/A', // No patient relation on commission events
+      amount: e.eventAmountCents || 0,
+      amountFormatted: formatCurrency(e.eventAmountCents || 0),
+      commission: e.commissionAmountCents || 0,
+      commissionFormatted: formatCurrency(e.commissionAmountCents || 0),
       date: e.createdAt.toISOString(),
     })),
   };
@@ -607,7 +595,7 @@ async function generatePatientReport(stripe: Stripe, clinicId: number, filters: 
         select: { 
           displayName: true, 
           refCodes: {
-            select: { code: true },
+            select: { refCode: true },
             take: 1,
           },
         },
