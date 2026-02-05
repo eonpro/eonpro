@@ -84,13 +84,31 @@ const categoryLabels: Record<string, { label: string; icon: typeof Camera; color
   },
 };
 
-const statusConfig: Record<string, { color: string; bgColor: string; label: string; icon: typeof CheckCircle }> = {
+const statusConfig: Record<
+  string,
+  { color: string; bgColor: string; label: string; icon: typeof CheckCircle }
+> = {
   PENDING: { color: 'text-yellow-700', bgColor: 'bg-yellow-100', label: 'Pending', icon: Clock },
   IN_REVIEW: { color: 'text-blue-700', bgColor: 'bg-blue-100', label: 'In Review', icon: Clock },
-  VERIFIED: { color: 'text-green-700', bgColor: 'bg-green-100', label: 'Verified', icon: CheckCircle },
+  VERIFIED: {
+    color: 'text-green-700',
+    bgColor: 'bg-green-100',
+    label: 'Verified',
+    icon: CheckCircle,
+  },
   REJECTED: { color: 'text-red-700', bgColor: 'bg-red-100', label: 'Rejected', icon: AlertCircle },
-  RESUBMIT_REQUIRED: { color: 'text-orange-700', bgColor: 'bg-orange-100', label: 'Resubmit', icon: AlertCircle },
-  NOT_APPLICABLE: { color: 'text-gray-700', bgColor: 'bg-gray-100', label: 'N/A', icon: CheckCircle },
+  EXPIRED: {
+    color: 'text-orange-700',
+    bgColor: 'bg-orange-100',
+    label: 'Resubmit',
+    icon: AlertCircle,
+  },
+  NOT_APPLICABLE: {
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-100',
+    label: 'N/A',
+    icon: CheckCircle,
+  },
 };
 
 function categorizePhotos(photos: Photo[]) {
@@ -112,7 +130,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [activeCategory, setActiveCategory] = useState<'all' | 'progress' | 'verification' | 'medical'>('all');
+  const [activeCategory, setActiveCategory] = useState<
+    'all' | 'progress' | 'verification' | 'medical'
+  >('all');
 
   const fetchPhotos = useCallback(async () => {
     setLoading(true);
@@ -152,12 +172,15 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
   const filteredPhotos = getFilteredPhotos();
 
   // Group progress photos by date for comparison view
-  const progressPhotosByDate = categorized.progress.reduce((acc: Record<string, Photo[]>, photo) => {
-    const dateKey = format(parseISO(photo.takenAt), 'yyyy-MM-dd');
-    if (!acc[dateKey]) acc[dateKey] = [];
-    acc[dateKey].push(photo);
-    return acc;
-  }, {});
+  const progressPhotosByDate = categorized.progress.reduce(
+    (acc: Record<string, Photo[]>, photo) => {
+      const dateKey = format(parseISO(photo.takenAt), 'yyyy-MM-dd');
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(photo);
+      return acc;
+    },
+    {}
+  );
 
   if (loading) {
     return (
@@ -411,19 +434,24 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                   {selectedPhoto.weight && (
                     <div>
                       <p className="text-xs font-medium uppercase text-gray-500">Weight</p>
-                      <p className="text-lg font-semibold text-violet-600">{selectedPhoto.weight} lbs</p>
+                      <p className="text-lg font-semibold text-violet-600">
+                        {selectedPhoto.weight} lbs
+                      </p>
                     </div>
                   )}
 
                   {['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(selectedPhoto.type) && (
                     <div>
-                      <p className="text-xs font-medium uppercase text-gray-500">Verification Status</p>
+                      <p className="text-xs font-medium uppercase text-gray-500">
+                        Verification Status
+                      </p>
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
                           statusConfig[selectedPhoto.verificationStatus]?.bgColor || 'bg-gray-100'
                         } ${statusConfig[selectedPhoto.verificationStatus]?.color || 'text-gray-700'}`}
                       >
-                        {statusConfig[selectedPhoto.verificationStatus]?.label || selectedPhoto.verificationStatus}
+                        {statusConfig[selectedPhoto.verificationStatus]?.label ||
+                          selectedPhoto.verificationStatus}
                       </span>
                       {selectedPhoto.verifiedAt && (
                         <p className="mt-1 text-xs text-gray-500">

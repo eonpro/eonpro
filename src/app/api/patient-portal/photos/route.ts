@@ -87,29 +87,29 @@ async function refreshPhotoUrls(
 // =============================================================================
 
 async function handleGet(req: NextRequest, user: AuthUser) {
+  const searchParams = req.nextUrl.searchParams;
+
+  // Parse query params
+  const params = listPhotosSchema.safeParse({
+    type: searchParams.get('type') || undefined,
+    category: searchParams.get('category') || undefined,
+    includeDeleted: searchParams.get('includeDeleted') === 'true',
+    page: searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1,
+    limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50,
+  });
+
+  if (!params.success) {
+    return NextResponse.json(
+      { error: 'Invalid query parameters', details: params.error.issues },
+      { status: 400 }
+    );
+  }
+
+  // For patient role, only allow access to their own photos
+  let patientId: number;
+  let clinicId: number;
+
   try {
-    const searchParams = req.nextUrl.searchParams;
-
-    // Parse query params
-    const params = listPhotosSchema.safeParse({
-      type: searchParams.get('type') || undefined,
-      category: searchParams.get('category') || undefined,
-      includeDeleted: searchParams.get('includeDeleted') === 'true',
-      page: searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50,
-    });
-
-    if (!params.success) {
-      return NextResponse.json(
-        { error: 'Invalid query parameters', details: params.error.issues },
-        { status: 400 }
-      );
-    }
-
-    // For patient role, only allow access to their own photos
-    let patientId: number;
-    let clinicId: number;
-
     if (user.role === 'patient') {
       if (!user.patientId) {
         return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
@@ -132,6 +132,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
       patientId = parseInt(queryPatientId);
 
+      if (isNaN(patientId)) {
+        return NextResponse.json({ error: 'Invalid patientId' }, { status: 400 });
+      }
+
       // Verify patient exists and get clinicId
       const patient = await prisma.patient.findUnique({
         where: { id: patientId },
@@ -147,28 +151,36 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
       clinicId = patient.clinicId;
     }
+  } catch (patientError) {
+    logger.error('[Photos API] Error fetching patient', {
+      userId: user.id,
+      error: patientError instanceof Error ? patientError.message : 'Unknown error',
+    });
+    return NextResponse.json({ error: 'Failed to verify patient access' }, { status: 500 });
+  }
 
-    // Build query
-    const where: any = {
-      patientId,
-      clinicId,
-    };
+  // Build query
+  const where: any = {
+    patientId,
+    clinicId,
+  };
 
-    // Filter by type if provided
-    if (params.data.type) {
-      where.type = params.data.type;
-    }
+  // Filter by type if provided
+  if (params.data.type) {
+    where.type = params.data.type;
+  }
 
-    // Filter by category if provided
-    if (params.data.category) {
-      where.category = params.data.category;
-    }
+  // Filter by category if provided
+  if (params.data.category) {
+    where.category = params.data.category;
+  }
 
-    // Exclude deleted unless requested
-    if (!params.data.includeDeleted) {
-      where.isDeleted = false;
-    }
+  // Exclude deleted unless requested
+  if (!params.data.includeDeleted) {
+    where.isDeleted = false;
+  }
 
+  try {
     // Get total count
     const total = await prisma.patientPhoto.count({ where });
 
@@ -215,10 +227,36 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
+    // Check for Prisma-specific errors (table doesn't exist, etc.)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isPrismaError =
+      errorMessage.includes('does not exist') ||
+      errorMessage.includes('P2021') ||
+      errorMessage.includes('relation') ||
+      errorMessage.includes('table');
+
     logger.error('[Photos API] GET error', {
       userId: user.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      patientId,
+      clinicId,
+      error: errorMessage,
+      isPrismaError,
     });
+
+    if (isPrismaError) {
+      // Table might not exist yet - return empty array gracefully
+      logger.warn('[Photos API] PatientPhoto table may not exist, returning empty result');
+      return NextResponse.json({
+        photos: [],
+        pagination: {
+          page: params.data.page,
+          limit: params.data.limit,
+          total: 0,
+          totalPages: 0,
+        },
+      });
+    }
+
     return NextResponse.json({ error: 'Failed to fetch photos' }, { status: 500 });
   }
 }
@@ -282,7 +320,11 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     // Determine initial verification status based on photo type
     let verificationStatus: PatientPhotoVerificationStatus = 'NOT_APPLICABLE';
-    const idPhotoTypes = [PatientPhotoType.ID_FRONT, PatientPhotoType.ID_BACK, PatientPhotoType.SELFIE];
+    const idPhotoTypes = [
+      PatientPhotoType.ID_FRONT,
+      PatientPhotoType.ID_BACK,
+      PatientPhotoType.SELFIE,
+    ];
     if (idPhotoTypes.includes(parsed.data.type)) {
       verificationStatus = 'PENDING';
     }

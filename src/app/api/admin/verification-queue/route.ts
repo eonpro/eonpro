@@ -131,13 +131,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       _count: true,
     });
 
-    const statsByStatus = stats.reduce(
-      (acc: Record<string, number>, s) => {
-        acc[s.verificationStatus] = s._count;
-        return acc;
-      },
-      {}
-    );
+    const statsByStatus = stats.reduce((acc: Record<string, number>, s) => {
+      acc[s.verificationStatus] = s._count;
+      return acc;
+    }, {});
 
     return NextResponse.json({
       verifications: Object.values(grouped),
@@ -152,10 +149,35 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isPrismaError =
+      errorMessage.includes('does not exist') ||
+      errorMessage.includes('P2021') ||
+      errorMessage.includes('relation') ||
+      errorMessage.includes('table');
+
     logger.error('[Verification Queue] GET error', {
       userId: user.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
+      isPrismaError,
     });
+
+    if (isPrismaError) {
+      // Table might not exist yet - return empty result gracefully
+      return NextResponse.json({
+        verifications: [],
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+        },
+        stats: {
+          byStatus: {},
+        },
+      });
+    }
+
     return NextResponse.json({ error: 'Failed to fetch verification queue' }, { status: 500 });
   }
 }
@@ -209,7 +231,8 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         newStatus = 'REJECTED';
         break;
       case 'request_resubmit':
-        newStatus = 'RESUBMIT_REQUIRED';
+        // Using EXPIRED to indicate resubmission needed (per schema enum)
+        newStatus = 'EXPIRED';
         break;
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

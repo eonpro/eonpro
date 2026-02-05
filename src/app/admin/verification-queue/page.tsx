@@ -91,7 +91,7 @@ const statusConfig: Record<string, { color: string; bgColor: string; label: stri
   IN_REVIEW: { color: 'text-blue-700', bgColor: 'bg-blue-100', label: 'In Review' },
   VERIFIED: { color: 'text-green-700', bgColor: 'bg-green-100', label: 'Verified' },
   REJECTED: { color: 'text-red-700', bgColor: 'bg-red-100', label: 'Rejected' },
-  RESUBMIT_REQUIRED: { color: 'text-orange-700', bgColor: 'bg-orange-100', label: 'Resubmit Required' },
+  EXPIRED: { color: 'text-orange-700', bgColor: 'bg-orange-100', label: 'Resubmit Required' },
   NOT_APPLICABLE: { color: 'text-gray-700', bgColor: 'bg-gray-100', label: 'N/A' },
 };
 
@@ -146,7 +146,10 @@ export default function VerificationQueuePage() {
     fetchVerifications();
   }, [fetchVerifications]);
 
-  const handleVerify = async (photoId: number, action: 'approve' | 'reject' | 'request_resubmit') => {
+  const handleVerify = async (
+    photoId: number,
+    action: 'approve' | 'reject' | 'request_resubmit'
+  ) => {
     setProcessing(true);
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
@@ -176,7 +179,11 @@ export default function VerificationQueuePage() {
               ? {
                   ...p,
                   verificationStatus:
-                    action === 'approve' ? 'VERIFIED' : action === 'reject' ? 'REJECTED' : 'RESUBMIT_REQUIRED',
+                    action === 'approve'
+                      ? 'VERIFIED'
+                      : action === 'reject'
+                        ? 'REJECTED'
+                        : 'EXPIRED',
                 }
               : p
           );
@@ -259,7 +266,9 @@ export default function VerificationQueuePage() {
           <div className="flex items-center gap-3">
             <Clock className="h-5 w-5 text-yellow-600" />
             <div>
-              <p className="text-2xl font-bold text-yellow-700">{data?.stats.byStatus.PENDING || 0}</p>
+              <p className="text-2xl font-bold text-yellow-700">
+                {data?.stats.byStatus.PENDING || 0}
+              </p>
               <p className="text-sm text-yellow-600">Pending</p>
             </div>
           </div>
@@ -268,7 +277,9 @@ export default function VerificationQueuePage() {
           <div className="flex items-center gap-3">
             <Eye className="h-5 w-5 text-blue-600" />
             <div>
-              <p className="text-2xl font-bold text-blue-700">{data?.stats.byStatus.IN_REVIEW || 0}</p>
+              <p className="text-2xl font-bold text-blue-700">
+                {data?.stats.byStatus.IN_REVIEW || 0}
+              </p>
               <p className="text-sm text-blue-600">In Review</p>
             </div>
           </div>
@@ -277,7 +288,9 @@ export default function VerificationQueuePage() {
           <div className="flex items-center gap-3">
             <CheckCircle className="h-5 w-5 text-green-600" />
             <div>
-              <p className="text-2xl font-bold text-green-700">{data?.stats.byStatus.VERIFIED || 0}</p>
+              <p className="text-2xl font-bold text-green-700">
+                {data?.stats.byStatus.VERIFIED || 0}
+              </p>
               <p className="text-sm text-green-600">Verified</p>
             </div>
           </div>
@@ -287,7 +300,7 @@ export default function VerificationQueuePage() {
             <XCircle className="h-5 w-5 text-red-600" />
             <div>
               <p className="text-2xl font-bold text-red-700">
-                {(data?.stats.byStatus.REJECTED || 0) + (data?.stats.byStatus.RESUBMIT_REQUIRED || 0)}
+                {(data?.stats.byStatus.REJECTED || 0) + (data?.stats.byStatus.EXPIRED || 0)}
               </p>
               <p className="text-sm text-red-600">Rejected</p>
             </div>
@@ -311,7 +324,7 @@ export default function VerificationQueuePage() {
           <option value="IN_REVIEW">In Review</option>
           <option value="VERIFIED">Verified</option>
           <option value="REJECTED">Rejected</option>
-          <option value="RESUBMIT_REQUIRED">Resubmit Required</option>
+          <option value="EXPIRED">Resubmit Required</option>
         </select>
       </div>
 
@@ -321,10 +334,15 @@ export default function VerificationQueuePage() {
           const pendingCount = verification.photos.filter(
             (p) => p.verificationStatus === 'PENDING' || p.verificationStatus === 'IN_REVIEW'
           ).length;
-          const verifiedCount = verification.photos.filter((p) => p.verificationStatus === 'VERIFIED').length;
+          const verifiedCount = verification.photos.filter(
+            (p) => p.verificationStatus === 'VERIFIED'
+          ).length;
 
           return (
-            <div key={verification.patient.id} className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <div
+              key={verification.patient.id}
+              className="overflow-hidden rounded-xl bg-white shadow-sm"
+            >
               <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -404,7 +422,9 @@ export default function VerificationQueuePage() {
           <Shield className="mx-auto h-12 w-12 text-gray-300" />
           <p className="mt-2 text-gray-500">No verifications found</p>
           <p className="text-sm text-gray-400">
-            {statusFilter === 'PENDING' ? 'No pending verifications to review' : 'Try changing the filter'}
+            {statusFilter === 'PENDING'
+              ? 'No pending verifications to review'
+              : 'Try changing the filter'}
           </p>
         </div>
       )}
@@ -447,7 +467,8 @@ export default function VerificationQueuePage() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">
-                      {selectedVerification.patient.firstName} {selectedVerification.patient.lastName}
+                      {selectedVerification.patient.firstName}{' '}
+                      {selectedVerification.patient.lastName}
                     </h2>
                     <p className="text-sm text-gray-500">
                       {selectedVerification.patient.email} • {selectedVerification.clinic.name}
@@ -468,7 +489,8 @@ export default function VerificationQueuePage() {
               {selectedVerification.photos.map((photo) => {
                 const status = statusConfig[photo.verificationStatus] || statusConfig.PENDING;
                 const isPending =
-                  photo.verificationStatus === 'PENDING' || photo.verificationStatus === 'IN_REVIEW';
+                  photo.verificationStatus === 'PENDING' ||
+                  photo.verificationStatus === 'IN_REVIEW';
 
                 return (
                   <div key={photo.id} className="overflow-hidden rounded-xl border border-gray-200">
@@ -480,9 +502,13 @@ export default function VerificationQueuePage() {
                           ) : (
                             <CreditCard className="h-4 w-4 text-gray-500" />
                           )}
-                          <span className="font-medium text-gray-700">{photoTypeLabels[photo.type]}</span>
+                          <span className="font-medium text-gray-700">
+                            {photoTypeLabels[photo.type]}
+                          </span>
                         </div>
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.bgColor} ${status.color}`}>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.bgColor} ${status.color}`}
+                        >
                           {status.label}
                         </span>
                       </div>
@@ -511,7 +537,7 @@ export default function VerificationQueuePage() {
                           <button
                             onClick={() => handleVerify(photo.id, 'approve')}
                             disabled={processing}
-                            className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
                           >
                             <CheckCircle className="h-4 w-4" />
                             Approve
@@ -519,7 +545,7 @@ export default function VerificationQueuePage() {
                           <button
                             onClick={() => handleVerify(photo.id, 'reject')}
                             disabled={processing}
-                            className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                           >
                             <XCircle className="h-4 w-4" />
                             Reject
@@ -531,7 +557,9 @@ export default function VerificationQueuePage() {
                     {/* Verification info */}
                     {photo.verifiedAt && (
                       <div className="border-t border-gray-100 bg-gray-50 px-3 py-2">
-                        <p className="text-xs text-gray-500">Verified: {formatDate(photo.verifiedAt)}</p>
+                        <p className="text-xs text-gray-500">
+                          Verified: {formatDate(photo.verifiedAt)}
+                        </p>
                         {photo.verificationNotes && (
                           <p className="mt-1 text-xs text-gray-600">{photo.verificationNotes}</p>
                         )}
@@ -544,7 +572,7 @@ export default function VerificationQueuePage() {
 
             {/* Rejection Notes */}
             <div className="border-t border-gray-100 px-6 py-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Notes (for rejection/resubmit)
               </label>
               <textarea
@@ -570,10 +598,11 @@ export default function VerificationQueuePage() {
                   disabled={
                     processing ||
                     !selectedVerification.photos.some(
-                      (p) => p.verificationStatus === 'PENDING' || p.verificationStatus === 'IN_REVIEW'
+                      (p) =>
+                        p.verificationStatus === 'PENDING' || p.verificationStatus === 'IN_REVIEW'
                     )
                   }
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 py-2.5 font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 py-2.5 font-medium text-white hover:bg-green-700 disabled:opacity-50"
                 >
                   {processing ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
