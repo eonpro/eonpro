@@ -478,7 +478,6 @@ export default function PatientPortalDashboard() {
             <Camera className="mb-2 h-6 w-6 text-blue-600" />
             <span className="text-sm font-medium text-gray-700">Photos</span>
           </Link>
-          )}
 
           {features.showShipmentTracking && (
             <Link
