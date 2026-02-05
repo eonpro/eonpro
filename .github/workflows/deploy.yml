@@ -184,6 +184,8 @@ jobs:
     environment: production
     needs: [migrate-database]  # CRITICAL: Wait for migrations before deploying
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event.inputs.environment == 'production')
+    permissions:
+      contents: write  # Required for creating release tags
     
     steps:
       - name: Checkout code
@@ -227,19 +229,18 @@ jobs:
             const sha = context.sha.substring(0, 7);
             const tag = `release-${date}-${sha}`;
             
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `refs/tags/${tag}`,
-              sha: context.sha
-            });
-            
-      - name: Notify deployment
-        if: always()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          channel: '#deployments'
-          fields: repo,message,commit,author,action,eventName,ref,workflow
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tag}`,
+                sha: context.sha
+              });
+              console.log(`✅ Created release tag: ${tag}`);
+            } catch (error) {
+              if (error.status === 422) {
+                console.log(`Tag ${tag} already exists, skipping`);
+              } else {
+                throw error;
+              }
+            }
