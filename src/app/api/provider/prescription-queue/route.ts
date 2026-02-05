@@ -296,7 +296,19 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       // First try to get GLP-1 info from PatientDocument (intake form data)
       if (documentData) {
         try {
-          const docJson = JSON.parse(documentData.toString('utf8'));
+          // Handle various buffer/array formats (Prisma 6.x returns Bytes as Uint8Array)
+          let rawData: string;
+          if (documentData instanceof Uint8Array) {
+            rawData = new TextDecoder().decode(documentData);
+          } else if (Buffer.isBuffer(documentData)) {
+            rawData = documentData.toString('utf8');
+          } else if (typeof documentData === 'object' && (documentData as any).type === 'Buffer' && Array.isArray((documentData as any).data)) {
+            rawData = new TextDecoder().decode(new Uint8Array((documentData as any).data));
+          } else {
+            rawData = String(documentData);
+          }
+
+          const docJson = JSON.parse(rawData);
 
           // Debug logging - show document structure and GLP-1 related fields
           const answersPreview = docJson.answers?.slice?.(0, 3)?.map((a: Record<string, unknown>) => ({
