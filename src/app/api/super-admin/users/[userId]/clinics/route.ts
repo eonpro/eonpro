@@ -89,17 +89,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Get session data for this user
     let sessionData = null;
     try {
+      const now = new Date();
       const activeSession = await prisma.userSession.findFirst({
         where: {
           userId,
-          isActive: true,
+          expiresAt: { gt: now }, // Session is active if not expired
         },
-        orderBy: { startedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
 
       if (activeSession) {
-        const now = new Date();
-        const startedAt = new Date(activeSession.startedAt);
+        const startedAt = new Date(activeSession.createdAt);
         const lastActivity = activeSession.lastActivity
           ? new Date(activeSession.lastActivity)
           : startedAt;
@@ -111,7 +111,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         sessionData = {
           isOnline: true,
           sessionId: activeSession.id,
-          startedAt: activeSession.startedAt,
+          startedAt: activeSession.createdAt,
           lastActivity: activeSession.lastActivity,
           ipAddress: activeSession.ipAddress,
           userAgent: activeSession.userAgent,
