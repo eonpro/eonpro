@@ -25,6 +25,7 @@ import {
   Trophy,
   HeartPulse,
   Activity,
+  Camera,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { PWAUpdateBanner, OfflineBanner, InstallPrompt } from '@/components/PWAUpdateBanner';
@@ -38,6 +39,7 @@ const allNavItems = [
   { icon: Calendar, path: '/patient-portal/appointments', label: 'Appointments', feature: 'showAppointments' },
   { icon: HeartPulse, path: '/patient-portal/care-plan', label: 'My Care Plan', feature: 'showCarePlan' },
   { icon: Scale, path: '/patient-portal/progress', label: 'Progress', feature: 'showWeightTracking' },
+  { icon: Camera, path: '/patient-portal/photos', label: 'Photos', feature: null }, // Always show - progress photos, ID verification
   { icon: Trophy, path: '/patient-portal/achievements', label: 'Achievements', feature: 'showAchievements' },
   { icon: Pill, path: '/patient-portal/medications', label: 'Medications', feature: null }, // Always show
   { icon: Package, path: '/patient-portal/shipments', label: 'Shipments', feature: 'showShipmentTracking' },

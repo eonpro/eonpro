@@ -138,7 +138,8 @@ export function encryptPHI(text: string | null | undefined): string | null {
   try {
     const key = getKeySync();
     const iv = crypto.randomBytes(ivLength);
-    const cipher = crypto.createCipheriv(algorithm, key, iv);
+    // GCM with explicit auth tag length for security compliance
+    const cipher = crypto.createCipheriv(algorithm, key, iv, { authTagLength: tagLength });
     
     const encrypted = Buffer.concat([
       cipher.update(text, 'utf8'),
@@ -171,7 +172,8 @@ export async function encryptPHIAsync(text: string | null | undefined): Promise<
   try {
     const key = await getKey();
     const iv = crypto.randomBytes(ivLength);
-    const cipher = crypto.createCipheriv(algorithm, key, iv);
+    // GCM with explicit auth tag length for security compliance
+    const cipher = crypto.createCipheriv(algorithm, key, iv, { authTagLength: tagLength });
     
     const encrypted = Buffer.concat([
       cipher.update(text, 'utf8'),
@@ -215,7 +217,8 @@ export function decryptPHI(encryptedData: string | null | undefined): string | n
     const authTag = Buffer.from(parts[1], 'base64');
     const encrypted = Buffer.from(parts[2], 'base64');
     
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    // GCM with explicit auth tag length for security compliance
+    const decipher = crypto.createDecipheriv(algorithm, key, iv, { authTagLength: tagLength });
     decipher.setAuthTag(authTag);
     
     const decrypted = Buffer.concat([
@@ -253,7 +256,8 @@ export async function decryptPHIAsync(encryptedData: string | null | undefined):
     const authTag = Buffer.from(parts[1], 'base64');
     const encrypted = Buffer.from(parts[2], 'base64');
     
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    // GCM with explicit auth tag length for security compliance
+    const decipher = crypto.createDecipheriv(algorithm, key, iv, { authTagLength: tagLength });
     decipher.setAuthTag(authTag);
     
     const decrypted = Buffer.concat([
@@ -410,7 +414,8 @@ export async function reencryptPHI(
   const authTag = Buffer.from(parts[1], 'base64');
   const encrypted = Buffer.from(parts[2], 'base64');
   
-  const decipher = crypto.createDecipheriv(algorithm, oldKey, iv);
+  // GCM with explicit auth tag length for security compliance
+  const decipher = crypto.createDecipheriv(algorithm, oldKey, iv, { authTagLength: tagLength });
   decipher.setAuthTag(authTag);
   
   const plaintext = Buffer.concat([
@@ -420,7 +425,8 @@ export async function reencryptPHI(
   
   // Encrypt with new key
   const newIv = crypto.randomBytes(ivLength);
-  const cipher = crypto.createCipheriv(algorithm, newKey, newIv);
+  // GCM with explicit auth tag length for security compliance
+  const cipher = crypto.createCipheriv(algorithm, newKey, newIv, { authTagLength: tagLength });
   
   const newEncrypted = Buffer.concat([
     cipher.update(plaintext, 'utf8'),

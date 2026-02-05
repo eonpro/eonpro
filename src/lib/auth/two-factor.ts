@@ -290,7 +290,8 @@ async function verifyBackupCode(
 function encryptSecret(secret: string): string {
   const key = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  // GCM with explicit 16-byte (128-bit) auth tag length for security
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
   
   let encrypted = cipher.update(secret, 'utf8', 'hex');
   encrypted += cipher.final('hex');
@@ -307,7 +308,8 @@ function decryptSecret(encryptedSecret: string): string {
   const encrypted = parts[2];
   
   const key = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  // GCM with explicit 16-byte (128-bit) auth tag length for security
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
   decipher.setAuthTag(authTag);
   
   let decrypted = decipher.update(encrypted, 'hex', 'utf8');

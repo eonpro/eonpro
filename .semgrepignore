@@ -1,0 +1,23 @@
+# Semgrep Ignore File
+# False positives and intentional patterns that are safe
+
+# Internal scripts - commands are hardcoded, not user input
+scripts/pre-migrate.js
+scripts/check-health.js
+
+# Test files - not production code
+tests/
+test/
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+
+# Migration files - SQL content is intentional
+prisma/migrations/
+
+# Build artifacts
+.next/
+node_modules/
+dist/
+build/

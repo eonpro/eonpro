@@ -85,13 +85,15 @@ const AVAILABLE_INTEGRATIONS = {
 };
 
 /**
- * Encrypt sensitive data
+ * Encrypt sensitive data using AES-256-GCM
+ * @security Uses 16-byte auth tag for integrity verification
  */
 function encryptData(data: any): string {
   const algorithm = 'aes-256-gcm';
   const key = Buffer.from(process.env.ENCRYPTION_KEY || 'default-encryption-key-change-this', 'base64').slice(0, 32);
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(algorithm, key, iv);
+  // GCM with explicit 16-byte (128-bit) auth tag length for security
+  const cipher = crypto.createCipheriv(algorithm, key, iv, { authTagLength: 16 });
   
   let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
   encrypted += cipher.final('hex');
@@ -106,7 +108,8 @@ function encryptData(data: any): string {
 }
 
 /**
- * Decrypt sensitive data
+ * Decrypt sensitive data using AES-256-GCM
+ * @security Uses 16-byte auth tag for integrity verification
  */
 function decryptData(encryptedData: string): any {
   try {
@@ -114,7 +117,8 @@ function decryptData(encryptedData: string): any {
     const algorithm = 'aes-256-gcm';
     const key = Buffer.from(process.env.ENCRYPTION_KEY || 'default-encryption-key-change-this', 'base64').slice(0, 32);
     
-    const decipher = crypto.createDecipheriv(algorithm, key, Buffer.from(iv, 'hex'));
+    // GCM with explicit 16-byte (128-bit) auth tag length for security
+    const decipher = crypto.createDecipheriv(algorithm, key, Buffer.from(iv, 'hex'), { authTagLength: 16 });
     decipher.setAuthTag(Buffer.from(authTag, 'hex'));
     
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
@@ -122,8 +126,6 @@ function decryptData(encryptedData: string): any {
     
     return JSON.parse(decrypted);
   } catch (error: any) {
-    // @ts-ignore
-   
     logger.error('Failed to decrypt data:', error);
     return null;
   }
