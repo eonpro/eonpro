@@ -127,6 +127,10 @@ export class StripeInvoiceService {
       throw new Error(`Invoice with ID ${invoiceId} not found`);
     }
 
+    if (!invoice.stripeInvoiceId) {
+      throw new Error(`Invoice ${invoiceId} has no Stripe invoice ID`);
+    }
+
     // Send via Stripe
     const sentInvoice = await stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId);
 
@@ -141,7 +145,7 @@ export class StripeInvoiceService {
           data: {
             patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
             invoiceNumber: sentInvoice.number || invoice.stripeInvoiceId,
-            amount: (invoice.amountDue / 100).toFixed(2),
+            amount: ((invoice.amountDue || 0) / 100).toFixed(2),
             currency: invoice.currency?.toUpperCase() || 'USD',
             dueDate: invoice.dueDate
               ? new Date(invoice.dueDate).toLocaleDateString()
@@ -175,6 +179,10 @@ export class StripeInvoiceService {
       throw new Error(`Invoice with ID ${invoiceId} not found`);
     }
 
+    if (!invoice.stripeInvoiceId) {
+      throw new Error(`Invoice ${invoiceId} has no Stripe invoice ID`);
+    }
+
     // Void in Stripe
     await stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
 
@@ -200,6 +208,10 @@ export class StripeInvoiceService {
 
     if (!invoice) {
       throw new Error(`Invoice with ID ${invoiceId} not found`);
+    }
+
+    if (!invoice.stripeInvoiceId) {
+      throw new Error(`Invoice ${invoiceId} has no Stripe invoice ID`);
     }
 
     // Mark as uncollectible in Stripe
@@ -340,10 +352,15 @@ export class StripeInvoiceService {
         const product = item.product;
 
         try {
+          if (!product.stripePriceId) {
+            logger.warn(`[STRIPE] Skipping product ${product.id} - no Stripe price ID`);
+            continue;
+          }
+
           // Create Stripe subscription first (external API call)
           const subscription = await stripeClient.subscriptions.create({
             customer: patient.stripeCustomerId,
-            items: [{ price: product.stripePriceId }],
+            items: [{ price: product.stripePriceId as string }],
             trial_period_days: product.trialDays || undefined,
             metadata: {
               patientId: patient.id.toString(),

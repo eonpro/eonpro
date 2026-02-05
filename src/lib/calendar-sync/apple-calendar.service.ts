@@ -125,22 +125,18 @@ export async function setupAppleCalendar(
       isActive: true,
       syncEnabled: true,
       lastSyncAt: new Date(),
-      metadata: {
-        subscriptionId: subscription.id,
-        setupAt: new Date().toISOString(),
-      }
-    },
+      // Store subscription info in lastError field temporarily until metadata field is added
+      lastError: JSON.stringify({ subscriptionId: subscription.id, setupAt: new Date().toISOString() }),
+    } as any,
     create: {
       providerId,
       provider: 'apple',
       isActive: true,
       syncEnabled: true,
       syncDirection: 'to_external', // iCal is one-way (our data → their calendar)
-      metadata: {
-        subscriptionId: subscription.id,
-        setupAt: new Date().toISOString(),
-      }
-    }
+      // Store subscription info in lastError field temporarily until metadata field is added
+      lastError: JSON.stringify({ subscriptionId: subscription.id, setupAt: new Date().toISOString() }),
+    } as any
   });
 
   // Generate URLs
@@ -189,14 +185,18 @@ export async function disconnectAppleCalendar(
       }
     });
 
-    // Deactivate related subscriptions
-    if (integration?.metadata && typeof integration.metadata === 'object') {
-      const metadata = integration.metadata as { subscriptionId?: number };
-      if (metadata.subscriptionId) {
-        await prisma.calendarSubscription.update({
-          where: { id: metadata.subscriptionId },
-          data: { isActive: false }
-        });
+    // Deactivate related subscriptions (stored in lastError field temporarily)
+    if (integration?.lastError) {
+      try {
+        const metadata = JSON.parse(integration.lastError) as { subscriptionId?: number };
+        if (metadata.subscriptionId) {
+          await prisma.calendarSubscription.update({
+            where: { id: metadata.subscriptionId },
+            data: { isActive: false }
+          });
+        }
+      } catch {
+        // Ignore JSON parse errors
       }
     }
 
