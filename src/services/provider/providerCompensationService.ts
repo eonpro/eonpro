@@ -257,7 +257,7 @@ export const providerCompensationService = {
     providerId: number,
     metadata?: Record<string, unknown>
   ): Promise<ProviderCompensationEvent | null> {
-    // Get the order with invoice info for percentage calculation
+    // Get the order with rxs for prescription count
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       select: {
@@ -266,13 +266,16 @@ export const providerCompensationService = {
         rxs: {
           select: { id: true },
         },
-        invoice: {
-          select: {
-            id: true,
-            amount: true,
-            amountPaid: true,
-          },
-        },
+      },
+    });
+    
+    // Get invoice separately (Invoice -> Order, not Order -> Invoice)
+    const invoice = await prisma.invoice.findFirst({
+      where: { orderId },
+      select: {
+        id: true,
+        amount: true,
+        amountPaid: true,
       },
     });
 
@@ -318,8 +321,8 @@ export const providerCompensationService = {
     }
 
     // Calculate compensation based on type
-    const prescriptionCount = order.rxs.length || 1;
-    const orderTotalCents = order.invoice?.amountPaid || order.invoice?.amount || null;
+    const prescriptionCount = order.rxs?.length || 1;
+    const orderTotalCents = invoice?.amountPaid || invoice?.amount || null;
 
     const { amountCents, calculationDetails } = this.calculateCompensation(
       plan,
@@ -337,9 +340,9 @@ export const providerCompensationService = {
         amountCents,
         prescriptionCount,
         orderTotalCents,
-        calculationDetails,
+        calculationDetails: calculationDetails as any,
         status: 'PENDING',
-        metadata: metadata ?? undefined,
+        metadata: (metadata ?? undefined) as any,
       },
     });
 
@@ -741,7 +744,7 @@ export const providerCompensationService = {
       },
       select: {
         id: true,
-        approvingProviderId: true,
+        approvedBy: true,
         createdAt: true,
       },
     });
@@ -768,8 +771,8 @@ export const providerCompensationService = {
 
     // Add SOAP note counts
     for (const note of soapNotes) {
-      if (note.approvingProviderId) {
-        const existing = providerMap.get(note.approvingProviderId);
+      if (note.approvedBy) {
+        const existing = providerMap.get(note.approvedBy);
         if (existing) {
           existing.soapNotes++;
         }

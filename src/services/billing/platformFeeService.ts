@@ -184,7 +184,7 @@ export const platformFeeService = {
           ...input,
           updatedBy: actorId,
           updatedAt: new Date(),
-        },
+        } as any,
       });
     }
 
@@ -194,7 +194,7 @@ export const platformFeeService = {
         ...input,
         createdBy: actorId,
         updatedBy: actorId,
-      },
+      } as any,
     });
   },
 
@@ -349,13 +349,16 @@ export const platformFeeService = {
             form: true,
           },
         },
-        invoice: {
-          select: {
-            id: true,
-            amount: true,
-            amountPaid: true,
-          },
-        },
+      },
+    });
+    
+    // Get invoice separately (Invoice -> Order, not Order -> Invoice)
+    const invoice = await prisma.invoice.findFirst({
+      where: { orderId },
+      select: {
+        id: true,
+        amount: true,
+        amountPaid: true,
       },
     });
 
@@ -442,7 +445,7 @@ export const platformFeeService = {
     }
 
     // Calculate fee amount
-    const orderTotalCents = order.invoice?.amountPaid || order.invoice?.amount || null;
+    const orderTotalCents = invoice?.amountPaid || invoice?.amount || null;
     const amountCents = this.calculateFeeAmount(
       feeTypeConfig.type,
       feeTypeConfig.amount,
@@ -472,7 +475,7 @@ export const platformFeeService = {
         providerId,
         patientId: order.patientId,
         amountCents,
-        calculationDetails,
+        calculationDetails: calculationDetails as any,
         status: 'PENDING',
       },
     });
@@ -577,7 +580,7 @@ export const platformFeeService = {
         periodEnd: weekEnd,
         periodSales: salesCents,
         amountCents,
-        calculationDetails,
+        calculationDetails: calculationDetails as any,
         status: 'PENDING',
       },
     });
@@ -606,18 +609,18 @@ export const platformFeeService = {
     const result = await prisma.payment.aggregate({
       where: {
         clinicId,
-        status: 'COMPLETED',
+        status: 'SUCCEEDED',
         createdAt: {
           gte: weekStart,
           lte: weekEnd,
         },
       },
       _sum: {
-        amountCents: true,
+        amount: true,
       },
     });
 
-    return result._sum.amountCents || 0;
+    return result._sum.amount || 0;
   },
 
   /**

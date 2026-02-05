@@ -440,22 +440,24 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
       attributionAffiliate: {
         select: {
           id: true,
-          name: true,
-          email: true,
-          referralCode: true,
+          displayName: true,
+          refCodes: {
+            select: { code: true },
+            take: 1,
+          },
         },
       },
     },
   });
 
-  // Get affiliate events for this period
-  const affiliateEvents = await prisma.affiliateEvent.findMany({
+  // Get affiliate commission events for this period
+  const affiliateEvents = await prisma.affiliateCommissionEvent.findMany({
     where: {
       createdAt: {
         gte: filters.startDate,
         lte: filters.endDate,
       },
-      patient: {
+      affiliate: {
         clinicId,
       },
     },
@@ -463,8 +465,11 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
       affiliate: {
         select: {
           id: true,
-          name: true,
-          referralCode: true,
+          displayName: true,
+          refCodes: {
+            select: { code: true },
+            take: 1,
+          },
         },
       },
       patient: {
@@ -497,14 +502,15 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
   > = {};
 
   for (const patient of attributedPatients) {
-    if (!patient.attributionAffiliate) continue;
+    if (!(patient as any).attributionAffiliate) continue;
 
-    const affId = patient.attributionAffiliate.id;
+    const aff = (patient as any).attributionAffiliate;
+    const affId = aff.id;
     if (!affiliateBreakdown[affId]) {
       affiliateBreakdown[affId] = {
         id: affId,
-        name: patient.attributionAffiliate.name,
-        referralCode: patient.attributionAffiliate.referralCode,
+        name: aff.displayName,
+        referralCode: aff.refCodes?.[0]?.code || '',
         signups: 0,
         conversions: 0,
         revenue: 0,
@@ -598,7 +604,13 @@ async function generatePatientReport(stripe: Stripe, clinicId: number, filters: 
     },
     include: {
       attributionAffiliate: {
-        select: { name: true, referralCode: true },
+        select: { 
+          displayName: true, 
+          refCodes: {
+            select: { code: true },
+            take: 1,
+          },
+        },
       },
     },
   });
