@@ -49,6 +49,11 @@ export interface ProcessIntakeResult {
     id: number;
     status: string;
   } | null;
+  weightLog: {
+    id: number;
+    weight: number;
+    source: string;
+  } | null;
   errors: string[];
   processingTimeMs: number;
 }
@@ -91,7 +96,18 @@ export class IntakeProcessor {
       logger.error(`[INTAKE ${this.requestId}] PDF generation failed:`, error);
     }
 
-    // Step 4: Generate SOAP note (if requested and document exists)
+    // Step 4: Create initial weight log from intake data
+    let weightLog = null;
+    if (!options.isPartialSubmission) {
+      try {
+        weightLog = await this.createInitialWeightLog(normalized, patient);
+      } catch (error: any) {
+        this.errors.push(`Weight log creation failed: ${error.message}`);
+        logger.error(`[INTAKE ${this.requestId}] Weight log creation failed:`, error);
+      }
+    }
+
+    // Step 5: Generate SOAP note (if requested and document exists)
     let soapNote = null;
     if (options.generateSoapNote !== false && document && !options.isPartialSubmission) {
       try {
@@ -102,7 +118,7 @@ export class IntakeProcessor {
       }
     }
 
-    // Step 5: Track referral (if promo code provided)
+    // Step 6: Track referral (if promo code provided)
     if (options.promoCode) {
       try {
         await this.trackReferral(patient.id, options.promoCode, clinicId, options.referralSource);
@@ -111,8 +127,8 @@ export class IntakeProcessor {
       }
     }
 
-    // Step 6: Create audit log
-    await this.createAuditLog(patient, document, soapNote, options);
+    // Step 7: Create audit log
+    await this.createAuditLog(patient, document, soapNote, weightLog, options);
 
     const processingTimeMs = Date.now() - this.startTime;
     logger.info(`[INTAKE ${this.requestId}] Completed in ${processingTimeMs}ms with ${this.errors.length} errors`);
@@ -134,6 +150,11 @@ export class IntakeProcessor {
       soapNote: soapNote ? {
         id: soapNote.id,
         status: 'DRAFT',
+      } : null,
+      weightLog: weightLog ? {
+        id: weightLog.id,
+        weight: weightLog.weight,
+        source: weightLog.source,
       } : null,
       errors: this.errors,
       processingTimeMs,
@@ -391,6 +412,7 @@ export class IntakeProcessor {
     patient: any,
     document: any,
     soapNote: any,
+    weightLog: any,
     options: ProcessIntakeOptions
   ): Promise<void> {
     try {
@@ -405,6 +427,7 @@ export class IntakeProcessor {
             requestId: this.requestId,
             documentId: document?.id,
             soapNoteId: soapNote?.id,
+            weightLogId: weightLog?.id,
             isPartial: options.isPartialSubmission,
             errors: this.errors.length > 0 ? this.errors : undefined,
           },
@@ -415,6 +438,127 @@ export class IntakeProcessor {
       const errMsg = error instanceof Error ? error.message : 'Unknown error';
       logger.warn(`[INTAKE ${this.requestId}] Audit log failed:`, { error: errMsg });
     }
+  }
+
+  /**
+   * Create initial weight log entry from intake data
+   * This creates a real database record so weight appears in progress charts
+   */
+  private async createInitialWeightLog(
+    normalized: NormalizedIntake,
+    patient: any
+  ): Promise<{ id: number; weight: number; source: string } | null> {
+    // Extract weight from intake data
+    const weight = this.extractWeightFromIntake(normalized);
+
+    if (!weight) {
+      logger.debug(`[INTAKE ${this.requestId}] No weight found in intake data`);
+      return null;
+    }
+
+    // Check if patient already has weight logs to avoid duplicates
+    // (e.g., if this is an existing patient with updated intake)
+    const existingLogs = await prisma.patientWeightLog.findMany({
+      where: { patientId: patient.id },
+      take: 1,
+      orderBy: { recordedAt: 'asc' },
+    });
+
+    // If patient already has weight logs, check if we should skip
+    if (existingLogs.length > 0) {
+      const oldestLog = existingLogs[0];
+      // Skip if there's already a weight log from intake source
+      if (oldestLog.source === 'intake') {
+        logger.debug(`[INTAKE ${this.requestId}] Patient already has intake weight log`);
+        return null;
+      }
+      // Skip if there's already a very similar weight (within 1 lb and 24 hours)
+      const timeDiff = Math.abs(new Date().getTime() - new Date(oldestLog.recordedAt).getTime());
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      if (Math.abs(oldestLog.weight - weight) < 1 && timeDiff < oneDayMs) {
+        logger.debug(`[INTAKE ${this.requestId}] Similar weight log already exists`);
+        return null;
+      }
+    }
+
+    // Create the weight log entry
+    const weightLog = await prisma.patientWeightLog.create({
+      data: {
+        patientId: patient.id,
+        weight,
+        unit: 'lbs',
+        notes: 'Initial weight from intake form',
+        source: 'intake',
+        recordedAt: normalized.submittedAt || new Date(),
+      },
+    });
+
+    logger.info(`[INTAKE ${this.requestId}] Created initial weight log: ${weightLog.id} (${weight} lbs)`);
+    return { id: weightLog.id, weight: weightLog.weight, source: weightLog.source };
+  }
+
+  /**
+   * Extract weight value from normalized intake data
+   * Searches through sections and answers for weight-related fields
+   */
+  private extractWeightFromIntake(normalized: NormalizedIntake): number | null {
+    const weightLabels = [
+      'starting weight',
+      'current weight',
+      'weight (lbs)',
+      'weight',
+      'your weight',
+      'body weight',
+    ];
+
+    // Helper to check if label matches weight-related fields
+    const isWeightLabel = (label: string): boolean => {
+      const normalizedLabel = label.toLowerCase().trim();
+      return weightLabels.some(wl => normalizedLabel.includes(wl));
+    };
+
+    // Helper to parse weight value
+    const parseWeight = (value: string | any): number | null => {
+      if (!value) return null;
+      const strValue = String(value).trim();
+      if (!strValue) return null;
+      
+      // Extract numeric value (handles "150 lbs", "150", etc.)
+      const numericValue = parseFloat(strValue.replace(/[^0-9.]/g, ''));
+      
+      // Validate reasonable weight range (10-1000 lbs)
+      if (isNaN(numericValue) || numericValue < 10 || numericValue > 1000) {
+        return null;
+      }
+      
+      return numericValue;
+    };
+
+    // Search in sections
+    for (const section of normalized.sections) {
+      for (const entry of section.entries) {
+        if (isWeightLabel(entry.label)) {
+          const weight = parseWeight(entry.value);
+          if (weight) {
+            logger.debug(`[INTAKE ${this.requestId}] Found weight in section "${section.title}": ${weight}`);
+            return weight;
+          }
+        }
+      }
+    }
+
+    // Search in flat answers array
+    for (const answer of normalized.answers) {
+      if (isWeightLabel(answer.label)) {
+        const weight = parseWeight(answer.value);
+        if (weight) {
+          logger.debug(`[INTAKE ${this.requestId}] Found weight in answers: ${weight}`);
+          return weight;
+        }
+      }
+    }
+
+    return null;
   }
 
   // Helper methods
