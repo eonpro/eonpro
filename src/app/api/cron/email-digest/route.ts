@@ -162,13 +162,13 @@ async function processEmailDigests(req: NextRequest) {
 
         // Group notifications by category
         type NotificationType = typeof notifications[number];
-        const byCategory: Partial<Record<NotificationCategory, NotificationType[]>> = {};
+        const byCategory: Record<NotificationCategory, NotificationType[]> = {} as Record<NotificationCategory, NotificationType[]>;
         for (const notification of notifications) {
-          const cat = notification.category;
+          const cat: NotificationCategory = notification.category;
           if (!byCategory[cat]) {
             byCategory[cat] = [];
           }
-          byCategory[cat]!.push(notification);
+          byCategory[cat].push(notification);
         }
 
         // Build category summaries

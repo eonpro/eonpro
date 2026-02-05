@@ -55,6 +55,8 @@ interface HandleApiErrorOptions {
   logError?: boolean;
   /** Additional context for logging */
   context?: Record<string, unknown>;
+  /** Route identifier for error tracking (e.g., 'GET /api/tickets/stats') */
+  route?: string;
 }
 
 // ============================================================================
@@ -80,7 +82,7 @@ export function handleApiError(
   error: unknown,
   options: HandleApiErrorOptions = {}
 ): NextResponse<ErrorResponse> {
-  const { requestId, logError = true, context } = options;
+  const { requestId, logError = true, context, route } = options;
   const timestamp = new Date().toISOString();
 
   // Convert error to AppError if needed
@@ -88,7 +90,7 @@ export function handleApiError(
 
   // Log error (skip operational client errors in production)
   if (logError && shouldLogError(appError)) {
-    logErrorDetails(appError, { requestId, ...context });
+    logErrorDetails(appError, { requestId, route, ...context });
   }
 
   // Build response

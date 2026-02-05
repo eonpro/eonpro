@@ -31,11 +31,11 @@ class AdminErrorBoundary extends Component<{ children: React.ReactNode }, ErrorB
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[AdminErrorBoundary] Caught error:', error, errorInfo);
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-[#efece7] flex items-center justify-center">
@@ -246,7 +246,25 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Call the logout API to terminate server session
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }).catch(() => {
+          // Non-blocking - continue with client-side cleanup even if API fails
+          console.warn('[Logout] API call failed, continuing with client cleanup');
+        });
+      }
+    } catch (error) {
+      console.warn('[Logout] Error calling logout API:', error);
+    }
+
     // Clear all localStorage items
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
@@ -255,6 +273,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('super_admin-token');
     localStorage.removeItem('clinics');
     localStorage.removeItem('activeClinicId');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_timestamp');
 
     // Clear all auth cookies to prevent session mismatch on next login
     const authCookies = [

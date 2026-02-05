@@ -61,7 +61,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const where: any = {};
 
     // Clinic isolation (unless super admin)
-    if (user.role !== 'SUPER_ADMIN' && user.clinicId) {
+    if (user.role !== 'super_admin' && user.clinicId) {
       where.clinicId = user.clinicId;
     }
 
@@ -125,7 +125,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     ]);
 
     // Get summary stats
-    const clinicId = user.role !== 'SUPER_ADMIN' ? user.clinicId : undefined;
+    const clinicId = user.role !== 'super_admin' ? user.clinicId : undefined;
     const summary = clinicId ? await getShipmentScheduleSummary(clinicId) : null;
 
     return NextResponse.json({
@@ -175,7 +175,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     }
 
     // Verify clinic access
-    if (user.role !== 'SUPER_ADMIN' && patient.clinicId !== user.clinicId) {
+    if (user.role !== 'super_admin' && patient.clinicId !== user.clinicId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -222,5 +222,5 @@ async function handlePost(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const GET = withAuth(handleGet, { roles: ['ADMIN', 'SUPER_ADMIN'] });
-export const POST = withAuth(handlePost, { roles: ['ADMIN', 'SUPER_ADMIN'] });
+export const GET = withAuth(handleGet, { roles: ['admin', 'super_admin'] });
+export const POST = withAuth(handlePost, { roles: ['admin', 'super_admin'] });

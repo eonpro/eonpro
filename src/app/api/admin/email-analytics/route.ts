@@ -53,7 +53,7 @@ async function getAnalyticsHandler(req: NextRequest, user: AuthUser): Promise<Re
 
     // Non-super-admin can only see their own clinic
     const effectiveClinicId =
-      user.role === 'SUPER_ADMIN' ? clinicId : user.clinicId || undefined;
+      user.role === 'super_admin' ? clinicId : user.clinicId || undefined;
 
     // Calculate date range
     const startDate = new Date();
@@ -128,7 +128,7 @@ async function getSuppressedHandler(req: NextRequest, user: AuthUser): Promise<R
   try {
     // Non-super-admin can only see their own clinic
     const effectiveClinicId =
-      user.role === 'SUPER_ADMIN' ? undefined : user.clinicId || undefined;
+      user.role === 'super_admin' ? undefined : user.clinicId || undefined;
 
     const suppressed = await emailLogService.getSuppressedEmails(effectiveClinicId);
 

@@ -91,7 +91,7 @@ async function handleGet(
     }
 
     // Verify clinic access
-    if (user.role !== 'SUPER_ADMIN' && shipment.clinicId !== user.clinicId) {
+    if (user.role !== 'super_admin' && shipment.clinicId !== user.clinicId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -156,7 +156,7 @@ async function handlePatch(
     }
 
     // Verify clinic access
-    if (user.role !== 'SUPER_ADMIN' && shipment.clinicId !== user.clinicId) {
+    if (user.role !== 'super_admin' && shipment.clinicId !== user.clinicId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -247,7 +247,7 @@ async function handleDelete(
     }
 
     // Verify clinic access
-    if (user.role !== 'SUPER_ADMIN' && shipment.clinicId !== user.clinicId) {
+    if (user.role !== 'super_admin' && shipment.clinicId !== user.clinicId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -313,15 +313,15 @@ async function handleDelete(
 
 export const GET = withAuth(
   (req: NextRequest, user: AuthUser, context?: any) => handleGet(req, user, context as RouteContext),
-  { roles: ['ADMIN', 'SUPER_ADMIN'] }
+  { roles: ['admin', 'super_admin'] }
 );
 
 export const PATCH = withAuth(
   (req: NextRequest, user: AuthUser, context?: any) => handlePatch(req, user, context as RouteContext),
-  { roles: ['ADMIN', 'SUPER_ADMIN'] }
+  { roles: ['admin', 'super_admin'] }
 );
 
 export const DELETE = withAuth(
   (req: NextRequest, user: AuthUser, context?: any) => handleDelete(req, user, context as RouteContext),
-  { roles: ['ADMIN', 'SUPER_ADMIN'] }
+  { roles: ['admin', 'super_admin'] }
 );

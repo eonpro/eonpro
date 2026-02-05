@@ -50,7 +50,7 @@ async function handleGet(
     }
 
     // Verify clinic access
-    if (user.role !== 'SUPER_ADMIN' && patient.clinicId !== user.clinicId) {
+    if (user.role !== 'super_admin' && patient.clinicId !== user.clinicId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -168,5 +168,5 @@ async function handleGet(
 
 export const GET = withAuth(
   (req: NextRequest, user: AuthUser, context?: any) => handleGet(req, user, context as RouteContext),
-  { roles: ['ADMIN', 'SUPER_ADMIN', 'PROVIDER'] }
+  { roles: ['admin', 'super_admin', 'provider'] }
 );
