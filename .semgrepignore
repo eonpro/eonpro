@@ -33,6 +33,7 @@ src/lib/auth/middleware.ts
 # These are navigating to internal pages, not eval/code execution
 src/app/unauthorized/
 src/components/PatientIntakeView.tsx
+src/components/EditPatientForm.tsx
 
 # Nginx config - the H2C patterns are being mitigated via websocket-only check
 docker/nginx/nginx.conf
