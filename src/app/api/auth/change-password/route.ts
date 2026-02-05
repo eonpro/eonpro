@@ -80,7 +80,7 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
         resourceId: String(user.id),
         action: 'PASSWORD_CHANGE_FAILED',
         outcome: 'FAILURE',
-        details: { reason: 'Invalid current password' },
+        metadata: { reason: 'Invalid current password' },
       });
 
       return NextResponse.json(

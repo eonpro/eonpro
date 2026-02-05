@@ -19,7 +19,8 @@ import { prisma, basePrisma } from '@/lib/db';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
-import { Patient, Provider, Order } from '@/types/models';
+// Note: Patient, Provider, Order types imported from models are not directly used
+// The Prisma client provides type-safe queries for these entities
 
 // Zod schema for login request validation
 const loginSchema = z.object({
@@ -121,7 +122,16 @@ async function loginHandler(req: NextRequest) {
     }
 
     // Find user from unified User table first
-    let user = await prisma.user.findUnique({
+    // Define a flexible type that can hold various user shapes from different queries
+    type FlexibleUser = Awaited<ReturnType<typeof prisma.user.findUnique>> & {
+      provider?: unknown;
+      influencer?: unknown;
+      patient?: unknown;
+      permissions?: unknown;
+      features?: unknown;
+    };
+    
+    let user: FlexibleUser | null = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
       include: {
         provider: true,
@@ -168,7 +178,7 @@ async function loginHandler(req: NextRequest) {
               status: 'ACTIVE',
               providerId: providerData.id,
               clinicId: providerData.clinicId,
-            } as typeof user;
+            } as unknown as FlexibleUser;
             passwordHash = providerData.passwordHash || null;
           }
           break;
@@ -185,7 +195,7 @@ async function loginHandler(req: NextRequest) {
               lastName: '',
               role: "influencer",
               status: 'ACTIVE',
-            } as any;
+            } as unknown as FlexibleUser;
             passwordHash = influencer.passwordHash;
           }
           break;
@@ -203,7 +213,7 @@ async function loginHandler(req: NextRequest) {
               where: { patientId: patientRecord.id },
             });
             if (patientUser) {
-              user = patientUser;
+              user = patientUser as FlexibleUser;
               passwordHash = patientUser.passwordHash;
             }
           }
@@ -223,7 +233,7 @@ async function loginHandler(req: NextRequest) {
             },
           });
           if (adminUser) {
-            user = adminUser;
+            user = adminUser as FlexibleUser;
             passwordHash = adminUser.passwordHash;
           }
           break;
@@ -238,7 +248,7 @@ async function loginHandler(req: NextRequest) {
             },
           });
           if (staffUser) {
-            user = staffUser;
+            user = staffUser as FlexibleUser;
             passwordHash = staffUser.passwordHash;
           }
           break;
@@ -441,9 +451,10 @@ async function loginHandler(req: NextRequest) {
 
     // Add providerId if user is a provider or has a linked provider
     if ('providerId' in user && user.providerId) {
-      tokenPayload.providerId = user.providerId;
-    } else if ('provider' in user && user.provider) {
-      tokenPayload.providerId = user.provider.id;
+      tokenPayload.providerId = user.providerId as number;
+    } else if ('provider' in user && user.provider && typeof user.provider === 'object') {
+      const provider = user.provider as { id: number };
+      tokenPayload.providerId = provider.id;
     } else if (userRole === 'provider') {
       // FALLBACK: Look up provider by email if not already linked
       // This handles cases where the User record exists but providerId wasn't set
@@ -505,11 +516,11 @@ async function loginHandler(req: NextRequest) {
     }
 
     // Add permissions and features if available
-    if ('permissions' in user && user.permissions) {
-      tokenPayload.permissions = user.permissions;
+    if ('permissions' in user && user.permissions && Array.isArray(user.permissions)) {
+      tokenPayload.permissions = user.permissions as string[];
     }
-    if ('features' in user && user.features) {
-      tokenPayload.features = user.features;
+    if ('features' in user && user.features && Array.isArray(user.features)) {
+      tokenPayload.features = user.features as string[];
     }
 
     const token = await new SignJWT(tokenPayload)
