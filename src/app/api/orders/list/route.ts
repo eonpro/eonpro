@@ -88,13 +88,13 @@ export async function GET(request: NextRequest) {
       // Fetch shipments from PatientShippingUpdate that aren't already in orders
       const patientShipments = await prisma.patientShippingUpdate.findMany({
         where: {
-          ...clinicFilter,
+          ...(userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId }),
           // Exclude shipments already linked to orders we have
           OR: [
             { orderId: null },
             { orderId: { notIn: Array.from(existingOrderIds) } },
           ],
-        },
+        } as any,
         include: {
           patient: {
             select: {
@@ -117,8 +117,8 @@ export async function GET(request: NextRequest) {
 
       // Convert PatientShippingUpdate records to order-like format
       const shippingOnlyRecords = patientShipments
-        .filter((s: typeof patientShipments[number]) => !existingOrderIds.has(s.orderId || -1))
-        .map((shipment: typeof patientShipments[number]) => ({
+        .filter((s: any) => !existingOrderIds.has(s.orderId || -1))
+        .map((shipment: any) => ({
           // Use negative ID to distinguish from real orders (prefixed with 'ship-')
           id: shipment.orderId || -shipment.id,
           _isShipmentOnly: true, // Flag to identify these records
@@ -128,9 +128,9 @@ export async function GET(request: NextRequest) {
           clinicId: shipment.clinicId,
           // Decrypt patient PHI - names are encrypted in database
           patient: {
-            id: shipment.patient.id,
-            firstName: decryptPHI(shipment.patient.firstName) || 'Unknown',
-            lastName: decryptPHI(shipment.patient.lastName) || '',
+            id: shipment.patient?.id,
+            firstName: decryptPHI(shipment.patient?.firstName) || 'Unknown',
+            lastName: decryptPHI(shipment.patient?.lastName) || '',
           },
           patientId: shipment.patientId,
           primaryMedName: shipment.medicationName || shipment.order?.primaryMedName || null,
