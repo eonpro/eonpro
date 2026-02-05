@@ -2,7 +2,8 @@
 CREATE TYPE "AppointmentStatus" AS ENUM ('SCHEDULED', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED');
 
 -- CreateEnum
-CREATE TYPE "AppointmentType" AS ENUM ('IN_PERSON', 'VIDEO', 'PHONE');
+-- Note: Named AppointmentModeType to avoid conflict with AppointmentType table
+CREATE TYPE "AppointmentModeType" AS ENUM ('IN_PERSON', 'VIDEO', 'PHONE');
 
 -- CreateEnum
 CREATE TYPE "ReminderType" AS ENUM ('EMAIL', 'SMS', 'BOTH');
@@ -79,7 +80,7 @@ CREATE TABLE "Appointment" (
     "startTime" TIMESTAMP(3) NOT NULL,
     "endTime" TIMESTAMP(3) NOT NULL,
     "duration" INTEGER NOT NULL DEFAULT 30,
-    "type" "AppointmentType" NOT NULL DEFAULT 'IN_PERSON',
+    "type" "AppointmentModeType" NOT NULL DEFAULT 'IN_PERSON',
     "status" "AppointmentStatus" NOT NULL DEFAULT 'SCHEDULED',
     "reason" TEXT,
     "notes" TEXT,
