@@ -53,9 +53,14 @@ export default function InvoicesPage() {
   const [clinicFilter, setClinicFilter] = useState('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  const [createForm, setCreateForm] = useState<{
+    clinicId: string;
+    periodType: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
+    periodStart: string;
+    periodEnd: string;
+  }>({
     clinicId: '',
-    periodType: 'MONTHLY' as const,
+    periodType: 'MONTHLY',
     periodStart: '',
     periodEnd: '',
     createStripeInvoice: true,

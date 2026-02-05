@@ -63,7 +63,6 @@ export async function GET(req: NextRequest) {
           email: true,
           phone: true,
           createdAt: true,
-          updatedAt: true,
           sourceMetadata: true,
         },
       });
@@ -81,7 +80,6 @@ export async function GET(req: NextRequest) {
           email: true,
           phone: true,
           createdAt: true,
-          updatedAt: true,
           sourceMetadata: true,
         },
       });
@@ -99,7 +97,6 @@ export async function GET(req: NextRequest) {
           email: true,
           phone: true,
           createdAt: true,
-          updatedAt: true,
           sourceMetadata: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -151,7 +148,7 @@ export async function GET(req: NextRequest) {
       },
       sync: {
         createdAt: patient.createdAt,
-        updatedAt: patient.updatedAt,
+        updatedAt: patient.createdAt, // Patient model doesn't have updatedAt, using createdAt
         submissionId: sourceMetadata?.submissionId || null,
         submissionType: sourceMetadata?.submissionType || null,
         qualified: sourceMetadata?.qualified || null,
