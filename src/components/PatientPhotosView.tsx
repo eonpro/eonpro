@@ -89,7 +89,7 @@ const statusConfig: Record<string, { color: string; bgColor: string; label: stri
   IN_REVIEW: { color: 'text-blue-700', bgColor: 'bg-blue-100', label: 'In Review', icon: Clock },
   VERIFIED: { color: 'text-green-700', bgColor: 'bg-green-100', label: 'Verified', icon: CheckCircle },
   REJECTED: { color: 'text-red-700', bgColor: 'bg-red-100', label: 'Rejected', icon: AlertCircle },
-  RESUBMIT_REQUIRED: { color: 'text-orange-700', bgColor: 'bg-orange-100', label: 'Resubmit', icon: AlertCircle },
+  EXPIRED: { color: 'text-orange-700', bgColor: 'bg-orange-100', label: 'Resubmit', icon: AlertCircle },
   NOT_APPLICABLE: { color: 'text-gray-700', bgColor: 'bg-gray-100', label: 'N/A', icon: CheckCircle },
 };
 

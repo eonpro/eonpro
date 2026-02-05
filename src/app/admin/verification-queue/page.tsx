@@ -91,7 +91,7 @@ const statusConfig: Record<string, { color: string; bgColor: string; label: stri
   IN_REVIEW: { color: 'text-blue-700', bgColor: 'bg-blue-100', label: 'In Review' },
   VERIFIED: { color: 'text-green-700', bgColor: 'bg-green-100', label: 'Verified' },
   REJECTED: { color: 'text-red-700', bgColor: 'bg-red-100', label: 'Rejected' },
-  RESUBMIT_REQUIRED: { color: 'text-orange-700', bgColor: 'bg-orange-100', label: 'Resubmit Required' },
+  EXPIRED: { color: 'text-orange-700', bgColor: 'bg-orange-100', label: 'Resubmit Required' },
   NOT_APPLICABLE: { color: 'text-gray-700', bgColor: 'bg-gray-100', label: 'N/A' },
 };
 
@@ -176,7 +176,7 @@ export default function VerificationQueuePage() {
               ? {
                   ...p,
                   verificationStatus:
-                    action === 'approve' ? 'VERIFIED' : action === 'reject' ? 'REJECTED' : 'RESUBMIT_REQUIRED',
+                    action === 'approve' ? 'VERIFIED' : action === 'reject' ? 'REJECTED' : 'EXPIRED',
                 }
               : p
           );
@@ -287,7 +287,7 @@ export default function VerificationQueuePage() {
             <XCircle className="h-5 w-5 text-red-600" />
             <div>
               <p className="text-2xl font-bold text-red-700">
-                {(data?.stats.byStatus.REJECTED || 0) + (data?.stats.byStatus.RESUBMIT_REQUIRED || 0)}
+                {(data?.stats.byStatus.REJECTED || 0) + (data?.stats.byStatus.EXPIRED || 0)}
               </p>
               <p className="text-sm text-red-600">Rejected</p>
             </div>
@@ -311,7 +311,7 @@ export default function VerificationQueuePage() {
           <option value="IN_REVIEW">In Review</option>
           <option value="VERIFIED">Verified</option>
           <option value="REJECTED">Rejected</option>
-          <option value="RESUBMIT_REQUIRED">Resubmit Required</option>
+          <option value="EXPIRED">Resubmit Required</option>
         </select>
       </div>
 
