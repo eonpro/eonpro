@@ -9,13 +9,13 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN npm ci --only=production
+RUN npm ci --only=production --legacy-peer-deps
 RUN npm install @prisma/client
 
 # Development dependencies stage
 FROM base AS dev-deps
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Builder stage
 FROM base AS builder

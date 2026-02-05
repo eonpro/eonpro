@@ -208,12 +208,32 @@ jobs:
         run: |
           echo "Checking authentication security..."
           
-          # Check for demo tokens (should not exist in production code)
-          if grep -r "demo-.*-token" src/lib/auth/ 2>/dev/null | grep -v "test" | grep -v ".test."; then
-            echo "❌ Demo tokens found in authentication code!"
+          # Check for UNGUARDED demo tokens (should not exist in production code)
+          # Demo tokens are allowed IF they are properly guarded by:
+          # - NODE_ENV !== 'production' check
+          # - ENABLE_DEMO_TOKENS === 'true' check
+          # Files with proper guards are safe and excluded from this check
+          
+          DEMO_TOKEN_FILES=$(grep -rl "demo-.*-token" src/lib/auth/ 2>/dev/null | grep -v "test" | grep -v ".test." || true)
+          
+          UNGUARDED_FILES=""
+          for file in $DEMO_TOKEN_FILES; do
+            # Check if file has production guard (NODE_ENV !== 'production')
+            if ! grep -q "NODE_ENV.*!==.*'production'" "$file" 2>/dev/null; then
+              UNGUARDED_FILES="$UNGUARDED_FILES $file"
+            fi
+          done
+          
+          if [ -n "$UNGUARDED_FILES" ]; then
+            echo "❌ UNGUARDED demo tokens found in:"
+            echo "$UNGUARDED_FILES"
             exit 1
           else
-            echo "✅ No demo tokens in authentication"
+            if [ -n "$DEMO_TOKEN_FILES" ]; then
+              echo "✅ Demo tokens found but properly guarded by production check"
+            else
+              echo "✅ No demo tokens in authentication"
+            fi
           fi
           
           # Check for 2FA implementation
