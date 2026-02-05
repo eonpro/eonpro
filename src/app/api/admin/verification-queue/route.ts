@@ -11,8 +11,18 @@ import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { PatientPhotoVerificationStatus } from '@prisma/client';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+
+// Avoid Prisma enum import issues - define locally
+const VERIFICATION_STATUSES = [
+  'NOT_APPLICABLE',
+  'PENDING',
+  'IN_REVIEW',
+  'VERIFIED',
+  'REJECTED',
+  'EXPIRED',
+] as const;
+type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 
 // =============================================================================
 // Request Schemas
@@ -44,7 +54,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Filter by status
     if (status !== 'all') {
-      where.verificationStatus = status as PatientPhotoVerificationStatus;
+      where.verificationStatus = status as VerificationStatus;
     }
 
     // Filter by clinic (unless super_admin viewing all)
@@ -222,7 +232,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     }
 
     // Determine new status based on action
-    let newStatus: PatientPhotoVerificationStatus;
+    let newStatus: VerificationStatus;
     switch (action) {
       case 'approve':
         newStatus = 'VERIFIED';

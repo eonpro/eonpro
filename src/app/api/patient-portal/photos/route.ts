@@ -13,16 +13,47 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { PatientPhotoType, PatientPhotoVerificationStatus } from '@prisma/client';
-import { generateSignedUrl, deleteFromS3 } from '@/lib/integrations/aws/s3Service';
+import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import crypto from 'crypto';
+
+// =============================================================================
+// Photo Type Constants (avoid Prisma enum import issues)
+// =============================================================================
+
+const PHOTO_TYPES = [
+  'PROGRESS_FRONT',
+  'PROGRESS_SIDE',
+  'PROGRESS_BACK',
+  'ID_FRONT',
+  'ID_BACK',
+  'SELFIE',
+  'MEDICAL_SKIN',
+  'MEDICAL_INJURY',
+  'MEDICAL_SYMPTOM',
+  'MEDICAL_BEFORE',
+  'MEDICAL_AFTER',
+  'MEDICAL_OTHER',
+  'PROFILE_AVATAR',
+] as const;
+
+const VERIFICATION_STATUSES = [
+  'NOT_APPLICABLE',
+  'PENDING',
+  'IN_REVIEW',
+  'VERIFIED',
+  'REJECTED',
+  'EXPIRED',
+] as const;
+
+type PhotoType = (typeof PHOTO_TYPES)[number];
+type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 
 // =============================================================================
 // Request Schemas
 // =============================================================================
 
 const listPhotosSchema = z.object({
-  type: z.nativeEnum(PatientPhotoType).optional(),
+  type: z.enum(PHOTO_TYPES).optional(),
   category: z.string().optional(),
   includeDeleted: z.boolean().optional().default(false),
   page: z.number().optional().default(1),
@@ -30,7 +61,7 @@ const listPhotosSchema = z.object({
 });
 
 const createPhotoSchema = z.object({
-  type: z.nativeEnum(PatientPhotoType),
+  type: z.enum(PHOTO_TYPES),
   category: z.string().optional(),
   s3Key: z.string().min(1, 'S3 key is required'),
   thumbnailKey: z.string().optional(),
@@ -319,12 +350,8 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     }
 
     // Determine initial verification status based on photo type
-    let verificationStatus: PatientPhotoVerificationStatus = 'NOT_APPLICABLE';
-    const idPhotoTypes = [
-      PatientPhotoType.ID_FRONT,
-      PatientPhotoType.ID_BACK,
-      PatientPhotoType.SELFIE,
-    ];
+    let verificationStatus: VerificationStatus = 'NOT_APPLICABLE';
+    const idPhotoTypes: PhotoType[] = ['ID_FRONT', 'ID_BACK', 'SELFIE'];
     if (idPhotoTypes.includes(parsed.data.type)) {
       verificationStatus = 'PENDING';
     }
