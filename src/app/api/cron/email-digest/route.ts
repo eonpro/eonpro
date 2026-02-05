@@ -161,25 +161,23 @@ async function processEmailDigests(req: NextRequest) {
         }
 
         // Group notifications by category
-        const byCategory = notifications.reduce<Record<NotificationCategory, typeof notifications>>(
-          (acc, notification) => {
-            const cat = notification.category;
-            if (!acc[cat]) {
-              acc[cat] = [];
-            }
-            acc[cat].push(notification);
-            return acc;
-          },
-          {} as Record<NotificationCategory, typeof notifications>
-        );
+        type NotificationType = typeof notifications[number];
+        const byCategory: Partial<Record<NotificationCategory, NotificationType[]>> = {};
+        for (const notification of notifications) {
+          const cat = notification.category;
+          if (!byCategory[cat]) {
+            byCategory[cat] = [];
+          }
+          byCategory[cat]!.push(notification);
+        }
 
         // Build category summaries
         const categorySummaries = Object.entries(byCategory).map(([category, notifs]) => {
-          const typedNotifs = notifs as typeof notifications;
+          const typedNotifs = notifs as NotificationType[];
           return {
             name: CATEGORY_NAMES[category as NotificationCategory] || category,
             count: typedNotifs.length,
-            items: typedNotifs.slice(0, 5).map((n) => ({
+            items: typedNotifs.slice(0, 5).map((n: NotificationType) => ({
               title: n.title,
               message: n.message.length > 100 ? n.message.substring(0, 100) + '...' : n.message,
               actionUrl: n.actionUrl,

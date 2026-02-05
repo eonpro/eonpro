@@ -90,8 +90,9 @@ export async function GET(req: NextRequest) {
     }> = {};
 
     for (const log of webhookLogs) {
-      if (!webhooksByEndpoint[log.endpoint]) {
-        webhooksByEndpoint[log.endpoint] = {
+      const endpoint = log.endpoint || 'unknown';
+      if (!webhooksByEndpoint[endpoint]) {
+        webhooksByEndpoint[endpoint] = {
           total: 0,
           success: 0,
           failed: 0,
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
         };
       }
       
-      const entry = webhooksByEndpoint[log.endpoint];
+      const entry = webhooksByEndpoint[endpoint];
       entry.total++;
       
       if (log.status === 'SUCCESS') {

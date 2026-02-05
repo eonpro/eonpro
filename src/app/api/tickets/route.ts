@@ -11,6 +11,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -324,7 +325,7 @@ export const POST = withAuth(async (request, user) => {
     const prefix = clinic?.subdomain?.toUpperCase().slice(0, 3) || 'TKT';
 
     // Use transaction for atomic ticket number generation
-    const ticket = await prisma.$transaction(async (tx) => {
+    const ticket = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const ticketCount = await tx.ticket.count({ where: { clinicId } });
       const ticketNumber = `${prefix}-${String(ticketCount + 1).padStart(6, '0')}`;
 

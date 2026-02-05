@@ -389,7 +389,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch recent patients from this clinic to check for duplicates
     // (fetching all would be too slow, so limit to recent 500)
-    const recentPatients = await withRetry(() => prisma.patient.findMany({
+    const recentPatients = await withRetry<Patient[]>(() => prisma.patient.findMany({
       where: { clinicId: clinicId },
       orderBy: { createdAt: 'desc' },
       take: 500,
@@ -512,7 +512,7 @@ export async function POST(req: NextRequest) {
               const refetchPatient = await prisma.patient.findFirst({
                 where: {
                   clinicId: clinicId,
-                  OR: lookupConditions.length > 0 ? lookupConditions : [
+                  OR: [
                     { email: patientData.email },
                     { phone: patientData.phone },
                   ],

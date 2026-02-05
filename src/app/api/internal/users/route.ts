@@ -184,7 +184,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     });
 
     // Sort to put Platform Admins at the top for easy access
-    transformedUsers.sort((a, b) => {
+    type TransformedUser = typeof transformedUsers[number];
+    transformedUsers.sort((a: TransformedUser, b: TransformedUser) => {
       if (a.isPlatformAdmin && !b.isPlatformAdmin) return -1;
       if (!a.isPlatformAdmin && b.isPlatformAdmin) return 1;
       return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);

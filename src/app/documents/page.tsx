@@ -127,6 +127,7 @@ export default function DocumentManagementPage() {
       [FileCategory.CONSENT_FORMS]: 'bg-pink-100 text-pink-800',
       [FileCategory.INTAKE_FORMS]: 'bg-cyan-100 text-cyan-800',
       [FileCategory.BRANDING]: 'bg-emerald-100 text-emerald-800',
+      [FileCategory.PROFILE_PICTURES]: 'bg-orange-100 text-orange-800',
       [FileCategory.OTHER]: 'bg-gray-100 text-gray-800',
     };
     return colors[category] || 'bg-gray-100 text-gray-800';

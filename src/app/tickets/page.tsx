@@ -530,7 +530,9 @@ export default function TicketsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-start gap-2">
                         {ticket.sla?.breached && (
-                          <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0 text-red-500" title="SLA Breached" />
+                          <span title="SLA Breached">
+                            <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0 text-red-500" />
+                          </span>
                         )}
                         <div>
                           <p className="font-medium text-gray-900">{ticket.title}</p>
