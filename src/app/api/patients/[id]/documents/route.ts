@@ -6,8 +6,8 @@ import { Patient, Provider, Order } from '@/types/models';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { storeFile, isAllowedFileType } from '@/lib/storage/secure-storage';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
-import { isS3Enabled } from '@/lib/integrations/aws/s3Config';
-import { uploadToS3, FileCategory } from '@/lib/integrations/aws/s3Service';
+import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
+import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 
 export const GET = withAuthParams(async (
   request: NextRequest,
@@ -192,7 +192,9 @@ export const POST = withAuthParams(async (
       let storagePath: string;
       let fileSize: number;
 
-      // Use S3 in production, local storage in development
+      // Use S3 for storage (required in production due to read-only filesystem)
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+
       if (isS3Enabled()) {
         // Upload to S3
         const s3Category = categoryToFileCategory[category?.toUpperCase()] || FileCategory.OTHER;
@@ -207,18 +209,32 @@ export const POST = withAuthParams(async (
           },
           contentType: file.type || 'application/octet-stream',
         });
-        
+
         // Store S3 key as the path
         storagePath = s3Result.key;
         fileSize = s3Result.size;
-        
+
         logger.info('Document uploaded to S3', {
           patientId,
           s3Key: s3Result.key,
           clinicId: patient.clinicId,
         });
+      } else if (isProduction) {
+        // In production without S3, document upload is not supported
+        logger.error('Document upload attempted in production without S3 configured', {
+          patientId,
+          clinicId: patient.clinicId,
+          userId: user.id,
+        });
+        return NextResponse.json(
+          {
+            error: 'Document upload is not available. Please contact support to enable cloud storage.',
+            code: 'STORAGE_NOT_CONFIGURED',
+          },
+          { status: 503 }
+        );
       } else {
-        // Development: use local storage
+        // Development only: use local storage
         const storedFile = await storeFile(
           buffer,
           file.name,
