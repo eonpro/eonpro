@@ -1,6 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 
-const DATABASE_URL = 'postgresql://postgres:398Xakf%2457@eonpro-db.cx8o24ooodj4.us-east-2.rds.amazonaws.com:5432/postgres?sslmode=require';
+// Use environment variable - DO NOT hardcode credentials
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
 
 const prisma = new PrismaClient({
   datasources: { db: { url: DATABASE_URL } }

@@ -3,7 +3,13 @@ const { PrismaClient } = require('@prisma/client');
 async function setupDatabase() {
   console.log('🔄 Testing database connection...');
   
-  const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:3lvzN)sk8EBgPR4z]TyR2AUn~_4m@eonpro-production.cluster-cx8o24ooodj4.us-east-2.rds.amazonaws.com:5432/eonpro?schema=public&sslmode=require';
+  const databaseUrl = process.env.DATABASE_URL;
+  
+  if (!databaseUrl) {
+    console.error('❌ DATABASE_URL environment variable is required');
+    console.log('💡 Set DATABASE_URL in your .env file or environment');
+    process.exit(1);
+  }
   
   // Set the DATABASE_URL for Prisma
   process.env.DATABASE_URL = databaseUrl;
@@ -44,18 +50,9 @@ async function setupDatabase() {
         console.log(`👥 Users in database: ${userCount}`);
         
         if (userCount === 0) {
-          console.log('📝 Creating admin user...');
-          const admin = await prisma.user.create({
-            data: {
-              email: 'admin@eonpro.com',
-              name: 'Admin User',
-              passwordHash: '$2a$10$K7L1OJ0TfPAf8jkXqLPZXeQm6wD6mFXSZv/xHPQKJrYIOVqTf2Cve', // password: admin123
-              role: 'admin',
-              isActive: true,
-              emailVerified: new Date()
-            }
-          });
-          console.log('✅ Admin user created:', admin.email);
+          console.log('⚠️  No users found in database.');
+          console.log('💡 To create an admin user, run: npx ts-node scripts/create-admin.ts');
+          console.log('   DO NOT use default/hardcoded passwords in production!');
         }
       } catch (e) {
         console.log('⚠️  Could not check users:', e.message);

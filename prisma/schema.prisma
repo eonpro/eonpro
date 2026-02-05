@@ -106,6 +106,9 @@ model Patient {
   prescriptionCycles PatientPrescriptionCycle[]
   platformFeeEvents  PlatformFeeEvent[]
 
+  // PATIENT PORTAL: Progress photos, ID verification, medical images
+  photos PatientPhoto[]
+
   @@unique([clinicId, patientId])
   @@index([clinicId])
   @@index([profileStatus]) // For efficiently querying pending profiles
@@ -2649,6 +2652,9 @@ model Clinic {
   platformFeeEvents          PlatformFeeEvent[]
   platformInvoices           ClinicPlatformInvoice[]
   patientPrescriptionCycles  PatientPrescriptionCycle[]
+
+  // PATIENT PORTAL: Progress photos, ID verification, medical images
+  patientPhotos PatientPhoto[]
 
   @@index([subdomain])
   @@index([status])
@@ -6091,4 +6097,98 @@ model ClinicPlatformInvoice {
   @@index([status])
   @@index([periodStart, periodEnd])
   @@index([dueDate])
+}
+
+// ============================================================================
+// PATIENT PORTAL: Photo Upload System
+// ============================================================================
+// Supports progress photos (before/after), ID verification, and medical images
+// All photos are encrypted at rest in S3 with clinic isolation
+
+model PatientPhoto {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenant isolation
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id])
+  clinicId  Int
+  clinic    Clinic  @relation(fields: [clinicId], references: [id])
+
+  // Photo type and category
+  type     PatientPhotoType // PROGRESS_FRONT, PROGRESS_SIDE, ID_FRONT, MEDICAL, etc.
+  category String?          // Additional categorization (e.g., "week-1", "skin-condition")
+
+  // S3 Storage
+  s3Key        String  // Full S3 key path
+  s3Url        String  // Signed URL (regenerated on access)
+  thumbnailKey String? // Thumbnail S3 key
+  thumbnailUrl String? // Thumbnail signed URL
+  fileSize     Int?    // File size in bytes
+  mimeType     String? // Image MIME type (image/jpeg, image/png, etc.)
+  width        Int?    // Image width in pixels
+  height       Int?    // Image height in pixels
+
+  // Photo context
+  title   String? // User-provided title
+  notes   String? // User-provided notes/description
+  weight  Float?  // Weight at time of photo (for progress tracking)
+  takenAt DateTime @default(now()) // When photo was taken (may differ from upload)
+
+  // ID Verification (for ID_FRONT, ID_BACK types)
+  verificationStatus PatientPhotoVerificationStatus @default(PENDING)
+  verifiedAt         DateTime?
+  verifiedBy         Int? // User ID of verifier
+  verificationNotes  String? // Admin notes on verification
+
+  // Privacy & Access
+  isPrivate     Boolean @default(true) // Only patient and care team can view
+  isDeleted     Boolean @default(false) // Soft delete for audit trail
+  deletedAt     DateTime?
+  deletedBy     Int?
+  deletionReason String?
+
+  // Metadata
+  uploadedFrom String? // "web", "mobile", "camera"
+  deviceInfo   String? // Device/browser info
+  ipAddress    String? // For audit (hashed)
+
+  @@index([patientId, type])
+  @@index([patientId, createdAt])
+  @@index([clinicId])
+  @@index([type, verificationStatus])
+  @@index([isDeleted])
+}
+
+enum PatientPhotoType {
+  // Progress photos (weight loss journey)
+  PROGRESS_FRONT // Front view
+  PROGRESS_SIDE  // Side view
+  PROGRESS_BACK  // Back view
+
+  // ID Verification
+  ID_FRONT  // Front of ID card/driver's license
+  ID_BACK   // Back of ID card
+  SELFIE    // Selfie for ID verification matching
+
+  // Medical images
+  MEDICAL_SKIN       // Skin conditions
+  MEDICAL_INJURY     // Injuries
+  MEDICAL_SYMPTOM    // General symptoms
+  MEDICAL_BEFORE     // Before treatment
+  MEDICAL_AFTER      // After treatment
+  MEDICAL_OTHER      // Other medical images
+
+  // Profile
+  PROFILE_AVATAR // Profile picture
+}
+
+enum PatientPhotoVerificationStatus {
+  NOT_APPLICABLE // For non-ID photos
+  PENDING        // Awaiting review
+  IN_REVIEW      // Currently being reviewed
+  VERIFIED       // ID verified successfully
+  REJECTED       // ID rejected (blurry, wrong document, etc.)
+  EXPIRED        // Verification expired, needs re-upload
 }
