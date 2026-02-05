@@ -76,12 +76,12 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
   const sortOrder = searchParams.get('sortOrder') || 'desc';
 
   try {
-    
+
     // Build where clause
+    // NOTE: Search is handled in-memory after decryption because PHI fields are encrypted
     const where: {
       profileStatus: string;
       clinicId?: number;
-      OR?: Array<{ firstName?: { contains: string; mode: 'insensitive' }; lastName?: { contains: string; mode: 'insensitive' }; email?: { contains: string; mode: 'insensitive' }; phone?: { contains: string } }>;
     } = {
       profileStatus: status,
     };
@@ -91,16 +91,132 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
       where.clinicId = user.clinicId;
     }
 
-    // Search filter
+    // NOTE: Patient PHI (firstName, lastName, email, phone) is ENCRYPTED in the database.
+    // SQL-level search on encrypted fields won't work.
+    // For search: fetch more records, decrypt, filter in memory, then paginate.
+
     if (search) {
-      where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
-      ];
+      // Fetch a larger batch for in-memory filtering (up to 500)
+      const allProfiles = await prisma.patient.findMany({
+        where,
+        include: {
+          invoices: {
+            select: { id: true, amount: true, status: true, paidAt: true },
+          },
+          payments: {
+            select: { id: true, amount: true, paidAt: true },
+            orderBy: { paidAt: 'desc' },
+            take: 1,
+          },
+          clinic: {
+            select: { id: true, name: true, subdomain: true },
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        take: 500,
+      });
+
+      // Decrypt and filter by search term
+      const searchLower = search.toLowerCase();
+      const filteredProfiles = allProfiles.filter((profile) => {
+        const decrypted = decryptPatientPHI(profile, [...PHI_FIELDS]);
+        const firstName = decrypted.firstName?.toLowerCase() || '';
+        const lastName = decrypted.lastName?.toLowerCase() || '';
+        const email = decrypted.email?.toLowerCase() || '';
+        const phone = decrypted.phone?.replace(/\D/g, '') || '';
+        const searchNormalized = search.replace(/\D/g, '');
+
+        return (
+          firstName.includes(searchLower) ||
+          lastName.includes(searchLower) ||
+          email.includes(searchLower) ||
+          phone.includes(searchNormalized) ||
+          `${firstName} ${lastName}`.includes(searchLower)
+        );
+      });
+
+      // Apply pagination to filtered results
+      const totalCount = filteredProfiles.length;
+      const paginatedProfiles = filteredProfiles.slice((page - 1) * limit, page * limit);
+
+      // Process the paginated profiles
+      const processedProfiles = await Promise.all(
+        paginatedProfiles.map(async (profile: typeof paginatedProfiles[number]) => {
+          const decrypted = decryptPatientPHI(profile, [...PHI_FIELDS]);
+          const invoiceCount = profile.invoices.length;
+          const totalPayments = profile.payments.reduce(
+            (sum: number, p: { amount: number }) => sum + p.amount,
+            0
+          );
+          const lastPaymentDate = profile.payments[0]?.paidAt || null;
+          const matchCandidates = await findMatchCandidates(
+            decrypted,
+            profile.clinicId,
+            profile.id
+          );
+
+          return {
+            id: decrypted.id,
+            firstName: decrypted.firstName,
+            lastName: decrypted.lastName,
+            email: decrypted.email,
+            phone: decrypted.phone,
+            dob: decrypted.dob,
+            address1: decrypted.address1,
+            city: decrypted.city,
+            state: decrypted.state,
+            zip: decrypted.zip,
+            stripeCustomerId: decrypted.stripeCustomerId,
+            createdAt: decrypted.createdAt,
+            source: decrypted.source,
+            sourceMetadata: decrypted.sourceMetadata as Record<string, unknown> | null,
+            profileStatus: decrypted.profileStatus,
+            notes: decrypted.notes,
+            patientId: decrypted.patientId,
+            clinic: profile.clinic,
+            invoiceCount,
+            totalPayments,
+            lastPaymentDate,
+            matchCandidates,
+          };
+        })
+      );
+
+      // Get summary stats
+      const stats = await prisma.patient.groupBy({
+        by: ['profileStatus'],
+        where: user.role !== 'super_admin' && user.clinicId
+          ? { clinicId: user.clinicId }
+          : undefined,
+        _count: true,
+      });
+
+      const statusCounts = stats.reduce(
+        (acc: Record<string, number>, s: { profileStatus: string; _count: number }) => {
+          acc[s.profileStatus] = s._count;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      return NextResponse.json({
+        profiles: processedProfiles,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+        stats: {
+          pendingCompletion: statusCounts['PENDING_COMPLETION'] || 0,
+          active: statusCounts['ACTIVE'] || 0,
+          merged: statusCounts['MERGED'] || 0,
+          archived: statusCounts['ARCHIVED'] || 0,
+        },
+      });
     }
 
+    // No search: use normal DB pagination
     // Get total count
     const totalCount = await prisma.patient.count({ where });
 

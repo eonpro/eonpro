@@ -1,10 +1,10 @@
 /**
  * Admin Intakes API Route
  * =======================
- * 
+ *
  * Lists patients who have NOT been converted to full patients yet.
  * An intake becomes a patient when they have a successful payment or prescription/order.
- * 
+ *
  * @module api/admin/intakes
  */
 
@@ -85,20 +85,29 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       whereClause.clinicId = clinicId;
     }
 
-    // Add search filter if provided
-    if (search) {
+    // NOTE: Patient names and emails are ENCRYPTED in the database.
+    // We cannot use SQL LIKE/CONTAINS on encrypted fields.
+    // For search: fetch all, decrypt, then filter in memory.
+
+    // Only add patientId search at DB level (it's not encrypted)
+    if (search && !search.includes('@')) {
       whereClause.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
         { patientId: { contains: search, mode: 'insensitive' } }
       ];
     }
 
-    // Query intakes with pagination
-    const [intakes, total] = await Promise.all([
+    // Query intakes - fetch more for search filtering
+    const fetchLimit = search ? 2000 : limit;
+    const fetchOffset = search ? 0 : offset;
+
+    const baseWhere = {
+      id: { notIn: Array.from(convertedIds) },
+      ...(clinicId && { clinicId })
+    };
+
+    const [intakes, totalWithoutSearch] = await Promise.all([
       prisma.patient.findMany({
-        where: whereClause,
+        where: search ? baseWhere : whereClause,
         include: {
           clinic: {
             select: {
@@ -109,14 +118,43 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           }
         },
         orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset
+        take: fetchLimit,
+        skip: fetchOffset
       }),
-      prisma.patient.count({ where: whereClause })
+      prisma.patient.count({ where: search ? baseWhere : whereClause })
     ]);
 
+    // For search: decrypt and filter in memory
+    let filteredIntakes = intakes;
+    let total = totalWithoutSearch;
+
+    if (search) {
+      const searchLower = search.toLowerCase().trim();
+      const searchTerms = searchLower.split(/\s+/).filter(Boolean);
+
+      filteredIntakes = intakes.filter((patient: typeof intakes[number]) => {
+        const decryptedFirst = safeDecrypt(patient.firstName)?.toLowerCase() || '';
+        const decryptedLast = safeDecrypt(patient.lastName)?.toLowerCase() || '';
+        const decryptedEmail = safeDecrypt(patient.email)?.toLowerCase() || '';
+        const patientIdLower = patient.patientId?.toLowerCase() || '';
+
+        return searchTerms.some(term =>
+          decryptedFirst.includes(term) ||
+          decryptedLast.includes(term) ||
+          decryptedEmail.includes(term) ||
+          patientIdLower.includes(term)
+        ) || (
+          searchTerms.length >= 2 &&
+          (decryptedFirst + ' ' + decryptedLast).includes(searchLower)
+        );
+      });
+
+      total = filteredIntakes.length;
+      filteredIntakes = filteredIntakes.slice(offset, offset + limit);
+    }
+
     // Transform response - minimize PHI unless explicitly requested
-    const patients = intakes.map((patient: typeof intakes[number]) => {
+    const patients = filteredIntakes.map((patient: typeof intakes[number]) => {
       const baseData: Record<string, unknown> = {
         id: patient.id,
         patientId: patient.patientId,

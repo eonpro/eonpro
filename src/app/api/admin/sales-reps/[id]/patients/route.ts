@@ -113,57 +113,39 @@ async function handleGet(
     }
 
     // Build where clause
+    // NOTE: Search is handled in-memory after decryption because PHI fields are encrypted
     const whereClause: Record<string, unknown> = {
       id: { in: patientIds },
     };
 
-    if (search) {
-      whereClause.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { patientId: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // NOTE: Patient PHI (firstName, lastName, email) is ENCRYPTED in the database.
+    // SQL-level search on encrypted fields won't work.
+    // For search: fetch all assigned patients, decrypt, filter in memory, then paginate.
 
-    // Get patients with pagination
-    const [patients, total] = await Promise.all([
-      prisma.patient.findMany({
-        where: whereClause,
-        include: {
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          payments: {
-            where: { status: 'SUCCEEDED' },
-            orderBy: { paidAt: 'desc' },
-            take: 1,
-            select: {
-              paidAt: true,
-              amount: true,
-            },
-          },
-          orders: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: {
-              createdAt: true,
-              status: true,
-            },
-          },
+    // Fetch all assigned patients first (for potential search filtering)
+    const allPatients = await prisma.patient.findMany({
+      where: whereClause,
+      include: {
+        clinic: {
+          select: { id: true, name: true },
         },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.patient.count({ where: whereClause }),
-    ]);
+        payments: {
+          where: { status: 'SUCCEEDED' },
+          orderBy: { paidAt: 'desc' },
+          take: 1,
+          select: { paidAt: true, amount: true },
+        },
+        orders: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { createdAt: true, status: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    // Transform response
-    const patientsData = patients.map((patient: typeof patients[number]) => {
+    // Decrypt all patient data for potential filtering
+    const decryptedPatients = allPatients.map((patient) => {
       const lastPayment = patient.payments?.[0];
       const lastOrder = patient.orders?.[0];
 
@@ -184,6 +166,30 @@ async function handleGet(
         lastOrderStatus: lastOrder?.status || null,
       };
     });
+
+    // Filter by search term if provided (in-memory filtering on decrypted data)
+    let filteredPatients = decryptedPatients;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredPatients = decryptedPatients.filter((patient) => {
+        const firstName = patient.firstName?.toLowerCase() || '';
+        const lastName = patient.lastName?.toLowerCase() || '';
+        const email = patient.email?.toLowerCase() || '';
+        const patientIdStr = patient.patientId?.toLowerCase() || '';
+
+        return (
+          firstName.includes(searchLower) ||
+          lastName.includes(searchLower) ||
+          email.includes(searchLower) ||
+          patientIdStr.includes(searchLower) ||
+          `${firstName} ${lastName}`.includes(searchLower)
+        );
+      });
+    }
+
+    // Apply pagination to (filtered) results
+    const total = filteredPatients.length;
+    const patientsData = filteredPatients.slice(offset, offset + limit);
 
     logger.info('[SALES-REP-PATIENTS] Listed patients for sales rep', {
       userId: user.id,

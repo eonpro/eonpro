@@ -244,9 +244,39 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       filter: PatientFilterOptions,
       pagination: PatientPaginationOptions = {}
     ): Promise<PaginatedPatients<PatientSummary>> {
+      // NOTE: Patient PHI (firstName, lastName, email) is ENCRYPTED in the database.
+      // SQL-level search on encrypted fields won't work.
+      // For search: fetch all, decrypt, filter in memory, then paginate.
       const where = buildWhereClause(filter);
       const { limit, offset, orderBy, orderDir } = normalizePagination(pagination);
+      const hasSearch = !!filter.search;
 
+      if (hasSearch) {
+        // Fetch more patients for in-memory filtering (up to 2000)
+        const allPatients = await db.patient.findMany({
+          where,
+          select: PATIENT_SUMMARY_SELECT,
+          orderBy: { [orderBy]: orderDir },
+          take: 2000,
+        });
+
+        // Decrypt and filter by search
+        const decryptedAll = allPatients.map((p) => decryptPatientSummary(p));
+        const filtered = filterPatientsBySearch(decryptedAll, filter.search!);
+
+        // Apply pagination to filtered results
+        const paginated = filtered.slice(offset, offset + limit);
+
+        return {
+          data: paginated,
+          total: filtered.length,
+          limit,
+          offset,
+          hasMore: offset + paginated.length < filtered.length,
+        };
+      }
+
+      // No search: use normal DB pagination
       const [patients, total] = await Promise.all([
         db.patient.findMany({
           where,
@@ -273,9 +303,45 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       filter: PatientFilterOptions,
       pagination: PatientPaginationOptions = {}
     ): Promise<PaginatedPatients<PatientSummaryWithClinic>> {
+      // NOTE: Patient PHI (firstName, lastName, email) is ENCRYPTED in the database.
+      // SQL-level search on encrypted fields won't work.
+      // For search: fetch all, decrypt, filter in memory, then paginate.
       const where = buildWhereClause(filter);
       const { limit, offset, orderBy, orderDir } = normalizePagination(pagination);
+      const hasSearch = !!filter.search;
 
+      if (hasSearch) {
+        // Fetch more patients for in-memory filtering (up to 2000)
+        const allPatients = await db.patient.findMany({
+          where,
+          select: {
+            ...PATIENT_SUMMARY_SELECT,
+            clinic: { select: { name: true } },
+          },
+          orderBy: { [orderBy]: orderDir },
+          take: 2000,
+        });
+
+        // Decrypt and filter by search
+        const decryptedAll = allPatients.map((p) => ({
+          ...decryptPatientSummary(p),
+          clinicName: p.clinic?.name ?? null,
+        }));
+        const filtered = filterPatientsBySearch(decryptedAll, filter.search!);
+
+        // Apply pagination to filtered results
+        const paginated = filtered.slice(offset, offset + limit);
+
+        return {
+          data: paginated,
+          total: filtered.length,
+          limit,
+          offset,
+          hasMore: offset + paginated.length < filtered.length,
+        };
+      }
+
+      // No search: use normal DB pagination
       const [patients, total] = await Promise.all([
         db.patient.findMany({
           where,
@@ -691,7 +757,54 @@ function decryptPatientSummary(patient: Record<string, unknown>): PatientSummary
 }
 
 /**
+ * Filter decrypted patients by search term (in-memory filtering)
+ * NOTE: This is necessary because patient PHI is ENCRYPTED in the database.
+ * SQL-level search on encrypted fields won't match plaintext search terms.
+ */
+function filterPatientsBySearch<T extends { firstName: string; lastName: string; patientId: string | null }>(
+  patients: T[],
+  search: string
+): T[] {
+  const searchLower = search.toLowerCase().trim();
+  const searchTerms = searchLower.split(/\s+/).filter(Boolean);
+
+  return patients.filter((patient) => {
+    const firstName = patient.firstName?.toLowerCase() || '';
+    const lastName = patient.lastName?.toLowerCase() || '';
+    const patientIdLower = patient.patientId?.toLowerCase() || '';
+
+    // Single term: match against firstName, lastName, or patientId
+    if (searchTerms.length === 1) {
+      const term = searchTerms[0];
+      return (
+        firstName.includes(term) ||
+        lastName.includes(term) ||
+        patientIdLower.includes(term)
+      );
+    }
+
+    // Multiple terms: match as "firstName lastName" or any term
+    const fullName = `${firstName} ${lastName}`;
+    const reverseName = `${lastName} ${firstName}`;
+
+    // Check if full search matches full name
+    if (fullName.includes(searchLower) || reverseName.includes(searchLower)) {
+      return true;
+    }
+
+    // Check if all search terms appear somewhere in the name
+    return searchTerms.every(term =>
+      firstName.includes(term) ||
+      lastName.includes(term) ||
+      patientIdLower.includes(term)
+    );
+  });
+}
+
+/**
  * Build Prisma where clause from filter options
+ * NOTE: Search on encrypted PHI fields (firstName, lastName) is handled
+ * in-memory AFTER decryption, not at the SQL level.
  */
 function buildWhereClause(filter: PatientFilterOptions): Prisma.PatientWhereInput {
   const where: Prisma.PatientWhereInput = {};
@@ -714,41 +827,9 @@ function buildWhereClause(filter: PatientFilterOptions): Prisma.PatientWhereInpu
     where.source = filter.source;
   }
 
-  if (filter.search) {
-    const searchTerms = filter.search.trim().split(/\s+/).filter(Boolean);
-
-    if (searchTerms.length === 1) {
-      // Single term: search firstName, lastName, or patientId
-      where.OR = [
-        { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
-        { lastName: { contains: searchTerms[0], mode: 'insensitive' } },
-        { patientId: { contains: searchTerms[0], mode: 'insensitive' } },
-      ];
-    } else if (searchTerms.length >= 2) {
-      // Multiple terms: match as "firstName lastName" OR "lastName firstName" OR any term in either field
-      const [first, ...rest] = searchTerms;
-      const last = rest.join(' '); // Handle multi-word last names like "Van Der Berg"
-
-      where.OR = [
-        // Exact order: first matches firstName, rest matches lastName
-        {
-          AND: [
-            { firstName: { contains: first, mode: 'insensitive' } },
-            { lastName: { contains: last, mode: 'insensitive' } },
-          ],
-        },
-        // Reverse order: first matches lastName, rest matches firstName
-        {
-          AND: [
-            { lastName: { contains: first, mode: 'insensitive' } },
-            { firstName: { contains: last, mode: 'insensitive' } },
-          ],
-        },
-        // Any single term matches patientId
-        { patientId: { contains: filter.search, mode: 'insensitive' } },
-      ];
-    }
-  }
+  // NOTE: Search is handled in-memory AFTER decryption in findMany/findManyWithClinic
+  // because firstName, lastName, email are ENCRYPTED in the database.
+  // SQL-level LIKE/contains queries won't match plaintext search terms.
 
   // Note: JSON array filtering with hasSome requires raw SQL in PostgreSQL
   // For now, we skip tag filtering at the DB level and filter in application

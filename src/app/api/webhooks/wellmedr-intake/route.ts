@@ -292,7 +292,7 @@ export async function POST(req: NextRequest) {
   let normalized;
   try {
     normalized = normalizeWellmedrPayload(payload);
-    logger.debug(`[WELLMEDR-INTAKE ${requestId}] ✓ Normalized: ${normalized.patient.firstName} ${normalized.patient.lastName}`);
+    logger.debug(`[WELLMEDR-INTAKE ${requestId}] ✓ Payload normalized successfully`);
 
     // Log extracted address data
     const extractedAddress = {
@@ -382,38 +382,64 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════
     // ROBUST PATIENT LOOKUP - Check multiple criteria to avoid duplicates
     // ═══════════════════════════════════════════════════════════════════
-
-    // Build comprehensive lookup conditions
-    const lookupConditions: Prisma.PatientWhereInput[] = [];
-
-    // 1. By email (strongest match)
-    if (patientData.email && patientData.email !== "unknown@example.com") {
-      lookupConditions.push({ email: { equals: patientData.email, mode: 'insensitive' } });
-    }
-
-    // 2. By phone (normalize and match)
-    if (patientData.phone && patientData.phone !== "0000000000") {
-      lookupConditions.push({ phone: patientData.phone });
-    }
-
-    // 3. By name + DOB (for patients who changed email/phone)
-    if (patientData.firstName !== "Unknown" && patientData.lastName !== "Unknown" && patientData.dob !== "1900-01-01") {
-      lookupConditions.push({
-        firstName: { equals: patientData.firstName, mode: 'insensitive' },
-        lastName: { equals: patientData.lastName, mode: 'insensitive' },
-        dob: patientData.dob,
-      });
-    }
+    // NOTE: Patient PHI (email, phone, name) is ENCRYPTED in the database.
+    // We must fetch patients and decrypt to compare, not use SQL WHERE clauses.
 
     let existingPatient: Patient | null = null;
 
-    if (lookupConditions.length > 0) {
-      existingPatient = await withRetry<Patient | null>(() => prisma.patient.findFirst({
-        where: {
-          clinicId: clinicId,
-          OR: lookupConditions,
-        },
-      }));
+    // Fetch recent patients from this clinic to check for duplicates
+    // (fetching all would be too slow, so limit to recent 500)
+    const recentPatients = await withRetry(() => prisma.patient.findMany({
+      where: { clinicId: clinicId },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    }));
+
+    // Decrypt and compare each patient's PHI to find match
+    const searchEmail = patientData.email?.toLowerCase().trim();
+    const searchPhone = patientData.phone;
+    const searchFirstName = patientData.firstName?.toLowerCase().trim();
+    const searchLastName = patientData.lastName?.toLowerCase().trim();
+    const searchDob = patientData.dob;
+
+    for (const p of recentPatients) {
+      const decryptedEmail = safeDecrypt(p.email)?.toLowerCase().trim();
+      const decryptedPhone = safeDecrypt(p.phone);
+      const decryptedFirstName = safeDecrypt(p.firstName)?.toLowerCase().trim();
+      const decryptedLastName = safeDecrypt(p.lastName)?.toLowerCase().trim();
+      const decryptedDob = safeDecrypt(p.dob);
+
+      // 1. Match by email (strongest - skip placeholder emails)
+      if (searchEmail && searchEmail !== "unknown@example.com" &&
+          decryptedEmail && decryptedEmail === searchEmail) {
+        existingPatient = p;
+        logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by email: ${p.id}`);
+        break;
+      }
+
+      // 2. Match by phone (skip placeholder phones)
+      if (searchPhone && searchPhone !== "0000000000" &&
+          decryptedPhone && decryptedPhone === searchPhone) {
+        existingPatient = p;
+        logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by phone: ${p.id}`);
+        break;
+      }
+
+      // 3. Match by name + DOB (for patients who changed email/phone)
+      if (searchFirstName && searchFirstName !== "unknown" &&
+          searchLastName && searchLastName !== "unknown" &&
+          searchDob && searchDob !== "1900-01-01" &&
+          decryptedFirstName === searchFirstName &&
+          decryptedLastName === searchLastName &&
+          decryptedDob === searchDob) {
+        existingPatient = p;
+        logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by name+DOB: ${p.id}`);
+        break;
+      }
+    }
+
+    if (!existingPatient) {
+      logger.debug(`[WELLMEDR-INTAKE ${requestId}] No existing patient found, will create new`);
     }
 
     if (existingPatient) {
@@ -760,10 +786,10 @@ export async function POST(req: NextRequest) {
     await prisma.auditLog.create({
       data: {
         action: isPartialSubmission ? "PARTIAL_INTAKE_RECEIVED" : "PATIENT_INTAKE_RECEIVED",
-        tableName: "Patient",
-        recordId: patient.id,
+        resource: "Patient",
+        resourceId: patient.id,
         userId: 0,
-        diff: JSON.stringify({
+        details: {
           source: "wellmedr-intake",
           submissionId: normalized.submissionId,
           checkoutCompleted: isComplete,
@@ -771,11 +797,10 @@ export async function POST(req: NextRequest) {
           clinicName: "Wellmedr",
           isNewPatient,
           isPartialSubmission,
-          patientEmail: patient.email,
           documentId: patientDocument?.id,
           soapNoteId: soapNoteId,
           errors: errors.length > 0 ? errors : undefined,
-        }),
+        },
         ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "webhook",
       },
     });

@@ -141,20 +141,27 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       whereClause.id = { in: filteredIds.filter((id) => salesRepPatientIds.includes(id)) };
     }
 
-    // Add search filter if provided
-    if (search) {
+    // NOTE: Patient names and emails are ENCRYPTED in the database.
+    // We cannot use SQL LIKE/CONTAINS on encrypted fields.
+    // For search: fetch all matching patients, decrypt, then filter in memory.
+    // For non-search: use normal pagination.
+
+    // Only add patientId search at DB level (it's not encrypted)
+    if (search && !search.includes('@')) {
+      // Try to match patientId which is NOT encrypted
       whereClause.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
         { patientId: { contains: search, mode: 'insensitive' } },
       ];
     }
 
-    // Query converted patients with pagination
-    const [patients, total] = await Promise.all([
+    // Query converted patients
+    // When searching, fetch more to filter in memory after decryption
+    const fetchLimit = search ? 2000 : limit; // Fetch more for search filtering
+    const fetchOffset = search ? 0 : offset;  // Start from beginning for search
+
+    const [patients, totalWithoutSearch] = await Promise.all([
       prisma.patient.findMany({
-        where: whereClause,
+        where: search ? { id: { in: filteredIds }, ...(clinicId && { clinicId }) } : whereClause,
         include: {
           clinic: {
             select: {
@@ -202,14 +209,47 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
+        take: fetchLimit,
+        skip: fetchOffset,
       }),
-      prisma.patient.count({ where: whereClause }),
+      prisma.patient.count({ where: search ? { id: { in: filteredIds }, ...(clinicId && { clinicId }) } : whereClause }),
     ]);
 
+    // For search: decrypt and filter patients in memory
+    let filteredPatients = patients;
+    let total = totalWithoutSearch;
+
+    if (search) {
+      const searchLower = search.toLowerCase().trim();
+      const searchTerms = searchLower.split(/\s+/).filter(Boolean);
+
+      filteredPatients = patients.filter((patient: typeof patients[number]) => {
+        const decryptedFirst = safeDecrypt(patient.firstName)?.toLowerCase() || '';
+        const decryptedLast = safeDecrypt(patient.lastName)?.toLowerCase() || '';
+        const decryptedEmail = safeDecrypt(patient.email)?.toLowerCase() || '';
+        const patientIdLower = patient.patientId?.toLowerCase() || '';
+
+        // Check if any search term matches
+        return searchTerms.some(term =>
+          decryptedFirst.includes(term) ||
+          decryptedLast.includes(term) ||
+          decryptedEmail.includes(term) ||
+          patientIdLower.includes(term)
+        ) || (
+          // Also check full name match (first + last)
+          searchTerms.length >= 2 &&
+          (decryptedFirst + ' ' + decryptedLast).includes(searchLower)
+        );
+      });
+
+      total = filteredPatients.length;
+
+      // Apply pagination to filtered results
+      filteredPatients = filteredPatients.slice(offset, offset + limit);
+    }
+
     // Transform response
-    const patientsData = patients.map((patient: typeof patients[number]) => {
+    const patientsData = filteredPatients.map((patient: typeof patients[number]) => {
       const lastPayment = patient.payments?.[0];
       const lastOrder = patient.orders?.[0];
       const salesRepAssignment = patient.salesRepAssignments?.[0];
