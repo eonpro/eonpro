@@ -238,7 +238,7 @@ export const ticketRepository = {
         orderId: data.orderId,
         dueDate: data.dueDate,
         tags: data.tags || [],
-        customFields: data.customFields,
+        customFields: data.customFields as any,
         reporterEmail: data.reporterEmail,
         reporterName: data.reporterName,
         reporterPhone: data.reporterPhone,
@@ -376,7 +376,7 @@ export const ticketRepository = {
       return null;
     }
 
-    return ticket as TicketWithRelations;
+    return ticket as unknown as TicketWithRelations;
   },
 
   /**
@@ -542,7 +542,7 @@ export const ticketRepository = {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.dueDate !== undefined) updateData.dueDate = data.dueDate;
     if (data.tags !== undefined) updateData.tags = data.tags;
-    if (data.customFields !== undefined) updateData.customFields = data.customFields;
+    if (data.customFields !== undefined) updateData.customFields = data.customFields as any;
     if (data.internalNote !== undefined) updateData.internalNote = data.internalNote;
 
     // Assignment updates
@@ -669,7 +669,7 @@ export const ticketRepository = {
         authorId: userContext.id,
         comment: data.content,
         isInternal: data.isInternal || false,
-        attachments: data.attachments as Prisma.JsonValue,
+        attachments: data.attachments as any,
       },
       include: {
         author: {
@@ -757,7 +757,7 @@ export const ticketRepository = {
         fieldChanged: data.fieldChanged,
         oldValue: data.oldValue,
         newValue: data.newValue,
-        details: data.details as Prisma.JsonValue,
+        details: data.details as any,
         automationId: data.automationId,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
@@ -912,7 +912,7 @@ export const ticketRepository = {
   ) {
     const db = tx || prisma;
 
-    const updateData: Prisma.TicketUpdateInput = {
+    const updateData: Prisma.TicketUncheckedUpdateInput = {
       lastActivityAt: new Date(),
     };
 
