@@ -237,18 +237,70 @@ export async function POST(request: NextRequest, { params }: Params) {
       }
 
       case 'mark_paid': {
+        // Support for marking as paid externally with additional details
+        const {
+          paymentMethod,
+          paymentNotes,
+          paymentDate,
+          amount: customAmount
+        } = body;
+
+        const paidAmount = customAmount || invoice.amountDue || invoice.amount;
+        const paidDate = paymentDate ? new Date(paymentDate) : new Date();
+        const existingMetadata = (invoice.metadata as any) || {};
+
+        // Update invoice
         await prisma.invoice.update({
           where: { id },
           data: {
             status: 'PAID',
-            amountPaid: invoice.amountDue,
-            paidAt: new Date(),
+            amountPaid: paidAmount,
+            amountDue: 0,
+            paidAt: paidDate,
+            metadata: {
+              ...existingMetadata,
+              externalPayment: {
+                method: paymentMethod || 'other',
+                notes: paymentNotes || '',
+                date: paidDate.toISOString(),
+                markedAt: new Date().toISOString(),
+              },
+            },
           },
+        });
+
+        // Create a payment record to track the external payment
+        try {
+          await prisma.payment.create({
+            data: {
+              patientId: invoice.patientId,
+              clinicId: invoice.clinicId,
+              invoiceId: invoice.id,
+              amount: paidAmount,
+              status: 'SUCCEEDED',
+              paymentMethod: paymentMethod || 'external',
+              metadata: {
+                isExternalPayment: true,
+                externalPaymentMethod: paymentMethod,
+                externalPaymentNotes: paymentNotes,
+                externalPaymentDate: paidDate.toISOString(),
+              },
+            },
+          });
+        } catch (paymentError: any) {
+          logger.warn('[API] Could not create Payment record:', paymentError.message);
+        }
+
+        logger.info('[API] Invoice marked as paid externally', {
+          invoiceId: id,
+          paymentMethod,
+          amount: paidAmount,
         });
 
         return NextResponse.json({
           success: true,
           message: 'Invoice marked as paid',
+          paymentMethod: paymentMethod || 'external',
         });
       }
 

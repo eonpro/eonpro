@@ -24,6 +24,11 @@ const createInvoiceSchema = z.object({
   // Duplicate prevention
   idempotencyKey: z.string().optional(), // Unique key to prevent duplicates
   allowDuplicate: z.boolean().optional(), // Explicitly allow duplicate if needed
+  // Mark as paid externally (for payments received outside EonPro)
+  markAsPaidExternally: z.boolean().optional(),
+  externalPaymentMethod: z.string().optional(), // cash, check, bank_transfer, external_stripe, etc.
+  externalPaymentNotes: z.string().optional(), // Reference number, check #, etc.
+  externalPaymentDate: z.string().optional(), // ISO date string
 });
 
 async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
@@ -196,9 +201,22 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       }, 0);
 
       // Create invoice in database only (demo mode)
+      const isMarkedAsPaid = validatedData.markAsPaidExternally === true;
+      const paymentDate = validatedData.externalPaymentDate
+        ? new Date(validatedData.externalPaymentDate)
+        : new Date();
+
       const invoiceMetadata = {
         ...(validatedData.metadata || {}),
         ...(validatedData.idempotencyKey ? { idempotencyKey: validatedData.idempotencyKey } : {}),
+        ...(isMarkedAsPaid && {
+          externalPayment: {
+            method: validatedData.externalPaymentMethod || 'other',
+            notes: validatedData.externalPaymentNotes || '',
+            date: paymentDate.toISOString(),
+            markedAt: new Date().toISOString(),
+          },
+        }),
       };
 
       // Wrap invoice and invoice items creation in a transaction for atomicity
@@ -207,8 +225,10 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
           data: {
             patientId: validatedData.patientId,
             amount: total,
-            amountDue: total,
-            status: 'DRAFT',
+            amountDue: isMarkedAsPaid ? 0 : total,
+            amountPaid: isMarkedAsPaid ? total : 0,
+            status: isMarkedAsPaid ? 'PAID' : 'DRAFT',
+            paidAt: isMarkedAsPaid ? paymentDate : null,
             dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
             description: validatedData.description || 'Medical Services',
             metadata: invoiceMetadata,
@@ -237,6 +257,29 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
           logger.warn('[API] Could not create InvoiceItem records (demo mode):', itemError.message);
         }
 
+        // Create payment record if marked as paid externally
+        if (isMarkedAsPaid) {
+          try {
+            await tx.payment.create({
+              data: {
+                patientId: validatedData.patientId,
+                invoiceId: newInvoice.id,
+                amount: total,
+                status: 'SUCCEEDED',
+                paymentMethod: validatedData.externalPaymentMethod || 'external',
+                metadata: {
+                  isExternalPayment: true,
+                  externalPaymentMethod: validatedData.externalPaymentMethod,
+                  externalPaymentNotes: validatedData.externalPaymentNotes,
+                  externalPaymentDate: paymentDate.toISOString(),
+                },
+              },
+            });
+          } catch (paymentError: any) {
+            logger.warn('[API] Could not create Payment record (demo mode):', paymentError.message);
+          }
+        }
+
         return newInvoice;
       });
 
@@ -246,11 +289,110 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         stripeInvoiceUrl: null,
         demoMode: true,
         willCreateSubscription: createSubscription,
-        message: 'Invoice created in demo mode (Stripe not configured)',
+        markedAsPaidExternally: isMarkedAsPaid,
+        message: isMarkedAsPaid
+          ? 'Invoice created and marked as paid externally (demo mode)'
+          : 'Invoice created in demo mode (Stripe not configured)',
       });
     }
 
     // Production mode - use Stripe
+    // If marking as paid externally, skip Stripe invoice creation and create local record
+    if (validatedData.markAsPaidExternally) {
+      const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
+      const paymentDate = validatedData.externalPaymentDate
+        ? new Date(validatedData.externalPaymentDate)
+        : new Date();
+
+      const invoiceMetadata = {
+        ...(validatedData.metadata || {}),
+        ...(validatedData.idempotencyKey ? { idempotencyKey: validatedData.idempotencyKey } : {}),
+        externalPayment: {
+          method: validatedData.externalPaymentMethod || 'other',
+          notes: validatedData.externalPaymentNotes || '',
+          date: paymentDate.toISOString(),
+          markedAt: new Date().toISOString(),
+        },
+      };
+
+      const invoice = await prisma.$transaction(async (tx: typeof prisma) => {
+        const newInvoice = await tx.invoice.create({
+          data: {
+            patientId: validatedData.patientId,
+            amount: total,
+            amountDue: 0,
+            amountPaid: total,
+            status: 'PAID',
+            paidAt: paymentDate,
+            dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
+            description: validatedData.description || 'Medical Services',
+            metadata: invoiceMetadata,
+            lineItems: lineItems,
+            orderId: validatedData.orderId,
+            createSubscription,
+          },
+        });
+
+        // Create invoice items records
+        try {
+          for (const item of lineItems) {
+            await tx.invoiceItem.create({
+              data: {
+                invoiceId: newInvoice.id,
+                productId: item.productId || null,
+                description: item.description,
+                quantity: item.quantity || 1,
+                unitPrice: item.amount,
+                amount: item.amount * (item.quantity || 1),
+                metadata: item.metadata || {},
+              },
+            });
+          }
+        } catch (itemError: any) {
+          logger.warn('[API] Could not create InvoiceItem records:', itemError.message);
+        }
+
+        // Create payment record
+        try {
+          await tx.payment.create({
+            data: {
+              patientId: validatedData.patientId,
+              invoiceId: newInvoice.id,
+              amount: total,
+              status: 'SUCCEEDED',
+              paymentMethod: validatedData.externalPaymentMethod || 'external',
+              metadata: {
+                isExternalPayment: true,
+                externalPaymentMethod: validatedData.externalPaymentMethod,
+                externalPaymentNotes: validatedData.externalPaymentNotes,
+                externalPaymentDate: paymentDate.toISOString(),
+              },
+            },
+          });
+        } catch (paymentError: any) {
+          logger.warn('[API] Could not create Payment record:', paymentError.message);
+        }
+
+        return newInvoice;
+      });
+
+      logger.info('[API] Invoice created and marked as paid externally', {
+        invoiceId: invoice.id,
+        patientId: validatedData.patientId,
+        amount: total,
+        paymentMethod: validatedData.externalPaymentMethod,
+      });
+
+      return NextResponse.json({
+        success: true,
+        invoice,
+        stripeInvoiceUrl: null,
+        markedAsPaidExternally: true,
+        willCreateSubscription: createSubscription,
+        message: 'Invoice created and marked as paid externally',
+      });
+    }
+
     try {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
 

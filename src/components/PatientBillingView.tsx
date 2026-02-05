@@ -50,11 +50,15 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showProcessPayment, setShowProcessPayment] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [refundModal, setRefundModal] = useState<{ 
-    invoiceId: number; 
-    paymentId?: number; 
+  const [refundModal, setRefundModal] = useState<{
+    invoiceId: number;
+    paymentId?: number;
     stripeInvoiceId?: string | null;
-    maxAmount: number 
+    maxAmount: number
+  } | null>(null);
+  const [markPaidModal, setMarkPaidModal] = useState<{
+    invoiceId: number;
+    amount: number;
   } | null>(null);
 
   // Track client mount for hydration-safe rendering
@@ -93,7 +97,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
     try {
       setLoading(true);
       const headers = getAuthHeaders();
-      
+
       // Fetch invoices
       const invoicesRes = await fetch(`/api/stripe/invoices?patientId=${patientId}`, {
         credentials: 'include',
@@ -103,7 +107,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         const data = await invoicesRes.json();
         setInvoices(data.invoices || []);
       }
-      
+
       // Fetch payments
       const paymentsRes = await fetch(`/api/stripe/payments?patientId=${patientId}`, {
         credentials: 'include',
@@ -130,7 +134,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'send' }),
       });
-      
+
       if (res.ok) {
         toast.success('Invoice sent successfully');
         fetchBillingData();
@@ -145,7 +149,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
 
   const handleVoidInvoice = async (invoiceId: number) => {
     if (!confirm('Are you sure you want to void this invoice?')) return;
-    
+
     try {
       const headers = getAuthHeaders();
       const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
@@ -154,7 +158,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'void' }),
       });
-      
+
       if (res.ok) {
         toast.success('Invoice voided successfully');
         fetchBillingData();
@@ -169,7 +173,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
 
   const handleDeleteInvoice = async (invoiceId: number) => {
     if (!confirm('Are you sure you want to permanently delete this invoice? This action cannot be undone.')) return;
-    
+
     try {
       const headers = getAuthHeaders();
       const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
@@ -177,7 +181,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         credentials: 'include',
         headers,
       });
-      
+
       if (res.ok) {
         toast.success('Invoice deleted successfully');
         fetchBillingData();
@@ -231,9 +235,9 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
           reason,
         }),
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
         toast.success(`Refund of ${formatCurrency(amount)} processed successfully`);
         setRefundModal(null);
@@ -257,6 +261,43 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
     }
   };
 
+  const handleMarkAsPaid = async (
+    invoiceId: number,
+    amount: number,
+    paymentMethod: string,
+    paymentNotes: string,
+    paymentDate: string
+  ) => {
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'mark_paid',
+          paymentMethod,
+          paymentNotes,
+          paymentDate,
+          amount: Math.round(amount * 100), // Convert to cents
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success('Invoice marked as paid');
+        setMarkPaidModal(null);
+        fetchBillingData();
+      } else {
+        toast.error(data.error || 'Failed to mark invoice as paid');
+      }
+    } catch (err: any) {
+      logger.error('Error marking invoice as paid:', err);
+      toast.error('Failed to mark invoice as paid');
+    }
+  };
+
   const handleOpenCustomerPortal = async () => {
     try {
       const headers = getAuthHeaders();
@@ -269,7 +310,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
           returnUrl: window.location.href,
         }),
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         window.open(data.url, '_blank');
@@ -296,7 +337,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
       CANCELED: 'bg-gray-100 text-gray-700',
       REFUNDED: 'bg-purple-100 text-purple-700',
     };
-    
+
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status] || 'bg-gray-100 text-gray-700'}`}>
         {status}
@@ -439,6 +480,14 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                               <button onClick={() => handleViewInvoice(invoice)} className="text-[#4fa77e] hover:text-[#3f8660] font-medium">View</button>
                               {invoice.stripePdfUrl && <a href={invoice.stripePdfUrl} target="_blank" rel="noopener noreferrer" className="text-[#4fa77e] hover:text-[#3f8660] font-medium">PDF</a>}
                               {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="text-green-600 hover:text-green-800 font-medium">Send</button>}
+                              {(invoice.status === 'DRAFT' || invoice.status === 'OPEN') && (
+                                <button
+                                  onClick={() => setMarkPaidModal({ invoiceId: invoice.id, amount: invoice.amountDue })}
+                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  Mark Paid
+                                </button>
+                              )}
                               {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="text-amber-600 hover:text-amber-800 font-medium">Void</button>}
                               {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
                                 <>
@@ -452,14 +501,14 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                               {/* Edit and Delete for unpaid invoices */}
                               {(invoice.status === 'DRAFT' || invoice.status === 'OPEN' || invoice.status === 'VOID') && (
                                 <>
-                                  <button 
-                                    onClick={() => window.open(`/invoices/${invoice.id}?edit=true`, '_blank')} 
+                                  <button
+                                    onClick={() => window.open(`/invoices/${invoice.id}?edit=true`, '_blank')}
                                     className="text-blue-600 hover:text-blue-800 font-medium"
                                   >
                                     Edit
                                   </button>
-                                  <button 
-                                    onClick={() => handleDeleteInvoice(invoice.id)} 
+                                  <button
+                                    onClick={() => handleDeleteInvoice(invoice.id)}
                                     className="text-red-600 hover:text-red-800 font-medium"
                                   >
                                     Delete
@@ -486,7 +535,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                       </div>
                       {getStatusBadge(invoice.status)}
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                       <div>
                         <p className="text-gray-500 text-xs uppercase font-medium">Amount</p>
@@ -498,11 +547,19 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                         <p className="text-gray-900">{formatDate(invoice.dueDate)}</p>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
                       <button onClick={() => handleViewInvoice(invoice)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-[#4fa77e] bg-green-50 rounded-lg hover:bg-green-100 transition-colors">View</button>
                       {invoice.stripePdfUrl && <a href={invoice.stripePdfUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-center text-[#4fa77e] bg-green-50 rounded-lg hover:bg-green-100 transition-colors">PDF</a>}
                       {invoice.status === 'DRAFT' && <button onClick={() => handleSendInvoice(invoice.id)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">Send</button>}
+                      {(invoice.status === 'DRAFT' || invoice.status === 'OPEN') && (
+                        <button
+                          onClick={() => setMarkPaidModal({ invoiceId: invoice.id, amount: invoice.amountDue })}
+                          className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          Mark Paid
+                        </button>
+                      )}
                       {invoice.status === 'OPEN' && <button onClick={() => handleVoidInvoice(invoice.id)} className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors">Void</button>}
                       {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
                         <>
@@ -516,14 +573,14 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                       {/* Edit and Delete for unpaid invoices */}
                       {(invoice.status === 'DRAFT' || invoice.status === 'OPEN' || invoice.status === 'VOID') && (
                         <>
-                          <button 
-                            onClick={() => window.open(`/invoices/${invoice.id}?edit=true`, '_blank')} 
+                          <button
+                            onClick={() => window.open(`/invoices/${invoice.id}?edit=true`, '_blank')}
                             className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                           >
                             Edit
                           </button>
-                          <button 
-                            onClick={() => handleDeleteInvoice(invoice.id)} 
+                          <button
+                            onClick={() => handleDeleteInvoice(invoice.id)}
                             className="flex-1 min-w-[60px] py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                           >
                             Delete
@@ -596,7 +653,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                       </div>
                       {getStatusBadge(payment.status)}
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-gray-500 text-xs uppercase font-medium">Method</p>
@@ -607,7 +664,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
                         <p className="text-gray-900">{payment.invoice ? `#${payment.invoice.stripeInvoiceNumber || payment.invoice.id}` : '—'}</p>
                       </div>
                     </div>
-                    
+
                     {(payment.status === 'SUCCEEDED' || payment.status === 'REFUNDED') && (
                       <div className="mt-3 pt-3 border-t border-gray-100">
                         {payment.status === 'SUCCEEDED' && (
@@ -656,6 +713,17 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
           onClose={() => setRefundModal(null)}
         />
       )}
+
+      {/* Mark as Paid Modal */}
+      {markPaidModal && (
+        <MarkPaidModal
+          amount={markPaidModal.amount}
+          onConfirm={(amount, paymentMethod, paymentNotes, paymentDate) =>
+            handleMarkAsPaid(markPaidModal.invoiceId, amount, paymentMethod, paymentNotes, paymentDate)
+          }
+          onClose={() => setMarkPaidModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -681,7 +749,7 @@ function RefundModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Need either paymentId or stripeInvoiceId
     if (!paymentId && !stripeInvoiceId) {
       toast.error('Unable to process refund - no payment or invoice reference found');
@@ -693,7 +761,7 @@ function RefundModal({
       toast.error(`Amount must be between $0.01 and ${formatCurrency(maxAmount)}`);
       return;
     }
-    
+
     setSubmitting(true);
     await onConfirm(paymentId, amountInCents, reason, stripeInvoiceId);
     setSubmitting(false);
@@ -703,7 +771,7 @@ function RefundModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 className="text-lg font-semibold mb-4">Process Refund</h3>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Refund Type */}
           <div>
@@ -804,6 +872,137 @@ function RefundModal({
   );
 }
 
+// Mark as Paid Modal Component
+function MarkPaidModal({
+  amount,
+  onConfirm,
+  onClose,
+}: {
+  amount: number;
+  onConfirm: (amount: number, paymentMethod: string, paymentNotes: string, paymentDate: string) => void;
+  onClose: () => void;
+}) {
+  const [paymentAmount, setPaymentAmount] = useState(amount / 100); // Convert from cents
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (paymentAmount <= 0) {
+      toast.error('Payment amount must be greater than $0');
+      return;
+    }
+
+    setSubmitting(true);
+    await onConfirm(paymentAmount, paymentMethod, paymentNotes, paymentDate);
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 className="text-lg font-semibold mb-4">Mark Invoice as Paid</h3>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Amount */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Payment Amount
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-gray-500">$</span>
+              <input
+                type="number"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                step="0.01"
+                min="0.01"
+                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Payment Method */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Payment Method
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="cash">Cash</option>
+              <option value="check">Check</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="external_stripe">Paid on Stripe (not synced)</option>
+              <option value="credit_card">Credit Card (manual)</option>
+              <option value="insurance">Insurance Payment</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Payment Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Payment Date
+            </label>
+            <input
+              type="date"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Reference / Notes (optional)
+            </label>
+            <input
+              type="text"
+              value={paymentNotes}
+              onChange={(e) => setPaymentNotes(e.target.value)}
+              placeholder="e.g., Check #1234, Stripe payment ID, etc."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Info */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            <strong>Note:</strong> Use this to record payments received outside EonPro (e.g., cash, check, or payments made directly on Stripe that were not synced).
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {submitting ? 'Processing...' : `Mark as Paid (${formatCurrency(paymentAmount * 100)})`}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // Create Invoice Form Component
 function CreateInvoiceForm({
   patientId,
@@ -822,12 +1021,20 @@ function CreateInvoiceForm({
   const [selectedPlan, setSelectedPlan] = useState<string>('');
   const groupedPlans = getGroupedPlans();
 
+  // Mark as Paid Externally fields
+  const [markAsPaidExternally, setMarkAsPaidExternally] = useState(false);
+  const [externalPaymentMethod, setExternalPaymentMethod] = useState('cash');
+  const [externalPaymentNotes, setExternalPaymentNotes] = useState('');
+  const [externalPaymentDate, setExternalPaymentDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+
   const handlePlanSelect = (planId: string) => {
     const plan = getPlanById(planId);
     if (plan) {
-      setLineItems([{ 
-        description: plan.description, 
-        amount: plan.price 
+      setLineItems([{
+        description: plan.description,
+        amount: plan.price
       }]);
       setSelectedPlan(planId);
     } else {
@@ -871,14 +1078,14 @@ function CreateInvoiceForm({
     }
 
     setSubmitting(true);
-    
+
     // Get auth token for API calls
     const token = localStorage.getItem('auth-token') ||
                   localStorage.getItem('super_admin-token') ||
                   localStorage.getItem('admin-token') ||
                   localStorage.getItem('provider-token');
     const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
-    
+
     try {
       const res = await fetch('/api/stripe/invoices', {
         method: 'POST',
@@ -887,14 +1094,23 @@ function CreateInvoiceForm({
         body: JSON.stringify({
           patientId,
           lineItems: validItems,
-          autoSend,
+          autoSend: markAsPaidExternally ? false : autoSend, // Don't auto-send if marking as paid
+          // External payment fields
+          markAsPaidExternally,
+          ...(markAsPaidExternally && {
+            externalPaymentMethod,
+            externalPaymentNotes,
+            externalPaymentDate,
+          }),
         }),
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
-        if (data.demoMode) {
+        if (markAsPaidExternally) {
+          toast.success('Invoice created and marked as paid externally');
+        } else if (data.demoMode) {
           // Show demo mode message
           toast.warning('Invoice created (Demo Mode - Stripe not configured)');
         } else {
@@ -918,7 +1134,7 @@ function CreateInvoiceForm({
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
       <h3 className="text-lg font-semibold mb-4">Create Invoice</h3>
-      
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Billing Plans Dropdown */}
         <div>
@@ -986,20 +1202,91 @@ function CreateInvoiceForm({
             + Add Line Item
           </button>
         </div>
-        
+
         <div className="flex items-center">
           <input
             type="checkbox"
             id="autoSend"
             checked={autoSend}
             onChange={(e: any) => setAutoSend(e.target.checked)}
-            className="h-4 w-4 text-[#4fa77e] focus:ring-[#4fa77e] border-gray-300 border rounded"
+            disabled={markAsPaidExternally}
+            className="h-4 w-4 text-[#4fa77e] focus:ring-[#4fa77e] border-gray-300 border rounded disabled:opacity-50"
           />
           <label htmlFor="autoSend" className="ml-2 block text-sm text-gray-700">
             Send invoice automatically
           </label>
         </div>
-        
+
+        {/* Mark as Paid Externally Section */}
+        <div className="border-t border-gray-200 pt-4 mt-4">
+          <div className="flex items-center mb-3">
+            <input
+              type="checkbox"
+              id="markAsPaidExternally"
+              checked={markAsPaidExternally}
+              onChange={(e: any) => setMarkAsPaidExternally(e.target.checked)}
+              className="h-4 w-4 text-[#4fa77e] focus:ring-[#4fa77e] border-gray-300 border rounded"
+            />
+            <label htmlFor="markAsPaidExternally" className="ml-2 block text-sm font-medium text-gray-700">
+              Mark as Paid Externally
+            </label>
+          </div>
+
+          {markAsPaidExternally && (
+            <div className="ml-6 space-y-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-700 mb-3">
+                Use this if payment was received outside EonPro (e.g., cash, check, or paid directly on Stripe).
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Method
+                  </label>
+                  <select
+                    value={externalPaymentMethod}
+                    onChange={(e: any) => setExternalPaymentMethod(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e]"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="check">Check</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="external_stripe">Paid on Stripe (not synced)</option>
+                    <option value="credit_card">Credit Card (manual)</option>
+                    <option value="insurance">Insurance Payment</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Date
+                  </label>
+                  <input
+                    type="date"
+                    value={externalPaymentDate}
+                    onChange={(e: any) => setExternalPaymentDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference / Notes (optional)
+                </label>
+                <input
+                  type="text"
+                  value={externalPaymentNotes}
+                  onChange={(e: any) => setExternalPaymentNotes(e.target.value)}
+                  placeholder="e.g., Check #1234, Stripe payment ID, etc."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e]"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2 justify-end">
           <button
             type="button"
