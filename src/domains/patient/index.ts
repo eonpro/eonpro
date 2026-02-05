@@ -67,6 +67,24 @@ export {
 } from './services/patient-merge.service';
 
 // ============================================================================
+// PHI Search Service - For searching encrypted patient data
+// ============================================================================
+
+export {
+  PHISearchService,
+  PATIENT_PHI_FIELDS,
+  PATIENT_SAFE_FIELDS,
+  validateWhereClause,
+  decryptPatientRecord,
+  matchesSearch,
+  createPHISearchMiddleware,
+  type PatientPHIField,
+  type PatientSafeField,
+  type PHISearchOptions,
+  type PHISearchResult,
+} from '@/lib/security/phi-search';
+
+// ============================================================================
 // Re-export shared errors for convenience
 // ============================================================================
 
