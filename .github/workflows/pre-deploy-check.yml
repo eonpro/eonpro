@@ -34,6 +34,7 @@ jobs:
       - name: Run Pre-Deployment Checks
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
         run: npm run pre-deploy
         continue-on-error: false
 
@@ -68,6 +69,8 @@ jobs:
 
       - name: Type Check
         run: npm run type-check
+        env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
 
       - name: Build
         run: npm run build
