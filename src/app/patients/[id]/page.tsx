@@ -209,7 +209,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     });
 
   // Decrypt PHI fields for display (with error handling)
-  let patientWithDecryptedPHI;
+  let patientWithDecryptedPHI: any;
   try {
     const decryptedPatient = decryptPatientPHI(patient, [...DEFAULT_PHI_FIELDS]);
     patientWithDecryptedPHI = {
@@ -474,18 +474,20 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         for (const submission of patientWithDecryptedPHI.intakeSubmissions) {
           if (submission.responses && Array.isArray(submission.responses)) {
             for (const response of submission.responses) {
+              const resp = response as any;
               const questionText = (
-                response.question?.text ||
-                response.question?.label ||
+                resp.question?.text ||
+                resp.question?.label ||
+                resp.question?.questionText ||
                 ''
               ).toLowerCase();
               for (const label of labels) {
                 if (
                   questionText.includes(label.toLowerCase()) &&
-                  response.value &&
-                  response.value !== ''
+                  resp.value &&
+                  resp.value !== ''
                 ) {
-                  return String(response.value);
+                  return String(resp.value);
                 }
               }
             }
@@ -634,12 +636,13 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       for (const submission of patientWithDecryptedPHI.intakeSubmissions) {
         if (submission.responses && Array.isArray(submission.responses)) {
           for (const response of submission.responses) {
+            const resp = response as any;
             const questionText = (
-              response.question?.text || response.question?.label || ''
+              resp.question?.text || resp.question?.label || resp.question?.questionText || ''
             ).toLowerCase();
             for (const label of affiliateLabels) {
-              if (questionText.includes(label) && response.value && response.value !== '') {
-                const value = String(response.value).trim();
+              if (questionText.includes(label) && resp.value && resp.value !== '') {
+                const value = String(resp.value).trim();
                 if (!genericSources.includes(value.toLowerCase()) && value.length > 1) {
                   return value.toUpperCase();
                 }

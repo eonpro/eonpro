@@ -48,12 +48,21 @@ export default function ClinicBillingPage() {
   const [selectedClinic, setSelectedClinic] = useState<ClinicWithConfig | null>(null);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    prescriptionFeeType: 'FLAT' as const,
+  const [formData, setFormData] = useState<{
+    prescriptionFeeType: 'FLAT' | 'PERCENTAGE';
+    prescriptionFeeAmount: number;
+    transmissionFeeType: 'FLAT' | 'PERCENTAGE';
+    transmissionFeeAmount: number;
+    adminFeeType: 'NONE' | 'FLAT_WEEKLY' | 'PERCENTAGE_WEEKLY';
+    adminFeeAmount: number;
+    prescriptionCycleDays: number;
+    isActive: boolean;
+  }>({
+    prescriptionFeeType: 'FLAT',
     prescriptionFeeAmount: 2000,
-    transmissionFeeType: 'FLAT' as const,
+    transmissionFeeType: 'FLAT',
     transmissionFeeAmount: 500,
-    adminFeeType: 'NONE' as const,
+    adminFeeType: 'NONE',
     adminFeeAmount: 0,
     prescriptionCycleDays: 90,
     isActive: true,

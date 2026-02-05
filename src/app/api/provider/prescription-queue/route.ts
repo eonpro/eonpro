@@ -298,12 +298,28 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         try {
           const docJson = JSON.parse(documentData.toString('utf8'));
 
-          // Debug logging
+          // Debug logging - show document structure and GLP-1 related fields
+          const answersPreview = docJson.answers?.slice?.(0, 3)?.map((a: Record<string, unknown>) => ({
+            id: a.id || a.field || a.question,
+            label: a.label,
+            value: a.value || a.answer,
+          }));
+          const sectionsPreview = docJson.sections?.map?.((s: Record<string, unknown>) => ({
+            name: s.name || s.title,
+            hasEntries: !!(s.entries || s.questions || s.fields),
+            entryCount: (s.entries || s.questions || s.fields as unknown[])?.length || 0,
+          }));
           logger.info('[PRESCRIPTION-QUEUE] Parsing document data', {
             patientName,
             hasGlp1History: !!docJson.glp1History,
             glp1History: docJson.glp1History,
-            docKeys: Object.keys(docJson).slice(0, 15),
+            hasAnswers: !!docJson.answers,
+            answersCount: docJson.answers?.length || 0,
+            answersPreview,
+            hasSections: !!docJson.sections,
+            sectionsCount: docJson.sections?.length || 0,
+            sectionsPreview,
+            docKeys: Object.keys(docJson).slice(0, 20),
           });
 
           // FIRST: Check for exact Airtable field names at root level
@@ -339,57 +355,110 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           }
 
           // THIRD: Check the answers array for GLP-1 fields
+          // MedLink uses id/label, other sources use question/field
           if (docJson.answers && Array.isArray(docJson.answers)) {
             let usedGlp1 = false;
             let glp1Type: string | null = null;
             let lastDose: string | null = null;
 
             for (const answer of docJson.answers) {
-              const key = normalizeKey(answer.question || answer.field || '');
+              // Support multiple field naming conventions: MedLink (id/label), WellMedR (question/field)
+              const key = normalizeKey(answer.question || answer.field || answer.id || answer.label || '');
               const val = answer.answer || answer.value || '';
 
-              if (key.includes('glp1last30') || key.includes('usedglp1')) {
-                if (String(val).toLowerCase() === 'yes') {
+              // GLP-1 usage patterns - matches "Used GLP-1 in Last 30 Days", "glp1-last-30", etc.
+              if (key.includes('glp1last30') || key.includes('usedglp1') || key.includes('glp1inlast30')) {
+                if (String(val).toLowerCase() === 'yes' || val === true) {
                   usedGlp1 = true;
                 }
               }
-              if (key.includes('glp1type') || key.includes('medicationtype') || key.includes('recentglp1')) {
-                if (val && String(val).toLowerCase() !== 'none') {
+              // GLP-1 type patterns - matches "Recent GLP-1 Medication Type", "glp1Type", etc.
+              if (key.includes('glp1type') || key.includes('medicationtype') || key.includes('recentglp1') ||
+                  key.includes('currentglp1') || key.includes('glp1medication')) {
+                if (val && String(val).toLowerCase() !== 'none' && String(val).toLowerCase() !== 'no' && String(val) !== '-') {
                   glp1Type = String(val);
                 }
               }
-              if (key.includes('semaglutidedose') || key.includes('tirzepatidedose') || key.includes('dosemg')) {
-                if (val && String(val) !== '-' && String(val) !== '0') {
-                  lastDose = String(val).replace(/[^\d.]/g, '');
+              // Dose patterns - matches "Semaglutide Dose", "Tirzepatide Dose", "glp1-last-30-medication-dose-mg"
+              if (key.includes('semaglutidedose') || key.includes('semaglutidedosage') ||
+                  key.includes('tirzepatidedose') || key.includes('tirzepatidedosage') ||
+                  key.includes('dosemg') || key.includes('currentglp1dose')) {
+                if (val && String(val) !== '-' && String(val) !== '0' && String(val).toLowerCase() !== 'none') {
+                  const numericDose = String(val).replace(/[^\d.]/g, '');
+                  if (numericDose && parseFloat(numericDose) > 0) {
+                    lastDose = numericDose;
+                  }
                 }
               }
             }
 
             if (usedGlp1) {
+              logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from answers array', {
+                patientName,
+                usedGlp1,
+                glp1Type,
+                lastDose,
+              });
               return { usedGlp1, glp1Type, lastDose };
             }
           }
 
           // FOURTH: Check sections array (another intake format)
+          // MedLink uses section.entries, other sources use section.questions or section.fields
           if (docJson.sections && Array.isArray(docJson.sections)) {
-            for (const section of docJson.sections) {
-              if (section.questions && Array.isArray(section.questions)) {
-                for (const q of section.questions) {
-                  const key = normalizeKey(q.question || q.field || q.id || '');
-                  const val = q.answer || q.value || '';
+            let sectionUsedGlp1 = false;
+            let sectionGlp1Type: string | null = null;
+            let sectionLastDose: string | null = null;
 
-                  if ((key.includes('glp1') || key.includes('glp-1')) && key.includes('30')) {
-                    if (String(val).toLowerCase() === 'yes') {
-                      logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from sections array', { patientName, key, val });
-                      return {
-                        usedGlp1: true,
-                        glp1Type: null,
-                        lastDose: null,
-                      };
+            for (const section of docJson.sections) {
+              // Support multiple section entry formats
+              const entries = section.questions || section.entries || section.fields || [];
+              if (!Array.isArray(entries)) continue;
+
+              for (const q of entries) {
+                const key = normalizeKey(q.question || q.field || q.id || q.label || '');
+                const val = q.answer || q.value || '';
+
+                // GLP-1 usage check
+                if (key.includes('glp1last30') || key.includes('usedglp1') || key.includes('glp1inlast30') ||
+                    ((key.includes('glp1') || key.includes('glp-1')) && key.includes('30'))) {
+                  if (String(val).toLowerCase() === 'yes' || val === true) {
+                    sectionUsedGlp1 = true;
+                  }
+                }
+                // GLP-1 type check
+                if (key.includes('glp1type') || key.includes('medicationtype') || key.includes('recentglp1') ||
+                    key.includes('currentglp1') || key.includes('glp1medication')) {
+                  if (val && String(val).toLowerCase() !== 'none' && String(val).toLowerCase() !== 'no' && String(val) !== '-') {
+                    sectionGlp1Type = String(val);
+                  }
+                }
+                // Dose check
+                if (key.includes('semaglutidedose') || key.includes('semaglutidedosage') ||
+                    key.includes('tirzepatidedose') || key.includes('tirzepatidedosage') ||
+                    key.includes('dosemg') || key.includes('currentglp1dose')) {
+                  if (val && String(val) !== '-' && String(val) !== '0' && String(val).toLowerCase() !== 'none') {
+                    const numericDose = String(val).replace(/[^\d.]/g, '');
+                    if (numericDose && parseFloat(numericDose) > 0) {
+                      sectionLastDose = numericDose;
                     }
                   }
                 }
               }
+            }
+
+            if (sectionUsedGlp1) {
+              logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from sections array', {
+                patientName,
+                usedGlp1: sectionUsedGlp1,
+                glp1Type: sectionGlp1Type,
+                lastDose: sectionLastDose,
+              });
+              return {
+                usedGlp1: sectionUsedGlp1,
+                glp1Type: sectionGlp1Type,
+                lastDose: sectionLastDose,
+              };
             }
           }
         } catch (e) {
