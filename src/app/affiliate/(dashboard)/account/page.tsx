@@ -107,13 +107,51 @@ export default function AccountPage() {
   const [leaderboardAlias, setLeaderboardAlias] = useState(displayData.leaderboard.alias || '');
   const [isSavingLeaderboard, setIsSavingLeaderboard] = useState(false);
 
+  // Notification preferences state
+  const [emailNotifications, setEmailNotifications] = useState(displayData.preferences.emailNotifications);
+  const [smsNotifications, setSmsNotifications] = useState(displayData.preferences.smsNotifications);
+  const [weeklyReport, setWeeklyReport] = useState(displayData.preferences.weeklyReport);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+
   // Update state when data loads
   useEffect(() => {
     if (data) {
       setLeaderboardOptIn(data.leaderboard.optIn);
       setLeaderboardAlias(data.leaderboard.alias || '');
+      setEmailNotifications(data.preferences.emailNotifications);
+      setSmsNotifications(data.preferences.smsNotifications);
+      setWeeklyReport(data.preferences.weeklyReport);
     }
   }, [data]);
+
+  // Handle notification preference toggles
+  const handlePreferenceToggle = async (preference: 'emailNotifications' | 'smsNotifications' | 'weeklyReport') => {
+    setIsSavingPreferences(true);
+    const newValue = preference === 'emailNotifications' ? !emailNotifications :
+                     preference === 'smsNotifications' ? !smsNotifications : !weeklyReport;
+
+    try {
+      const res = await fetch('/api/affiliate/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [preference]: newValue }),
+      });
+
+      if (res.ok) {
+        if (preference === 'emailNotifications') setEmailNotifications(newValue);
+        else if (preference === 'smsNotifications') setSmsNotifications(newValue);
+        else setWeeklyReport(newValue);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to update preference');
+      }
+    } catch (error) {
+      console.error('Failed to update preference:', error);
+      alert('Failed to update preference. Please try again.');
+    } finally {
+      setIsSavingPreferences(false);
+    }
+  };
 
   const handleLeaderboardToggle = async () => {
     setIsSavingLeaderboard(true);
@@ -355,16 +393,18 @@ export default function AccountPage() {
                 <p className="text-sm text-gray-500">Earnings and payout updates</p>
               </div>
               <button
-                className={`w-12 h-7 rounded-full relative transition-colors ${
-                  displayData.preferences.emailNotifications ? 'bg-gray-900' : 'bg-gray-200'
+                onClick={() => handlePreferenceToggle('emailNotifications')}
+                disabled={isSavingPreferences}
+                className={`w-12 h-7 rounded-full relative transition-colors disabled:opacity-50 ${
+                  emailNotifications ? 'bg-gray-900' : 'bg-gray-200'
                 }`}
               >
                 <span
                   className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
-                    displayData.preferences.emailNotifications ? 'left-5.5 translate-x-0' : 'left-0.5'
+                    emailNotifications ? 'left-5.5 translate-x-0' : 'left-0.5'
                   }`}
                   style={{
-                    transform: displayData.preferences.emailNotifications ? 'translateX(20px)' : 'translateX(0)',
+                    transform: emailNotifications ? 'translateX(20px)' : 'translateX(0)',
                   }}
                 />
               </button>
@@ -376,14 +416,16 @@ export default function AccountPage() {
                 <p className="text-sm text-gray-500">Important alerts via text</p>
               </div>
               <button
-                className={`w-12 h-7 rounded-full relative transition-colors ${
-                  displayData.preferences.smsNotifications ? 'bg-gray-900' : 'bg-gray-200'
+                onClick={() => handlePreferenceToggle('smsNotifications')}
+                disabled={isSavingPreferences}
+                className={`w-12 h-7 rounded-full relative transition-colors disabled:opacity-50 ${
+                  smsNotifications ? 'bg-gray-900' : 'bg-gray-200'
                 }`}
               >
                 <span
                   className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform`}
                   style={{
-                    transform: displayData.preferences.smsNotifications ? 'translateX(20px)' : 'translateX(0)',
+                    transform: smsNotifications ? 'translateX(20px)' : 'translateX(0)',
                   }}
                 />
               </button>
@@ -395,14 +437,16 @@ export default function AccountPage() {
                 <p className="text-sm text-gray-500">Performance summary every Monday</p>
               </div>
               <button
-                className={`w-12 h-7 rounded-full relative transition-colors ${
-                  displayData.preferences.weeklyReport ? 'bg-gray-900' : 'bg-gray-200'
+                onClick={() => handlePreferenceToggle('weeklyReport')}
+                disabled={isSavingPreferences}
+                className={`w-12 h-7 rounded-full relative transition-colors disabled:opacity-50 ${
+                  weeklyReport ? 'bg-gray-900' : 'bg-gray-200'
                 }`}
               >
                 <span
                   className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform`}
                   style={{
-                    transform: displayData.preferences.weeklyReport ? 'translateX(20px)' : 'translateX(0)',
+                    transform: weeklyReport ? 'translateX(20px)' : 'translateX(0)',
                   }}
                 />
               </button>

@@ -1,10 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 const GOOGLE_MAPS_KEY =
   process.env.GOOGLE_MAPS_SERVER_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest, user: AuthUser) {
   const input = request.nextUrl.searchParams.get("input") ?? "";
 
   if (!GOOGLE_MAPS_KEY) {
@@ -48,10 +49,10 @@ export async function GET(request: NextRequest) {
     }
 
     return Response.json({ ok: true, predictions: data.predictions ?? [] });
-  } catch (err: any) {
-    // @ts-ignore
-   
-    logger.error("[Maps Autocomplete] request failed", err);
+  } catch (err: unknown) {
+    logger.error("[Maps Autocomplete] request failed", { 
+      error: err instanceof Error ? err.message : 'Unknown error' 
+    });
     return Response.json(
       { ok: false, error: { message: "Autocomplete service unavailable" } },
       { status: 502 }
@@ -59,4 +60,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
-
+// Require authentication to prevent API abuse
+export const GET = withAuth(handler);

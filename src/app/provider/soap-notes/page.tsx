@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { FileText, Search, Plus, Download, Edit, Calendar, User, RefreshCw, AlertCircle } from "lucide-react";
 
 interface SOAPNote {
@@ -23,12 +24,86 @@ interface SOAPNote {
 }
 
 export default function ProviderSOAPNotesPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedNote, setSelectedNote] = useState<SOAPNote | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [soapNotes, setSoapNotes] = useState<SOAPNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Handler for creating a new SOAP note
+  const handleNewNote = () => {
+    // Navigate to patients list to select a patient for new SOAP note
+    router.push('/provider/patients?action=new-soap-note');
+  };
+
+  // Handler for editing an existing note
+  const handleEditNote = (noteId: number) => {
+    // Open note in edit mode via query param
+    router.push(`/provider/soap-notes?edit=${noteId}`);
+  };
+
+  // Handler for completing and signing a draft note
+  const handleCompleteAndSign = async (noteId: number) => {
+    if (!confirm('Are you sure you want to complete and sign this note? This action cannot be undone.')) return;
+    
+    setActionLoading(true);
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+      const response = await fetch(`/api/soap-notes/${noteId}/sign`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to sign note');
+      }
+      
+      // Refresh the list
+      await fetchSOAPNotes();
+      setSelectedNote(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to complete and sign note');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handler for exporting a note as PDF
+  const handleExportPDF = async (noteId: number) => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+      const response = await fetch(`/api/soap-notes/${noteId}/export`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+      
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `soap-note-${noteId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to export PDF');
+    }
+  };
 
   const fetchSOAPNotes = useCallback(async () => {
     try {
@@ -123,7 +198,10 @@ export default function ProviderSOAPNotesPage() {
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </button>
-            <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2">
+            <button
+              onClick={handleNewNote}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+            >
               <Plus className="h-4 w-4" />
               New SOAP Note
             </button>
@@ -291,19 +369,35 @@ export default function ProviderSOAPNotesPage() {
                   )}
                   <div className="pt-3 space-y-2">
                     {selectedNote.status === "DRAFT" && (
-                      <button className="w-full px-3 py-2 bg-green-100 text-green-700 rounded hover:bg-green-200">
-                        Complete & Sign
+                      <button
+                        onClick={() => handleCompleteAndSign(selectedNote.id)}
+                        disabled={actionLoading}
+                        className="w-full px-3 py-2 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50"
+                      >
+                        {actionLoading ? 'Processing...' : 'Complete & Sign'}
                       </button>
                     )}
                     {selectedNote.status === "APPROVED" && (
-                      <button className="w-full px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
-                        Add Signature
+                      <button
+                        onClick={() => handleCompleteAndSign(selectedNote.id)}
+                        disabled={actionLoading}
+                        className="w-full px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50"
+                      >
+                        {actionLoading ? 'Processing...' : 'Add Signature'}
                       </button>
                     )}
-                    <button className="w-full px-3 py-2 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">
-                      Edit Note
-                    </button>
-                    <button className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
+                    {(selectedNote.status === "DRAFT" || selectedNote.status === "PENDING_REVIEW") && (
+                      <button
+                        onClick={() => handleEditNote(selectedNote.id)}
+                        className="w-full px-3 py-2 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
+                      >
+                        Edit Note
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleExportPDF(selectedNote.id)}
+                      className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                    >
                       Export PDF
                     </button>
                   </div>

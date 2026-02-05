@@ -64,7 +64,13 @@ export const POST = withAuthParams(async (
       );
     }
 
-    const body = await req.json().catch(() => ({}));
+    // Parse optional body - notes are optional
+    let body: Record<string, unknown> = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Empty body is OK for approval
+    }
     const { notes } = body;
 
     const updatedRefill = await approveRefill(refillId, user.id, notes);

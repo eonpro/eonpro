@@ -44,12 +44,24 @@ export default function ConditionalHeader() {
     };
   }, [mobileMenuOpen]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('provider-token') || localStorage.getItem('super_admin-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
+    
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
     localStorage.removeItem('provider-token');
     localStorage.removeItem('super_admin-token');
     localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     
     document.cookie.split(";").forEach((c) => {
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");

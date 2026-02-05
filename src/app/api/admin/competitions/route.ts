@@ -140,9 +140,10 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 });
     }
 
-    // Determine initial status
+    // Determine initial status - use Prisma enum type
+    type CompetitionStatus = 'SCHEDULED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
     const now = new Date();
-    let status = 'SCHEDULED';
+    let status: CompetitionStatus = 'SCHEDULED';
     if (start <= now && end > now) {
       status = 'ACTIVE';
     } else if (end <= now) {

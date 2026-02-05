@@ -403,12 +403,14 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                     <span className="text-sm font-bold">{entry.weight} lbs</span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs ${
-                        entry.source === 'provider'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-600'
+                        entry.source === 'intake'
+                          ? 'bg-purple-100 text-purple-700'
+                          : entry.source === 'provider'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {entry.source === 'provider' ? 'Provider' : 'Patient'}
+                      {entry.source === 'intake' ? 'Intake' : entry.source === 'provider' ? 'Provider' : 'Patient'}
                     </span>
                     {idx === 0 && progress && (
                       <span

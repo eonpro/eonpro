@@ -244,7 +244,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
   const subStart = Date.now();
   try {
     await prisma.subscription.findFirst({
-      include: { patient: true, product: true },
+      include: { patient: true },
     });
     testedQueries.push({
       name: 'Subscription with Relations',
@@ -264,7 +264,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
   const soapStart = Date.now();
   try {
     await prisma.sOAPNote.findFirst({
-      include: { patient: true, provider: true },
+      include: { patient: true },
     });
     testedQueries.push({
       name: 'SOAP Note with Relations',
@@ -361,7 +361,7 @@ async function checkDataIntegrity(): Promise<DataIntegrityResult> {
 
     // Check for patients without clinic assignment
     const unassignedPatients = await prisma.patient.count({
-      where: { clinicId: null },
+      where: { clinicId: { equals: null } },
     });
     
     if (unassignedPatients > 0) {

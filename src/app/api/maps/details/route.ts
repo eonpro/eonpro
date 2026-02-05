@@ -1,10 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 const GOOGLE_MAPS_KEY =
   process.env.GOOGLE_MAPS_SERVER_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest, user: AuthUser) {
   const placeId = request.nextUrl.searchParams.get("placeId");
 
   if (!GOOGLE_MAPS_KEY) {
@@ -50,10 +51,10 @@ export async function GET(request: NextRequest) {
     }
 
     return Response.json({ ok: true, result: data.result });
-  } catch (err: any) {
-    // @ts-ignore
-   
-    logger.error("[Maps Details] request failed", err);
+  } catch (err: unknown) {
+    logger.error("[Maps Details] request failed", { 
+      error: err instanceof Error ? err.message : 'Unknown error' 
+    });
     return Response.json(
       { ok: false, error: { message: "Place details service unavailable" } },
       { status: 502 }
@@ -61,4 +62,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
-
+// Require authentication to prevent API abuse
+export const GET = withAuth(handler);

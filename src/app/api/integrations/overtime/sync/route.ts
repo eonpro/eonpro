@@ -58,8 +58,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Parse request body for sync options
-    const body = await req.json().catch(() => ({}));
+    // Parse request body for sync options (optional - use defaults if empty/invalid)
+    let body: Record<string, unknown> = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Empty or invalid JSON is OK - use defaults
+    }
 
     const options: SyncOptions = {
       dryRun: body.dryRun === true,

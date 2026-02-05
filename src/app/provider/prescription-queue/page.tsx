@@ -38,6 +38,7 @@ import {
 import { MEDS } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
 import SigBuilder from "@/components/SigBuilder";
+import MedicationSelector, { getGLP1SubCategory } from "@/components/MedicationSelector";
 
 // ============================================================================
 // ADDRESS PARSING UTILITIES
@@ -738,11 +739,28 @@ export default function PrescriptionQueuePage() {
     let matchedQty = "1";
     let matchedRefills = "0";
 
-    Object.entries(MEDS).forEach(([key, med]) => {
+    // Determine the medication type from treatment string
+    // IMPORTANT: Check for specific medication names to avoid confusion
+    const isTirzepatide = treatmentLower.includes('tirzepatide') ||
+                          treatmentLower.includes('mounjaro') ||
+                          treatmentLower.includes('zepbound');
+    const isSemaglutide = treatmentLower.includes('semaglutide') ||
+                          treatmentLower.includes('ozempic') ||
+                          treatmentLower.includes('wegovy');
+
+    // Find matching medication - prioritize exact medication type matches
+    for (const [key, med] of Object.entries(MEDS)) {
       const nameLower = med.name.toLowerCase();
+
+      // For GLP-1 medications, ensure we match the correct type
+      if (isTirzepatide && nameLower.includes('semaglutide')) continue;
+      if (isSemaglutide && nameLower.includes('tirzepatide')) continue;
+
+      // Check if this medication matches the treatment
+      const firstWord = treatmentLower.split(" ")[0];
       if (
         treatmentLower.includes(nameLower) ||
-        nameLower.includes(treatmentLower.split(" ")[0])
+        nameLower.includes(firstWord)
       ) {
         matchedKey = key;
         if (med.sigTemplates?.[0]) {
@@ -754,16 +772,29 @@ export default function PrescriptionQueuePage() {
           matchedQty = med.defaultQuantity || "1";
           matchedRefills = med.defaultRefills || "0";
         }
+        // Stop after finding a good match (prefer first match for consistent behavior)
+        break;
       }
-    });
+    }
 
-    // Also check metadata for product info
+    // Also check metadata for product info if no match found
     if (!matchedKey && metadata?.product) {
-      Object.entries(MEDS).forEach(([key, med]) => {
-        if (med.name.toLowerCase().includes(metadata.product.toLowerCase())) {
+      const productLower = metadata.product.toLowerCase();
+      const productIsTirzepatide = productLower.includes('tirzepatide');
+      const productIsSemaglutide = productLower.includes('semaglutide');
+
+      for (const [key, med] of Object.entries(MEDS)) {
+        const nameLower = med.name.toLowerCase();
+
+        // Ensure correct medication type matching
+        if (productIsTirzepatide && nameLower.includes('semaglutide')) continue;
+        if (productIsSemaglutide && nameLower.includes('tirzepatide')) continue;
+
+        if (nameLower.includes(productLower) || productLower.includes(nameLower.split('/')[0])) {
           matchedKey = key;
+          break;
         }
-      });
+      }
     }
 
     // Update the first medication in the array
@@ -1051,22 +1082,6 @@ export default function PrescriptionQueuePage() {
     );
   });
 
-  // Group medications by category for the dropdown, sorted alphabetically
-  const medicationOptions = Object.entries(MEDS)
-    .map(([key, med]) => ({
-      key,
-      label: `${med.name} ${med.strength} (${med.formLabel})`,
-      name: med.name,
-      strength: med.strength,
-    }))
-    .sort((a, b) => {
-      // Primary sort by name (case-insensitive)
-      const nameCompare = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-      if (nameCompare !== 0) return nameCompare;
-      // Secondary sort by strength (numeric-aware)
-      return a.strength.localeCompare(b.strength, undefined, { numeric: true, sensitivity: 'base' });
-    });
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#efece7' }}>
       {/* Header */}
@@ -1188,23 +1203,47 @@ export default function PrescriptionQueuePage() {
 
                     {/* Treatment & Plan - Col 2 */}
                     <div className="flex items-center gap-2">
-                      <div className="p-1 bg-purple-100 rounded flex-shrink-0">
-                        <Pill className="w-3 h-3 text-purple-600" />
+                      {/* Medication type icon - color coded */}
+                      <div className={`p-1 rounded flex-shrink-0 ${
+                        item.treatment.toLowerCase().includes('tirzepatide')
+                          ? 'bg-violet-100'
+                          : item.treatment.toLowerCase().includes('semaglutide')
+                            ? 'bg-teal-100'
+                            : 'bg-purple-100'
+                      }`}>
+                        <Pill className={`w-3 h-3 ${
+                          item.treatment.toLowerCase().includes('tirzepatide')
+                            ? 'text-violet-600'
+                            : item.treatment.toLowerCase().includes('semaglutide')
+                              ? 'text-teal-600'
+                              : 'text-purple-600'
+                        }`} />
                       </div>
                       <div className="min-w-0 overflow-hidden">
-                        <p className="text-[11px] font-medium text-gray-900 truncate">
-                          {item.treatment}
-                        </p>
-                        <span className={`inline-flex items-center px-1 py-0.5 rounded text-[10px] font-semibold ${
-                          item.planMonths >= 6
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : item.planMonths >= 3
-                              ? 'bg-rose-100 text-rose-700'
-                              : 'bg-gray-200 text-gray-700'
-                        }`}>
-                          {item.plan} ({item.planMonths} mo)
-                        </span>
-                        <p className="text-[10px] text-gray-400 truncate">{item.invoiceNumber}</p>
+                        {/* Medication type badge */}
+                        <div className="flex items-center gap-1 mb-0.5">
+                          {item.treatment.toLowerCase().includes('tirzepatide') && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-100 text-violet-700 border border-violet-200">
+                              🟣 TIRZ
+                            </span>
+                          )}
+                          {item.treatment.toLowerCase().includes('semaglutide') && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-100 text-teal-700 border border-teal-200">
+                              🟢 SEMA
+                            </span>
+                          )}
+                          <span className={`inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold ${
+                            item.planMonths >= 6
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : item.planMonths >= 3
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-gray-200 text-gray-700'
+                          }`}>
+                            {item.planMonths}mo
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 truncate">{item.treatment}</p>
+                        <p className="text-[9px] text-gray-400 truncate">{item.invoiceNumber}</p>
                       </div>
                     </div>
 
@@ -2001,18 +2040,33 @@ export default function PrescriptionQueuePage() {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Select Medication *
                           </label>
-                          <select
+                          {/* Expected medication type indicator */}
+                          {prescriptionPanel?.item.treatment && (
+                            <div className="mb-2">
+                              {prescriptionPanel.item.treatment.toLowerCase().includes('tirzepatide') && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-violet-100 text-violet-800 border border-violet-300">
+                                  🟣 Expected: Tirzepatide
+                                </span>
+                              )}
+                              {prescriptionPanel.item.treatment.toLowerCase().includes('semaglutide') && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-teal-100 text-teal-800 border border-teal-300">
+                                  🟢 Expected: Semaglutide
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <MedicationSelector
                             value={medication.medicationKey}
-                            onChange={(e) => handleMedicationChange(index, e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent bg-white"
-                          >
-                            <option value="">Select a medication...</option>
-                            {medicationOptions.map((med) => (
-                              <option key={med.key} value={med.key}>
-                                {med.label}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(key) => handleMedicationChange(index, key)}
+                            expectedMedicationType={
+                              prescriptionPanel?.item.treatment?.toLowerCase().includes('tirzepatide')
+                                ? 'Tirzepatide'
+                                : prescriptionPanel?.item.treatment?.toLowerCase().includes('semaglutide')
+                                ? 'Semaglutide'
+                                : undefined
+                            }
+                            showCategoryBadge={true}
+                          />
                         </div>
 
                         {/* Enhanced SigBuilder Component */}

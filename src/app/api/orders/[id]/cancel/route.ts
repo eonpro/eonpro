@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { getClinicLifefileClient } from '@/lib/clinic-lifefile';
 import lifefile, { CANCELLATION_REASONS, CancellationReason } from '@/lib/lifefile';
 import { providerCompensationService } from '@/services/provider';
+import { platformFeeService } from '@/services/billing';
 
 // Request validation schema
 const cancelOrderSchema = z.object({
@@ -73,7 +74,13 @@ export const POST = withAuthParams(async (
     }
 
     // Parse request body
-    const body = await req.json().catch(() => ({}));
+    // Parse body - validation happens below
+    let body: Record<string, unknown> = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Empty body handled by schema validation below
+    }
     const parseResult = cancelOrderSchema.safeParse(body);
     
     if (!parseResult.success) {
@@ -254,6 +261,24 @@ export const POST = withAuthParams(async (
       logger.error('[ORDER CANCEL] Failed to void compensation event', {
         orderId,
         error: compError instanceof Error ? compError.message : 'Unknown error',
+      });
+    }
+
+    // PLATFORM BILLING: Void any platform fee associated with this order
+    try {
+      const voidedFee = await platformFeeService.voidFeeByOrder(
+        orderId,
+        `Order cancelled: ${reason}${notes ? ` - ${notes}` : ''}`,
+        user.id
+      );
+      if (voidedFee) {
+        logger.info('[ORDER CANCEL] Platform fee voided', { orderId, feeEventId: voidedFee.id });
+      }
+    } catch (feeError) {
+      // Don't fail the cancellation if fee voiding fails
+      logger.error('[ORDER CANCEL] Failed to void platform fee', {
+        orderId,
+        error: feeError instanceof Error ? feeError.message : 'Unknown error',
       });
     }
 

@@ -168,19 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userData) {
         setUser(userData);
         
-        // Log successful login
-        await fetch('/api/audit/login', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${data.token}`
-          },
-          body: JSON.stringify({
-            email,
-            role,
-            timestamp: new Date().toISOString(),
-          }),
-        });
+        // Note: Login audit logging is handled server-side in /api/auth/login
         
         // Redirect based on role
         switch (userData.role) {
@@ -188,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.push('/admin');
             break;
           case 'provider':
-            router.push('/providers/dashboard');
+            router.push('/provider');
             break;
           case 'influencer':
             router.push('/influencer/dashboard');
@@ -241,7 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await fetch('/api/auth/refresh', {
+      const response = await fetch('/api/auth/refresh-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: refresh }),

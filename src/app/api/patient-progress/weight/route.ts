@@ -137,10 +137,149 @@ export const POST = postHandler;
 // GET /api/patient-progress/weight?patientId=X - Get weight logs for a patient
 // ============================================================================
 
+/**
+ * Extract initial weight from intake documents or submissions
+ */
+async function getIntakeWeight(patientId: number): Promise<{ weight: number; recordedAt: Date } | null> {
+  try {
+    // Fetch patient with intake documents and submissions
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      include: {
+        documents: {
+          where: { category: 'MEDICAL_INTAKE_FORM' },
+          orderBy: { createdAt: 'asc' }, // Get oldest first (initial intake)
+          take: 1,
+        },
+        intakeSubmissions: {
+          include: {
+            responses: {
+              include: {
+                question: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!patient) return null;
+
+    // Helper to find value by label
+    const findWeightValue = (data: any, submissions: any[]): string | null => {
+      const labels = ['starting weight', 'current weight', 'weight'];
+
+      // Source 1: Document data with sections array
+      if (data && typeof data === 'object') {
+        // Check sections array
+        if (data.sections && Array.isArray(data.sections)) {
+          for (const section of data.sections) {
+            if (section.entries && Array.isArray(section.entries)) {
+              for (const entry of section.entries) {
+                const entryLabel = (entry.label || '').toLowerCase();
+                for (const label of labels) {
+                  if (entryLabel.includes(label) && entry.value && entry.value !== '') {
+                    return String(entry.value);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Check answers array
+        if (data.answers && Array.isArray(data.answers)) {
+          for (const answer of data.answers) {
+            const answerLabel = (answer.label || '').toLowerCase();
+            for (const label of labels) {
+              if (answerLabel.includes(label) && answer.value && answer.value !== '') {
+                return String(answer.value);
+              }
+            }
+          }
+        }
+
+        // Check flat key-value pairs
+        for (const label of labels) {
+          const searchKey = label.toLowerCase().replace(/[^a-z0-9]/g, '');
+          for (const [key, value] of Object.entries(data)) {
+            const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (normalizedKey.includes(searchKey) && value && value !== '') {
+              return String(value);
+            }
+          }
+        }
+      }
+
+      // Source 2: IntakeSubmissions responses
+      if (submissions?.length > 0) {
+        for (const submission of submissions) {
+          if (submission.responses && Array.isArray(submission.responses)) {
+            for (const response of submission.responses) {
+              const questionText = (
+                response.question?.text ||
+                response.question?.label ||
+                ''
+              ).toLowerCase();
+              for (const label of labels) {
+                if (questionText.includes(label) && response.value && response.value !== '') {
+                  return String(response.value);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    // Parse document data if it exists
+    let parsedData = null;
+    const doc = patient.documents[0];
+    if (doc?.data) {
+      if (Buffer.isBuffer(doc.data)) {
+        try {
+          const jsonStr = (doc.data as Buffer).toString('utf-8');
+          parsedData = JSON.parse(jsonStr);
+        } catch {
+          // Ignore parse errors
+        }
+      } else if (typeof doc.data === 'object' && (doc.data as any).type === 'Buffer' && Array.isArray((doc.data as any).data)) {
+        try {
+          const jsonStr = Buffer.from((doc.data as any).data).toString('utf-8');
+          parsedData = JSON.parse(jsonStr);
+        } catch {
+          // Ignore parse errors
+        }
+      } else if (typeof doc.data === 'object') {
+        parsedData = doc.data;
+      }
+    }
+
+    const weightStr = findWeightValue(parsedData, patient.intakeSubmissions);
+    if (!weightStr) return null;
+
+    // Parse weight value (remove non-numeric characters except decimal)
+    const weight = parseFloat(weightStr.replace(/[^0-9.]/g, ''));
+    if (isNaN(weight) || weight <= 0 || weight > 2000) return null;
+
+    // Use the intake document/submission creation date
+    const recordedAt = doc?.createdAt || patient.intakeSubmissions[0]?.createdAt || patient.createdAt;
+
+    return { weight, recordedAt: new Date(recordedAt) };
+  } catch (error) {
+    logger.error("Failed to extract intake weight", { patientId, error });
+    return null;
+  }
+}
+
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
     const searchParams = request.nextUrl.searchParams;
-    
+
     // Validate query parameters
     const parseResult = getWeightLogsSchema.safeParse({
       patientId: searchParams.get("patientId"),
@@ -158,26 +297,66 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     // AUTHORIZATION CHECK FIRST - before any data access
     if (!canAccessPatient(user, patientId)) {
-      logger.warn("Unauthorized weight log access attempt", { 
-        userId: user.id, 
-        attemptedPatientId: patientId 
+      logger.warn("Unauthorized weight log access attempt", {
+        userId: user.id,
+        attemptedPatientId: patientId
       });
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // Now fetch data (after authorization passes)
+    // Fetch weight logs from database
     const weightLogs = await prisma.patientWeightLog.findMany({
       where: { patientId },
       orderBy: { recordedAt: "desc" },
-      take: limit, // Always paginated
+      take: limit,
     });
 
+    // Get initial intake weight
+    const intakeWeight = await getIntakeWeight(patientId);
+
+    // Combine logs - add intake weight as first entry if it exists and isn't already in logs
+    let allLogs = [...weightLogs];
+
+    if (intakeWeight) {
+      // Check if we already have a weight log at or before the intake date
+      const hasEarlierOrSameEntry = weightLogs.some(log =>
+        new Date(log.recordedAt).getTime() <= intakeWeight.recordedAt.getTime()
+      );
+
+      // Also check if intake weight is roughly the same as any existing entry
+      // (to avoid duplicates if someone manually added the intake weight)
+      const hasSimilarWeight = weightLogs.some(log =>
+        Math.abs(log.weight - intakeWeight.weight) < 0.5 &&
+        Math.abs(new Date(log.recordedAt).getTime() - intakeWeight.recordedAt.getTime()) < 24 * 60 * 60 * 1000 // Within 24 hours
+      );
+
+      if (!hasEarlierOrSameEntry && !hasSimilarWeight) {
+        // Add intake weight as a synthetic entry
+        allLogs.push({
+          id: -1, // Synthetic ID to indicate intake entry
+          createdAt: intakeWeight.recordedAt,
+          patientId,
+          weight: intakeWeight.weight,
+          unit: 'lbs',
+          notes: 'Initial weight from intake form',
+          source: 'intake',
+          recordedAt: intakeWeight.recordedAt,
+        } as any);
+
+        // Re-sort by date descending
+        allLogs.sort((a, b) =>
+          new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+        );
+      }
+    }
+
     return NextResponse.json({
-      data: weightLogs,
+      data: allLogs,
       meta: {
-        count: weightLogs.length,
+        count: allLogs.length,
         limit,
         patientId,
+        hasIntakeWeight: !!intakeWeight,
       }
     });
   } catch (error) {

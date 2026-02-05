@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Shield, Building2, Settings, LogOut, ChevronRight, Users, DollarSign, UserCog, Activity, Ticket
+  Shield, Building2, Settings, LogOut, ChevronRight, Users, DollarSign, UserCog, Activity, Ticket, Receipt
 } from 'lucide-react';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
 import InternalChat from '@/components/InternalChat';
@@ -23,6 +23,7 @@ const navItems = [
   { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Activity, path: '/super-admin/user-activity', label: 'User Activity' },
   { icon: DollarSign, path: '/super-admin/commission-plans', label: 'Commission Plans' },
+  { icon: Receipt, path: '/super-admin/clinic-billing', label: 'Clinic Billing' },
   { icon: Settings, path: '/super-admin/settings', label: 'Settings' },
 ];
 
@@ -58,12 +59,33 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     }
   }, [router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Call the logout API to terminate server session
+      const token = safeLocalStorage.getItem('auth-token') || safeLocalStorage.getItem('super_admin-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }).catch(() => {
+          // Non-blocking - continue with client-side cleanup even if API fails
+          console.warn('[Logout] API call failed, continuing with client cleanup');
+        });
+      }
+    } catch (error) {
+      console.warn('[Logout] Error calling logout API:', error);
+    }
+
     safeLocalStorage.removeItem('user');
     safeLocalStorage.removeItem('auth-token');
     safeLocalStorage.removeItem('admin-token');
     safeLocalStorage.removeItem('provider-token');
     safeLocalStorage.removeItem('super_admin-token');
+    safeLocalStorage.removeItem('access_token');
+    safeLocalStorage.removeItem('refresh_token');
+    safeLocalStorage.removeItem('token_timestamp');
     // Clear cookies (only on client-side)
     if (isBrowser && document?.cookie) {
       document.cookie.split(";").forEach((c) => {

@@ -19,13 +19,11 @@ function safeDecrypt(value: string | null | undefined): string | null {
 }
 
 // Configuration from environment variables
-// For development/testing, allow fallback to test credentials
+// SECURITY: No hardcoded credentials - env vars required in production
 const WEBHOOK_USERNAME = process.env.LIFEFILE_DATAPUSH_USERNAME || 
-                        process.env.LIFEFILE_WEBHOOK_USERNAME || 
-                        'lifefile_webhook'; // Default for development
+                        process.env.LIFEFILE_WEBHOOK_USERNAME;
 const WEBHOOK_PASSWORD = process.env.LIFEFILE_DATAPUSH_PASSWORD || 
-                        process.env.LIFEFILE_WEBHOOK_PASSWORD ||
-                        'test_password'; // Default for development
+                        process.env.LIFEFILE_WEBHOOK_PASSWORD;
 
 /**
  * Verify Basic Authentication
@@ -56,23 +54,18 @@ function verifyBasicAuth(authHeader: string | null): boolean {
     const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
     const [username, password] = credentials.split(':');
     
-    // In development, accept test credentials
-    if (isDevelopment && username === 'lifefile_webhook' && password === 'test_password') {
-      logger.info('[LIFEFILE DATA PUSH] Authentication successful (development test credentials)');
-      return true;
-    }
-
+    // SECURITY: Only accept credentials from environment variables
     if (username === WEBHOOK_USERNAME && password === WEBHOOK_PASSWORD) {
       logger.info('[LIFEFILE DATA PUSH] Authentication successful');
       return true;
     }
 
-    logger.error(`[LIFEFILE DATA PUSH] Authentication failed`);
+    logger.error('[LIFEFILE DATA PUSH] Authentication failed');
     return false;
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[LIFEFILE DATA PUSH] Error parsing auth header:', error);
+  } catch (error: unknown) {
+    logger.error('[LIFEFILE DATA PUSH] Error parsing auth header:', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
     return false;
   }
 }

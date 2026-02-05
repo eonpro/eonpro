@@ -160,8 +160,8 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
           data: {
             userId: 0, // TODO: Get from auth
             action: 'REFUND_PROCESSED',
-            entityType: payment ? 'Payment' : 'Invoice',
-            entityId: (payment?.id || invoice?.id || 0).toString(),
+            resource: payment ? 'Payment' : 'Invoice',
+            resourceId: payment?.id || invoice?.id || 0,
             details: {
               paymentId: payment?.id,
               invoiceId: invoiceId,
@@ -412,8 +412,8 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
             data: {
               userId: 0, // TODO: Get from auth
               action: 'REFUND_PROCESSED',
-              entityType: payment ? 'Payment' : 'Invoice',
-              entityId: (payment?.id || invoice?.id || 0).toString(),
+              resource: payment ? 'Payment' : 'Invoice',
+              resourceId: payment?.id || invoice?.id || 0,
               details: {
                 paymentId: payment?.id,
                 invoiceId: invoiceId,

@@ -86,14 +86,23 @@ export default function WebhookMonitorPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`/api/webhooks/${selectedEndpoint}`);
+      // Use the webhook health endpoint for stats
+      const res = await fetch('/api/webhooks/health');
       if (res.ok) {
         const data = await res.json();
-        setStats(data.stats);
+        // Map health data to stats format
+        setStats({
+          total: (data.intake?.last24hCount || 0) + (data.intake?.last24hErrors || 0),
+          successful: data.intake?.last24hCount || 0,
+          failed: data.intake?.last24hErrors || 0,
+          invalidAuth: 0,
+          invalidPayload: 0,
+          successRate: parseFloat(data.intake?.successRate || '100'),
+          avgProcessingTimeMs: 0,
+          recentLogs: [],
+        });
       }
     } catch (error: any) {
-    // @ts-ignore
-   
       logger.error("Failed to fetch webhook stats:", error);
     } finally {
       setLoading(false);

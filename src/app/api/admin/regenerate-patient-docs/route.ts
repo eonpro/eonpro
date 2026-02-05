@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
             where: { id: existingDoc.id },
             data: {
               filename: stored.filename,
-              data: stored.pdfBuffer, // Store PDF bytes directly
+              data: new Uint8Array(stored.pdfBuffer), // Convert Buffer to Uint8Array for Prisma
               externalUrl: null, // Clear legacy external URL
               clinicId: patient.clinicId,
             },
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
               source: 'regenerated',
               sourceSubmissionId: normalizedIntake.submissionId,
               category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-              data: stored.pdfBuffer, // Store PDF bytes directly
+              data: new Uint8Array(stored.pdfBuffer), // Convert Buffer to Uint8Array for Prisma
             },
           });
           results.actions.push({

@@ -56,6 +56,7 @@ export const GET = withSuperAdminAuth(async (
         clinicId: true,
         primaryClinicId: true,
         activeClinicId: true,
+        isEonproProvider: true, // Platform billing: internal vs clinic provider
         npiVerifiedAt: true,
         npiRawResponse: true,
         lastLogin: true,
@@ -174,14 +175,25 @@ export const PUT = withSuperAdminAuth(async (
     // Check provider exists
     const existing = await prisma.provider.findUnique({
       where: { id: providerId },
-      select: { id: true },
+      select: { id: true, isEonproProvider: true },
     });
 
     if (!existing) {
       return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
     }
 
-    // Use provider service for update
+    // Handle isEonproProvider separately (super admin only field)
+    let eonproProviderChanged = false;
+    if (typeof body.isEonproProvider === 'boolean' && body.isEonproProvider !== existing.isEonproProvider) {
+      await prisma.provider.update({
+        where: { id: providerId },
+        data: { isEonproProvider: body.isEonproProvider },
+      });
+      eonproProviderChanged = true;
+      delete body.isEonproProvider;
+    }
+
+    // Use provider service for other updates
     const userContext = {
       id: user.id,
       email: user.email,
@@ -189,9 +201,22 @@ export const PUT = withSuperAdminAuth(async (
       clinicId: null,
     };
 
-    const provider = await providerService.updateProvider(providerId, body, userContext);
+    let provider;
+    if (Object.keys(body).length > 0) {
+      provider = await providerService.updateProvider(providerId, body, userContext);
+    } else {
+      // If only isEonproProvider was changed, fetch the updated provider
+      provider = await prisma.provider.findUnique({
+        where: { id: providerId },
+      });
+    }
 
     // Create audit log for super admin action
+    const updatedFields = [...Object.keys(body)];
+    if (eonproProviderChanged) {
+      updatedFields.push('isEonproProvider');
+    }
+    
     try {
       await prisma.providerAudit.create({
         data: {
@@ -200,7 +225,8 @@ export const PUT = withSuperAdminAuth(async (
           action: 'SUPER_ADMIN_UPDATE',
           diff: {
             updatedBy: user.email,
-            fields: Object.keys(body),
+            fields: updatedFields,
+            eonproProviderChanged,
           },
         },
       });
@@ -210,7 +236,8 @@ export const PUT = withSuperAdminAuth(async (
 
     logger.info('[SUPER-ADMIN/PROVIDERS] Provider updated', {
       providerId,
-      updatedFields: Object.keys(body),
+      updatedFields,
+      eonproProviderChanged,
     });
 
     return NextResponse.json({

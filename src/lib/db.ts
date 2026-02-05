@@ -110,6 +110,27 @@ function buildConnectionUrl(): string {
   try {
     const url = new URL(baseUrl);
     const isProd = process.env.NODE_ENV === 'production';
+    const isVercel = !!process.env.VERCEL;
+
+    // ========================================================================
+    // PGBOUNCER - Only add if explicitly configured or detected in URL
+    // ========================================================================
+    // IMPORTANT: Do NOT auto-add pgbouncer=true as it breaks connections to
+    // databases that don't have PgBouncer configured. The pgbouncer setting
+    // must be explicit in the DATABASE_URL or via ENABLE_PGBOUNCER env var.
+    //
+    // If you're using PgBouncer, either:
+    // 1. Add ?pgbouncer=true to your DATABASE_URL, or
+    // 2. Set ENABLE_PGBOUNCER=true in environment variables
+    //
+    // Detection: If URL contains port 6543 (common PgBouncer port), we assume PgBouncer
+    const portIsPgBouncer = url.port === '6543';
+    const envEnablePgBouncer = process.env.ENABLE_PGBOUNCER === 'true';
+
+    if (!url.searchParams.has('pgbouncer') && (portIsPgBouncer || envEnablePgBouncer)) {
+      url.searchParams.set('pgbouncer', 'true');
+      logger.info('[Prisma] Added pgbouncer=true (detected PgBouncer configuration)');
+    }
 
     // Connection limit handling:
     // 1. If DATABASE_CONNECTION_LIMIT env var is set, ALWAYS use it (override URL)
@@ -788,22 +809,64 @@ class PrismaWithClinicFilter {
   // Expose other Prisma client methods
   $connect() { return this.client.$connect(); }
   $disconnect() { return this.client.$disconnect(); }
-  $executeRaw(query: TemplateStringsArray, ...values: any[]) {
+  $executeRaw(query: TemplateStringsArray, ...values: unknown[]) {
     return this.client.$executeRaw(query, ...values);
   }
-  $executeRawUnsafe(query: string, ...values: any[]) {
+  $executeRawUnsafe(query: string, ...values: unknown[]) {
     return this.client.$executeRawUnsafe(query, ...values);
   }
-  $queryRaw(query: TemplateStringsArray, ...values: any[]) {
-    return this.client.$queryRaw(query, ...values);
+  $queryRaw<T = unknown>(query: TemplateStringsArray, ...values: unknown[]): Promise<T> {
+    return this.client.$queryRaw(query, ...values) as Promise<T>;
   }
-  $queryRawUnsafe(query: string, ...values: any[]) {
-    return this.client.$queryRawUnsafe(query, ...values);
+  $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> {
+    return this.client.$queryRawUnsafe(query, ...values) as Promise<T>;
   }
 }
 
-// Export the wrapped client (uses clinic filtering)
-export const prisma = new PrismaWithClinicFilter(basePrisma) as any;
+/**
+ * Transaction function type that properly reflects the wrapped client behavior.
+ * The callback receives a PrismaClient (wrapped in PrismaWithClinicFilter),
+ * not a raw Prisma.TransactionClient.
+ */
+type ClinicFilteredTransactionFn = {
+  <T>(
+    fn: (tx: PrismaClient) => Promise<T>,
+    options?: {
+      maxWait?: number;
+      timeout?: number;
+      isolationLevel?: Prisma.TransactionIsolationLevel;
+    }
+  ): Promise<T>;
+  // Also support the array-based transaction syntax
+  <P extends Prisma.PrismaPromise<unknown>[]>(
+    arg: [...P],
+    options?: {
+      isolationLevel?: Prisma.TransactionIsolationLevel;
+    }
+  ): Promise<{ [K in keyof P]: Awaited<P[K]> }>;
+};
+
+/**
+ * Prisma client with automatic clinic filtering for multi-tenant isolation.
+ * 
+ * NOTE: The `as unknown as` cast is necessary because PrismaWithClinicFilter implements
+ * a Proxy-based interception pattern for model operations that TypeScript cannot
+ * statically verify. The wrapper provides all PrismaClient model operations with
+ * automatic clinicId filtering for HIPAA-compliant data isolation.
+ * 
+ * All model operations (findMany, create, update, etc.) automatically:
+ * 1. Add clinicId to WHERE clauses (reads)
+ * 2. Add clinicId to data (creates)
+ * 3. Validate results don't leak cross-clinic data (defense-in-depth)
+ * 
+ * The $transaction callback receives a PrismaClient (wrapped), so code should use:
+ *   prisma.$transaction(async (tx) => { ... })
+ * 
+ * @see CLINIC_ISOLATED_MODELS for list of models with automatic filtering
+ */
+export const prisma = new PrismaWithClinicFilter(basePrisma) as unknown as PrismaClient & {
+  $transaction: ClinicFilteredTransactionFn;
+};
 
 // Export the base client for public endpoints (no clinic filtering)
 export { basePrisma };

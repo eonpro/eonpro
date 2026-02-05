@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
     let normalized;
     try {
       normalized = normalizeMedLinkPayload(payload);
-      logger.debug(`[INTAKE WEBHOOK ${requestId}] Normalized: ${normalized.patient.firstName} ${normalized.patient.lastName}`);
+      logger.debug(`[INTAKE WEBHOOK ${requestId}] Payload normalized successfully`);
     } catch (normalizeError: any) {
       logger.error(`[INTAKE WEBHOOK ${requestId}] Normalization error:`, normalizeError);
       webhookLogData.status = WebhookStatus.PROCESSING_ERROR;

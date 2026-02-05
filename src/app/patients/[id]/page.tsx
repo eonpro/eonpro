@@ -28,6 +28,7 @@ import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
 import PatientPrescriptionSummary from '@/components/PatientPrescriptionSummary';
 import PatientQuickSearch from '@/components/PatientQuickSearch';
+import WeightProgressSummary from '@/components/WeightProgressSummary';
 import { Patient, Provider, Order } from '@/types/models';
 
 type PageProps = {
@@ -887,30 +888,8 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                   </p>
                 </div>
 
-                {/* Weight Chart - Link to Progress Tab */}
-                <div className="mt-6 flex h-48 items-center justify-center rounded-xl bg-[#efece7] p-4">
-                  <Link
-                    href={`/patients/${patientWithDecryptedPHI.id}?tab=progress`}
-                    className="text-center text-gray-500 transition-colors group"
-                  >
-                    <svg
-                      className="mx-auto mb-2 h-8 w-8 opacity-50 group-hover:opacity-80 transition-opacity"
-                      style={{ color: 'inherit' }}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                      />
-                    </svg>
-                    <p className="text-sm font-medium group-hover:text-gray-700">Weight Progress Tracking</p>
-                    <p className="text-xs">View full chart in Progress tab →</p>
-                  </Link>
-                </div>
+                {/* Weight Progress Summary - Shows patient's journey entries */}
+                <WeightProgressSummary patientId={patientWithDecryptedPHI.id} />
               </div>
 
               {/* Audit Log for admins */}

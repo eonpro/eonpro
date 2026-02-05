@@ -76,7 +76,7 @@ export const GET = withAuth(async (request, user) => {
     // Build where clause - filter by clinic if not super admin
     const whereClause: Record<string, unknown> = {};
 
-    if (user.role !== 'SUPER_ADMIN' && user.clinicId) {
+    if (user.role !== 'super_admin' && user.clinicId) {
       whereClause.clinicId = user.clinicId;
     }
 

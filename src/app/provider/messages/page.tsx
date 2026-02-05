@@ -120,7 +120,7 @@ export default function ProviderMessagesPage() {
                     localStorage.getItem('auth-token') || 
                     localStorage.getItem('provider-token');
       
-      await fetch(`/api/messages/send`, {
+      const response = await fetch(`/api/messages/send`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -132,11 +132,17 @@ export default function ProviderMessagesPage() {
         }),
       });
       
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to send message');
+      }
+      
       setMessageContent("");
       // Refresh thread
       // ... would refetch here
     } catch (err) {
       console.error('Failed to send message:', err);
+      alert(err instanceof Error ? err.message : 'Failed to send message. Please try again.');
     }
   };
 

@@ -77,9 +77,22 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]); // Intentionally exclude pathname - auth check should only run on mount
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('provider-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
+    localStorage.removeItem('admin-token');
+    localStorage.removeItem('provider-token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     router.push('/login');
   };
 

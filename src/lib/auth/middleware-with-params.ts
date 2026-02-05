@@ -87,15 +87,20 @@ function extractToken(req: NextRequest): string | null {
   }
 
   // Check cookies for various token types (check all possible token storage names)
+  // Note: Order matters - more specific cookies should be checked first
   const cookieTokens = [
+    'affiliate_session', // Affiliate portal - check first for affiliate routes
+    'influencer-token',  // Legacy influencer portal
+    'affiliate-token',
     'auth-token',
-    'token',
     'super_admin-token',
-    'SUPER_ADMIN-token',
-    'influencer-token',
-    'provider-token',
     'admin-token',
-    'staff-token'
+    'provider-token',
+    'patient-token',
+    'staff-token',
+    'support-token',
+    'token',             // Generic fallback
+    'SUPER_ADMIN-token', // Legacy case variant
   ];
 
   for (const cookieName of cookieTokens) {
@@ -171,7 +176,15 @@ export function withAuthParams<T extends { params: any }>(
     }
     
     // Validate session (check for timeout)
-    if (user.sessionId) {
+    // Security: Log tokens without sessionId for monitoring
+    if (!user.sessionId) {
+      // Log warning for tokens missing sessionId - potential old token or manipulation
+      console.warn('[Auth] Token missing sessionId', {
+        userId: user.id,
+        role: user.role,
+        path: req.nextUrl.pathname,
+      });
+    } else {
       const sessionValidation = await validateSession(token, req);
       
       if (!sessionValidation.valid) {

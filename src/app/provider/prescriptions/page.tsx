@@ -253,7 +253,10 @@ export default function ProviderPrescriptionsPage() {
               <Pill className="h-5 w-5" />
               Prescriptions
             </h1>
-            <button className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 flex items-center gap-1.5">
+            <button
+              onClick={() => router.push('/provider/patients?action=new-prescription')}
+              className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 flex items-center gap-1.5"
+            >
               <Plus className="h-4 w-4" />
               New Prescription
             </button>

@@ -24,6 +24,11 @@ import {
   Target,
   MousePointer,
   Trophy,
+  Wrench,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Activity,
 } from 'lucide-react';
 
 interface Clinic {
@@ -118,6 +123,48 @@ interface CrossClinicAnalytics {
   }>;
 }
 
+interface DiagnosticCheck {
+  name: string;
+  status: 'healthy' | 'warning' | 'error';
+  message: string;
+  value?: number | string;
+  details?: Record<string, any>;
+}
+
+interface DiagnosticsData {
+  timestamp: string;
+  overallStatus: 'healthy' | 'warning' | 'error';
+  checks: DiagnosticCheck[];
+  recentActivity: {
+    recentTouches: Array<{
+      refCode: string;
+      affiliateName: string;
+      clinicName: string;
+      createdAt: string;
+      converted: boolean;
+    }>;
+    recentCommissions: Array<{
+      affiliateName: string;
+      clinicName: string;
+      amountCents: number;
+      commissionCents: number;
+      status: string;
+      createdAt: string;
+    }>;
+    recentReferrals: Array<{
+      promoCode: string;
+      patientId: number;
+      hasModernAttribution: boolean;
+      createdAt: string;
+    }>;
+  };
+  migrationStatus: {
+    legacyInfluencerCount: number;
+    modernAffiliateCount: number;
+    unmigratedCodes: string[];
+  };
+}
+
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -185,6 +232,11 @@ export default function SuperAdminAffiliatesPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
 
+  // Diagnostics state
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsData | null>(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     const token = localStorage.getItem('auth-token');
@@ -204,6 +256,26 @@ export default function SuperAdminAffiliatesPage() {
       setAnalyticsLoading(false);
     }
   }, [analyticsPeriod]);
+
+  const fetchDiagnostics = useCallback(async () => {
+    setDiagnosticsLoading(true);
+    const token = localStorage.getItem('auth-token');
+
+    try {
+      const response = await fetch(
+        '/api/super-admin/affiliates/diagnostics',
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+
+      if (response.ok) {
+        setDiagnostics(await response.json());
+      }
+    } catch (error) {
+      console.error('Failed to fetch diagnostics:', error);
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -671,6 +743,187 @@ export default function SuperAdminAffiliatesPage() {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* System Diagnostics Panel */}
+      <div className="mb-6">
+        <button
+          onClick={() => {
+            setShowDiagnostics(!showDiagnostics);
+            if (!showDiagnostics && !diagnostics) {
+              fetchDiagnostics();
+            }
+          }}
+          className="flex items-center gap-2 mb-4 text-gray-600 hover:text-gray-900"
+        >
+          <Wrench className="h-5 w-5" />
+          <span className="font-medium">System Diagnostics</span>
+          {diagnostics && (
+            <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+              diagnostics.overallStatus === 'healthy' ? 'bg-green-100 text-green-700' :
+              diagnostics.overallStatus === 'warning' ? 'bg-yellow-100 text-yellow-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              {diagnostics.overallStatus === 'healthy' ? 'Healthy' :
+               diagnostics.overallStatus === 'warning' ? 'Needs Attention' : 'Issues Found'}
+            </span>
+          )}
+          <ChevronDown className={`h-4 w-4 transition-transform ${showDiagnostics ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showDiagnostics && (
+          <div className="space-y-4">
+            {diagnosticsLoading ? (
+              <div className="flex h-32 items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#4fa77e] border-t-transparent" />
+              </div>
+            ) : diagnostics ? (
+              <>
+                {/* Health Checks */}
+                <div className="rounded-xl bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-gray-400" />
+                      System Health Checks
+                    </h3>
+                    <button
+                      onClick={fetchDiagnostics}
+                      className="text-gray-400 hover:text-gray-600"
+                      title="Refresh diagnostics"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {diagnostics.checks.map((check) => (
+                      <div
+                        key={check.name}
+                        className={`rounded-lg border p-3 ${
+                          check.status === 'healthy' ? 'border-green-200 bg-green-50' :
+                          check.status === 'warning' ? 'border-yellow-200 bg-yellow-50' :
+                          'border-red-200 bg-red-50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {check.status === 'healthy' ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                          ) : check.status === 'warning' ? (
+                            <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 text-sm">{check.name}</p>
+                            <p className="text-xs text-gray-600 mt-0.5">{check.message}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Migration Status */}
+                {diagnostics.migrationStatus.unmigratedCodes.length > 0 && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-5">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-amber-800">Legacy Migration Needed</h4>
+                        <p className="text-sm text-amber-700 mt-1">
+                          {diagnostics.migrationStatus.unmigratedCodes.length} legacy Influencer codes need to be migrated to the modern Affiliate system.
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {diagnostics.migrationStatus.unmigratedCodes.slice(0, 5).map((code) => (
+                            <span key={code} className="inline-flex items-center rounded bg-amber-100 px-2 py-0.5 text-xs font-mono text-amber-800">
+                              {code}
+                            </span>
+                          ))}
+                          {diagnostics.migrationStatus.unmigratedCodes.length > 5 && (
+                            <span className="text-xs text-amber-600">
+                              +{diagnostics.migrationStatus.unmigratedCodes.length - 5} more
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-amber-600 mt-2">
+                          Run: <code className="bg-amber-100 px-1 rounded">npx tsx scripts/migrate-influencers-to-affiliates.ts</code>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Activity */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* Recent Tracking */}
+                  <div className="rounded-xl bg-white p-5 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-3">Recent Tracking (30 days)</h4>
+                    {diagnostics.recentActivity.recentTouches.length > 0 ? (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {diagnostics.recentActivity.recentTouches.map((touch, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm border-b border-gray-100 pb-2">
+                            <div>
+                              <span className="font-mono text-gray-900">{touch.refCode}</span>
+                              <span className="text-gray-500 ml-2">{touch.affiliateName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {touch.converted && (
+                                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                                  Converted
+                                </span>
+                              )}
+                              <span className="text-xs text-gray-400">
+                                {new Date(touch.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No tracking activity in last 30 days</p>
+                    )}
+                  </div>
+
+                  {/* Recent Referrals (Legacy) */}
+                  <div className="rounded-xl bg-white p-5 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-3">Recent Intake Referrals (30 days)</h4>
+                    {diagnostics.recentActivity.recentReferrals.length > 0 ? (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {diagnostics.recentActivity.recentReferrals.map((ref, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm border-b border-gray-100 pb-2">
+                            <div>
+                              <span className="font-mono text-gray-900">{ref.promoCode}</span>
+                              <span className="text-gray-500 ml-2">Patient #{ref.patientId}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {ref.hasModernAttribution ? (
+                                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                                  Attributed
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                                  Not Attributed
+                                </span>
+                              )}
+                              <span className="text-xs text-gray-400">
+                                {new Date(ref.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No referrals in last 30 days</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-xl bg-gray-50 p-8 text-center">
+                <p className="text-gray-500">Click to load diagnostics</p>
+              </div>
             )}
           </div>
         )}

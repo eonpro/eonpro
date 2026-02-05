@@ -344,13 +344,16 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   },
 ];
 
+// SEMAGLUTIDE ENHANCED TEMPLATES (2.5 mg/mL concentration)
+// Calculation: dose (mg) / 2.5 (mg/mL) = volume (mL), volume × 100 = units
+// Example: 0.5 mg / 2.5 = 0.2 mL = 20 units
 export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
     label: 'Initiation - Weeks 1-4 · 0.25 mg',
     phase: 'initiation',
     weekRange: '1-4',
     targetDose: '0.25 mg',
-    sig: 'Inject 0.25 mg (0.25 mL / 25 units) subcutaneously once weekly for 4 weeks to initiate therapy. Rotate injection sites between abdomen, thigh, and upper arm.',
+    sig: 'Inject 0.25 mg (0.1 mL / 10 units) subcutaneously once weekly for 4 weeks to initiate therapy. Rotate injection sites between abdomen, thigh, and upper arm.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -364,7 +367,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     phase: 'escalation',
     weekRange: '5-8',
     targetDose: '0.5 mg',
-    sig: 'Inject 0.5 mg (0.5 mL / 50 units) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.',
+    sig: 'Inject 0.5 mg (0.2 mL / 20 units) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -378,7 +381,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     phase: 'escalation',
     weekRange: '9-12',
     targetDose: '1 mg',
-    sig: 'Inject 1 mg (1 mL / 100 units) subcutaneously once weekly. Continue lifestyle counseling. Monitor fasting glucose if diabetic.',
+    sig: 'Inject 1 mg (0.4 mL / 40 units) subcutaneously once weekly. Continue lifestyle counseling. Monitor fasting glucose if diabetic.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
@@ -391,7 +394,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Maintenance - 1.7 mg',
     phase: 'maintenance',
     targetDose: '1.7 mg',
-    sig: 'Inject 1.7 mg (1.7 mL / 170 units*) subcutaneously once weekly for weight maintenance. Continue diet and exercise program. *Note: May require two draws with a 100-unit syringe.',
+    sig: 'Inject 1.7 mg (0.68 mL / 68 units) subcutaneously once weekly for weight maintenance. Continue diet and exercise program.',
     quantity: '1',
     refills: '2',
     daysSupply: 28,
@@ -404,7 +407,7 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     label: 'Maximum - 2.4 mg',
     phase: 'maintenance',
     targetDose: '2.4 mg',
-    sig: 'Inject 2.4 mg (2.4 mL / 240 units*) subcutaneously once weekly. Maximum dose for weight management. Monitor for efficacy and tolerance. *Note: Requires multiple draws with a 100-unit syringe.',
+    sig: 'Inject 2.4 mg (0.96 mL / 96 units) subcutaneously once weekly. Maximum dose for weight management. Monitor for efficacy and tolerance.',
     quantity: '1',
     refills: '2',
     daysSupply: 28,

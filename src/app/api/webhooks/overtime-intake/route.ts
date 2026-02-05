@@ -288,7 +288,7 @@ export async function POST(req: NextRequest) {
   let normalized;
   try {
     normalized = normalizeOvertimePayload(payload);
-    logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Normalized: ${normalized.patient.firstName} ${normalized.patient.lastName}`);
+    logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Payload normalized successfully`);
 
     // Log extracted address data
     const extractedAddress = {
@@ -718,10 +718,10 @@ export async function POST(req: NextRequest) {
     await prisma.auditLog.create({
       data: {
         action: isPartialSubmission ? "PARTIAL_INTAKE_RECEIVED" : "PATIENT_INTAKE_RECEIVED",
-        tableName: "Patient",
-        recordId: patient.id,
+        resource: "Patient",
+        resourceId: patient.id,
         userId: 0,
-        diff: JSON.stringify({
+        details: {
           source: "overtime-intake",
           submissionId: normalized.submissionId,
           treatmentType,
@@ -731,14 +731,13 @@ export async function POST(req: NextRequest) {
           clinicName,
           isNewPatient,
           isPartialSubmission,
-          patientEmail: patient.email,
           documentId: patientDocument?.id,
           soapNoteId,
           promoCode,
           referralTracked,
           modernAffiliateTracked,
           errors: errors.length > 0 ? errors : undefined,
-        }),
+        },
         ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "webhook",
       },
     });

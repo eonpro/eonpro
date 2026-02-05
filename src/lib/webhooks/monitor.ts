@@ -123,15 +123,15 @@ export async function recordError(
     await prisma.auditLog.create({
       data: {
         action: 'WEBHOOK_ERROR',
-        tableName: 'Webhook',
-        recordId: 0,
+        resource: 'Webhook',
+        resourceId: 0,
         userId: 0,
-        diff: JSON.stringify({
+        details: {
           webhookName,
           error,
           metadata,
           timestamp: new Date().toISOString(),
-        }),
+        },
         ipAddress: 'system',
       },
     });
@@ -215,10 +215,10 @@ async function triggerAlert(alert: WebhookAlert) {
     await prisma.auditLog.create({
       data: {
         action: 'WEBHOOK_ALERT',
-        tableName: 'Webhook',
-        recordId: 0,
+        resource: 'Webhook',
+        resourceId: 0,
         userId: 0,
-        diff: JSON.stringify(alert),
+        details: alert,
         ipAddress: 'system',
       },
     });

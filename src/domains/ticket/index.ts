@@ -88,5 +88,5 @@ export type {
   AutomationAction,
   TicketNotificationData,
   ServiceResult,
-  PaginatedResult,
+  TicketPaginatedResult,
 } from './types';

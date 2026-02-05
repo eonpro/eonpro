@@ -225,23 +225,70 @@ export async function registerPatient(
     
     // Check if patient with same email exists in this clinic
     const existingPatient = await prisma.patient.findFirst({
-      where: { 
+      where: {
         email: normalizedEmail,
         clinicId: inviteCode.clinicId,
       },
+      include: {
+        user: true, // Check if patient already has a linked User account
+      },
     });
-    
-    if (existingPatient) {
-      logger.warn('Registration attempted with existing patient email', { 
-        email: normalizedEmail, 
-        clinicId: inviteCode.clinicId 
+
+    // If patient exists and already has a User account, they should login instead
+    if (existingPatient?.user) {
+      logger.warn('Registration attempted with existing patient+user email', {
+        email: normalizedEmail,
+        clinicId: inviteCode.clinicId,
+        patientId: existingPatient.id,
       });
-      return { 
-        success: false, 
-        error: 'An account with this email already exists. Please login or reset your password.' 
+      return {
+        success: false,
+        error: 'An account with this email already exists. Please login or reset your password.',
       };
     }
-    
+
+    // If patient exists without a User account (from intake), we'll link to it
+    // First verify identity by matching core fields (name and DOB)
+    let linkToExistingPatient = false;
+    if (existingPatient && !existingPatient.user) {
+      // Normalize names for comparison (case-insensitive, trimmed)
+      const existingFirstName = existingPatient.firstName?.toLowerCase().trim() || '';
+      const existingLastName = existingPatient.lastName?.toLowerCase().trim() || '';
+      const inputFirstName = firstName.toLowerCase().trim();
+      const inputLastName = lastName.toLowerCase().trim();
+
+      // Normalize DOB for comparison
+      const existingDOB = existingPatient.dob?.replace(/[\/\-]/g, '') || '';
+      const inputDOBNormalized = normalizedDOB.replace(/[\/\-]/g, '');
+
+      // Check if name and DOB match (identity verification)
+      const nameMatches = existingFirstName === inputFirstName && existingLastName === inputLastName;
+      const dobMatches = existingDOB === inputDOBNormalized;
+
+      if (nameMatches && dobMatches) {
+        // Identity verified - will link to existing patient
+        linkToExistingPatient = true;
+        logger.info('Patient portal registration will link to existing intake patient', {
+          email: normalizedEmail,
+          patientId: existingPatient.id,
+          clinicId: inviteCode.clinicId,
+        });
+      } else {
+        // Identity mismatch - could be someone trying to hijack account
+        logger.warn('Patient portal registration identity mismatch with existing patient', {
+          email: normalizedEmail,
+          patientId: existingPatient.id,
+          clinicId: inviteCode.clinicId,
+          nameMatches,
+          dobMatches,
+        });
+        return {
+          success: false,
+          error: 'The information provided does not match our records. Please ensure your name and date of birth match the information from your intake form, or contact support for assistance.',
+        };
+      }
+    }
+
     // Validate password
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
@@ -268,28 +315,55 @@ export async function registerPatient(
     const tokenExpiresAt = new Date();
     tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
     
-    // Create patient and user in transaction
+    // Create user (and optionally patient) in transaction
     const result = await prisma.$transaction(async (tx: any) => {
-      // Create patient record (basic info only, full profile completed later)
-      const patient = await tx.patient.create({
-        data: {
-          clinicId: inviteCode.clinicId,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
+      let patient;
+
+      if (linkToExistingPatient && existingPatient) {
+        // Link to existing patient from intake - update their phone if provided
+        patient = await tx.patient.update({
+          where: { id: existingPatient.id },
+          data: {
+            // Update phone if the existing one is empty or this one is different
+            ...(normalizedPhone && (!existingPatient.phone || existingPatient.phone !== normalizedPhone)
+              ? { phone: normalizedPhone }
+              : {}),
+            // Mark that portal access was created
+            sourceMetadata: {
+              ...(typeof existingPatient.sourceMetadata === 'object' ? existingPatient.sourceMetadata : {}),
+              portalAccessCreated: new Date().toISOString(),
+              portalClinicCode: normalizedCode,
+            },
+          },
+        });
+
+        logger.info('Linked portal registration to existing intake patient', {
+          patientId: patient.id,
           email: normalizedEmail,
-          phone: normalizedPhone,
-          dob: normalizedDOB,
-          gender: 'other', // Will be updated in profile completion
-          address1: '', // Will be updated in profile completion
-          city: '',
-          state: '',
-          zip: '',
-          source: 'self_registration',
-          sourceMetadata: { clinicCode: normalizedCode, ipAddress },
-        },
-      });
-      
-      // Create user record
+          clinicId: inviteCode.clinicId,
+        });
+      } else {
+        // Create new patient record (self-registration without prior intake)
+        patient = await tx.patient.create({
+          data: {
+            clinicId: inviteCode.clinicId,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            email: normalizedEmail,
+            phone: normalizedPhone,
+            dob: normalizedDOB,
+            gender: 'other', // Will be updated in profile completion
+            address1: '', // Will be updated in profile completion
+            city: '',
+            state: '',
+            zip: '',
+            source: 'self_registration',
+            sourceMetadata: { clinicCode: normalizedCode, ipAddress },
+          },
+        });
+      }
+
+      // Create user record linked to patient
       const user = await tx.user.create({
         data: {
           clinicId: inviteCode.clinicId,
@@ -303,7 +377,7 @@ export async function registerPatient(
           emailVerified: false,
         },
       });
-      
+
       // Create email verification token
       await tx.emailVerificationToken.create({
         data: {
@@ -312,14 +386,14 @@ export async function registerPatient(
           expiresAt: tokenExpiresAt,
         },
       });
-      
+
       // Increment clinic code usage count
       await tx.clinicInviteCode.update({
         where: { id: inviteCode.id },
         data: { usageCount: { increment: 1 } },
       });
-      
-      return { patient, user };
+
+      return { patient, user, linkedToExisting: linkToExistingPatient };
     });
     
     // Send welcome email with verification link
@@ -352,17 +426,20 @@ export async function registerPatient(
     }
     
     // Audit log
-    logger.security('New patient registration', {
+    logger.security('Patient portal registration', {
       userId: result.user.id,
       patientId: result.patient.id,
       clinicId: inviteCode.clinicId,
       email: normalizedEmail,
       ipAddress,
+      linkedToExistingPatient: result.linkedToExisting,
     });
-    
+
     return {
       success: true,
-      message: 'Registration successful. Please check your email to verify your account.',
+      message: result.linkedToExisting
+        ? 'Account created and linked to your existing patient profile. Please check your email to verify your account.'
+        : 'Registration successful. Please check your email to verify your account.',
       userId: result.user.id,
       patientId: result.patient.id,
     };

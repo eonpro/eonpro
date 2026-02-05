@@ -186,16 +186,27 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery) {
-      router.push(`/provider/search?q=${encodeURIComponent(searchQuery)}`);
+      router.push(`/provider/patients?search=${encodeURIComponent(searchQuery)}`);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
     localStorage.removeItem('user');
     localStorage.removeItem('provider-token');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('clinics');
     localStorage.removeItem('activeClinicId');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     router.push('/login');
   };
 

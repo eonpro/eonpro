@@ -62,11 +62,11 @@ export async function GET(req: NextRequest) {
       _sum: { amount: true },
     });
 
-    // Get failed webhook logs
+    // Get failed webhook logs (ERROR, INVALID_AUTH, INVALID_PAYLOAD, PROCESSING_ERROR)
     const failedWebhooks = await prisma.webhookLog.findMany({
       where: {
         source: 'stripe',
-        status: 'FAILED',
+        status: { in: ['ERROR', 'INVALID_AUTH', 'INVALID_PAYLOAD', 'PROCESSING_ERROR'] },
         createdAt: { gte: since },
       },
       orderBy: { createdAt: 'desc' },
@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
         data: {
           retryCount: { increment: 1 },
           lastRetryAt: new Date(),
-          status: result.success ? 'SUCCESS' : 'FAILED',
+          status: result.success ? 'SUCCESS' : 'ERROR',
           processedAt: result.success ? new Date() : null,
           errorMessage: result.error || null,
         },

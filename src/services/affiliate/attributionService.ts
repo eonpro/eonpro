@@ -434,6 +434,28 @@ export async function isNewPatient(patientId: number): Promise<boolean> {
 }
 
 /**
+ * Attribution failure reasons - for structured error reporting
+ */
+export type AttributionFailureReason =
+  | 'CODE_NOT_FOUND'
+  | 'CODE_INACTIVE'
+  | 'AFFILIATE_INACTIVE'
+  | 'CLINIC_MISMATCH'
+  | 'PATIENT_NOT_FOUND'
+  | 'DATABASE_ERROR'
+  | 'ALREADY_ATTRIBUTED';
+
+/**
+ * Extended attribution result with failure information
+ */
+export interface AttributionResultExtended extends AttributionResult {
+  success: boolean;
+  failureReason?: AttributionFailureReason;
+  failureMessage?: string;
+  touchCreated?: boolean;
+}
+
+/**
  * Attribute a patient from intake form promo/affiliate code
  *
  * This is called when a patient submits an intake form with a promo code.
@@ -451,22 +473,65 @@ export async function attributeFromIntake(
   clinicId: number,
   source: string = 'intake'
 ): Promise<AttributionResult | null> {
+  const result = await attributeFromIntakeExtended(patientId, promoCode, clinicId, source);
+  return result.success ? result : null;
+}
+
+/**
+ * Extended version of attributeFromIntake with detailed error reporting
+ *
+ * Returns structured information about why attribution failed, which is
+ * useful for diagnostics and debugging.
+ */
+export async function attributeFromIntakeExtended(
+  patientId: number,
+  promoCode: string,
+  clinicId: number,
+  source: string = 'intake'
+): Promise<AttributionResultExtended> {
   const normalizedCode = promoCode.trim().toUpperCase();
 
+  // Log the attribution attempt for debugging
+  logger.info('[Attribution] Starting intake attribution', {
+    patientId,
+    promoCode: normalizedCode,
+    clinicId,
+    source,
+  });
+
   try {
-    // Check if patient already has attribution
+    // Check if patient exists and get current attribution
     const existingPatient = await prisma.patient.findUnique({
       where: { id: patientId },
-      select: { 
+      select: {
+        id: true,
+        clinicId: true,
         attributionAffiliateId: true,
         tags: true,
       },
     });
 
-    const hasExistingAttribution = !!existingPatient?.attributionAffiliateId;
+    if (!existingPatient) {
+      logger.warn('[Attribution] Patient not found', { patientId });
+      return {
+        affiliateId: 0,
+        refCode: normalizedCode,
+        touchId: 0,
+        model: 'ERROR',
+        confidence: 'low',
+        weight: 0,
+        success: false,
+        failureReason: 'PATIENT_NOT_FOUND',
+        failureMessage: `Patient ID ${patientId} not found`,
+        touchCreated: false,
+      };
+    }
+
+    const hasExistingAttribution = !!existingPatient.attributionAffiliateId;
 
     // Look up the ref code in the modern affiliate system
-    const refCode = await prisma.affiliateRefCode.findFirst({
+    // First, try to find in the same clinic
+    let refCode = await prisma.affiliateRefCode.findFirst({
       where: {
         refCode: normalizedCode,
         clinicId,
@@ -480,24 +545,117 @@ export async function attributeFromIntake(
             displayName: true,
           },
         },
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
+    // If not found in clinic, check if code exists in any clinic (for better error messaging)
     if (!refCode) {
+      const codeInOtherClinic = await prisma.affiliateRefCode.findFirst({
+        where: {
+          refCode: normalizedCode,
+          isActive: true,
+        },
+        include: {
+          clinic: {
+            select: { id: true, name: true },
+          },
+        },
+      });
+
+      if (codeInOtherClinic) {
+        logger.warn('[Attribution] Code found but in different clinic', {
+          code: normalizedCode,
+          requestedClinicId: clinicId,
+          codeClinicId: codeInOtherClinic.clinicId,
+          codeClinicName: codeInOtherClinic.clinic.name,
+        });
+        return {
+          affiliateId: 0,
+          refCode: normalizedCode,
+          touchId: 0,
+          model: 'ERROR',
+          confidence: 'low',
+          weight: 0,
+          success: false,
+          failureReason: 'CLINIC_MISMATCH',
+          failureMessage: `Code "${normalizedCode}" exists but belongs to clinic "${codeInOtherClinic.clinic.name}" (ID: ${codeInOtherClinic.clinicId}), not clinic ID ${clinicId}`,
+          touchCreated: false,
+        };
+      }
+
+      // Check if code exists but is inactive
+      const inactiveCode = await prisma.affiliateRefCode.findFirst({
+        where: {
+          refCode: normalizedCode,
+          clinicId,
+          isActive: false,
+        },
+      });
+
+      if (inactiveCode) {
+        logger.warn('[Attribution] Code found but is inactive', {
+          code: normalizedCode,
+          clinicId,
+        });
+        return {
+          affiliateId: 0,
+          refCode: normalizedCode,
+          touchId: 0,
+          model: 'ERROR',
+          confidence: 'low',
+          weight: 0,
+          success: false,
+          failureReason: 'CODE_INACTIVE',
+          failureMessage: `Code "${normalizedCode}" exists but is inactive`,
+          touchCreated: false,
+        };
+      }
+
+      // Code doesn't exist at all
       logger.info('[Attribution] No affiliate ref code found for intake', {
         code: normalizedCode,
         clinicId,
+        suggestion: 'Check if code needs to be migrated from legacy Influencer system',
       });
-      return null;
+      return {
+        affiliateId: 0,
+        refCode: normalizedCode,
+        touchId: 0,
+        model: 'ERROR',
+        confidence: 'low',
+        weight: 0,
+        success: false,
+        failureReason: 'CODE_NOT_FOUND',
+        failureMessage: `Code "${normalizedCode}" not found in AffiliateRefCode table for clinic ${clinicId}. May need migration from legacy Influencer system.`,
+        touchCreated: false,
+      };
     }
 
     if (refCode.affiliate.status !== 'ACTIVE') {
       logger.warn('[Attribution] Affiliate not active, skipping attribution', {
         code: normalizedCode,
         affiliateId: refCode.affiliateId,
+        affiliateName: refCode.affiliate.displayName,
         status: refCode.affiliate.status,
       });
-      return null;
+      return {
+        affiliateId: refCode.affiliateId,
+        refCode: normalizedCode,
+        touchId: 0,
+        model: 'ERROR',
+        confidence: 'low',
+        weight: 0,
+        success: false,
+        failureReason: 'AFFILIATE_INACTIVE',
+        failureMessage: `Affiliate "${refCode.affiliate.displayName}" (ID: ${refCode.affiliateId}) has status "${refCode.affiliate.status}"`,
+        touchCreated: false,
+      };
     }
 
     // ALWAYS create an AffiliateTouch record for tracking "uses"
@@ -522,6 +680,7 @@ export async function attributeFromIntake(
     logger.info('[Attribution] Created affiliate touch for intake', {
       patientId,
       affiliateId: refCode.affiliateId,
+      affiliateName: refCode.affiliate.displayName,
       refCode: normalizedCode,
       touchId: touch.id,
       hasExistingAttribution,
@@ -530,7 +689,7 @@ export async function attributeFromIntake(
     // Only update patient attribution if they don't already have one
     if (!hasExistingAttribution) {
       // Check if tag already exists to avoid duplicates
-      const existingTags = Array.isArray(existingPatient?.tags) ? existingPatient.tags as string[] : [];
+      const existingTags = Array.isArray(existingPatient.tags) ? existingPatient.tags as string[] : [];
       const affiliateTag = `affiliate:${normalizedCode}`;
       const shouldAddTag = !existingTags.includes(affiliateTag);
 
@@ -561,6 +720,17 @@ export async function attributeFromIntake(
         touchId: touch.id,
         source,
       });
+
+      return {
+        affiliateId: refCode.affiliateId,
+        refCode: normalizedCode,
+        touchId: touch.id,
+        model: 'INTAKE_DIRECT',
+        confidence: 'high',
+        weight: 1,
+        success: true,
+        touchCreated: true,
+      };
     } else {
       logger.info('[Attribution] Patient already has attribution, touch tracked but attribution unchanged', {
         patientId,
@@ -568,23 +738,41 @@ export async function attributeFromIntake(
         newCode: normalizedCode,
         touchId: touch.id,
       });
-    }
 
-    return {
-      affiliateId: refCode.affiliateId,
-      refCode: normalizedCode,
-      touchId: touch.id,
-      model: hasExistingAttribution ? 'INTAKE_TOUCH_ONLY' : 'INTAKE_DIRECT',
-      confidence: 'high',
-      weight: 1,
-    };
+      return {
+        affiliateId: refCode.affiliateId,
+        refCode: normalizedCode,
+        touchId: touch.id,
+        model: 'INTAKE_TOUCH_ONLY',
+        confidence: 'high',
+        weight: 1,
+        success: true,
+        failureReason: 'ALREADY_ATTRIBUTED',
+        failureMessage: `Patient already attributed to affiliate ID ${existingPatient.attributionAffiliateId}. Touch recorded but attribution not changed.`,
+        touchCreated: true,
+      };
+    }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Attribution] Failed to attribute from intake', {
       patientId,
       promoCode: normalizedCode,
       clinicId,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      source,
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
     });
-    return null;
+    return {
+      affiliateId: 0,
+      refCode: normalizedCode,
+      touchId: 0,
+      model: 'ERROR',
+      confidence: 'low',
+      weight: 0,
+      success: false,
+      failureReason: 'DATABASE_ERROR',
+      failureMessage: `Database error: ${errorMessage}`,
+      touchCreated: false,
+    };
   }
 }

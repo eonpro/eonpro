@@ -78,23 +78,35 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
   const handleQuickAction = (action: string) => {
     switch(action) {
       case 'book-appointment':
-        router.push('/patient-portal/appointments/book');
+        router.push('/patient-portal/appointments?action=book');
         break;
       case 'message-provider':
-        router.push('/patient-portal/messages/new');
+        router.push('/patient-portal/chat');
         break;
       case 'refill-rx':
-        router.push('/patient-portal/medications/refill');
+        router.push('/patient-portal/medications?action=refill');
         break;
       default:
         break;
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
-    router.push('/patient/login');
+    localStorage.removeItem('patient-token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    router.push('/login');
   };
 
   const getReminderIcon = (type: string) => {
@@ -206,11 +218,11 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
                       <p className="text-xs text-gray-500 mt-1">{userData?.email}</p>
                     </div>
                     <div className="py-1">
-                      <Link href="/patient-portal/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <Link href="/patient-portal/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         <User className="h-4 w-4 mr-2" />
                         My Profile
                       </Link>
-                      <Link href="/patient-portal/security" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <Link href="/patient-portal/settings?tab=security" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         <Shield className="h-4 w-4 mr-2" />
                         Privacy & Security
                       </Link>
@@ -251,7 +263,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
                 </div>
               ))}
             </div>
-            <Link href="/patient-portal/health-summary" className="text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">
+            <Link href="/patient-portal/health-score" className="text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">
               View Full Summary →
             </Link>
           </div>

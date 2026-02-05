@@ -62,14 +62,14 @@ export async function GET(req: NextRequest) {
       prisma.auditLog.findMany({
         where: {
           action: { contains: 'WEBHOOK' },
-          timestamp: { gte: hourAgo },
+          createdAt: { gte: hourAgo },
         },
-        orderBy: { timestamp: 'desc' },
+        orderBy: { createdAt: 'desc' },
         take: 20,
         select: {
           id: true,
           action: true,
-          timestamp: true,
+          createdAt: true,
           details: true,
         },
       }),

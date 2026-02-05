@@ -139,10 +139,21 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('affiliate-token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     router.push('/login');
   };
 

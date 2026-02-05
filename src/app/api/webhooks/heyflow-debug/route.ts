@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  // Disable debug endpoint in production for security
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Debug endpoint disabled in production' },
+      { status: 404 }
+    );
+  }
+
   logger.debug('\n========== HEYFLOW DEBUG WEBHOOK ==========');
   logger.debug('Timestamp:', { value: new Date().toISOString() });
   

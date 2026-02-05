@@ -83,8 +83,10 @@ export async function POST(request: NextRequest) {
       return new NextResponse('Bad Request', { status: 400 });
     }
 
+    // Log without PHI - mask phone number for HIPAA compliance
+    const maskedPhone = fromPhone.replace(/\d(?=\d{4})/g, '*');
     logger.info('Incoming SMS received', { 
-      from: fromPhone, 
+      from: maskedPhone, 
       messageSid,
       bodyLength: messageBody.length 
     });
@@ -112,7 +114,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!patient) {
-      logger.warn('Received SMS from unknown phone number', { from: fromPhone });
+      logger.warn('Received SMS from unknown phone number', { from: maskedPhone });
       
       // Return TwiML response acknowledging receipt but no action
       return new NextResponse(

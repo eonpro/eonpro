@@ -70,7 +70,13 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
+    // Parse optional body - use defaults if empty/invalid
+    let body: Record<string, unknown> = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Empty or invalid JSON is OK - use defaults
+    }
     const dryRun = body.dryRun === true;
     const limit = Math.min(body.limit || 50, 100); // Max 100 at a time
 

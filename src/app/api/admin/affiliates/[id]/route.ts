@@ -97,7 +97,12 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         refCodes: {
           orderBy: { createdAt: 'desc' },
         },
-        currentPlan: true,
+        // Get current active plan via planAssignments (effectiveTo is null for current plan)
+        planAssignments: {
+          where: { effectiveTo: null },
+          include: { commissionPlan: true },
+          take: 1,
+        },
         commissionEvents: {
           orderBy: { createdAt: 'desc' },
           take: 10,
@@ -183,12 +188,12 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           description: rc.description || undefined,
           createdAt: rc.createdAt.toISOString(),
         })),
-        currentPlan: modernAffiliate.currentPlan ? {
-          id: modernAffiliate.currentPlan.id,
-          name: modernAffiliate.currentPlan.name,
-          planType: modernAffiliate.currentPlan.planType,
-          flatAmountCents: modernAffiliate.currentPlan.flatAmountCents,
-          percentBps: modernAffiliate.currentPlan.percentBps,
+        currentPlan: modernAffiliate.planAssignments[0]?.commissionPlan ? {
+          id: modernAffiliate.planAssignments[0].commissionPlan.id,
+          name: modernAffiliate.planAssignments[0].commissionPlan.name,
+          planType: modernAffiliate.planAssignments[0].commissionPlan.planType,
+          flatAmountCents: modernAffiliate.planAssignments[0].commissionPlan.flatAmountCents,
+          percentBps: modernAffiliate.planAssignments[0].commissionPlan.percentBps,
         } : null,
         stats: {
           totalClicks,

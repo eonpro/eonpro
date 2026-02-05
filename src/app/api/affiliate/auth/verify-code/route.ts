@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     const normalizedPhone = phone.replace(/\D/g, '');
 
     // Find affiliate by phone
+    // Only ACTIVE affiliates can log in (AffiliateStatus enum: ACTIVE, PAUSED, SUSPENDED, INACTIVE)
     const affiliate = await prisma.affiliate.findFirst({
       where: {
         user: {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
             endsWith: normalizedPhone.slice(-10),
           },
         },
-        status: { in: ['ACTIVE', 'PENDING'] },
+        status: 'ACTIVE',
       },
       include: {
         user: {

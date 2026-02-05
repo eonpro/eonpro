@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
   let normalized;
   try {
     normalized = normalizeMedLinkPayload(payload);
-    logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Normalized: ${normalized.patient.firstName} ${normalized.patient.lastName}`);
+    logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Payload normalized successfully`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Normalization failed, using fallback:`, { error: errMsg });
@@ -591,10 +591,10 @@ export async function POST(req: NextRequest) {
     await prisma.auditLog.create({
       data: {
         action: isPartialSubmission ? "PARTIAL_INTAKE_RECEIVED" : "PATIENT_INTAKE_RECEIVED",
-        tableName: "Patient",
-        recordId: patient.id,
+        resource: "Patient",
+        resourceId: patient.id,
         userId: 0,
-        diff: JSON.stringify({
+        details: {
           source: "weightlossintake",
           submissionId: normalized.submissionId,
           submissionType,
@@ -602,11 +602,10 @@ export async function POST(req: NextRequest) {
           clinicId,
           isNewPatient,
           isPartialSubmission,
-          patientEmail: patient.email,
           documentId: patientDocument?.id,
           soapNoteId: soapNoteId,
           errors: errors.length > 0 ? errors : undefined,
-        }),
+        },
         ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "webhook",
       },
     });

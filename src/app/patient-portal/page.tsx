@@ -14,6 +14,8 @@ import {
   Clock,
   Activity,
   Bell,
+  Ruler,
+  Zap,
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTracker';
@@ -21,6 +23,12 @@ import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTra
 interface WeightEntry {
   dateInput: string;
   currentWeightInput: number;
+}
+
+interface IntakeVitals {
+  height: string | null;
+  weight: string | null;
+  bmi: string | null;
 }
 
 export default function PatientPortalDashboard() {
@@ -33,6 +41,7 @@ export default function PatientPortalDashboard() {
   const [weightChange, setWeightChange] = useState<number | null>(null);
   const [recentShipment, setRecentShipment] = useState<any>(null);
   const [nextReminder, setNextReminder] = useState<any>(null);
+  const [intakeVitals, setIntakeVitals] = useState<IntakeVitals | null>(null);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -73,7 +82,16 @@ export default function PatientPortalDashboard() {
 
   const loadPatientData = async (patientId: number) => {
     try {
-      // Load weight data from database
+      // Load intake vitals (initial height, weight, BMI from intake form)
+      const vitalsRes = await fetch('/api/patient-portal/vitals');
+      if (vitalsRes.ok) {
+        const result = await vitalsRes.json();
+        if (result.success && result.data) {
+          setIntakeVitals(result.data);
+        }
+      }
+
+      // Load weight data from database (logged weights over time)
       const weightRes = await fetch(`/api/patient-progress/weight?patientId=${patientId}`);
       if (weightRes.ok) {
         const result = await weightRes.json();
@@ -184,6 +202,43 @@ export default function PatientPortalDashboard() {
     });
   };
 
+  /**
+   * Get color coding for BMI value
+   * Based on WHO BMI classification
+   */
+  const getBmiColor = (bmi: string | null) => {
+    if (!bmi) return { text: 'text-gray-900', bar: 'bg-gray-400', width: '0%' };
+
+    const bmiNum = parseFloat(bmi);
+    if (isNaN(bmiNum)) return { text: 'text-gray-900', bar: 'bg-gray-400', width: '0%' };
+
+    // WHO BMI Classification
+    // Underweight: < 18.5 (yellow)
+    // Normal: 18.5-24.9 (green)
+    // Overweight: 25-29.9 (yellow)
+    // Obese: 30+ (red)
+    if (bmiNum < 18.5) {
+      return { text: 'text-amber-600', bar: 'bg-amber-500', width: '30%' };
+    } else if (bmiNum < 25) {
+      return { text: 'text-green-600', bar: 'bg-green-500', width: '65%' };
+    } else if (bmiNum < 30) {
+      return { text: 'text-amber-600', bar: 'bg-amber-500', width: '75%' };
+    } else {
+      return { text: 'text-red-600', bar: 'bg-red-500', width: '90%' };
+    }
+  };
+
+  /**
+   * Get color for weight based on BMI
+   */
+  const getBmiWeightColor = (bmi: string | null) => {
+    const bmiColor = getBmiColor(bmi);
+    // If we have BMI, use its color scheme for weight
+    // Otherwise use neutral gray
+    if (!bmi) return { text: 'text-gray-900', bar: 'bg-gray-400', width: '50%' };
+    return bmiColor;
+  };
+
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
       {/* Welcome Header */}
@@ -207,6 +262,69 @@ export default function PatientPortalDashboard() {
           <p className="text-sm font-medium" style={{ color: primaryColor }}>
             {branding.dashboardMessage}
           </p>
+        </div>
+      )}
+
+      {/* Intake Vitals Section - Shows initial measurements from intake form */}
+      {intakeVitals && (intakeVitals.height || intakeVitals.weight || intakeVitals.bmi) && (
+        <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <Zap className="h-5 w-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Vitals</h2>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {/* Height */}
+            <div className="rounded-xl bg-[#efece7] p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <Ruler className="h-4 w-4 text-gray-500" />
+                <p className="text-xs font-medium text-gray-500">Height</p>
+              </div>
+              <p className="text-xl font-bold text-gray-900">
+                {intakeVitals.height || '—'}
+              </p>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
+                <div
+                  className="h-full rounded-full bg-gray-500"
+                  style={{ width: intakeVitals.height ? '100%' : '0%' }}
+                />
+              </div>
+            </div>
+
+            {/* Initial Weight from Intake */}
+            <div className="rounded-xl bg-[#efece7] p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <Scale className="h-4 w-4 text-gray-500" />
+                <p className="text-xs font-medium text-gray-500">Initial Weight</p>
+              </div>
+              <p className={`text-xl font-bold ${getBmiWeightColor(intakeVitals.bmi).text}`}>
+                {intakeVitals.weight ? `${intakeVitals.weight}lbs` : '—'}
+              </p>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
+                <div
+                  className={`h-full rounded-full ${getBmiWeightColor(intakeVitals.bmi).bar}`}
+                  style={{ width: getBmiWeightColor(intakeVitals.bmi).width }}
+                />
+              </div>
+            </div>
+
+            {/* BMI */}
+            <div className="rounded-xl bg-[#efece7] p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <Activity className="h-4 w-4 text-gray-500" />
+                <p className="text-xs font-medium text-gray-500">BMI</p>
+              </div>
+              <p className={`text-xl font-bold ${getBmiColor(intakeVitals.bmi).text}`}>
+                {intakeVitals.bmi || '—'}
+              </p>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
+                <div
+                  className={`h-full rounded-full ${getBmiColor(intakeVitals.bmi).bar}`}
+                  style={{ width: getBmiColor(intakeVitals.bmi).width }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

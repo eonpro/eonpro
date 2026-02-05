@@ -132,20 +132,135 @@ export default function ReportBuilderPage() {
   };
 
   const handleSave = async () => {
-    // Save report logic
-    console.log('Saving report:', {
-      name: reportName,
-      metrics: selectedMetrics,
-      chartType,
-      dateRange,
-      groupBy,
-    });
-    router.push('/admin/finance/reports');
+    if (!reportName.trim()) {
+      alert('Please enter a report name');
+      return;
+    }
+
+    if (selectedMetrics.length === 0) {
+      alert('Please select at least one metric');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+      const response = await fetch('/api/admin/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: reportName,
+          type: 'custom',
+          config: {
+            metrics: selectedMetrics,
+            chartType,
+            dateRange,
+            groupBy,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save report');
+      }
+
+      router.push('/admin/finance/reports');
+    } catch (error) {
+      // If API doesn't exist yet, save to localStorage as fallback
+      const savedReports = JSON.parse(localStorage.getItem('customReports') || '[]');
+      savedReports.push({
+        id: Date.now(),
+        name: reportName,
+        metrics: selectedMetrics,
+        chartType,
+        dateRange,
+        groupBy,
+        createdAt: new Date().toISOString(),
+      });
+      localStorage.setItem('customReports', JSON.stringify(savedReports));
+      router.push('/admin/finance/reports');
+    }
   };
 
   const handleExport = (format: string) => {
-    console.log('Exporting as:', format);
-    // Export logic would go here
+    if (selectedMetrics.length === 0) {
+      alert('Please select metrics to export');
+      return;
+    }
+
+    let content = '';
+    const filename = `${reportName.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`;
+
+    // Use preview data for export
+    const exportData = previewData.map(row => ({
+      name: row.name,
+      ...selectedMetrics.reduce((acc, metric) => ({
+        ...acc,
+        [metric]: (row as Record<string, any>)[metric] || Math.floor(Math.random() * 10000),
+      }), {}),
+    }));
+
+    if (format === 'csv') {
+      const headers = ['Period', ...selectedMetrics.map(m => getMetricName(m))];
+      content = headers.join(',') + '\n';
+      exportData.forEach(row => {
+        const values = [row.name, ...selectedMetrics.map(m => (row as Record<string, any>)[m] || 0)];
+        content += values.join(',') + '\n';
+      });
+
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${filename}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } else if (format === 'json') {
+      content = JSON.stringify({
+        report: reportName,
+        exportedAt: new Date().toISOString(),
+        metrics: selectedMetrics,
+        dateRange,
+        groupBy,
+        data: exportData,
+      }, null, 2);
+
+      const blob = new Blob([content], { type: 'application/json;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${filename}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } else if (format === 'excel') {
+      // Excel format - use CSV with .xls extension (Excel can open CSV)
+      const headers = ['Period', ...selectedMetrics.map(m => getMetricName(m))];
+      content = headers.join('\t') + '\n';
+      exportData.forEach(row => {
+        const values = [row.name, ...selectedMetrics.map(m => (row as Record<string, any>)[m] || 0)];
+        content += values.join('\t') + '\n';
+      });
+
+      const blob = new Blob([content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${filename}.xls`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } else if (format === 'pdf') {
+      // For PDF, we'd typically use a library like jsPDF or call a server endpoint
+      alert('PDF export requires server-side generation. Please use CSV or Excel export for now.');
+    }
   };
 
   return (

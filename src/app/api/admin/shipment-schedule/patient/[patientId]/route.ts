@@ -134,14 +134,17 @@ async function handleGet(
     });
 
     // Calculate summary stats
+    type RefillEntry = typeof allRefills[number];
+    type SeriesEntry = typeof series[number];
+    type ShipmentEntry = SeriesEntry['shipments'][number];
     const stats = {
-      totalScheduledShipments: allRefills.filter(r => r.status === 'SCHEDULED').length,
-      totalPendingShipments: allRefills.filter(r => 
+      totalScheduledShipments: allRefills.filter((r: RefillEntry) => r.status === 'SCHEDULED').length,
+      totalPendingShipments: allRefills.filter((r: RefillEntry) =>
         ['PENDING_PAYMENT', 'PENDING_ADMIN', 'APPROVED', 'PENDING_PROVIDER'].includes(r.status)
       ).length,
-      totalCompletedShipments: allRefills.filter(r => r.status === 'COMPLETED').length,
-      activeSeries: series.filter(s => 
-        s.shipments.some(sh => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(sh.status))
+      totalCompletedShipments: allRefills.filter((r: RefillEntry) => r.status === 'COMPLETED').length,
+      activeSeries: series.filter((s: SeriesEntry) =>
+        s.shipments.some((sh: ShipmentEntry) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(sh.status))
       ).length,
     };
 

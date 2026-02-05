@@ -397,17 +397,17 @@ export class IntakeProcessor {
       await prisma.auditLog.create({
         data: {
           action: options.isPartialSubmission ? 'PARTIAL_INTAKE_RECEIVED' : 'PATIENT_INTAKE_RECEIVED',
-          tableName: 'Patient',
-          recordId: patient.id,
+          resource: 'Patient',
+          resourceId: patient.id,
           userId: 0,
-          diff: JSON.stringify({
+          details: {
             source: this.source,
             requestId: this.requestId,
             documentId: document?.id,
             soapNoteId: soapNote?.id,
             isPartial: options.isPartialSubmission,
             errors: this.errors.length > 0 ? this.errors : undefined,
-          }),
+          },
           ipAddress: 'webhook',
         },
       });

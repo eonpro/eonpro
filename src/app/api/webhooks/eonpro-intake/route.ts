@@ -161,8 +161,6 @@ export async function POST(req: NextRequest) {
       submissionId: normalized.submissionId,
       sectionsCount: normalized.sections.length,
       answersCount: normalized.answers.length,
-      patientEmail: normalized.patient.email,
-      patientName: `${normalized.patient.firstName} ${normalized.patient.lastName}`
     });
 
     // Store intake data for later display (including answers for vitals extraction)

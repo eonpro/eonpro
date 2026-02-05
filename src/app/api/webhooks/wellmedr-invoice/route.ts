@@ -278,7 +278,7 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient found: ID=${patient.id}, Name="${patient.firstName} ${patient.lastName}"`);
+    logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient found`, { patientId: patient.id, clinicId: patient.clinicId });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Error finding patient:`, { error: errMsg });

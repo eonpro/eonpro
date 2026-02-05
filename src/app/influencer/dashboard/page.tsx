@@ -77,8 +77,22 @@ export default function InfluencerDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Get token from cookie for influencer logout
+      const cookies = document.cookie.split(';');
+      const tokenCookie = cookies.find(c => c.trim().startsWith('influencer-token='));
+      const token = tokenCookie?.split('=')[1];
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
     document.cookie = "influencer-token=; Max-Age=0; path=/";
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     router.push("/influencer/login");
   };
 

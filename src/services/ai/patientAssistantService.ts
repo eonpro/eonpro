@@ -369,11 +369,11 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
           select: { weight: true, recordedAt: true },
         },
         waterLogs: {
-          where: { loggedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+          where: { recordedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
           select: { amount: true },
         },
         exerciseLogs: {
-          where: { loggedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+          where: { recordedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
           select: { duration: true },
         },
         streaks: {
@@ -542,11 +542,11 @@ export async function generateWeeklySummary(patientId: number): Promise<string> 
           select: { weight: true },
         },
         waterLogs: {
-          where: { loggedAt: { gte: weekAgo } },
+          where: { recordedAt: { gte: weekAgo } },
           select: { amount: true },
         },
         exerciseLogs: {
-          where: { loggedAt: { gte: weekAgo } },
+          where: { recordedAt: { gte: weekAgo } },
           select: { duration: true },
         },
         streaks: {

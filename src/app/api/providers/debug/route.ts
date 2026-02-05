@@ -148,7 +148,7 @@ export const GET = withAuth(
       if (p.user?.userClinics) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const matchingUserClinics = p.user.userClinics.filter(
-          (uc: any) => allClinicIds.includes(uc.clinicId) && uc.isActive && uc.role === 'PROVIDER'
+          (uc: any) => allClinicIds.includes(uc.clinicId) && uc.isActive && uc.role === 'provider'
         );
         if (matchingUserClinics.length > 0) {
           reasons.push(

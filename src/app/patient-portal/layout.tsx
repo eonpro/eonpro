@@ -119,10 +119,31 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Call the logout API to terminate server session
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }).catch(() => {
+          // Non-blocking - continue with client-side cleanup even if API fails
+          console.warn('[Logout] API call failed, continuing with client cleanup');
+        });
+      }
+    } catch (error) {
+      console.warn('[Logout] Error calling logout API:', error);
+    }
+
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_timestamp');
     router.push('/login');
   };
 

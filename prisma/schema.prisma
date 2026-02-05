@@ -102,6 +102,10 @@ model Patient {
   telehealthSessions      TelehealthSession[]
   salesRepAssignments     PatientSalesRepAssignment[]
 
+  // PLATFORM BILLING: Prescription cycle tracking and fee events
+  prescriptionCycles PatientPrescriptionCycle[]
+  platformFeeEvents  PlatformFeeEvent[]
+
   @@unique([clinicId, patientId])
   @@index([clinicId])
   @@index([profileStatus]) // For efficiently querying pending profiles
@@ -161,6 +165,9 @@ model Order {
   // Provider Compensation
   compensationEvent ProviderCompensationEvent?
 
+  // PLATFORM BILLING: Fee event for this order
+  platformFeeEvent PlatformFeeEvent?
+
   @@index([cancelledAt])
   @@index([assignedProviderId])
 }
@@ -195,6 +202,11 @@ model Provider {
   // ENTERPRISE: Multi-clinic support (like User.clinicId/activeClinicId pattern)
   primaryClinicId Int? // Provider's primary/default clinic
   activeClinicId  Int? // Currently active clinic for this session
+
+  // PLATFORM BILLING: Distinguish internal EONPRO providers from clinic-brought providers
+  // true = EONPRO internal provider (clinic charged medical prescription fee)
+  // false = clinic's own provider (clinic charged transmission fee only)
+  isEonproProvider Boolean @default(false)
 
   firstName            String
   lastName             String
@@ -232,11 +244,15 @@ model Provider {
   compensationPlans  ProviderCompensationPlan[]
   compensationEvents ProviderCompensationEvent[]
 
+  // PLATFORM BILLING: Fee events for this provider
+  platformFeeEvents PlatformFeeEvent[]
+
   // Telehealth & Calendar
   telehealthSessions    TelehealthSession[]
   calendarSubscriptions CalendarSubscription[]
 
   @@index([status])
+  @@index([isEonproProvider])
 }
 
 model PatientDocument {
@@ -2627,6 +2643,12 @@ model Clinic {
   // Email System
   emailLogs       EmailLog[]
   scheduledEmails ScheduledEmail[]
+
+  // PLATFORM BILLING: Per-clinic fee configuration and invoicing
+  platformFeeConfig          ClinicPlatformFeeConfig?
+  platformFeeEvents          PlatformFeeEvent[]
+  platformInvoices           ClinicPlatformInvoice[]
+  patientPrescriptionCycles  PatientPrescriptionCycle[]
 
   @@index([subdomain])
   @@index([status])
@@ -5809,4 +5831,264 @@ model UserNotificationPreference {
   showDesktopBadge Boolean @default(true)
 
   @@index([userId])
+}
+
+// ============================================================================
+// PLATFORM BILLING: Per-Clinic Fee Configuration & Invoicing
+// ============================================================================
+// Enables EONPRO to charge clinics for platform usage based on:
+// - Medical Prescription Fee: When EONPRO internal provider writes Rx
+// - Transmission Fee: When clinic's own provider uses platform to send to Lifefile
+// - Admin Fee: Weekly platform usage fee (flat or percentage of sales)
+// ============================================================================
+
+enum PlatformFeeType {
+  PRESCRIPTION  // EONPRO provider writes prescription (medical fee)
+  TRANSMISSION  // Clinic provider uses platform to transmit to Lifefile
+  ADMIN         // Weekly admin/platform usage fee
+}
+
+enum PlatformFeeStatus {
+  PENDING   // Not yet invoiced
+  INVOICED  // Added to invoice
+  PAID      // Invoice paid
+  WAIVED    // Fee waived by admin
+  VOIDED    // Order cancelled, fee voided
+}
+
+enum PlatformFeeCalculationType {
+  FLAT        // Flat fee in cents (e.g., 2000 = $20.00)
+  PERCENTAGE  // Percentage in basis points (e.g., 1000 = 10%)
+}
+
+enum PlatformAdminFeeType {
+  NONE              // No admin fee
+  FLAT_WEEKLY       // Flat fee per week in cents
+  PERCENTAGE_WEEKLY // Percentage of weekly sales in basis points
+}
+
+enum ClinicInvoicePeriodType {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum ClinicInvoiceStatus {
+  DRAFT      // Being prepared, not yet finalized
+  PENDING    // Finalized, awaiting payment
+  SENT       // Invoice sent to clinic
+  PAID       // Payment received
+  OVERDUE    // Past due date, unpaid
+  CANCELLED  // Invoice cancelled/voided
+}
+
+// Per-clinic fee configuration - set by super admin
+model ClinicPlatformFeeConfig {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicId Int    @unique
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Medical prescription fee (when EONPRO provider writes Rx)
+  prescriptionFeeType   PlatformFeeCalculationType @default(FLAT)
+  prescriptionFeeAmount Int                        @default(2000) // cents or basis points (2000 = $20 or 20%)
+
+  // Transmission fee (when clinic provider uses platform to send to Lifefile)
+  transmissionFeeType   PlatformFeeCalculationType @default(FLAT)
+  transmissionFeeAmount Int                        @default(500) // cents or basis points (500 = $5 or 5%)
+
+  // Admin fee (weekly platform usage)
+  adminFeeType   PlatformAdminFeeType @default(NONE)
+  adminFeeAmount Int                  @default(0) // cents or basis points
+
+  // Prescription cycle tracking - days before same patient+medication is re-billable
+  // Example: 90 days means if patient gets Rx on Jan 1, next billable date is April 1
+  prescriptionCycleDays Int @default(90)
+
+  // Billing contact (defaults to clinic's adminEmail if not set)
+  billingEmail   String?
+  billingName    String?
+  billingAddress Json? // {address1, address2, city, state, zip, country}
+
+  // Payment terms
+  paymentTermsDays Int @default(30) // Net 30
+
+  // Status
+  isActive Boolean @default(true) // Enable/disable billing for this clinic
+
+  // Audit
+  createdBy Int?
+  updatedBy Int?
+  notes     String? // Admin notes about this configuration
+
+  // Relations
+  feeEvents PlatformFeeEvent[]
+  invoices  ClinicPlatformInvoice[]
+
+  @@index([isActive])
+}
+
+// Individual billable event (prescription fee, transmission fee, or admin fee)
+model PlatformFeeEvent {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Clinic association
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Fee configuration used (snapshot for audit)
+  configId Int
+  config   ClinicPlatformFeeConfig @relation(fields: [configId], references: [id])
+
+  // Fee type
+  feeType PlatformFeeType
+
+  // Related entities (nullable based on fee type)
+  // For PRESCRIPTION/TRANSMISSION fees:
+  orderId    Int?     @unique // One fee per order
+  order      Order?   @relation(fields: [orderId], references: [id])
+  providerId Int?
+  provider   Provider? @relation(fields: [providerId], references: [id])
+  patientId  Int?
+  patient    Patient? @relation(fields: [patientId], references: [id])
+
+  // For ADMIN fees - the week period
+  periodStart DateTime?
+  periodEnd   DateTime?
+  periodSales Int? // Total sales in cents for percentage calculation
+
+  // Fee calculation
+  amountCents        Int // Fee amount in cents
+  calculationDetails Json? // { feeType, calculationType, rate, baseAmount, orderTotal, etc. }
+
+  // Invoice reference (set when added to invoice)
+  invoiceId Int?
+  invoice   ClinicPlatformInvoice? @relation(fields: [invoiceId], references: [id])
+
+  // Status
+  status PlatformFeeStatus @default(PENDING)
+
+  // Voiding
+  voidedAt     DateTime?
+  voidedBy     Int?
+  voidedReason String?
+
+  // Waiving
+  waivedAt     DateTime?
+  waivedBy     Int?
+  waivedReason String?
+
+  @@index([clinicId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([feeType])
+  @@index([invoiceId])
+}
+
+// Track prescription cycles per patient+medication to avoid double-charging
+// Example: If prescriptionCycleDays = 90, patient gets Rx on Jan 1,
+// nextEligibleAt = April 1. Any Rx before April 1 is not charged.
+model PatientPrescriptionCycle {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  // Medication identifier (from Rx table)
+  // Format: normalized key like "semaglutide-2.5mg-vial" or "tirzepatide-5mg-pen"
+  medicationKey String
+
+  // Last billable prescription date
+  lastChargedAt DateTime
+  lastOrderId   Int
+
+  // Next eligible billing date (lastChargedAt + prescriptionCycleDays)
+  nextEligibleAt DateTime
+
+  @@unique([clinicId, patientId, medicationKey])
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([nextEligibleAt])
+}
+
+// Aggregate fees into invoices for clinics
+model ClinicPlatformInvoice {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Fee configuration snapshot
+  configId Int
+  config   ClinicPlatformFeeConfig @relation(fields: [configId], references: [id])
+
+  // Invoice period
+  periodStart DateTime
+  periodEnd   DateTime
+  periodType  ClinicInvoicePeriodType
+
+  // Fee totals in cents
+  prescriptionFeeTotal Int @default(0)
+  transmissionFeeTotal Int @default(0)
+  adminFeeTotal        Int @default(0)
+  totalAmountCents     Int @default(0)
+
+  // Fee counts
+  prescriptionCount Int @default(0)
+  transmissionCount Int @default(0)
+
+  // Invoice details
+  invoiceNumber String   @unique
+  dueDate       DateTime
+
+  // Stripe integration
+  stripeInvoiceId  String? @unique // Stripe Invoice ID (in_xxx)
+  stripeInvoiceUrl String? // Hosted invoice URL
+  stripePdfUrl     String? // PDF download URL
+
+  // PDF report (generated for detailed breakdown)
+  pdfUrl     String?
+  pdfS3Key   String?
+  pdfS3ETag  String?
+
+  // Status
+  status ClinicInvoiceStatus @default(DRAFT)
+
+  // Payment tracking
+  paidAt          DateTime?
+  paidAmountCents Int?
+  paymentMethod   String? // stripe, check, wire, etc.
+  paymentRef      String? // Payment reference (check #, wire ref, etc.)
+
+  // Audit
+  generatedBy Int?
+  finalizedAt DateTime?
+  finalizedBy Int?
+  sentAt      DateTime?
+  sentBy      Int?
+
+  // Notes
+  notes         String? // Internal notes
+  externalNotes String? // Notes visible to clinic
+
+  // Relations
+  feeEvents PlatformFeeEvent[]
+
+  @@index([clinicId])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@index([dueDate])
 }

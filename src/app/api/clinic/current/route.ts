@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '../../../../lib/logger';
-
-import { prisma } from '@/lib/db';
-import { getClinicIdFromRequest } from '@/lib/clinic/utils';
+import { basePrisma } from '@/lib/db';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 /**
  * GET /api/clinic/current
- * Get the current clinic context
+ * Get the current clinic context for the authenticated user
+ * 
+ * Requires authentication - returns clinic info for the user's current clinic
  */
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest, user: AuthUser) {
   try {
-    const clinicId = await getClinicIdFromRequest(request);
+    // Use the user's clinicId from their JWT token
+    const clinicId = user.clinicId;
     
     if (!clinicId) {
       return NextResponse.json(
@@ -19,7 +21,8 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const clinic = await prisma.clinic.findUnique({
+    // Use basePrisma since we're explicitly selecting the clinic
+    const clinic = await basePrisma.clinic.findUnique({
       where: { id: clinicId },
       select: {
         id: true,
@@ -35,13 +38,16 @@ export async function GET(request: NextRequest) {
         features: true,
         billingPlan: true,
         timezone: true,
-        _count: {
-          select: {
-            patients: true,
-            providers: true,
-            users: true,
+        // Only include counts for admin+ roles
+        ...(user.role === 'super_admin' || user.role === 'admin' ? {
+          _count: {
+            select: {
+              patients: true,
+              providers: true,
+              users: true,
+            }
           }
-        }
+        } : {}),
       }
     });
     
@@ -52,7 +58,8 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    if (clinic.status !== 'ACTIVE') {
+    // Allow TRIAL status clinics too
+    if (!['ACTIVE', 'TRIAL'].includes(clinic.status)) {
       return NextResponse.json(
         { error: 'Clinic is not active' },
         { status: 403 }
@@ -61,10 +68,15 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(clinic);
   } catch (error) {
-    logger.error('Error fetching current clinic:', error);
+    logger.error('Error fetching current clinic:', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId: user.id,
+    });
     return NextResponse.json(
       { error: 'Failed to fetch clinic information' },
       { status: 500 }
     );
   }
 }
+
+export const GET = withAuth(handler);

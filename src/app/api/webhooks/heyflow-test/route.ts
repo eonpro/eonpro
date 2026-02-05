@@ -1,8 +1,16 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { logger } from '@/lib/logger';
 
 // Debug endpoint to test MedLink webhook without authentication
 export async function POST(req: NextRequest) {
+  // Disable test endpoint in production for security
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Test endpoint disabled in production' },
+      { status: 404 }
+    );
+  }
+
   logger.debug("[HEYFLOW TEST] ========================================");
   logger.debug("[HEYFLOW TEST] Received test webhook at:", { timestamp: new Date().toISOString() });
   

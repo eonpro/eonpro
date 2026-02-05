@@ -68,7 +68,13 @@ export async function POST(
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
+    // Parse optional body - use defaults if empty/invalid
+    let body: Record<string, unknown> = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Empty or invalid JSON is OK - use defaults
+    }
 
     const syncService = createSyncService();
     const result = await syncService.syncTable(tableId, table.treatmentType, {

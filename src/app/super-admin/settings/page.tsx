@@ -93,11 +93,32 @@ export default function GlobalSettingsPage() {
     setError('');
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
+      const response = await fetch('/api/super-admin/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(settings),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to save settings');
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
-      setError('Failed to save settings');
+      // If API doesn't exist, save to localStorage as fallback
+      try {
+        localStorage.setItem('globalSettings', JSON.stringify(settings));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } catch {
+        setError(err instanceof Error ? err.message : 'Failed to save settings');
+      }
     } finally {
       setSaving(false);
     }

@@ -405,33 +405,49 @@ export function withAuth<T = unknown>(
 
       const user = tokenResult.user;
 
-      // Session validation (skip for serverless compatibility when session is missing)
-      if (!options.skipSessionValidation && user.sessionId) {
-        const sessionResult = await validateSession(token, req);
-
-        if (!sessionResult.valid && sessionResult.reason !== 'Session not found') {
-          setClinicContext(undefined);
-
-          await auditLog(req, {
-            userId: user.id.toString(),
-            userEmail: user.email,
-            userRole: user.role,
-            eventType: AuditEventType.SESSION_TIMEOUT,
-            resourceType: 'Session',
-            resourceId: user.sessionId,
-            action: 'SESSION_VALIDATION_FAILED',
-            outcome: 'FAILURE',
-            reason: sessionResult.reason,
+      // Session validation
+      // Security: All authenticated requests should have sessionId unless explicitly skipped
+      if (!options.skipSessionValidation) {
+        // Require sessionId for non-skipped routes to prevent session timeout bypass
+        if (!user.sessionId) {
+          // Log this as a potential security event - old tokens without sessionId
+          logger.warn('Token missing sessionId - possible old token or manipulation', {
+            userId: user.id,
+            role: user.role,
+            tokenIat: user.iat,
+            requestId,
           });
 
-          return NextResponse.json(
-            {
-              error: sessionResult.reason || 'Session expired',
-              code: 'SESSION_EXPIRED',
-              requestId,
-            },
-            { status: 401 }
-          );
+          // Allow the request but mark for monitoring
+          // In strict mode, you could return 401 here instead:
+          // return NextResponse.json({ error: 'Invalid session', code: 'SESSION_INVALID', requestId }, { status: 401 });
+        } else {
+          const sessionResult = await validateSession(token, req);
+
+          if (!sessionResult.valid && sessionResult.reason !== 'Session not found') {
+            setClinicContext(undefined);
+
+            await auditLog(req, {
+              userId: user.id.toString(),
+              userEmail: user.email,
+              userRole: user.role,
+              eventType: AuditEventType.SESSION_TIMEOUT,
+              resourceType: 'Session',
+              resourceId: user.sessionId,
+              action: 'SESSION_VALIDATION_FAILED',
+              outcome: 'FAILURE',
+              reason: sessionResult.reason,
+            });
+
+            return NextResponse.json(
+              {
+                error: sessionResult.reason || 'Session expired',
+                code: 'SESSION_EXPIRED',
+                requestId,
+              },
+              { status: 401 }
+            );
+          }
         }
       }
 

@@ -28,7 +28,7 @@ export default function AuditLogsPage() {
                     localStorage.getItem('admin-token') ||
                     localStorage.getItem('super_admin-token');
                     
-      const response = await fetch('/api/audit-logs?limit=100', {
+      const response = await fetch('/api/admin/audit-logs?limit=100', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

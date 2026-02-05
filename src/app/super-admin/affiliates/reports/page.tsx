@@ -167,8 +167,54 @@ export default function SuperAdminAffiliateReportsPage() {
   }, [fetchLeaderboard]);
 
   const handleExport = (type: 'affiliates' | 'commissions' | '1099') => {
-    console.log(`Exporting ${type} report...`);
-    alert(`Generating ${type} report... This would download a CSV file.`);
+    if (!data) {
+      alert('No data available to export. Please wait for data to load.');
+      return;
+    }
+
+    let csvContent = '';
+    let filename = '';
+
+    if (type === 'affiliates') {
+      // Export top affiliates data
+      csvContent = 'Rank,Affiliate Name,Conversions,Revenue,Commission\n';
+      data.topAffiliates.forEach((affiliate, index) => {
+        csvContent += `${index + 1},"${affiliate.name}",${affiliate.conversions},${(affiliate.revenueCents / 100).toFixed(2)},${(affiliate.commissionCents / 100).toFixed(2)}\n`;
+      });
+      filename = `super-admin-affiliate-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+    } else if (type === 'commissions') {
+      // Export trends/commission data
+      csvContent = 'Date,Conversions,Revenue,Commission\n';
+      data.trends.forEach((trend) => {
+        csvContent += `${trend.date},${trend.conversions},${(trend.revenueCents / 100).toFixed(2)},${(trend.commissionCents / 100).toFixed(2)}\n`;
+      });
+      filename = `super-admin-commission-trends-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+    } else if (type === '1099') {
+      // Export summary for 1099 purposes
+      csvContent = 'Affiliate Name,Total Conversions,Total Revenue,Total Commission\n';
+      data.topAffiliates.forEach((affiliate) => {
+        csvContent += `"${affiliate.name}",${affiliate.conversions},${(affiliate.revenueCents / 100).toFixed(2)},${(affiliate.commissionCents / 100).toFixed(2)}\n`;
+      });
+      csvContent += `\nSummary\n`;
+      csvContent += `Total Affiliates,${data.overview.totalAffiliates}\n`;
+      csvContent += `Total Active Affiliates,${data.overview.activeAffiliates}\n`;
+      csvContent += `Total Conversions,${data.overview.totalConversions}\n`;
+      csvContent += `Total Revenue,$${(data.overview.totalRevenueCents / 100).toFixed(2)}\n`;
+      csvContent += `Total Commission,$${(data.overview.totalCommissionCents / 100).toFixed(2)}\n`;
+      csvContent += `Pending Payout,$${(data.overview.pendingPayoutCents / 100).toFixed(2)}\n`;
+      filename = `super-admin-1099-summary-${new Date().toISOString().split('T')[0]}.csv`;
+    }
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   if (loading) {

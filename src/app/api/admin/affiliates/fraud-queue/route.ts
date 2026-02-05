@@ -199,9 +199,12 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Process action
-    let status: string;
-    let resolutionAction: string | null = null;
+    // Process action - use Prisma enum types
+    type FraudAlertStatus = 'OPEN' | 'INVESTIGATING' | 'CONFIRMED_FRAUD' | 'FALSE_POSITIVE' | 'DISMISSED';
+    type FraudResolutionAction = 'NO_ACTION' | 'WARNING_ISSUED' | 'COMMISSION_REVERSED' | 'ACCOUNT_SUSPENDED' | 'ACCOUNT_TERMINATED';
+    
+    let status: FraudAlertStatus;
+    let resolutionAction: FraudResolutionAction | null = null;
 
     switch (action) {
       case 'dismiss':
@@ -214,7 +217,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
         break;
       case 'confirm':
         status = 'CONFIRMED_FRAUD';
-        resolutionAction = body.resolutionAction || 'WARNING_ISSUED';
+        resolutionAction = (body.resolutionAction as FraudResolutionAction) || 'WARNING_ISSUED';
         break;
       case 'investigate':
         status = 'INVESTIGATING';
@@ -226,7 +229,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
         );
     }
 
-    // Update alert - status is a FraudAlertStatus enum value
+    // Update alert
     const updatedAlert = await prisma.affiliateFraudAlert.update({
       where: { id: alertId },
       data: {

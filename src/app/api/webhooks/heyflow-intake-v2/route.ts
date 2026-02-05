@@ -24,8 +24,13 @@ function authenticateWebhook(req: NextRequest): {
   const configuredSecret = process.env.MEDLINK_WEBHOOK_SECRET || process.env.HEYFLOW_WEBHOOK_SECRET;
   
   if (!configuredSecret) {
-    logger.warn("[HEYFLOW V2] No webhook secret configured - accepting all requests");
-    return { isValid: true, authMethod: "no-secret" };
+    // In production, reject requests if no secret is configured
+    if (process.env.NODE_ENV === 'production') {
+      logger.error("[HEYFLOW V2] SECURITY: No webhook secret configured in production - rejecting request");
+      return { isValid: false, errorDetails: "Webhook secret not configured" };
+    }
+    logger.warn("[HEYFLOW V2] No webhook secret configured - accepting all requests (development mode)");
+    return { isValid: true, authMethod: "no-secret-dev" };
   }
 
   // Check all possible authentication headers

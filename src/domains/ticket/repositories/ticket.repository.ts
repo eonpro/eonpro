@@ -530,7 +530,8 @@ export const ticketRepository = {
   ): Promise<Ticket> {
     const db = tx || prisma;
 
-    const updateData: Prisma.TicketUpdateInput = {
+    // Use UncheckedUpdateInput to allow direct ID field assignments
+    const updateData: Prisma.TicketUncheckedUpdateInput = {
       lastActivityAt: new Date(),
     };
 
@@ -582,7 +583,8 @@ export const ticketRepository = {
   ): Promise<Ticket> {
     const db = tx || prisma;
 
-    const updateData: Prisma.TicketUpdateInput = {
+    // Use UncheckedUpdateInput to allow direct ID field assignments
+    const updateData: Prisma.TicketUncheckedUpdateInput = {
       status,
       lastActivityAt: new Date(),
     };

@@ -103,7 +103,7 @@ export default function PayoutsPage() {
     try {
       const [payoutsRes, methodsRes, taxRes, balanceRes] = await Promise.all([
         fetch('/api/affiliate/payouts', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/affiliate/payout-methods', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/affiliate/account/payout-method', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/affiliate/tax-documents', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/affiliate/summary', { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);

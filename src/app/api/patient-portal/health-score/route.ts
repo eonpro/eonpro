@@ -49,22 +49,22 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         orderBy: { recordedAt: 'desc' },
       }),
       prisma.patientWaterLog.findMany({
-        where: { patientId: user.patientId, loggedAt: { gte: weekAgo } },
+        where: { patientId: user.patientId, recordedAt: { gte: weekAgo } },
       }),
       prisma.patientWaterLog.findMany({
-        where: { patientId: user.patientId, loggedAt: { gte: twoWeeksAgo, lt: weekAgo } },
+        where: { patientId: user.patientId, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
       }),
       prisma.patientExerciseLog.findMany({
-        where: { patientId: user.patientId, loggedAt: { gte: weekAgo } },
+        where: { patientId: user.patientId, recordedAt: { gte: weekAgo } },
       }),
       prisma.patientExerciseLog.findMany({
-        where: { patientId: user.patientId, loggedAt: { gte: twoWeeksAgo, lt: weekAgo } },
+        where: { patientId: user.patientId, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
       }),
       prisma.patientSleepLog.findMany({
-        where: { patientId: user.patientId, loggedAt: { gte: weekAgo } },
+        where: { patientId: user.patientId, recordedAt: { gte: weekAgo } },
       }),
       prisma.patientSleepLog.findMany({
-        where: { patientId: user.patientId, loggedAt: { gte: twoWeeksAgo, lt: weekAgo } },
+        where: { patientId: user.patientId, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
       }),
       prisma.patientStreak.findMany({
         where: { patientId: user.patientId },
@@ -165,7 +165,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
           ? `${totalExercise > previousTotalExercise ? '+' : ''}${totalExercise - previousTotalExercise}min from last week`
           : 'Same as last week',
       score: Math.round(exerciseScore),
-      lastUpdated: exerciseLogs.length > 0 ? formatLastUpdated(exerciseLogs[0].loggedAt) : 'No data',
+      lastUpdated: exerciseLogs.length > 0 ? formatLastUpdated(exerciseLogs[0].recordedAt) : 'No data',
     });
 
     // Sleep (0-100)
@@ -186,7 +186,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       trend: sleepTrend,
       trendValue: sleepTrend === 'stable' ? 'Same as last week' : `${sleepTrend === 'up' ? '+' : ''}${(avgSleep - previousAvgSleep).toFixed(1)}hrs`,
       score: Math.round(sleepScore),
-      lastUpdated: sleepLogs.length > 0 ? formatLastUpdated(sleepLogs[0].loggedAt) : 'No data',
+      lastUpdated: sleepLogs.length > 0 ? formatLastUpdated(sleepLogs[0].recordedAt) : 'No data',
     });
 
     // Streak Score (0-100)

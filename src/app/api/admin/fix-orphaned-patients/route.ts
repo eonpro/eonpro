@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     // Find all orphaned patients (clinicId is null)
     const orphanedPatients = await prisma.patient.findMany({
-      where: { clinicId: null },
+      where: { clinicId: { equals: null } },
       select: { id: true, firstName: true, lastName: true, email: true },
     });
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Update all orphaned patients to EONMEDS
     const result = await prisma.patient.updateMany({
-      where: { clinicId: null },
+      where: { clinicId: { equals: null } },
       data: {
         clinicId: eonmedsClinic.id,
         // Add eonmeds tag if not present (can't do this in updateMany, so we'll do it separately)
@@ -71,11 +71,12 @@ export async function POST(req: NextRequest) {
         select: { tags: true },
       });
 
-      const currentTags = currentPatient?.tags || [];
-      if (!currentTags.includes('eonmeds')) {
+      const currentTags = Array.isArray(currentPatient?.tags) ? currentPatient.tags : [];
+      const tagsArray = currentTags as string[];
+      if (!tagsArray.includes('eonmeds')) {
         await prisma.patient.update({
           where: { id: patient.id },
-          data: { tags: [...currentTags, 'eonmeds', 'migrated'] },
+          data: { tags: [...tagsArray, 'eonmeds', 'migrated'] },
         });
       }
     }
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
     if (!systemUser) {
       // Use first admin user if no system user exists
       systemUser = await prisma.user.findFirst({
-        where: { role: 'super_admin' },
+        where: { role: 'SUPER_ADMIN' },
       });
     }
 
@@ -96,15 +97,13 @@ export async function POST(req: NextRequest) {
       await prisma.auditLog.create({
         data: {
           action: 'PATIENTS_MIGRATED_TO_CLINIC',
-          entityType: 'Patient',
-          entityId: 0,
+          resource: 'Patient',
+          resourceId: 0,
           userId: systemUser.id,
-          details: `Fixed ${result.count} orphaned patients`,
-          diff: {
+          details: {
+            message: `Fixed ${result.count} orphaned patients`,
             patients: orphanedPatients.map((p: OrphanedPatient) => ({
               id: p.id,
-              name: `${p.firstName} ${p.lastName}`,
-              email: p.email,
             })),
             assignedTo: {
               clinicId: eonmedsClinic.id,
@@ -158,7 +157,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const orphanedPatients = await prisma.patient.findMany({
-      where: { clinicId: null },
+      where: { clinicId: { equals: null } },
       select: {
         id: true,
         firstName: true,

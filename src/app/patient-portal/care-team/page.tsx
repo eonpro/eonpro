@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
   Phone,
@@ -12,6 +13,18 @@ import {
 } from 'lucide-react';
 
 export default function CareTeamPage() {
+  const router = useRouter();
+
+  // Navigation handlers
+  const handleChat = () => router.push('/patient-portal/chat');
+  const handleCall = () => {
+    // For phone calls, we could integrate with Twilio or show clinic phone
+    alert('Phone support: Please call (800) 555-0123 to speak with our care team.');
+  };
+  const handleVideo = () => router.push('/patient-portal/appointments?type=video');
+  const handleMessage = (providerId: number) => router.push(`/patient-portal/chat?provider=${providerId}`);
+  const handleBookAppointment = (providerId: number) => router.push(`/patient-portal/appointments?provider=${providerId}`);
+  const handleContactConcierge = () => router.push('/patient-portal/chat?concierge=true');
   const careTeam = [
     {
       id: 1,
@@ -77,15 +90,24 @@ export default function CareTeamPage() {
           <p className="mb-4 text-sm text-blue-100">Schedule your next appointment</p>
 
           <div className="flex gap-3">
-            <button className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30">
+            <button
+              onClick={handleChat}
+              className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30"
+            >
               <MessageCircle className="mb-1 h-6 w-6" />
               <span className="text-sm font-medium">Chat</span>
             </button>
-            <button className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30">
+            <button
+              onClick={handleCall}
+              className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30"
+            >
               <Phone className="mb-1 h-6 w-6" />
               <span className="text-sm font-medium">Call</span>
             </button>
-            <button className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30">
+            <button
+              onClick={handleVideo}
+              className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30"
+            >
               <Video className="mb-1 h-6 w-6" />
               <span className="text-sm font-medium">Video</span>
             </button>
@@ -144,11 +166,17 @@ export default function CareTeamPage() {
 
                   {/* Quick Actions */}
                   <div className="mt-3 flex gap-2">
-                    <button className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200">
+                    <button
+                      onClick={() => handleMessage(member.id)}
+                      className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200"
+                    >
                       Message
                     </button>
                     {member.available && (
-                      <button className="rounded-lg bg-[#4fa77e] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#3f8660]">
+                      <button
+                        onClick={() => handleBookAppointment(member.id)}
+                        className="rounded-lg bg-[#4fa77e] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#3f8660]"
+                      >
                         Book Appointment
                       </button>
                     )}
@@ -171,7 +199,10 @@ export default function CareTeamPage() {
             </div>
           </div>
 
-          <button className="w-full rounded-lg bg-purple-600 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700">
+          <button
+            onClick={handleContactConcierge}
+            className="w-full rounded-lg bg-purple-600 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+          >
             Contact Concierge
           </button>
         </div>

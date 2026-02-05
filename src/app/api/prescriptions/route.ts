@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
 import { markPrescribed, queueForProvider } from '@/services/refill';
 import { providerCompensationService } from '@/services/provider';
+import { platformFeeService } from '@/services/billing';
 
 // Medication-specific clinical difference statements for Lifefile
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
@@ -795,6 +796,32 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       } catch (compError) {
         // Don't fail the prescription if compensation recording fails
         logger.error('[PRESCRIPTIONS] Failed to record compensation event', {
+          orderId: updated.id,
+          providerId: p.providerId,
+          error: compError instanceof Error ? compError.message : 'Unknown error',
+        });
+      }
+
+      // PLATFORM BILLING: Record platform fee for the clinic
+      // Fee type (PRESCRIPTION vs TRANSMISSION) depends on provider type (EONPRO vs clinic provider)
+      // Respects prescription cycle (no double-charging within configured period, e.g., 90 days)
+      try {
+        const platformFeeEvent = await platformFeeService.recordPrescriptionFee(
+          updated.id,
+          p.providerId
+        );
+        
+        if (platformFeeEvent) {
+          logger.info('[PRESCRIPTIONS] Platform fee recorded', {
+            orderId: updated.id,
+            eventId: platformFeeEvent.id,
+            feeType: platformFeeEvent.feeType,
+            amountCents: platformFeeEvent.amountCents,
+          });
+        }
+      } catch (feeError) {
+        // Don't fail the prescription if fee recording fails
+        logger.error('[PRESCRIPTIONS] Failed to record platform fee', {
           orderId: updated.id,
           providerId: p.providerId,
           error: compError instanceof Error ? compError.message : 'Unknown error',

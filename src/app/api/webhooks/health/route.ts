@@ -30,103 +30,22 @@ export async function GET(req: NextRequest) {
   const startTime = Date.now();
   const { searchParams } = new URL(req.url);
   
-  // Optional: Search for specific patient (requires auth)
+  // SECURITY: Patient search functionality has been removed from this health check endpoint
+  // Patient searches must use proper authenticated admin endpoints
   const patientSearch = searchParams.get('patient');
-  const authSecret = req.headers.get('x-webhook-secret');
-  const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
+  if (patientSearch) {
+    logger.security('[WebhookHealth] Blocked patient search attempt on public health endpoint');
+    return NextResponse.json(
+      { error: 'Patient search not available on this endpoint. Use /api/admin/patients with proper authentication.' },
+      { status: 403 }
+    );
+  }
   
   try {
-    // If patient search requested, require authentication
-    if (patientSearch && authSecret === configuredSecret) {
-      const patients = await prisma.patient.findMany({
-        where: {
-          OR: [
-            { firstName: { contains: patientSearch, mode: 'insensitive' } },
-            { lastName: { contains: patientSearch, mode: 'insensitive' } },
-            { email: { contains: patientSearch, mode: 'insensitive' } },
-          ],
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          clinicId: true,
-          tags: true,
-          createdAt: true,
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-            },
-          },
-          documents: {
-            select: {
-              id: true,
-              filename: true,
-              category: true,
-              externalUrl: true,
-              createdAt: true,
-              clinicId: true,
-              data: true, // Check if PDF data exists
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-          },
-          soapNotes: {
-            select: {
-              id: true,
-              status: true,
-              createdAt: true,
-              sourceType: true,
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-          },
-        },
-        take: 10,
-        orderBy: { createdAt: 'desc' },
-      });
-      
-      return NextResponse.json({
-        search: patientSearch,
-        found: patients.length,
-        patients: patients.map((p: typeof patients[0]) => ({
-          id: p.id,
-          name: `${p.firstName} ${p.lastName}`,
-          email: p.email,
-          clinicId: p.clinicId,
-          clinicName: p.clinic?.name || 'Unknown',
-          clinicSubdomain: p.clinic?.subdomain || null,
-          tags: p.tags,
-          createdAt: p.createdAt,
-          documents: p.documents.map((d: any) => {
-            // Handle Uint8Array (Prisma 6.x) and Buffer
-            const getDataSize = (data: any): number => {
-              if (!data) return 0;
-              if (data instanceof Uint8Array || Buffer.isBuffer(data)) return data.length;
-              if (typeof data === 'object' && data.type === 'Buffer') return data.data?.length || 0;
-              return JSON.stringify(data).length;
-            };
-            return {
-              id: d.id,
-              filename: d.filename,
-              category: d.category,
-              externalUrl: d.externalUrl,
-              clinicId: d.clinicId,
-              hasData: !!(d.data && getDataSize(d.data) > 0),
-              dataSize: getDataSize(d.data),
-              createdAt: d.createdAt,
-            };
-          }),
-          soapNotes: p.soapNotes,
-          isolationStatus: p.clinic?.subdomain === 'eonmeds' || p.clinic?.name?.includes('EONMEDS') 
-            ? '✅ Correctly isolated to EONMEDS' 
-            : '⚠️ NOT in EONMEDS clinic',
-        })),
-      });
-    }
+    // SECURITY NOTE: Patient search functionality has been removed from this endpoint
+    // Patient data must only be accessed through properly authenticated admin endpoints
+    // See /api/admin/patients for patient search functionality
+
     // Get webhook statistics from audit logs
     const now = new Date();
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);

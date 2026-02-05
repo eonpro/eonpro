@@ -308,6 +308,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       }, 15000);
       return () => clearInterval(interval);
     }
+    // No cleanup needed when chat is closed or no recipient selected
+    return undefined;
   }, [isOpen, selectedRecipient, fetchMessages]);
 
   // ===========================================================================

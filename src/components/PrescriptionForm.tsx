@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddressInput, AddressData } from "@/components/AddressAutocomplete";
-import { LOGOS_PRODUCTS } from "@/data/logosProducts";
 import { MEDS, MedicationConfig, SigTemplate } from "@/lib/medications";
 import { SHIPPING_METHODS } from "@/lib/shipping";
 import SignaturePadCanvas from "./SignaturePadCanvas";
 import SigBuilder from "./SigBuilder";
+import MedicationSelector from "./MedicationSelector";
 import { US_STATE_OPTIONS } from "@/lib/usStates";
 import { formatDobInput } from "@/lib/format";
 import { logger } from '@/lib/logger';
@@ -512,18 +512,6 @@ export default function PrescriptionForm({
     }
   }
 
-  const medicationOptions = useMemo(
-    () =>
-      [...LOGOS_PRODUCTS].sort((a, b) => {
-        // Primary sort by name (case-insensitive)
-        const nameCompare = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-        if (nameCompare !== 0) return nameCompare;
-        // Secondary sort by strength (numeric-aware for proper ordering: 5mg < 10mg < 100mg)
-        return a.strength.localeCompare(b.strength, undefined, { numeric: true, sensitivity: 'base' });
-      }),
-    []
-  );
-
   // Confirmation View
   if (showConfirmation) {
     // Note: selectedProvider is already computed at component level (line ~208)
@@ -988,11 +976,9 @@ export default function PrescriptionForm({
               )}
             </div>
             <label className="block text-sm font-medium mb-1">Medication</label>
-            <select
-              className="border p-2 w-full"
+            <MedicationSelector
               value={rx.medicationKey}
-              onChange={(e: any) => {
-                const key = e.target.value;
+              onChange={(key: string) => {
                 const med = MEDS[key];
                 updateRx(index, "medicationKey", key);
                 if (med) {
@@ -1004,23 +990,8 @@ export default function PrescriptionForm({
                     updateRx(index, "refills", defaults.refills);
                 }
               }}
-            >
-              <option value="">Select medication…</option>
-              {medicationOptions.map((product: any) => (
-                <option key={product.id} value={String(product.id)}>
-                  {product.name}
-                  {product.strength ? ` (${product.strength})` : ""}
-                </option>
-              ))}
-            </select>
-            {selectedMed && (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-600">
-                  {selectedMed.name} – {selectedMed.strength}
-                  {selectedMed.formLabel ? ` (${selectedMed.formLabel})` : ""}
-                </p>
-              </div>
-            )}
+              showCategoryBadge={true}
+            />
 
             {/* Enhanced SigBuilder Component */}
             <SigBuilder

@@ -585,7 +585,7 @@ export interface ServiceResult<T> {
   code?: string;
 }
 
-export interface PaginatedResult<T> {
+export interface TicketPaginatedResult<T> {
   items: T[];
   pagination: {
     page: number;

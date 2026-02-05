@@ -105,19 +105,41 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     setSaving(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          firstName: profile?.firstName,
+          lastName: profile?.lastName,
+          phone: profile?.phone,
+        }),
+      });
 
-    // Update localStorage
-    if (profile) {
-      const currentUser = localStorage.getItem('user');
-      const userData = currentUser ? JSON.parse(currentUser) : {};
-      localStorage.setItem('user', JSON.stringify({ ...userData, ...profile }));
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || 'Failed to save profile');
+        return;
+      }
+
+      // Update localStorage with new profile data
+      if (profile) {
+        const currentUser = localStorage.getItem('user');
+        const userData = currentUser ? JSON.parse(currentUser) : {};
+        localStorage.setItem('user', JSON.stringify({ ...userData, ...profile }));
+      }
+
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      alert('Failed to save profile. Please try again.');
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
   };
 
   const handlePasswordChange = async () => {
@@ -131,19 +153,53 @@ export default function SettingsPage() {
     }
 
     setSaving(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          currentPassword: passwords.current,
+          newPassword: passwords.new,
+          confirmPassword: passwords.confirm,
+        }),
+      });
 
-    setPasswords({ current: '', new: '', confirm: '' });
-    setSaving(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Failed to change password');
+        return;
+      }
+
+      setPasswords({ current: '', new: '', confirm: '' });
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      alert('Failed to change password. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     router.push('/login');
   };
 

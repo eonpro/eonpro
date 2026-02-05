@@ -27,7 +27,7 @@ async function main() {
     console.log(`   ID: ${existing.id}`);
     console.log(`   Name: ${existing.name}`);
     console.log(`   Subdomain: ${existing.subdomain}`);
-    console.log(`   Email: ${existing.email}`);
+    console.log(`   Admin Email: ${existing.adminEmail}`);
     return existing;
   }
 
@@ -37,17 +37,29 @@ async function main() {
     data: {
       name: 'Wellmedr',
       subdomain: 'wellmedr',
-      email: 'admin@wellmedr.com',
+      adminEmail: 'admin@wellmedr.com',
       phone: '0000000000',
-      address1: '',
-      city: '',
-      state: '',
-      zip: '',
+      status: 'ACTIVE',
+      timezone: 'America/New_York',
       settings: {
         intakeUrl: 'https://intake.wellmedr.com',
         specialty: 'GLP-1 Weight Loss',
         webhookEnabled: true,
       },
+      features: {
+        scheduling: true,
+        billing: true,
+        telehealth: true,
+        intakeForms: true,
+        soapNotes: true,
+        aiAssistant: true,
+        patientPortal: true,
+      },
+      integrations: {},
+      billingPlan: 'enterprise',
+      patientLimit: 10000,
+      providerLimit: 100,
+      storageLimit: 50000,
     },
   });
 
