@@ -34,7 +34,7 @@ async function handleInfluencerAccount(influencerId: number, userId: number) {
     // Get total earnings from commissions table
     prisma.commission.aggregate({
       where: { influencerId },
-      _sum: { amount: true },
+      _sum: { commissionAmount: true },
     }),
   ]);
 
@@ -42,7 +42,7 @@ async function handleInfluencerAccount(influencerId: number, userId: number) {
     return NextResponse.json({ error: 'Influencer not found' }, { status: 404 });
   }
 
-  const totalEarnings = commissions._sum.amount || 0;
+  const totalEarnings = commissions._sum?.commissionAmount || 0;
 
   return NextResponse.json({
     profile: {

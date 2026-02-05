@@ -49,12 +49,11 @@ export async function POST(req: NextRequest) {
       data: {
         name: 'Wellmedr',
         subdomain: 'wellmedr',
+        adminEmail: 'admin@wellmedr.com',
         settings: {
           intakeUrl: 'https://intake.wellmedr.com',
           specialty: 'GLP-1 Weight Loss',
           webhookEnabled: true,
-          contactEmail: 'admin@wellmedr.com',
-          contactPhone: '0000000000',
         },
         features: {},
         integrations: {},
