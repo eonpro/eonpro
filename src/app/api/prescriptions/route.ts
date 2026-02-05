@@ -819,14 +819,14 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             amountCents: platformFeeEvent.amountCents,
           });
         }
-      } catch (feeError) {
-        // Don't fail the prescription if fee recording fails
-        logger.error('[PRESCRIPTIONS] Failed to record platform fee', {
-          orderId: updated.id,
-          providerId: p.providerId,
-          error: compError instanceof Error ? compError.message : 'Unknown error',
-        });
-      }
+    } catch (feeError) {
+      // Don't fail the prescription if fee recording fails
+      logger.error('[PRESCRIPTIONS] Failed to record platform fee', {
+        orderId: updated.id,
+        providerId: p.providerId,
+        error: feeError instanceof Error ? feeError.message : 'Unknown error',
+      });
+    }
 
       return NextResponse.json({
         success: true,
