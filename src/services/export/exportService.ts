@@ -326,8 +326,8 @@ startxref
       patientName: p.patient ? `${safeDecryptField(p.patient.firstName)} ${safeDecryptField(p.patient.lastName)}`.trim() : 'Unknown',
       patientEmail: safeDecryptField(p.patient?.email),
       amount: p.amount / 100,
-      fee: (p.fee || 0) / 100,
-      netAmount: (p.amount - (p.fee || 0)) / 100,
+      fee: 0, // Fee not tracked at payment level
+      netAmount: p.amount / 100, // Net = gross when fee not tracked
       status: p.status,
       paymentMethod: p.paymentMethod || 'Unknown',
     }));
@@ -393,7 +393,6 @@ startxref
       },
       select: {
         amount: true,
-        fee: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -406,8 +405,8 @@ startxref
       const day = format(p.createdAt, 'yyyy-MM-dd');
       const existing = dailyPayouts.get(day) || { gross: 0, fees: 0, net: 0 };
       existing.gross += p.amount;
-      existing.fees += p.fee || 0;
-      existing.net += p.amount - (p.fee || 0);
+      existing.fees += 0; // Fee not tracked at payment level
+      existing.net += p.amount;
       dailyPayouts.set(day, existing);
     });
 
@@ -487,10 +486,10 @@ startxref
     });
 
     return invoices.map((inv: typeof invoices[number]) => ({
-      invoiceNumber: inv.invoiceNumber || `INV-${inv.id}`,
+      invoiceNumber: inv.stripeInvoiceNumber || `INV-${inv.id}`,
       patientName: inv.patient ? `${safeDecryptField(inv.patient.firstName)} ${safeDecryptField(inv.patient.lastName)}`.trim() : 'Unknown',
       patientEmail: safeDecryptField(inv.patient?.email),
-      amount: inv.total / 100,
+      amount: (inv.amount || 0) / 100,
       status: inv.status,
       createdAt: format(inv.createdAt, 'yyyy-MM-dd'),
       dueDate: inv.dueDate ? format(inv.dueDate, 'yyyy-MM-dd') : '',
@@ -536,9 +535,9 @@ startxref
       data: {
         clinicId,
         createdBy: userId,
-        reportType: config.reportType, // ReportType enum
+        reportType: config.reportType as any, // ReportType enum
         format: config.format,
-        config: config, // Prisma JSON field accepts ExportConfig
+        config: config as any, // Prisma JSON field
         dateRangeStart: config.dateRange.start,
         dateRangeEnd: config.dateRange.end,
         status: 'pending',

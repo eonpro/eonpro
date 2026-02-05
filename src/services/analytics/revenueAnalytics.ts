@@ -126,7 +126,6 @@ export class RevenueAnalyticsService {
         select: {
           amount: true,
           status: true,
-          fee: true,
         },
       });
 
@@ -135,8 +134,8 @@ export class RevenueAnalyticsService {
       const failedPayments = payments.filter((p: { status: string }) => p.status === 'FAILED');
       
       const grossRevenue = successfulPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
-      const fees = successfulPayments.reduce((sum: number, p: { fee?: number }) => sum + (p.fee || 0), 0);
-      const netRevenue = grossRevenue - fees;
+      const fees = 0; // Fee not tracked at payment level
+      const netRevenue = grossRevenue;
       
       // Get refunds
       const refunds = await prisma.payment.aggregate({
@@ -247,7 +246,6 @@ export class RevenueAnalyticsService {
         select: {
           amount: true,
           status: true,
-          fee: true,
           createdAt: true,
         },
       });
@@ -267,13 +265,12 @@ export class RevenueAnalyticsService {
         const refunded = intervalPayments.filter((p: { status: string }) => p.status === 'REFUNDED');
 
         const grossRevenue = successful.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
-        const fees = successful.reduce((sum: number, p: { fee?: number }) => sum + (p.fee || 0), 0);
         const refunds = refunded.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
         return {
           date: format(intervalStart, dateFormat),
           grossRevenue,
-          netRevenue: grossRevenue - fees,
+          netRevenue: grossRevenue, // Net = gross when fee not tracked
           refunds,
           paymentCount: successful.length,
         };

@@ -700,7 +700,7 @@ export class PatientAnalyticsService {
             select: {
               id: true,
               status: true,
-              total: true,
+              amount: true,
               dueDate: true,
               paidAt: true,
             },
@@ -718,7 +718,7 @@ export class PatientAnalyticsService {
         (inv: { status: string }) => inv.status === 'OPEN' || inv.status === 'DRAFT'
       );
       const outstandingBalance = outstandingInvoices.reduce(
-        (sum: number, inv: { total: number }) => sum + inv.total, 0
+        (sum: number, inv: { amount: number | null }) => sum + (inv.amount || 0), 0
       );
 
       const monthsActive = differenceInMonths(new Date(), patient.createdAt) || 1;
@@ -759,7 +759,7 @@ export class PatientAnalyticsService {
         invoices: patient.invoices.map((inv: typeof patient.invoices[number]) => ({
           id: inv.id,
           status: inv.status,
-          amount: inv.total,
+          amount: inv.amount || 0,
           dueDate: inv.dueDate,
           paidAt: inv.paidAt,
         })),
