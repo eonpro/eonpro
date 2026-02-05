@@ -548,8 +548,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Fetch documents separately for patients that might not have them in the relation
     // This handles cases where the Patient -> Document link might not be populated
     // IMPORTANT: Include both invoice AND refill patients
-    const invoicePatientIds = invoices.map((inv: InvoiceWithRelations) => inv.patient.id);
-    const refillPatientIds = refills.map((ref: RefillWithRelations) => ref.patient.id);
+    const invoicePatientIds = (invoices as any[]).map((inv: any) => inv.patient.id);
+    const refillPatientIds = (refills as any[]).map((ref: any) => ref.patient.id);
     const allPatientIds = [...new Set([...invoicePatientIds, ...refillPatientIds])];
     const patientDocsMap = new Map<number, PatientDocumentWithData[]>();
     
@@ -574,7 +574,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         if (!patientDocsMap.has(doc.patientId)) {
           patientDocsMap.set(doc.patientId, []);
         }
-        patientDocsMap.get(doc.patientId)!.push(doc);
+        patientDocsMap.get(doc.patientId)!.push(doc as PatientDocumentWithData);
       }
       
       logger.info('[PRESCRIPTION-QUEUE] Fetched intake documents', {
@@ -585,7 +585,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     // Transform invoice data for frontend
-    const invoiceItems = invoices.map((invoice: InvoiceWithRelations) => {
+    const invoiceItems = (invoices as any[]).map((invoice: any) => {
       // CRITICAL: Validate clinic consistency between invoice and patient
       // This is a defense-in-depth check to catch multi-tenant isolation violations
       const invoiceClinicId = invoice.clinicId;
@@ -788,7 +788,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
     
     // Transform refill data for frontend
-    const refillItems = refills.map((refill: RefillWithRelations) => {
+    const refillItems = (refills as any[]).map((refill: any) => {
       // CRITICAL: Validate clinic consistency between refill and patient
       const refillClinicId = refill.clinicId;
       const refillPatientClinicId = refill.patient.clinicId;

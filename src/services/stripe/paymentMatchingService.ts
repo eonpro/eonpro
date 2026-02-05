@@ -658,7 +658,7 @@ export async function createPaidInvoiceFromStripe(
   const description = paymentData.description || 'Payment received via Stripe';
 
   // Wrap invoice and payment creation in a transaction for atomicity
-  const invoice = await prisma.$transaction(async (tx: typeof prisma) => {
+  const invoice = await prisma.$transaction(async (tx) => {
     // Create the invoice as PAID
     const newInvoice = await tx.invoice.create({
       data: {
@@ -676,13 +676,13 @@ export async function createPaidInvoiceFromStripe(
           description,
           amount: paymentData.amount,
           quantity: 1,
-        }],
+        }] as any,
         metadata: {
           source: 'stripe_webhook',
           paymentIntentId: paymentData.paymentIntentId,
           chargeId: paymentData.chargeId,
           stripeMetadata: paymentData.metadata,
-        },
+        } as any,
       },
     });
 
@@ -705,13 +705,13 @@ export async function createPaidInvoiceFromStripe(
   });
 
   logger.info('[PaymentMatching] Created paid invoice from Stripe payment', {
-    invoiceId: invoice.id,
+    invoiceId: (invoice as any).id,
     patientId: patient.id,
     amount: paymentData.amount,
     paymentIntentId: paymentData.paymentIntentId,
   });
 
-  return invoice;
+  return invoice as any;
 }
 
 // ============================================================================
@@ -1484,7 +1484,7 @@ export async function syncInvoiceFromStripe(
 
       await prisma.invoice.update({
         where: { id: invoiceId },
-        data: updates,
+        data: updates as any,
       });
     }
 
