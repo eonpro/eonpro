@@ -62,16 +62,19 @@ function getGLP1SubCategory(name: string): 'Semaglutide' | 'Tirzepatide' | null 
 // Get a friendly display name from the full pharmacy name
 function getFriendlyName(name: string): { displayName: string; details: string } {
   // Extract vial size from the name (e.g., "2ML VIAL", "1ML", "5ML")
-  const vialMatch = name.match(/\((\d+(?:\.\d+)?ML(?:\s*VIAL)?)\)/i);
-  const vialSize = vialMatch ? vialMatch[1].toUpperCase() : '';
+  const vialMatch = name.match(/\((\d+(?:\.\d+)?)\s*ML(?:\s*VIAL)?\)/i);
+  const vialSizeMl = vialMatch ? parseFloat(vialMatch[1]) : 0;
+  const vialSizeLabel = vialMatch ? vialMatch[1] + 'ML' : '';
   
-  // Extract concentration (e.g., "2.5/20MG/ML", "10/20MG/ML")
-  const concMatch = name.match(/(\d+(?:\.\d+)?(?:\/\d+)?MG\/ML)/i);
-  const concentration = concMatch ? concMatch[1] : '';
+  // Extract concentration (e.g., "2.5/20MG/ML" -> 2.5, "10/20MG/ML" -> 10)
+  const concMatch = name.match(/(\d+(?:\.\d+)?)(\/\d+)?MG\/ML/i);
+  const concentrationMgPerMl = concMatch ? parseFloat(concMatch[1]) : 0;
   
   // Determine medication type
   const nameLower = name.toLowerCase();
   let medType = '';
+  const isGLP1 = nameLower.includes('semaglutide') || nameLower.includes('tirzepatide');
+
   if (nameLower.includes('semaglutide')) medType = 'Semaglutide';
   else if (nameLower.includes('tirzepatide')) medType = 'Tirzepatide';
   else if (nameLower.includes('testosterone')) medType = 'Testosterone';
@@ -83,9 +86,20 @@ function getFriendlyName(name: string): { displayName: string; details: string }
   else if (nameLower.includes('nad')) medType = 'NAD+';
   else medType = name.split('/')[0].split(' ')[0];
   
-  // Build friendly display name
-  const displayName = vialSize ? `${medType} ${vialSize}` : medType;
-  const details = concentration ? `${concentration}` : '';
+  // For GLP-1 medications, calculate total mg in vial and display prominently
+  if (isGLP1 && vialSizeMl > 0 && concentrationMgPerMl > 0) {
+    const totalMg = vialSizeMl * concentrationMgPerMl;
+    // Format: remove unnecessary decimals (e.g., 5.0 -> 5, but keep 2.5 as 2.5)
+    const totalMgFormatted = totalMg % 1 === 0 ? totalMg.toFixed(0) : totalMg.toFixed(1);
+    // Display: "Semaglutide 1ML VIAL" with badge showing total mg "2.5mg"
+    const displayName = `${medType} ${vialSizeLabel} VIAL`;
+    const details = `${totalMgFormatted}mg`;
+    return { displayName, details };
+  }
+
+  // Build friendly display name for non-GLP-1 meds
+  const displayName = vialSizeLabel ? `${medType} ${vialSizeLabel}` : medType;
+  const details = concMatch ? `${concMatch[0]}` : '';
   
   return { displayName, details };
 }
