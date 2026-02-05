@@ -7,13 +7,13 @@ import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
 import { 
   Menu, X, Bell, User, LogOut, MessageSquare, CalendarPlus,
   Heart, Calendar, Pill, TestTube, FileText, Package, CreditCard,
-  ChevronRight, Shield, Phone, AlertCircle, Clock, Activity
+  ChevronRight, Shield, Phone, AlertCircle, Clock, Activity, Camera
 } from 'lucide-react';
 
 // Icon mapping
 const iconMap: Record<string, any> = {
   Heart, Calendar, Pill, TestTube, FileText, MessageSquare, 
-  Package, CreditCard, User, CalendarPlus
+  Package, CreditCard, User, CalendarPlus, Camera
 };
 
 interface PatientLayoutProps {

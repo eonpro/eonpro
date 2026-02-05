@@ -497,6 +497,7 @@ export const PATIENT_CONFIG: RoleConfig = {
       { label: 'Medications', path: '/patient-portal/medications', icon: 'Pill' },
       { label: 'Lab Results', path: '/patient-portal/labs', icon: 'TestTube' },
       { label: 'Documents', path: '/patient-portal/documents', icon: 'FileText' },
+      { label: 'Photos', path: '/patient-portal/photos', icon: 'Camera' },
       { label: 'Messages', path: '/patient-portal/messages', icon: 'MessageSquare' },
       { label: 'Orders', path: '/patient-portal/orders', icon: 'Package' },
       { label: 'Billing', path: '/patient-portal/billing', icon: 'CreditCard' },

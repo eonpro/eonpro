@@ -25,7 +25,6 @@ async function handleInfluencerDashboard(influencerId: number) {
       promoCode: true,
       commissionRate: true,
       status: true,
-      totalEarnings: true,
       createdAt: true,
     },
   });
@@ -33,6 +32,12 @@ async function handleInfluencerDashboard(influencerId: number) {
   if (!influencer || influencer.status !== 'ACTIVE') {
     return NextResponse.json({ error: 'Influencer not found or inactive' }, { status: 404 });
   }
+
+  // Calculate total earnings from commissions table
+  const totalEarningsAgg = await prisma.commission.aggregate({
+    where: { influencerId },
+    _sum: { commissionAmount: true },
+  }).catch(() => ({ _sum: { commissionAmount: null } }));
 
   // Calculate date ranges for this month
   const now = new Date();
@@ -63,7 +68,7 @@ async function handleInfluencerDashboard(influencerId: number) {
   // Commission amounts are stored as dollars in legacy model
   const thisMonth = Math.round((monthlyCommissions._sum.commissionAmount || 0) * 100);
   const conversionsThisMonth = monthlyCommissions._count || 0;
-  const totalEarnings = influencer.totalEarnings || 0;
+  const totalEarnings = totalEarningsAgg._sum.commissionAmount || 0;
 
   return NextResponse.json({
     affiliate: {

@@ -71,7 +71,7 @@ export const POST = withAuthParams(async (
     } catch {
       // Empty body is OK for approval
     }
-    const { notes } = body;
+    const notes = typeof body.notes === 'string' ? body.notes : undefined;
 
     const updatedRefill = await approveRefill(refillId, user.id, notes);
 

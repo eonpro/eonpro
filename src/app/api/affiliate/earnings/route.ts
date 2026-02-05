@@ -20,7 +20,6 @@ async function handleInfluencerEarnings(influencerId: number) {
     where: { id: influencerId },
     select: {
       id: true,
-      totalEarnings: true,
     },
   });
 
@@ -29,19 +28,24 @@ async function handleInfluencerEarnings(influencerId: number) {
   }
 
   // Get legacy commissions
-  const commissions = await prisma.commission.findMany({
-    where: { influencerId },
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-    select: {
-      id: true,
-      createdAt: true,
-      commissionAmount: true,
-      status: true,
-      orderAmount: true,
-      promoCode: true,
-    },
-  }).catch(() => []);
+  const [commissions, totalEarningsAgg] = await Promise.all([
+    prisma.commission.findMany({
+      where: { influencerId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        createdAt: true,
+        commissionAmount: true,
+        status: true,
+        orderAmount: true,
+      },
+    }).catch(() => []),
+    prisma.commission.aggregate({
+      where: { influencerId },
+      _sum: { commissionAmount: true },
+    }).catch(() => ({ _sum: { commissionAmount: null } })),
+  ]);
 
   // Convert to expected format
   const formattedCommissions = commissions.map((c: any) => ({
@@ -50,10 +54,10 @@ async function handleInfluencerEarnings(influencerId: number) {
     amount: Math.round((c.commissionAmount || 0) * 100), // Convert to cents
     status: (c.status || 'pending').toLowerCase() as 'pending' | 'approved' | 'paid' | 'reversed',
     orderAmount: Math.round((c.orderAmount || 0) * 100),
-    refCode: c.promoCode || 'PROMO',
+    refCode: 'N/A', // Legacy commissions don't track ref codes
   }));
 
-  const totalEarnings = influencer.totalEarnings || 0;
+  const totalEarnings = totalEarningsAgg._sum.commissionAmount || 0;
 
   return NextResponse.json({
     summary: {

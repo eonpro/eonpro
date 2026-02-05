@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, Prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -33,15 +33,15 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       prisma.affiliatePayoutMethod.findFirst({
         where: {
           affiliateId,
-          isActive: true,
+          isDefault: true,
           isVerified: true,
         },
         select: {
           id: true,
           methodType: true,
-          last4: true,
+          bankAccountLast4: true,
           bankName: true,
-          accountEmail: true,
+          paypalEmail: true,
         },
       }),
       prisma.affiliatePayout.findFirst({
@@ -65,9 +65,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       minWithdrawal: MIN_WITHDRAWAL_CENTS,
       payoutMethod: payoutMethod ? {
         type: payoutMethod.methodType === 'PAYPAL' ? 'paypal' : 'bank',
-        last4: payoutMethod.last4,
+        last4: payoutMethod.bankAccountLast4,
         bankName: payoutMethod.bankName,
-        email: payoutMethod.accountEmail,
+        email: payoutMethod.paypalEmail,
       } : null,
       pendingPayout: pendingPayout ? {
         amount: pendingPayout.netAmountCents,
@@ -135,7 +135,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     const payoutMethod = await prisma.affiliatePayoutMethod.findFirst({
       where: {
         affiliateId,
-        isActive: true,
+        isDefault: true,
         isVerified: true,
       },
     });
@@ -174,7 +174,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     }
 
     // Create payout and assign commissions in a transaction
-    const payout = await prisma.$transaction(async (tx: typeof prisma) => {
+    const payout = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create payout record
       const newPayout = await tx.affiliatePayout.create({
         data: {

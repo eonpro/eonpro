@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, Prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
@@ -183,7 +183,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Create user and affiliate in transaction
-    const result = await prisma.$transaction(async (tx: typeof prisma) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create user account
       const newUser = await tx.user.create({
         data: {

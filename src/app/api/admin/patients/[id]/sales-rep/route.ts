@@ -236,6 +236,16 @@ async function handlePost(
           patientId,
           isActive: true,
         },
+        include: {
+          salesRep: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
       });
 
       if (existingAssignment) {

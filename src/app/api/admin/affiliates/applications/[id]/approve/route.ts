@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, Prisma } from '@/lib/db';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -110,7 +110,7 @@ export const POST = withAuthParams(
       const lastName = nameParts.slice(1).join(' ') || '';
 
       // Create user, affiliate, and update application in transaction
-      const result = await prisma.$transaction(async (tx: typeof prisma) => {
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Create user account
         const newUser = await tx.user.create({
           data: {

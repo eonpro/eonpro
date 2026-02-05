@@ -87,14 +87,15 @@ export async function POST(req: NextRequest) {
       try {
         const existingDoc = patient.documents[0];
         let dataStr = '';
+        const docData = existingDoc.data as Buffer | Uint8Array | string;
 
-        // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
-        if (existingDoc.data instanceof Uint8Array) {
-          dataStr = Buffer.from(existingDoc.data).toString('utf8');
-        } else if (Buffer.isBuffer(existingDoc.data)) {
-          dataStr = existingDoc.data.toString('utf8');
-        } else if (typeof existingDoc.data === 'string') {
-          dataStr = existingDoc.data;
+        // Handle Buffer/Uint8Array (Prisma 6.x returns Bytes as Buffer)
+        if (Buffer.isBuffer(docData)) {
+          dataStr = docData.toString('utf8');
+        } else if (docData instanceof Uint8Array) {
+          dataStr = Buffer.from(docData).toString('utf8');
+        } else if (typeof docData === 'string') {
+          dataStr = docData;
         }
 
         if (dataStr) {

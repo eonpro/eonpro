@@ -26,7 +26,7 @@ const verifyRequestSchema = z.object({
 // ID Photo Types (require verification)
 // =============================================================================
 
-const ID_PHOTO_TYPES = [PatientPhotoType.ID_FRONT, PatientPhotoType.ID_BACK, PatientPhotoType.SELFIE];
+const ID_PHOTO_TYPES: PatientPhotoType[] = [PatientPhotoType.ID_FRONT, PatientPhotoType.ID_BACK, PatientPhotoType.SELFIE];
 
 // =============================================================================
 // POST /api/admin/patient-photos/[id]/verify
@@ -139,8 +139,8 @@ async function handlePost(
           patientId: photo.patientId,
           notes: parsed.data.notes,
         },
-        resourceType: 'PatientPhoto',
-        resourceId: photoId.toString(),
+        resource: 'PatientPhoto',
+        resourceId: photoId,
         clinicId: user.clinicId || photo.patient.clinicId,
         ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0] || undefined,
         userAgent: req.headers.get('user-agent') || undefined,

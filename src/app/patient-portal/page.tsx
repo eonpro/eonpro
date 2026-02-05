@@ -16,6 +16,7 @@ import {
   Bell,
   Ruler,
   Zap,
+  Camera,
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTracker';
@@ -467,6 +468,16 @@ export default function PatientPortalDashboard() {
               <BookOpen className="mb-2 h-6 w-6 text-amber-600" />
               <span className="text-sm font-medium text-gray-700">Resources</span>
             </Link>
+          )}
+
+          {/* Photos Quick Action */}
+          <Link
+            href="/patient-portal/photos"
+            className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+          >
+            <Camera className="mb-2 h-6 w-6 text-blue-600" />
+            <span className="text-sm font-medium text-gray-700">Photos</span>
+          </Link>
           )}
 
           {features.showShipmentTracking && (

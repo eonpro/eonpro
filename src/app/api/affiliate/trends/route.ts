@@ -78,7 +78,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     `;
 
     // Apply small-number suppression for HIPAA compliance
-    const trends: TrendData[] = rawTrends.map((row: { period: Date; conversions: bigint; revenue_cents: bigint; commission_cents: bigint }) => {
+    const trends: TrendData[] = rawTrends.map((row: { period: Date; conversions: bigint; revenue_cents: bigint | null; commission_cents: bigint | null }) => {
       const conversionCount = Number(row.conversions);
       const isSuppressed = conversionCount < SMALL_NUMBER_THRESHOLD && conversionCount > 0;
 

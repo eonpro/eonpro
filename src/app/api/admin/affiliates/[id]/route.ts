@@ -161,7 +161,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       const recentActivity = modernAffiliate.commissionEvents.map((event: CommissionEvent) => ({
         id: event.id,
         type: 'commission',
-        description: `Commission ${event.status.toLowerCase()} - Order #${event.orderId || 'N/A'}`,
+        description: `Commission ${event.status.toLowerCase()} - Event #${event.stripeObjectId?.slice(-8) || 'N/A'}`,
         amountCents: event.commissionAmountCents,
         createdAt: event.createdAt.toISOString(),
       }));

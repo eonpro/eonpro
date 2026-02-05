@@ -361,7 +361,7 @@ async function checkDataIntegrity(): Promise<DataIntegrityResult> {
 
     // Check for patients without clinic assignment
     const unassignedPatients = await prisma.patient.count({
-      where: { clinicId: { equals: null } },
+      where: { clinicId: null },
     });
     
     if (unassignedPatients > 0) {

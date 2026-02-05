@@ -15,7 +15,7 @@ import { logger } from '@/lib/logger';
  * Handle account for legacy Influencer model users
  */
 async function handleInfluencerAccount(influencerId: number, userId: number) {
-  const [influencer, user] = await Promise.all([
+  const [influencer, user, commissions] = await Promise.all([
     prisma.influencer.findUnique({
       where: { id: influencerId },
       select: {
@@ -24,7 +24,6 @@ async function handleInfluencerAccount(influencerId: number, userId: number) {
         email: true,
         phone: true,
         commissionRate: true,
-        totalEarnings: true,
         createdAt: true,
       },
     }),
@@ -32,11 +31,18 @@ async function handleInfluencerAccount(influencerId: number, userId: number) {
       where: { id: userId },
       select: { email: true, phone: true },
     }),
+    // Get total earnings from commissions table
+    prisma.commission.aggregate({
+      where: { influencerId },
+      _sum: { amount: true },
+    }),
   ]);
 
   if (!influencer) {
     return NextResponse.json({ error: 'Influencer not found' }, { status: 404 });
   }
+
+  const totalEarnings = commissions._sum.amount || 0;
 
   return NextResponse.json({
     profile: {
@@ -54,7 +60,7 @@ async function handleInfluencerAccount(influencerId: number, userId: number) {
     },
     taxStatus: {
       hasValidW9: false,
-      yearToDateEarnings: Math.round((influencer.totalEarnings || 0) * 100),
+      yearToDateEarnings: Math.round(totalEarnings * 100),
       threshold: 60000, // $600 threshold for 1099
     },
   });

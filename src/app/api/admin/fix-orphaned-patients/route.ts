@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     // Find all orphaned patients (clinicId is null)
     const orphanedPatients = await prisma.patient.findMany({
-      where: { clinicId: { equals: null } },
+      where: { clinicId: null },
       select: { id: true, firstName: true, lastName: true, email: true },
     });
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Update all orphaned patients to EONMEDS
     const result = await prisma.patient.updateMany({
-      where: { clinicId: { equals: null } },
+      where: { clinicId: null },
       data: {
         clinicId: eonmedsClinic.id,
         // Add eonmeds tag if not present (can't do this in updateMany, so we'll do it separately)
@@ -157,7 +157,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const orphanedPatients = await prisma.patient.findMany({
-      where: { clinicId: { equals: null } },
+      where: { clinicId: null },
       select: {
         id: true,
         firstName: true,

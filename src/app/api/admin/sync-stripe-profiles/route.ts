@@ -78,7 +78,8 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
       // Empty or invalid JSON is OK - use defaults
     }
     const dryRun = body.dryRun === true;
-    const limit = Math.min(body.limit || 50, 100); // Max 100 at a time
+    const limitValue = typeof body.limit === 'number' ? body.limit : 50;
+    const limit = Math.min(limitValue, 100); // Max 100 at a time
 
     // Find patients with incomplete profiles created from Stripe
     const incompletePatients = await prisma.patient.findMany({

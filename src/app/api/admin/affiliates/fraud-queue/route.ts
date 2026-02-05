@@ -199,9 +199,9 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Process action - use Prisma enum types
+    // Process action - use Prisma enum types (must match schema exactly)
     type FraudAlertStatus = 'OPEN' | 'INVESTIGATING' | 'CONFIRMED_FRAUD' | 'FALSE_POSITIVE' | 'DISMISSED';
-    type FraudResolutionAction = 'NO_ACTION' | 'WARNING_ISSUED' | 'COMMISSION_REVERSED' | 'ACCOUNT_SUSPENDED' | 'ACCOUNT_TERMINATED';
+    type FraudResolutionAction = 'NO_ACTION' | 'WARNING_ISSUED' | 'COMMISSION_REVERSED' | 'COMMISSIONS_HELD' | 'AFFILIATE_SUSPENDED' | 'AFFILIATE_TERMINATED';
     
     let status: FraudAlertStatus;
     let resolutionAction: FraudResolutionAction | null = null;

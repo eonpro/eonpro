@@ -57,7 +57,6 @@ async function handler(req: NextRequest, user: AuthUser) {
           orderAmount: true,
           commissionAmount: true,
           status: true,
-          promoCode: true,
         },
       }),
       prisma.commission.count({ where: whereClause }),
@@ -70,7 +69,7 @@ async function handler(req: NextRequest, user: AuthUser) {
       orderAmount: Math.round((c.orderAmount || 0) * 100),
       commission: Math.round((c.commissionAmount || 0) * 100),
       status: (c.status || 'PENDING').toLowerCase(),
-      refCode: c.promoCode || 'N/A',
+      refCode: 'N/A', // Legacy commissions don't track ref codes
       planName: 'Standard',
     }));
 
