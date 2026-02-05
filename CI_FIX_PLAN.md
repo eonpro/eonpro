@@ -54,7 +54,14 @@ The CI pipeline has multiple blocking issues that need to be resolved before dep
 - Moved `prisma/migrations/_template` to `prisma/migration_template`
 - Renamed `AppointmentType` enum to `AppointmentModeType` in the migration SQL (aligning with schema)
 
-### 3. Security Credential Exposure (FIXED)
+### 3. Migration Ordering Bug (FIXED)
+
+**Issue:** The `20241219_scheduling_system` migration had an incorrect timestamp (2024 instead of 2025), causing it to run before the `Clinic` table was created by `20251128221309_add_multi_clinic_support`.
+
+**Fix:**
+- Renamed `20241219_scheduling_system` to `20251129_scheduling_system` so it runs after the Clinic table is created
+
+### 4. Security Credential Exposure (FIXED)
 
 **CRITICAL:** Production database passwords were committed to the repository.
 
@@ -72,7 +79,29 @@ The CI pipeline has multiple blocking issues that need to be resolved before dep
 
 ## Remaining Issues (Require Admin/Manual Action)
 
-### 4. Missing GitHub Secret: `DIRECT_DATABASE_URL`
+### 5. Production Database Failed Migrations
+
+**Status:** Blocking Pre-Deployment Check  
+**Required Action:** Resolve failed migrations in production database
+
+The production database has 4 migrations in "failed" state:
+- `20260201_add_sales_rep_role_and_patient_assignment`
+- `20260202_add_profile_status`
+- `20260201_add_address_validation_log`
+- `20260131_add_telehealth_session`
+
+Note: The schema is in sync ("No schema drift"), meaning the tables exist. These just need to be marked as resolved.
+
+**To fix:**
+```bash
+# Connect to production database and run:
+npx prisma migrate resolve --applied 20260201_add_sales_rep_role_and_patient_assignment
+npx prisma migrate resolve --applied 20260202_add_profile_status
+npx prisma migrate resolve --applied 20260201_add_address_validation_log
+npx prisma migrate resolve --applied 20260131_add_telehealth_session
+```
+
+### 6. Missing GitHub Secret: `DIRECT_DATABASE_URL` (DONE)
 
 **Status:** Blocking CI  
 **Required Action:** Add to GitHub repository secrets
@@ -92,7 +121,7 @@ The Prisma schema uses `directUrl` for migrations, which requires a direct Postg
 # postgresql://postgres:PASSWORD@eonpro-production.cluster-xxx.us-east-2.rds.amazonaws.com:5432/eonpro?sslmode=require
 ```
 
-### 5. Security Scan Findings (19 blocking)
+### 7. Security Scan Findings (19 blocking)
 
 **Status:** Blocking CI  
 **Required Action:** Review and remediate or add to ignore list
