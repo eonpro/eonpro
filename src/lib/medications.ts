@@ -50,24 +50,54 @@ export function formatVolume(ml: number): string {
   return `${ml} mL / ${units} units`;
 }
 
+// SEMAGLUTIDE TEMPLATES (2.5 mg/mL concentration)
+// Calculation: dose (mg) / 2.5 (mg/mL) = volume (mL), volume × 100 = units
+// Example: 0.5 mg / 2.5 = 0.2 mL = 20 units
 const SEMAGLUTIDE_TEMPLATES: SigTemplate[] = [
   {
     label: "Weeks 1-4 · 0.25 mg",
-    sig: "Inject 0.25 mg (0.25 mL / 25 units) subcutaneously once weekly for 4 weeks. Rotate injection sites. Keep refrigerated.",
+    sig: "Inject 0.25 mg (0.1 mL / 10 units) subcutaneously once weekly for 4 weeks. Rotate injection sites. Keep refrigerated.",
     quantity: "1",
     refills: "0",
     daysSupply: 28,
   },
   {
     label: "Weeks 5-8 · 0.5 mg",
-    sig: "Inject 0.5 mg (0.5 mL / 50 units) subcutaneously once weekly. Titrate only if tolerated. Rotate injection sites.",
+    sig: "Inject 0.5 mg (0.2 mL / 20 units) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.",
     quantity: "1",
     refills: "0",
     daysSupply: 28,
   },
   {
     label: "Maintenance · 1 mg",
-    sig: "Inject 1 mg (1 mL / 100 units) subcutaneously once weekly. Continue lifestyle counseling and monitor fasting glucose.",
+    sig: "Inject 1 mg (0.4 mL / 40 units) subcutaneously once weekly. Continue lifestyle counseling and monitor fasting glucose.",
+    quantity: "1",
+    refills: "1",
+    daysSupply: 28,
+  },
+];
+
+// SEMAGLUTIDE 5 MG/ML TEMPLATES (5 mg/mL concentration - HIGHER concentration vial)
+// Calculation: dose (mg) / 5 (mg/mL) = volume (mL), volume × 100 = units
+// Example: 0.5 mg / 5 = 0.1 mL = 10 units
+const SEMAGLUTIDE_5MG_TEMPLATES: SigTemplate[] = [
+  {
+    label: "Weeks 1-4 · 0.25 mg",
+    sig: "Inject 0.25 mg (0.05 mL / 5 units) subcutaneously once weekly for 4 weeks. Rotate injection sites. Keep refrigerated.",
+    quantity: "1",
+    refills: "0",
+    daysSupply: 28,
+  },
+  {
+    label: "Weeks 5-8 · 0.5 mg",
+    sig: "Inject 0.5 mg (0.1 mL / 10 units) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.",
+    quantity: "1",
+    refills: "0",
+    daysSupply: 28,
+  },
+  {
+    label: "Maintenance · 1 mg",
+    sig: "Inject 1 mg (0.2 mL / 20 units) subcutaneously once weekly. Continue lifestyle counseling and monitor fasting glucose.",
     quantity: "1",
     refills: "1",
     daysSupply: 28,
@@ -92,6 +122,74 @@ const TIRZEPATIDE_TEMPLATES: SigTemplate[] = [
   {
     label: "Maintenance · 10 mg",
     sig: "Inject 10 mg (1 mL / 100 units) subcutaneously once weekly for maintenance/weight management.",
+    quantity: "1",
+    refills: "1",
+    daysSupply: 28,
+  },
+];
+
+// TIRZEPATIDE 15 MG/ML TEMPLATES (15 mg/mL concentration - HIGHER concentration vial)
+// Calculation: dose (mg) / 15 (mg/mL) = volume (mL), volume × 100 = units
+// Example: 2.5 mg / 15 = 0.167 mL = 17 units (rounded)
+const TIRZEPATIDE_15MG_TEMPLATES: SigTemplate[] = [
+  {
+    label: "Initiation · 2.5 mg",
+    sig: "Inject 2.5 mg (0.17 mL / 17 units) subcutaneously once weekly for 4 weeks to initiate therapy.",
+    quantity: "1",
+    refills: "0",
+    daysSupply: 28,
+  },
+  {
+    label: "Escalation · 5 mg",
+    sig: "Inject 5 mg (0.33 mL / 33 units) subcutaneously once weekly if patient tolerates initiation dose.",
+    quantity: "1",
+    refills: "0",
+    daysSupply: 28,
+  },
+  {
+    label: "Maintenance · 10 mg",
+    sig: "Inject 10 mg (0.67 mL / 67 units) subcutaneously once weekly for maintenance/weight management.",
+    quantity: "1",
+    refills: "1",
+    daysSupply: 28,
+  },
+  {
+    label: "High Dose · 15 mg",
+    sig: "Inject 15 mg (1 mL / 100 units) subcutaneously once weekly for maximum effect.",
+    quantity: "1",
+    refills: "1",
+    daysSupply: 28,
+  },
+];
+
+// TIRZEPATIDE 30 MG/ML TEMPLATES (30 mg/mL concentration - HIGHEST concentration vial)
+// Calculation: dose (mg) / 30 (mg/mL) = volume (mL), volume × 100 = units
+// Example: 2.5 mg / 30 = 0.083 mL = 8 units (rounded)
+const TIRZEPATIDE_30MG_TEMPLATES: SigTemplate[] = [
+  {
+    label: "Initiation · 2.5 mg",
+    sig: "Inject 2.5 mg (0.08 mL / 8 units) subcutaneously once weekly for 4 weeks to initiate therapy.",
+    quantity: "1",
+    refills: "0",
+    daysSupply: 28,
+  },
+  {
+    label: "Escalation · 5 mg",
+    sig: "Inject 5 mg (0.17 mL / 17 units) subcutaneously once weekly if patient tolerates initiation dose.",
+    quantity: "1",
+    refills: "0",
+    daysSupply: 28,
+  },
+  {
+    label: "Maintenance · 10 mg",
+    sig: "Inject 10 mg (0.33 mL / 33 units) subcutaneously once weekly for maintenance/weight management.",
+    quantity: "1",
+    refills: "1",
+    daysSupply: 28,
+  },
+  {
+    label: "High Dose · 15 mg",
+    sig: "Inject 15 mg (0.5 mL / 50 units) subcutaneously once weekly for increased effect.",
     quantity: "1",
     refills: "1",
     daysSupply: 28,
@@ -208,7 +306,7 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
   203448947: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
   203449363: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
   203448974: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
-  202851329: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
+  202851329: { sigTemplates: SEMAGLUTIDE_5MG_TEMPLATES }, // 5 mg/mL - uses different concentration templates
   203666651: { sigTemplates: SERMORELIN_TEMPLATES },
   203418853: { sigTemplates: SERMORELIN_TEMPLATES },
   203194046: { name: "Sildenafil 55 mg Capsule", strength: "55 mg" },
@@ -224,8 +322,8 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
   203448973: { sigTemplates: TIRZEPATIDE_TEMPLATES },
   203449364: { sigTemplates: TIRZEPATIDE_TEMPLATES },
   203449500: { sigTemplates: TIRZEPATIDE_TEMPLATES },
-  203449362: { sigTemplates: TIRZEPATIDE_TEMPLATES },
-  203418602: { sigTemplates: TIRZEPATIDE_TEMPLATES },
+  203449362: { sigTemplates: TIRZEPATIDE_15MG_TEMPLATES }, // 15 mg/mL - uses different concentration templates
+  203418602: { sigTemplates: TIRZEPATIDE_30MG_TEMPLATES }, // 30 mg/mL - uses highest concentration templates
 };
 
 export const MEDS: Record<string, MedicationConfig> = {};
