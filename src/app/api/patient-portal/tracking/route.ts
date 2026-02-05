@@ -12,7 +12,7 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 
 // Helper to get patient from session token
-async function getPatientFromSession(): Promise<{ id: number; clinicId: number } | null> {
+async function getPatientFromSession(): Promise<{ id: number; clinicId: number | null } | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get('patient-token')?.value || cookieStore.get('auth-token')?.value;
   
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const result = await runWithClinicContext(patient.clinicId, async () => {
+    const result = await runWithClinicContext(patient.clinicId ?? undefined, async () => {
       // Get all shipping updates for this patient
       const shippingUpdates = await prisma.patientShippingUpdate.findMany({
         where: { patientId: patient.id },
@@ -108,7 +108,6 @@ export async function GET(req: NextRequest) {
               createdAt: true,
               primaryMedName: true,
               primaryMedStrength: true,
-              primaryMedQuantity: true,
             },
           },
         },
@@ -130,7 +129,6 @@ export async function GET(req: NextRequest) {
           shippingStatus: true,
           primaryMedName: true,
           primaryMedStrength: true,
-          primaryMedQuantity: true,
           status: true,
         },
       });
@@ -159,7 +157,7 @@ export async function GET(req: NextRequest) {
           items: [{
             name: update.medicationName || update.order?.primaryMedName || 'Medication',
             strength: update.medicationStrength || update.order?.primaryMedStrength,
-            quantity: parseInt(update.medicationQuantity || update.order?.primaryMedQuantity || '1') || 1,
+            quantity: parseInt(update.medicationQuantity || '1') || 1,
           }],
           orderedAt: update.order?.createdAt || update.createdAt,
           shippedAt: update.shippedAt,
@@ -193,7 +191,7 @@ export async function GET(req: NextRequest) {
           items: [{
             name: order.primaryMedName || 'Medication',
             strength: order.primaryMedStrength,
-            quantity: parseInt(order.primaryMedQuantity || '1') || 1,
+            quantity: 1, // Default quantity, actual comes from Rx records
           }],
           orderedAt: order.createdAt,
           shippedAt: order.createdAt,

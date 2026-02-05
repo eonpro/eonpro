@@ -53,7 +53,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         }
       },
       orderBy: {
-        updatedAt: 'desc'
+        createdAt: 'desc'
       },
       take: 100
     });
