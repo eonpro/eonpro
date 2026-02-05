@@ -145,7 +145,7 @@ async function handleGet(
     });
 
     // Decrypt all patient data for potential filtering
-    const decryptedPatients = allPatients.map((patient) => {
+    const decryptedPatients = allPatients.map((patient: typeof allPatients[number]) => {
       const lastPayment = patient.payments?.[0];
       const lastOrder = patient.orders?.[0];
 
@@ -171,7 +171,7 @@ async function handleGet(
     let filteredPatients = decryptedPatients;
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredPatients = decryptedPatients.filter((patient) => {
+      filteredPatients = decryptedPatients.filter((patient: typeof decryptedPatients[number]) => {
         const firstName = patient.firstName?.toLowerCase() || '';
         const lastName = patient.lastName?.toLowerCase() || '';
         const email = patient.email?.toLowerCase() || '';

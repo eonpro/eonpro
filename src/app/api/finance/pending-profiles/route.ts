@@ -118,7 +118,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
 
       // Decrypt and filter by search term
       const searchLower = search.toLowerCase();
-      const filteredProfiles = allProfiles.filter((profile) => {
+      const filteredProfiles = allProfiles.filter((profile: typeof allProfiles[number]) => {
         const decrypted = decryptPatientPHI(profile, [...PHI_FIELDS]);
         const firstName = decrypted.firstName?.toLowerCase() || '';
         const lastName = decrypted.lastName?.toLowerCase() || '';
