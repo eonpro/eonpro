@@ -122,6 +122,7 @@ jobs:
           fi
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
           
       - name: Run pre-deploy validation
         run: |
@@ -129,6 +130,7 @@ jobs:
           npm run db:validate || echo "::warning::Pre-deploy validation had warnings"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
         continue-on-error: true
           
       - name: Resolve failed migrations
@@ -142,6 +144,7 @@ jobs:
           npx prisma migrate resolve --applied "20260130_add_provider_routing_compensation" 2>/dev/null || echo "Migration already resolved or does not exist"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
         continue-on-error: true
           
       - name: Run database migrations
@@ -151,6 +154,7 @@ jobs:
           echo "✅ Migrations completed successfully"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
           
       - name: Verify migration status
         run: |
@@ -159,6 +163,7 @@ jobs:
           echo "✅ Migration verification complete"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
           
       - name: Schema drift check
         run: |
@@ -166,6 +171,7 @@ jobs:
           npm run db:validate || echo "::warning::Schema drift detected - review before deployment"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
         continue-on-error: true
 
   # ============================================================================
