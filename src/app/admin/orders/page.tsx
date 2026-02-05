@@ -188,7 +188,11 @@ export default function AdminOrdersPage() {
                 </tr>
               ) : (
                 filteredOrders.map((order) => (
-                  <tr key={order._isShipmentOnly ? `ship-${order._shipmentId}` : order.id} className="hover:bg-gray-50">
+                  <tr
+                    key={order._isShipmentOnly ? `ship-${order._shipmentId}` : order.id}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => window.location.href = `/patients/${order.patient.id}`}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">
                       {order._isShipmentOnly ? (
                         <span className="text-gray-500" title="Shipment from Lifefile (no linked order)">
@@ -201,7 +205,8 @@ export default function AdminOrdersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link
                         href={`/patients/${order.patient.id}`}
-                        className="text-sm text-gray-900 hover:text-emerald-600"
+                        className="text-sm font-medium text-gray-900 hover:text-emerald-600 hover:underline"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {order.patient.firstName} {order.patient.lastName}
                       </Link>
@@ -244,6 +249,7 @@ export default function AdminOrdersPage() {
                               rel="noopener noreferrer"
                               className="text-emerald-600 hover:text-emerald-700"
                               title="Track shipment"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <ExternalLink className="h-4 w-4" />
                             </a>
@@ -259,6 +265,7 @@ export default function AdminOrdersPage() {
                         href={`/patients/${order.patient.id}`}
                         className="text-emerald-600 hover:text-emerald-700"
                         title="View patient"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Eye className="h-5 w-5" />
                       </Link>
