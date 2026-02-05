@@ -307,7 +307,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           const sectionsPreview = docJson.sections?.map?.((s: Record<string, unknown>) => ({
             name: s.name || s.title,
             hasEntries: !!(s.entries || s.questions || s.fields),
-            entryCount: (s.entries || s.questions || s.fields as unknown[])?.length || 0,
+            entryCount: ((s.entries || s.questions || s.fields) as unknown[] | undefined)?.length || 0,
           }));
           logger.info('[PRESCRIPTION-QUEUE] Parsing document data', {
             patientName,
