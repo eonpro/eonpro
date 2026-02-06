@@ -1,0 +1,818 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import { decrypt } from '@/lib/security/encryption';
+import { notificationService } from '@/services/notification';
+import { WebhookStatus } from '@prisma/client';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+import crypto from 'crypto';
+
+type RouteParams = { params: Promise<{ clinicSlug: string }> };
+
+/**
+ * Safely decrypt a PHI field, returning original value if decryption fails
+ */
+function safeDecryptPHI(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Safely decrypt an encrypted field
+ */
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decrypt(value) || value;
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Verify Basic Authentication against clinic credentials
+ */
+function verifyBasicAuth(
+  authHeader: string | null,
+  expectedUsername: string | null,
+  expectedPassword: string | null
+): boolean {
+  if (!expectedUsername || !expectedPassword) {
+    logger.warn('[LIFEFILE INBOUND] No credentials configured for clinic');
+    return false;
+  }
+
+  if (!authHeader) {
+    logger.warn('[LIFEFILE INBOUND] Missing Authorization header');
+    return false;
+  }
+
+  try {
+    const base64Credentials = authHeader.replace(/^Basic\s+/i, '');
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+    const [username, password] = credentials.split(':');
+
+    // Constant-time comparison to prevent timing attacks
+    const usernameMatch = crypto.timingSafeEqual(
+      Buffer.from(username || ''),
+      Buffer.from(expectedUsername)
+    );
+    const passwordMatch = crypto.timingSafeEqual(
+      Buffer.from(password || ''),
+      Buffer.from(expectedPassword)
+    );
+
+    return usernameMatch && passwordMatch;
+  } catch (error: unknown) {
+    logger.error('[LIFEFILE INBOUND] Error parsing auth header:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return false;
+  }
+}
+
+/**
+ * Verify HMAC signature
+ */
+function verifyHmacSignature(
+  body: string,
+  signature: string | null,
+  secret: string | null
+): boolean {
+  if (!secret) {
+    // HMAC verification is optional - return true if no secret configured
+    return true;
+  }
+
+  if (!signature) {
+    logger.warn('[LIFEFILE INBOUND] Missing webhook signature header');
+    return false;
+  }
+
+  try {
+    // Parse signature header (e.g., "sha256=abc123" or just "abc123")
+    const providedSig = signature.replace(/^sha256=/, '');
+    
+    const expectedSig = crypto
+      .createHmac('sha256', secret)
+      .update(body)
+      .digest('hex');
+
+    // Constant-time comparison
+    return crypto.timingSafeEqual(
+      Buffer.from(providedSig),
+      Buffer.from(expectedSig)
+    );
+  } catch (error: unknown) {
+    logger.error('[LIFEFILE INBOUND] Error verifying signature:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return false;
+  }
+}
+
+/**
+ * Check if IP is in allowed list
+ */
+function isIpAllowed(clientIp: string | null, allowedIPs: string | null): boolean {
+  if (!allowedIPs || allowedIPs.trim() === '') {
+    // No IP restriction - allow all
+    return true;
+  }
+
+  if (!clientIp) {
+    logger.warn('[LIFEFILE INBOUND] Could not determine client IP');
+    return false;
+  }
+
+  const allowedList = allowedIPs.split(',').map((ip) => ip.trim());
+  return allowedList.includes(clientIp);
+}
+
+/**
+ * Process shipping update event
+ */
+async function processShippingUpdate(
+  clinicId: number,
+  payload: any
+): Promise<{ processed: boolean; details: any }> {
+  logger.info('[LIFEFILE INBOUND] Processing shipping update');
+
+  const {
+    trackingNumber,
+    orderId: lifefileOrderId,
+    deliveryService,
+    status,
+    estimatedDelivery,
+    trackingUrl,
+    medication,
+    brand,
+    shippedAt,
+    deliveredAt,
+  } = payload;
+
+  // Find the order by LifeFile order ID or reference ID
+  const order = await prisma.order.findFirst({
+    where: {
+      clinicId,
+      OR: [
+        { lifefileOrderId: lifefileOrderId },
+        { referenceId: payload.referenceId || '' },
+      ],
+    },
+    include: {
+      patient: {
+        select: { id: true, firstName: true, lastName: true, email: true, clinicId: true },
+      },
+    },
+  });
+
+  if (!order) {
+    logger.warn('[LIFEFILE INBOUND] Order not found for shipping update', {
+      clinicId,
+      lifefileOrderId,
+    });
+    return { processed: false, details: { reason: 'Order not found' } };
+  }
+
+  // Update order with tracking info
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      trackingNumber: trackingNumber || order.trackingNumber,
+      trackingUrl: trackingUrl || order.trackingUrl,
+      shippingStatus: status || order.shippingStatus,
+      lastWebhookAt: new Date(),
+      lastWebhookPayload: JSON.stringify(payload),
+    },
+  });
+
+  // Create shipping update record
+  await prisma.patientShippingUpdate.create({
+    data: {
+      patientId: order.patientId,
+      orderId: order.id,
+      trackingNumber: trackingNumber || null,
+      carrier: deliveryService || null,
+      status: status || 'update_received',
+      estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
+      trackingUrl: trackingUrl || null,
+      rawPayload: payload,
+      shippedAt: shippedAt ? new Date(shippedAt) : null,
+      deliveredAt: deliveredAt ? new Date(deliveredAt) : null,
+    },
+  });
+
+  // Create order event for tracking
+  await prisma.orderEvent.create({
+    data: {
+      orderId: order.id,
+      lifefileOrderId: lifefileOrderId,
+      eventType: 'shipping_update',
+      payload: payload,
+      note: `Shipping Update: ${status || 'received'}${trackingNumber ? `, Tracking: ${trackingNumber}` : ''}`,
+    },
+  });
+
+  // Notify admins
+  if (order.patient?.clinicId) {
+    const patientName =
+      `${safeDecryptPHI(order.patient.firstName) || 'Patient'} ${safeDecryptPHI(order.patient.lastName) || ''}`.trim();
+
+    await notificationService.notifyAdmins({
+      clinicId: order.patient.clinicId,
+      category: 'SHIPMENT',
+      priority: 'NORMAL',
+      title: 'Shipping Update',
+      message: `${patientName}: ${status || 'Update received'}${trackingNumber ? ` - Tracking: ${trackingNumber}` : ''}`,
+      actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
+      metadata: {
+        orderId: order.id,
+        patientId: order.patientId,
+        trackingNumber,
+        status,
+        carrier: deliveryService,
+      },
+      sourceType: 'webhook',
+      sourceId: `lifefile-shipping-${lifefileOrderId}`,
+    }).catch((err) => {
+      logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
+    });
+  }
+
+  return {
+    processed: true,
+    details: { orderId: order.id, trackingNumber, status },
+  };
+}
+
+/**
+ * Process prescription status event
+ */
+async function processPrescriptionStatus(
+  clinicId: number,
+  payload: any
+): Promise<{ processed: boolean; details: any }> {
+  logger.info('[LIFEFILE INBOUND] Processing prescription status');
+
+  const {
+    orderId: lifefileOrderId,
+    referenceId,
+    status,
+    trackingNumber,
+    trackingUrl,
+    shippedAt,
+    errorMessage,
+    approvedAt,
+    rejectedAt,
+    rejectionReason,
+  } = payload;
+
+  // Find the order
+  const order = await prisma.order.findFirst({
+    where: {
+      clinicId,
+      OR: [
+        { lifefileOrderId: lifefileOrderId },
+        { referenceId: referenceId || '' },
+      ],
+    },
+    include: {
+      patient: {
+        select: { id: true, firstName: true, lastName: true, clinicId: true },
+      },
+    },
+  });
+
+  if (!order) {
+    logger.warn('[LIFEFILE INBOUND] Order not found for prescription status', {
+      clinicId,
+      lifefileOrderId,
+      referenceId,
+    });
+    return { processed: false, details: { reason: 'Order not found' } };
+  }
+
+  // Update order
+  const updateData: any = {
+    lastWebhookAt: new Date(),
+    lastWebhookPayload: JSON.stringify(payload),
+  };
+
+  if (status) updateData.status = status;
+  if (trackingNumber) updateData.trackingNumber = trackingNumber;
+  if (trackingUrl) updateData.trackingUrl = trackingUrl;
+  if (errorMessage) updateData.errorMessage = errorMessage;
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: updateData,
+  });
+
+  // Create order event
+  await prisma.orderEvent.create({
+    data: {
+      orderId: order.id,
+      lifefileOrderId: lifefileOrderId,
+      eventType: 'prescription_status',
+      payload: payload,
+      note: `Prescription Status: ${status}${rejectionReason ? ` - ${rejectionReason}` : ''}`,
+    },
+  });
+
+  // Notify admins for important status changes
+  const notifiableStatuses = ['approved', 'rejected', 'shipped', 'delivered', 'error', 'failed'];
+  if (notifiableStatuses.includes(status?.toLowerCase()) && order.patient?.clinicId) {
+    const patientName =
+      `${safeDecryptPHI(order.patient.firstName) || 'Patient'} ${safeDecryptPHI(order.patient.lastName) || ''}`.trim();
+
+    const priority = ['rejected', 'error', 'failed'].includes(status?.toLowerCase())
+      ? 'HIGH'
+      : 'NORMAL';
+
+    await notificationService.notifyAdmins({
+      clinicId: order.patient.clinicId,
+      category: 'PRESCRIPTION',
+      priority: priority as any,
+      title: `Prescription ${status}`,
+      message: `${patientName}: Prescription ${status}${rejectionReason ? ` - ${rejectionReason}` : ''}`,
+      actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
+      metadata: {
+        orderId: order.id,
+        patientId: order.patientId,
+        status,
+        rejectionReason,
+      },
+      sourceType: 'webhook',
+      sourceId: `lifefile-rx-${lifefileOrderId}-${status}`,
+    }).catch((err) => {
+      logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
+    });
+  }
+
+  return {
+    processed: true,
+    details: { orderId: order.id, status },
+  };
+}
+
+/**
+ * Process order status event
+ */
+async function processOrderStatus(
+  clinicId: number,
+  payload: any
+): Promise<{ processed: boolean; details: any }> {
+  logger.info('[LIFEFILE INBOUND] Processing order status');
+
+  const orderData = payload.order || payload;
+  const {
+    orderId: lifefileOrderId,
+    referenceId,
+    status,
+    shippingStatus,
+    trackingNumber,
+    trackingUrl,
+    errorMessage,
+    estimatedDelivery,
+  } = orderData;
+
+  // Find the order
+  const order = await prisma.order.findFirst({
+    where: {
+      clinicId,
+      OR: [
+        { lifefileOrderId: lifefileOrderId },
+        { referenceId: referenceId || '' },
+      ],
+    },
+    include: {
+      patient: {
+        select: { id: true, firstName: true, lastName: true, clinicId: true },
+      },
+    },
+  });
+
+  if (!order) {
+    logger.warn('[LIFEFILE INBOUND] Order not found for order status', {
+      clinicId,
+      lifefileOrderId,
+      referenceId,
+    });
+    return { processed: false, details: { reason: 'Order not found' } };
+  }
+
+  // Update order
+  const updateData: any = {
+    lastWebhookAt: new Date(),
+    lastWebhookPayload: JSON.stringify(payload),
+  };
+
+  if (status) updateData.status = status;
+  if (shippingStatus) updateData.shippingStatus = shippingStatus;
+  if (trackingNumber) updateData.trackingNumber = trackingNumber;
+  if (trackingUrl) updateData.trackingUrl = trackingUrl;
+  if (errorMessage) updateData.errorMessage = errorMessage;
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: updateData,
+  });
+
+  // Create order event
+  await prisma.orderEvent.create({
+    data: {
+      orderId: order.id,
+      lifefileOrderId: lifefileOrderId,
+      eventType: payload.eventType || 'order_status',
+      payload: payload,
+      note: `Order Status: ${status || shippingStatus}${trackingNumber ? `, Tracking: ${trackingNumber}` : ''}`,
+    },
+  });
+
+  // Notify admins
+  if (order.patient?.clinicId && (trackingNumber || shippingStatus)) {
+    const patientName =
+      `${safeDecryptPHI(order.patient.firstName) || 'Patient'} ${safeDecryptPHI(order.patient.lastName) || ''}`.trim();
+
+    await notificationService.notifyAdmins({
+      clinicId: order.patient.clinicId,
+      category: 'ORDER',
+      priority: 'NORMAL',
+      title: 'Order Update',
+      message: `${patientName}: ${status || shippingStatus}${trackingNumber ? ` - ${trackingNumber}` : ''}`,
+      actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
+      metadata: {
+        orderId: order.id,
+        patientId: order.patientId,
+        status,
+        shippingStatus,
+        trackingNumber,
+      },
+      sourceType: 'webhook',
+      sourceId: `lifefile-order-${lifefileOrderId}-${status || shippingStatus}`,
+    }).catch((err) => {
+      logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
+    });
+  }
+
+  return {
+    processed: true,
+    details: { orderId: order.id, status, shippingStatus, trackingNumber },
+  };
+}
+
+/**
+ * Process Rx event
+ */
+async function processRxEvent(
+  clinicId: number,
+  payload: any
+): Promise<{ processed: boolean; details: any }> {
+  logger.info('[LIFEFILE INBOUND] Processing Rx event');
+
+  const rxData = payload.prescription || payload.rx || payload;
+  const {
+    orderId: lifefileOrderId,
+    referenceId,
+    status,
+    eventType,
+  } = rxData;
+
+  // Find the order
+  const order = await prisma.order.findFirst({
+    where: {
+      clinicId,
+      OR: [
+        { lifefileOrderId: lifefileOrderId },
+        { referenceId: referenceId || '' },
+      ],
+    },
+  });
+
+  if (!order) {
+    logger.warn('[LIFEFILE INBOUND] Order not found for Rx event', {
+      clinicId,
+      lifefileOrderId,
+      referenceId,
+    });
+    return { processed: false, details: { reason: 'Order not found' } };
+  }
+
+  // Update order status if provided
+  if (status) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status,
+        lastWebhookAt: new Date(),
+        lastWebhookPayload: JSON.stringify(payload),
+      },
+    });
+  }
+
+  // Create order event
+  await prisma.orderEvent.create({
+    data: {
+      orderId: order.id,
+      lifefileOrderId: lifefileOrderId,
+      eventType: eventType || 'rx_event',
+      payload: payload,
+      note: `Rx Event: ${status || eventType || 'received'}`,
+    },
+  });
+
+  return {
+    processed: true,
+    details: { orderId: order.id, status, eventType },
+  };
+}
+
+/**
+ * Main webhook handler
+ */
+export async function POST(req: NextRequest, context: RouteParams) {
+  const startTime = Date.now();
+  const { clinicSlug } = await context.params;
+
+  // Initialize webhook log data
+  let webhookLogData: any = {
+    endpoint: `/api/webhooks/lifefile/inbound/${clinicSlug}`,
+    method: 'POST',
+    status: WebhookStatus.ERROR,
+    statusCode: 500,
+    source: 'lifefile',
+    ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+    userAgent: req.headers.get('user-agent') || 'unknown',
+  };
+
+  try {
+    logger.info('='.repeat(60));
+    logger.info(`[LIFEFILE INBOUND] Webhook received for clinic: ${clinicSlug}`);
+    logger.info(`[LIFEFILE INBOUND] Time: ${new Date().toISOString()}`);
+
+    // Extract headers (redact sensitive ones)
+    const headers: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      headers[key] =
+        key.toLowerCase().includes('auth') ||
+        key.toLowerCase().includes('secret') ||
+        key.toLowerCase().includes('signature')
+          ? '[REDACTED]'
+          : value;
+    });
+    webhookLogData.headers = headers;
+
+    // Find clinic by inbound path
+    const clinic = await prisma.clinic.findFirst({
+      where: {
+        lifefileInboundPath: clinicSlug,
+        lifefileInboundEnabled: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        lifefileInboundUsername: true,
+        lifefileInboundPassword: true,
+        lifefileInboundSecret: true,
+        lifefileInboundAllowedIPs: true,
+        lifefileInboundEvents: true,
+      },
+    });
+
+    if (!clinic) {
+      logger.warn(`[LIFEFILE INBOUND] Clinic not found or webhook disabled: ${clinicSlug}`);
+      webhookLogData.status = WebhookStatus.INVALID_AUTH;
+      webhookLogData.statusCode = 404;
+      webhookLogData.errorMessage = 'Webhook endpoint not found or disabled';
+
+      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+      return NextResponse.json(
+        { error: 'Webhook endpoint not found' },
+        { status: 404 }
+      );
+    }
+
+    webhookLogData.clinicId = clinic.id;
+
+    // Decrypt credentials
+    const username = safeDecrypt(clinic.lifefileInboundUsername);
+    const password = safeDecrypt(clinic.lifefileInboundPassword);
+    const secret = safeDecrypt(clinic.lifefileInboundSecret);
+
+    // Verify IP allowlist
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                     req.headers.get('x-real-ip') || null;
+    if (!isIpAllowed(clientIp, clinic.lifefileInboundAllowedIPs)) {
+      logger.warn(`[LIFEFILE INBOUND] IP not allowed: ${clientIp}`);
+      webhookLogData.status = WebhookStatus.INVALID_AUTH;
+      webhookLogData.statusCode = 403;
+      webhookLogData.errorMessage = `IP ${clientIp} not in allowed list`;
+
+      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+      return NextResponse.json(
+        { error: 'IP not allowed' },
+        { status: 403 }
+      );
+    }
+
+    // Verify Basic Auth
+    const authHeader = req.headers.get('authorization');
+    if (!verifyBasicAuth(authHeader, username, password)) {
+      logger.warn('[LIFEFILE INBOUND] Authentication failed');
+      webhookLogData.status = WebhookStatus.INVALID_AUTH;
+      webhookLogData.statusCode = 401;
+      webhookLogData.errorMessage = 'Authentication failed';
+
+      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Get raw body for signature verification
+    const rawBody = await req.text();
+    if (!rawBody) {
+      throw new Error('Empty request body');
+    }
+
+    // Verify HMAC signature if secret is configured
+    const signature = req.headers.get('x-webhook-signature') || 
+                     req.headers.get('x-lifefile-signature') ||
+                     req.headers.get('x-signature');
+    if (!verifyHmacSignature(rawBody, signature, secret)) {
+      logger.warn('[LIFEFILE INBOUND] Signature verification failed');
+      webhookLogData.status = WebhookStatus.INVALID_SIGNATURE;
+      webhookLogData.statusCode = 401;
+      webhookLogData.errorMessage = 'Invalid webhook signature';
+
+      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    // Parse payload
+    let payload: any;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      throw new Error('Invalid JSON format');
+    }
+
+    webhookLogData.payload = payload;
+
+    // Determine event type
+    const eventType = (
+      payload.type ||
+      payload.eventType ||
+      payload.event_type ||
+      'unknown'
+    ).toLowerCase();
+
+    // Check if event type is allowed
+    const allowedEvents = clinic.lifefileInboundEvents || [];
+    if (allowedEvents.length > 0) {
+      const isEventAllowed = allowedEvents.some((allowed) =>
+        eventType.includes(allowed.toLowerCase())
+      );
+      if (!isEventAllowed) {
+        logger.warn(`[LIFEFILE INBOUND] Event type not allowed: ${eventType}`);
+        webhookLogData.status = WebhookStatus.ERROR;
+        webhookLogData.statusCode = 400;
+        webhookLogData.errorMessage = `Event type '${eventType}' not allowed`;
+
+        await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+        return NextResponse.json(
+          { error: `Event type '${eventType}' not configured for this clinic` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Route to appropriate handler
+    let result: { processed: boolean; details: any };
+
+    if (eventType.includes('shipping') || payload.trackingNumber || payload.deliveryService) {
+      result = await processShippingUpdate(clinic.id, payload);
+    } else if (eventType.includes('prescription') || eventType.includes('rx_status')) {
+      result = await processPrescriptionStatus(clinic.id, payload);
+    } else if (eventType.includes('order')) {
+      result = await processOrderStatus(clinic.id, payload);
+    } else if (eventType.includes('rx') || payload.rx || payload.prescription) {
+      result = await processRxEvent(clinic.id, payload);
+    } else {
+      // Try to determine from payload structure
+      if (payload.trackingNumber) {
+        result = await processShippingUpdate(clinic.id, payload);
+      } else if (payload.order) {
+        result = await processOrderStatus(clinic.id, payload);
+      } else {
+        // Unknown event type - still log it
+        logger.warn(`[LIFEFILE INBOUND] Unknown event type: ${eventType}`, {
+          payloadKeys: Object.keys(payload),
+        });
+        result = { processed: false, details: { reason: 'Unknown event type' } };
+      }
+    }
+
+    // Calculate processing time
+    const processingTimeMs = Date.now() - startTime;
+
+    // Log success
+    webhookLogData.status = result.processed ? WebhookStatus.SUCCESS : WebhookStatus.ERROR;
+    webhookLogData.statusCode = 200;
+    webhookLogData.responseData = result;
+    webhookLogData.processingTimeMs = processingTimeMs;
+
+    await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      logger.error('[LIFEFILE INBOUND] Failed to create webhook log', { error: err.message });
+    });
+
+    logger.info(`[LIFEFILE INBOUND] Processing completed in ${processingTimeMs}ms`);
+    logger.info('='.repeat(60));
+
+    return NextResponse.json(
+      {
+        success: true,
+        eventId: `lf-${clinic.id}-${Date.now()}`,
+        processed: result.processed,
+        processedAt: new Date().toISOString(),
+        details: result.details,
+        processingTimeMs,
+      },
+      { status: 200 }
+    );
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    logger.error('[LIFEFILE INBOUND] Error processing webhook:', { error: errorMessage });
+
+    webhookLogData.status = WebhookStatus.ERROR;
+    webhookLogData.statusCode = 500;
+    webhookLogData.errorMessage = errorMessage;
+    webhookLogData.processingTimeMs = Date.now() - startTime;
+
+    await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * GET endpoint for testing/verification
+ */
+export async function GET(req: NextRequest, context: RouteParams) {
+  const { clinicSlug } = await context.params;
+
+  // Find clinic (don't expose sensitive info)
+  const clinic = await prisma.clinic.findFirst({
+    where: {
+      lifefileInboundPath: clinicSlug,
+    },
+    select: {
+      id: true,
+      name: true,
+      lifefileInboundEnabled: true,
+      lifefileInboundEvents: true,
+    },
+  });
+
+  if (!clinic) {
+    return NextResponse.json(
+      { error: 'Webhook endpoint not found' },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({
+    endpoint: `LifeFile Inbound Webhook - ${clinic.name}`,
+    path: `/api/webhooks/lifefile/inbound/${clinicSlug}`,
+    status: clinic.lifefileInboundEnabled ? 'active' : 'disabled',
+    version: '1.0.0',
+    authentication: 'Basic Auth',
+    signatureVerification: 'HMAC-SHA256 (optional)',
+    accepts: ['application/json'],
+    supportedEvents: clinic.lifefileInboundEvents?.length
+      ? clinic.lifefileInboundEvents
+      : ['shipping', 'prescription', 'order', 'rx'],
+    timestamp: new Date().toISOString(),
+  });
+}

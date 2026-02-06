@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 // Schema for Lifefile settings update
 const lifefileSettingsSchema = z.object({
+  // Outbound (sending TO Lifefile)
   lifefileEnabled: z.boolean().optional(),
   lifefileBaseUrl: z.string().url().optional().nullable(),
   lifefileUsername: z.string().optional().nullable(),
@@ -22,6 +23,14 @@ const lifefileSettingsSchema = z.object({
   lifefileWebhookSecret: z.string().optional().nullable(),
   lifefileDatapushUsername: z.string().optional().nullable(),
   lifefileDatapushPassword: z.string().optional().nullable(),
+  // Inbound (receiving FROM Lifefile)
+  lifefileInboundEnabled: z.boolean().optional(),
+  lifefileInboundPath: z.string().optional().nullable(),
+  lifefileInboundUsername: z.string().optional().nullable(),
+  lifefileInboundPassword: z.string().optional().nullable(),
+  lifefileInboundSecret: z.string().optional().nullable(),
+  lifefileInboundAllowedIPs: z.string().optional().nullable(),
+  lifefileInboundEvents: z.array(z.string()).optional(),
 });
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -44,6 +53,8 @@ export const GET = withAuth(
       select: {
         id: true,
         name: true,
+        slug: true,
+        // Outbound settings
         lifefileEnabled: true,
         lifefileBaseUrl: true,
         lifefileUsername: true,
@@ -59,6 +70,14 @@ export const GET = withAuth(
         lifefileWebhookSecret: true,
         lifefileDatapushUsername: true,
         lifefileDatapushPassword: true,
+        // Inbound settings
+        lifefileInboundEnabled: true,
+        lifefileInboundPath: true,
+        lifefileInboundUsername: true,
+        lifefileInboundPassword: true,
+        lifefileInboundSecret: true,
+        lifefileInboundAllowedIPs: true,
+        lifefileInboundEvents: true,
       },
     });
 
@@ -81,14 +100,41 @@ export const GET = withAuth(
       }
     }
 
+    // Decrypt inbound username
+    let decryptedInboundUsername = clinic.lifefileInboundUsername;
+    if (clinic.lifefileInboundUsername) {
+      try {
+        const decrypted = decrypt(clinic.lifefileInboundUsername);
+        if (decrypted) {
+          decryptedInboundUsername = decrypted;
+        }
+      } catch (e) {
+        logger.warn(`Failed to decrypt inbound username for clinic ${clinicId}, showing placeholder`);
+        decryptedInboundUsername = '[encrypted - please re-enter]';
+      }
+    }
+
+    // Generate webhook URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'https://app.eonpro.io';
+    const inboundWebhookUrl = clinic.lifefileInboundPath
+      ? `${baseUrl}/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`
+      : null;
+
     // Mask sensitive fields (don't send actual passwords)
     const maskedSettings = {
       ...clinic,
+      // Outbound
       lifefileUsername: decryptedUsername,
       lifefilePassword: clinic.lifefilePassword ? '••••••••' : null,
       lifefileWebhookSecret: clinic.lifefileWebhookSecret ? '••••••••' : null,
       lifefileDatapushPassword: clinic.lifefileDatapushPassword ? '••••••••' : null,
-      // Indicate if credentials are configured
+      // Inbound
+      lifefileInboundUsername: decryptedInboundUsername,
+      lifefileInboundPassword: clinic.lifefileInboundPassword ? '••••••••' : null,
+      lifefileInboundSecret: clinic.lifefileInboundSecret ? '••••••••' : null,
+      // Computed fields
       hasCredentials: !!(
         clinic.lifefileBaseUrl &&
         clinic.lifefileUsername &&
@@ -96,6 +142,12 @@ export const GET = withAuth(
         clinic.lifefileVendorId &&
         clinic.lifefilePracticeId
       ),
+      hasInboundCredentials: !!(
+        clinic.lifefileInboundPath &&
+        clinic.lifefileInboundUsername &&
+        clinic.lifefileInboundPassword
+      ),
+      inboundWebhookUrl,
     };
 
     return Response.json({ settings: maskedSettings });
@@ -241,6 +293,78 @@ export const PUT = withAuth(
       updateData.lifefileDatapushPassword = settings.lifefileDatapushPassword
         ? encrypt(settings.lifefileDatapushPassword)
         : null;
+    }
+
+    // ===== INBOUND WEBHOOK SETTINGS =====
+
+    if (settings.lifefileInboundEnabled !== undefined) {
+      updateData.lifefileInboundEnabled = settings.lifefileInboundEnabled;
+    }
+
+    if (settings.lifefileInboundPath !== undefined) {
+      // Validate path format (alphanumeric, hyphens, underscores only)
+      if (settings.lifefileInboundPath) {
+        const pathRegex = /^[a-zA-Z0-9_-]+$/;
+        if (!pathRegex.test(settings.lifefileInboundPath)) {
+          return Response.json(
+            { error: 'Invalid webhook path format. Use only letters, numbers, hyphens, and underscores.' },
+            { status: 400 }
+          );
+        }
+        // Check for uniqueness (excluding current clinic)
+        const existingPath = await prisma.clinic.findFirst({
+          where: {
+            lifefileInboundPath: settings.lifefileInboundPath,
+            NOT: { id: clinicId },
+          },
+        });
+        if (existingPath) {
+          return Response.json(
+            { error: 'Webhook path already in use by another clinic.' },
+            { status: 400 }
+          );
+        }
+      }
+      updateData.lifefileInboundPath = settings.lifefileInboundPath || null;
+    }
+
+    if (settings.lifefileInboundUsername !== undefined) {
+      if (settings.lifefileInboundUsername === '[encrypted - please re-enter]') {
+        // Don't update - keep existing value
+      } else if (settings.lifefileInboundUsername) {
+        // Check if already encrypted
+        const parts = settings.lifefileInboundUsername.split(':');
+        const looksEncrypted = parts.length === 3 &&
+          parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
+
+        if (looksEncrypted) {
+          updateData.lifefileInboundUsername = settings.lifefileInboundUsername;
+        } else {
+          updateData.lifefileInboundUsername = encrypt(settings.lifefileInboundUsername);
+        }
+      } else {
+        updateData.lifefileInboundUsername = null;
+      }
+    }
+
+    if (settings.lifefileInboundPassword !== undefined && settings.lifefileInboundPassword !== '••••••••') {
+      updateData.lifefileInboundPassword = settings.lifefileInboundPassword
+        ? encrypt(settings.lifefileInboundPassword)
+        : null;
+    }
+
+    if (settings.lifefileInboundSecret !== undefined && settings.lifefileInboundSecret !== '••••••••') {
+      updateData.lifefileInboundSecret = settings.lifefileInboundSecret
+        ? encrypt(settings.lifefileInboundSecret)
+        : null;
+    }
+
+    if (settings.lifefileInboundAllowedIPs !== undefined) {
+      updateData.lifefileInboundAllowedIPs = settings.lifefileInboundAllowedIPs || null;
+    }
+
+    if (settings.lifefileInboundEvents !== undefined) {
+      updateData.lifefileInboundEvents = settings.lifefileInboundEvents || [];
     }
 
     // Update the clinic

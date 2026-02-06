@@ -2475,6 +2475,15 @@ model Clinic {
   lifefileDatapushPassword String? // Data push webhook password (encrypted)
   lifefileEnabled          Boolean @default(false) // Is Lifefile integration enabled?
 
+  // Lifefile Inbound Webhook (per-clinic credentials - for receiving data FROM Lifefile)
+  lifefileInboundEnabled   Boolean @default(false) // Enable receiving webhooks from Lifefile
+  lifefileInboundPath      String? @unique // Unique webhook path, e.g., "wellmedr" for /api/webhooks/lifefile/inbound/wellmedr
+  lifefileInboundUsername  String? // Basic Auth username (encrypted)
+  lifefileInboundPassword  String? // Basic Auth password (encrypted)
+  lifefileInboundSecret    String? // HMAC signature secret (encrypted)
+  lifefileInboundAllowedIPs String? // Optional: comma-separated allowed IP addresses
+  lifefileInboundEvents    String[] @default([]) // Allowed event types: ["shipping", "prescription", "order", "rx"]
+
   // Zoom Telehealth Integration (per-clinic OAuth)
   zoomAccountId          String?   @unique // Zoom account ID
   zoomAccountEmail       String? // Zoom account email

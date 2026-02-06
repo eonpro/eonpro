@@ -8,6 +8,8 @@ import { logger } from "@/lib/logger";
 type LifefileSettings = {
   id: number;
   name: string;
+  slug: string | null;
+  // Outbound settings
   lifefileEnabled: boolean;
   lifefileBaseUrl: string | null;
   lifefileUsername: string | null;
@@ -24,6 +26,16 @@ type LifefileSettings = {
   lifefileDatapushUsername: string | null;
   lifefileDatapushPassword: string | null;
   hasCredentials: boolean;
+  // Inbound settings
+  lifefileInboundEnabled: boolean;
+  lifefileInboundPath: string | null;
+  lifefileInboundUsername: string | null;
+  lifefileInboundPassword: string | null;
+  lifefileInboundSecret: string | null;
+  lifefileInboundAllowedIPs: string | null;
+  lifefileInboundEvents: string[];
+  hasInboundCredentials: boolean;
+  inboundWebhookUrl: string | null;
 };
 
 export default function ClinicLifefileSettingsPage() {
@@ -40,6 +52,7 @@ export default function ClinicLifefileSettingsPage() {
 
   // Form state
   const [form, setForm] = useState({
+    // Outbound
     lifefileEnabled: false,
     lifefileBaseUrl: "",
     lifefileUsername: "",
@@ -55,7 +68,17 @@ export default function ClinicLifefileSettingsPage() {
     lifefileWebhookSecret: "",
     lifefileDatapushUsername: "",
     lifefileDatapushPassword: "",
+    // Inbound
+    lifefileInboundEnabled: false,
+    lifefileInboundPath: "",
+    lifefileInboundUsername: "",
+    lifefileInboundPassword: "",
+    lifefileInboundSecret: "",
+    lifefileInboundAllowedIPs: "",
+    lifefileInboundEvents: [] as string[],
   });
+
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -79,6 +102,7 @@ export default function ClinicLifefileSettingsPage() {
 
       // Populate form with current settings
       setForm({
+        // Outbound
         lifefileEnabled: data.settings.lifefileEnabled || false,
         lifefileBaseUrl: data.settings.lifefileBaseUrl || "",
         lifefileUsername: data.settings.lifefileUsername || "",
@@ -94,6 +118,14 @@ export default function ClinicLifefileSettingsPage() {
         lifefileWebhookSecret: data.settings.lifefileWebhookSecret || "",
         lifefileDatapushUsername: data.settings.lifefileDatapushUsername || "",
         lifefileDatapushPassword: data.settings.lifefileDatapushPassword || "",
+        // Inbound
+        lifefileInboundEnabled: data.settings.lifefileInboundEnabled || false,
+        lifefileInboundPath: data.settings.lifefileInboundPath || "",
+        lifefileInboundUsername: data.settings.lifefileInboundUsername || "",
+        lifefileInboundPassword: data.settings.lifefileInboundPassword || "",
+        lifefileInboundSecret: data.settings.lifefileInboundSecret || "",
+        lifefileInboundAllowedIPs: data.settings.lifefileInboundAllowedIPs || "",
+        lifefileInboundEvents: data.settings.lifefileInboundEvents || [],
       });
     } catch (err: any) {
       logger.error("Error fetching Lifefile settings:", err);
@@ -118,6 +150,7 @@ export default function ClinicLifefileSettingsPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
+          // Outbound
           lifefileEnabled: form.lifefileEnabled,
           lifefileBaseUrl: form.lifefileBaseUrl || null,
           lifefileUsername: form.lifefileUsername || null,
@@ -133,6 +166,14 @@ export default function ClinicLifefileSettingsPage() {
           lifefileWebhookSecret: form.lifefileWebhookSecret || null,
           lifefileDatapushUsername: form.lifefileDatapushUsername || null,
           lifefileDatapushPassword: form.lifefileDatapushPassword || null,
+          // Inbound
+          lifefileInboundEnabled: form.lifefileInboundEnabled,
+          lifefileInboundPath: form.lifefileInboundPath || null,
+          lifefileInboundUsername: form.lifefileInboundUsername || null,
+          lifefileInboundPassword: form.lifefileInboundPassword || null,
+          lifefileInboundSecret: form.lifefileInboundSecret || null,
+          lifefileInboundAllowedIPs: form.lifefileInboundAllowedIPs || null,
+          lifefileInboundEvents: form.lifefileInboundEvents,
         }),
       });
 
@@ -179,7 +220,7 @@ export default function ClinicLifefileSettingsPage() {
     }
   };
 
-  const updateForm = (field: string, value: string | boolean) => {
+  const updateForm = (field: string, value: string | boolean | string[]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -410,9 +451,9 @@ export default function ClinicLifefileSettingsPage() {
 
       {/* Webhook Settings (Optional) */}
       <div className="bg-white rounded-xl shadow border p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Webhook Settings (Optional)</h2>
+        <h2 className="text-lg font-semibold mb-4">Outbound Webhook Settings (Optional)</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Configure webhooks to receive prescription status updates from Lifefile
+          Configure credentials for legacy webhook endpoints
         </p>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -452,6 +493,254 @@ export default function ClinicLifefileSettingsPage() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Inbound Webhook Settings - Receive FROM Lifefile */}
+      <div className="bg-white rounded-xl shadow border p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">Inbound Webhook Settings</h2>
+            <p className="text-sm text-gray-500">
+              Configure this clinic to receive data FROM Lifefile (shipping updates, prescription status, etc.)
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.lifefileInboundEnabled}
+              onChange={(e) => updateForm("lifefileInboundEnabled", e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#4fa77e]/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4fa77e]"></div>
+          </label>
+        </div>
+
+        {/* Webhook URL Display */}
+        {settings?.inboundWebhookUrl && (
+          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Webhook URL (share this with Lifefile)
+            </label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-white border rounded px-3 py-2 text-sm font-mono break-all">
+                {settings.inboundWebhookUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(settings.inboundWebhookUrl || "");
+                  setCopiedUrl(true);
+                  setTimeout(() => setCopiedUrl(false), 2000);
+                }}
+                className="px-3 py-2 bg-[#4fa77e] text-white text-sm rounded-lg hover:bg-[#3d8c65] whitespace-nowrap"
+              >
+                {copiedUrl ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Webhook Path *
+            </label>
+            <div className="flex items-center">
+              <span className="text-gray-500 text-sm mr-1">/api/webhooks/lifefile/inbound/</span>
+              <input
+                type="text"
+                value={form.lifefileInboundPath}
+                onChange={(e) => updateForm("lifefileInboundPath", e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                placeholder={settings?.slug || "clinic-slug"}
+                className="flex-1 border rounded-lg px-3 py-2"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Unique identifier for this clinic&apos;s webhook endpoint (letters, numbers, hyphens, underscores only)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Username *
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={form.lifefileInboundUsername}
+                onChange={(e) => updateForm("lifefileInboundUsername", e.target.value)}
+                placeholder="Webhook auth username"
+                className="flex-1 border rounded-lg px-3 py-2"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const username = `${form.lifefileInboundPath || settings?.slug || 'clinic'}_webhook`;
+                  updateForm("lifefileInboundUsername", username);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Generate
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password *
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={form.lifefileInboundPassword}
+                onChange={(e) => updateForm("lifefileInboundPassword", e.target.value)}
+                placeholder="Webhook auth password"
+                className="flex-1 border rounded-lg px-3 py-2"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  // Generate random password
+                  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+                  let password = '';
+                  for (let i = 0; i < 16; i++) {
+                    password += chars.charAt(Math.floor(Math.random() * chars.length));
+                  }
+                  updateForm("lifefileInboundPassword", password);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Generate
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Leave as •••••••• to keep existing password
+            </p>
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              HMAC Secret (Optional)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={form.lifefileInboundSecret}
+                onChange={(e) => updateForm("lifefileInboundSecret", e.target.value)}
+                placeholder="Secret for HMAC signature verification"
+                className="flex-1 border rounded-lg px-3 py-2"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  // Generate random secret
+                  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+                  let secret = '';
+                  for (let i = 0; i < 32; i++) {
+                    secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                  }
+                  updateForm("lifefileInboundSecret", secret);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Generate
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              If provided, webhooks must include X-Webhook-Signature header with HMAC-SHA256 signature
+            </p>
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Allowed IP Addresses (Optional)
+            </label>
+            <input
+              type="text"
+              value={form.lifefileInboundAllowedIPs}
+              onChange={(e) => updateForm("lifefileInboundAllowedIPs", e.target.value)}
+              placeholder="e.g., 192.168.1.1, 10.0.0.0/24"
+              className="w-full border rounded-lg px-3 py-2"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Comma-separated list of allowed IP addresses. Leave empty to allow all IPs.
+            </p>
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Allowed Event Types
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {[
+                { id: 'shipping', label: 'Shipping Updates' },
+                { id: 'prescription', label: 'Prescription Status' },
+                { id: 'order', label: 'Order Status' },
+                { id: 'rx', label: 'Rx Events' },
+              ].map((event) => (
+                <label key={event.id} className="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={form.lifefileInboundEvents.includes(event.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        updateForm("lifefileInboundEvents", [...form.lifefileInboundEvents, event.id]);
+                      } else {
+                        updateForm("lifefileInboundEvents", form.lifefileInboundEvents.filter((ev: string) => ev !== event.id));
+                      }
+                    }}
+                    className="rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">{event.label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Leave all unchecked to allow all event types
+            </p>
+          </div>
+        </div>
+
+        {/* Sample cURL command */}
+        {form.lifefileInboundPath && form.lifefileInboundUsername && (
+          <div className="mt-4 p-4 bg-gray-900 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-300">Sample cURL Command</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const baseUrl = settings?.inboundWebhookUrl || `https://app.eonpro.io/api/webhooks/lifefile/inbound/${form.lifefileInboundPath}`;
+                  const curlCommand = `curl -X POST ${baseUrl} \\
+  -H "Authorization: Basic $(echo -n '${form.lifefileInboundUsername}:YOUR_PASSWORD' | base64)" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "type": "shipping_update",
+    "trackingNumber": "1Z999AA10123456784",
+    "orderId": "LF_ORDER_ID",
+    "deliveryService": "UPS",
+    "status": "shipped",
+    "estimatedDelivery": "2026-02-10"
+  }'`;
+                  navigator.clipboard.writeText(curlCommand);
+                }}
+                className="text-xs text-[#4fa77e] hover:underline"
+              >
+                Copy
+              </button>
+            </div>
+            <pre className="text-xs text-green-400 overflow-x-auto whitespace-pre-wrap">
+{`curl -X POST ${settings?.inboundWebhookUrl || `https://app.eonpro.io/api/webhooks/lifefile/inbound/${form.lifefileInboundPath}`} \\
+  -H "Authorization: Basic $(echo -n '${form.lifefileInboundUsername}:YOUR_PASSWORD' | base64)" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "type": "shipping_update",
+    "trackingNumber": "1Z999AA10123456784",
+    "orderId": "LF_ORDER_ID",
+    "status": "shipped"
+  }'`}
+            </pre>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
