@@ -669,12 +669,25 @@ export default function ClinicDetailPage() {
     }
   };
 
-  // Fetch Lifefile settings when switching to pharmacy tab
+  // Track if we've fetched lifefile settings to avoid duplicate calls
+  const [lifefileSettingsFetched, setLifefileSettingsFetched] = useState(false);
+
+  // Fetch Lifefile settings when switching to pharmacy tab OR on mount if already on pharmacy
   useEffect(() => {
-    if (activeTab === 'pharmacy') {
+    if (activeTab === 'pharmacy' && !lifefileSettingsFetched) {
       fetchLifefileSettings();
+      setLifefileSettingsFetched(true);
     }
-  }, [activeTab]);
+  }, [activeTab, lifefileSettingsFetched]);
+
+  // Also fetch on initial mount if tab param indicates pharmacy (handles hydration edge case)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'pharmacy' && !lifefileSettingsFetched) {
+      fetchLifefileSettings();
+      setLifefileSettingsFetched(true);
+    }
+  }, [searchParams, lifefileSettingsFetched]);
 
   const fetchLifefileSettings = async () => {
     setLoadingLifefile(true);
@@ -687,49 +700,55 @@ export default function ClinicDetailPage() {
       if (response.ok) {
         const data = await response.json();
         const s = data.settings;
-        
+
         // Debug: Log what we received from API
-        console.log('[LIFEFILE] API Response:', {
+        console.log('[LIFEFILE] API Response:', JSON.stringify({
           inboundEnabled: s?.lifefileInboundEnabled,
           inboundPath: s?.lifefileInboundPath,
           inboundUsername: s?.lifefileInboundUsername,
           hasInboundCredentials: s?.hasInboundCredentials,
           inboundFieldsAvailable: s?.inboundFieldsAvailable,
-        });
+        }, null, 2));
 
         // Only update if we got valid settings back
         if (s) {
-          setLifefileSettings(prev => ({
-            ...prev,
-            lifefileEnabled: s.lifefileEnabled ?? prev.lifefileEnabled,
-            lifefileBaseUrl: s.lifefileBaseUrl ?? prev.lifefileBaseUrl,
-            lifefileUsername: s.lifefileUsername ?? prev.lifefileUsername,
-            lifefilePassword: s.lifefilePassword ?? prev.lifefilePassword,
-            lifefileVendorId: s.lifefileVendorId ?? prev.lifefileVendorId,
-            lifefilePracticeId: s.lifefilePracticeId ?? prev.lifefilePracticeId,
-            lifefileLocationId: s.lifefileLocationId ?? prev.lifefileLocationId,
-            lifefileNetworkId: s.lifefileNetworkId ?? prev.lifefileNetworkId,
-            lifefilePracticeName: s.lifefilePracticeName ?? prev.lifefilePracticeName,
-            lifefilePracticeAddress: s.lifefilePracticeAddress ?? prev.lifefilePracticeAddress,
-            lifefilePracticePhone: s.lifefilePracticePhone ?? prev.lifefilePracticePhone,
-            lifefilePracticeFax: s.lifefilePracticeFax ?? prev.lifefilePracticeFax,
-            hasCredentials: s.hasCredentials ?? prev.hasCredentials,
-            // Inbound fields - preserve existing values if API returns null/undefined
-            lifefileInboundEnabled: s.lifefileInboundEnabled ?? prev.lifefileInboundEnabled,
-            lifefileInboundPath: s.lifefileInboundPath ?? prev.lifefileInboundPath,
-            lifefileInboundUsername: s.lifefileInboundUsername ?? prev.lifefileInboundUsername,
-            lifefileInboundPassword: s.lifefileInboundPassword ?? prev.lifefileInboundPassword,
-            lifefileInboundSecret: s.lifefileInboundSecret ?? prev.lifefileInboundSecret,
-            lifefileInboundAllowedIPs: s.lifefileInboundAllowedIPs ?? prev.lifefileInboundAllowedIPs,
-            lifefileInboundEvents: s.lifefileInboundEvents ?? prev.lifefileInboundEvents,
-            hasInboundCredentials: s.hasInboundCredentials ?? prev.hasInboundCredentials,
-            inboundWebhookUrl: s.inboundWebhookUrl ?? prev.inboundWebhookUrl,
+          // Build the new state explicitly - don't rely on ?? for initial empty values
+          const newState = {
+            // Outbound settings
+            lifefileEnabled: s.lifefileEnabled === true,
+            lifefileBaseUrl: s.lifefileBaseUrl || '',
+            lifefileUsername: s.lifefileUsername || '',
+            lifefilePassword: s.lifefilePassword || '',
+            lifefileVendorId: s.lifefileVendorId || '',
+            lifefilePracticeId: s.lifefilePracticeId || '',
+            lifefileLocationId: s.lifefileLocationId || '',
+            lifefileNetworkId: s.lifefileNetworkId || '',
+            lifefilePracticeName: s.lifefilePracticeName || '',
+            lifefilePracticeAddress: s.lifefilePracticeAddress || '',
+            lifefilePracticePhone: s.lifefilePracticePhone || '',
+            lifefilePracticeFax: s.lifefilePracticeFax || '',
+            hasCredentials: s.hasCredentials === true,
+            // Inbound settings - explicitly set from API response
+            lifefileInboundEnabled: s.lifefileInboundEnabled === true,
+            lifefileInboundPath: s.lifefileInboundPath || '',
+            lifefileInboundUsername: s.lifefileInboundUsername || '',
+            lifefileInboundPassword: s.lifefileInboundPassword || '',
+            lifefileInboundSecret: s.lifefileInboundSecret || '',
+            lifefileInboundAllowedIPs: s.lifefileInboundAllowedIPs || '',
+            lifefileInboundEvents: Array.isArray(s.lifefileInboundEvents) ? s.lifefileInboundEvents : [],
+            hasInboundCredentials: s.hasInboundCredentials === true,
+            inboundWebhookUrl: s.inboundWebhookUrl || null,
             inboundFieldsAvailable: s.inboundFieldsAvailable !== false,
-            slug: s.slug ?? prev.slug,
-          }));
-          
-          // Debug: Log after state update
-          console.log('[LIFEFILE] State updated with inbound settings');
+            slug: s.slug || null,
+          };
+
+          console.log('[LIFEFILE] Setting state with:', JSON.stringify({
+            inboundEnabled: newState.lifefileInboundEnabled,
+            inboundPath: newState.lifefileInboundPath,
+            inboundUsername: newState.lifefileInboundUsername,
+          }, null, 2));
+
+          setLifefileSettings(newState);
         }
       } else {
         console.error('Failed to fetch Lifefile settings:', response.status);
