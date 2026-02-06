@@ -1818,18 +1818,50 @@ export default function ClinicDetailPage() {
                       </div>
 
                       <div className="md:col-span-2">
-                        <CheckboxGroup
-                          label="Allowed Event Types"
-                          options={[
-                            { id: 'shipping', label: 'Shipping Updates' },
-                            { id: 'prescription', label: 'Prescription Status' },
-                            { id: 'order', label: 'Order Status' },
-                            { id: 'rx', label: 'Rx Events' },
-                          ]}
-                          value={lifefileSettings.lifefileInboundEvents}
-                          onChange={(events) => setLifefileSettings({ ...lifefileSettings, lifefileInboundEvents: events })}
-                          color="#4fa77e"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Allowed Event Types
+                        </label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[
+                            { value: 'shipping', label: 'Shipping Updates', icon: '📦' },
+                            { value: 'prescription', label: 'Prescription Status', icon: '💊' },
+                            { value: 'order', label: 'Order Status', icon: '📋' },
+                            { value: 'rx', label: 'Rx Events', icon: '📝' },
+                          ].map((event) => {
+                            const isChecked = lifefileSettings.lifefileInboundEvents.includes(event.value);
+                            return (
+                              <button
+                                key={event.value}
+                                type="button"
+                                onClick={() => {
+                                  const events = isChecked
+                                    ? lifefileSettings.lifefileInboundEvents.filter(e => e !== event.value)
+                                    : [...lifefileSettings.lifefileInboundEvents, event.value];
+                                  setLifefileSettings({ ...lifefileSettings, lifefileInboundEvents: events });
+                                }}
+                                className={`
+                                  relative flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all
+                                  ${isChecked 
+                                    ? 'border-green-500 bg-green-50 shadow-md' 
+                                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                                  }
+                                `}
+                              >
+                                {/* Large checkmark badge */}
+                                {isChecked && (
+                                  <div className="absolute -top-2 -right-2 w-7 h-7 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                                    <Check className="w-5 h-5 text-white" strokeWidth={3} />
+                                  </div>
+                                )}
+                                <span className="text-2xl mb-2">{event.icon}</span>
+                                <span className={`text-sm font-medium text-center ${isChecked ? 'text-green-700' : 'text-gray-700'}`}>
+                                  {event.label}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">Click to select multiple event types</p>
                       </div>
                     </div>
 

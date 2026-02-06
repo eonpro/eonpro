@@ -938,7 +938,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           ) : currentTab === 'soap-notes' ? (
             <PatientSOAPNotesView patientId={patientWithDecryptedPHI.id} />
           ) : currentTab === 'appointments' ? (
-            <PatientAppointmentsView patient={patientWithDecryptedPHI} />
+            <PatientAppointmentsView patient={patientWithDecryptedPHI} clinicId={patientWithDecryptedPHI.clinicId || undefined} />
           ) : currentTab === 'progress' ? (
             <PatientProgressView patient={patientWithDecryptedPHI} />
           ) : currentTab === 'prescriptions' ? (
