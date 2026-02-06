@@ -7,6 +7,16 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { isS3Enabled, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
 import { downloadFromS3, deleteFromS3 } from '@/lib/integrations/aws/s3Service';
 
+// Helper to create safe Content-Disposition header value
+function getSafeContentDisposition(filename: string, defaultName: string = 'document'): string {
+  const name = filename || defaultName;
+  // Remove non-ASCII characters for the basic filename
+  const safeFilename = name.replace(/[^\x20-\x7E]/g, '_');
+  // URL-encode the full filename for UTF-8 support
+  const encodedFilename = encodeURIComponent(name);
+  return `inline; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`;
+}
+
 // GET /api/patients/[id]/documents/[documentId] - Serve document securely
 export const GET = withAuthParams(async (
   request: NextRequest,
@@ -148,7 +158,7 @@ export const GET = withAuthParams(async (
           return new NextResponse(new Uint8Array(buffer), {
             headers: {
               'Content-Type': 'application/pdf',
-              'Content-Disposition': `inline; filename="${document.filename || 'document.pdf'}"`,
+              'Content-Disposition': getSafeContentDisposition(document.filename, 'document.pdf'),
               'Content-Length': buffer.length.toString(),
               'X-Content-Type-Options': 'nosniff',
               'Cache-Control': 'private, max-age=3600',
@@ -163,7 +173,7 @@ export const GET = withAuthParams(async (
           return new NextResponse(new Uint8Array(buffer), {
             headers: {
               'Content-Type': document.mimeType,
-              'Content-Disposition': `inline; filename="${document.filename || 'document'}"`,
+              'Content-Disposition': getSafeContentDisposition(document.filename, 'document'),
               'Content-Length': buffer.length.toString(),
               'X-Content-Type-Options': 'nosniff',
               'Cache-Control': 'private, max-age=3600',
@@ -224,7 +234,7 @@ export const GET = withAuthParams(async (
         return new NextResponse(new Uint8Array(fileData), {
           headers: {
             'Content-Type': fileMimeType || 'application/octet-stream',
-            'Content-Disposition': `inline; filename="${document.filename || 'document'}"`,
+            'Content-Disposition': getSafeContentDisposition(document.filename, 'document'),
             'Content-Length': fileData.length.toString(),
             'X-Content-Type-Options': 'nosniff',
             'X-Frame-Options': 'DENY',

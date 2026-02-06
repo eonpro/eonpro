@@ -41,7 +41,7 @@ const navItems = [
   { id: 'prescriptions', label: 'Prescriptions', icon: 'Rx' },
   { id: 'soap-notes', label: 'Soap Notes', icon: 'Sn' },
   { id: 'progress', label: 'Progress', icon: 'Ps' },
-  { id: 'photos', label: 'Photos', icon: '📷' },
+  { id: 'photos', label: 'Photos', icon: 'Ph' },
   { id: 'billing', label: 'Invoices', icon: '$' },
   { id: 'chat', label: 'Chat', icon: 'Ch' },
   { id: 'documents', label: 'Documents', icon: 'Dc' },
