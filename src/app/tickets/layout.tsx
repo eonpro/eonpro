@@ -324,16 +324,8 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Notifications & Logout */}
+        {/* Logout */}
         <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
-          {/* Notification Center */}
-          <div className={`flex ${sidebarExpanded ? 'items-center gap-3 px-3' : 'justify-center'}`}>
-            <NotificationCenter notificationsPath="/admin/notifications" dropdownPosition="left" />
-            {sidebarExpanded && (
-              <span className="text-sm font-medium text-gray-600">Notifications</span>
-            )}
-          </div>
-
           <button
             onClick={handleLogout}
             title={!sidebarExpanded ? "Logout" : undefined}
@@ -349,6 +341,16 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
+        {/* Top Left Notification Bar */}
+        <div className="sticky top-0 z-40 px-6 py-3 bg-[#efece7]/95 backdrop-blur-sm border-b border-gray-200/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <NotificationCenter notificationsPath="/admin/notifications" dropdownPosition="left" />
+              <span className="text-sm font-medium text-gray-600">Notifications</span>
+            </div>
+          </div>
+        </div>
+
         <div className="p-6">
           {children}
         </div>
