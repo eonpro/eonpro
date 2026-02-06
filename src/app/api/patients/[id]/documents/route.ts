@@ -154,7 +154,7 @@ export const POST = withAuthParams(async (
     // Parse the form data
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
-    const category = formData.get('category') as string;
+    const categoryRaw = formData.get('category') as string;
 
     if (!files || files.length === 0) {
       return NextResponse.json(
@@ -162,6 +162,30 @@ export const POST = withAuthParams(async (
         { status: 400 }
       );
     }
+
+    // Map frontend category values to Prisma enum format
+    const categoryToPrismaEnum: Record<string, PatientDocumentCategory> = {
+      'medical-records': PatientDocumentCategory.MEDICAL_RECORDS,
+      'lab-results': PatientDocumentCategory.LAB_RESULTS,
+      'prescriptions': PatientDocumentCategory.PRESCRIPTIONS,
+      'imaging': PatientDocumentCategory.IMAGING,
+      'insurance': PatientDocumentCategory.INSURANCE,
+      'consent-forms': PatientDocumentCategory.CONSENT_FORMS,
+      'intake-forms': PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+      'other': PatientDocumentCategory.OTHER,
+      // Also support uppercase format
+      'MEDICAL_RECORDS': PatientDocumentCategory.MEDICAL_RECORDS,
+      'LAB_RESULTS': PatientDocumentCategory.LAB_RESULTS,
+      'PRESCRIPTIONS': PatientDocumentCategory.PRESCRIPTIONS,
+      'IMAGING': PatientDocumentCategory.IMAGING,
+      'INSURANCE': PatientDocumentCategory.INSURANCE,
+      'CONSENT_FORMS': PatientDocumentCategory.CONSENT_FORMS,
+      'INTAKE_FORMS': PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+      'OTHER': PatientDocumentCategory.OTHER,
+    };
+
+    // Normalize category to Prisma enum
+    const category = categoryToPrismaEnum[categoryRaw] || PatientDocumentCategory.OTHER;
 
     const uploadedDocuments: { id: number; filename: string; category: string; mimeType: string; uploadedAt: string; size: number; url: string }[] = [];
 
@@ -196,8 +220,8 @@ export const POST = withAuthParams(async (
       const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
 
       if (isS3Enabled()) {
-        // Upload to S3
-        const s3Category = categoryToFileCategory[category?.toUpperCase()] || FileCategory.OTHER;
+        // Upload to S3 - use the category enum value as the S3 category
+        const s3Category = categoryToFileCategory[category] || FileCategory.OTHER;
         const s3Result = await uploadToS3({
           file: buffer,
           fileName: file.name,
@@ -238,7 +262,7 @@ export const POST = withAuthParams(async (
         const storedFile = await storeFile(
           buffer,
           file.name,
-          category || 'general',
+          category.toLowerCase().replace('_', '-'),
           {
             patientId,
             clinicId: patient.clinicId || undefined,
@@ -257,7 +281,7 @@ export const POST = withAuthParams(async (
           clinicId: patient.clinicId,
           filename: file.name,
           mimeType: file.type || 'application/octet-stream',
-          category: (category as PatientDocumentCategory) || PatientDocumentCategory.OTHER,
+          category: category,
           source: 'upload',
           // Store the S3 key or local path
           externalUrl: storagePath,
