@@ -669,33 +669,38 @@ export default function ClinicDetailPage() {
     }
   };
 
-  // Track if we've fetched lifefile settings to avoid duplicate calls
-  const [lifefileSettingsFetched, setLifefileSettingsFetched] = useState(false);
-
-  // Fetch Lifefile settings when switching to pharmacy tab OR on mount if already on pharmacy
+  // Fetch Lifefile settings when on pharmacy tab
   useEffect(() => {
-    if (activeTab === 'pharmacy' && !lifefileSettingsFetched) {
+    console.log('[LIFEFILE EFFECT] activeTab:', activeTab, 'loadingLifefile:', loadingLifefile);
+    
+    // Fetch when we're on the pharmacy tab
+    if (activeTab === 'pharmacy' && !loadingLifefile) {
+      console.log('[LIFEFILE EFFECT] Triggering fetch for pharmacy tab');
       fetchLifefileSettings();
-      setLifefileSettingsFetched(true);
     }
-  }, [activeTab, lifefileSettingsFetched]);
+  }, [activeTab]);
 
-  // Also fetch on initial mount if tab param indicates pharmacy (handles hydration edge case)
+  // Also check URL param on mount (handles direct navigation and refresh)
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'pharmacy' && !lifefileSettingsFetched) {
+    console.log('[LIFEFILE MOUNT] URL tab param:', tabParam);
+    
+    if (tabParam === 'pharmacy' && !loadingLifefile) {
+      console.log('[LIFEFILE MOUNT] Triggering fetch from URL param');
       fetchLifefileSettings();
-      setLifefileSettingsFetched(true);
     }
-  }, [searchParams, lifefileSettingsFetched]);
+  }, []);
 
   const fetchLifefileSettings = async () => {
+    console.log('[LIFEFILE FETCH] Starting fetch for clinic:', clinicId);
     setLoadingLifefile(true);
     try {
       const token = localStorage.getItem('auth-token');
+      console.log('[LIFEFILE FETCH] Token exists:', !!token);
       const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
+      console.log('[LIFEFILE FETCH] Response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
