@@ -771,13 +771,38 @@ export default function ClinicDetailPage() {
     setSavingLifefile(true);
     setLifefileMessage(null);
     
+    // Only send fields that the API expects (exclude computed fields)
+    const savePayload = {
+      // Outbound settings
+      lifefileEnabled: lifefileSettings.lifefileEnabled,
+      lifefileBaseUrl: lifefileSettings.lifefileBaseUrl || null,
+      lifefileUsername: lifefileSettings.lifefileUsername || null,
+      lifefilePassword: lifefileSettings.lifefilePassword || null,
+      lifefileVendorId: lifefileSettings.lifefileVendorId || null,
+      lifefilePracticeId: lifefileSettings.lifefilePracticeId || null,
+      lifefileLocationId: lifefileSettings.lifefileLocationId || null,
+      lifefileNetworkId: lifefileSettings.lifefileNetworkId || null,
+      lifefilePracticeName: lifefileSettings.lifefilePracticeName || null,
+      lifefilePracticeAddress: lifefileSettings.lifefilePracticeAddress || null,
+      lifefilePracticePhone: lifefileSettings.lifefilePracticePhone || null,
+      lifefilePracticeFax: lifefileSettings.lifefilePracticeFax || null,
+      // Inbound settings
+      lifefileInboundEnabled: lifefileSettings.lifefileInboundEnabled,
+      lifefileInboundPath: lifefileSettings.lifefileInboundPath || null,
+      lifefileInboundUsername: lifefileSettings.lifefileInboundUsername || null,
+      lifefileInboundPassword: lifefileSettings.lifefileInboundPassword || null,
+      lifefileInboundSecret: lifefileSettings.lifefileInboundSecret || null,
+      lifefileInboundAllowedIPs: lifefileSettings.lifefileInboundAllowedIPs || null,
+      lifefileInboundEvents: lifefileSettings.lifefileInboundEvents || [],
+    };
+    
     // Debug: Log what we're about to save
     console.log('[LIFEFILE SAVE] Sending to API:', JSON.stringify({
-      inboundEnabled: lifefileSettings.lifefileInboundEnabled,
-      inboundPath: lifefileSettings.lifefileInboundPath,
-      inboundUsername: lifefileSettings.lifefileInboundUsername,
-      inboundPassword: lifefileSettings.lifefileInboundPassword ? '[SET]' : '[EMPTY]',
-      inboundEvents: lifefileSettings.lifefileInboundEvents,
+      inboundEnabled: savePayload.lifefileInboundEnabled,
+      inboundPath: savePayload.lifefileInboundPath,
+      inboundUsername: savePayload.lifefileInboundUsername,
+      inboundPassword: savePayload.lifefileInboundPassword ? '[SET]' : '[EMPTY]',
+      inboundEvents: savePayload.lifefileInboundEvents,
     }, null, 2));
     
     try {
@@ -788,7 +813,7 @@ export default function ClinicDetailPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(lifefileSettings),
+        body: JSON.stringify(savePayload),
       });
 
       if (response.ok) {

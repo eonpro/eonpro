@@ -5,11 +5,11 @@ import { encrypt, decrypt } from '@/lib/security/encryption';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
-// Schema for Lifefile settings update
+// Schema for Lifefile settings update - passthrough allows extra fields to be stripped
 const lifefileSettingsSchema = z.object({
   // Outbound (sending TO Lifefile)
   lifefileEnabled: z.boolean().optional(),
-  lifefileBaseUrl: z.string().url().optional().nullable(),
+  lifefileBaseUrl: z.string().optional().nullable().transform(v => v === '' ? null : v),
   lifefileUsername: z.string().optional().nullable(),
   lifefilePassword: z.string().optional().nullable(),
   lifefileVendorId: z.string().optional().nullable(),
@@ -25,13 +25,13 @@ const lifefileSettingsSchema = z.object({
   lifefileDatapushPassword: z.string().optional().nullable(),
   // Inbound (receiving FROM Lifefile)
   lifefileInboundEnabled: z.boolean().optional(),
-  lifefileInboundPath: z.string().optional().nullable(),
+  lifefileInboundPath: z.string().optional().nullable().transform(v => v === '' ? null : v),
   lifefileInboundUsername: z.string().optional().nullable(),
   lifefileInboundPassword: z.string().optional().nullable(),
   lifefileInboundSecret: z.string().optional().nullable(),
   lifefileInboundAllowedIPs: z.string().optional().nullable(),
-  lifefileInboundEvents: z.array(z.string()).optional(),
-});
+  lifefileInboundEvents: z.array(z.string()).optional().default([]),
+}).passthrough(); // Allow extra fields to pass through (they'll be ignored)
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -247,9 +247,18 @@ export const PUT = withAuth(
     }
 
     const body = await req.json();
+    logger.info(`[LIFEFILE PUT] Received body for clinic ${clinicId}:`, {
+      hasInboundEnabled: body.lifefileInboundEnabled !== undefined,
+      inboundPath: body.lifefileInboundPath,
+      hasInboundUsername: !!body.lifefileInboundUsername,
+      hasInboundPassword: !!body.lifefileInboundPassword,
+      inboundEvents: body.lifefileInboundEvents,
+    });
+    
     const parsed = lifefileSettingsSchema.safeParse(body);
 
     if (!parsed.success) {
+      logger.error(`[LIFEFILE PUT] Validation failed for clinic ${clinicId}:`, parsed.error.issues);
       return Response.json(
         { error: 'Invalid settings data', details: parsed.error.issues },
         { status: 400 }
