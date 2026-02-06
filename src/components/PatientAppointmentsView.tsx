@@ -1,23 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Calendar, Clock, Video, MapPin, User, Phone, Mail, Plus, Filter, Download, X } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import { Calendar, Clock, Video, MapPin, User, Phone, Mail, Plus, Download, X, Loader2, AlertCircle } from "lucide-react";
+
+interface Provider {
+  id: number;
+  firstName: string;
+  lastName: string;
+  titleLine?: string | null;
+}
 
 interface Appointment {
   id: number;
   date: Date;
   time: string;
   duration: number;
-  type: "telehealth" | "in-person";
-  status: "scheduled" | "completed" | "cancelled" | "no-show";
+  type: "telehealth" | "in-person" | "VIDEO" | "PHONE" | "IN_PERSON";
+  status: "scheduled" | "completed" | "cancelled" | "no-show" | "SCHEDULED" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "IN_PROGRESS" | "CHECKED_IN" | "RESCHEDULED";
   provider: {
+    id?: number;
     name: string;
     specialty?: string;
   };
   reason?: string;
   notes?: string;
   zoomLink?: string;
+  videoLink?: string;
   location?: string;
+  startTime?: string;
 }
 
 interface PatientAppointmentsViewProps {
@@ -29,18 +40,43 @@ interface PatientAppointmentsViewProps {
     phone: string | null;
     dob: string | null;
   };
+  clinicId?: number;
 }
 
-export default function PatientAppointmentsView({ patient }: PatientAppointmentsViewProps) {
+// Normalize appointment type for display
+function normalizeType(type: string): "telehealth" | "in-person" {
+  const t = type.toUpperCase();
+  if (t === "VIDEO" || t === "PHONE" || t === "TELEHEALTH") return "telehealth";
+  return "in-person";
+}
+
+// Normalize status for display
+function normalizeStatus(status: string): "scheduled" | "completed" | "cancelled" | "no-show" {
+  const s = status.toUpperCase();
+  if (s === "COMPLETED") return "completed";
+  if (s === "CANCELLED") return "cancelled";
+  if (s === "NO_SHOW") return "no-show";
+  return "scheduled";
+}
+
+export default function PatientAppointmentsView({ patient, clinicId: propClinicId }: PatientAppointmentsViewProps) {
+  const searchParams = useSearchParams();
+  const clinicId = propClinicId || (searchParams.get("clinicId") ? parseInt(searchParams.get("clinicId")!) : undefined);
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
+  const [isLoadingProviders, setIsLoadingProviders] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "upcoming" | "past">("upcoming");
   const [showNewAppointmentModal, setShowNewAppointmentModal] = useState(false);
   const [appointmentForm, setAppointmentForm] = useState({
     date: "",
     time: "",
     duration: "30",
-    type: "telehealth" as "telehealth" | "in-person",
-    provider: "",
+    type: "VIDEO" as "VIDEO" | "IN_PERSON" | "PHONE",
+    providerId: "",
     reason: "",
     notes: "",
     location: ""
@@ -57,102 +93,203 @@ export default function PatientAppointmentsView({ patient }: PatientAppointments
     return () => window.removeEventListener('keydown', handleEsc);
   }, [showNewAppointmentModal]);
 
-  // Mock data for demonstration
-  useEffect(() => {
-    const mockAppointments: Appointment[] = [
-      {
-        id: 1,
-        date: new Date(2024, 11, 5, 10, 0),
-        time: "10:00 AM",
-        duration: 30,
-        type: "telehealth",
-        status: "scheduled",
-        provider: {
-          name: "Dr. Sarah Johnson",
-          specialty: "Primary Care"
-        },
-        reason: "Follow-up consultation",
-        notes: "Review lab results",
-        zoomLink: "https://zoom.us/j/123456789"
-      },
-      {
-        id: 2,
-        date: new Date(2024, 11, 12, 14, 30),
-        time: "2:30 PM",
-        duration: 45,
-        type: "in-person",
-        status: "scheduled",
-        provider: {
-          name: "Dr. Michael Chen",
-          specialty: "Endocrinology"
-        },
-        reason: "Hormone therapy consultation",
-        location: "Main Clinic - Room 203"
-      },
-      {
-        id: 3,
-        date: new Date(2024, 10, 15, 11, 0),
-        time: "11:00 AM",
-        duration: 30,
-        type: "telehealth",
-        status: "completed",
-        provider: {
-          name: "Dr. Sarah Johnson",
-          specialty: "Primary Care"
-        },
-        reason: "Initial consultation",
-        notes: "Prescribed medication, follow-up in 2 weeks",
-        zoomLink: "https://zoom.us/j/987654321"
-      },
-      {
-        id: 4,
-        date: new Date(2024, 10, 1, 9, 0),
-        time: "9:00 AM",
-        duration: 30,
-        type: "in-person",
-        status: "completed",
-        provider: {
-          name: "Dr. Emily Roberts",
-          specialty: "Cardiology"
-        },
-        reason: "Annual checkup",
-        location: "Main Clinic - Room 105"
+  // Fetch providers from API
+  const fetchProviders = useCallback(async () => {
+    setIsLoadingProviders(true);
+    try {
+      const url = new URL('/api/patient-portal/appointments', window.location.origin);
+      url.searchParams.set('action', 'providers');
+      if (clinicId) {
+        url.searchParams.set('clinicId', clinicId.toString());
       }
-    ];
 
-    setAppointments(mockAppointments);
-  }, []);
+      const response = await fetch(url.toString(), {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch providers');
+      }
+
+      const data = await response.json();
+      setProviders(data.providers || []);
+    } catch (err) {
+      console.error('Error fetching providers:', err);
+      // Don't show error to user - just use empty list
+      setProviders([]);
+    } finally {
+      setIsLoadingProviders(false);
+    }
+  }, [clinicId]);
+
+  // Fetch appointments from API
+  const fetchAppointments = useCallback(async () => {
+    setIsLoadingAppointments(true);
+    setError(null);
+    try {
+      const url = new URL('/api/patient-portal/appointments', window.location.origin);
+      url.searchParams.set('patientId', patient.id.toString());
+      if (clinicId) {
+        url.searchParams.set('clinicId', clinicId.toString());
+      }
+
+      const response = await fetch(url.toString(), {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch appointments');
+      }
+
+      const data = await response.json();
+
+      // Transform API appointments to component format
+      const transformedAppointments: Appointment[] = (data.appointments || []).map((apt: {
+        id: number;
+        startTime: string;
+        duration: number;
+        type: string;
+        status: string;
+        provider?: { id?: number; firstName?: string; lastName?: string; titleLine?: string };
+        reason?: string;
+        notes?: string;
+        videoLink?: string;
+        location?: string;
+      }) => {
+        const startDate = new Date(apt.startTime);
+        return {
+          id: apt.id,
+          date: startDate,
+          time: startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          duration: apt.duration || 30,
+          type: apt.type,
+          status: apt.status,
+          provider: {
+            id: apt.provider?.id,
+            name: apt.provider ? `${apt.provider.firstName || ''} ${apt.provider.lastName || ''}`.trim() : 'Unknown Provider',
+            specialty: apt.provider?.titleLine || undefined,
+          },
+          reason: apt.reason,
+          notes: apt.notes,
+          zoomLink: apt.videoLink,
+          videoLink: apt.videoLink,
+          location: apt.location,
+          startTime: apt.startTime,
+        };
+      });
+
+      setAppointments(transformedAppointments);
+    } catch (err) {
+      console.error('Error fetching appointments:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load appointments');
+      setAppointments([]);
+    } finally {
+      setIsLoadingAppointments(false);
+    }
+  }, [patient.id, clinicId]);
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchProviders();
+    fetchAppointments();
+  }, [fetchProviders, fetchAppointments]);
 
   const filteredAppointments = appointments.filter(apt => {
     const now = new Date();
+    const aptDate = apt.date instanceof Date ? apt.date : new Date(apt.date);
     if (filter === "upcoming") {
-      return apt.date >= now;
+      return aptDate >= now;
     } else if (filter === "past") {
-      return apt.date < now;
+      return aptDate < now;
     }
     return true;
-  }).sort((a, b) => b.date.getTime() - a.date.getTime());
+  }).sort((a, b) => {
+    const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+    const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+    return dateB.getTime() - dateA.getTime();
+  });
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "scheduled":
+    const normalizedStatus = status.toUpperCase();
+    switch (normalizedStatus) {
+      case "SCHEDULED":
+      case "CONFIRMED":
         return "bg-blue-100 text-blue-700";
-      case "completed":
+      case "COMPLETED":
         return "bg-green-100 text-green-700";
-      case "cancelled":
+      case "CANCELLED":
+      case "RESCHEDULED":
         return "bg-red-100 text-red-700";
-      case "no-show":
+      case "NO_SHOW":
         return "bg-gray-100 text-gray-700";
+      case "IN_PROGRESS":
+      case "CHECKED_IN":
+        return "bg-yellow-100 text-yellow-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
 
   const getTypeIcon = (type: string) => {
-    if (type === "telehealth") {
+    const normalizedType = type.toUpperCase();
+    if (normalizedType === "VIDEO" || normalizedType === "PHONE" || normalizedType === "TELEHEALTH") {
       return <Video className="w-4 h-4" />;
     }
     return <MapPin className="w-4 h-4" />;
+  };
+
+  // Create appointment handler
+  const handleCreateAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Construct the start time from date and time
+      const startTime = new Date(`${appointmentForm.date}T${appointmentForm.time}`);
+
+      const response = await fetch('/api/patient-portal/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          patientId: patient.id,
+          providerId: parseInt(appointmentForm.providerId),
+          startTime: startTime.toISOString(),
+          duration: parseInt(appointmentForm.duration),
+          type: appointmentForm.type,
+          reason: appointmentForm.reason || undefined,
+          notes: appointmentForm.notes || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create appointment');
+      }
+
+      // Success - refresh appointments and close modal
+      await fetchAppointments();
+      setShowNewAppointmentModal(false);
+      setAppointmentForm({
+        date: "",
+        time: "",
+        duration: "30",
+        type: "VIDEO",
+        providerId: "",
+        reason: "",
+        notes: "",
+        location: ""
+      });
+    } catch (err) {
+      console.error('Error creating appointment:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create appointment');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -193,9 +330,25 @@ export default function PatientAppointmentsView({ patient }: PatientAppointments
         </div>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-800 font-medium">Error</p>
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+
       {/* Appointments List */}
       <div className="space-y-4">
-        {filteredAppointments.length === 0 ? (
+        {isLoadingAppointments ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+            <Loader2 className="w-12 h-12 text-gray-400 mx-auto mb-4 animate-spin" />
+            <p className="text-gray-500">Loading appointments...</p>
+          </div>
+        ) : filteredAppointments.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">No {filter === "all" ? "" : filter} appointments found</p>
@@ -209,108 +362,115 @@ export default function PatientAppointmentsView({ patient }: PatientAppointments
             )}
           </div>
         ) : (
-          filteredAppointments.map(appointment => (
-            <div
-              key={appointment.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex gap-4">
-                  {/* Date Box */}
-                  <div className="text-center min-w-[80px]">
-                    <div className="bg-gray-100 rounded-lg p-3">
-                      <div className="text-xs text-gray-600 uppercase">
-                        {appointment.date.toLocaleDateString("en-US", { month: "short" })}
+          filteredAppointments.map(appointment => {
+            const aptDate = appointment.date instanceof Date ? appointment.date : new Date(appointment.date);
+            const normalizedStatus = normalizeStatus(appointment.status);
+            const normalizedType = normalizeType(appointment.type);
+            const videoLink = appointment.zoomLink || appointment.videoLink;
+
+            return (
+              <div
+                key={appointment.id}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex gap-4">
+                    {/* Date Box */}
+                    <div className="text-center min-w-[80px]">
+                      <div className="bg-gray-100 rounded-lg p-3">
+                        <div className="text-xs text-gray-600 uppercase">
+                          {aptDate.toLocaleDateString("en-US", { month: "short" })}
+                        </div>
+                        <div className="text-2xl font-bold">
+                          {aptDate.getDate()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {aptDate.toLocaleDateString("en-US", { weekday: "short" })}
+                        </div>
                       </div>
-                      <div className="text-2xl font-bold">
-                        {appointment.date.getDate()}
+                    </div>
+
+                    {/* Appointment Details */}
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center gap-4">
+                        <h3 className="font-semibold text-lg">{appointment.reason || "Medical Appointment"}</h3>
+                        <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(appointment.status)}`}>
+                          {normalizedStatus}
+                        </span>
                       </div>
-                      <div className="text-xs text-gray-600">
-                        {appointment.date.toLocaleDateString("en-US", { weekday: "short" })}
+
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Clock className="w-4 h-4" />
+                          <span>{appointment.time} • {appointment.duration} minutes</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <User className="w-4 h-4" />
+                          <span>{appointment.provider.name}</span>
+                          {appointment.provider.specialty && (
+                            <span className="text-xs text-gray-500">({appointment.provider.specialty})</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-600">
+                          {getTypeIcon(appointment.type)}
+                          <span className="capitalize">{normalizedType.replace("-", " ")}</span>
+                        </div>
+                        {normalizedType === "telehealth" && videoLink && (
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={videoLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1"
+                            >
+                              <Video className="w-4 h-4" />
+                              Join Video Call
+                            </a>
+                          </div>
+                        )}
+                        {normalizedType === "in-person" && appointment.location && (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <MapPin className="w-4 h-4" />
+                            <span>{appointment.location}</span>
+                          </div>
+                        )}
                       </div>
+
+                      {appointment.notes && (
+                        <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
+                          <span className="font-medium">Notes: </span>
+                          {appointment.notes}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Appointment Details */}
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center gap-4">
-                      <h3 className="font-semibold text-lg">{appointment.reason || "Medical Appointment"}</h3>
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(appointment.status)}`}>
-                        {appointment.status}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Clock className="w-4 h-4" />
-                        <span>{appointment.time} • {appointment.duration} minutes</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <User className="w-4 h-4" />
-                        <span>{appointment.provider.name}</span>
-                        {appointment.provider.specialty && (
-                          <span className="text-xs text-gray-500">({appointment.provider.specialty})</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        {getTypeIcon(appointment.type)}
-                        <span className="capitalize">{appointment.type.replace("-", " ")}</span>
-                      </div>
-                      {appointment.type === "telehealth" && appointment.zoomLink && (
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={appointment.zoomLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1"
-                          >
-                            <Video className="w-4 h-4" />
-                            Join Zoom Meeting
-                          </a>
-                        </div>
-                      )}
-                      {appointment.type === "in-person" && appointment.location && (
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <MapPin className="w-4 h-4" />
-                          <span>{appointment.location}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {appointment.notes && (
-                      <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
-                        <span className="font-medium">Notes: </span>
-                        {appointment.notes}
-                      </div>
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    {normalizedStatus === "scheduled" && aptDate >= new Date() && (
+                      <>
+                        <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                    {normalizedStatus === "completed" && (
+                      <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Download className="w-5 h-5" />
+                      </button>
                     )}
                   </div>
                 </div>
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  {appointment.status === "scheduled" && appointment.date >= new Date() && (
-                    <>
-                      <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </>
-                  )}
-                  {appointment.status === "completed" && (
-                    <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Download className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -387,43 +547,7 @@ export default function PatientAppointmentsView({ patient }: PatientAppointments
               </p>
             </div>
 
-            <form className="p-6 space-y-6" onSubmit={(e) => {
-              e.preventDefault();
-              
-              // Create new appointment
-              const newAppointment: Appointment = {
-                id: Date.now(),
-                date: new Date(appointmentForm.date + 'T' + appointmentForm.time),
-                time: appointmentForm.time,
-                duration: parseInt(appointmentForm.duration),
-                type: appointmentForm.type,
-                status: "scheduled",
-                provider: {
-                  name: appointmentForm.provider,
-                  specialty: "Primary Care"
-                },
-                reason: appointmentForm.reason,
-                notes: appointmentForm.notes,
-                location: appointmentForm.type === "in-person" ? appointmentForm.location : undefined,
-                zoomLink: appointmentForm.type === "telehealth" ? "https://zoom.us/j/" + Math.random().toString(36).substr(2, 9) : undefined
-              };
-
-              // Add to appointments list
-              setAppointments(prev => [...prev, newAppointment]);
-              
-              // Reset form and close modal
-              setAppointmentForm({
-                date: "",
-                time: "",
-                duration: "30",
-                type: "telehealth",
-                provider: "",
-                reason: "",
-                notes: "",
-                location: ""
-              });
-              setShowNewAppointmentModal(false);
-            }}>
+            <form className="p-6 space-y-6" onSubmit={handleCreateAppointment}>
               {/* Date and Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -477,11 +601,12 @@ export default function PatientAppointmentsView({ patient }: PatientAppointments
                   </label>
                   <select
                     value={appointmentForm.type}
-                    onChange={(e) => setAppointmentForm(prev => ({ ...prev, type: e.target.value as "telehealth" | "in-person" }))}
+                    onChange={(e) => setAppointmentForm(prev => ({ ...prev, type: e.target.value as "VIDEO" | "IN_PERSON" | "PHONE" }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
                   >
-                    <option value="telehealth">Telehealth</option>
-                    <option value="in-person">In-Person</option>
+                    <option value="VIDEO">Telehealth (Video)</option>
+                    <option value="PHONE">Telehealth (Phone)</option>
+                    <option value="IN_PERSON">In-Person</option>
                   </select>
                 </div>
               </div>
@@ -491,29 +616,41 @@ export default function PatientAppointmentsView({ patient }: PatientAppointments
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Provider
                 </label>
-                <select
-                  required
-                  value={appointmentForm.provider}
-                  onChange={(e) => setAppointmentForm(prev => ({ ...prev, provider: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
-                >
-                  <option value="">Select a provider</option>
-                  <option value="Dr. Sarah Johnson">Dr. Sarah Johnson - Primary Care</option>
-                  <option value="Dr. Michael Chen">Dr. Michael Chen - Endocrinology</option>
-                  <option value="Dr. Emily Roberts">Dr. Emily Roberts - Cardiology</option>
-                  <option value="Dr. James Wilson">Dr. James Wilson - Psychiatry</option>
-                </select>
+                {isLoadingProviders ? (
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading providers...
+                  </div>
+                ) : providers.length === 0 ? (
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                    No providers available for scheduling
+                  </div>
+                ) : (
+                  <select
+                    required
+                    value={appointmentForm.providerId}
+                    onChange={(e) => setAppointmentForm(prev => ({ ...prev, providerId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                  >
+                    <option value="">Select a provider</option>
+                    {providers.map((provider) => (
+                      <option key={provider.id} value={provider.id.toString()}>
+                        {provider.firstName} {provider.lastName}
+                        {provider.titleLine ? ` - ${provider.titleLine}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Location (for in-person) */}
-              {appointmentForm.type === "in-person" && (
+              {appointmentForm.type === "IN_PERSON" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Location
+                    Location (Optional)
                   </label>
                   <input
                     type="text"
-                    required
                     value={appointmentForm.location}
                     onChange={(e) => setAppointmentForm(prev => ({ ...prev, location: e.target.value }))}
                     placeholder="e.g., Main Clinic - Room 201"
@@ -551,20 +688,40 @@ export default function PatientAppointmentsView({ patient }: PatientAppointments
                 />
               </div>
 
+              {/* Error Message in Modal */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
                   type="button"
-                  onClick={() => setShowNewAppointmentModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  onClick={() => {
+                    setShowNewAppointmentModal(false);
+                    setError(null);
+                  }}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors"
+                  disabled={isSubmitting || providers.length === 0}
+                  className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
-                  Schedule Appointment
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Scheduling...
+                    </>
+                  ) : (
+                    'Schedule Appointment'
+                  )}
                 </button>
               </div>
             </form>

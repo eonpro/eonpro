@@ -48,38 +48,76 @@ export const GET = withAuth(
       return Response.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: clinicId },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        // Outbound settings
-        lifefileEnabled: true,
-        lifefileBaseUrl: true,
-        lifefileUsername: true,
-        lifefilePassword: true,
-        lifefileVendorId: true,
-        lifefilePracticeId: true,
-        lifefileLocationId: true,
-        lifefileNetworkId: true,
-        lifefilePracticeName: true,
-        lifefilePracticeAddress: true,
-        lifefilePracticePhone: true,
-        lifefilePracticeFax: true,
-        lifefileWebhookSecret: true,
-        lifefileDatapushUsername: true,
-        lifefileDatapushPassword: true,
-        // Inbound settings
-        lifefileInboundEnabled: true,
-        lifefileInboundPath: true,
-        lifefileInboundUsername: true,
-        lifefileInboundPassword: true,
-        lifefileInboundSecret: true,
-        lifefileInboundAllowedIPs: true,
-        lifefileInboundEvents: true,
-      },
-    });
+    // First try with all fields including new inbound fields
+    // If that fails (columns don't exist), fall back to original fields only
+    let clinic: any;
+    let hasInboundFields = true;
+
+    try {
+      clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          // Outbound settings
+          lifefileEnabled: true,
+          lifefileBaseUrl: true,
+          lifefileUsername: true,
+          lifefilePassword: true,
+          lifefileVendorId: true,
+          lifefilePracticeId: true,
+          lifefileLocationId: true,
+          lifefileNetworkId: true,
+          lifefilePracticeName: true,
+          lifefilePracticeAddress: true,
+          lifefilePracticePhone: true,
+          lifefilePracticeFax: true,
+          lifefileWebhookSecret: true,
+          lifefileDatapushUsername: true,
+          lifefileDatapushPassword: true,
+          // Inbound settings (new fields)
+          lifefileInboundEnabled: true,
+          lifefileInboundPath: true,
+          lifefileInboundUsername: true,
+          lifefileInboundPassword: true,
+          lifefileInboundSecret: true,
+          lifefileInboundAllowedIPs: true,
+          lifefileInboundEvents: true,
+        },
+      });
+    } catch (e: any) {
+      // If error is about unknown fields (migration not run yet), fall back to original fields
+      if (e.message?.includes('Unknown field') || e.message?.includes('column') || e.code === 'P2022') {
+        logger.warn(`[LIFEFILE] Inbound fields not available, using fallback query for clinic ${clinicId}`);
+        hasInboundFields = false;
+        clinic = await prisma.clinic.findUnique({
+          where: { id: clinicId },
+          select: {
+            id: true,
+            name: true,
+            // Outbound settings only
+            lifefileEnabled: true,
+            lifefileBaseUrl: true,
+            lifefileUsername: true,
+            lifefilePassword: true,
+            lifefileVendorId: true,
+            lifefilePracticeId: true,
+            lifefileLocationId: true,
+            lifefileNetworkId: true,
+            lifefilePracticeName: true,
+            lifefilePracticeAddress: true,
+            lifefilePracticePhone: true,
+            lifefilePracticeFax: true,
+            lifefileWebhookSecret: true,
+            lifefileDatapushUsername: true,
+            lifefileDatapushPassword: true,
+          },
+        });
+      } else {
+        throw e;
+      }
+    }
 
     if (!clinic) {
       return Response.json({ error: 'Clinic not found' }, { status: 404 });
@@ -100,40 +138,27 @@ export const GET = withAuth(
       }
     }
 
-    // Decrypt inbound username
-    let decryptedInboundUsername = clinic.lifefileInboundUsername;
-    if (clinic.lifefileInboundUsername) {
-      try {
-        const decrypted = decrypt(clinic.lifefileInboundUsername);
-        if (decrypted) {
-          decryptedInboundUsername = decrypted;
-        }
-      } catch (e) {
-        logger.warn(`Failed to decrypt inbound username for clinic ${clinicId}, showing placeholder`);
-        decryptedInboundUsername = '[encrypted - please re-enter]';
-      }
-    }
-
-    // Generate webhook URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'https://app.eonpro.io';
-    const inboundWebhookUrl = clinic.lifefileInboundPath
-      ? `${baseUrl}/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`
-      : null;
-
-    // Mask sensitive fields (don't send actual passwords)
-    const maskedSettings = {
-      ...clinic,
+    // Build masked settings - start with outbound only
+    const maskedSettings: any = {
+      id: clinic.id,
+      name: clinic.name,
+      slug: clinic.slug || null,
       // Outbound
+      lifefileEnabled: clinic.lifefileEnabled,
+      lifefileBaseUrl: clinic.lifefileBaseUrl,
       lifefileUsername: decryptedUsername,
       lifefilePassword: clinic.lifefilePassword ? '••••••••' : null,
+      lifefileVendorId: clinic.lifefileVendorId,
+      lifefilePracticeId: clinic.lifefilePracticeId,
+      lifefileLocationId: clinic.lifefileLocationId,
+      lifefileNetworkId: clinic.lifefileNetworkId,
+      lifefilePracticeName: clinic.lifefilePracticeName,
+      lifefilePracticeAddress: clinic.lifefilePracticeAddress,
+      lifefilePracticePhone: clinic.lifefilePracticePhone,
+      lifefilePracticeFax: clinic.lifefilePracticeFax,
       lifefileWebhookSecret: clinic.lifefileWebhookSecret ? '••••••••' : null,
+      lifefileDatapushUsername: clinic.lifefileDatapushUsername,
       lifefileDatapushPassword: clinic.lifefileDatapushPassword ? '••••••••' : null,
-      // Inbound
-      lifefileInboundUsername: decryptedInboundUsername,
-      lifefileInboundPassword: clinic.lifefileInboundPassword ? '••••••••' : null,
-      lifefileInboundSecret: clinic.lifefileInboundSecret ? '••••••••' : null,
       // Computed fields
       hasCredentials: !!(
         clinic.lifefileBaseUrl &&
@@ -142,13 +167,50 @@ export const GET = withAuth(
         clinic.lifefileVendorId &&
         clinic.lifefilePracticeId
       ),
-      hasInboundCredentials: !!(
+    };
+
+    // Add inbound fields if they exist in the database
+    if (hasInboundFields) {
+      // Decrypt inbound username
+      let decryptedInboundUsername = clinic.lifefileInboundUsername;
+      if (clinic.lifefileInboundUsername) {
+        try {
+          const decrypted = decrypt(clinic.lifefileInboundUsername);
+          if (decrypted) {
+            decryptedInboundUsername = decrypted;
+          }
+        } catch (e) {
+          logger.warn(`Failed to decrypt inbound username for clinic ${clinicId}, showing placeholder`);
+          decryptedInboundUsername = '[encrypted - please re-enter]';
+        }
+      }
+
+      // Generate webhook URL
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'https://app.eonpro.io';
+      const inboundWebhookUrl = clinic.lifefileInboundPath
+        ? `${baseUrl}/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`
+        : null;
+
+      maskedSettings.lifefileInboundEnabled = clinic.lifefileInboundEnabled;
+      maskedSettings.lifefileInboundPath = clinic.lifefileInboundPath;
+      maskedSettings.lifefileInboundUsername = decryptedInboundUsername;
+      maskedSettings.lifefileInboundPassword = clinic.lifefileInboundPassword ? '••••••••' : null;
+      maskedSettings.lifefileInboundSecret = clinic.lifefileInboundSecret ? '••••••••' : null;
+      maskedSettings.lifefileInboundAllowedIPs = clinic.lifefileInboundAllowedIPs;
+      maskedSettings.lifefileInboundEvents = clinic.lifefileInboundEvents;
+      maskedSettings.hasInboundCredentials = !!(
         clinic.lifefileInboundPath &&
         clinic.lifefileInboundUsername &&
         clinic.lifefileInboundPassword
-      ),
-      inboundWebhookUrl,
-    };
+      );
+      maskedSettings.inboundWebhookUrl = inboundWebhookUrl;
+      maskedSettings.inboundFieldsAvailable = true;
+    } else {
+      // Inbound fields not available - indicate migration needed
+      maskedSettings.inboundFieldsAvailable = false;
+    }
 
     return Response.json({ settings: maskedSettings });
   },
