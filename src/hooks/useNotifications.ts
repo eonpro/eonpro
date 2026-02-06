@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { isBrowser, getLocalStorageItem } from '@/lib/utils/ssr-safe';
+import { isBrowser } from '@/lib/utils/ssr-safe';
+import { getAuthToken, isServerlessEnvironment } from '@/lib/utils/auth-token';
 
 // ============================================================================
 // Types
@@ -20,14 +21,14 @@ export interface Notification {
   readAt?: string;
 }
 
-export type NotificationCategory = 
-  | 'PRESCRIPTION' 
-  | 'PATIENT' 
-  | 'ORDER' 
-  | 'SYSTEM' 
-  | 'APPOINTMENT' 
-  | 'MESSAGE' 
-  | 'PAYMENT' 
+export type NotificationCategory =
+  | 'PRESCRIPTION'
+  | 'PATIENT'
+  | 'ORDER'
+  | 'SYSTEM'
+  | 'APPOINTMENT'
+  | 'MESSAGE'
+  | 'PAYMENT'
   | 'REFILL'
   | 'SHIPMENT';
 
@@ -57,6 +58,46 @@ export interface UseNotificationsOptions {
 }
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+const DEFAULT_REFRESH_INTERVAL = 60000; // 1 minute
+const SERVERLESS_POLLING_INTERVAL = 15000; // 15 seconds for serverless (no WebSocket)
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 1000;
+
+// ============================================================================
+// Helper: Retry with exponential backoff
+// ============================================================================
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts: number = MAX_RETRY_ATTEMPTS,
+  delayMs: number = RETRY_DELAY_MS
+): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry on abort errors or auth errors
+      if (lastError.name === 'AbortError') throw lastError;
+      if (lastError.message.includes('401') || lastError.message.includes('403')) throw lastError;
+
+      if (attempt < maxAttempts) {
+        // Exponential backoff: 1s, 2s, 4s...
+        await new Promise(resolve => setTimeout(resolve, delayMs * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+// ============================================================================
 // Hook
 // ============================================================================
 
@@ -64,7 +105,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   const {
     autoFetch = true,
     pageSize = 20,
-    refreshInterval = 60000,
+    refreshInterval = DEFAULT_REFRESH_INTERVAL,
     category,
     unreadOnly = false,
   } = options;
@@ -80,6 +121,15 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const isServerless = useRef<boolean>(false);
+  const lastFetchTime = useRef<number>(0);
+
+  // Determine if we're on serverless (no WebSocket) on mount
+  useEffect(() => {
+    if (isBrowser) {
+      isServerless.current = isServerlessEnvironment();
+    }
+  }, []);
 
   // Build query string
   const buildQueryString = useCallback((page: number) => {
@@ -92,7 +142,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     return params.toString();
   }, [pageSize, category, unreadOnly]);
 
-  // Fetch notifications
+  // Fetch notifications with retry logic
   const fetchNotifications = useCallback(async (page = 1, append = false) => {
     if (!isBrowser) return;
 
@@ -102,9 +152,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     }
     abortControllerRef.current = new AbortController();
 
-    const token = getLocalStorageItem('auth-token') || 
-                  getLocalStorageItem('provider-token') ||
-                  getLocalStorageItem('admin-token');
+    const token = getAuthToken();
 
     if (!token) {
       setState(prev => ({ ...prev, loading: false, error: 'Not authenticated' }));
@@ -116,30 +164,34 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     }
 
     try {
-      const response = await fetch(
-        `/api/notifications?${buildQueryString(page)}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: abortControllerRef.current.signal,
+      const data = await withRetry(async () => {
+        const response = await fetch(
+          `/api/notifications?${buildQueryString(page)}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: abortControllerRef.current?.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch notifications: ${response.status}`);
         }
-      );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
-      }
+        return response.json();
+      });
 
-      const data = await response.json();
+      lastFetchTime.current = Date.now();
 
       setState(prev => ({
-        notifications: append 
+        notifications: append
           ? [...prev.notifications, ...data.notifications]
           : data.notifications,
-        unreadCount: data.unreadCount,
-        total: data.total,
+        unreadCount: data.unreadCount ?? 0,
+        total: data.total ?? 0,
         loading: false,
         error: null,
-        page: data.page,
-        hasMore: data.hasMore,
+        page: data.page ?? page,
+        hasMore: data.hasMore ?? false,
       }));
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -154,27 +206,30 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     }
   }, [buildQueryString]);
 
-  // Fetch unread count only (lightweight)
+  // Fetch unread count only (lightweight) - with retry
   const fetchUnreadCount = useCallback(async () => {
     if (!isBrowser) return;
 
-    const token = getLocalStorageItem('auth-token') || 
-                  getLocalStorageItem('provider-token') ||
-                  getLocalStorageItem('admin-token');
-
+    const token = getAuthToken();
     if (!token) return;
 
     try {
-      const response = await fetch('/api/notifications/count', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const data = await withRetry(async () => {
+        const response = await fetch('/api/notifications/count', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setState(prev => ({ ...prev, unreadCount: data.count }));
-      }
+        if (!response.ok) {
+          throw new Error(`Failed to fetch count: ${response.status}`);
+        }
+
+        return response.json();
+      }, 2); // Only 2 retries for lightweight count check
+
+      setState(prev => ({ ...prev, unreadCount: data.count ?? 0 }));
     } catch (error) {
-      console.error('Failed to fetch unread count:', error);
+      // Silent fail for count - non-critical
+      console.debug('Failed to fetch unread count:', error);
     }
   }, []);
 
@@ -194,11 +249,17 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   const markAsRead = useCallback(async (notificationId: number) => {
     if (!isBrowser) return;
 
-    const token = getLocalStorageItem('auth-token') || 
-                  getLocalStorageItem('provider-token') ||
-                  getLocalStorageItem('admin-token');
-
+    const token = getAuthToken();
     if (!token) return;
+
+    // Optimistic update
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
+      ),
+      unreadCount: Math.max(0, prev.unreadCount - 1),
+    }));
 
     try {
       const response = await fetch(`/api/notifications/${notificationId}/read`, {
@@ -208,35 +269,38 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
       if (response.ok) {
         const data = await response.json();
-        
-        // Update local state
-        setState(prev => ({
-          ...prev,
-          notifications: prev.notifications.map(n =>
-            n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
-          ),
-          unreadCount: data.unreadCount,
-        }));
+        // Sync with server count
+        setState(prev => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
       }
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
+      // Revert optimistic update on error would require storing previous state
+      // For now, just refetch to sync
+      fetchUnreadCount();
     }
-  }, []);
+  }, [fetchUnreadCount]);
 
   // Mark multiple notifications as read
   const markManyAsRead = useCallback(async (notificationIds: number[]) => {
     if (!isBrowser || notificationIds.length === 0) return;
 
-    const token = getLocalStorageItem('auth-token') || 
-                  getLocalStorageItem('provider-token') ||
-                  getLocalStorageItem('admin-token');
-
+    const token = getAuthToken();
     if (!token) return;
+
+    // Optimistic update
+    const idsSet = new Set(notificationIds);
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        idsSet.has(n.id) ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
+      ),
+      unreadCount: Math.max(0, prev.unreadCount - notificationIds.length),
+    }));
 
     try {
       const response = await fetch('/api/notifications', {
         method: 'PUT',
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
@@ -245,36 +309,38 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
       if (response.ok) {
         const data = await response.json();
-        
-        // Update local state
-        const idsSet = new Set(notificationIds);
-        setState(prev => ({
-          ...prev,
-          notifications: prev.notifications.map(n =>
-            idsSet.has(n.id) ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
-          ),
-          unreadCount: data.unreadCount,
-        }));
+        setState(prev => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
       }
     } catch (error) {
       console.error('Failed to mark notifications as read:', error);
+      fetchUnreadCount();
     }
-  }, []);
+  }, [fetchUnreadCount]);
 
   // Mark all notifications as read
   const markAllAsRead = useCallback(async (filterCategory?: NotificationCategory) => {
     if (!isBrowser) return;
 
-    const token = getLocalStorageItem('auth-token') || 
-                  getLocalStorageItem('provider-token') ||
-                  getLocalStorageItem('admin-token');
-
+    const token = getAuthToken();
     if (!token) return;
+
+    // Optimistic update
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        (!filterCategory || n.category === filterCategory)
+          ? { ...n, isRead: true, readAt: new Date().toISOString() }
+          : n
+      ),
+      unreadCount: filterCategory
+        ? prev.notifications.filter(n => n.category !== filterCategory && !n.isRead).length
+        : 0,
+    }));
 
     try {
       const response = await fetch('/api/notifications', {
         method: 'PUT',
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
@@ -283,37 +349,37 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
       if (response.ok) {
         const data = await response.json();
-        
-        // Update local state
-        setState(prev => ({
-          ...prev,
-          notifications: prev.notifications.map(n =>
-            (!filterCategory || n.category === filterCategory) 
-              ? { ...n, isRead: true, readAt: new Date().toISOString() } 
-              : n
-          ),
-          unreadCount: data.unreadCount,
-        }));
+        setState(prev => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
       }
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
+      fetchUnreadCount();
     }
-  }, []);
+  }, [fetchUnreadCount]);
 
   // Archive notifications
   const archiveNotifications = useCallback(async (notificationIds: number[]) => {
     if (!isBrowser || notificationIds.length === 0) return;
 
-    const token = getLocalStorageItem('auth-token') || 
-                  getLocalStorageItem('provider-token') ||
-                  getLocalStorageItem('admin-token');
-
+    const token = getAuthToken();
     if (!token) return;
+
+    // Get unread count before archiving for optimistic update
+    const idsSet = new Set(notificationIds);
+    const unreadBeingArchived = state.notifications.filter(n => idsSet.has(n.id) && !n.isRead).length;
+
+    // Optimistic update
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.filter(n => !idsSet.has(n.id)),
+      total: Math.max(0, prev.total - notificationIds.length),
+      unreadCount: Math.max(0, prev.unreadCount - unreadBeingArchived),
+    }));
 
     try {
       const response = await fetch('/api/notifications', {
         method: 'DELETE',
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
@@ -322,20 +388,14 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
       if (response.ok) {
         const data = await response.json();
-        
-        // Remove from local state
-        const idsSet = new Set(notificationIds);
-        setState(prev => ({
-          ...prev,
-          notifications: prev.notifications.filter(n => !idsSet.has(n.id)),
-          total: prev.total - data.archivedCount,
-          unreadCount: data.unreadCount,
-        }));
+        setState(prev => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
       }
     } catch (error) {
       console.error('Failed to archive notifications:', error);
+      // Refetch to restore state on error
+      fetchNotifications(1, false);
     }
-  }, []);
+  }, [state.notifications, fetchNotifications]);
 
   // Add a new notification (for WebSocket integration)
   const addNotification = useCallback((notification: Notification) => {
@@ -354,13 +414,63 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     }
   }, [autoFetch, fetchNotifications]);
 
-  // Refresh interval
+  // Refresh interval - faster on serverless since no WebSocket
   useEffect(() => {
     if (refreshInterval <= 0) return;
 
-    const interval = setInterval(fetchUnreadCount, refreshInterval);
+    // Use faster polling on serverless environments (no WebSocket support)
+    const effectiveInterval = isServerless.current
+      ? Math.min(refreshInterval, SERVERLESS_POLLING_INTERVAL)
+      : refreshInterval;
+
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+
+      // On serverless, also do a full fetch periodically to catch new notifications
+      if (isServerless.current && Date.now() - lastFetchTime.current > 30000) {
+        fetchNotifications(1, false);
+      }
+    }, effectiveInterval);
+
     return () => clearInterval(interval);
-  }, [refreshInterval, fetchUnreadCount]);
+  }, [refreshInterval, fetchUnreadCount, fetchNotifications]);
+
+  // Visibility change detection - refresh when tab becomes visible
+  useEffect(() => {
+    if (!isBrowser) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Only refresh if it's been more than 5 seconds since last fetch
+        if (Date.now() - lastFetchTime.current > 5000) {
+          fetchUnreadCount();
+
+          // On serverless, do a full fetch when tab becomes visible
+          if (isServerless.current) {
+            fetchNotifications(1, false);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchUnreadCount, fetchNotifications]);
+
+  // Focus detection - refresh when window gains focus
+  useEffect(() => {
+    if (!isBrowser) return;
+
+    const handleFocus = () => {
+      // Only refresh if it's been more than 10 seconds since last fetch
+      if (Date.now() - lastFetchTime.current > 10000) {
+        fetchUnreadCount();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchUnreadCount]);
 
   // Cleanup
   useEffect(() => {

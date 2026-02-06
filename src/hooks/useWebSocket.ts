@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { isBrowser, getLocalStorageItem } from '@/lib/utils/ssr-safe';
+import { isBrowser } from '@/lib/utils/ssr-safe';
+import { getAuthToken, isServerlessEnvironment } from '@/lib/utils/auth-token';
 
 // ============================================================================
 // Types
@@ -76,20 +77,21 @@ export function useWebSocket(options: WebSocketOptions = {}) {
     if (!isBrowser) return;
     if (socketRef.current?.connected) return;
 
-    // Skip WebSocket on Vercel (serverless doesn't support persistent connections)
-    const isVercel = typeof window !== 'undefined' && 
-      (window.location.hostname.includes('.vercel.app') || 
-       window.location.hostname.includes('eonpro.io'));
-    
-    if (isVercel) {
-      // Silently skip WebSocket on Vercel - use polling/refresh instead
-      setState(prev => ({ ...prev, status: 'disconnected', error: null }));
+    // Skip WebSocket on serverless environments (doesn't support persistent connections)
+    // Polling fallback is handled by useNotifications hook
+    if (isServerlessEnvironment()) {
+      // Set status to indicate serverless mode - not an error
+      setState(prev => ({ 
+        ...prev, 
+        status: 'disconnected', 
+        error: null,
+        isConnected: false,
+      }));
+      console.debug('[WebSocket] Serverless environment detected - using polling fallback');
       return;
     }
 
-    const token = getLocalStorageItem('auth-token') || 
-                  getLocalStorageItem('provider-token') ||
-                  getLocalStorageItem('admin-token');
+    const token = getAuthToken();
 
     if (!token) {
       setState(prev => ({ ...prev, status: 'error', error: 'No auth token' }));

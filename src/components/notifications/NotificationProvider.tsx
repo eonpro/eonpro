@@ -227,10 +227,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     if (!isBrowser || hasSyncedRef.current) return;
 
     const fetchPreferences = async () => {
-      // Check if user is authenticated
-      const token = getLocalStorageItem('auth-token') ||
-        getLocalStorageItem('provider-token') ||
-        getLocalStorageItem('admin-token');
+      // Check if user is authenticated - use centralized utility
+      const { getAuthToken } = await import('@/lib/utils/auth-token');
+      const token = getAuthToken();
 
       if (!token) return;
 
@@ -262,9 +261,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
   // Debounced API sync function
   const syncToApi = useDebouncedCallback(async (prefsToSync: Partial<NotificationPreferences>) => {
-    const token = getLocalStorageItem('auth-token') ||
-      getLocalStorageItem('provider-token') ||
-      getLocalStorageItem('admin-token');
+    const { getAuthToken } = await import('@/lib/utils/auth-token');
+    const token = getAuthToken();
 
     if (!token) return;
 
