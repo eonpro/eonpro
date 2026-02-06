@@ -1,6 +1,8 @@
 /**
  * Webhook endpoint for Lifefile prescription status updates
  * Receives real-time updates about prescription fulfillment
+ * 
+ * Authentication: Basic Auth with lifefile_webhook credentials
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,6 +12,49 @@ import { sendPrescriptionNotification } from '@/lib/prescription-tracking/notifi
 import { updateFulfillmentAnalytics } from '@/lib/prescription-tracking/analytics';
 import { z } from 'zod';
 import crypto from 'crypto';
+
+// Configuration
+const WEBHOOK_USERNAME = process.env.LIFEFILE_WEBHOOK_USERNAME || 'lifefile_webhook';
+const WEBHOOK_PASSWORD = process.env.LIFEFILE_WEBHOOK_PASSWORD || '';
+
+/**
+ * Verify Basic Authentication
+ */
+function verifyBasicAuth(authHeader: string | null): boolean {
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+
+  if (!WEBHOOK_PASSWORD) {
+    if (isDevelopment) {
+      logger.warn('[LIFEFILE PRESCRIPTION] No auth configured, accepting (development mode)');
+      return true;
+    } else {
+      logger.error('[LIFEFILE PRESCRIPTION] No auth configured in production');
+      return false;
+    }
+  }
+
+  if (!authHeader) {
+    logger.error('[LIFEFILE PRESCRIPTION] Missing Authorization header');
+    return false;
+  }
+
+  try {
+    const base64Credentials = authHeader.replace(/^Basic\s+/i, '');
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+    const [username, password] = credentials.split(':');
+
+    if (username === WEBHOOK_USERNAME && password === WEBHOOK_PASSWORD) {
+      logger.info('[LIFEFILE PRESCRIPTION] Authentication successful');
+      return true;
+    }
+
+    logger.error('[LIFEFILE PRESCRIPTION] Authentication failed - invalid credentials');
+    return false;
+  } catch (error) {
+    logger.error('[LIFEFILE PRESCRIPTION] Error parsing auth header:', error);
+    return false;
+  }
+}
 
 // Webhook payload schema
 const prescriptionUpdateSchema = z.object({
@@ -96,42 +141,34 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text();
     const headers = Object.fromEntries(req.headers.entries());
     
-    // Store webhook event for debugging
-    const webhookEvent = await (prisma as any).webhookEvent.create({
-      data: {
-        source: 'lifefile',
-        eventType: 'prescription.status',
-        headers: headers,
-        rawBody: rawBody,
-        payload: JSON.parse(rawBody),
-        processed: false,
-      }
-    });
+    // Log webhook event
+    const webhookLogId = `lf-rx-${Date.now()}`;
+    logger.info(`[LIFEFILE PRESCRIPTION] Webhook received - ID: ${webhookLogId}`);
 
-    // Verify webhook signature (if configured)
+    // Verify Basic Auth first
+    const authHeader = req.headers.get('authorization');
+    if (!verifyBasicAuth(authHeader)) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Also verify HMAC signature if configured (optional additional security)
     if (process.env.LIFEFILE_WEBHOOK_SECRET) {
       const signature = headers['x-lifefile-signature'] || headers['x-webhook-signature'];
       
-      if (!signature) {
-        logger.error('Missing webhook signature');
-        return NextResponse.json(
-          { error: 'Missing signature' },
-          { status: 401 }
+      if (signature) {
+        const isValid = verifyWebhookSignature(
+          rawBody,
+          signature,
+          process.env.LIFEFILE_WEBHOOK_SECRET
         );
-      }
-      
-      const isValid = verifyWebhookSignature(
-        rawBody,
-        signature,
-        process.env.LIFEFILE_WEBHOOK_SECRET
-      );
-      
-      if (!isValid) {
-        logger.error('Invalid webhook signature');
-        return NextResponse.json(
-          { error: 'Invalid signature' },
-          { status: 401 }
-        );
+        
+        if (!isValid) {
+          logger.warn('[LIFEFILE PRESCRIPTION] HMAC signature verification failed');
+          // Don't fail - Basic Auth already passed
+        }
       }
     }
 
@@ -140,17 +177,7 @@ export async function POST(req: NextRequest) {
     const parsed = prescriptionUpdateSchema.safeParse(body);
     
     if (!parsed.success) {
-      logger.error('Invalid webhook payload', { errors: parsed.error.issues });
-      
-      await (prisma as any).webhookEvent.update({
-        where: { id: webhookEvent.id },
-        data: {
-          processingError: JSON.stringify(parsed.error.issues),
-          processed: true,
-          processedAt: new Date(),
-        }
-      });
-      
+      logger.error('[LIFEFILE PRESCRIPTION] Invalid webhook payload', { errors: parsed.error.issues });
       return NextResponse.json(
         { error: 'Invalid payload', details: parsed.error.issues },
         { status: 400 }
@@ -277,17 +304,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // Update webhook event as processed
-    await (prisma as any).webhookEvent.update({
-      where: { id: webhookEvent.id },
-      data: {
-        processed: true,
-        processedAt: new Date(),
-        prescriptionId: prescription.id,
-        orderId: prescription.orderId,
-        patientId: prescription.patientId,
-      }
-    });
+    logger.info(`[LIFEFILE PRESCRIPTION] Processed successfully - Prescription: ${prescription.id}`);
 
     // Send notifications to patient asynchronously
     sendPrescriptionNotification(prescription.id, newStatus as any)
