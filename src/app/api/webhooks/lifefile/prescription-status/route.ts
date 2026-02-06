@@ -74,10 +74,20 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
       },
     });
 
+    logger.info(`[LIFEFILE PRESCRIPTION] Found ${clinics.length} clinics with inbound enabled`);
+
     // Find clinic by matching password
     for (const clinic of clinics) {
       const decryptedPassword = safeDecrypt(clinic.lifefileInboundPassword);
       const decryptedUsername = safeDecrypt(clinic.lifefileInboundUsername);
+      
+      logger.info(`[LIFEFILE PRESCRIPTION] Checking clinic ${clinic.name}`, {
+        usernameAccepted,
+        providedUsername,
+        decryptedUsername: decryptedUsername ? decryptedUsername.substring(0, 3) + '...' : null,
+        passwordDecrypted: decryptedPassword !== clinic.lifefileInboundPassword,
+        passwordLength: decryptedPassword?.length,
+      });
       
       // Accept if password matches AND username is either configured or in accepted list
       const usernameMatch = usernameAccepted || providedUsername === decryptedUsername;
