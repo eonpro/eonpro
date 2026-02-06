@@ -672,26 +672,39 @@ export default function ClinicDetailPage() {
   // Track if lifefile settings have been fetched to prevent duplicate calls
   const lifefileSettingsFetchedRef = useRef(false);
 
-  // Sync activeTab with URL param (handles hydration timing issues)
+  // UNCONDITIONAL fetch on mount - simplest possible approach
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && tabParam !== activeTab) {
-      console.log('[TAB SYNC] Syncing tab from URL:', tabParam);
-      setActiveTab(tabParam as typeof activeTab);
-    }
-  }, [searchParams]);
-
-  // Fetch Lifefile settings when on pharmacy tab
-  useEffect(() => {
-    console.log('[LIFEFILE EFFECT] Check:', { activeTab, fetched: lifefileSettingsFetchedRef.current, loading: loadingLifefile });
+    console.log('=== COMPONENT MOUNTED ===');
+    console.log('URL:', window.location.href);
+    console.log('activeTab:', activeTab);
     
-    // Only fetch if on pharmacy tab and haven't fetched yet
-    if (activeTab === 'pharmacy' && !lifefileSettingsFetchedRef.current && !loadingLifefile) {
-      console.log('[LIFEFILE] Fetching settings for pharmacy tab');
+    // Check if we should fetch lifefile settings
+    const urlTab = new URL(window.location.href).searchParams.get('tab');
+    const shouldFetch = activeTab === 'pharmacy' || urlTab === 'pharmacy';
+    
+    console.log('urlTab:', urlTab, 'shouldFetch:', shouldFetch);
+    
+    if (shouldFetch && !lifefileSettingsFetchedRef.current) {
+      console.log('>>> TRIGGERING FETCH <<<');
+      lifefileSettingsFetchedRef.current = true;
+      
+      // Sync tab if needed
+      if (urlTab === 'pharmacy' && activeTab !== 'pharmacy') {
+        setActiveTab('pharmacy');
+      }
+      
+      fetchLifefileSettings();
+    }
+  }, []);
+  
+  // Also trigger when activeTab changes (for tab clicks)
+  useEffect(() => {
+    if (activeTab === 'pharmacy' && !lifefileSettingsFetchedRef.current) {
+      console.log('>>> TAB CHANGE FETCH <<<');
       lifefileSettingsFetchedRef.current = true;
       fetchLifefileSettings();
     }
-  }, [activeTab, loadingLifefile]);
+  }, [activeTab]);
 
   const fetchLifefileSettings = async () => {
     console.log('[LIFEFILE FETCH] Starting fetch for clinic:', clinicId);
