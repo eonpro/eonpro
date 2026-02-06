@@ -76,6 +76,16 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const prevUnreadCountRef = useRef(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastMessageIdRef = useRef<number>(0);
+
+  // Initialize notification sound
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      audioRef.current = new Audio('/sounds/notification.mp3');
+      audioRef.current.volume = 0.3;
+    }
+  }, []);
 
   // ===========================================================================
   // Data Fetching
@@ -200,6 +210,26 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
           (a: Message, b: Message) =>
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
+
+        // Check if there are new messages from the other person (not from us)
+        const latestMessage = filteredMessages[filteredMessages.length - 1];
+        if (
+          latestMessage &&
+          Number(latestMessage.senderId) === theirId &&
+          latestMessage.id > lastMessageIdRef.current
+        ) {
+          // New message from the other person in current conversation
+          // Play sound only if this is truly new (not initial load)
+          if (lastMessageIdRef.current > 0 && audioRef.current) {
+            audioRef.current.play().catch(() => {});
+          }
+        }
+
+        // Update last message ID
+        if (latestMessage) {
+          lastMessageIdRef.current = Math.max(lastMessageIdRef.current, latestMessage.id);
+        }
+
         setMessages(filteredMessages);
       }
     } catch (error) {
@@ -220,19 +250,26 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
         // Check if we have NEW unread messages (count increased)
         if (newCount > prevUnreadCountRef.current && prevUnreadCountRef.current >= 0) {
-          // Find the new messages
+          // Find the new messages (not seen before)
           const newMessages = messageList.filter(
             (m: Message) => !lastUnreadMessages.find((old: Message) => old.id === m.id)
           );
 
           if (newMessages.length > 0) {
+            const latestMessage = newMessages[0];
+            const senderName = latestMessage.sender
+              ? `${latestMessage.sender.firstName} ${latestMessage.sender.lastName}`.trim()
+              : 'Someone';
+
+            // Play notification sound
+            if (audioRef.current) {
+              audioRef.current.play().catch(() => {
+                // Silently fail if autoplay is blocked
+              });
+            }
+
             // Show browser notification if permitted
             if (notificationPermission === 'granted' && !isOpen) {
-              const latestMessage = newMessages[0];
-              const senderName = latestMessage.sender
-                ? `${latestMessage.sender.firstName} ${latestMessage.sender.lastName}`.trim()
-                : 'Someone';
-
               new Notification('New Message', {
                 body: `${senderName}: ${latestMessage.message.substring(0, 50)}${latestMessage.message.length > 50 ? '...' : ''}`,
                 icon: '/favicon.ico',
@@ -240,10 +277,15 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
               });
             }
 
-            // Auto-open chat if closed and there's a new message
-            if (!isOpen && newMessages.length > 0) {
-              // Flash the chat button instead of auto-opening (less intrusive)
-              // The unread badge will show the count
+            // AUTO-OPEN chat and select the sender when new message arrives
+            if (!isOpen && latestMessage.sender) {
+              // Open chat window
+              setIsOpen(true);
+              // Select the sender to show the conversation
+              setSelectedRecipient(latestMessage.sender);
+            } else if (isOpen && !selectedRecipient && latestMessage.sender) {
+              // Chat is open but no conversation selected - select the sender
+              setSelectedRecipient(latestMessage.sender);
             }
           }
 
@@ -256,7 +298,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     } catch (error) {
       logger.error('Error fetching unread count:', error);
     }
-  }, [isOpen, lastUnreadMessages, notificationPermission]);
+  }, [isOpen, selectedRecipient, lastUnreadMessages, notificationPermission]);
 
   // ===========================================================================
   // Effects
@@ -274,14 +316,17 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     }
   }, []);
 
-  // Poll for unread messages even when chat is closed (for notifications)
+  // Poll for unread messages - faster when chat is closed to catch new messages quickly
   useEffect(() => {
     fetchUnreadCount(); // Initial fetch
+    // Poll every 5 seconds when closed (to catch new messages and auto-open)
+    // Poll every 3 seconds when open (for live updates)
+    const pollInterval = isOpen ? 3000 : 5000;
     const interval = setInterval(() => {
       fetchUnreadCount();
-    }, 10000); // Check every 10 seconds for new messages
+    }, pollInterval);
     return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+  }, [fetchUnreadCount, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -291,6 +336,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   useEffect(() => {
     if (selectedRecipient) {
+      // Reset message tracking when switching conversations
+      lastMessageIdRef.current = 0;
       fetchMessages();
       inputRef.current?.focus();
     }
@@ -302,10 +349,10 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   useEffect(() => {
     if (isOpen && selectedRecipient) {
-      // Poll every 15 seconds instead of 5 to reduce database load
+      // Poll every 3 seconds for near real-time message updates
       const interval = setInterval(() => {
         fetchMessages();
-      }, 15000);
+      }, 3000);
       return () => clearInterval(interval);
     }
     // No cleanup needed when chat is closed or no recipient selected
