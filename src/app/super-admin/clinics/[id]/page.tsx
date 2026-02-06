@@ -779,6 +779,13 @@ export default function ClinicDetailPage() {
           }, null, 2));
 
           setLifefileSettings(newState);
+          
+          // DEBUG: Alert AFTER setting state
+          alert('STATE SET TO:\\n' +
+            'inboundEnabled: ' + newState.lifefileInboundEnabled + '\\n' +
+            'inboundPath: ' + newState.lifefileInboundPath + '\\n' +
+            'inboundUsername: ' + newState.lifefileInboundUsername
+          );
         }
       } else {
         console.error('Failed to fetch Lifefile settings:', response.status);
@@ -863,7 +870,14 @@ export default function ClinicDetailPage() {
         
         setLifefileMessage({ type: 'success', text: 'Pharmacy settings saved successfully!' });
         // Re-fetch to get the latest data from server
-        await fetchLifefileSettings();
+        console.log('[LIFEFILE SAVE] About to re-fetch...');
+        try {
+          await fetchLifefileSettings();
+          console.log('[LIFEFILE SAVE] Re-fetch completed');
+        } catch (fetchError) {
+          console.error('[LIFEFILE SAVE] Re-fetch failed:', fetchError);
+          alert('RE-FETCH FAILED: ' + String(fetchError));
+        }
       } else {
         const data = await response.json();
         setLifefileMessage({ type: 'error', text: data.error || 'Failed to save settings' });
