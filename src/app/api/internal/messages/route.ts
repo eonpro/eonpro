@@ -172,10 +172,25 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         unreadOnly
       });
 
-      // Fallback: try without any includes
+      // Fallback: try with minimal includes but still get reactions
       try {
         messages = await basePrisma.internalMessage.findMany({
           where: whereClause,
+          include: {
+            sender: {
+              select: { id: true, firstName: true, lastName: true, email: true, role: true }
+            },
+            recipient: {
+              select: { id: true, firstName: true, lastName: true, email: true, role: true }
+            },
+            reactions: {
+              include: {
+                user: {
+                  select: { id: true, firstName: true, lastName: true }
+                }
+              }
+            }
+          },
           orderBy: {
             createdAt: 'desc'
           },
@@ -183,8 +198,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           skip: offset
         });
 
-        // If fallback succeeds, log that the include was the problem
-        logger.warn('Fallback query succeeded - include relations may have data integrity issues', {
+        // If fallback succeeds, log that the full include was the problem
+        logger.warn('Fallback query succeeded - replies relation may have issues', {
           userId,
           messageCount: messages.length
         });
