@@ -201,6 +201,15 @@ export const GET = withAuth(
         ? `${baseUrl}/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`
         : null;
 
+      // DEBUG: Log raw database values
+      logger.info(`[LIFEFILE GET DEBUG] Raw clinic data:`, {
+        rawInboundEnabled: clinic.lifefileInboundEnabled,
+        rawInboundPath: clinic.lifefileInboundPath,
+        rawInboundUsername: clinic.lifefileInboundUsername ? '[encrypted]' : null,
+        rawInboundPassword: clinic.lifefileInboundPassword ? '[encrypted]' : null,
+        rawInboundEvents: clinic.lifefileInboundEvents,
+      });
+      
       maskedSettings.lifefileInboundEnabled = clinic.lifefileInboundEnabled;
       maskedSettings.lifefileInboundPath = clinic.lifefileInboundPath;
       maskedSettings.lifefileInboundUsername = decryptedInboundUsername;
@@ -208,6 +217,15 @@ export const GET = withAuth(
       maskedSettings.lifefileInboundSecret = clinic.lifefileInboundSecret ? '••••••••' : null;
       maskedSettings.lifefileInboundAllowedIPs = clinic.lifefileInboundAllowedIPs;
       maskedSettings.lifefileInboundEvents = clinic.lifefileInboundEvents;
+      
+      // DEBUG: Log what we're about to return
+      logger.info(`[LIFEFILE GET DEBUG] Response values:`, {
+        respInboundEnabled: maskedSettings.lifefileInboundEnabled,
+        respInboundPath: maskedSettings.lifefileInboundPath,
+        respInboundUsername: maskedSettings.lifefileInboundUsername,
+        respInboundPassword: maskedSettings.lifefileInboundPassword,
+        respInboundEvents: maskedSettings.lifefileInboundEvents,
+      });
       maskedSettings.hasInboundCredentials = !!(
         clinic.lifefileInboundPath &&
         clinic.lifefileInboundUsername &&

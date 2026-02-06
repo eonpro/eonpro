@@ -721,14 +721,24 @@ export default function ClinicDetailPage() {
         const data = await response.json();
         const s = data.settings;
 
-        // Debug: Log what we received from API
-        console.log('[LIFEFILE] API Response:', JSON.stringify({
+        // Debug: Log what we received from API - USE ALERT TO MAKE IT UNMISSABLE
+        const debugInfo = {
           inboundEnabled: s?.lifefileInboundEnabled,
           inboundPath: s?.lifefileInboundPath,
           inboundUsername: s?.lifefileInboundUsername,
-          hasInboundCredentials: s?.hasInboundCredentials,
-          inboundFieldsAvailable: s?.inboundFieldsAvailable,
-        }, null, 2));
+          inboundPassword: s?.lifefileInboundPassword,
+          inboundEvents: s?.lifefileInboundEvents,
+        };
+        console.log('[LIFEFILE] API Response:', JSON.stringify(debugInfo, null, 2));
+        
+        // TEMPORARY ALERT FOR DEBUGGING - REMOVE AFTER FIXING
+        alert('API Response:\\n' + 
+          'inboundEnabled: ' + debugInfo.inboundEnabled + '\\n' +
+          'inboundPath: ' + debugInfo.inboundPath + '\\n' +
+          'inboundUsername: ' + debugInfo.inboundUsername + '\\n' +
+          'inboundPassword: ' + debugInfo.inboundPassword + '\\n' +
+          'inboundEvents: ' + JSON.stringify(debugInfo.inboundEvents)
+        );
 
         // Only update if we got valid settings back
         if (s) {
