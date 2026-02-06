@@ -684,36 +684,46 @@ export default function ClinicDetailPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setLifefileSettings({
-          lifefileEnabled: data.settings.lifefileEnabled || false,
-          lifefileBaseUrl: data.settings.lifefileBaseUrl || '',
-          lifefileUsername: data.settings.lifefileUsername || '',
-          lifefilePassword: data.settings.lifefilePassword || '',
-          lifefileVendorId: data.settings.lifefileVendorId || '',
-          lifefilePracticeId: data.settings.lifefilePracticeId || '',
-          lifefileLocationId: data.settings.lifefileLocationId || '',
-          lifefileNetworkId: data.settings.lifefileNetworkId || '',
-          lifefilePracticeName: data.settings.lifefilePracticeName || '',
-          lifefilePracticeAddress: data.settings.lifefilePracticeAddress || '',
-          lifefilePracticePhone: data.settings.lifefilePracticePhone || '',
-          lifefilePracticeFax: data.settings.lifefilePracticeFax || '',
-          hasCredentials: data.settings.hasCredentials || false,
-          // Inbound fields
-          lifefileInboundEnabled: data.settings.lifefileInboundEnabled || false,
-          lifefileInboundPath: data.settings.lifefileInboundPath || '',
-          lifefileInboundUsername: data.settings.lifefileInboundUsername || '',
-          lifefileInboundPassword: data.settings.lifefileInboundPassword || '',
-          lifefileInboundSecret: data.settings.lifefileInboundSecret || '',
-          lifefileInboundAllowedIPs: data.settings.lifefileInboundAllowedIPs || '',
-          lifefileInboundEvents: data.settings.lifefileInboundEvents || [],
-          hasInboundCredentials: data.settings.hasInboundCredentials || false,
-          inboundWebhookUrl: data.settings.inboundWebhookUrl || null,
-          inboundFieldsAvailable: data.settings.inboundFieldsAvailable !== false,
-          slug: data.settings.slug || null,
-        });
+        const s = data.settings;
+        
+        // Only update if we got valid settings back
+        if (s) {
+          setLifefileSettings(prev => ({
+            ...prev,
+            lifefileEnabled: s.lifefileEnabled ?? prev.lifefileEnabled,
+            lifefileBaseUrl: s.lifefileBaseUrl ?? prev.lifefileBaseUrl,
+            lifefileUsername: s.lifefileUsername ?? prev.lifefileUsername,
+            lifefilePassword: s.lifefilePassword ?? prev.lifefilePassword,
+            lifefileVendorId: s.lifefileVendorId ?? prev.lifefileVendorId,
+            lifefilePracticeId: s.lifefilePracticeId ?? prev.lifefilePracticeId,
+            lifefileLocationId: s.lifefileLocationId ?? prev.lifefileLocationId,
+            lifefileNetworkId: s.lifefileNetworkId ?? prev.lifefileNetworkId,
+            lifefilePracticeName: s.lifefilePracticeName ?? prev.lifefilePracticeName,
+            lifefilePracticeAddress: s.lifefilePracticeAddress ?? prev.lifefilePracticeAddress,
+            lifefilePracticePhone: s.lifefilePracticePhone ?? prev.lifefilePracticePhone,
+            lifefilePracticeFax: s.lifefilePracticeFax ?? prev.lifefilePracticeFax,
+            hasCredentials: s.hasCredentials ?? prev.hasCredentials,
+            // Inbound fields - preserve existing values if API returns null/undefined
+            lifefileInboundEnabled: s.lifefileInboundEnabled ?? prev.lifefileInboundEnabled,
+            lifefileInboundPath: s.lifefileInboundPath ?? prev.lifefileInboundPath,
+            lifefileInboundUsername: s.lifefileInboundUsername ?? prev.lifefileInboundUsername,
+            lifefileInboundPassword: s.lifefileInboundPassword ?? prev.lifefileInboundPassword,
+            lifefileInboundSecret: s.lifefileInboundSecret ?? prev.lifefileInboundSecret,
+            lifefileInboundAllowedIPs: s.lifefileInboundAllowedIPs ?? prev.lifefileInboundAllowedIPs,
+            lifefileInboundEvents: s.lifefileInboundEvents ?? prev.lifefileInboundEvents,
+            hasInboundCredentials: s.hasInboundCredentials ?? prev.hasInboundCredentials,
+            inboundWebhookUrl: s.inboundWebhookUrl ?? prev.inboundWebhookUrl,
+            inboundFieldsAvailable: s.inboundFieldsAvailable !== false,
+            slug: s.slug ?? prev.slug,
+          }));
+        }
+      } else {
+        console.error('Failed to fetch Lifefile settings:', response.status);
+        setLifefileMessage({ type: 'error', text: 'Failed to load settings. Please refresh the page.' });
       }
     } catch (error) {
       console.error('Error fetching Lifefile settings:', error);
+      setLifefileMessage({ type: 'error', text: 'Failed to load settings. Please refresh the page.' });
     } finally {
       setLoadingLifefile(false);
     }

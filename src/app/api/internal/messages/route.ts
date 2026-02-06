@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { basePrisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
@@ -77,51 +78,107 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       };
     }
 
-    const messages = await basePrisma.internalMessage.findMany({
-      where: whereClause,
-      include: {
-        sender: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true
-          }
-        },
-        recipient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true
-          }
-        },
-        replies: {
-          include: {
-            sender: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'asc'
-          },
-          take: 10 // Limit replies per message
+    // Define include object for full message data
+    const fullInclude = {
+      sender: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true
         }
       },
-      orderBy: {
-        createdAt: 'desc'
+      recipient: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true
+        }
       },
-      take: limit,
-      skip: offset
-    });
+      replies: {
+        include: {
+          sender: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'asc' as const
+        },
+        take: 10 // Limit replies per message
+      }
+    };
+
+    // For unreadOnly queries, use a simpler include (no replies needed for notification check)
+    const simpleInclude = {
+      sender: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true
+        }
+      },
+      recipient: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true
+        }
+      }
+    };
+
+    let messages;
+    try {
+      messages = await basePrisma.internalMessage.findMany({
+        where: whereClause,
+        include: unreadOnly ? simpleInclude : fullInclude,
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: limit,
+        skip: offset
+      });
+    } catch (queryError) {
+      // If the main query fails, try a minimal fallback query
+      logger.warn('Primary message query failed, attempting fallback', {
+        error: queryError instanceof Error ? queryError.message : 'Unknown error',
+        userId,
+        unreadOnly
+      });
+
+      // Fallback: try without any includes
+      try {
+        messages = await basePrisma.internalMessage.findMany({
+          where: whereClause,
+          orderBy: {
+            createdAt: 'desc'
+          },
+          take: limit,
+          skip: offset
+        });
+
+        // If fallback succeeds, log that the include was the problem
+        logger.warn('Fallback query succeeded - include relations may have data integrity issues', {
+          userId,
+          messageCount: messages.length
+        });
+      } catch (fallbackError) {
+        // Even fallback failed - re-throw to outer catch
+        throw queryError;
+      }
+    }
 
     // Mark messages as read (only when fetching all, not unreadOnly)
     if (!unreadOnly && messages.length > 0) {
@@ -164,17 +221,78 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : '';
 
-    logger.error('Error fetching internal messages:', {
-      error: errorMessage,
-      stack: errorStack,
-      userId: user?.id,
-      userRole: user?.role,
-      durationMs: Date.now() - startTime
-    });
+    // Determine error type for better diagnostics and user experience
+    let statusCode = 500;
+    let userFacingError = 'Failed to fetch messages';
+    let errorCode = 'INTERNAL_ERROR';
+
+    // Handle specific Prisma errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      logger.error('Prisma error fetching internal messages:', {
+        code: error.code,
+        meta: error.meta,
+        userId: user?.id,
+        userRole: user?.role,
+        durationMs: Date.now() - startTime
+      });
+
+      // P2025 = Record not found (e.g., related User doesn't exist)
+      if (error.code === 'P2025') {
+        userFacingError = 'Some message data is no longer available';
+        errorCode = 'DATA_NOT_FOUND';
+      }
+      // P2003 = Foreign key constraint failed
+      else if (error.code === 'P2003') {
+        userFacingError = 'Data integrity issue detected';
+        errorCode = 'DATA_INTEGRITY';
+      }
+      // Connection-related errors
+      else if (['P1001', 'P1002', 'P1008', 'P1017'].includes(error.code)) {
+        statusCode = 503;
+        userFacingError = 'Service temporarily unavailable';
+        errorCode = 'SERVICE_UNAVAILABLE';
+      }
+    } else if (error instanceof Prisma.PrismaClientInitializationError) {
+      statusCode = 503;
+      userFacingError = 'Service temporarily unavailable';
+      errorCode = 'DATABASE_INIT_ERROR';
+
+      logger.error('Database initialization error:', {
+        error: errorMessage,
+        userId: user?.id,
+        durationMs: Date.now() - startTime
+      });
+    } else if (error instanceof Prisma.PrismaClientValidationError) {
+      // Schema/query mismatch - this indicates a code issue
+      errorCode = 'SCHEMA_VALIDATION_ERROR';
+
+      logger.error('Prisma validation error in internal messages:', {
+        error: errorMessage,
+        stack: errorStack,
+        userId: user?.id,
+        userRole: user?.role,
+        durationMs: Date.now() - startTime
+      });
+    } else {
+      // Generic error logging
+      logger.error('Error fetching internal messages:', {
+        error: errorMessage,
+        stack: errorStack,
+        userId: user?.id,
+        userRole: user?.role,
+        durationMs: Date.now() - startTime
+      });
+    }
 
     return NextResponse.json(
-      { error: 'Failed to fetch messages', messages: [], details: errorMessage },
-      { status: 500 }
+      {
+        error: userFacingError,
+        messages: [],
+        code: errorCode,
+        // Only include details in non-production for debugging
+        ...(process.env.NODE_ENV !== 'production' && { details: errorMessage })
+      },
+      { status: statusCode }
     );
   }
 }
