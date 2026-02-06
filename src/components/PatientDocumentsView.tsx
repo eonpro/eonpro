@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Download, Eye } from "lucide-react";
+import { Upload, FileText, Trash2, Download, Eye, Image, File, FileType } from "lucide-react";
 import { logger } from '@/lib/logger';
 
 interface Document {
@@ -264,10 +264,10 @@ export default function PatientDocumentsView({
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) return "🖼️";
-    if (mimeType === "application/pdf") return "📄";
-    if (mimeType.startsWith("text/")) return "📝";
-    return "📎";
+    if (mimeType.startsWith("image/")) return <Image className="h-8 w-8 text-blue-500" />;
+    if (mimeType === "application/pdf") return <FileText className="h-8 w-8 text-red-500" />;
+    if (mimeType.startsWith("text/")) return <FileType className="h-8 w-8 text-gray-500" />;
+    return <File className="h-8 w-8 text-gray-400" />;
   };
 
   return (
@@ -374,7 +374,7 @@ export default function PatientDocumentsView({
               <div key={doc.id} className="p-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <span className="text-2xl">{getFileIcon(doc.mimeType)}</span>
+                    <span className="flex-shrink-0">{getFileIcon(doc.mimeType)}</span>
                     <div>
                       <p className="font-medium text-gray-900">{doc.filename}</p>
                       <p className="text-sm text-gray-500">

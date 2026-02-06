@@ -190,24 +190,30 @@ export const GET = withAuthParams(async (
     // PRIORITY 2: Try external URL (S3, secure storage) as fallback
     if (document.externalUrl && !document.externalUrl.startsWith('database://')) {
       try {
-        logger.debug(`Attempting to retrieve from external URL: ${document.externalUrl}`);
+        logger.info(`Attempting to retrieve document from: ${document.externalUrl}`);
 
         let fileData: Buffer;
         let fileMimeType: string | undefined;
 
-        // Check if this is an S3 key (starts with S3 path prefix)
-        const isS3Key = document.externalUrl.startsWith(STORAGE_CONFIG.PATHS.PATIENTS + '/') ||
-                        document.externalUrl.startsWith('patients/') ||
-                        document.externalUrl.includes('/medical-records/') ||
-                        document.externalUrl.includes('/lab-results/') ||
-                        document.externalUrl.includes('/prescriptions/') ||
-                        document.externalUrl.includes('/other/');
+        // Check if this is an S3 key - look for common S3 path patterns
+        const isS3Key = document.externalUrl.startsWith('patients/') ||
+                        document.externalUrl.startsWith(STORAGE_CONFIG.PATHS.PATIENTS + '/') ||
+                        document.externalUrl.match(/^[a-z-]+\/\d+\/[a-z-]+\//) !== null;
 
         if (isS3Enabled() && isS3Key) {
           // Download from S3
-          logger.debug(`Downloading from S3: ${document.externalUrl}`);
-          fileData = await downloadFromS3(document.externalUrl);
-          fileMimeType = document.mimeType;
+          logger.info(`Downloading from S3 with key: ${document.externalUrl}`);
+          try {
+            fileData = await downloadFromS3(document.externalUrl);
+            fileMimeType = document.mimeType;
+            logger.info(`Successfully downloaded ${fileData.length} bytes from S3`);
+          } catch (s3Error: any) {
+            logger.error('S3 download failed:', { error: s3Error.message, key: document.externalUrl });
+            return NextResponse.json(
+              { error: `Failed to retrieve document from storage: ${s3Error.message}` },
+              { status: 500 }
+            );
+          }
         } else {
           // Local secure storage
           const file = await retrieveFile(document.externalUrl, patientId);
@@ -225,7 +231,11 @@ export const GET = withAuthParams(async (
           },
         });
       } catch (error: any) {
-        logger.error('Error retrieving from external storage:', error);
+        logger.error('Error retrieving from external storage:', { error: error.message, externalUrl: document.externalUrl });
+        return NextResponse.json(
+          { error: `Failed to retrieve document: ${error.message}` },
+          { status: 500 }
+        );
       }
     }
 
