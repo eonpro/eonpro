@@ -57,6 +57,11 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
 
     // Check if username is one of the accepted LifeFile patterns
     const usernameAccepted = ACCEPTED_USERNAMES.includes(providedUsername);
+    
+    if (!usernameAccepted) {
+      logger.error(`[LIFEFILE PRESCRIPTION] Username not in accepted list: ${providedUsername}`);
+      return { clinic: null, authenticated: false };
+    }
 
     // Get all clinics with inbound webhooks enabled
     const clinics = await prisma.clinic.findMany({
@@ -78,32 +83,28 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
 
     // Find clinic by matching password
     for (const clinic of clinics) {
-      const decryptedPassword = safeDecrypt(clinic.lifefileInboundPassword);
-      const decryptedUsername = safeDecrypt(clinic.lifefileInboundUsername);
+      let decryptedPassword: string | null = null;
       
-      logger.info(`[LIFEFILE PRESCRIPTION] Checking clinic ${clinic.name}`, {
-        usernameAccepted,
-        providedUsername,
-        decryptedUsername: decryptedUsername ? decryptedUsername.substring(0, 3) + '...' : null,
-        passwordDecrypted: decryptedPassword !== clinic.lifefileInboundPassword,
-        passwordLength: decryptedPassword?.length,
-      });
-      
-      // Accept if password matches AND username is either configured or in accepted list
-      const usernameMatch = usernameAccepted || providedUsername === decryptedUsername;
-      const passwordMatch = providedPassword === decryptedPassword;
+      try {
+        decryptedPassword = decrypt(clinic.lifefileInboundPassword);
+        logger.info(`[LIFEFILE PRESCRIPTION] Decrypted password for ${clinic.name}: length=${decryptedPassword?.length}`);
+      } catch (e: any) {
+        logger.error(`[LIFEFILE PRESCRIPTION] Decryption failed for ${clinic.name}:`, e.message);
+        // Continue to try other clinics
+        continue;
+      }
 
-      if (usernameMatch && passwordMatch) {
-        logger.info(`[LIFEFILE PRESCRIPTION] Authenticated as clinic: ${clinic.name} (username: ${providedUsername})`);
+      if (decryptedPassword && providedPassword === decryptedPassword) {
+        logger.info(`[LIFEFILE PRESCRIPTION] Authenticated as clinic: ${clinic.name}`);
         return { clinic, authenticated: true };
       }
     }
 
-    logger.error(`[LIFEFILE PRESCRIPTION] No clinic found for credentials (username: ${providedUsername})`);
+    logger.error(`[LIFEFILE PRESCRIPTION] No clinic found with matching password`);
     return { clinic: null, authenticated: false };
 
   } catch (error) {
-    logger.error('[LIFEFILE PRESCRIPTION] Error parsing auth header:', error);
+    logger.error('[LIFEFILE PRESCRIPTION] Error in auth:', error);
     return null;
   }
 }
