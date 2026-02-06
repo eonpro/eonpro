@@ -14,6 +14,12 @@ import {
   Hash,
   Sparkles,
   Shield,
+  Heart,
+  ThumbsUp,
+  ThumbsDown,
+  HelpCircle,
+  AlertCircle,
+  Laugh,
 } from 'lucide-react';
 
 // =============================================================================
@@ -33,6 +39,20 @@ interface User {
   isPlatformAdmin?: boolean;
 }
 
+interface ReactionUser {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
+interface Reaction {
+  id: number;
+  emoji: string;
+  userId: number;
+  user: ReactionUser;
+  createdAt: string;
+}
+
 interface Message {
   id: number;
   createdAt: string;
@@ -46,7 +66,20 @@ interface Message {
   sender: User;
   recipient?: User;
   replies?: Message[];
+  reactions?: Reaction[];
 }
+
+// iMessage-style reaction types
+const REACTION_EMOJIS = {
+  love: { icon: Heart, label: 'Love', color: 'text-red-500', bg: 'bg-red-50' },
+  like: { icon: ThumbsUp, label: 'Like', color: 'text-blue-500', bg: 'bg-blue-50' },
+  dislike: { icon: ThumbsDown, label: 'Dislike', color: 'text-gray-500', bg: 'bg-gray-100' },
+  question: { icon: HelpCircle, label: 'Question', color: 'text-purple-500', bg: 'bg-purple-50' },
+  exclamation: { icon: AlertCircle, label: 'Emphasis', color: 'text-orange-500', bg: 'bg-orange-50' },
+  laugh: { icon: Laugh, label: 'Ha ha', color: 'text-yellow-500', bg: 'bg-yellow-50' },
+} as const;
+
+type ReactionType = keyof typeof REACTION_EMOJIS;
 
 interface InternalChatProps {
   currentUserId: number;
@@ -72,6 +105,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   const [lastUnreadMessages, setLastUnreadMessages] = useState<Message[]>([]);
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>('default');
+  const [activeReactionPicker, setActiveReactionPicker] = useState<number | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -347,6 +381,22 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Close reaction picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Close if clicking outside the reaction picker area
+      if (activeReactionPicker && !target.closest('[data-reaction-picker]')) {
+        setActiveReactionPicker(null);
+      }
+    };
+
+    if (activeReactionPicker) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [activeReactionPicker]);
+
   useEffect(() => {
     if (isOpen && selectedRecipient) {
       // Poll every 4 seconds for near real-time message updates
@@ -423,6 +473,97 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     setSelectedRecipient(null);
     setMessages([]);
     setSearchTerm('');
+    setActiveReactionPicker(null);
+  };
+
+  const addReaction = async (messageId: number, emoji: ReactionType) => {
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id === messageId) {
+          const existingReaction = m.reactions?.find(
+            (r) => r.userId === currentUserId && r.emoji === emoji
+          );
+          if (existingReaction) {
+            // Already reacted with this emoji, do nothing
+            return m;
+          }
+          const newReaction: Reaction = {
+            id: Date.now(),
+            emoji,
+            userId: currentUserId,
+            user: { id: currentUserId, firstName: 'You', lastName: '' },
+            createdAt: new Date().toISOString(),
+          };
+          return {
+            ...m,
+            reactions: [...(m.reactions || []), newReaction],
+          };
+        }
+        return m;
+      })
+    );
+    setActiveReactionPicker(null);
+
+    try {
+      const response = await fetch(`/api/internal/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      });
+
+      if (!response.ok) {
+        // Revert optimistic update on error
+        fetchMessages();
+      }
+    } catch (error) {
+      logger.error('Error adding reaction:', error);
+      fetchMessages();
+    }
+  };
+
+  const removeReaction = async (messageId: number, emoji: string) => {
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id === messageId) {
+          return {
+            ...m,
+            reactions: m.reactions?.filter(
+              (r) => !(r.userId === currentUserId && r.emoji === emoji)
+            ),
+          };
+        }
+        return m;
+      })
+    );
+
+    try {
+      const response = await fetch(
+        `/api/internal/messages/${messageId}/reactions?emoji=${emoji}`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        fetchMessages();
+      }
+    } catch (error) {
+      logger.error('Error removing reaction:', error);
+      fetchMessages();
+    }
+  };
+
+  const toggleReaction = (messageId: number, emoji: ReactionType) => {
+    const message = messages.find((m) => m.id === messageId);
+    const existingReaction = message?.reactions?.find(
+      (r) => r.userId === currentUserId && r.emoji === emoji
+    );
+
+    if (existingReaction) {
+      removeReaction(messageId, emoji);
+    } else {
+      addReaction(messageId, emoji);
+    }
   };
 
   // ===========================================================================
@@ -693,6 +834,17 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                         new Date(messages[index - 1].createdAt).getTime() >
                         300000;
 
+                    // Group reactions by emoji
+                    const reactionGroups = (message.reactions || []).reduce((acc, r) => {
+                      if (!acc[r.emoji]) {
+                        acc[r.emoji] = [];
+                      }
+                      acc[r.emoji].push(r);
+                      return acc;
+                    }, {} as Record<string, Reaction[]>);
+
+                    const hasReactions = Object.keys(reactionGroups).length > 0;
+
                     return (
                       <div key={message.id}>
                         {showTimestamp && (
@@ -700,33 +852,107 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                             {formatTime(message.createdAt)}
                           </p>
                         )}
-                        <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                          <div
-                            className={`max-w-[75%] rounded-2xl px-3.5 py-2 ${
-                              isOwn
-                                ? 'rounded-br-md bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                                : 'rounded-bl-md bg-gray-100 text-gray-900'
-                            }`}
-                          >
-                            <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
-                              {message.message}
-                            </p>
+                        <div className={`group flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                          <div className="relative max-w-[75%]">
+                            {/* Message Bubble */}
                             <div
-                              className={`mt-1 flex items-center justify-end gap-1 ${isOwn ? 'text-blue-200' : 'text-gray-400'}`}
+                              className={`rounded-2xl px-3.5 py-2 ${
+                                isOwn
+                                  ? 'rounded-br-md bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                                  : 'rounded-bl-md bg-gray-100 text-gray-900'
+                              }`}
+                              onDoubleClick={() => setActiveReactionPicker(
+                                activeReactionPicker === message.id ? null : message.id
+                              )}
                             >
-                              <span className="text-[10px]">
-                                {new Date(message.createdAt).toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                              {isOwn &&
-                                (message.isRead ? (
-                                  <CheckCheck className="h-3 w-3" />
-                                ) : (
-                                  <Check className="h-3 w-3" />
-                                ))}
+                              <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
+                                {message.message}
+                              </p>
+                              <div
+                                className={`mt-1 flex items-center justify-end gap-1 ${isOwn ? 'text-blue-200' : 'text-gray-400'}`}
+                              >
+                                <span className="text-[10px]">
+                                  {new Date(message.createdAt).toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                                {isOwn &&
+                                  (message.isRead ? (
+                                    <CheckCheck className="h-3 w-3" />
+                                  ) : (
+                                    <Check className="h-3 w-3" />
+                                  ))}
+                              </div>
                             </div>
+
+                            {/* Reactions Display */}
+                            {hasReactions && (
+                              <div className={`mt-1 flex flex-wrap gap-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                {Object.entries(reactionGroups).map(([emoji, reactions]) => {
+                                  const config = REACTION_EMOJIS[emoji as ReactionType];
+                                  if (!config) return null;
+                                  const Icon = config.icon;
+                                  const hasUserReacted = reactions.some(r => r.userId === currentUserId);
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => toggleReaction(message.id, emoji as ReactionType)}
+                                      className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] transition-all ${
+                                        hasUserReacted
+                                          ? `${config.bg} ${config.color} ring-1 ring-inset ring-current/20`
+                                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                      }`}
+                                      title={reactions.map(r => `${r.user.firstName} ${r.user.lastName}`.trim()).join(', ')}
+                                    >
+                                      <Icon className="h-3 w-3" />
+                                      {reactions.length > 1 && <span>{reactions.length}</span>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Reaction Picker (shows on double-click or hover) */}
+                            {activeReactionPicker === message.id && (
+                              <div
+                                data-reaction-picker
+                                className={`absolute ${isOwn ? 'right-0' : 'left-0'} -top-10 z-10 flex gap-0.5 rounded-full bg-white p-1 shadow-lg ring-1 ring-gray-200`}
+                              >
+                                {(Object.keys(REACTION_EMOJIS) as ReactionType[]).map((emoji) => {
+                                  const config = REACTION_EMOJIS[emoji];
+                                  const Icon = config.icon;
+                                  const hasUserReacted = message.reactions?.some(
+                                    (r) => r.userId === currentUserId && r.emoji === emoji
+                                  );
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => toggleReaction(message.id, emoji)}
+                                      className={`rounded-full p-1.5 transition-all hover:scale-110 ${
+                                        hasUserReacted
+                                          ? `${config.bg} ${config.color}`
+                                          : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
+                                      }`}
+                                      title={config.label}
+                                    >
+                                      <Icon className="h-4 w-4" />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Hover indicator to open reaction picker */}
+                            <button
+                              onClick={() => setActiveReactionPicker(
+                                activeReactionPicker === message.id ? null : message.id
+                              )}
+                              className={`absolute ${isOwn ? '-left-7' : '-right-7'} top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100`}
+                              title="Add reaction"
+                            >
+                              <Heart className="h-4 w-4" />
+                            </button>
                           </div>
                         </div>
                       </div>

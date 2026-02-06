@@ -913,6 +913,7 @@ model User {
   // Internal Communication Relations
   sentMessages        InternalMessage[]     @relation("SentMessages")
   receivedMessages    InternalMessage[]     @relation("ReceivedMessages")
+  messageReactions    MessageReaction[]     @relation("MessageReactions")
   ticketsCreated      Ticket[]              @relation("TicketsCreated")
   ticketsAssigned     Ticket[]              @relation("TicketsAssigned")
   ticketsResolved     Ticket[]              @relation("TicketsResolved")
@@ -1659,10 +1660,25 @@ model InternalMessage {
   parentMessage   InternalMessage?    @relation("MessageThread", fields: [parentMessageId], references: [id])
   replies         InternalMessage[]   @relation("MessageThread")
   metadata        Json? // Additional context
+  reactions       MessageReaction[]   // iMessage-style reactions (love, like, etc.)
 
   @@index([senderId, createdAt])
   @@index([recipientId, isRead])
   @@index([channelId, createdAt])
+}
+
+// Message Reactions (iMessage-style: love, like, dislike, question, exclamation, laugh)
+model MessageReaction {
+  id        Int             @id @default(autoincrement())
+  messageId Int
+  message   InternalMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User            @relation("MessageReactions", fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String          // "love", "like", "dislike", "question", "exclamation", "laugh"
+  createdAt DateTime        @default(now())
+
+  @@unique([messageId, userId, emoji]) // One reaction type per user per message
+  @@index([messageId])
 }
 
 model Ticket {

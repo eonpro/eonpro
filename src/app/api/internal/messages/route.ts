@@ -114,6 +114,20 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           createdAt: 'asc' as const
         },
         take: 10 // Limit replies per message
+      },
+      reactions: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'asc' as const
+        }
       }
     };
 
