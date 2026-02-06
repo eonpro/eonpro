@@ -865,7 +865,7 @@ export default function ClinicDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#efece7]">
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-transparent border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
