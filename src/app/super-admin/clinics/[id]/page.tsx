@@ -672,8 +672,19 @@ export default function ClinicDetailPage() {
   // Track if lifefile settings have been fetched to prevent duplicate calls
   const lifefileSettingsFetchedRef = useRef(false);
 
+  // Sync activeTab with URL param (handles hydration timing issues)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && tabParam !== activeTab) {
+      console.log('[TAB SYNC] Syncing tab from URL:', tabParam);
+      setActiveTab(tabParam as typeof activeTab);
+    }
+  }, [searchParams]);
+
   // Fetch Lifefile settings when on pharmacy tab
   useEffect(() => {
+    console.log('[LIFEFILE EFFECT] Check:', { activeTab, fetched: lifefileSettingsFetchedRef.current, loading: loadingLifefile });
+    
     // Only fetch if on pharmacy tab and haven't fetched yet
     if (activeTab === 'pharmacy' && !lifefileSettingsFetchedRef.current && !loadingLifefile) {
       console.log('[LIFEFILE] Fetching settings for pharmacy tab');
