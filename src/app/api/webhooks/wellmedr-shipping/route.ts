@@ -82,18 +82,23 @@ const shippingPayloadSchema = z.object({
 type ShippingPayload = z.infer<typeof shippingPayloadSchema>;
 
 /**
+ * Accepted usernames for this webhook (LifeFile may use different usernames)
+ */
+const ACCEPTED_USERNAMES = ['wellmedr_shipping', 'lifefile_webhook', 'lifefile_datapush'];
+
+/**
  * Verify Basic Authentication against clinic's configured credentials
+ * Accepts any of the known LifeFile usernames as long as password matches
  */
 async function verifyBasicAuth(
   authHeader: string | null,
   clinic: { lifefileInboundUsername: string | null; lifefileInboundPassword: string | null }
 ): Promise<boolean> {
-  // Get expected credentials from clinic config
-  const expectedUsername = safeDecryptCredential(clinic.lifefileInboundUsername);
+  // Get expected password from clinic config
   const expectedPassword = safeDecryptCredential(clinic.lifefileInboundPassword);
 
-  if (!expectedUsername || !expectedPassword) {
-    logger.error('[WELLMEDR SHIPPING] No inbound webhook credentials configured for clinic');
+  if (!expectedPassword) {
+    logger.error('[WELLMEDR SHIPPING] No inbound webhook password configured for clinic');
     return false;
   }
 
@@ -108,8 +113,14 @@ async function verifyBasicAuth(
     const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
     const [username, password] = credentials.split(':');
 
-    if (username === expectedUsername && password === expectedPassword) {
-      logger.info('[WELLMEDR SHIPPING] Authentication successful');
+    // Check if username is one of the accepted patterns
+    const usernameAccepted = ACCEPTED_USERNAMES.includes(username);
+    // Also accept the configured username from admin UI
+    const configuredUsername = safeDecryptCredential(clinic.lifefileInboundUsername);
+    const usernameMatch = usernameAccepted || username === configuredUsername;
+
+    if (usernameMatch && password === expectedPassword) {
+      logger.info(`[WELLMEDR SHIPPING] Authentication successful (username: ${username})`);
       return true;
     }
 

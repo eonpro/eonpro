@@ -27,14 +27,17 @@ function safeDecrypt(value: string | null | undefined): string | null {
 }
 
 /**
- * Find clinic by username in Authorization header
+ * Accepted usernames for LifeFile webhooks
+ */
+const ACCEPTED_USERNAMES = ['wellmedr_shipping', 'lifefile_webhook', 'lifefile_datapush'];
+
+/**
+ * Find clinic by matching password (accepts known LifeFile usernames)
  * Searches all clinics with inbound webhooks enabled
  */
-async function findClinicByUsername(authHeader: string | null): Promise<{
+async function findClinicByCredentials(authHeader: string | null): Promise<{
   clinic: any;
   authenticated: boolean;
-  providedUsername: string;
-  providedPassword: string;
 } | null> {
   if (!authHeader) {
     logger.error('[LIFEFILE PRESCRIPTION] Missing Authorization header');
@@ -52,11 +55,13 @@ async function findClinicByUsername(authHeader: string | null): Promise<{
       return null;
     }
 
+    // Check if username is one of the accepted LifeFile patterns
+    const usernameAccepted = ACCEPTED_USERNAMES.includes(providedUsername);
+
     // Get all clinics with inbound webhooks enabled
     const clinics = await prisma.clinic.findMany({
       where: {
         lifefileInboundEnabled: true,
-        lifefileInboundUsername: { not: null },
         lifefileInboundPassword: { not: null },
       },
       select: {
@@ -69,37 +74,23 @@ async function findClinicByUsername(authHeader: string | null): Promise<{
       },
     });
 
-    // Find matching clinic by decrypted username
+    // Find clinic by matching password
     for (const clinic of clinics) {
+      const decryptedPassword = safeDecrypt(clinic.lifefileInboundPassword);
       const decryptedUsername = safeDecrypt(clinic.lifefileInboundUsername);
       
-      if (decryptedUsername === providedUsername) {
-        // Found matching clinic, now verify password
-        const decryptedPassword = safeDecrypt(clinic.lifefileInboundPassword);
-        const authenticated = decryptedPassword === providedPassword;
+      // Accept if password matches AND username is either configured or in accepted list
+      const usernameMatch = usernameAccepted || providedUsername === decryptedUsername;
+      const passwordMatch = providedPassword === decryptedPassword;
 
-        if (authenticated) {
-          logger.info(`[LIFEFILE PRESCRIPTION] Authenticated as clinic: ${clinic.name}`);
-        } else {
-          logger.error(`[LIFEFILE PRESCRIPTION] Password mismatch for clinic: ${clinic.name}`);
-        }
-
-        return {
-          clinic,
-          authenticated,
-          providedUsername,
-          providedPassword,
-        };
+      if (usernameMatch && passwordMatch) {
+        logger.info(`[LIFEFILE PRESCRIPTION] Authenticated as clinic: ${clinic.name} (username: ${providedUsername})`);
+        return { clinic, authenticated: true };
       }
     }
 
-    logger.error(`[LIFEFILE PRESCRIPTION] No clinic found for username: ${providedUsername}`);
-    return {
-      clinic: null,
-      authenticated: false,
-      providedUsername,
-      providedPassword,
-    };
+    logger.error(`[LIFEFILE PRESCRIPTION] No clinic found for credentials (username: ${providedUsername})`);
+    return { clinic: null, authenticated: false };
 
   } catch (error) {
     logger.error('[LIFEFILE PRESCRIPTION] Error parsing auth header:', error);
@@ -135,9 +126,9 @@ export async function POST(req: NextRequest) {
 
     logger.info('[LIFEFILE PRESCRIPTION] Webhook received');
 
-    // Find and authenticate clinic by username
+    // Find and authenticate clinic by credentials
     const authHeader = req.headers.get('authorization');
-    const authResult = await findClinicByUsername(authHeader);
+    const authResult = await findClinicByCredentials(authHeader);
 
     if (!authResult || !authResult.clinic || !authResult.authenticated) {
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
