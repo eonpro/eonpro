@@ -2,78 +2,110 @@
  * Webhook endpoint for Lifefile prescription status updates
  * Receives real-time updates about prescription fulfillment
  * 
- * Authentication: Basic Auth with lifefile_webhook credentials
+ * CREDENTIALS: Looks up clinic by username from Inbound Webhook Settings
+ * Configure at: /super-admin/clinics/[id] -> Pharmacy tab -> Inbound Webhook Settings
+ * 
+ * Authentication: Basic Auth - username determines which clinic
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { WebhookStatus } from '@prisma/client';
-import { z } from 'zod';
-
-// Configuration
-const WEBHOOK_USERNAME = process.env.LIFEFILE_WEBHOOK_USERNAME || 'lifefile_webhook';
-const WEBHOOK_PASSWORD = process.env.LIFEFILE_WEBHOOK_PASSWORD || '';
+import { decrypt } from '@/lib/security/encryption';
 
 /**
- * Verify Basic Authentication
+ * Safely decrypt a credential field
  */
-function verifyBasicAuth(authHeader: string | null): boolean {
-  const isDevelopment = process.env.NODE_ENV !== 'production';
-
-  if (!WEBHOOK_PASSWORD) {
-    if (isDevelopment) {
-      logger.warn('[LIFEFILE PRESCRIPTION] No auth configured, accepting (development mode)');
-      return true;
-    } else {
-      logger.error('[LIFEFILE PRESCRIPTION] No auth configured in production');
-      return false;
-    }
-  }
-
-  if (!authHeader) {
-    logger.error('[LIFEFILE PRESCRIPTION] Missing Authorization header');
-    return false;
-  }
-
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
   try {
-    const base64Credentials = authHeader.replace(/^Basic\s+/i, '');
-    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-    const [username, password] = credentials.split(':');
-
-    if (username === WEBHOOK_USERNAME && password === WEBHOOK_PASSWORD) {
-      logger.info('[LIFEFILE PRESCRIPTION] Authentication successful');
-      return true;
-    }
-
-    logger.error('[LIFEFILE PRESCRIPTION] Authentication failed - invalid credentials');
-    return false;
-  } catch (error) {
-    logger.error('[LIFEFILE PRESCRIPTION] Error parsing auth header:', error);
-    return false;
+    return decrypt(value) || value;
+  } catch {
+    return value;
   }
 }
 
-// Flexible payload schema - accept various formats from Lifefile
-const prescriptionUpdateSchema = z.object({
-  // Event info
-  orderId: z.string().optional(),
-  referenceId: z.string().optional(),
-  status: z.string().optional(),
-  
-  // Tracking info
-  trackingNumber: z.string().optional(),
-  trackingUrl: z.string().optional(),
-  carrier: z.string().optional(),
-  
-  // Timestamps
-  shippedAt: z.string().optional(),
-  deliveredAt: z.string().optional(),
-  
-  // Additional data
-  notes: z.string().optional(),
-  metadata: z.any().optional(),
-}).passthrough(); // Allow additional fields
+/**
+ * Find clinic by username in Authorization header
+ * Searches all clinics with inbound webhooks enabled
+ */
+async function findClinicByUsername(authHeader: string | null): Promise<{
+  clinic: any;
+  authenticated: boolean;
+  providedUsername: string;
+  providedPassword: string;
+} | null> {
+  if (!authHeader) {
+    logger.error('[LIFEFILE PRESCRIPTION] Missing Authorization header');
+    return null;
+  }
+
+  try {
+    // Parse Basic auth header
+    const base64Credentials = authHeader.replace(/^Basic\s+/i, '');
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+    const [providedUsername, providedPassword] = credentials.split(':');
+
+    if (!providedUsername) {
+      logger.error('[LIFEFILE PRESCRIPTION] No username in auth header');
+      return null;
+    }
+
+    // Get all clinics with inbound webhooks enabled
+    const clinics = await prisma.clinic.findMany({
+      where: {
+        lifefileInboundEnabled: true,
+        lifefileInboundUsername: { not: null },
+        lifefileInboundPassword: { not: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        lifefileInboundUsername: true,
+        lifefileInboundPassword: true,
+        lifefileInboundEvents: true,
+      },
+    });
+
+    // Find matching clinic by decrypted username
+    for (const clinic of clinics) {
+      const decryptedUsername = safeDecrypt(clinic.lifefileInboundUsername);
+      
+      if (decryptedUsername === providedUsername) {
+        // Found matching clinic, now verify password
+        const decryptedPassword = safeDecrypt(clinic.lifefileInboundPassword);
+        const authenticated = decryptedPassword === providedPassword;
+
+        if (authenticated) {
+          logger.info(`[LIFEFILE PRESCRIPTION] Authenticated as clinic: ${clinic.name}`);
+        } else {
+          logger.error(`[LIFEFILE PRESCRIPTION] Password mismatch for clinic: ${clinic.name}`);
+        }
+
+        return {
+          clinic,
+          authenticated,
+          providedUsername,
+          providedPassword,
+        };
+      }
+    }
+
+    logger.error(`[LIFEFILE PRESCRIPTION] No clinic found for username: ${providedUsername}`);
+    return {
+      clinic: null,
+      authenticated: false,
+      providedUsername,
+      providedPassword,
+    };
+
+  } catch (error) {
+    logger.error('[LIFEFILE PRESCRIPTION] Error parsing auth header:', error);
+    return null;
+  }
+}
 
 /**
  * POST /api/webhooks/lifefile/prescription-status
@@ -103,14 +135,22 @@ export async function POST(req: NextRequest) {
 
     logger.info('[LIFEFILE PRESCRIPTION] Webhook received');
 
-    // Verify Basic Auth
+    // Find and authenticate clinic by username
     const authHeader = req.headers.get('authorization');
-    if (!verifyBasicAuth(authHeader)) {
+    const authResult = await findClinicByUsername(authHeader);
+
+    if (!authResult || !authResult.clinic || !authResult.authenticated) {
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
+      webhookLogData.errorMessage = !authResult?.clinic 
+        ? 'Clinic not found for username' 
+        : 'Invalid password';
       await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const clinic = authResult.clinic;
+    webhookLogData.clinicId = clinic.id;
 
     // Parse payload
     let payload: any;
@@ -132,11 +172,12 @@ export async function POST(req: NextRequest) {
     const trackingNumber = payload.trackingNumber || payload.tracking_number;
     const trackingUrl = payload.trackingUrl || payload.tracking_url;
 
-    logger.info(`[LIFEFILE PRESCRIPTION] Processing - Order: ${orderId}, Status: ${status}`);
+    logger.info(`[LIFEFILE PRESCRIPTION] Processing - Clinic: ${clinic.name}, Order: ${orderId}, Status: ${status}`);
 
-    // Find the order
+    // Find the order (scoped to the authenticated clinic)
     const order = await prisma.order.findFirst({
       where: {
+        clinicId: clinic.id,
         OR: [
           { lifefileOrderId: orderId || '' },
           { referenceId: referenceId || '' },
@@ -160,6 +201,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         message: 'Order not found',
+        clinic: clinic.name,
         orderId,
         referenceId,
       }, { status: 202 });
@@ -196,7 +238,6 @@ export async function POST(req: NextRequest) {
     // Log success
     webhookLogData.status = WebhookStatus.SUCCESS;
     webhookLogData.statusCode = 200;
-    webhookLogData.clinicId = order.patient?.clinicId;
     webhookLogData.responseData = {
       orderId: order.id,
       status,
@@ -211,6 +252,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Prescription status updated',
+      clinic: clinic.name,
       orderId: order.id,
       status,
       trackingNumber,
@@ -237,11 +279,21 @@ export async function POST(req: NextRequest) {
 
 // Health check endpoint
 export async function GET() {
+  // Count clinics with inbound webhooks configured
+  const configuredClinics = await prisma.clinic.count({
+    where: {
+      lifefileInboundEnabled: true,
+      lifefileInboundUsername: { not: null },
+      lifefileInboundPassword: { not: null },
+    },
+  });
+
   return NextResponse.json({
     status: 'healthy',
     endpoint: '/api/webhooks/lifefile/prescription-status',
-    authentication: 'Basic Auth',
-    configured: !!WEBHOOK_PASSWORD,
+    authentication: 'Basic Auth (username determines clinic)',
+    configuredClinics,
+    configuredVia: 'Admin UI - Inbound Webhook Settings',
     timestamp: new Date().toISOString(),
   });
 }

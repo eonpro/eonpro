@@ -4,7 +4,9 @@
  * Receives shipping/tracking updates from Lifefile for Wellmedr prescriptions.
  * Stores data at the patient profile level in PatientShippingUpdate table.
  * 
- * Similar to NewSelf's shipping webhook endpoint pattern:
+ * CREDENTIALS: Read from clinic's Inbound Webhook Settings in admin UI
+ * Configure at: /super-admin/clinics/[id] -> Pharmacy tab -> Inbound Webhook Settings
+ * 
  * curl -X POST https://app.eonpro.io/api/webhooks/wellmedr-shipping \
  *   -H "Authorization: Basic $(echo -n 'username:password' | base64)" \
  *   -H "Content-Type: application/json" \
@@ -17,6 +19,7 @@ import { logger } from '@/lib/logger';
 import { ShippingStatus, WebhookStatus } from '@prisma/client';
 import { z } from 'zod';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { decrypt } from '@/lib/security/encryption';
 
 /**
  * Safely decrypt a PHI field, returning original value if decryption fails
@@ -30,15 +33,19 @@ function safeDecrypt(value: string | null | undefined): string | null {
   }
 }
 
-// Configuration
-const WEBHOOK_USERNAME = process.env.WELLMEDR_SHIPPING_WEBHOOK_USERNAME || 
-                        process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET?.split(':')[0] ||
-                        'wellmedr_shipping';
-const WEBHOOK_PASSWORD = process.env.WELLMEDR_SHIPPING_WEBHOOK_PASSWORD || 
-                        process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET?.split(':')[1] ||
-                        '';
+/**
+ * Safely decrypt a credential field
+ */
+function safeDecryptCredential(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decrypt(value) || value;
+  } catch {
+    return value;
+  }
+}
 
-// Wellmedr clinic subdomain (hardcoded for security)
+// Wellmedr clinic subdomain (hardcoded for this endpoint)
 const WELLMEDR_SUBDOMAIN = 'wellmedr';
 
 // Payload validation schema
@@ -75,20 +82,19 @@ const shippingPayloadSchema = z.object({
 type ShippingPayload = z.infer<typeof shippingPayloadSchema>;
 
 /**
- * Verify Basic Authentication
+ * Verify Basic Authentication against clinic's configured credentials
  */
-function verifyBasicAuth(authHeader: string | null): boolean {
-  // In development, allow without auth if not configured
-  const isDevelopment = process.env.NODE_ENV !== 'production';
-  
-  if (!WEBHOOK_PASSWORD) {
-    if (isDevelopment) {
-      logger.warn('[WELLMEDR SHIPPING] No authentication configured, accepting request (development mode)');
-      return true;
-    } else {
-      logger.error('[WELLMEDR SHIPPING] No authentication configured in production');
-      return false;
-    }
+async function verifyBasicAuth(
+  authHeader: string | null,
+  clinic: { lifefileInboundUsername: string | null; lifefileInboundPassword: string | null }
+): Promise<boolean> {
+  // Get expected credentials from clinic config
+  const expectedUsername = safeDecryptCredential(clinic.lifefileInboundUsername);
+  const expectedPassword = safeDecryptCredential(clinic.lifefileInboundPassword);
+
+  if (!expectedUsername || !expectedPassword) {
+    logger.error('[WELLMEDR SHIPPING] No inbound webhook credentials configured for clinic');
+    return false;
   }
 
   if (!authHeader) {
@@ -102,7 +108,7 @@ function verifyBasicAuth(authHeader: string | null): boolean {
     const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
     const [username, password] = credentials.split(':');
 
-    if (username === WEBHOOK_USERNAME && password === WEBHOOK_PASSWORD) {
+    if (username === expectedUsername && password === expectedPassword) {
       logger.info('[WELLMEDR SHIPPING] Authentication successful');
       return true;
     }
@@ -286,9 +292,42 @@ export async function POST(req: NextRequest) {
     webhookLogData.ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     webhookLogData.userAgent = req.headers.get('user-agent') || 'unknown';
 
-    // Verify authentication
+    // Get Wellmedr clinic with inbound webhook credentials
+    const clinic = await prisma.clinic.findUnique({
+      where: { subdomain: WELLMEDR_SUBDOMAIN },
+      select: {
+        id: true,
+        name: true,
+        lifefileInboundEnabled: true,
+        lifefileInboundUsername: true,
+        lifefileInboundPassword: true,
+        lifefileInboundEvents: true,
+      },
+    });
+
+    if (!clinic) {
+      logger.error('[WELLMEDR SHIPPING] Wellmedr clinic not found');
+      return NextResponse.json(
+        { error: 'Clinic not found' },
+        { status: 500 }
+      );
+    }
+
+    if (!clinic.lifefileInboundEnabled) {
+      logger.warn('[WELLMEDR SHIPPING] Inbound webhook not enabled for clinic');
+      return NextResponse.json(
+        { error: 'Webhook not enabled' },
+        { status: 403 }
+      );
+    }
+
+    webhookLogData.clinicId = clinic.id;
+
+    // Verify authentication against clinic's configured credentials
     const authHeader = req.headers.get('authorization');
-    if (!verifyBasicAuth(authHeader)) {
+    const isAuthenticated = await verifyBasicAuth(authHeader, clinic);
+    
+    if (!isAuthenticated) {
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
@@ -346,20 +385,6 @@ export async function POST(req: NextRequest) {
     const data: ShippingPayload = parseResult.data;
     
     logger.info(`[WELLMEDR SHIPPING] Processing shipment - Order: ${data.orderId}, Tracking: ${data.trackingNumber}`);
-
-    // Get Wellmedr clinic (hardcoded for security)
-    const clinic = await prisma.clinic.findUnique({
-      where: { subdomain: WELLMEDR_SUBDOMAIN },
-    });
-
-    if (!clinic) {
-      logger.error('[WELLMEDR SHIPPING] Wellmedr clinic not found');
-      
-      return NextResponse.json(
-        { error: 'Clinic not found', message: 'Wellmedr clinic not configured' },
-        { status: 500 }
-      );
-    }
 
     // Find patient and order
     const result = await findPatient(
@@ -563,19 +588,29 @@ export async function POST(req: NextRequest) {
  * GET /api/webhooks/wellmedr-shipping
  * Health check endpoint
  */
-export async function GET(req: NextRequest) {
-  // Verify clinic exists
+export async function GET() {
+  // Verify clinic exists and check inbound webhook config
   const clinic = await prisma.clinic.findUnique({
     where: { subdomain: WELLMEDR_SUBDOMAIN },
-    select: { id: true, name: true, lifefileEnabled: true },
+    select: {
+      id: true,
+      name: true,
+      lifefileEnabled: true,
+      lifefileInboundEnabled: true,
+      lifefileInboundUsername: true,
+      lifefileInboundPassword: true,
+    },
   });
+
+  const hasCredentials = !!(clinic?.lifefileInboundUsername && clinic?.lifefileInboundPassword);
 
   return NextResponse.json({
     status: 'ok',
     endpoint: '/api/webhooks/wellmedr-shipping',
     clinic: clinic?.name || 'Not Found',
-    lifefileEnabled: clinic?.lifefileEnabled || false,
-    configured: !!(WEBHOOK_PASSWORD),
+    inboundEnabled: clinic?.lifefileInboundEnabled || false,
+    configured: hasCredentials,
+    configuredVia: 'Admin UI - Inbound Webhook Settings',
     authentication: 'Basic Auth',
     accepts: ['application/json'],
     usage: {
