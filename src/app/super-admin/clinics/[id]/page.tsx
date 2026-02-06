@@ -9,7 +9,7 @@ import {
   Users, Activity, Calendar, Settings, AlertTriangle, Plus,
   UserPlus, Mail, Shield, X, Eye, EyeOff, Pill, FileText,
   CheckCircle2, XCircle, ExternalLink, Zap, Image as ImageIcon,
-  Key, Copy, Check, Package, ClipboardList
+  Key, Copy, Check, Package, ClipboardList, AlertCircle
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 import { CheckboxGroup } from '@/components/ui/Checkbox';
@@ -144,7 +144,9 @@ export default function ClinicDetailPage() {
   const [loadingLifefile, setLoadingLifefile] = useState(false);
   const [savingLifefile, setSavingLifefile] = useState(false);
   const [testingLifefile, setTestingLifefile] = useState(false);
+  const [testingInbound, setTestingInbound] = useState(false);
   const [lifefileMessage, setLifefileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [inboundMessage, setInboundMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Users state
   const [clinicUsers, setClinicUsers] = useState<ClinicUser[]>([]);
@@ -685,7 +687,7 @@ export default function ClinicDetailPage() {
       if (response.ok) {
         const data = await response.json();
         const s = data.settings;
-        
+
         // Only update if we got valid settings back
         if (s) {
           setLifefileSettings(prev => ({
@@ -764,7 +766,11 @@ export default function ClinicDetailPage() {
       const token = localStorage.getItem('auth-token');
       const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ testType: 'outbound' }),
       });
 
       const data = await response.json();
@@ -777,6 +783,34 @@ export default function ClinicDetailPage() {
       setLifefileMessage({ type: 'error', text: 'Failed to test connection' });
     } finally {
       setTestingLifefile(false);
+    }
+  };
+
+  const handleTestInbound = async () => {
+    setTestingInbound(true);
+    setInboundMessage(null);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ testType: 'inbound' }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setInboundMessage({ type: 'success', text: data.message || 'Inbound webhook test successful!' });
+      } else {
+        const errorDetails = data.details ? `: ${data.details.join(', ')}` : '';
+        setInboundMessage({ type: 'error', text: (data.error || 'Test failed') + errorDetails });
+      }
+    } catch (error) {
+      setInboundMessage({ type: 'error', text: 'Failed to test inbound webhook' });
+    } finally {
+      setTestingInbound(false);
     }
   };
 
@@ -1852,8 +1886,8 @@ export default function ClinicDetailPage() {
                                 }}
                                 className={`
                                   relative flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all
-                                  ${isChecked 
-                                    ? 'border-green-500 bg-green-50 shadow-md' 
+                                  ${isChecked
+                                    ? 'border-green-500 bg-green-50 shadow-md'
                                     : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
                                   }
                                 `}
@@ -1890,6 +1924,35 @@ export default function ClinicDetailPage() {
                         </code>
                       </div>
                     )}
+
+                    {/* Inbound Test Message */}
+                    {inboundMessage && (
+                      <div className={`mt-4 p-4 rounded-lg ${inboundMessage.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                        <div className="flex items-center gap-2">
+                          {inboundMessage.type === 'success' ? (
+                            <Check className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-red-600" />
+                          )}
+                          <span>{inboundMessage.text}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Test Inbound Button */}
+                    <div className="mt-6 flex items-center justify-between pt-4 border-t border-gray-200">
+                      <div className="text-sm text-gray-500">
+                        Test your inbound webhook configuration
+                      </div>
+                      <button
+                        onClick={handleTestInbound}
+                        disabled={testingInbound || !lifefileSettings.lifefileInboundPath || !lifefileSettings.lifefileInboundUsername}
+                        className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        <Zap className="h-4 w-4" />
+                        {testingInbound ? 'Testing...' : 'Test Inbound Webhook'}
+                      </button>
+                    </div>
                   </div>
 
                 {/* Save Button */}

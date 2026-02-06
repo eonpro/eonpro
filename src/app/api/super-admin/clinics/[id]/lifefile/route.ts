@@ -270,9 +270,9 @@ export const PUT = withAuth(
       } else if (settings.lifefileUsername) {
         // Check if value looks already encrypted (3 base64 parts with colons)
         const parts = settings.lifefileUsername.split(':');
-        const looksEncrypted = parts.length === 3 && 
+        const looksEncrypted = parts.length === 3 &&
           parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
-        
+
         if (looksEncrypted) {
           // Already encrypted - store as-is to prevent double encryption
           logger.warn(`[LIFEFILE] Username for clinic ${clinicId} appears already encrypted, storing as-is`);
@@ -291,9 +291,9 @@ export const PUT = withAuth(
       if (settings.lifefilePassword) {
         // Check if value looks already encrypted (3 base64 parts with colons)
         const parts = settings.lifefilePassword.split(':');
-        const looksEncrypted = parts.length === 3 && 
+        const looksEncrypted = parts.length === 3 &&
           parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
-        
+
         if (looksEncrypted) {
           // Already encrypted - store as-is to prevent double encryption
           logger.warn(`[LIFEFILE] Password for clinic ${clinicId} appears already encrypted, storing as-is`);
@@ -471,8 +471,10 @@ export const PUT = withAuth(
 );
 
 /**
- * POST /api/super-admin/clinics/[id]/lifefile/test
- * Test Lifefile connection for a clinic
+ * POST /api/super-admin/clinics/[id]/lifefile
+ * Test Lifefile connection for a clinic (outbound or inbound)
+ *
+ * Body: { testType?: 'outbound' | 'inbound' } - defaults to 'outbound'
  */
 export const POST = withAuth(
   async (req: NextRequest, user: AuthUser, context?: RouteParams) => {
@@ -483,30 +485,197 @@ export const POST = withAuth(
       return Response.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
+    // Parse request body to determine test type
+    let testType: 'outbound' | 'inbound' = 'outbound';
     try {
-      const { getClinicLifefileClient } = await import('@/lib/clinic-lifefile');
-      const client = await getClinicLifefileClient(clinicId);
+      const body = await req.json();
+      if (body.testType === 'inbound') {
+        testType = 'inbound';
+      }
+    } catch {
+      // No body or invalid JSON - default to outbound
+    }
 
-      // Try to make a simple API call to test the connection
-      // This depends on what endpoints Lifefile supports for testing
-      // For now, we'll just verify the client was created successfully
-
-      return Response.json({
-        success: true,
-        message: 'Lifefile connection configured successfully',
-      });
-    } catch (error: any) {
-      logger.error(`[SUPER-ADMIN] Lifefile test failed for clinic ${clinicId}:`, error);
-      return Response.json(
-        {
-          success: false,
-          error: 'Failed to connect to Lifefile',
-          detail: error.message,
-        },
-        { status: 400 }
-      );
+    if (testType === 'inbound') {
+      // Test inbound webhook configuration
+      return testInboundWebhook(clinicId, user);
+    } else {
+      // Test outbound Lifefile API connection
+      return testOutboundConnection(clinicId, user);
     }
   },
   { roles: ['super_admin'] }
 );
+
+/**
+ * Test outbound Lifefile API connection
+ */
+async function testOutboundConnection(clinicId: number, user: AuthUser) {
+  try {
+    const { getClinicLifefileClient } = await import('@/lib/clinic-lifefile');
+    const client = await getClinicLifefileClient(clinicId);
+
+    // Try to make a simple API call to test the connection
+    // This depends on what endpoints Lifefile supports for testing
+    // For now, we'll just verify the client was created successfully
+
+    return Response.json({
+      success: true,
+      message: 'Lifefile connection configured successfully',
+    });
+  } catch (error: any) {
+    logger.error(`[SUPER-ADMIN] Lifefile outbound test failed for clinic ${clinicId}:`, error);
+    return Response.json(
+      {
+        success: false,
+        error: 'Failed to connect to Lifefile',
+        detail: error.message,
+      },
+      { status: 400 }
+    );
+  }
+}
+
+/**
+ * Test inbound webhook configuration by sending a test webhook to ourselves
+ */
+async function testInboundWebhook(clinicId: number, user: AuthUser) {
+  try {
+    // Get clinic's inbound webhook settings
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        lifefileInboundEnabled: true,
+        lifefileInboundPath: true,
+        lifefileInboundUsername: true,
+        lifefileInboundPassword: true,
+        lifefileInboundEvents: true,
+      },
+    });
+
+    if (!clinic) {
+      return Response.json({ success: false, error: 'Clinic not found' }, { status: 404 });
+    }
+
+    // Validate configuration
+    const errors: string[] = [];
+
+    if (!clinic.lifefileInboundEnabled) {
+      errors.push('Inbound webhook is not enabled');
+    }
+
+    if (!clinic.lifefileInboundPath) {
+      errors.push('Webhook path is not configured');
+    }
+
+    if (!clinic.lifefileInboundUsername) {
+      errors.push('Username is not configured');
+    }
+
+    if (!clinic.lifefileInboundPassword) {
+      errors.push('Password is not configured');
+    }
+
+    if (!clinic.lifefileInboundEvents || clinic.lifefileInboundEvents.length === 0) {
+      errors.push('No event types are selected');
+    }
+
+    if (errors.length > 0) {
+      return Response.json({
+        success: false,
+        error: 'Inbound webhook configuration incomplete',
+        details: errors,
+      }, { status: 400 });
+    }
+
+    // Decrypt credentials to send a test request
+    let username: string;
+    let password: string;
+
+    try {
+      username = decrypt(clinic.lifefileInboundUsername!) || clinic.lifefileInboundUsername!;
+    } catch {
+      username = clinic.lifefileInboundUsername!;
+    }
+
+    try {
+      password = decrypt(clinic.lifefileInboundPassword!) || clinic.lifefileInboundPassword!;
+    } catch {
+      password = clinic.lifefileInboundPassword!;
+    }
+
+    // Build the webhook URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://app.eonpro.io');
+    const webhookUrl = `${baseUrl}/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`;
+
+    // Send a test webhook to our own endpoint
+    const testPayload = {
+      type: 'test',
+      testMode: true,
+      timestamp: new Date().toISOString(),
+      message: 'Inbound webhook test from admin panel',
+      testId: `test_${Date.now()}`,
+    };
+
+    const authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
+
+    logger.info(`[SUPER-ADMIN] Testing inbound webhook for clinic ${clinicId}`, {
+      webhookUrl,
+      userId: user.id,
+    });
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader,
+        'X-Webhook-Test': 'true',
+      },
+      body: JSON.stringify(testPayload),
+    });
+
+    const responseText = await response.text();
+    let responseData: any;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      responseData = { raw: responseText };
+    }
+
+    if (response.ok) {
+      logger.info(`[SUPER-ADMIN] Inbound webhook test successful for clinic ${clinicId}`);
+      return Response.json({
+        success: true,
+        message: 'Inbound webhook test successful! Your endpoint is configured correctly.',
+        details: {
+          webhookUrl,
+          statusCode: response.status,
+          response: responseData,
+        },
+      });
+    } else {
+      logger.warn(`[SUPER-ADMIN] Inbound webhook test failed for clinic ${clinicId}`, {
+        status: response.status,
+        response: responseData,
+      });
+      return Response.json({
+        success: false,
+        error: `Webhook test failed with status ${response.status}`,
+        details: {
+          webhookUrl,
+          statusCode: response.status,
+          response: responseData,
+        },
+      }, { status: 400 });
+    }
+  } catch (error: any) {
+    logger.error(`[SUPER-ADMIN] Inbound webhook test error for clinic ${clinicId}:`, error);
+    return Response.json({
+      success: false,
+      error: 'Failed to test inbound webhook',
+      detail: error.message,
+    }, { status: 500 });
+  }
+}
 

@@ -96,7 +96,7 @@ function verifyHmacSignature(
   try {
     // Parse signature header (e.g., "sha256=abc123" or just "abc123")
     const providedSig = signature.replace(/^sha256=/, '');
-    
+
     const expectedSig = crypto
       .createHmac('sha256', secret)
       .update(body)
@@ -606,7 +606,7 @@ export async function POST(req: NextRequest, context: RouteParams) {
     const secret = safeDecrypt(clinic.lifefileInboundSecret);
 
     // Verify IP allowlist
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
                      req.headers.get('x-real-ip') || null;
     if (!isIpAllowed(clientIp, clinic.lifefileInboundAllowedIPs)) {
       logger.warn(`[LIFEFILE INBOUND] IP not allowed: ${clientIp}`);
@@ -645,7 +645,7 @@ export async function POST(req: NextRequest, context: RouteParams) {
     }
 
     // Verify HMAC signature if secret is configured
-    const signature = req.headers.get('x-webhook-signature') || 
+    const signature = req.headers.get('x-webhook-signature') ||
                      req.headers.get('x-lifefile-signature') ||
                      req.headers.get('x-signature');
     if (!verifyHmacSignature(rawBody, signature, secret)) {
@@ -703,6 +703,33 @@ export async function POST(req: NextRequest, context: RouteParams) {
 
     // Route to appropriate handler
     let result: { processed: boolean; details: any };
+
+    // Handle test events from admin panel
+    if (eventType === 'test' || payload.testMode === true) {
+      logger.info('[LIFEFILE INBOUND] Test webhook received', {
+        clinicId: clinic.id,
+        testId: payload.testId,
+      });
+
+      // Log the test event
+      webhookLogData.status = WebhookStatus.SUCCESS;
+      webhookLogData.statusCode = 200;
+      webhookLogData.responseData = { test: true, testId: payload.testId };
+      webhookLogData.processingTimeMs = Date.now() - startTime;
+
+      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: 'Test webhook received successfully',
+        testId: payload.testId,
+        timestamp: new Date().toISOString(),
+        clinic: {
+          id: clinic.id,
+          path: clinicSlug,
+        },
+      });
+    }
 
     if (eventType.includes('shipping') || payload.trackingNumber || payload.deliveryService) {
       result = await processShippingUpdate(clinic.id, payload);
