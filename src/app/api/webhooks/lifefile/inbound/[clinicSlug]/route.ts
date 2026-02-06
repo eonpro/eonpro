@@ -715,31 +715,7 @@ export async function POST(req: NextRequest, context: RouteParams) {
       'unknown'
     ).toLowerCase();
 
-    // Check if event type is allowed
-    const allowedEvents = clinic.lifefileInboundEvents || [];
-    if (allowedEvents.length > 0) {
-      const isEventAllowed = allowedEvents.some((allowed) =>
-        eventType.includes(allowed.toLowerCase())
-      );
-      if (!isEventAllowed) {
-        logger.warn(`[LIFEFILE INBOUND] Event type not allowed: ${eventType}`);
-        webhookLogData.status = WebhookStatus.ERROR;
-        webhookLogData.statusCode = 400;
-        webhookLogData.errorMessage = `Event type '${eventType}' not allowed`;
-
-        await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
-
-        return NextResponse.json(
-          { error: `Event type '${eventType}' not configured for this clinic` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Route to appropriate handler
-    let result: { processed: boolean; details: any };
-
-    // Handle test events from admin panel
+    // Handle test events from admin panel FIRST (bypass event type check)
     if (eventType === 'test' || payload.testMode === true) {
       logger.info('[LIFEFILE INBOUND] Test webhook received', {
         clinicId: clinic.id,
@@ -765,6 +741,30 @@ export async function POST(req: NextRequest, context: RouteParams) {
         },
       });
     }
+
+    // Check if event type is allowed (for non-test events)
+    const allowedEvents = clinic.lifefileInboundEvents || [];
+    if (allowedEvents.length > 0) {
+      const isEventAllowed = allowedEvents.some((allowed) =>
+        eventType.includes(allowed.toLowerCase())
+      );
+      if (!isEventAllowed) {
+        logger.warn(`[LIFEFILE INBOUND] Event type not allowed: ${eventType}`);
+        webhookLogData.status = WebhookStatus.ERROR;
+        webhookLogData.statusCode = 400;
+        webhookLogData.errorMessage = `Event type '${eventType}' not allowed`;
+
+        await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+        return NextResponse.json(
+          { error: `Event type '${eventType}' not configured for this clinic` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Route to appropriate handler
+    let result: { processed: boolean; details: any };
 
     if (eventType.includes('shipping') || payload.trackingNumber || payload.deliveryService) {
       result = await processShippingUpdate(clinic.id, payload);
