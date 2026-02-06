@@ -100,6 +100,18 @@ export default function ClinicDetailPage() {
     lifefilePracticePhone: string;
     lifefilePracticeFax: string;
     hasCredentials: boolean;
+    // Inbound webhook settings
+    lifefileInboundEnabled: boolean;
+    lifefileInboundPath: string;
+    lifefileInboundUsername: string;
+    lifefileInboundPassword: string;
+    lifefileInboundSecret: string;
+    lifefileInboundAllowedIPs: string;
+    lifefileInboundEvents: string[];
+    hasInboundCredentials: boolean;
+    inboundWebhookUrl: string | null;
+    inboundFieldsAvailable: boolean;
+    slug: string | null;
   }>({
     lifefileEnabled: false,
     lifefileBaseUrl: '',
@@ -114,7 +126,20 @@ export default function ClinicDetailPage() {
     lifefilePracticePhone: '',
     lifefilePracticeFax: '',
     hasCredentials: false,
+    // Inbound defaults
+    lifefileInboundEnabled: false,
+    lifefileInboundPath: '',
+    lifefileInboundUsername: '',
+    lifefileInboundPassword: '',
+    lifefileInboundSecret: '',
+    lifefileInboundAllowedIPs: '',
+    lifefileInboundEvents: [],
+    hasInboundCredentials: false,
+    inboundWebhookUrl: null,
+    inboundFieldsAvailable: false,
+    slug: null,
   });
+  const [copiedInboundUrl, setCopiedInboundUrl] = useState(false);
   const [loadingLifefile, setLoadingLifefile] = useState(false);
   const [savingLifefile, setSavingLifefile] = useState(false);
   const [testingLifefile, setTestingLifefile] = useState(false);
@@ -672,6 +697,18 @@ export default function ClinicDetailPage() {
           lifefilePracticePhone: data.settings.lifefilePracticePhone || '',
           lifefilePracticeFax: data.settings.lifefilePracticeFax || '',
           hasCredentials: data.settings.hasCredentials || false,
+          // Inbound fields
+          lifefileInboundEnabled: data.settings.lifefileInboundEnabled || false,
+          lifefileInboundPath: data.settings.lifefileInboundPath || '',
+          lifefileInboundUsername: data.settings.lifefileInboundUsername || '',
+          lifefileInboundPassword: data.settings.lifefileInboundPassword || '',
+          lifefileInboundSecret: data.settings.lifefileInboundSecret || '',
+          lifefileInboundAllowedIPs: data.settings.lifefileInboundAllowedIPs || '',
+          lifefileInboundEvents: data.settings.lifefileInboundEvents || [],
+          hasInboundCredentials: data.settings.hasInboundCredentials || false,
+          inboundWebhookUrl: data.settings.inboundWebhookUrl || null,
+          inboundFieldsAvailable: data.settings.inboundFieldsAvailable !== false,
+          slug: data.settings.slug || null,
         });
       }
     } catch (error) {
@@ -1608,6 +1645,224 @@ export default function ClinicDetailPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Inbound Webhook Settings - Receive FROM Lifefile */}
+                {lifefileSettings.inboundFieldsAvailable && (
+                  <div className="bg-white rounded-xl p-6 border border-gray-200">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-100 rounded-lg">
+                          <Activity className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">Inbound Webhook Settings</h3>
+                          <p className="text-sm text-gray-500">
+                            Configure this clinic to receive data FROM Lifefile (shipping updates, prescription status, etc.)
+                          </p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={lifefileSettings.lifefileInboundEnabled}
+                          onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileInboundEnabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    {/* Webhook URL Display */}
+                    {lifefileSettings.inboundWebhookUrl && (
+                      <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Webhook URL (share this with Lifefile)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 bg-white border rounded px-3 py-2 text-sm font-mono break-all">
+                            {lifefileSettings.inboundWebhookUrl}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(lifefileSettings.inboundWebhookUrl || '');
+                              setCopiedInboundUrl(true);
+                              setTimeout(() => setCopiedInboundUrl(false), 2000);
+                            }}
+                            className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 whitespace-nowrap flex items-center gap-1"
+                          >
+                            {copiedInboundUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            {copiedInboundUrl ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Webhook Path *
+                        </label>
+                        <div className="flex items-center">
+                          <span className="text-gray-500 text-sm mr-2 whitespace-nowrap">/api/webhooks/lifefile/inbound/</span>
+                          <input
+                            type="text"
+                            value={lifefileSettings.lifefileInboundPath}
+                            onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileInboundPath: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
+                            placeholder={lifefileSettings.slug || 'clinic-slug'}
+                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Unique identifier for this clinic&apos;s webhook endpoint (letters, numbers, hyphens, underscores only)
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Username *
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={lifefileSettings.lifefileInboundUsername}
+                            onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileInboundUsername: e.target.value })}
+                            placeholder="Webhook auth username"
+                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const username = `${lifefileSettings.lifefileInboundPath || lifefileSettings.slug || 'clinic'}_webhook`;
+                              setLifefileSettings({ ...lifefileSettings, lifefileInboundUsername: username });
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm whitespace-nowrap"
+                          >
+                            Generate
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Password *
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={lifefileSettings.lifefileInboundPassword}
+                            onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileInboundPassword: e.target.value })}
+                            placeholder="Webhook auth password"
+                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+                              let password = '';
+                              for (let i = 0; i < 16; i++) {
+                                password += chars.charAt(Math.floor(Math.random() * chars.length));
+                              }
+                              setLifefileSettings({ ...lifefileSettings, lifefileInboundPassword: password });
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm whitespace-nowrap"
+                          >
+                            Generate
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Leave empty to keep existing</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          HMAC Secret (Optional)
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={lifefileSettings.lifefileInboundSecret}
+                            onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileInboundSecret: e.target.value })}
+                            placeholder="HMAC-SHA256 signing secret"
+                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz0123456789';
+                              let secret = '';
+                              for (let i = 0; i < 32; i++) {
+                                secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                              }
+                              setLifefileSettings({ ...lifefileSettings, lifefileInboundSecret: secret });
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm whitespace-nowrap"
+                          >
+                            Generate
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">For additional signature verification</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Allowed IP Addresses (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={lifefileSettings.lifefileInboundAllowedIPs}
+                          onChange={(e) => setLifefileSettings({ ...lifefileSettings, lifefileInboundAllowedIPs: e.target.value })}
+                          placeholder="e.g., 192.168.1.1, 10.0.0.0/8"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Comma-separated list of allowed IPs or CIDR ranges</p>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Allowed Event Types
+                        </label>
+                        <div className="flex flex-wrap gap-4">
+                          {[
+                            { value: 'shipping', label: 'Shipping Updates' },
+                            { value: 'prescription', label: 'Prescription Status' },
+                            { value: 'order', label: 'Order Status' },
+                            { value: 'rx', label: 'Rx Events' },
+                          ].map((event) => (
+                            <label key={event.value} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={lifefileSettings.lifefileInboundEvents.includes(event.value)}
+                                onChange={(e) => {
+                                  const events = e.target.checked
+                                    ? [...lifefileSettings.lifefileInboundEvents, event.value]
+                                    : lifefileSettings.lifefileInboundEvents.filter(ev => ev !== event.value);
+                                  setLifefileSettings({ ...lifefileSettings, lifefileInboundEvents: events });
+                                }}
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-sm text-gray-700">{event.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sample cURL */}
+                    {lifefileSettings.lifefileInboundPath && lifefileSettings.lifefileInboundUsername && (
+                      <div className="mt-6 bg-gray-900 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-400">Sample cURL command for Lifefile:</span>
+                        </div>
+                        <code className="text-xs text-green-400 font-mono whitespace-pre-wrap break-all">
+{`curl -X POST https://app.eonpro.io/api/webhooks/lifefile/inbound/${lifefileSettings.lifefileInboundPath} \\
+  -H "Authorization: Basic $(echo -n '${lifefileSettings.lifefileInboundUsername}:YOUR_PASSWORD' | base64)" \\
+  -H "Content-Type: application/json" \\
+  -d '{"type": "shipping", "trackingNumber": "1Z999AA10123456784", "orderId": "12345"}'`}
+                        </code>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Save Button */}
                 <div className="flex items-center justify-between bg-white rounded-xl p-6 border border-gray-200">
