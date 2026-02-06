@@ -591,23 +591,32 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
     // Decrypt credentials to send a test request
     let username: string;
     let password: string;
+    let decryptionStatus = { username: 'success', password: 'success' };
 
     try {
-      username = decrypt(clinic.lifefileInboundUsername!) || clinic.lifefileInboundUsername!;
-    } catch {
+      const decrypted = decrypt(clinic.lifefileInboundUsername!);
+      username = decrypted || clinic.lifefileInboundUsername!;
+      if (!decrypted) {
+        decryptionStatus.username = 'fallback-to-raw';
+      }
+    } catch (e) {
       username = clinic.lifefileInboundUsername!;
+      decryptionStatus.username = 'failed-using-raw';
     }
 
     try {
-      password = decrypt(clinic.lifefileInboundPassword!) || clinic.lifefileInboundPassword!;
-    } catch {
+      const decrypted = decrypt(clinic.lifefileInboundPassword!);
+      password = decrypted || clinic.lifefileInboundPassword!;
+      if (!decrypted) {
+        decryptionStatus.password = 'fallback-to-raw';
+      }
+    } catch (e) {
       password = clinic.lifefileInboundPassword!;
+      decryptionStatus.password = 'failed-using-raw';
     }
 
-    // Build the webhook URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://app.eonpro.io');
-    const webhookUrl = `${baseUrl}/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`;
+    // Build the webhook URL - always use production URL
+    const webhookUrl = `https://app.eonpro.io/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`;
 
     // Send a test webhook to our own endpoint
     const testPayload = {
@@ -623,6 +632,7 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
     logger.info(`[SUPER-ADMIN] Testing inbound webhook for clinic ${clinicId}`, {
       webhookUrl,
       userId: user.id,
+      decryptionStatus,
     });
 
     const response = await fetch(webhookUrl, {
@@ -658,10 +668,22 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
       logger.warn(`[SUPER-ADMIN] Inbound webhook test failed for clinic ${clinicId}`, {
         status: response.status,
         response: responseData,
+        decryptionStatus,
       });
+
+      // Provide helpful error message based on the response
+      let errorMessage = `Webhook test failed with status ${response.status}`;
+      if (response.status === 401) {
+        errorMessage = 'Authentication failed. Please save your settings first, then test again.';
+      } else if (response.status === 404) {
+        errorMessage = 'Webhook endpoint not found. Please save your settings first.';
+      } else if (response.status === 503) {
+        errorMessage = 'Server temporarily unavailable. Please try again in a moment.';
+      }
+
       return Response.json({
         success: false,
-        error: `Webhook test failed with status ${response.status}`,
+        error: errorMessage,
         details: {
           webhookUrl,
           statusCode: response.status,
@@ -671,9 +693,18 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
     }
   } catch (error: any) {
     logger.error(`[SUPER-ADMIN] Inbound webhook test error for clinic ${clinicId}:`, error);
+
+    // Check for specific error types
+    let errorMessage = 'Failed to test inbound webhook';
+    if (error.message?.includes('fetch')) {
+      errorMessage = 'Could not reach webhook endpoint. Server may be busy.';
+    } else if (error.message?.includes('connection')) {
+      errorMessage = 'Database connection issue. Please try again.';
+    }
+
     return Response.json({
       success: false,
-      error: 'Failed to test inbound webhook',
+      error: errorMessage,
       detail: error.message,
     }, { status: 500 });
   }
