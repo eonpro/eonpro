@@ -48,76 +48,50 @@ export const GET = withAuth(
       return Response.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
-    // First try with all fields including new inbound fields
-    // If that fails (columns don't exist), fall back to original fields only
-    let clinic: any;
-    let hasInboundFields = true;
-
-    try {
-      clinic = await prisma.clinic.findUnique({
-        where: { id: clinicId },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          // Outbound settings
-          lifefileEnabled: true,
-          lifefileBaseUrl: true,
-          lifefileUsername: true,
-          lifefilePassword: true,
-          lifefileVendorId: true,
-          lifefilePracticeId: true,
-          lifefileLocationId: true,
-          lifefileNetworkId: true,
-          lifefilePracticeName: true,
-          lifefilePracticeAddress: true,
-          lifefilePracticePhone: true,
-          lifefilePracticeFax: true,
-          lifefileWebhookSecret: true,
-          lifefileDatapushUsername: true,
-          lifefileDatapushPassword: true,
-          // Inbound settings (new fields)
-          lifefileInboundEnabled: true,
-          lifefileInboundPath: true,
-          lifefileInboundUsername: true,
-          lifefileInboundPassword: true,
-          lifefileInboundSecret: true,
-          lifefileInboundAllowedIPs: true,
-          lifefileInboundEvents: true,
-        },
-      });
-    } catch (e: any) {
-      // If error is about unknown fields (migration not run yet), fall back to original fields
-      if (e.message?.includes('Unknown field') || e.message?.includes('column') || e.code === 'P2022') {
-        logger.warn(`[LIFEFILE] Inbound fields not available, using fallback query for clinic ${clinicId}`);
-        hasInboundFields = false;
-        clinic = await prisma.clinic.findUnique({
-          where: { id: clinicId },
-          select: {
-            id: true,
-            name: true,
-            // Outbound settings only
-            lifefileEnabled: true,
-            lifefileBaseUrl: true,
-            lifefileUsername: true,
-            lifefilePassword: true,
-            lifefileVendorId: true,
-            lifefilePracticeId: true,
-            lifefileLocationId: true,
-            lifefileNetworkId: true,
-            lifefilePracticeName: true,
-            lifefilePracticeAddress: true,
-            lifefilePracticePhone: true,
-            lifefilePracticeFax: true,
-            lifefileWebhookSecret: true,
-            lifefileDatapushUsername: true,
-            lifefileDatapushPassword: true,
-          },
-        });
-      } else {
-        throw e;
-      }
-    }
+    // Query clinic with all fields - inbound fields should always exist after migration
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        // Outbound settings
+        lifefileEnabled: true,
+        lifefileBaseUrl: true,
+        lifefileUsername: true,
+        lifefilePassword: true,
+        lifefileVendorId: true,
+        lifefilePracticeId: true,
+        lifefileLocationId: true,
+        lifefileNetworkId: true,
+        lifefilePracticeName: true,
+        lifefilePracticeAddress: true,
+        lifefilePracticePhone: true,
+        lifefilePracticeFax: true,
+        lifefileWebhookSecret: true,
+        lifefileDatapushUsername: true,
+        lifefileDatapushPassword: true,
+        // Inbound settings
+        lifefileInboundEnabled: true,
+        lifefileInboundPath: true,
+        lifefileInboundUsername: true,
+        lifefileInboundPassword: true,
+        lifefileInboundSecret: true,
+        lifefileInboundAllowedIPs: true,
+        lifefileInboundEvents: true,
+      },
+    });
+    
+    // Log what we got from database
+    logger.info(`[LIFEFILE GET] Raw database query result for clinic ${clinicId}:`, {
+      hasClinic: !!clinic,
+      inboundEnabled: clinic?.lifefileInboundEnabled,
+      inboundPath: clinic?.lifefileInboundPath,
+      inboundUsername: clinic?.lifefileInboundUsername ? '[encrypted]' : null,
+    });
+    
+    // Inbound fields always exist after migration
+    const hasInboundFields = true;
 
     if (!clinic) {
       return Response.json({ error: 'Clinic not found' }, { status: 404 });
