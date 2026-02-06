@@ -128,6 +128,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   useEffect(() => {
     if (isBrowser) {
       isServerless.current = isServerlessEnvironment();
+      console.debug('[Notifications] Environment:', isServerless.current ? 'serverless (polling mode)' : 'standard (WebSocket + polling)');
     }
   }, []);
 
@@ -181,6 +182,12 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       });
 
       lastFetchTime.current = Date.now();
+      console.debug('[Notifications] Fetched:', {
+        count: data.notifications?.length ?? 0,
+        unread: data.unreadCount ?? 0,
+        total: data.total ?? 0,
+        warning: data._warning,
+      });
 
       setState(prev => ({
         notifications: append
@@ -423,11 +430,15 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       ? Math.min(refreshInterval, SERVERLESS_POLLING_INTERVAL)
       : refreshInterval;
 
+    console.debug('[Notifications] Polling interval set to:', effectiveInterval, 'ms', isServerless.current ? '(serverless mode)' : '');
+
     const interval = setInterval(() => {
+      console.debug('[Notifications] Polling...');
       fetchUnreadCount();
 
       // On serverless, also do a full fetch periodically to catch new notifications
       if (isServerless.current && Date.now() - lastFetchTime.current > 30000) {
+        console.debug('[Notifications] Full refresh on serverless...');
         fetchNotifications(1, false);
       }
     }, effectiveInterval);
