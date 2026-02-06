@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { logger } from "@/lib/logger";
+import { CheckboxGroup } from "@/components/ui/Checkbox";
 
 type LifefileSettings = {
   id: number;
@@ -668,36 +669,19 @@ export default function ClinicLifefileSettingsPage() {
           </div>
 
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Allowed Event Types
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {[
+            <CheckboxGroup
+              label="Allowed Event Types"
+              options={[
                 { id: 'shipping', label: 'Shipping Updates' },
                 { id: 'prescription', label: 'Prescription Status' },
                 { id: 'order', label: 'Order Status' },
                 { id: 'rx', label: 'Rx Events' },
-              ].map((event) => (
-                <label key={event.id} className="inline-flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={form.lifefileInboundEvents.includes(event.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        updateForm("lifefileInboundEvents", [...form.lifefileInboundEvents, event.id]);
-                      } else {
-                        updateForm("lifefileInboundEvents", form.lifefileInboundEvents.filter((ev: string) => ev !== event.id));
-                      }
-                    }}
-                    className="rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">{event.label}</span>
-                </label>
-              ))}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Leave all unchecked to allow all event types
-            </p>
+              ]}
+              value={form.lifefileInboundEvents}
+              onChange={(newValue) => updateForm("lifefileInboundEvents", newValue)}
+              color="#4fa77e"
+              helperText="Leave all unchecked to allow all event types"
+            />
           </div>
         </div>
 

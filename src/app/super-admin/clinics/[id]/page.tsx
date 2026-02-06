@@ -12,6 +12,7 @@ import {
   Key, Copy, Check
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
+import { CheckboxGroup } from '@/components/ui/Checkbox';
 
 // Helper function to calculate text color based on background luminance
 function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string {
@@ -1817,32 +1818,18 @@ export default function ClinicDetailPage() {
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Allowed Event Types
-                        </label>
-                        <div className="flex flex-wrap gap-4">
-                          {[
-                            { value: 'shipping', label: 'Shipping Updates' },
-                            { value: 'prescription', label: 'Prescription Status' },
-                            { value: 'order', label: 'Order Status' },
-                            { value: 'rx', label: 'Rx Events' },
-                          ].map((event) => (
-                            <label key={event.value} className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={lifefileSettings.lifefileInboundEvents.includes(event.value)}
-                                onChange={(e) => {
-                                  const events = e.target.checked
-                                    ? [...lifefileSettings.lifefileInboundEvents, event.value]
-                                    : lifefileSettings.lifefileInboundEvents.filter(ev => ev !== event.value);
-                                  setLifefileSettings({ ...lifefileSettings, lifefileInboundEvents: events });
-                                }}
-                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <span className="text-sm text-gray-700">{event.label}</span>
-                            </label>
-                          ))}
-                        </div>
+                        <CheckboxGroup
+                          label="Allowed Event Types"
+                          options={[
+                            { id: 'shipping', label: 'Shipping Updates' },
+                            { id: 'prescription', label: 'Prescription Status' },
+                            { id: 'order', label: 'Order Status' },
+                            { id: 'rx', label: 'Rx Events' },
+                          ]}
+                          value={lifefileSettings.lifefileInboundEvents}
+                          onChange={(events) => setLifefileSettings({ ...lifefileSettings, lifefileInboundEvents: events })}
+                          color="#4fa77e"
+                        />
                       </div>
                     </div>
 
