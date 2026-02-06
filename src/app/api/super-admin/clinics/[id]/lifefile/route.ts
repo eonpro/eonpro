@@ -59,7 +59,7 @@ export const GET = withAuth(
         select: {
           id: true,
           name: true,
-          slug: true,
+          subdomain: true, // Use subdomain instead of non-existent slug
           // Outbound settings
           lifefileEnabled: true,
           lifefileBaseUrl: true,
@@ -121,7 +121,7 @@ export const GET = withAuth(
     const maskedSettings: any = {
       id: clinic.id,
       name: clinic.name,
-      slug: clinic.slug || null,
+      slug: clinic.subdomain || null, // Using subdomain as slug
       // Outbound
       lifefileEnabled: clinic.lifefileEnabled,
       lifefileBaseUrl: clinic.lifefileBaseUrl,
