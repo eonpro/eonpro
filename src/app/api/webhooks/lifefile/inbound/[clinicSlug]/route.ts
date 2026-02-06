@@ -56,15 +56,39 @@ function verifyBasicAuth(
     const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
     const [username, password] = credentials.split(':');
 
+    const providedUser = username || '';
+    const providedPass = password || '';
+
+    // First check lengths match (timingSafeEqual requires same length)
+    if (providedUser.length !== expectedUsername.length) {
+      logger.debug('[LIFEFILE INBOUND] Username length mismatch', {
+        provided: providedUser.length,
+        expected: expectedUsername.length,
+      });
+      return false;
+    }
+
+    if (providedPass.length !== expectedPassword.length) {
+      logger.debug('[LIFEFILE INBOUND] Password length mismatch', {
+        provided: providedPass.length,
+        expected: expectedPassword.length,
+      });
+      return false;
+    }
+
     // Constant-time comparison to prevent timing attacks
     const usernameMatch = crypto.timingSafeEqual(
-      Buffer.from(username || ''),
+      Buffer.from(providedUser),
       Buffer.from(expectedUsername)
     );
     const passwordMatch = crypto.timingSafeEqual(
-      Buffer.from(password || ''),
+      Buffer.from(providedPass),
       Buffer.from(expectedPassword)
     );
+
+    if (!usernameMatch || !passwordMatch) {
+      logger.debug('[LIFEFILE INBOUND] Credential mismatch');
+    }
 
     return usernameMatch && passwordMatch;
   } catch (error: unknown) {
@@ -604,6 +628,17 @@ export async function POST(req: NextRequest, context: RouteParams) {
     const username = safeDecrypt(clinic.lifefileInboundUsername);
     const password = safeDecrypt(clinic.lifefileInboundPassword);
     const secret = safeDecrypt(clinic.lifefileInboundSecret);
+
+    // Log decryption results (without sensitive values)
+    logger.debug('[LIFEFILE INBOUND] Credential decryption status', {
+      clinicId: clinic.id,
+      hasUsername: !!username,
+      usernameLength: username?.length || 0,
+      usernameIsEncrypted: username === clinic.lifefileInboundUsername,
+      hasPassword: !!password,
+      passwordLength: password?.length || 0,
+      passwordIsEncrypted: password === clinic.lifefileInboundPassword,
+    });
 
     // Verify IP allowlist
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
