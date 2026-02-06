@@ -9,7 +9,7 @@ import {
   Users, Activity, Calendar, Settings, AlertTriangle, Plus,
   UserPlus, Mail, Shield, X, Eye, EyeOff, Pill, FileText,
   CheckCircle2, XCircle, ExternalLink, Zap, Image as ImageIcon,
-  Key, Copy, Check
+  Key, Copy, Check, Package, ClipboardList
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 import { CheckboxGroup } from '@/components/ui/Checkbox';
@@ -1823,12 +1823,13 @@ export default function ClinicDetailPage() {
                         </label>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {[
-                            { value: 'shipping', label: 'Shipping Updates', icon: '📦' },
-                            { value: 'prescription', label: 'Prescription Status', icon: '💊' },
-                            { value: 'order', label: 'Order Status', icon: '📋' },
-                            { value: 'rx', label: 'Rx Events', icon: '📝' },
+                            { value: 'shipping', label: 'Shipping Updates', Icon: Package },
+                            { value: 'prescription', label: 'Prescription Status', Icon: Pill },
+                            { value: 'order', label: 'Order Status', Icon: ClipboardList },
+                            { value: 'rx', label: 'Rx Events', Icon: FileText },
                           ].map((event) => {
                             const isChecked = lifefileSettings.lifefileInboundEvents.includes(event.value);
+                            const IconComponent = event.Icon;
                             return (
                               <button
                                 key={event.value}
@@ -1853,7 +1854,7 @@ export default function ClinicDetailPage() {
                                     <Check className="w-5 h-5 text-white" strokeWidth={3} />
                                   </div>
                                 )}
-                                <span className="text-2xl mb-2">{event.icon}</span>
+                                <IconComponent className={`w-8 h-8 mb-2 ${isChecked ? 'text-green-600' : 'text-gray-500'}`} />
                                 <span className={`text-sm font-medium text-center ${isChecked ? 'text-green-700' : 'text-gray-700'}`}>
                                   {event.label}
                                 </span>
