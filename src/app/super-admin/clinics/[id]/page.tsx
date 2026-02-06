@@ -1647,8 +1647,7 @@ export default function ClinicDetailPage() {
                 </div>
 
                 {/* Inbound Webhook Settings - Receive FROM Lifefile */}
-                {lifefileSettings.inboundFieldsAvailable && (
-                  <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <div className="bg-white rounded-xl p-6 border border-gray-200">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-4">
                         <div className="p-3 bg-blue-100 rounded-lg">
@@ -1862,7 +1861,6 @@ export default function ClinicDetailPage() {
                       </div>
                     )}
                   </div>
-                )}
 
                 {/* Save Button */}
                 <div className="flex items-center justify-between bg-white rounded-xl p-6 border border-gray-200">
