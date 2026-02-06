@@ -830,6 +830,15 @@ export default function ClinicDetailPage() {
       inboundEvents: savePayload.lifefileInboundEvents,
     }, null, 2));
     
+    // DEBUG ALERT to show what we're sending
+    alert('ABOUT TO SAVE:\\n' +
+      'inboundEnabled: ' + savePayload.lifefileInboundEnabled + '\\n' +
+      'inboundPath: ' + savePayload.lifefileInboundPath + '\\n' +
+      'inboundUsername: ' + savePayload.lifefileInboundUsername + '\\n' +
+      'inboundPassword: ' + (savePayload.lifefileInboundPassword ? '[SET]' : '[EMPTY]') + '\\n' +
+      'inboundEvents: ' + JSON.stringify(savePayload.lifefileInboundEvents)
+    );
+    
     try {
       const token = localStorage.getItem('auth-token');
       const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
@@ -844,6 +853,14 @@ export default function ClinicDetailPage() {
       if (response.ok) {
         const savedData = await response.json();
         console.log('[LIFEFILE SAVE] Save successful:', JSON.stringify(savedData, null, 2));
+        
+        // DEBUG ALERT to show what was saved
+        alert('SAVE SUCCESSFUL!\\n' + 
+          'Server returned inboundEnabled: ' + savedData.clinic?.lifefileInboundEnabled + '\\n' +
+          'Server returned inboundPath: ' + savedData.clinic?.lifefileInboundPath + '\\n' +
+          'Server returned inboundEvents: ' + JSON.stringify(savedData.clinic?.lifefileInboundEvents)
+        );
+        
         setLifefileMessage({ type: 'success', text: 'Pharmacy settings saved successfully!' });
         // Re-fetch to get the latest data from server
         await fetchLifefileSettings();

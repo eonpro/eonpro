@@ -284,6 +284,16 @@ export const PUT = withAuth(
     }
 
     const settings = parsed.data;
+    
+    // DEBUG: Log parsed settings to see what Zod gave us
+    logger.info(`[LIFEFILE PUT DEBUG] After Zod parsing for clinic ${clinicId}:`, {
+      parsedKeys: Object.keys(settings),
+      inboundEnabled: settings.lifefileInboundEnabled,
+      inboundPath: settings.lifefileInboundPath,
+      inboundUsername: settings.lifefileInboundUsername,
+      inboundPassword: settings.lifefileInboundPassword ? '[SET]' : '[NOT SET]',
+      inboundEvents: settings.lifefileInboundEvents,
+    });
 
     // Check if clinic exists (select only needed fields for backwards compatibility)
     const existingClinic = await prisma.clinic.findUnique({
@@ -472,6 +482,17 @@ export const PUT = withAuth(
       updateData.lifefileInboundEvents = settings.lifefileInboundEvents || [];
     }
 
+    // DEBUG: Log exactly what we're about to save
+    logger.info(`[LIFEFILE PUT DEBUG] updateData to be saved for clinic ${clinicId}:`, {
+      totalKeys: Object.keys(updateData).length,
+      keys: Object.keys(updateData),
+      inboundEnabled: updateData.lifefileInboundEnabled,
+      inboundPath: updateData.lifefileInboundPath,
+      inboundUsername: updateData.lifefileInboundUsername ? '[SET]' : '[NOT SET]',
+      inboundPassword: updateData.lifefileInboundPassword ? '[SET]' : '[NOT SET]',
+      inboundEvents: updateData.lifefileInboundEvents,
+    });
+
     // Update the clinic
     const updatedClinic = await prisma.clinic.update({
       where: { id: clinicId },
@@ -486,7 +507,18 @@ export const PUT = withAuth(
         lifefileLocationId: true,
         lifefileNetworkId: true,
         lifefilePracticeName: true,
+        // Also return inbound fields to verify they were saved
+        lifefileInboundEnabled: true,
+        lifefileInboundPath: true,
+        lifefileInboundEvents: true,
       },
+    });
+    
+    // DEBUG: Verify what was actually saved
+    logger.info(`[LIFEFILE PUT DEBUG] After update, clinic ${clinicId} has:`, {
+      inboundEnabled: updatedClinic.lifefileInboundEnabled,
+      inboundPath: updatedClinic.lifefileInboundPath,
+      inboundEvents: updatedClinic.lifefileInboundEvents,
     });
 
     // Log the update
