@@ -1,7 +1,7 @@
 'use client';
 
 // Clinic Detail Page - Super Admin
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -669,27 +669,18 @@ export default function ClinicDetailPage() {
     }
   };
 
+  // Track if lifefile settings have been fetched to prevent duplicate calls
+  const lifefileSettingsFetchedRef = useRef(false);
+
   // Fetch Lifefile settings when on pharmacy tab
   useEffect(() => {
-    console.log('[LIFEFILE EFFECT] activeTab:', activeTab, 'loadingLifefile:', loadingLifefile);
-    
-    // Fetch when we're on the pharmacy tab
-    if (activeTab === 'pharmacy' && !loadingLifefile) {
-      console.log('[LIFEFILE EFFECT] Triggering fetch for pharmacy tab');
+    // Only fetch if on pharmacy tab and haven't fetched yet
+    if (activeTab === 'pharmacy' && !lifefileSettingsFetchedRef.current && !loadingLifefile) {
+      console.log('[LIFEFILE] Fetching settings for pharmacy tab');
+      lifefileSettingsFetchedRef.current = true;
       fetchLifefileSettings();
     }
-  }, [activeTab]);
-
-  // Also check URL param on mount (handles direct navigation and refresh)
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    console.log('[LIFEFILE MOUNT] URL tab param:', tabParam);
-    
-    if (tabParam === 'pharmacy' && !loadingLifefile) {
-      console.log('[LIFEFILE MOUNT] Triggering fetch from URL param');
-      fetchLifefileSettings();
-    }
-  }, []);
+  }, [activeTab, loadingLifefile]);
 
   const fetchLifefileSettings = async () => {
     console.log('[LIFEFILE FETCH] Starting fetch for clinic:', clinicId);
@@ -818,11 +809,10 @@ export default function ClinicDetailPage() {
 
       if (response.ok) {
         const savedData = await response.json();
-        console.log('[LIFEFILE SAVE] Save response:', JSON.stringify(savedData, null, 2));
+        console.log('[LIFEFILE SAVE] Save successful:', JSON.stringify(savedData, null, 2));
         setLifefileMessage({ type: 'success', text: 'Pharmacy settings saved successfully!' });
-        // Re-fetch to get the latest data
-        setLifefileSettingsFetched(false); // Reset so fetch runs again
-        fetchLifefileSettings();
+        // Re-fetch to get the latest data from server
+        await fetchLifefileSettings();
       } else {
         const data = await response.json();
         setLifefileMessage({ type: 'error', text: data.error || 'Failed to save settings' });
