@@ -170,6 +170,14 @@ export const GET = withAuth(
     };
 
     // Add inbound fields if they exist in the database
+    logger.info(`[LIFEFILE GET] Clinic ${clinicId} hasInboundFields=${hasInboundFields}`, {
+      inboundEnabled: clinic.lifefileInboundEnabled,
+      inboundPath: clinic.lifefileInboundPath,
+      hasInboundUsername: !!clinic.lifefileInboundUsername,
+      hasInboundPassword: !!clinic.lifefileInboundPassword,
+      inboundEvents: clinic.lifefileInboundEvents,
+    });
+    
     if (hasInboundFields) {
       // Decrypt inbound username
       let decryptedInboundUsername = clinic.lifefileInboundUsername;
@@ -207,6 +215,14 @@ export const GET = withAuth(
       );
       maskedSettings.inboundWebhookUrl = inboundWebhookUrl;
       maskedSettings.inboundFieldsAvailable = true;
+      
+      logger.info(`[LIFEFILE GET] Returning inbound settings for clinic ${clinicId}`, {
+        inboundEnabled: maskedSettings.lifefileInboundEnabled,
+        inboundPath: maskedSettings.lifefileInboundPath,
+        hasUsername: !!maskedSettings.lifefileInboundUsername,
+        hasPassword: !!maskedSettings.lifefileInboundPassword,
+        hasInboundCredentials: maskedSettings.hasInboundCredentials,
+      });
     } else {
       // Inbound fields not available - indicate migration needed
       maskedSettings.inboundFieldsAvailable = false;

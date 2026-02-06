@@ -968,7 +968,13 @@ export default function ClinicDetailPage() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                onClick={() => {
+                  setActiveTab(tab.id as typeof activeTab);
+                  // Update URL to preserve tab state on refresh
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('tab', tab.id);
+                  window.history.replaceState({}, '', url.toString());
+                }}
                 className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                   activeTab === tab.id
                     ? 'border-teal-600 text-teal-600'
