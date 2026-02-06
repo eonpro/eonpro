@@ -319,9 +319,9 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   // Poll for unread messages - faster when chat is closed to catch new messages quickly
   useEffect(() => {
     fetchUnreadCount(); // Initial fetch
-    // Poll every 5 seconds when closed (to catch new messages and auto-open)
-    // Poll every 3 seconds when open (for live updates)
-    const pollInterval = isOpen ? 3000 : 5000;
+    // Poll every 3 seconds when closed (to catch new messages and auto-open)
+    // Poll every 2 seconds when open (for near real-time updates)
+    const pollInterval = isOpen ? 2000 : 3000;
     const interval = setInterval(() => {
       fetchUnreadCount();
     }, pollInterval);
@@ -349,10 +349,10 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   useEffect(() => {
     if (isOpen && selectedRecipient) {
-      // Poll every 3 seconds for near real-time message updates
+      // Poll every 2 seconds for near real-time message updates
       const interval = setInterval(() => {
         fetchMessages();
-      }, 3000);
+      }, 2000);
       return () => clearInterval(interval);
     }
     // No cleanup needed when chat is closed or no recipient selected
