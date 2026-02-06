@@ -8,10 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { sendPrescriptionNotification } from '@/lib/prescription-tracking/notifications';
-import { updateFulfillmentAnalytics } from '@/lib/prescription-tracking/analytics';
+import { WebhookStatus } from '@prisma/client';
 import { z } from 'zod';
-import crypto from 'crypto';
 
 // Configuration
 const WEBHOOK_USERNAME = process.env.LIFEFILE_WEBHOOK_USERNAME || 'lifefile_webhook';
@@ -56,78 +54,26 @@ function verifyBasicAuth(authHeader: string | null): boolean {
   }
 }
 
-// Webhook payload schema
+// Flexible payload schema - accept various formats from Lifefile
 const prescriptionUpdateSchema = z.object({
-  eventType: z.string(),
-  timestamp: z.string(),
-  prescription: z.object({
-    rxNumber: z.string(),
-    orderId: z.string().optional(),
-    patientId: z.string().optional(),
-    medicationName: z.string().optional(),
-    quantity: z.number().optional(),
-    refills: z.number().optional(),
-  }),
-  status: z.object({
-    current: z.string(),
-    previous: z.string().optional(),
-    changedAt: z.string(),
-    notes: z.string().optional(),
-  }),
-  tracking: z.object({
-    trackingNumber: z.string().optional(),
-    carrier: z.string().optional(),
-    estimatedDelivery: z.string().optional(),
-    currentLocation: z.string().optional(),
-    trackingUrl: z.string().optional(),
-  }).optional(),
-  pharmacy: z.object({
-    name: z.string().optional(),
-    orderId: z.string().optional(),
-    phone: z.string().optional(),
-  }).optional(),
+  // Event info
+  orderId: z.string().optional(),
+  referenceId: z.string().optional(),
+  status: z.string().optional(),
+  
+  // Tracking info
+  trackingNumber: z.string().optional(),
+  trackingUrl: z.string().optional(),
+  carrier: z.string().optional(),
+  
+  // Timestamps
+  shippedAt: z.string().optional(),
+  deliveredAt: z.string().optional(),
+  
+  // Additional data
+  notes: z.string().optional(),
   metadata: z.any().optional(),
-});
-
-/**
- * Verify webhook signature from Lifefile
- */
-function verifyWebhookSignature(
-  payload: string,
-  signature: string,
-  secret: string
-): boolean {
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex');
-  
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
-}
-
-/**
- * Map Lifefile status to our internal status
- */
-function mapLifefileStatus(status: string): string {
-  const statusMap: Record<string, string> = {
-    'order_sent': 'SENT_TO_PHARMACY',
-    'order_received': 'RECEIVED',
-    'order_processing': 'PROCESSING',
-    'order_ready': 'READY_FOR_PICKUP',
-    'order_shipped': 'SHIPPED',
-    'out_for_delivery': 'OUT_FOR_DELIVERY',
-    'delivered': 'DELIVERED',
-    'returned': 'RETURNED',
-    'cancelled': 'CANCELLED',
-    'on_hold': 'ON_HOLD',
-    'failed': 'FAILED',
-  };
-  
-  return statusMap[status.toLowerCase()] || 'PENDING';
-}
+}).passthrough(); // Allow additional fields
 
 /**
  * POST /api/webhooks/lifefile/prescription-status
@@ -136,200 +82,154 @@ function mapLifefileStatus(status: string): string {
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   
-  try {
-    // Get raw body for signature verification
-    const rawBody = await req.text();
-    const headers = Object.fromEntries(req.headers.entries());
-    
-    // Log webhook event
-    const webhookLogId = `lf-rx-${Date.now()}`;
-    logger.info(`[LIFEFILE PRESCRIPTION] Webhook received - ID: ${webhookLogId}`);
+  let webhookLogData: any = {
+    endpoint: '/api/webhooks/lifefile/prescription-status',
+    method: 'POST',
+    status: WebhookStatus.ERROR,
+    statusCode: 500,
+  };
 
-    // Verify Basic Auth first
+  try {
+    // Get raw body
+    const rawBody = await req.text();
+    
+    // Extract headers for logging
+    const headers: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      headers[key] = key.toLowerCase().includes('auth') ? '[REDACTED]' : value;
+    });
+    webhookLogData.headers = headers;
+    webhookLogData.ipAddress = req.headers.get('x-forwarded-for') || 'unknown';
+
+    logger.info('[LIFEFILE PRESCRIPTION] Webhook received');
+
+    // Verify Basic Auth
     const authHeader = req.headers.get('authorization');
     if (!verifyBasicAuth(authHeader)) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      webhookLogData.status = WebhookStatus.INVALID_AUTH;
+      webhookLogData.statusCode = 401;
+      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Also verify HMAC signature if configured (optional additional security)
-    if (process.env.LIFEFILE_WEBHOOK_SECRET) {
-      const signature = headers['x-lifefile-signature'] || headers['x-webhook-signature'];
-      
-      if (signature) {
-        const isValid = verifyWebhookSignature(
-          rawBody,
-          signature,
-          process.env.LIFEFILE_WEBHOOK_SECRET
-        );
-        
-        if (!isValid) {
-          logger.warn('[LIFEFILE PRESCRIPTION] HMAC signature verification failed');
-          // Don't fail - Basic Auth already passed
-        }
-      }
+    // Parse payload
+    let payload: any;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
+      webhookLogData.statusCode = 400;
+      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    // Parse and validate payload
-    const body = JSON.parse(rawBody);
-    const parsed = prescriptionUpdateSchema.safeParse(body);
-    
-    if (!parsed.success) {
-      logger.error('[LIFEFILE PRESCRIPTION] Invalid webhook payload', { errors: parsed.error.issues });
-      return NextResponse.json(
-        { error: 'Invalid payload', details: parsed.error.issues },
-        { status: 400 }
-      );
-    }
+    webhookLogData.payload = payload;
 
-    const data = parsed.data;
-    const newStatus = mapLifefileStatus(data.status.current);
-    
-    // Find or create prescription tracking record
-    let prescription = await (prisma as any).prescriptionTracking.findUnique({
-      where: { rxNumber: data.prescription.rxNumber },
+    // Extract key fields
+    const orderId = payload.orderId || payload.order_id;
+    const referenceId = payload.referenceId || payload.reference_id;
+    const status = payload.status;
+    const trackingNumber = payload.trackingNumber || payload.tracking_number;
+    const trackingUrl = payload.trackingUrl || payload.tracking_url;
+
+    logger.info(`[LIFEFILE PRESCRIPTION] Processing - Order: ${orderId}, Status: ${status}`);
+
+    // Find the order
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { lifefileOrderId: orderId || '' },
+          { referenceId: referenceId || '' },
+        ].filter(c => Object.values(c)[0]),
+      },
       include: {
-        patient: true,
-        order: true,
-      }
-    });
-
-    if (!prescription) {
-      // Try to find the order
-      const order = data.prescription.orderId ? 
-        await // @ts-ignore
-    prisma.order.findFirst({
-          where: { 
-            OR: [
-              { id: parseInt(data.prescription.orderId) },
-              { lifefileOrderId: data.prescription.orderId }
-            ]
-          }
-        }) : null;
-
-      if (!order) {
-        logger.error('Order not found for prescription', { 
-          rxNumber: data.prescription.rxNumber,
-          orderId: data.prescription.orderId 
-        });
-        
-        return NextResponse.json(
-          { error: 'Order not found' },
-          { status: 404 }
-        );
-      }
-
-      // Create new tracking record
-      prescription = await (prisma as any).prescriptionTracking.create({
-        data: {
-          rxNumber: data.prescription.rxNumber,
-          orderId: order.id,
-          patientId: order.patientId,
-          providerId: order.providerId,
-          medicationName: data.prescription.medicationName || 'Unknown',
-          quantity: data.prescription.quantity || 0,
-          refills: data.prescription.refills || 0,
-          currentStatus: newStatus as any,
-          currentStatusNote: data.status.notes,
-          pharmacyName: data.pharmacy?.name,
-          pharmacyOrderId: data.pharmacy?.orderId,
-          pharmacyPhone: data.pharmacy?.phone,
-          trackingNumber: data.tracking?.trackingNumber,
-          carrier: data.tracking?.carrier,
-          estimatedDeliveryDate: data.tracking?.estimatedDelivery ? 
-            new Date(data.tracking.estimatedDelivery) : undefined,
-          metadata: data.metadata,
+        patient: {
+          select: { id: true, clinicId: true },
         },
-        include: {
-          patient: true,
-          order: true,
-        }
-      });
-    }
-
-    // Calculate fulfillment times
-    const previousEvent: any = await (prisma as any).prescriptionStatusEvent.findFirst({
-      where: { prescriptionId: prescription.id },
-      orderBy: { createdAt: 'desc' },
+      },
     });
 
-    let timeMetrics: any = {};
-    if (previousEvent) {
-      const timeDiff = Date.now() - previousEvent.createdAt.getTime();
-      const minutesDiff = Math.round(timeDiff / 60000);
+    if (!order) {
+      logger.warn(`[LIFEFILE PRESCRIPTION] Order not found: ${orderId || referenceId}`);
       
-      // Calculate specific transition times
-      if (previousEvent.status === "RECEIVED" && (newStatus as any) === "PROCESSING") {
-        timeMetrics.timeToProcess = minutesDiff;
-      } else if (previousEvent.status === "PROCESSING" && (newStatus as any) === "SHIPPED") {
-        timeMetrics.timeToShip = minutesDiff;
-      } else if (previousEvent.status === "SHIPPED" && (newStatus as any) === "DELIVERED") {
-        timeMetrics.timeToDeliver = minutesDiff;
-      }
+      webhookLogData.status = WebhookStatus.SUCCESS;
+      webhookLogData.statusCode = 202;
+      webhookLogData.responseData = { processed: false, reason: 'Order not found' };
+      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
+      return NextResponse.json({
+        success: false,
+        message: 'Order not found',
+        orderId,
+        referenceId,
+      }, { status: 202 });
     }
 
-    // Update prescription tracking
-    const updatedPrescription = await (prisma as any).prescriptionTracking.update({
-      where: { id: prescription.id },
-      data: {
-        currentStatus: newStatus as any,
-        currentStatusNote: data.status.notes,
-        trackingNumber: data.tracking?.trackingNumber || prescription.trackingNumber,
-        carrier: data.tracking?.carrier || prescription.carrier,
-        estimatedDeliveryDate: data.tracking?.estimatedDelivery ? 
-          new Date(data.tracking.estimatedDelivery) : prescription.estimatedDeliveryDate,
-        actualDeliveryDate: (newStatus as any) === "DELIVERED"  ? new Date()  : undefined,
-        metadata: data.metadata,
-        ...timeMetrics,
-        // Calculate total fulfillment time if delivered
-        totalFulfillmentTime: (newStatus as any) === "DELIVERED"  ? Math.round((Date.now() - prescription.createdAt.getTime()) / 60000)  : undefined,
-      }
+    // Update order with new status/tracking info
+    const updateData: any = {
+      lastWebhookAt: new Date(),
+      lastWebhookPayload: JSON.stringify(payload),
+    };
+
+    if (status) updateData.status = status;
+    if (trackingNumber) updateData.trackingNumber = trackingNumber;
+    if (trackingUrl) updateData.trackingUrl = trackingUrl;
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: updateData,
     });
 
-    // Create status event
-    await (prisma as any).prescriptionStatusEvent.create({
+    // Create order event for audit trail
+    await prisma.orderEvent.create({
       data: {
-        prescriptionId: prescription.id,
-        status: newStatus as any,
-        previousStatus: prescription.currentStatus as any,
-        description: `Status changed from ${prescription.currentStatus} to ${newStatus}`,
-        notes: data.status.notes,
-        source: 'webhook',
-        webhookPayload: data,
-        location: data.tracking?.currentLocation,
-        trackingUpdate: data.tracking,
-        triggeredBy: 'lifefile-webhook',
-      }
+        orderId: order.id,
+        lifefileOrderId: orderId,
+        eventType: `prescription_${status || 'update'}`,
+        payload: payload,
+        note: trackingNumber ? `Tracking: ${trackingNumber}` : `Status: ${status}`,
+      },
     });
 
-    logger.info(`[LIFEFILE PRESCRIPTION] Processed successfully - Prescription: ${prescription.id}`);
+    const processingTime = Date.now() - startTime;
 
-    // Send notifications to patient asynchronously
-    sendPrescriptionNotification(prescription.id, newStatus as any)
-      .catch(err => logger.error('Failed to send notification', err));
+    // Log success
+    webhookLogData.status = WebhookStatus.SUCCESS;
+    webhookLogData.statusCode = 200;
+    webhookLogData.clinicId = order.patient?.clinicId;
+    webhookLogData.responseData = {
+      orderId: order.id,
+      status,
+      trackingNumber,
+    };
+    webhookLogData.processingTimeMs = processingTime;
 
-    // Update analytics asynchronously
-    updateFulfillmentAnalytics(prescription.id)
-      .catch(err => logger.error('Failed to update analytics', err));
+    await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
 
-    // Return success response quickly
+    logger.info(`[LIFEFILE PRESCRIPTION] Processed in ${processingTime}ms`);
+
     return NextResponse.json({
       success: true,
-      message: 'Webhook processed successfully',
-      prescriptionId: prescription.id,
-      status: newStatus,
-      processingTime: Date.now() - startTime,
+      message: 'Prescription status updated',
+      orderId: order.id,
+      status,
+      trackingNumber,
+      processingTime: `${processingTime}ms`,
     });
 
   } catch (error: any) {
-    logger.error('Webhook processing error', { 
-      error: error.message,
-    });
-    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[LIFEFILE PRESCRIPTION] Error:', error);
+
+    webhookLogData.status = WebhookStatus.ERROR;
+    webhookLogData.statusCode = 500;
+    webhookLogData.errorMessage = errorMessage;
+    webhookLogData.processingTimeMs = Date.now() - startTime;
+
+    await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      { error: 'Internal server error', message: errorMessage },
       { status: 500 }
     );
   }
@@ -339,7 +239,9 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: 'healthy',
-    endpoint: 'lifefile-prescription-webhook',
+    endpoint: '/api/webhooks/lifefile/prescription-status',
+    authentication: 'Basic Auth',
+    configured: !!WEBHOOK_PASSWORD,
     timestamp: new Date().toISOString(),
   });
 }
