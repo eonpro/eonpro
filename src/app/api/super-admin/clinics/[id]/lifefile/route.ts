@@ -41,16 +41,17 @@ type RouteParams = { params: Promise<{ id: string }> };
  */
 export const GET = withAuth(
   async (req: NextRequest, user: AuthUser, context?: RouteParams) => {
-    const { id } = await context!.params;
-    const clinicId = parseInt(id, 10);
+    try {
+      const { id } = await context!.params;
+      const clinicId = parseInt(id, 10);
 
-    if (isNaN(clinicId)) {
-      return Response.json({ error: 'Invalid clinic ID' }, { status: 400 });
-    }
+      if (isNaN(clinicId)) {
+        return Response.json({ error: 'Invalid clinic ID' }, { status: 400 });
+      }
 
-    // Query clinic with all fields
-    let clinic: any;
-    let hasInboundFields = true;
+      // Query clinic with all fields
+      let clinic: any;
+      let hasInboundFields = true;
     
     try {
       clinic = await prisma.clinic.findUnique({
@@ -224,7 +225,14 @@ export const GET = withAuth(
       maskedSettings.inboundFieldsAvailable = false;
     }
 
-    return Response.json({ settings: maskedSettings });
+      return Response.json({ settings: maskedSettings });
+    } catch (error: any) {
+      logger.error(`[LIFEFILE GET] Unexpected error:`, error);
+      return Response.json(
+        { error: 'Internal server error', detail: error.message },
+        { status: 500 }
+      );
+    }
   },
   { roles: ['super_admin'] }
 );
