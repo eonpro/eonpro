@@ -2,6 +2,14 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { logger } from './logger';
 import { connectionPool, withRetry, withTimeout } from './database/connection-pool';
+import {
+  getServerlessConfig,
+  buildServerlessConnectionUrl,
+  logPoolConfiguration,
+  drainManager,
+  checkDatabaseHealth,
+  getPoolStats,
+} from './database/serverless-pool';
 
 // Re-export Prisma namespace for TransactionClient and other types
 export { Prisma } from '@prisma/client';
@@ -42,143 +50,21 @@ const globalForPrisma = global as unknown as {
 // - DATABASE_POOL_TIMEOUT: Connection timeout in seconds (default: 10)
 // ============================================================================
 
-/**
- * Get connection limit based on environment
- *
- * NOTE: connection_limit=1 is too restrictive and causes pool exhaustion
- * during transactions with multiple queries. Vercel serverless can handle
- * 5-10 connections per instance safely, especially with PgBouncer.
- */
-function getConnectionLimit(): number {
-  // Check for explicit override first
-  const envLimit = process.env.DATABASE_CONNECTION_LIMIT;
-  if (envLimit) {
-    const limit = parseInt(envLimit, 10);
-    return Math.min(limit, 20); // Cap at 20 connections per instance
-  }
-
-  // In serverless (Vercel), use conservative but functional pool size
-  // 1 connection causes pool exhaustion during transactions
-  // 5 connections allows concurrent queries within a transaction
-  if (process.env.VERCEL) {
-    // If using PgBouncer (recommended), can use slightly higher limit
-    const hasPgBouncer = process.env.DATABASE_URL?.includes('pgbouncer=true');
-    return hasPgBouncer ? 10 : 5;
-  }
-
-  // Default for non-serverless environments
-  return 10;
-}
-
-/**
- * Get pool timeout in seconds
- *
- * NOTE: 10 seconds is often too short for high-concurrency scenarios.
- * 20-30 seconds provides better resilience during traffic spikes.
- */
-function getPoolTimeout(): number {
-  const envTimeout = process.env.DATABASE_POOL_TIMEOUT;
-  if (envTimeout) {
-    return parseInt(envTimeout, 10);
-  }
-
-  // Default: 20 seconds for serverless (handles cold starts better)
-  // 15 seconds for traditional deployments
-  return process.env.VERCEL ? 20 : 15;
-}
+// Connection configuration now handled by serverless-pool.ts
 
 /**
  * Build DATABASE_URL with proper connection pool parameters
- * This ensures serverless environments have correct settings even if
- * the environment variable doesn't include them
+ * Now uses serverless-optimized configuration for Vercel deployments
  */
 function buildConnectionUrl(): string {
-  const baseUrl = process.env.DATABASE_URL || '';
-
-  if (!baseUrl) {
-    logger.warn('[Prisma] DATABASE_URL not set');
-    return '';
-  }
-
-  // Skip URL modification for Prisma Accelerate URLs
-  if (baseUrl.startsWith('prisma://')) {
-    return baseUrl;
-  }
-
-  // Skip modification for SQLite (development)
-  if (baseUrl.startsWith('file:')) {
-    return baseUrl;
-  }
-
   try {
-    const url = new URL(baseUrl);
-    const isProd = process.env.NODE_ENV === 'production';
-    const isVercel = !!process.env.VERCEL;
-
-    // ========================================================================
-    // PGBOUNCER - Only add if explicitly configured or detected in URL
-    // ========================================================================
-    // IMPORTANT: Do NOT auto-add pgbouncer=true as it breaks connections to
-    // databases that don't have PgBouncer configured. The pgbouncer setting
-    // must be explicit in the DATABASE_URL or via ENABLE_PGBOUNCER env var.
-    //
-    // If you're using PgBouncer, either:
-    // 1. Add ?pgbouncer=true to your DATABASE_URL, or
-    // 2. Set ENABLE_PGBOUNCER=true in environment variables
-    //
-    // Detection: If URL contains port 6543 (common PgBouncer port), we assume PgBouncer
-    const portIsPgBouncer = url.port === '6543';
-    const envEnablePgBouncer = process.env.ENABLE_PGBOUNCER === 'true';
-
-    if (!url.searchParams.has('pgbouncer') && (portIsPgBouncer || envEnablePgBouncer)) {
-      url.searchParams.set('pgbouncer', 'true');
-      logger.info('[Prisma] Added pgbouncer=true (detected PgBouncer configuration)');
-    }
-
-    // Connection limit handling:
-    // 1. If DATABASE_CONNECTION_LIMIT env var is set, ALWAYS use it (override URL)
-    // 2. Otherwise, if URL doesn't have connection_limit, use getConnectionLimit()
-    // 3. If URL has connection_limit and no env override, keep URL value
-    // IMPORTANT: Do NOT use connection_limit=1 for Vercel - it causes pool exhaustion
-    const explicitLimit = process.env.DATABASE_CONNECTION_LIMIT;
-    if (explicitLimit) {
-      // Explicit env var always wins - override whatever is in URL
-      url.searchParams.set('connection_limit', explicitLimit);
-    } else if (!url.searchParams.has('connection_limit')) {
-      // No explicit override and URL doesn't have it - use calculated default
-      url.searchParams.set('connection_limit', getConnectionLimit().toString());
-    } else {
-      // URL has connection_limit but no explicit override
-      // Check if it's dangerously low (1) and warn
-      const urlLimit = url.searchParams.get('connection_limit');
-      if (urlLimit === '1') {
-        logger.warn(
-          '[Prisma] DATABASE_URL has connection_limit=1 which may cause pool exhaustion. ' +
-            'Set DATABASE_CONNECTION_LIMIT env var to override.'
-        );
-      }
-    }
-
-    // Pool timeout handling - similar logic
-    const explicitTimeout = process.env.DATABASE_POOL_TIMEOUT;
-    if (explicitTimeout) {
-      url.searchParams.set('pool_timeout', explicitTimeout);
-    } else if (!url.searchParams.has('pool_timeout')) {
-      url.searchParams.set('pool_timeout', getPoolTimeout().toString());
-    }
-
-    // Add connect timeout for better failure detection
-    if (!url.searchParams.has('connect_timeout') && isProd) {
-      url.searchParams.set('connect_timeout', '10');
-    }
-
-    return url.toString();
+    // Use the new serverless-optimized URL builder
+    return buildServerlessConnectionUrl();
   } catch (error) {
-    // If URL parsing fails, return original (might be a connection string format)
-    logger.warn('[Prisma] Could not parse DATABASE_URL for pool config', {
+    logger.warn('[Prisma] Could not build connection URL', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return baseUrl;
+    return process.env.DATABASE_URL || '';
   }
 }
 
@@ -235,26 +121,18 @@ const CLINIC_ISOLATED_MODELS = [
  * Create Prisma client with multi-clinic isolation and connection pooling
  * Using query extension pattern for Prisma v4+
  *
- * Integrates with ConnectionPoolManager for:
- * - Proper connection URL with pool parameters
- * - Health check monitoring
- * - Graceful shutdown handling
+ * Now uses serverless-optimized connection configuration for:
+ * - Aggressive connection limits (1-3 per function)
+ * - RDS Proxy compatibility
+ * - Automatic connection draining
  */
 function createPrismaClient() {
   const isProd = process.env.NODE_ENV === 'production';
-  const connectionLimit = getConnectionLimit();
-  const poolTimeout = getPoolTimeout();
+  const config = getServerlessConfig();
   const connectionUrl = buildConnectionUrl();
 
-  // Log configuration
-  logger.info('Prisma client configuration', {
-    environment: process.env.NODE_ENV,
-    connectionLimit,
-    poolTimeout,
-    isVercel: !!process.env.VERCEL,
-    hasPgBouncer: process.env.DATABASE_URL?.includes('pgbouncer=true'),
-    hasConnectionLimit: connectionUrl.includes('connection_limit='),
-  });
+  // Log serverless-optimized configuration
+  logPoolConfiguration();
 
   const client = new PrismaClient({
     log:
@@ -263,13 +141,16 @@ function createPrismaClient() {
         : isProd
           ? ['error'] // Only errors in production
           : ['warn', 'error'],
-    // Use the built connection URL with proper pool parameters
+    // Use the serverless-optimized connection URL
     datasources: {
       db: {
         url: connectionUrl,
       },
     },
   });
+
+  // Register with drain manager for serverless cleanup
+  drainManager.register(client);
 
   // Add query timing middleware for monitoring
   if (isProd || process.env.ENABLE_QUERY_LOGGING === 'true') {
@@ -1237,6 +1118,14 @@ export { clinicContextStorage };
 
 export { withRetry, withTimeout } from './database/connection-pool';
 export { connectionPool };
+
+// Export serverless utilities
+export {
+  checkDatabaseHealth,
+  getPoolStats,
+  drainManager,
+  getServerlessConfig,
+} from './database/serverless-pool';
 
 /**
  * Get connection pool health status

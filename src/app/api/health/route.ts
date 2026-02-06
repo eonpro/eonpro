@@ -8,7 +8,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import {
+  prisma,
+  checkDatabaseHealth,
+  getPoolStats,
+  getServerlessConfig,
+  getConnectionPoolHealth,
+} from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth/middleware';
 
@@ -44,18 +50,27 @@ const startTime = Date.now();
 async function checkDatabase(): Promise<HealthCheck> {
   const start = Date.now();
   try {
-    // Simple query to verify database connection
-    await prisma.$queryRaw`SELECT 1`;
-    
+    // Use the serverless-optimized health check
+    const healthResult = await checkDatabaseHealth(prisma);
+
+    if (!healthResult.healthy) {
+      return {
+        name: 'Database',
+        status: 'unhealthy',
+        responseTime: healthResult.latencyMs,
+        message: healthResult.error || 'Connection failed'
+      };
+    }
+
     // Check if we can read from a table
     const patientCount = await prisma.patient.count();
-    
+
     return {
       name: 'Database',
-      status: 'healthy',
+      status: healthResult.latencyMs > 500 ? 'degraded' : 'healthy',
       responseTime: Date.now() - start,
       message: 'Connected and responsive',
-      details: { patientCount }
+      details: { patientCount, latencyMs: healthResult.latencyMs }
     };
   } catch (error: any) {
     logger.error('Database health check failed', { error: error.message });
@@ -64,6 +79,66 @@ async function checkDatabase(): Promise<HealthCheck> {
       status: 'unhealthy',
       responseTime: Date.now() - start,
       message: error.message
+    };
+  }
+}
+
+/**
+ * Check database connection pool health
+ */
+async function checkConnectionPool(): Promise<HealthCheck> {
+  const start = Date.now();
+  try {
+    // Get pool stats from PostgreSQL
+    const poolStats = await getPoolStats(prisma);
+
+    // Get serverless config
+    const config = getServerlessConfig();
+
+    // Get connection pool manager health
+    const poolHealth = getConnectionPoolHealth();
+
+    // Calculate utilization
+    const utilization = poolStats.maxConnections > 0
+      ? ((poolStats.activeConnections + poolStats.idleConnections) / poolStats.maxConnections) * 100
+      : 0;
+
+    // Determine status based on utilization
+    let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+    let message = 'Connection pool healthy';
+
+    if (utilization > 90) {
+      status = 'unhealthy';
+      message = 'Connection pool near exhaustion';
+    } else if (utilization > 70) {
+      status = 'degraded';
+      message = 'Connection pool utilization high';
+    }
+
+    return {
+      name: 'Connection Pool',
+      status,
+      responseTime: Date.now() - start,
+      message,
+      details: {
+        activeConnections: poolStats.activeConnections,
+        idleConnections: poolStats.idleConnections,
+        maxConnections: poolStats.maxConnections,
+        utilization: `${utilization.toFixed(1)}%`,
+        serverlessConfig: {
+          connectionLimit: config.connectionLimit,
+          useRdsProxy: config.useRdsProxy,
+          usePgBouncer: config.usePgBouncer,
+        },
+        poolManagerStatus: poolHealth.status,
+      }
+    };
+  } catch (error: any) {
+    return {
+      name: 'Connection Pool',
+      status: 'degraded',
+      responseTime: Date.now() - start,
+      message: `Unable to get pool stats: ${error.message}`
     };
   }
 }
@@ -472,6 +547,7 @@ export async function GET(req: NextRequest) {
     // Run all checks in parallel for speed
     const checks = await Promise.all([
       checkDatabase(),
+      checkConnectionPool(),
       checkMigrations(),
       checkStripe(),
       checkTwilio(),

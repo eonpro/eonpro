@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
 /**
@@ -104,6 +105,23 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const errorId = crypto.randomUUID().slice(0, 8);
     const searchParams = new URL(request.url).searchParams;
+
+    // Handle database connection errors gracefully
+    if (
+      error instanceof Prisma.PrismaClientInitializationError ||
+      (error instanceof Prisma.PrismaClientKnownRequestError &&
+        ['P1001', 'P1002', 'P1008', 'P1017'].includes(error.code))
+    ) {
+      logger.error(`[CLINIC_RESOLVE_GET] Database connection error ${errorId}:`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        domain: searchParams.get('domain') || searchParams.get('_main'),
+      });
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable', errorId, code: 'SERVICE_UNAVAILABLE' },
+        { status: 503, headers: { 'Retry-After': '5' } }
+      );
+    }
+
     logger.error(`[CLINIC_RESOLVE_GET] Error ${errorId}:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
@@ -126,7 +144,8 @@ async function resolveClinicFromDomain(domain: string) {
   const normalizedDomain = domain.split(':')[0].toLowerCase();
 
   // First, try to match custom domain exactly
-  let clinic = await prisma.clinic.findFirst({
+  // Using basePrisma since this is a public endpoint (no auth/clinic context)
+  let clinic = await basePrisma.clinic.findFirst({
     where: {
       customDomain: normalizedDomain,
       status: 'ACTIVE',
@@ -163,7 +182,7 @@ async function resolveClinicFromDomain(domain: string) {
   if (normalizedDomain.includes('localhost')) {
     if (parts.length >= 2 && parts[0] !== 'localhost' && parts[0] !== 'www') {
       const subdomain = parts[0];
-      clinic = await prisma.clinic.findFirst({
+      clinic = await basePrisma.clinic.findFirst({
         where: {
           subdomain: { equals: subdomain, mode: 'insensitive' },
           status: 'ACTIVE',
@@ -198,7 +217,7 @@ async function resolveClinicFromDomain(domain: string) {
         parts,
       });
 
-      clinic = await prisma.clinic.findFirst({
+      clinic = await basePrisma.clinic.findFirst({
         where: {
           subdomain: { equals: subdomain, mode: 'insensitive' },
           status: 'ACTIVE',
@@ -239,7 +258,7 @@ async function resolveClinicFromDomain(domain: string) {
     const skipSubdomains = ['www', 'app', 'api', 'admin', 'staging', 'portal'];
 
     if (!skipSubdomains.includes(subdomain)) {
-      clinic = await prisma.clinic.findFirst({
+      clinic = await basePrisma.clinic.findFirst({
         where: {
           subdomain: { equals: subdomain, mode: 'insensitive' },
           status: 'ACTIVE',
