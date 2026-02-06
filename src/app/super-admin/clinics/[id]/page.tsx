@@ -731,14 +731,8 @@ export default function ClinicDetailPage() {
         };
         console.log('[LIFEFILE] API Response:', JSON.stringify(debugInfo, null, 2));
         
-        // TEMPORARY ALERT FOR DEBUGGING - VERSION 2
-        alert('API Response (v2):\\n' + 
-          'inboundEnabled: ' + debugInfo.inboundEnabled + '\\n' +
-          'inboundPath: ' + debugInfo.inboundPath + '\\n' +
-          'inboundUsername: ' + debugInfo.inboundUsername + '\\n' +
-          'inboundPassword: ' + debugInfo.inboundPassword + '\\n' +
-          'inboundEvents: ' + JSON.stringify(debugInfo.inboundEvents)
-        );
+        // Log API response for debugging (check browser console)
+        console.log('[DEBUG] API Response:', debugInfo);
 
         // Only update if we got valid settings back
         if (s) {
@@ -780,12 +774,12 @@ export default function ClinicDetailPage() {
 
           setLifefileSettings(newState);
           
-          // DEBUG: Alert AFTER setting state - VERSION 2
-          alert('STATE SET TO (v2):\\n' +
-            'inboundEnabled: ' + newState.lifefileInboundEnabled + '\\n' +
-            'inboundPath: ' + newState.lifefileInboundPath + '\\n' +
-            'inboundUsername: ' + newState.lifefileInboundUsername
-          );
+          // Log state update for debugging (check browser console)
+          console.log('[DEBUG] State set to:', {
+            inboundEnabled: newState.lifefileInboundEnabled,
+            inboundPath: newState.lifefileInboundPath,
+            inboundUsername: newState.lifefileInboundUsername,
+          });
         }
       } else {
         console.error('Failed to fetch Lifefile settings:', response.status);
@@ -837,14 +831,6 @@ export default function ClinicDetailPage() {
       inboundEvents: savePayload.lifefileInboundEvents,
     }, null, 2));
     
-    // DEBUG ALERT to show what we're sending
-    alert('ABOUT TO SAVE:\\n' +
-      'inboundEnabled: ' + savePayload.lifefileInboundEnabled + '\\n' +
-      'inboundPath: ' + savePayload.lifefileInboundPath + '\\n' +
-      'inboundUsername: ' + savePayload.lifefileInboundUsername + '\\n' +
-      'inboundPassword: ' + (savePayload.lifefileInboundPassword ? '[SET]' : '[EMPTY]') + '\\n' +
-      'inboundEvents: ' + JSON.stringify(savePayload.lifefileInboundEvents)
-    );
     
     try {
       const token = localStorage.getItem('auth-token');
@@ -861,23 +847,12 @@ export default function ClinicDetailPage() {
         const savedData = await response.json();
         console.log('[LIFEFILE SAVE] Save successful:', JSON.stringify(savedData, null, 2));
         
-        // DEBUG ALERT to show what was saved - VERSION 2
-        alert('SAVE SUCCESSFUL! (v2)\\n' + 
-          'Server returned inboundEnabled: ' + savedData.clinic?.lifefileInboundEnabled + '\\n' +
-          'Server returned inboundPath: ' + savedData.clinic?.lifefileInboundPath + '\\n' +
-          'Server returned inboundEvents: ' + JSON.stringify(savedData.clinic?.lifefileInboundEvents)
-        );
+        // Log save response for debugging (check browser console)
+        console.log('[DEBUG] Save response:', savedData.clinic);
         
         setLifefileMessage({ type: 'success', text: 'Pharmacy settings saved successfully!' });
         // Re-fetch to get the latest data from server
-        console.log('[LIFEFILE SAVE] About to re-fetch...');
-        try {
-          await fetchLifefileSettings();
-          console.log('[LIFEFILE SAVE] Re-fetch completed');
-        } catch (fetchError) {
-          console.error('[LIFEFILE SAVE] Re-fetch failed:', fetchError);
-          alert('RE-FETCH FAILED: ' + String(fetchError));
-        }
+        await fetchLifefileSettings();
       } else {
         const data = await response.json();
         setLifefileMessage({ type: 'error', text: data.error || 'Failed to save settings' });
