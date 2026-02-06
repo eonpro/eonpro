@@ -191,13 +191,35 @@ export const GET = withAuthParams(async (
     if (document.externalUrl && !document.externalUrl.startsWith('database://')) {
       try {
         logger.debug(`Attempting to retrieve from external URL: ${document.externalUrl}`);
-        const file = await retrieveFile(document.externalUrl, patientId);
-        
-        return new NextResponse(new Uint8Array(file.data), {
+
+        let fileData: Buffer;
+        let fileMimeType: string | undefined;
+
+        // Check if this is an S3 key (starts with S3 path prefix)
+        const isS3Key = document.externalUrl.startsWith(STORAGE_CONFIG.PATHS.PATIENTS + '/') ||
+                        document.externalUrl.startsWith('patients/') ||
+                        document.externalUrl.includes('/medical-records/') ||
+                        document.externalUrl.includes('/lab-results/') ||
+                        document.externalUrl.includes('/prescriptions/') ||
+                        document.externalUrl.includes('/other/');
+
+        if (isS3Enabled() && isS3Key) {
+          // Download from S3
+          logger.debug(`Downloading from S3: ${document.externalUrl}`);
+          fileData = await downloadFromS3(document.externalUrl);
+          fileMimeType = document.mimeType;
+        } else {
+          // Local secure storage
+          const file = await retrieveFile(document.externalUrl, patientId);
+          fileData = file.data;
+          fileMimeType = file.mimeType || document.mimeType;
+        }
+
+        return new NextResponse(new Uint8Array(fileData), {
           headers: {
-            'Content-Type': file.mimeType || document.mimeType || 'application/octet-stream',
+            'Content-Type': fileMimeType || 'application/octet-stream',
             'Content-Disposition': `inline; filename="${document.filename || 'document'}"`,
-            'Content-Length': file.data.length.toString(),
+            'Content-Length': fileData.length.toString(),
             'X-Content-Type-Options': 'nosniff',
             'X-Frame-Options': 'DENY',
           },
@@ -296,12 +318,25 @@ export const DELETE = withAuthParams(async (
       );
     }
 
-    // Delete the file from secure storage
+    // Delete the file from storage (S3 or local)
     if (document.externalUrl) {
       try {
-        await deleteFile(document.externalUrl, patientId);
+        // Check if this is an S3 key
+        const isS3Key = document.externalUrl.startsWith(STORAGE_CONFIG.PATHS.PATIENTS + '/') ||
+                        document.externalUrl.startsWith('patients/') ||
+                        document.externalUrl.includes('/medical-records/') ||
+                        document.externalUrl.includes('/lab-results/') ||
+                        document.externalUrl.includes('/prescriptions/') ||
+                        document.externalUrl.includes('/other/');
+
+        if (isS3Enabled() && isS3Key) {
+          await deleteFromS3(document.externalUrl);
+          logger.info('Deleted file from S3', { s3Key: document.externalUrl, documentId });
+        } else {
+          await deleteFile(document.externalUrl, patientId);
+        }
       } catch (error: any) {
-        logger.error('Error deleting file from secure storage:', error);
+        logger.error('Error deleting file from storage:', error);
         // Continue even if file deletion fails
       }
     }

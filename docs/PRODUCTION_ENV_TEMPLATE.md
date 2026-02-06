@@ -41,12 +41,20 @@ OPENAI_MAX_TOKENS=4000
 
 ## Optional Environment Variables
 
-### AWS S3 (File Storage)
+### AWS S3 (File Storage - REQUIRED for document uploads)
 ```
+# Feature flag to enable S3 storage
+NEXT_PUBLIC_ENABLE_AWS_S3_STORAGE=true
+
+# AWS credentials
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=<access_key>
 AWS_SECRET_ACCESS_KEY=<secret_key>
-S3_BUCKET=<bucket_name>
+AWS_S3_BUCKET_NAME=<bucket_name>
+
+# Optional: CloudFront CDN and KMS encryption
+# AWS_CLOUDFRONT_URL=https://your-cloudfront.com
+# AWS_KMS_KEY_ID=<kms_key_id>
 ```
 
 ### Twilio (SMS/Voice)

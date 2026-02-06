@@ -17,19 +17,21 @@ The AWS S3 integration provides secure cloud storage for medical documents, lab 
 Add the following to your `.env.local` file:
 
 ```env
-# Feature Flag
-ENABLE_AWS_S3_STORAGE=true
+# Feature Flag (REQUIRED for document uploads)
+NEXT_PUBLIC_ENABLE_AWS_S3_STORAGE=true
 
-# AWS Credentials (optional - uses mock service if not provided)
+# AWS Credentials (REQUIRED for production - uses mock service if not provided in dev)
 AWS_ACCESS_KEY_ID=your-access-key-id
 AWS_SECRET_ACCESS_KEY=your-secret-access-key
 AWS_REGION=us-east-1
-AWS_S3_BUCKET=your-bucket-name
+AWS_S3_BUCKET_NAME=your-bucket-name
 
 # Optional
-AWS_CDN_DOMAIN=your-cloudfront-domain.com
-AWS_S3_ENDPOINT=https://s3-compatible-endpoint.com  # For MinIO/alternatives
+AWS_CLOUDFRONT_URL=https://your-cloudfront-domain.com
+AWS_KMS_KEY_ID=your-kms-key-id  # For KMS encryption
 ```
+
+> **Important:** In production (Vercel), S3 storage is **required** for document uploads because the filesystem is read-only. Without proper S3 configuration, document uploads will fail with a 503 error.
 
 ### S3 Bucket Setup
 1. Create an S3 bucket in your AWS account
