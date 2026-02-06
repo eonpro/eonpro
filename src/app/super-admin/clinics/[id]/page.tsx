@@ -687,6 +687,15 @@ export default function ClinicDetailPage() {
       if (response.ok) {
         const data = await response.json();
         const s = data.settings;
+        
+        // Debug: Log what we received from API
+        console.log('[LIFEFILE] API Response:', {
+          inboundEnabled: s?.lifefileInboundEnabled,
+          inboundPath: s?.lifefileInboundPath,
+          inboundUsername: s?.lifefileInboundUsername,
+          hasInboundCredentials: s?.hasInboundCredentials,
+          inboundFieldsAvailable: s?.inboundFieldsAvailable,
+        });
 
         // Only update if we got valid settings back
         if (s) {
@@ -718,6 +727,9 @@ export default function ClinicDetailPage() {
             inboundFieldsAvailable: s.inboundFieldsAvailable !== false,
             slug: s.slug ?? prev.slug,
           }));
+          
+          // Debug: Log after state update
+          console.log('[LIFEFILE] State updated with inbound settings');
         }
       } else {
         console.error('Failed to fetch Lifefile settings:', response.status);
