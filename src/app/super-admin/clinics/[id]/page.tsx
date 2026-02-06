@@ -731,8 +731,8 @@ export default function ClinicDetailPage() {
         };
         console.log('[LIFEFILE] API Response:', JSON.stringify(debugInfo, null, 2));
         
-        // TEMPORARY ALERT FOR DEBUGGING - REMOVE AFTER FIXING
-        alert('API Response:\\n' + 
+        // TEMPORARY ALERT FOR DEBUGGING - VERSION 2
+        alert('API Response (v2):\\n' + 
           'inboundEnabled: ' + debugInfo.inboundEnabled + '\\n' +
           'inboundPath: ' + debugInfo.inboundPath + '\\n' +
           'inboundUsername: ' + debugInfo.inboundUsername + '\\n' +
@@ -780,8 +780,8 @@ export default function ClinicDetailPage() {
 
           setLifefileSettings(newState);
           
-          // DEBUG: Alert AFTER setting state
-          alert('STATE SET TO:\\n' +
+          // DEBUG: Alert AFTER setting state - VERSION 2
+          alert('STATE SET TO (v2):\\n' +
             'inboundEnabled: ' + newState.lifefileInboundEnabled + '\\n' +
             'inboundPath: ' + newState.lifefileInboundPath + '\\n' +
             'inboundUsername: ' + newState.lifefileInboundUsername
@@ -861,8 +861,8 @@ export default function ClinicDetailPage() {
         const savedData = await response.json();
         console.log('[LIFEFILE SAVE] Save successful:', JSON.stringify(savedData, null, 2));
         
-        // DEBUG ALERT to show what was saved
-        alert('SAVE SUCCESSFUL!\\n' + 
+        // DEBUG ALERT to show what was saved - VERSION 2
+        alert('SAVE SUCCESSFUL! (v2)\\n' + 
           'Server returned inboundEnabled: ' + savedData.clinic?.lifefileInboundEnabled + '\\n' +
           'Server returned inboundPath: ' + savedData.clinic?.lifefileInboundPath + '\\n' +
           'Server returned inboundEvents: ' + JSON.stringify(savedData.clinic?.lifefileInboundEvents)

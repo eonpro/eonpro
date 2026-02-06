@@ -385,16 +385,29 @@ export const PUT = withAuth(
     }
 
     // ===== INBOUND WEBHOOK SETTINGS =====
+    logger.info(`[LIFEFILE PUT INBOUND] Processing inbound settings:`, {
+      settingsInboundEnabled: settings.lifefileInboundEnabled,
+      settingsInboundEnabledType: typeof settings.lifefileInboundEnabled,
+      settingsInboundPath: settings.lifefileInboundPath,
+      settingsInboundUsername: settings.lifefileInboundUsername,
+      settingsInboundPassword: settings.lifefileInboundPassword ? '[SET]' : '[NOT SET]',
+      settingsInboundEvents: settings.lifefileInboundEvents,
+    });
 
     if (settings.lifefileInboundEnabled !== undefined) {
       updateData.lifefileInboundEnabled = settings.lifefileInboundEnabled;
+      logger.info(`[LIFEFILE PUT INBOUND] Added inboundEnabled to updateData: ${settings.lifefileInboundEnabled}`);
+    } else {
+      logger.info(`[LIFEFILE PUT INBOUND] inboundEnabled is undefined, NOT adding to updateData`);
     }
 
     if (settings.lifefileInboundPath !== undefined) {
+      logger.info(`[LIFEFILE PUT INBOUND] Processing inboundPath: ${settings.lifefileInboundPath}`);
       // Validate path format (alphanumeric, hyphens, underscores only)
       if (settings.lifefileInboundPath) {
         const pathRegex = /^[a-zA-Z0-9_-]+$/;
         if (!pathRegex.test(settings.lifefileInboundPath)) {
+          logger.warn(`[LIFEFILE PUT INBOUND] Invalid path format: ${settings.lifefileInboundPath}`);
           return Response.json(
             { error: 'Invalid webhook path format. Use only letters, numbers, hyphens, and underscores.' },
             { status: 400 }
@@ -408,6 +421,7 @@ export const PUT = withAuth(
           },
         });
         if (existingPath) {
+          logger.warn(`[LIFEFILE PUT INBOUND] Path already in use: ${settings.lifefileInboundPath}`);
           return Response.json(
             { error: 'Webhook path already in use by another clinic.' },
             { status: 400 }
@@ -415,6 +429,9 @@ export const PUT = withAuth(
         }
       }
       updateData.lifefileInboundPath = settings.lifefileInboundPath || null;
+      logger.info(`[LIFEFILE PUT INBOUND] Added inboundPath to updateData: ${settings.lifefileInboundPath || null}`);
+    } else {
+      logger.info(`[LIFEFILE PUT INBOUND] inboundPath is undefined, NOT adding to updateData`);
     }
 
     if (settings.lifefileInboundUsername !== undefined) {
@@ -488,11 +505,23 @@ export const PUT = withAuth(
       },
     });
     
-    // DEBUG: Verify what was actually saved
-    logger.info(`[LIFEFILE PUT DEBUG] After update, clinic ${clinicId} has:`, {
-      inboundEnabled: updatedClinic.lifefileInboundEnabled,
-      inboundPath: updatedClinic.lifefileInboundPath,
-      inboundEvents: updatedClinic.lifefileInboundEvents,
+    // DEBUG: Verify what was actually saved by re-querying database
+    const verifyClinic = await prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        lifefileInboundEnabled: true,
+        lifefileInboundPath: true,
+        lifefileInboundUsername: true,
+        lifefileInboundPassword: true,
+        lifefileInboundEvents: true,
+      }
+    });
+    logger.info(`[LIFEFILE PUT VERIFY] Direct database read after update for clinic ${clinicId}:`, {
+      inboundEnabled: verifyClinic?.lifefileInboundEnabled,
+      inboundPath: verifyClinic?.lifefileInboundPath,
+      hasUsername: !!verifyClinic?.lifefileInboundUsername,
+      hasPassword: !!verifyClinic?.lifefileInboundPassword,
+      inboundEvents: verifyClinic?.lifefileInboundEvents,
     });
 
     // Log the update
