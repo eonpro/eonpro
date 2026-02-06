@@ -70,7 +70,7 @@ export default function AccountPage() {
     setIsLoggingOut(true);
     try {
       await fetch('/api/affiliate/auth/logout', { method: 'POST' });
-      router.push('/affiliate/login');
+      window.location.href = '/affiliate/login';
     } catch {
       setIsLoggingOut(false);
     }

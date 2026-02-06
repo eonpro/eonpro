@@ -217,9 +217,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear local state
       setUser(null);
       clearTokens();
-      router.push('/login');
+      window.location.href = '/login';
     }
-  }, [clearTokens, getTokens, router]);
+  }, [clearTokens, getTokens]);
 
   // Refresh token function
   const refreshToken = useCallback(async () => {

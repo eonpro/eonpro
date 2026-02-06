@@ -765,6 +765,16 @@ export default function ClinicDetailPage() {
   const handleSaveLifefile = async () => {
     setSavingLifefile(true);
     setLifefileMessage(null);
+    
+    // Debug: Log what we're about to save
+    console.log('[LIFEFILE SAVE] Sending to API:', JSON.stringify({
+      inboundEnabled: lifefileSettings.lifefileInboundEnabled,
+      inboundPath: lifefileSettings.lifefileInboundPath,
+      inboundUsername: lifefileSettings.lifefileInboundUsername,
+      inboundPassword: lifefileSettings.lifefileInboundPassword ? '[SET]' : '[EMPTY]',
+      inboundEvents: lifefileSettings.lifefileInboundEvents,
+    }, null, 2));
+    
     try {
       const token = localStorage.getItem('auth-token');
       const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
@@ -777,7 +787,11 @@ export default function ClinicDetailPage() {
       });
 
       if (response.ok) {
+        const savedData = await response.json();
+        console.log('[LIFEFILE SAVE] Save response:', JSON.stringify(savedData, null, 2));
         setLifefileMessage({ type: 'success', text: 'Pharmacy settings saved successfully!' });
+        // Re-fetch to get the latest data
+        setLifefileSettingsFetched(false); // Reset so fetch runs again
         fetchLifefileSettings();
       } else {
         const data = await response.json();

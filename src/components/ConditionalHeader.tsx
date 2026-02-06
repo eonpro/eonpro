@@ -67,7 +67,7 @@ export default function ConditionalHeader() {
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
     
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const userRole = user?.role?.toLowerCase() || '';

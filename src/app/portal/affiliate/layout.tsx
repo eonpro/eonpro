@@ -154,7 +154,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
     localStorage.removeItem('affiliate-token');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const handleCopyLink = async () => {

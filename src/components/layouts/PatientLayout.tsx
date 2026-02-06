@@ -106,7 +106,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
     localStorage.removeItem('patient-token');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const getReminderIcon = (type: string) => {

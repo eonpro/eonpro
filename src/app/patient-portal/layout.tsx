@@ -146,7 +146,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_timestamp');
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const isActive = (path: string, exact?: boolean) => {

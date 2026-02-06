@@ -207,7 +207,7 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
     localStorage.removeItem('activeClinicId');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   // Close dropdowns when clicking outside

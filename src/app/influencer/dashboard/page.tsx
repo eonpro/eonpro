@@ -93,7 +93,7 @@ export default function InfluencerDashboardPage() {
     document.cookie = "influencer-token=; Max-Age=0; path=/";
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    router.push("/influencer/login");
+    window.location.href = "/influencer/login";
   };
 
   if (loading) {

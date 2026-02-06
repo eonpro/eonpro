@@ -26,7 +26,7 @@ export default function UnauthorizedPage() {
     localStorage.removeItem('super_admin-token');
     localStorage.removeItem('patient-token');
     
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   return (

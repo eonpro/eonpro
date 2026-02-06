@@ -162,7 +162,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });
 
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const isActive = (path: string, exact?: boolean) => {

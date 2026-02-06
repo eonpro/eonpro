@@ -92,7 +92,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
       });
     }
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const isActive = (path: string, exact?: boolean) => {

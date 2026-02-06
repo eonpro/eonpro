@@ -124,7 +124,7 @@ export function useAuth(requiredRole?: string | string[]) {
       console.warn('[useAuth] Logout API call failed:', error instanceof Error ? error.message : 'Unknown error');
     }
     clearAuth();
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   // Fetch helper with auto-auth
