@@ -124,6 +124,17 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  // White body background on mobile so top/bottom strips (safe areas) are white, not #efece7
+  useEffect(() => {
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    if (!isMobile) return;
+    const prev = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = '#ffffff';
+    return () => {
+      document.body.style.backgroundColor = prev;
+    };
+  }, []);
+
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -149,7 +160,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (loading || brandingLoading) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[#efece7]">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-white lg:bg-[#efece7]">
         <div
           className="h-10 w-10 animate-spin rounded-full border-[3px] border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
@@ -159,7 +170,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-[100dvh] bg-[#efece7]">
+    <div className="flex min-h-[100dvh] bg-white lg:bg-[#efece7]">
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside
         className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 lg:flex ${

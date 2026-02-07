@@ -35,6 +35,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={sofiaPro.variable} suppressHydrationWarning>
       <head>
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="icon" href="https://static.wixstatic.com/media/c49a9b_2e6625f0f27d44068998ab51675c6d7b~mv2.png" />
       </head>
       <body className={sofiaPro.className} suppressHydrationWarning>
