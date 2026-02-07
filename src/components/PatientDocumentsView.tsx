@@ -143,7 +143,7 @@ export default function PatientDocumentsView({
         }, 500);
       } else {
         const data = await response.json().catch(() => ({}));
-        const msg = data?.error || `Upload failed (${response.status})`;
+        const msg = data?.error || (response.status === 500 ? "Server error. Use the Labs tab for lab PDFs." : `Upload failed (${response.status})`);
         throw new Error(msg);
       }
     } catch (error: any) {
@@ -152,7 +152,8 @@ export default function PatientDocumentsView({
       setIsUploading(false);
       setUploadProgress(0);
       const message = error instanceof Error ? error.message : "Failed to upload documents. Please try again.";
-      alert(message + (message.includes("Lab tab") ? "" : "\n\nFor lab results (Quest PDFs), use the Lab tab in this patient profile."));
+      const labHint = (message.includes("Labs") || message.includes("Lab tab")) ? "" : "\n\nFor lab results (Quest PDFs), use the Labs tab in the patient sidebar.";
+      alert(message + labHint);
     }
   };
 
