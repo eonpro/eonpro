@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { logger } from '../lib/logger';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -68,6 +69,7 @@ export default function WeightTracker({
   const [currentWeight, setCurrentWeight] = useState('');
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -75,7 +77,10 @@ export default function WeightTracker({
     const loadWeightData = async () => {
       if (patientId) {
         try {
-          const response = await fetch(`/api/patient-progress/weight?patientId=${patientId}`);
+          const response = await fetch(`/api/patient-progress/weight?patientId=${patientId}`, {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          });
           if (response.ok) {
             const result = await response.json();
             // Handle both array format and { data: [...] } format
@@ -132,11 +137,13 @@ export default function WeightTracker({
       id: Date.now().toString(),
     };
 
+    setSaveError(null);
     try {
       if (patientId) {
         const response = await fetch('/api/patient-progress/weight', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          credentials: 'include',
           body: JSON.stringify({
             patientId,
             weight: parseFloat(currentWeight),
@@ -150,7 +157,8 @@ export default function WeightTracker({
           newEntry.id = savedLog.id.toString();
           setWeightData((prev) => [...prev, newEntry]);
         } else {
-          throw new Error('Failed to save weight');
+          const errBody = await response.json().catch(() => ({}));
+          throw new Error(errBody?.error || 'Failed to save weight');
         }
       } else {
         const updatedData = [...weightData, newEntry];
@@ -163,7 +171,9 @@ export default function WeightTracker({
       setTimeout(() => setShowSuccess(false), 2500);
       if (onWeightSaved) onWeightSaved();
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save weight';
       logger.error('Failed to save weight:', error);
+      setSaveError(message);
     } finally {
       setIsLoading(false);
     }
@@ -415,6 +425,9 @@ export default function WeightTracker({
               <span className="relative">Log Weight</span>
             )}
           </button>
+          {saveError && (
+            <p className="mt-2 text-sm text-red-600" role="alert">{saveError}</p>
+          )}
         </div>
       </div>
 

@@ -12,10 +12,11 @@ import { getLocalStorageItem } from './ssr-safe';
  */
 const TOKEN_KEYS = [
   'auth-token',
-  'provider-token', 
+  'patient-token',
+  'access_token',
+  'provider-token',
   'admin-token',
   'super_admin-token',
-  'patient-token',
   'staff-token',
 ] as const;
 

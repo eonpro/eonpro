@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 import {
   Scale,
   TrendingDown,
@@ -23,6 +24,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTracker';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
@@ -40,6 +42,7 @@ interface IntakeVitals {
 export default function PatientPortalDashboard() {
   const { branding } = useClinicBranding();
   const features = usePortalFeatures();
+  const { t, language } = usePatientPortalLanguage();
 
   const [patient, setPatient] = useState<any>(null);
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
@@ -92,9 +95,13 @@ export default function PatientPortalDashboard() {
   }, []);
 
   const loadPatientData = async (patientId: number) => {
+    const headers = getAuthHeaders();
     try {
       // Load intake vitals (initial height, weight, BMI from intake form)
-      const vitalsRes = await fetch('/api/patient-portal/vitals');
+      const vitalsRes = await fetch('/api/patient-portal/vitals', {
+        headers,
+        credentials: 'include',
+      });
       if (vitalsRes.ok) {
         const result = await vitalsRes.json();
         if (result.success && result.data) {
@@ -103,7 +110,10 @@ export default function PatientPortalDashboard() {
       }
 
       // Load weight data from database (logged weights over time)
-      const weightRes = await fetch(`/api/patient-progress/weight?patientId=${patientId}`);
+      const weightRes = await fetch(`/api/patient-progress/weight?patientId=${patientId}`, {
+        headers,
+        credentials: 'include',
+      });
       if (weightRes.ok) {
         const result = await weightRes.json();
         // Handle both array format and { data: [...] } format
@@ -130,7 +140,8 @@ export default function PatientPortalDashboard() {
 
       // Load medication reminders from database
       const remindersRes = await fetch(
-        `/api/patient-progress/medication-reminders?patientId=${patientId}`
+        `/api/patient-progress/medication-reminders?patientId=${patientId}`,
+        { headers, credentials: 'include' }
       );
       if (remindersRes.ok) {
         const result = await remindersRes.json();
@@ -168,7 +179,10 @@ export default function PatientPortalDashboard() {
 
       // Load photo stats for dashboard widget
       try {
-        const photosRes = await fetch('/api/patient-portal/photos');
+        const photosRes = await fetch('/api/patient-portal/photos', {
+          headers,
+          credentials: 'include',
+        });
         if (photosRes.ok) {
           const photosResult = await photosRes.json();
           if (photosResult.success && photosResult.data) {
@@ -242,7 +256,7 @@ export default function PatientPortalDashboard() {
   };
 
   const formatDate = () => {
-    return new Date().toLocaleDateString('en-US', {
+    return new Date().toLocaleDateString(language === 'es' ? 'es' : 'en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -293,7 +307,7 @@ export default function PatientPortalDashboard() {
       <div className="mb-6">
         <p className="text-sm text-gray-500">{formatDate()}</p>
         <h1 className="text-2xl font-semibold text-gray-900">
-          Hello, {patient?.firstName || 'Patient'}
+          {t('dashboardHello')}, {patient?.firstName || 'Patient'}
         </h1>
         {/* Custom welcome message from clinic settings */}
         {branding?.welcomeMessage && (
@@ -391,14 +405,14 @@ export default function PatientPortalDashboard() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium opacity-80" style={{ color: '#333' }}>
-                  Current Weight
+                  {t('dashboardCurrentWeight')}
                 </p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-5xl font-semibold" style={{ color: '#333' }}>
                     {currentWeight || '---'}
                   </span>
                   <span className="text-xl font-medium" style={{ color: '#555' }}>
-                    lbs
+                    {t('dashboardLbs')}
                   </span>
                 </div>
               </div>
@@ -413,30 +427,30 @@ export default function PatientPortalDashboard() {
                   <>
                     <TrendingDown className="h-5 w-5" style={{ color: '#166534' }} />
                     <span className="font-semibold" style={{ color: '#166534' }}>
-                      Down {Math.abs(weightChange)} lbs
+                      {t('dashboardDownLbs').replace('{n}', Math.abs(weightChange).toString())}
                     </span>
                   </>
                 ) : weightChange > 0 ? (
                   <>
                     <TrendingUp className="h-5 w-5" style={{ color: '#dc2626' }} />
                     <span className="font-semibold" style={{ color: '#dc2626' }}>
-                      Up {weightChange} lbs
+                      {t('dashboardUpLbs').replace('{n}', weightChange.toString())}
                     </span>
                   </>
                 ) : (
                   <span className="font-semibold" style={{ color: '#333' }}>
-                    No change
+                    {t('dashboardNoChange')}
                   </span>
                 )}
                 <span className="text-sm opacity-70" style={{ color: '#555' }}>
-                  since starting
+                  {t('dashboardSinceStarting')}
                 </span>
               </div>
             )}
 
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm font-medium" style={{ color: '#555' }}>
-                Tap to log weight & view progress
+                {t('dashboardTapToLogWeight')}
               </span>
               <ChevronRight className="h-5 w-5" style={{ color: '#555' }} />
             </div>
@@ -456,7 +470,7 @@ export default function PatientPortalDashboard() {
               <div className="rounded-xl p-2" style={{ backgroundColor: `${primaryColor}15` }}>
                 <Pill className="h-5 w-5" style={{ color: primaryColor }} />
               </div>
-              <span className="text-xs font-medium text-gray-500">NEXT DOSE</span>
+              <span className="text-xs font-medium text-gray-500">{t('dashboardNextDose')}</span>
             </div>
             <p className="font-semibold text-gray-900">{nextReminder.medication}</p>
             <p className="text-sm text-gray-500">
@@ -475,10 +489,10 @@ export default function PatientPortalDashboard() {
               <div className="rounded-xl bg-blue-50 p-2">
                 <Package className="h-5 w-5 text-blue-600" />
               </div>
-              <span className="text-xs font-medium text-gray-500">SHIPMENT</span>
+              <span className="text-xs font-medium text-gray-500">{t('dashboardShipment')}</span>
             </div>
             <p className="font-semibold capitalize text-gray-900">{recentShipment.status}</p>
-            <p className="text-sm text-gray-500">Est. {recentShipment.estimatedDelivery}</p>
+            <p className="text-sm text-gray-500">{t('dashboardEst')} {recentShipment.estimatedDelivery}</p>
           </Link>
         )}
       </div>
@@ -493,11 +507,11 @@ export default function PatientPortalDashboard() {
                   <Camera className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Progress Photos</h3>
+                  <h3 className="font-semibold text-gray-900">{t('dashboardProgressPhotos')}</h3>
                   <p className="text-sm text-gray-500">
                     {photoStats?.totalPhotos
                       ? `${photoStats.totalPhotos} photo${photoStats.totalPhotos !== 1 ? 's' : ''} uploaded`
-                      : 'Track your transformation'}
+                      : t('dashboardTrackTransformation')}
                   </p>
                 </div>
               </div>
@@ -510,22 +524,22 @@ export default function PatientPortalDashboard() {
                 {photoStats.idVerificationStatus === 'VERIFIED' ? (
                   <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-700">ID Verified</span>
+                    <span className="text-sm font-medium text-green-700">{t('dashboardIdVerified')}</span>
                   </div>
                 ) : photoStats.idVerificationStatus === 'PENDING' ? (
                   <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2">
                     <Clock className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm font-medium text-amber-700">ID Verification Pending</span>
+                    <span className="text-sm font-medium text-amber-700">{t('dashboardIdPending')}</span>
                   </div>
                 ) : photoStats.idVerificationStatus === 'REJECTED' ? (
                   <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2">
                     <AlertCircle className="h-4 w-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-700">ID Needs Resubmission</span>
+                    <span className="text-sm font-medium text-red-700">{t('dashboardIdResubmit')}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
                     <Upload className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-600">Upload ID for Verification</span>
+                    <span className="text-sm font-medium text-gray-600">{t('dashboardUploadId')}</span>
                   </div>
                 )}
               </div>
@@ -542,8 +556,8 @@ export default function PatientPortalDashboard() {
                   />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">Latest Progress Photo</p>
-                  <p className="text-xs text-gray-500">Tap to view all photos</p>
+                  <p className="text-sm font-medium text-gray-700">{t('dashboardLatestProgressPhoto')}</p>
+                  <p className="text-xs text-gray-500">{t('dashboardTapToViewPhotos')}</p>
                 </div>
               </div>
             )}
@@ -553,8 +567,8 @@ export default function PatientPortalDashboard() {
               <div className="mt-4 flex items-center gap-3 rounded-lg bg-violet-50 p-3">
                 <ImageIcon className="h-5 w-5 text-violet-600" />
                 <div>
-                  <p className="text-sm font-medium text-violet-700">Start Documenting Your Journey</p>
-                  <p className="text-xs text-violet-600">Upload your first progress photo</p>
+                  <p className="text-sm font-medium text-violet-700">{t('dashboardStartDocumenting')}</p>
+                  <p className="text-xs text-violet-600">{t('dashboardUploadFirstPhoto')}</p>
                 </div>
               </div>
             )}
@@ -564,7 +578,7 @@ export default function PatientPortalDashboard() {
 
       {/* Quick Actions */}
       <div className="mb-6">
-        <h2 className="mb-3 text-lg font-semibold text-gray-900">Quick Actions</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-900">{t('dashboardQuickActions')}</h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {features.showWeightTracking && (
             <Link
@@ -572,7 +586,7 @@ export default function PatientPortalDashboard() {
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <Scale className="mb-2 h-6 w-6" style={{ color: primaryColor }} />
-              <span className="text-sm font-medium text-gray-700">Log Weight</span>
+              <span className="text-sm font-medium text-gray-700">{t('dashboardLogWeight')}</span>
             </Link>
           )}
 
@@ -582,7 +596,7 @@ export default function PatientPortalDashboard() {
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <Calculator className="mb-2 h-6 w-6 text-purple-600" />
-              <span className="text-sm font-medium text-gray-700">Calculators</span>
+              <span className="text-sm font-medium text-gray-700">{t('dashboardCalculators')}</span>
             </Link>
           )}
 
@@ -592,7 +606,7 @@ export default function PatientPortalDashboard() {
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <BookOpen className="mb-2 h-6 w-6 text-amber-600" />
-              <span className="text-sm font-medium text-gray-700">Resources</span>
+              <span className="text-sm font-medium text-gray-700">{t('dashboardResources')}</span>
             </Link>
           )}
 
@@ -602,7 +616,7 @@ export default function PatientPortalDashboard() {
             className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
           >
             <Camera className="mb-2 h-6 w-6 text-blue-600" />
-            <span className="text-sm font-medium text-gray-700">Photos</span>
+            <span className="text-sm font-medium text-gray-700">{t('dashboardPhotos')}</span>
           </Link>
 
           {features.showShipmentTracking && (
@@ -611,7 +625,7 @@ export default function PatientPortalDashboard() {
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <Package className="mb-2 h-6 w-6 text-blue-600" />
-              <span className="text-sm font-medium text-gray-700">Track Order</span>
+              <span className="text-sm font-medium text-gray-700">{t('dashboardTrackOrder')}</span>
             </Link>
           )}
         </div>
@@ -621,7 +635,7 @@ export default function PatientPortalDashboard() {
       <div className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="p-4" style={{ backgroundColor: primaryColor }}>
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-white">Current Treatment</h2>
+            <h2 className="font-semibold text-white">{t('dashboardCurrentTreatment')}</h2>
             <Pill className="h-5 w-5 text-white/80" />
           </div>
         </div>
@@ -635,7 +649,7 @@ export default function PatientPortalDashboard() {
               className="rounded-full px-3 py-1.5 text-xs font-semibold"
               style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
             >
-              ACTIVE
+              {t('dashboardActive')}
             </span>
           </div>
           <Link

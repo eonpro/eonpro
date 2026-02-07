@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 import WeightTracker from '@/components/WeightTracker';
 import {
   Scale,
@@ -117,34 +118,50 @@ export default function ProgressPage() {
 
   const fetchData = async () => {
     try {
+      const headers = getAuthHeaders();
       // Fetch data based on active tab
       if (activeTab === 'weight') {
-        const response = await fetch(`/api/patient-progress/weight?patientId=${patientId}`);
+        const response = await fetch(`/api/patient-progress/weight?patientId=${patientId}`, {
+          headers,
+          credentials: 'include',
+        });
         if (response.ok) {
           const result = await response.json();
           const logs = Array.isArray(result) ? result : (result.data || []);
           setWeightLogs(logs);
         }
       } else if (activeTab === 'water') {
-        const response = await fetch(`/api/patient-progress/water?patientId=${patientId}`);
+        const response = await fetch(`/api/patient-progress/water?patientId=${patientId}`, {
+          headers,
+          credentials: 'include',
+        });
         if (response.ok) {
           const result = await response.json();
           setTodayWater(result.meta?.todayTotal || 0);
         }
       } else if (activeTab === 'exercise') {
-        const response = await fetch(`/api/patient-progress/exercise?patientId=${patientId}`);
+        const response = await fetch(`/api/patient-progress/exercise?patientId=${patientId}`, {
+          headers,
+          credentials: 'include',
+        });
         if (response.ok) {
           const result = await response.json();
           setWeeklyMinutes(result.meta?.weeklyMinutes || 0);
         }
       } else if (activeTab === 'sleep') {
-        const response = await fetch(`/api/patient-progress/sleep?patientId=${patientId}`);
+        const response = await fetch(`/api/patient-progress/sleep?patientId=${patientId}`, {
+          headers,
+          credentials: 'include',
+        });
         if (response.ok) {
           const result = await response.json();
           setAvgSleepHours(result.meta?.avgSleepHours || 0);
         }
       } else if (activeTab === 'nutrition') {
-        const response = await fetch(`/api/patient-progress/nutrition?patientId=${patientId}`);
+        const response = await fetch(`/api/patient-progress/nutrition?patientId=${patientId}`, {
+          headers,
+          credentials: 'include',
+        });
         if (response.ok) {
           const result = await response.json();
           setTodayCalories(result.meta?.todayCalories || 0);
@@ -162,7 +179,8 @@ export default function ProgressPage() {
     try {
       const response = await fetch('/api/patient-progress/water', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({ patientId, amount, unit: 'oz' }),
       });
       if (response.ok) {
@@ -183,7 +201,8 @@ export default function ProgressPage() {
     try {
       const response = await fetch('/api/patient-progress/exercise', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({
           patientId,
           activityType: exerciseType,
@@ -224,7 +243,8 @@ export default function ProgressPage() {
 
       const response = await fetch('/api/patient-progress/sleep', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({
           patientId,
           sleepStart: sleepStartDate.toISOString(),
@@ -250,7 +270,8 @@ export default function ProgressPage() {
     try {
       const response = await fetch('/api/patient-progress/nutrition', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({
           patientId,
           mealType,
