@@ -64,15 +64,52 @@ export default function PatientPortalDashboard() {
     // SSR guard - only access localStorage on client
     if (typeof window === 'undefined') return;
 
-    // Load patient data safely
-    try {
-      const userJson = localStorage.getItem('user');
-      if (userJson) {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const userJson = localStorage.getItem('user');
+        if (!userJson) {
+          setPatient({
+            id: 1,
+            firstName: 'Patient',
+            lastName: 'User',
+            patientId: 'P12345',
+          });
+          loadDemoData();
+          return;
+        }
+
         const userData = JSON.parse(userJson);
-        setPatient(userData);
-        loadPatientData(userData.patientId || userData.id);
-      } else {
-        // Demo patient
+        if (!cancelled) setPatient(userData);
+
+        // CRITICAL: Use patientId only (never user.id) so we load the correct patient's weight/overview
+        let patientId: number | null = userData.patientId ?? null;
+        if (patientId == null && userData.role?.toLowerCase() === 'patient') {
+          const meRes = await fetch('/api/auth/me', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          });
+          if (meRes.ok && !cancelled) {
+            const meData = await meRes.json();
+            const pid = meData?.user?.patientId;
+            if (typeof pid === 'number' && pid > 0) {
+              patientId = pid;
+              const updated = { ...userData, patientId: pid };
+              localStorage.setItem('user', JSON.stringify(updated));
+              if (!cancelled) setPatient(updated);
+            }
+          }
+        }
+
+        if (cancelled) return;
+        if (patientId != null && patientId > 0) {
+          loadPatientData(patientId);
+        } else {
+          loadDemoData();
+        }
+      } catch (error) {
+        console.error('[PatientPortal] Failed to load user data:', error);
         setPatient({
           id: 1,
           firstName: 'Patient',
@@ -81,17 +118,10 @@ export default function PatientPortalDashboard() {
         });
         loadDemoData();
       }
-    } catch (error) {
-      console.error('[PatientPortal] Failed to load user data:', error);
-      // Fallback to demo on parse error
-      setPatient({
-        id: 1,
-        firstName: 'Patient',
-        lastName: 'User',
-        patientId: 'P12345',
-      });
-      loadDemoData();
-    }
+    };
+
+    run();
+    return () => { cancelled = true; };
   }, []);
 
   const loadPatientData = async (patientId: number) => {

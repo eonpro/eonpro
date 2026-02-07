@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
 import WeightTracker from '@/components/WeightTracker';
 import {
@@ -65,6 +66,7 @@ const mealTypes = [
 
 export default function ProgressPage() {
   const { branding } = useClinicBranding();
+  const { t } = usePatientPortalLanguage();
   const accentColor = branding?.accentColor || '#d3f931';
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
@@ -102,12 +104,43 @@ export default function ProgressPage() {
   const [todayCalories, setTodayCalories] = useState(0);
 
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      setPatientId(userData.patientId || userData.id);
-    }
-    setLoading(false);
+    let cancelled = false;
+
+    const run = async () => {
+      const userJson = localStorage.getItem('user');
+      if (!userJson) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const userData = JSON.parse(userJson);
+        // CRITICAL: Use patientId only (never user.id) so weight/progress match admin profile
+        let pid: number | null = userData.patientId ?? null;
+        if (pid == null && userData.role?.toLowerCase() === 'patient') {
+          const meRes = await fetch('/api/auth/me', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          });
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            const fromMe = meData?.user?.patientId;
+            if (typeof fromMe === 'number' && fromMe > 0) {
+              pid = fromMe;
+              const updated = { ...userData, patientId: fromMe };
+              localStorage.setItem('user', JSON.stringify(updated));
+            }
+          }
+        }
+        if (!cancelled) setPatientId(pid);
+      } catch {
+        if (!cancelled) setPatientId(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -316,10 +349,10 @@ export default function ProgressPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center p-4">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 max-w-md text-center">
+      <div className="flex min-h-[50vh] items-center justify-center p-4 safe-left safe-right">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 max-w-md text-center">
           <Activity className="w-12 h-12 mx-auto mb-3 text-red-300" />
-          <p className="font-medium mb-2">Error Loading Health Data</p>
+          <p className="font-medium mb-2">{t('progressErrorLoading')}</p>
           <p className="text-sm">{error}</p>
           <button
             onClick={() => {
@@ -327,9 +360,9 @@ export default function ProgressPage() {
               setLoading(true);
               if (patientId) fetchData();
             }}
-            className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-sm font-medium transition-colors"
+            className="mt-4 min-h-[44px] px-4 py-2 bg-red-100 hover:bg-red-200 rounded-xl text-sm font-medium transition-colors active:scale-[0.98]"
           >
-            Try Again
+            {t('progressTryAgain')}
           </button>
         </div>
       </div>
@@ -337,26 +370,29 @@ export default function ProgressPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] px-4 py-6">
-      {/* Success Toast */}
+    <div className="min-h-[100dvh] px-4 py-4 pb-28 max-w-2xl mx-auto safe-left safe-right md:pb-6">
+      {/* Success Toast - below status bar on mobile */}
       {showSuccess && (
-        <div className="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl animate-in slide-in-from-top-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500">
+        <div
+          className="fixed left-4 right-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 text-white shadow-2xl animate-in slide-in-from-top-2 md:left-auto md:right-4 md:min-w-0"
+          style={{ top: 'calc(56px + env(safe-area-inset-top, 0px) + 8px)' }}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500">
             <Check className="h-4 w-4" />
           </div>
-          <span className="font-medium">{showSuccess}</span>
+          <span className="font-medium truncate">{showSuccess}</span>
         </div>
       )}
 
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Health Tracking</h1>
-        <p className="mt-1 text-sm text-gray-500">Track your daily wellness metrics</p>
+      {/* Header - compact on mobile for native feel */}
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl">{t('progressTitle')}</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{t('progressSubtitle')}</p>
       </div>
 
-      {/* Tab Navigation - Scrollable on mobile */}
-      <div className="mb-6 -mx-4 px-4 overflow-x-auto">
-        <div className="flex gap-2 min-w-max pb-2">
+      {/* Tab Navigation - Scrollable, no horizontal page overflow */}
+      <div className="mb-4 -mx-4 overflow-x-auto overflow-y-hidden">
+        <div className="flex gap-2 min-w-max px-4 pb-1 safe-left safe-right">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -364,14 +400,14 @@ export default function ProgressPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-3 font-medium transition-all ${
+                className={`flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-xl px-4 py-2.5 font-medium transition-all active:scale-[0.98] ${
                   isActive
                     ? 'bg-gray-900 text-white shadow-lg'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                    : 'bg-white text-gray-600 active:bg-gray-100'
                 }`}
               >
-                <Icon className="h-5 w-5" />
-                <span className="text-sm">{tab.label}</span>
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className="text-sm whitespace-nowrap">{tab.label}</span>
               </button>
             );
           })}
@@ -380,44 +416,43 @@ export default function ProgressPage() {
 
       {/* Tab Content */}
       {activeTab === 'weight' && (
-        <div className="space-y-6">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-white p-4 shadow-sm">
-              <div className="mb-2 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                  <Activity className="h-4 w-4 text-gray-500" />
+        <div className="space-y-4 md:space-y-6">
+          {/* Quick Stats - compact on mobile */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="rounded-xl bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
+              <div className="mb-1 flex items-center gap-2 sm:mb-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 sm:h-8 sm:w-8">
+                  <Activity className="h-3.5 w-3.5 text-gray-500 sm:h-4 sm:w-4" />
                 </div>
               </div>
-              <p className="text-2xl font-semibold text-gray-900">{latestWeight || '--'}</p>
-              <p className="text-xs font-medium text-gray-500">Current (lbs)</p>
+              <p className="text-xl font-semibold text-gray-900 sm:text-2xl">{latestWeight || '--'}</p>
+              <p className="text-xs font-medium text-gray-500">{t('progressCurrentLbs')}</p>
             </div>
-
-            <div className="rounded-2xl bg-white p-4 shadow-sm">
-              <div className="mb-2 flex items-center gap-2">
+            <div className="rounded-xl bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
+              <div className="mb-1 flex items-center gap-2 sm:mb-2">
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg sm:h-8 sm:w-8 ${
                     totalChange <= 0 ? 'bg-emerald-100' : 'bg-rose-100'
                   }`}
                 >
                   {totalChange <= 0 ? (
-                    <TrendingDown className="h-4 w-4 text-emerald-600" />
+                    <TrendingDown className="h-3.5 w-3.5 text-emerald-600 sm:h-4 sm:w-4" />
                   ) : (
-                    <TrendingUp className="h-4 w-4 text-rose-600" />
+                    <TrendingUp className="h-3.5 w-3.5 text-rose-600 sm:h-4 sm:w-4" />
                   )}
                 </div>
               </div>
               <p
-                className={`text-2xl font-semibold ${totalChange <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+                className={`text-xl font-semibold sm:text-2xl ${totalChange <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
               >
                 {totalChange > 0 ? '+' : ''}
                 {totalChange.toFixed(1)}
               </p>
-              <p className="text-xs font-medium text-gray-500">Change (lbs)</p>
+              <p className="text-xs font-medium text-gray-500">{t('progressChangeLbs')}</p>
             </div>
           </div>
 
-          {/* Weight Tracker Component */}
+          {/* Weight Tracker - mobile-optimized inside component */}
           <WeightTracker
             patientId={patientId || undefined}
             variant="hims"
@@ -426,28 +461,28 @@ export default function ProgressPage() {
             onWeightSaved={fetchData}
           />
 
-          {/* Progress Photos Link */}
+          {/* Progress Photos Link - compact touch target */}
           <Link
             href="/patient-portal/photos/progress"
-            className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+            className="flex min-h-[56px] items-center justify-between rounded-xl bg-white p-3 shadow-sm transition-shadow active:bg-gray-50 sm:rounded-2xl sm:p-4"
           >
             <div className="flex items-center gap-3">
               <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12"
                 style={{ backgroundColor: `${primaryColor}20` }}
               >
-                <Camera className="h-6 w-6" style={{ color: primaryColor }} />
+                <Camera className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: primaryColor }} />
               </div>
-              <div>
-                <p className="font-semibold text-gray-900">Progress Photos</p>
-                <p className="text-sm text-gray-500">Track your visual transformation</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900 truncate">{t('progressPhotos')}</p>
+                <p className="text-xs text-gray-500 truncate sm:text-sm">{t('progressPhotosSubtitle')}</p>
               </div>
             </div>
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-full"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10"
               style={{ backgroundColor: primaryColor }}
             >
-              <Plus className="h-5 w-5 text-white" />
+              <Plus className="h-4 w-4 text-white sm:h-5 sm:w-5" />
             </div>
           </Link>
         </div>
@@ -798,24 +833,24 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {/* Tips Card */}
-      <div className="mt-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Award className="h-5 w-5 text-blue-600" />
-          <h3 className="font-semibold text-gray-900">Wellness Tips</h3>
+      {/* Tips Card - compact on mobile */}
+      <div className="mt-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 md:mt-6 md:rounded-2xl md:p-5">
+        <div className="mb-2 flex items-center gap-2 md:mb-3">
+          <Award className="h-4 w-4 text-blue-600 md:h-5 md:w-5" />
+          <h3 className="text-sm font-semibold text-gray-900 md:text-base">{t('progressWellnessTips')}</h3>
         </div>
-        <ul className="space-y-2 text-sm text-gray-600">
-          <li className="flex items-start gap-3">
+        <ul className="space-y-1.5 text-xs text-gray-600 md:space-y-2 md:text-sm">
+          <li className="flex items-start gap-2">
             <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
-            Track consistently at the same time each day for best results
+            {t('progressTipConsistent')}
           </li>
-          <li className="flex items-start gap-3">
+          <li className="flex items-start gap-2">
             <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
-            Small daily habits lead to big changes over time
+            {t('progressTipHabits')}
           </li>
-          <li className="flex items-start gap-3">
+          <li className="flex items-start gap-2">
             <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
-            Remember to celebrate your progress along the way!
+            {t('progressTipCelebrate')}
           </li>
         </ul>
       </div>

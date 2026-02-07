@@ -297,51 +297,50 @@ export default function WeightTracker({
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
-      {/* Hero Header */}
+    <div className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40 md:rounded-3xl md:shadow-xl md:shadow-gray-200/50">
+      {/* Hero Header - compact on mobile for native iPhone fit */}
       <div
-        className="relative overflow-hidden px-8 pb-8 pt-10"
+        className="relative overflow-hidden px-4 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6 md:px-8 md:pb-8 md:pt-10"
         style={{ background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}cc 100%)` }}
       >
-        {/* Decorative elements */}
         <div
-          className="absolute -right-16 -top-16 h-64 w-64 rounded-full opacity-20"
+          className="absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-20 md:-right-16 md:-top-16 md:h-64 md:w-64"
           style={{ backgroundColor: '#000' }}
         />
         <div
-          className="absolute -bottom-20 -left-20 h-48 w-48 rounded-full opacity-10"
+          className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full opacity-10 md:-bottom-20 md:-left-20 md:h-48 md:w-48"
           style={{ backgroundColor: '#fff' }}
         />
 
         <div className="relative">
-          <div className="mb-1 flex items-center gap-2">
-            <Scale className="h-4 w-4 text-gray-700/60" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-700/60">
+          <div className="mb-0.5 flex items-center gap-2 sm:mb-1">
+            <Scale className="h-3.5 w-3.5 text-gray-700/60 sm:h-4 sm:w-4" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-700/60 sm:text-xs">
               Current Weight
             </span>
           </div>
 
-          <div className="flex items-end justify-between">
-            <div className="flex items-baseline gap-3">
-              <span className="text-7xl font-semibold tracking-tight text-gray-900">
+          <div className="flex items-end justify-between gap-2">
+            <div className="flex min-w-0 items-baseline gap-2 sm:gap-3">
+              <span className="text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl md:text-7xl">
                 {latestWeight || '---'}
               </span>
-              <span className="mb-2 text-2xl font-medium text-gray-700/70">lbs</span>
+              <span className="mb-1 text-lg font-medium text-gray-700/70 sm:mb-2 sm:text-2xl">lbs</span>
             </div>
 
             {weightChange !== 0 && (
               <div
-                className={`flex items-center gap-2 rounded-2xl px-5 py-3 backdrop-blur-sm ${
+                className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 backdrop-blur-sm sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 ${
                   weightChange < 0 ? 'bg-emerald-500/20' : 'bg-rose-500/20'
                 }`}
               >
                 {weightChange < 0 ? (
-                  <TrendingDown className="h-5 w-5 text-emerald-700" />
+                  <TrendingDown className="h-4 w-4 text-emerald-700 sm:h-5 sm:w-5" />
                 ) : (
-                  <TrendingUp className="h-5 w-5 text-rose-700" />
+                  <TrendingUp className="h-4 w-4 text-rose-700 sm:h-5 sm:w-5" />
                 )}
                 <span
-                  className={`text-lg font-semibold ${weightChange < 0 ? 'text-emerald-700' : 'text-rose-700'}`}
+                  className={`text-sm font-semibold sm:text-lg ${weightChange < 0 ? 'text-emerald-700' : 'text-rose-700'}`}
                 >
                   {Math.abs(weightChange).toFixed(1)} lbs
                 </span>
@@ -349,21 +348,21 @@ export default function WeightTracker({
             )}
           </div>
 
-          {/* BMI Badge */}
+          {/* BMI Badge - single row, smaller on mobile */}
           {showBMI && currentBMI && bmiCategory && (
-            <div className="mt-6 flex items-center gap-3">
-              <div className="rounded-xl bg-black/10 px-4 py-2 backdrop-blur-sm">
-                <span className="text-sm font-semibold text-gray-800">BMI {currentBMI.toFixed(1)}</span>
+            <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 md:mt-6 md:gap-3">
+              <div className="rounded-lg bg-black/10 px-3 py-1.5 backdrop-blur-sm sm:rounded-xl sm:px-4 sm:py-2">
+                <span className="text-xs font-semibold text-gray-800 sm:text-sm">BMI {currentBMI.toFixed(1)}</span>
               </div>
               <div
-                className="flex items-center gap-2 rounded-xl px-4 py-2"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2"
                 style={{ backgroundColor: bmiCategory.bgColor }}
               >
                 <div
-                  className="h-2 w-2 rounded-full"
+                  className="h-1.5 w-1.5 rounded-full sm:h-2 sm:w-2"
                   style={{ backgroundColor: bmiCategory.color }}
                 />
-                <span className="text-sm font-semibold" style={{ color: bmiCategory.color }}>
+                <span className="text-xs font-semibold sm:text-sm" style={{ color: bmiCategory.color }}>
                   {bmiCategory.label}
                 </span>
               </div>
@@ -372,14 +371,13 @@ export default function WeightTracker({
         </div>
       </div>
 
-      {/* Weight Input Section - Mobile optimized */}
-      <div className="border-b border-gray-100 p-5 sm:p-8">
-        <div className="mb-4 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-semibold text-gray-500">Log Today's Weight</span>
+      {/* Weight Input Section - 44px+ touch targets on mobile */}
+      <div className="border-b border-gray-100 p-4 sm:p-5 md:p-8">
+        <div className="mb-3 flex items-center gap-2 sm:mb-4">
+          <Sparkles className="h-3.5 w-3.5 text-gray-400 sm:h-4 sm:w-4" />
+          <span className="text-xs font-semibold text-gray-500 sm:text-sm">Log Today's Weight</span>
         </div>
 
-        {/* Stack vertically on mobile, horizontal on larger screens */}
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <div
             className={`relative flex-1 transition-all duration-300 ${isFocused ? 'scale-[1.01]' : ''}`}
@@ -394,12 +392,12 @@ export default function WeightTracker({
               onBlur={() => setIsFocused(false)}
               onKeyDown={(e) => e.key === 'Enter' && handleWeightSubmit()}
               placeholder="Enter weight"
-              className={`w-full rounded-2xl border-2 bg-gray-50 px-5 py-4 text-xl font-semibold text-gray-900 outline-none transition-all duration-300 placeholder:font-normal placeholder:text-gray-400 sm:px-6 sm:py-5 ${
+              className={`w-full min-h-[48px] rounded-xl border-2 bg-gray-50 px-4 py-3 text-lg font-semibold text-gray-900 outline-none transition-all placeholder:font-normal placeholder:text-gray-400 sm:min-h-0 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-xl md:px-6 md:py-5 ${
                 isFocused ? 'border-gray-900 bg-white shadow-lg' : 'border-transparent'
               }`}
-              style={{ fontSize: '18px' }} // Prevent iOS zoom
+              style={{ fontSize: '16px' }} /* Prevent iOS zoom on focus */
             />
-            <span className="absolute right-5 top-1/2 -translate-y-1/2 text-base font-semibold text-gray-400 sm:right-6 sm:text-lg">
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 sm:right-5 sm:text-base md:right-6 md:text-lg">
               lbs
             </span>
           </div>
@@ -407,7 +405,7 @@ export default function WeightTracker({
           <button
             onClick={handleWeightSubmit}
             disabled={isLoading || !currentWeight}
-            className="group relative min-h-[52px] overflow-hidden rounded-2xl px-8 py-4 font-semibold text-gray-900 transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:px-10 sm:py-5 sm:hover:scale-105 sm:hover:shadow-xl"
+            className="group relative min-h-[48px] overflow-hidden rounded-xl px-6 py-3 font-semibold text-gray-900 transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[52px] sm:rounded-2xl sm:px-8 sm:py-4 md:px-10 md:py-5 md:hover:scale-105 md:hover:shadow-xl"
             style={{ backgroundColor: accentColor }}
           >
             <span className="absolute inset-0 translate-y-full bg-black/10 transition-transform duration-300 group-hover:translate-y-0" />
@@ -431,42 +429,42 @@ export default function WeightTracker({
         </div>
       </div>
 
-      {/* Chart Section */}
-      <div className="p-8">
-        <div className="mb-6 flex items-center justify-between">
+      {/* Chart Section - shorter on mobile to fit viewport */}
+      <div className="p-4 sm:p-6 md:p-8">
+        <div className="mb-3 flex items-center justify-between sm:mb-6">
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">Your Progress</h3>
-            <p className="mt-1 text-sm text-gray-500">Last 7 check-ins</p>
+            <h3 className="text-base font-semibold text-gray-900 sm:text-xl">Your Progress</h3>
+            <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">Last 7 check-ins</p>
           </div>
           {percentChange > 0 && weightChange !== 0 && (
             <div className="text-right">
               <span
-                className={`text-2xl font-semibold ${weightChange < 0 ? 'text-emerald-500' : 'text-rose-500'}`}
+                className={`text-lg font-semibold sm:text-2xl ${weightChange < 0 ? 'text-emerald-500' : 'text-rose-500'}`}
               >
                 {weightChange < 0 ? '-' : '+'}
                 {percentChange.toFixed(1)}%
               </span>
-              <p className="text-xs text-gray-500">since start</p>
+              <p className="text-[10px] text-gray-500 sm:text-xs">since start</p>
             </div>
           )}
         </div>
 
-        <div className="h-72">
+        <div className="h-52 sm:h-64 md:h-72">
           {chartData.length > 0 ? (
             <Line data={data} options={chartOptions} />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50">
-              <Scale className="mb-3 h-12 w-12 text-gray-300" />
-              <p className="font-semibold text-gray-400">No data yet</p>
-              <p className="mt-1 text-sm text-gray-400">Log your first weight to see progress</p>
+            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 sm:rounded-2xl">
+              <Scale className="mb-2 h-10 w-10 text-gray-300 sm:mb-3 sm:h-12 sm:w-12" />
+              <p className="text-sm font-semibold text-gray-400 sm:text-base">No data yet</p>
+              <p className="mt-0.5 text-xs text-gray-400 sm:mt-1 sm:text-sm">Log your first weight to see progress</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Stats Footer */}
+      {/* Stats Footer - 2x2 grid on mobile to avoid tiny text */}
       {sortedData.length > 1 && (
-        <div className="grid grid-cols-4 divide-x divide-gray-100 border-t border-gray-100 bg-gray-50/50">
+        <div className="grid grid-cols-2 gap-px border-t border-gray-100 bg-gray-100 sm:grid-cols-4 sm:divide-x sm:divide-gray-100 sm:gap-0">
           {[
             { label: 'Starting', value: `${startingWeight}`, unit: 'lbs', color: 'text-gray-600' },
             { label: 'Current', value: `${latestWeight}`, unit: 'lbs', color: 'text-gray-900' },
@@ -483,12 +481,12 @@ export default function WeightTracker({
               color: 'text-gray-900',
             },
           ].map((stat, i) => (
-            <div key={i} className="px-6 py-5 text-center">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <div key={i} className="bg-gray-50/50 px-3 py-3 text-center sm:px-6 sm:py-5">
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:mb-1 sm:text-xs">
                 {stat.label}
               </p>
-              <p className={`text-2xl font-semibold ${stat.color}`}>{stat.value}</p>
-              <p className="text-xs text-gray-400">{stat.unit}</p>
+              <p className={`text-lg font-semibold sm:text-2xl ${stat.color}`}>{stat.value}</p>
+              <p className="text-[10px] text-gray-400 sm:text-xs">{stat.unit}</p>
             </div>
           ))}
         </div>
