@@ -237,8 +237,11 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
       </div>
 
-      {/* Weight Tracker Widget */}
-      <div className="rounded-xl border border-green-200 bg-gradient-to-br from-green-50 to-green-100 p-6">
+      {/* Weight Tracker Widget - entire container #faffac */}
+      <div
+        className="rounded-xl border border-green-200 p-6"
+        style={{ backgroundColor: '#faffac' }}
+      >
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Weight Tracker</h2>
@@ -250,7 +253,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                 <Check className="h-3 w-3" /> Saved!
               </span>
             )}
-            <span className="rounded-full bg-white/80 px-3 py-1 text-xs text-green-700">
+            <span className="rounded-full px-3 py-1 text-xs text-green-800" style={{ backgroundColor: 'rgba(255,255,255,0.6)' }}>
               {weightData.length} entries
             </span>
             <button
@@ -411,7 +414,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               weightData.slice(0, 5).map((entry, idx) => (
                 <div
                   key={entry.id || idx}
-                  className="flex items-center justify-between rounded-lg bg-white px-4 py-3"
+                  className="flex items-center justify-between rounded-lg px-4 py-3"
+                  style={{ backgroundColor: '#faffac' }}
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -453,9 +457,9 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                 </div>
               ))
             ) : (
-              <div className="rounded-lg bg-gray-50 py-4 text-center">
-                <p className="text-sm text-gray-500">No weight data logged yet</p>
-                <p className="mt-1 text-xs text-gray-400">
+              <div className="rounded-lg py-4 text-center" style={{ backgroundColor: '#faffac' }}>
+                <p className="text-sm text-gray-600">No weight data logged yet</p>
+                <p className="mt-1 text-xs text-gray-500">
                   Click "Add Weight" above or patient can log from their dashboard
                 </p>
               </div>
