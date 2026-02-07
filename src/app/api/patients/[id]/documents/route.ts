@@ -151,8 +151,18 @@ export const POST = withAuthParams(async (
       patientId
     });
 
-    // Parse the form data
-    const formData = await request.formData();
+    // Parse the form data (may throw on body size or invalid multipart)
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (formError: any) {
+      const msg = formError?.message || 'Invalid request body';
+      logger.error('Documents upload: formData parse failed', { userId: user?.id, error: msg });
+      return NextResponse.json(
+        { error: 'Invalid upload. Try a smaller file or use the Lab tab for Quest PDFs.', code: 'BAD_REQUEST' },
+        { status: 400 }
+      );
+    }
     const files = formData.getAll('files') as File[];
     const categoryRaw = formData.get('category') as string;
 
@@ -304,21 +314,21 @@ export const POST = withAuthParams(async (
 
     return NextResponse.json(uploadedDocuments);
   } catch (error: any) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : String(error ?? 'Unknown error');
     logger.error('Error uploading documents', {
       userId: user?.id,
       error: errorMessage,
       stack: error instanceof Error ? error.stack : undefined,
     });
-    // Storage/S3 failures: return 503 so UI can show "storage unavailable" and suggest Bloodwork upload for lab PDFs
+    // Storage/S3 failures: return 503 and point users to Lab tab for lab PDFs
     const isStorageError =
-      /storage|S3|upload failed|not configured|credentials|bucket/i.test(errorMessage) ||
+      /storage|S3|upload failed|not configured|credentials|bucket|Failed to upload file/i.test(errorMessage) ||
       (error?.name && /NetworkError|TimeoutError/i.test(error.name));
     const status = isStorageError ? 503 : 500;
     const body: { error: string; code?: string } = {
       error: isStorageError
-        ? 'Document storage is temporarily unavailable. For lab results, use the "Bloodwork (Quest)" upload above.'
-        : `Failed to upload documents: ${errorMessage}`,
+        ? 'Document storage is temporarily unavailable. For lab results, use the Lab tab and upload a Quest PDF there.'
+        : `Upload failed: ${errorMessage}`,
     };
     if (isStorageError) body.code = 'STORAGE_UNAVAILABLE';
     return NextResponse.json(body, { status });
