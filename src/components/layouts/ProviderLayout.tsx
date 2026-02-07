@@ -190,16 +190,11 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).catch(() => {});
-      }
-    } catch {}
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('provider-token');
     localStorage.removeItem('auth-token');
@@ -462,6 +457,7 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
 
               {/* Logout */}
               <button 
+                type="button"
                 onClick={handleLogout}
                 className="p-2 text-gray-500 hover:text-gray-700"
                 title="Sign Out"

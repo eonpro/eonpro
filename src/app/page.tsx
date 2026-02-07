@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 // Default EONPRO logos
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
@@ -112,7 +113,7 @@ function HomePageInner() {
           return;
         }
         if (role === 'patient') {
-          router.push('/patient-portal');
+          router.push(PATIENT_PORTAL_PATH);
           return;
         }
         if (role === 'provider') {
@@ -192,16 +193,11 @@ function HomePageInner() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).catch(() => {});
-      }
-    } catch {}
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -328,6 +324,7 @@ function HomePageInner() {
         {/* Logout */}
         <div className="px-3">
           <button
+            type="button"
             onClick={handleLogout}
             title={!sidebarExpanded ? "Logout" : undefined}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all w-full"

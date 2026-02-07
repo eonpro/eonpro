@@ -24,6 +24,16 @@ const PASSWORD_REQUIREMENTS = {
   requireSpecialChars: true,
 };
 
+/** Base URL for emails (server-side env so production domain is correct at runtime). */
+function getAppBaseUrl(): string {
+  return (
+    process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    ''
+  ).replace(/\/$/, '');
+}
+
 export interface RegistrationInput {
   email: string;
   password: string;
@@ -32,6 +42,17 @@ export interface RegistrationInput {
   phone: string;
   dob: string; // YYYY-MM-DD format
   clinicCode: string;
+}
+
+/** Registration via one-time portal invite link (no clinic code). */
+export interface RegisterWithInviteInput {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  dob: string;
+  inviteToken: string;
 }
 
 export interface RegistrationResult {
@@ -397,7 +418,8 @@ export async function registerPatient(
     });
     
     // Send welcome email with verification link
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email?token=${verificationToken}`;
+    const baseUrl = getAppBaseUrl();
+    const verificationUrl = baseUrl ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}` : '';
     
     try {
       await sendTemplatedEmail({
@@ -454,6 +476,148 @@ export async function registerPatient(
 }
 
 /**
+ * Register using a one-time portal invite token (patient-specific link).
+ * Creates User linked to the invite's patient; no clinic code or name/DOB matching required.
+ */
+export async function registerWithInviteToken(
+  input: RegisterWithInviteInput,
+  ipAddress?: string
+): Promise<RegistrationResult> {
+  const { validateInviteToken, markInviteTokenUsed } = await import('@/lib/portal-invite/service');
+  const { email, password, firstName, lastName, phone, dob, inviteToken } = input;
+
+  try {
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedPhone = formatPhone(phone);
+    const normalizedDOB = normalizeDOB(dob);
+
+    const invite = await validateInviteToken(inviteToken);
+    if (!invite) {
+      return {
+        success: false,
+        error: 'This invite link is invalid or has expired. Please request a new one from your care team.',
+      };
+    }
+
+    if (normalizedEmail !== invite.patient.email.toLowerCase().trim()) {
+      return {
+        success: false,
+        error: 'Email must match the email we have on file for this invite.',
+      };
+    }
+
+    const inviteDob = (invite.patient.dob || '').trim();
+    if (inviteDob) {
+      const inviteDobNormalized = normalizeDOB(inviteDob);
+      if (normalizedDOB !== inviteDobNormalized) {
+        return {
+          success: false,
+          error: 'Date of birth must match the date we have on file for this invite.',
+        };
+      }
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    if (existingUser) {
+      logger.warn('RegisterWithInvite attempted with existing email', { email: normalizedEmail });
+      return {
+        success: false,
+        error: 'An account with this email already exists. Please log in or reset your password.',
+      };
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return { success: false, error: passwordValidation.errors.join('. ') };
+    }
+    if (!validatePhone(phone)) {
+      return { success: false, error: 'Invalid phone number format' };
+    }
+    const dobValidation = validateDOB(dob);
+    if (!dobValidation.isValid) {
+      return { success: false, error: dobValidation.error };
+    }
+
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const verificationToken = generateVerificationToken();
+    const hashedToken = hashToken(verificationToken);
+    const tokenExpiresAt = new Date();
+    tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
+
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: invite.clinicId },
+      select: { name: true },
+    });
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const user = await tx.user.create({
+        data: {
+          clinicId: invite.clinicId,
+          email: normalizedEmail,
+          passwordHash,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          role: 'PATIENT',
+          status: 'ACTIVE',
+          patientId: invite.patientId,
+          emailVerified: false,
+        },
+      });
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          token: hashedToken,
+          expiresAt: tokenExpiresAt,
+        },
+      });
+      return { user };
+    });
+
+    await markInviteTokenUsed(inviteToken);
+
+    const baseUrl = getAppBaseUrl();
+    const verificationUrl = baseUrl ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}` : '';
+    try {
+      await sendTemplatedEmail({
+        to: normalizedEmail,
+        template: EmailTemplate.PATIENT_WELCOME_VERIFICATION,
+        data: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          verificationLink: verificationUrl,
+          expiresIn: '24 hours',
+          clinicName: clinic?.name || 'Your Clinic',
+        },
+      });
+    } catch (emailError: any) {
+      logger.error('Failed to send welcome email after invite registration', {
+        userId: result.user.id,
+        error: emailError.message,
+      });
+    }
+
+    logger.security('Patient portal registration (invite token)', {
+      userId: result.user.id,
+      patientId: invite.patientId,
+      clinicId: invite.clinicId,
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      message: 'Account created. Please check your email to verify your account.',
+      userId: result.user.id,
+      patientId: invite.patientId,
+    };
+  } catch (error: any) {
+    logger.error('Register with invite failed', { error: error.message });
+    return { success: false, error: 'Registration failed. Please try again.' };
+  }
+}
+
+/**
  * Verify email with token
  */
 export async function verifyEmail(token: string): Promise<RegistrationResult> {
@@ -469,8 +633,16 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
     if (!verificationRecord) {
       return { success: false, error: 'Invalid verification link' };
     }
-    
+
+    // Link already used = user may already be verified (e.g. double-click or refresh). Treat as success so they can log in.
     if (verificationRecord.used) {
+      if (verificationRecord.user.emailVerified) {
+        return {
+          success: true,
+          message: 'Your email is already verified. You can log in.',
+          userId: verificationRecord.userId,
+        };
+      }
       return { success: false, error: 'This verification link has already been used' };
     }
     
@@ -478,23 +650,23 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
       return { success: false, error: 'This verification link has expired. Please request a new one.' };
     }
     
-    // Mark user as verified and token as used
-    await prisma.$transaction([
-      prisma.user.update({
+    // Mark user as verified and token as used (use callback form for Prisma wrapper compatibility)
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
         where: { id: verificationRecord.userId },
         data: {
           emailVerified: true,
           emailVerifiedAt: new Date(),
         },
-      }),
-      prisma.emailVerificationToken.update({
+      });
+      await tx.emailVerificationToken.update({
         where: { id: verificationRecord.id },
         data: {
           used: true,
           usedAt: new Date(),
         },
-      }),
-    ]);
+      });
+    });
     
     logger.security('Email verified', {
       userId: verificationRecord.userId,
@@ -555,7 +727,8 @@ export async function resendVerificationEmail(email: string): Promise<Registrati
     });
     
     // Send verification email
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email?token=${verificationToken}`;
+    const baseUrl = getAppBaseUrl();
+    const verificationUrl = baseUrl ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}` : '';
     
     await sendTemplatedEmail({
       to: normalizedEmail,

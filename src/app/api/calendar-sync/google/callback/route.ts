@@ -1,12 +1,15 @@
 /**
  * Google Calendar OAuth Callback
- * 
- * Handles the OAuth2 callback from Google after user authorization
+ *
+ * Handles the OAuth2 callback from Google after user authorization.
+ * Redirects to /provider/calendar (where Connect Google Calendar lives).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { exchangeCodeForTokens } from '@/lib/calendar-sync/google-calendar.service';
+
+const REDIRECT_BASE = '/provider/calendar';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,13 +22,13 @@ export async function GET(req: NextRequest) {
     if (error) {
       logger.error('Google OAuth error', { error });
       return NextResponse.redirect(
-        new URL(`/dashboard/settings/integrations?error=${encodeURIComponent(error)}`, req.url)
+        new URL(`${REDIRECT_BASE}?error=${encodeURIComponent(error)}`, req.url)
       );
     }
 
     if (!code || !state) {
       return NextResponse.redirect(
-        new URL('/dashboard/settings/integrations?error=missing_params', req.url)
+        new URL(`${REDIRECT_BASE}?error=missing_params`, req.url)
       );
     }
 
@@ -35,7 +38,7 @@ export async function GET(req: NextRequest) {
       stateData = JSON.parse(Buffer.from(state, 'base64').toString());
     } catch {
       return NextResponse.redirect(
-        new URL('/dashboard/settings/integrations?error=invalid_state', req.url)
+        new URL(`${REDIRECT_BASE}?error=invalid_state`, req.url)
       );
     }
 
@@ -49,7 +52,7 @@ export async function GET(req: NextRequest) {
     if (!result.success) {
       logger.error('Failed to exchange Google code', { error: result.error });
       return NextResponse.redirect(
-        new URL(`/dashboard/settings/integrations?error=${encodeURIComponent(result.error || 'exchange_failed')}`, req.url)
+        new URL(`${REDIRECT_BASE}?error=${encodeURIComponent(result.error || 'exchange_failed')}`, req.url)
       );
     }
 
@@ -58,13 +61,13 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.redirect(
-      new URL('/dashboard/settings/integrations?success=google_connected', req.url)
+      new URL(`${REDIRECT_BASE}?success=google_connected`, req.url)
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Google OAuth callback error', { error: errorMessage });
     return NextResponse.redirect(
-      new URL(`/dashboard/settings/integrations?error=${encodeURIComponent(errorMessage)}`, req.url)
+      new URL(`${REDIRECT_BASE}?error=${encodeURIComponent(errorMessage)}`, req.url)
     );
   }
 }

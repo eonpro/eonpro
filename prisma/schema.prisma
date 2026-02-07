@@ -69,6 +69,7 @@ model Patient {
   referrals               ReferralTracking[]
   reconciliations         PaymentReconciliation[]
   user                    User?
+  portalInvites           PatientPortalInvite[] // One-time portal invite tokens (manual, first_payment, first_order)
   intakeSubmissions       IntakeFormSubmission[]
   weightLogs              PatientWeightLog[]
   medicationReminders     PatientMedicationReminder[]
@@ -906,6 +907,7 @@ model User {
   provider     Provider?   @relation(fields: [providerId], references: [id])
   influencer   Influencer? @relation(fields: [influencerId], references: [id])
   patient      Patient?    @relation(fields: [patientId], references: [id])
+  patientPortalInvitesCreated PatientPortalInvite[] // Portal invites sent by this user (manual)
 
   // Affiliate Portal relation
   affiliateProfile Affiliate?
@@ -1195,6 +1197,24 @@ model ClinicInviteCode {
 
   @@index([code])
   @@index([clinicId])
+}
+
+// Patient-specific portal invite (one-time token). Used for "Send portal invite" and auto-invite on first payment/order.
+model PatientPortalInvite {
+  id          Int       @id @default(autoincrement())
+  patientId   Int
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique // SHA-256 hash of the one-time token (plain token sent in email only)
+  expiresAt   DateTime
+  usedAt      DateTime? // null until patient completes registration
+  createdById Int?      // User who sent (null for system-triggered: first_payment, first_order)
+  createdBy   User?     @relation(fields: [createdById], references: [id])
+  trigger     String    // "manual" | "first_payment" | "first_order"
+  createdAt   DateTime  @default(now())
+
+  @@index([patientId])
+  @@index([tokenHash])
+  @@index([expiresAt])
 }
 
 // Phone OTP for SMS-based authentication
@@ -2764,6 +2784,7 @@ model AppointmentTypeConfig {
   updatedAt            DateTime            @updatedAt
 
   @@index([clinicId])
+  @@map("AppointmentType")
 }
 
 model ProviderAvailability {

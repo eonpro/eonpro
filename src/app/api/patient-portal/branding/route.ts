@@ -144,6 +144,10 @@ const getBrandingHandler = async (request: NextRequest) => {
       supportPhone: clinic.phone,
       supportHours: patientPortalSettings.supportHours || null,
       emergencyContact: patientPortalSettings.emergencyContact || null,
+
+      // Auto-invite (enterprise patient portal)
+      autoInviteOnFirstPayment: patientPortalSettings.autoInviteOnFirstPayment ?? false,
+      autoInviteOnFirstOrder: patientPortalSettings.autoInviteOnFirstOrder ?? false,
     };
 
     return NextResponse.json(branding);
@@ -185,6 +189,8 @@ const updateBrandingSchema = z.object({
     thumbnail: z.string().optional(),
     category: z.string().optional(),
   })).optional(),
+  autoInviteOnFirstPayment: z.boolean().optional(),
+  autoInviteOnFirstOrder: z.boolean().optional(),
 });
 
 /**
@@ -268,7 +274,13 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update settings JSON for patient portal specific settings
-    if (brandingData.features || brandingData.accentColor || brandingData.resourceVideos) {
+    if (
+      brandingData.features ||
+      brandingData.accentColor ||
+      brandingData.resourceVideos ||
+      brandingData.autoInviteOnFirstPayment !== undefined ||
+      brandingData.autoInviteOnFirstOrder !== undefined
+    ) {
       const currentSettings = (existingClinic.settings as any) || {};
       updateData.settings = {
         ...currentSettings,
@@ -277,6 +289,12 @@ export async function PUT(request: NextRequest) {
           ...(brandingData.accentColor && { accentColor: brandingData.accentColor }),
           ...(brandingData.features && { ...brandingData.features }),
           ...(brandingData.resourceVideos && { resourceVideos: brandingData.resourceVideos }),
+          ...(brandingData.autoInviteOnFirstPayment !== undefined && {
+            autoInviteOnFirstPayment: brandingData.autoInviteOnFirstPayment,
+          }),
+          ...(brandingData.autoInviteOnFirstOrder !== undefined && {
+            autoInviteOnFirstOrder: brandingData.autoInviteOnFirstOrder,
+          }),
         },
       };
     }

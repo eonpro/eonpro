@@ -188,9 +188,15 @@ export default function MedicationSelector({
         subCategory,
       });
     });
+
+    // Tirzepatide: only offer 10mg/3ml vial (3ML VIAL); exclude 30mg/2ml and 15mg/2ml
+    const TIRZEPATIDE_3ML_VIAL_KEY = '203449364';
+    const filtered = meds.filter(
+      (m) => (m.subCategory === 'Tirzepatide' ? m.key === TIRZEPATIDE_3ML_VIAL_KEY : true)
+    );
     
     // Sort: GLP-1 first (Semaglutide, then Tirzepatide), then others alphabetically
-    return meds.sort((a, b) => {
+    return filtered.sort((a, b) => {
       if (a.category === 'GLP-1' && b.category !== 'GLP-1') return -1;
       if (a.category !== 'GLP-1' && b.category === 'GLP-1') return 1;
       if (a.subCategory && b.subCategory && a.subCategory !== b.subCategory) {

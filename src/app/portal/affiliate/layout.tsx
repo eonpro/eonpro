@@ -139,16 +139,11 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).catch(() => {});
-      }
-    } catch {}
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('affiliate-token');
@@ -269,6 +264,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
             </div>
           )}
           <button
+            type="button"
             onClick={handleLogout}
             title={!sidebarExpanded ? 'Sign Out' : undefined}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
@@ -348,6 +344,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
             </nav>
             <div className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-gray-50 p-3">
               <button
+                type="button"
                 onClick={handleLogout}
                 className="flex w-full items-center justify-center gap-3 rounded-2xl bg-red-50 px-4 py-4 text-red-600 active:bg-red-100"
               >

@@ -20,6 +20,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   const fullWidthPages = [
     '/login',
     '/register',
+    '/email-verified',
     '/forgot-password',
     '/reset-password',
     '/verify-email',

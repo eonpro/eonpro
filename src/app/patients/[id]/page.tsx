@@ -10,6 +10,7 @@ import PatientAppointmentsView from '@/components/PatientAppointmentsView';
 import PatientProgressView from '@/components/PatientProgressView';
 import PatientSidebar from '@/components/PatientSidebar';
 import PatientTags from '@/components/PatientTags';
+import PatientPortalAccessBlock from '@/components/PatientPortalAccessBlock';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { logger } from '@/lib/logger';
@@ -74,6 +75,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           where: { id },
           include: {
             // Include clinic for subdomain (used for clinic-specific intake sections)
+            user: { select: { id: true } }, // Portal access (has portal if user exists)
             clinic: {
               select: {
                 id: true,
@@ -187,6 +189,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       return (
         <div className="p-10">
           <p className="text-red-600">Patient not found or you don't have access to this patient.</p>
+          <p className="mt-2 text-sm text-gray-600">If you are a clinic admin, this patient may belong to a different clinic.</p>
           <Link href="/provider/patients" className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
             ← Back to patients
           </Link>
@@ -790,6 +793,14 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
             <div className="space-y-6">
               {/* Title */}
               <h1 className="text-2xl font-bold text-gray-900">Patient Overview</h1>
+
+              {/* Portal access + Send invite */}
+              <PatientPortalAccessBlock
+                patientId={patientWithDecryptedPHI.id}
+                hasPortalAccess={!!patientWithDecryptedPHI.user}
+                hasEmail={!!(patientWithDecryptedPHI.email && String(patientWithDecryptedPHI.email).trim())}
+                hasPhone={!!(patientWithDecryptedPHI.phone && String(patientWithDecryptedPHI.phone).trim())}
+              />
 
               {/* Vitals Section */}
               <div className="rounded-2xl border border-gray-200 bg-white p-6">

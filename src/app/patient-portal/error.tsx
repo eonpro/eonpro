@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw, ShieldAlert, Phone } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -25,7 +26,7 @@ export default function PatientPortalError({ error, reset }: ErrorProps) {
 
   if (isAuthError) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-emerald-50 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#efece7]">
         <div className="max-w-md w-full text-center bg-white rounded-2xl shadow-lg p-8">
           <div className="mb-6">
             <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
@@ -37,7 +38,7 @@ export default function PatientPortalError({ error, reset }: ErrorProps) {
             For your security, your session has expired. Please log in again to access your health information.
           </p>
           <Link
-            href="/login?redirect=/patient-portal"
+            href={`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}`}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors w-full"
           >
             Log In Again
@@ -48,7 +49,7 @@ export default function PatientPortalError({ error, reset }: ErrorProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-emerald-50 to-teal-50">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#efece7]">
       <div className="max-w-md w-full text-center bg-white rounded-2xl shadow-lg p-8">
         <div className="mb-6">
           <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">

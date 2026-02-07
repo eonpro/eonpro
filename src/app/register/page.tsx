@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Eye, 
@@ -29,11 +29,13 @@ interface ClinicInfo {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Form state
   const [step, setStep] = useState<RegistrationStep>('clinic');
   const [clinicCode, setClinicCode] = useState('');
   const [clinic, setClinic] = useState<ClinicInfo | null>(null);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -47,7 +49,59 @@ export default function RegisterPage() {
   // UI state
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [inviteValidating, setInviteValidating] = useState(true);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  // Prefill from invite link (?invite=TOKEN)
+  useEffect(() => {
+    const invite = searchParams.get('invite');
+    if (!invite || invite.length < 32) {
+      setInviteValidating(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/auth/register/validate-invite?invite=${encodeURIComponent(invite)}`);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (data.valid && data.email) {
+          setInviteToken(invite);
+          setEmail(data.email || '');
+          setFirstName(data.firstName || '');
+          setLastName(data.lastName || '');
+          const rawPhone = (data.phone || '').replace(/\D/g, '');
+          setPhone(
+            rawPhone.length >= 10
+              ? `(${rawPhone.slice(0, 3)}) ${rawPhone.slice(3, 6)}-${rawPhone.slice(6, 10)}`
+              : data.phone || ''
+          );
+          const rawDob = data.dob || '';
+          setDob(
+            /^\d{4}-\d{2}-\d{2}$/.test(rawDob)
+              ? rawDob
+              : rawDob.includes('/')
+                ? (() => {
+                    const [m, d, y] = rawDob.split('/');
+                    return y && m && d ? `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}` : rawDob;
+                  })()
+                : rawDob
+          );
+          setClinic({
+            id: 0,
+            name: data.clinicName || 'Your Clinic',
+            logoUrl: data.clinicLogoUrl || null,
+          });
+          setStep('details');
+        }
+      } catch {
+        if (!cancelled) setError('Invalid or expired invite link.');
+      } finally {
+        if (!cancelled) setInviteValidating(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [searchParams]);
   
   // Password validation
   const passwordRequirements = [
@@ -127,18 +181,23 @@ export default function RegisterPage() {
     setLoading(true);
     
     try {
+      const body: Record<string, string> = {
+        email: email.trim(),
+        password,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.replace(/\D/g, ''),
+        dob,
+      };
+      if (inviteToken) {
+        body.inviteToken = inviteToken;
+      } else {
+        body.clinicCode = clinicCode.trim();
+      }
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          phone: phone.replace(/\D/g, ''),
-          dob,
-          clinicCode: clinicCode.trim(),
-        }),
+        body: JSON.stringify(body),
       });
       
       const data = await response.json();
@@ -156,16 +215,27 @@ export default function RegisterPage() {
     }
   };
   
-  // Go back to previous step
+  // Go back to previous step (only when not using invite link)
   const handleBack = () => {
-    if (step === 'details') {
+    if (step === 'details' && !inviteToken) {
       setStep('clinic');
       setClinic(null);
     }
   };
   
+  if (inviteValidating) {
+    return (
+      <div className="min-h-screen bg-[#efece7] flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+          <p className="mt-4 text-gray-600">Validating your invite link…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#efece7] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo/Header */}
         <div className="text-center mb-8">
@@ -261,23 +331,40 @@ export default function RegisterPage() {
             {step === 'details' && clinic && (
               <form onSubmit={handleRegistrationSubmit} className="space-y-5">
                 {/* Clinic Display */}
-                <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-xl mb-2">
-                  <div className="flex items-center gap-3">
-                    {clinic.logoUrl ? (
-                      <img src={clinic.logoUrl} alt={clinic.name} className="h-10 w-10 rounded-lg object-cover" />
-                    ) : (
-                      <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-emerald-600" />
+                <div className={`flex items-center ${inviteToken ? 'flex-col' : 'justify-between'} ${inviteToken ? 'py-2 mb-2' : 'p-3 bg-emerald-50 border border-emerald-100 rounded-xl mb-2'}`}>
+                  {inviteToken ? (
+                    <>
+                      <p className="text-sm text-emerald-600 font-medium mb-3">Invited by</p>
+                      {clinic.logoUrl ? (
+                        <img
+                          src={clinic.logoUrl}
+                          alt={clinic.name}
+                          className="h-14 max-w-[200px] object-contain object-center"
+                        />
+                      ) : (
+                        <p className="text-gray-900 font-semibold">{clinic.name}</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3">
+                        {clinic.logoUrl ? (
+                          <img src={clinic.logoUrl} alt={clinic.name} className="h-10 w-10 rounded-lg object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-emerald-600" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-xs text-emerald-600 font-medium">Registering with</p>
+                          <p className="text-gray-900 font-semibold">{clinic.name}</p>
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-xs text-emerald-600 font-medium">Registering with</p>
-                      <p className="text-gray-900 font-semibold">{clinic.name}</p>
-                    </div>
-                  </div>
-                  <button type="button" onClick={handleBack} className="text-sm text-gray-500 hover:text-gray-700">
-                    Change
-                  </button>
+                      <button type="button" onClick={handleBack} className="text-sm text-gray-500 hover:text-gray-700">
+                        Change
+                      </button>
+                    </>
+                  )}
                 </div>
                 
                 {/* Name Fields */}
@@ -292,8 +379,9 @@ export default function RegisterPage() {
                         id="firstName"
                         type="text"
                         value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                        onChange={inviteToken ? undefined : (e) => setFirstName(e.target.value)}
+                        readOnly={!!inviteToken}
+                        className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${inviteToken ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                         required
                       />
                     </div>
@@ -306,8 +394,9 @@ export default function RegisterPage() {
                       id="lastName"
                       type="text"
                       value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      onChange={inviteToken ? undefined : (e) => setLastName(e.target.value)}
+                      readOnly={!!inviteToken}
+                      className={`w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${inviteToken ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -324,8 +413,9 @@ export default function RegisterPage() {
                       id="email"
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      onChange={inviteToken ? undefined : (e) => setEmail(e.target.value)}
+                      readOnly={!!inviteToken}
+                      className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${inviteToken ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -342,9 +432,10 @@ export default function RegisterPage() {
                       id="phone"
                       type="tel"
                       value={phone}
-                      onChange={handlePhoneChange}
+                      onChange={inviteToken ? undefined : handlePhoneChange}
                       placeholder="(555) 555-5555"
-                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      readOnly={!!inviteToken}
+                      className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${inviteToken ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -361,8 +452,9 @@ export default function RegisterPage() {
                       id="dob"
                       type="date"
                       value={dob}
-                      onChange={(e) => setDob(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      onChange={inviteToken ? undefined : (e) => setDob(e.target.value)}
+                      readOnly={!!inviteToken}
+                      className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${inviteToken ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -475,14 +567,16 @@ export default function RegisterPage() {
                 )}
                 
                 <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="px-4 py-3 text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-all flex items-center gap-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back
-                  </button>
+                  {!inviteToken && (
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="px-4 py-3 text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-all flex items-center gap-2"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Back
+                    </button>
+                  )}
                   <button
                     type="submit"
                     disabled={loading || !isPasswordValid || !passwordsMatch || !agreedToTerms}

@@ -271,7 +271,7 @@ describe('Session Manager', () => {
       await createSession('user123', 'ADMIN');
       await createSession('user123', 'ADMIN');
       
-      const sessions = getUserSessions('user123');
+      const sessions = await getUserSessions('user123');
       
       expect(sessions.length).toBeGreaterThanOrEqual(2);
     });
@@ -279,7 +279,7 @@ describe('Session Manager', () => {
     it('should return empty array for user with no sessions', async () => {
       const { getUserSessions } = await import('@/lib/auth/session-manager');
       
-      const sessions = getUserSessions('nonexistent-user');
+      const sessions = await getUserSessions('nonexistent-user');
       
       expect(sessions).toEqual([]);
     });
@@ -296,7 +296,8 @@ describe('Session Manager', () => {
       const count = await terminateAllUserSessions('user123', 'Security event');
       
       expect(count).toBeGreaterThanOrEqual(2);
-      expect(getUserSessions('user123').length).toBe(0);
+      const sessionsAfter = await getUserSessions('user123');
+      expect(sessionsAfter.length).toBe(0);
     });
   });
 
@@ -306,7 +307,7 @@ describe('Session Manager', () => {
       
       await createSession('user123', 'ADMIN');
       
-      const result = checkConcurrentSessions('user123');
+      const result = await checkConcurrentSessions('user123');
       
       expect(result.allowed).toBe(true);
       expect(result.current).toBeGreaterThanOrEqual(1);
@@ -324,7 +325,7 @@ describe('Session Manager', () => {
       await createSession('limit-user', 'ADMIN');
       await createSession('limit-user', 'ADMIN');
       
-      const result = checkConcurrentSessions('limit-user');
+      const result = await checkConcurrentSessions('limit-user');
       
       expect(result.allowed).toBe(false);
       expect(result.sessions).toBeDefined();
@@ -367,7 +368,7 @@ describe('Session Manager', () => {
       await createSession('user1', 'ADMIN', 1);
       await createSession('user2', 'PROVIDER', 2);
       
-      const metrics = getSessionMetrics();
+      const metrics = await getSessionMetrics();
       
       expect(metrics.total).toBeGreaterThanOrEqual(2);
       expect(metrics.byRole).toBeDefined();
@@ -378,10 +379,13 @@ describe('Session Manager', () => {
     it('should track by role', async () => {
       const { createSession, getSessionMetrics, terminateAllUserSessions } = await import('@/lib/auth/session-manager');
       
+      await terminateAllUserSessions('metrics-admin', 'test cleanup');
+      await terminateAllUserSessions('metrics-provider', 'test cleanup');
+      
       await createSession('metrics-admin', 'ADMIN', 1);
       await createSession('metrics-provider', 'PROVIDER', 1);
       
-      const metrics = getSessionMetrics();
+      const metrics = await getSessionMetrics();
       
       expect(metrics.byRole['ADMIN']).toBeGreaterThanOrEqual(1);
       expect(metrics.byRole['PROVIDER']).toBeGreaterThanOrEqual(1);
@@ -447,7 +451,7 @@ describe('Session Security', () => {
       
       await createSession('audit-user', 'ADMIN', 1, mockRequest);
       
-      const sessions = getUserSessions('audit-user');
+      const sessions = await getUserSessions('audit-user');
       const latestSession = sessions[sessions.length - 1];
       
       expect(latestSession.ipAddress).toBe('10.0.0.1');
@@ -490,7 +494,7 @@ describe('Edge Cases', () => {
     
     await createSession('no-ip-user', 'ADMIN', 1, mockRequest);
     
-    const sessions = getUserSessions('no-ip-user');
+    const sessions = await getUserSessions('no-ip-user');
     const latestSession = sessions[sessions.length - 1];
     
     expect(latestSession.ipAddress).toBe('unknown');

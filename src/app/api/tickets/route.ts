@@ -15,6 +15,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { reportTicketError } from '@/domains/ticket';
 
 /**
  * Check if the error indicates a missing table or schema issue
@@ -51,6 +52,14 @@ function isDatabaseConnectionError(error: unknown): boolean {
     msg.includes('econnrefused')
   );
 }
+
+/**
+ * OPTIONS /api/tickets
+ * CORS preflight - middleware sets Allow-Origin; return 204 for preflight.
+ */
+export const OPTIONS = async () => {
+  return new NextResponse(null, { status: 204 });
+};
 
 /**
  * GET /api/tickets
@@ -230,6 +239,12 @@ export const GET = withAuth(async (request, user) => {
       },
     });
   } catch (error) {
+    reportTicketError(error, {
+      route: 'GET /api/tickets',
+      clinicId: user.clinicId ?? undefined,
+      userId: user.id,
+      operation: 'list',
+    });
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('[API] Tickets GET - error', {
       error: errorMessage,
@@ -462,6 +477,12 @@ export const POST = withAuth(async (request, user) => {
       { status: 201 }
     );
   } catch (error) {
+    reportTicketError(error, {
+      route: 'POST /api/tickets',
+      clinicId: user.clinicId ?? undefined,
+      userId: user.id,
+      operation: 'create',
+    });
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('[API] Tickets POST - error', {
       error: errorMessage,

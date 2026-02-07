@@ -178,41 +178,69 @@ export default function TicketDetailPage() {
   const [isInternalComment, setIsInternalComment] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
 
+  // Auth token for API calls (login stores in localStorage, not cookies)
+  const getAuthHeaders = useCallback((): HeadersInit => {
+    if (typeof window === 'undefined') return {};
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('admin-token') ||
+      localStorage.getItem('super_admin-token') ||
+      localStorage.getItem('provider-token') ||
+      localStorage.getItem('staff-token') ||
+      localStorage.getItem('support-token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, []);
+
   // Fetch ticket
   const fetchTicket = useCallback(async () => {
     try {
-      const response = await fetch(`/api/tickets/${ticketId}`);
-      if (!response.ok) throw new Error('Failed to fetch ticket');
+      const response = await fetch(`/api/tickets/${ticketId}`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Session expired. Please log in again.');
+          return;
+        }
+        throw new Error('Failed to fetch ticket');
+      }
       const data = await response.json();
       setTicket(data.ticket);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
-  }, [ticketId]);
+  }, [ticketId, getAuthHeaders]);
 
   // Fetch comments
   const fetchComments = useCallback(async () => {
     try {
-      const response = await fetch(`/api/tickets/${ticketId}/comments`);
+      const response = await fetch(`/api/tickets/${ticketId}/comments`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) throw new Error('Failed to fetch comments');
       const data = await response.json();
       setComments(data.comments);
     } catch (err) {
       console.error('Failed to fetch comments:', err);
     }
-  }, [ticketId]);
+  }, [ticketId, getAuthHeaders]);
 
   // Fetch activity
   const fetchActivity = useCallback(async () => {
     try {
-      const response = await fetch(`/api/tickets/${ticketId}/activity`);
+      const response = await fetch(`/api/tickets/${ticketId}/activity`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) throw new Error('Failed to fetch activity');
       const data = await response.json();
       setActivities(data.activities);
     } catch (err) {
       console.error('Failed to fetch activity:', err);
     }
-  }, [ticketId]);
+  }, [ticketId, getAuthHeaders]);
 
   // Initial load
   useEffect(() => {
@@ -233,7 +261,11 @@ export default function TicketDetailPage() {
     try {
       const response = await fetch(`/api/tickets/${ticketId}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({
           content: newComment,
           isInternal: isInternalComment,

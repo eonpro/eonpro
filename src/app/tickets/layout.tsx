@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, Component, ErrorInfo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,57 +14,27 @@ import {
   NotificationToastContainer
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
-// Error Boundary to catch and recover from React errors
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class TicketsErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBoundaryState> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[TicketsErrorBoundary] Caught error:', error, errorInfo);
-  }
-
-  override render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-[#efece7] flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-4 text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-red-600" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
-            <p className="text-gray-600 mb-6">
-              {this.state.error?.message || 'An unexpected error occurred'}
-            </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
-              }}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Reload Page
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
+// Fallback UI for ticket errors (used by ErrorBoundary - reports to Sentry)
+const TicketsErrorFallback = (
+  <div className="min-h-screen bg-[#efece7] flex items-center justify-center">
+    <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-4 text-center">
+      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <AlertTriangle className="w-8 h-8 text-red-600" />
+      </div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
+      <p className="text-gray-600 mb-6">The tickets page encountered an error. Our team has been notified.</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+      >
+        <RefreshCw className="w-4 h-4" />
+        Reload Page
+      </button>
+    </div>
+  </div>
+);
 
 // Default EONPRO logos
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
@@ -181,26 +151,11 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
     return items;
   }, [userRole]);
 
-  const handleLogout = async () => {
-    try {
-      // Call the logout API to terminate server session
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token') || localStorage.getItem('provider-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }).catch(() => {
-          // Non-blocking - continue with client-side cleanup even if API fails
-          console.warn('[Logout] API call failed, continuing with client cleanup');
-        });
-      }
-    } catch (error) {
-      console.warn('[Logout] Error calling logout API:', error);
-    }
-
-    // Clear all localStorage items
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token') || localStorage.getItem('provider-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -211,17 +166,9 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_timestamp');
-
-    // Clear all auth cookies to prevent session mismatch on next login
-    const authCookies = [
-      'auth-token', 'admin-token', 'super_admin-token',
-      'provider-token', 'patient-token', 'staff-token',
-      'support-token', 'affiliate-token', 'influencer-token'
-    ];
-    authCookies.forEach(name => {
+    ['auth-token', 'admin-token', 'super_admin-token', 'provider-token', 'patient-token', 'staff-token', 'support-token', 'affiliate-token', 'influencer-token'].forEach(name => {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });
-
     window.location.href = '/login';
   };
 
@@ -327,6 +274,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
         {/* Logout */}
         <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
           <button
+            type="button"
             onClick={handleLogout}
             title={!sidebarExpanded ? "Logout" : undefined}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all w-full"
@@ -366,13 +314,13 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
 
 export default function TicketsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <TicketsErrorBoundary>
+    <ErrorBoundary fallback={TicketsErrorFallback}>
       <ClinicBrandingProvider>
         <NotificationProvider>
           <TicketsLayoutInner>{children}</TicketsLayoutInner>
           <NotificationToastContainer />
         </NotificationProvider>
       </ClinicBrandingProvider>
-    </TicketsErrorBoundary>
+    </ErrorBoundary>
   );
 }

@@ -3,6 +3,8 @@
  * Defines features, permissions, and UI layouts for each user role
  */
 
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+
 export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'support' | 'patient' | 'influencer' | 'affiliate' | 'sales_rep';
 
 export interface RoleConfig {
@@ -454,7 +456,7 @@ export const PATIENT_CONFIG: RoleConfig = {
   role: 'patient',
   displayName: 'Patient',
   description: 'Patient portal with personal health information',
-  defaultPath: '/patient-portal',
+  defaultPath: PATIENT_PORTAL_PATH,
   theme: {
     primaryColor: '#3B82F6', // Blue
     secondaryColor: '#2563EB',
@@ -492,16 +494,16 @@ export const PATIENT_CONFIG: RoleConfig = {
   },
   navigation: {
     primary: [
-      { label: 'My Health', path: '/patient-portal', icon: 'Heart' },
-      { label: 'Appointments', path: '/patient-portal/appointments', icon: 'Calendar' },
-      { label: 'Medications', path: '/patient-portal/medications', icon: 'Pill' },
-      { label: 'Lab Results', path: '/patient-portal/labs', icon: 'TestTube' },
-      { label: 'Documents', path: '/patient-portal/documents', icon: 'FileText' },
-      { label: 'Photos', path: '/patient-portal/photos', icon: 'Camera' },
-      { label: 'Messages', path: '/patient-portal/messages', icon: 'MessageSquare' },
-      { label: 'Orders', path: '/patient-portal/orders', icon: 'Package' },
-      { label: 'Billing', path: '/patient-portal/billing', icon: 'CreditCard' },
-      { label: 'Profile', path: '/patient-portal/profile', icon: 'User' },
+      { label: 'My Health', path: PATIENT_PORTAL_PATH, icon: 'Heart' },
+      { label: 'Appointments', path: `${PATIENT_PORTAL_PATH}/appointments`, icon: 'Calendar' },
+      { label: 'Medications', path: `${PATIENT_PORTAL_PATH}/medications`, icon: 'Pill' },
+      { label: 'Lab Results', path: `${PATIENT_PORTAL_PATH}/labs`, icon: 'TestTube' },
+      { label: 'Documents', path: `${PATIENT_PORTAL_PATH}/documents`, icon: 'FileText' },
+      { label: 'Photos', path: `${PATIENT_PORTAL_PATH}/photos`, icon: 'Camera' },
+      { label: 'Messages', path: `${PATIENT_PORTAL_PATH}/messages`, icon: 'MessageSquare' },
+      { label: 'Orders', path: `${PATIENT_PORTAL_PATH}/orders`, icon: 'Package' },
+      { label: 'Billing', path: `${PATIENT_PORTAL_PATH}/billing`, icon: 'CreditCard' },
+      { label: 'Profile', path: `${PATIENT_PORTAL_PATH}/profile`, icon: 'User' },
     ],
     quick: [
       { label: 'Book Appointment', action: 'book-appointment', icon: 'CalendarPlus', color: 'green' },

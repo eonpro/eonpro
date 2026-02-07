@@ -28,34 +28,36 @@ import {
   Camera,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
+import { PatientPortalLanguageProvider, usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { PWAUpdateBanner, OfflineBanner, InstallPrompt } from '@/components/PWAUpdateBanner';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 // Default EONPRO logo
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
 
-// All possible nav items with their feature flag requirements
+// All possible nav items with their feature flag requirements and i18n keys
 const allNavItems = [
-  { icon: Home, path: '/patient-portal', label: 'Home', exact: true, feature: null }, // Always show
-  { icon: Calendar, path: '/patient-portal/appointments', label: 'Appointments', feature: 'showAppointments' },
-  { icon: HeartPulse, path: '/patient-portal/care-plan', label: 'My Care Plan', feature: 'showCarePlan' },
-  { icon: Scale, path: '/patient-portal/progress', label: 'Progress', feature: 'showWeightTracking' },
-  { icon: Camera, path: '/patient-portal/photos', label: 'Photos', feature: null }, // Always show - progress photos, ID verification
-  { icon: Trophy, path: '/patient-portal/achievements', label: 'Achievements', feature: 'showAchievements' },
-  { icon: Pill, path: '/patient-portal/medications', label: 'Medications', feature: null }, // Always show
-  { icon: Package, path: '/patient-portal/shipments', label: 'Shipments', feature: 'showShipmentTracking' },
-  { icon: Activity, path: '/patient-portal/symptom-checker', label: 'Symptom Checker', feature: 'showSymptomChecker' },
-  { icon: Calculator, path: '/patient-portal/calculators', label: 'Tools', feature: null }, // Always show
-  { icon: BookOpen, path: '/patient-portal/resources', label: 'Resources', feature: 'showResources' },
-  { icon: CreditCard, path: '/patient-portal/subscription', label: 'Billing', feature: 'showBilling' },
-  { icon: Settings, path: '/patient-portal/settings', label: 'Settings', feature: null }, // Always show
+  { icon: Home, path: PATIENT_PORTAL_PATH, label: 'Home', labelKey: 'navHome', exact: true, feature: null },
+  { icon: Calendar, path: `${PATIENT_PORTAL_PATH}/appointments`, label: 'Appointments', labelKey: 'navAppointments', feature: 'showAppointments' },
+  { icon: HeartPulse, path: `${PATIENT_PORTAL_PATH}/care-plan`, label: 'My Care Plan', labelKey: 'navCarePlan', feature: 'showCarePlan' },
+  { icon: Scale, path: `${PATIENT_PORTAL_PATH}/progress`, label: 'Progress', labelKey: 'navProgress', feature: 'showWeightTracking' },
+  { icon: Camera, path: `${PATIENT_PORTAL_PATH}/photos`, label: 'Photos', labelKey: 'navPhotos', feature: null },
+  { icon: Trophy, path: `${PATIENT_PORTAL_PATH}/achievements`, label: 'Achievements', labelKey: 'navAchievements', feature: 'showAchievements' },
+  { icon: Pill, path: `${PATIENT_PORTAL_PATH}/medications`, label: 'Medications', labelKey: 'navMedications', feature: null },
+  { icon: Package, path: `${PATIENT_PORTAL_PATH}/shipments`, label: 'Shipments', labelKey: 'navShipments', feature: 'showShipmentTracking' },
+  { icon: Activity, path: `${PATIENT_PORTAL_PATH}/symptom-checker`, label: 'Symptom Checker', labelKey: 'navSymptomChecker', feature: 'showSymptomChecker' },
+  { icon: Calculator, path: `${PATIENT_PORTAL_PATH}/calculators`, label: 'Tools', labelKey: 'navTools', feature: null },
+  { icon: BookOpen, path: `${PATIENT_PORTAL_PATH}/resources`, label: 'Resources', labelKey: 'navResources', feature: 'showResources' },
+  { icon: CreditCard, path: `${PATIENT_PORTAL_PATH}/subscription`, label: 'Billing', labelKey: 'navBilling', feature: 'showBilling' },
+  { icon: Settings, path: `${PATIENT_PORTAL_PATH}/settings`, label: 'Settings', labelKey: 'navSettings', feature: null },
 ];
 
 const allMobileNavItems = [
-  { icon: Home, path: '/patient-portal', label: 'Home', exact: true, feature: null },
-  { icon: Calendar, path: '/patient-portal/appointments', label: 'Appts', feature: 'showAppointments' },
-  { icon: Scale, path: '/patient-portal/progress', label: 'Progress', feature: 'showWeightTracking' },
-  { icon: Pill, path: '/patient-portal/medications', label: 'Meds', feature: null },
-  { icon: User, path: '/patient-portal/settings', label: 'Profile', feature: null },
+  { icon: Home, path: PATIENT_PORTAL_PATH, label: 'Home', labelKey: 'navHome', exact: true, feature: null },
+  { icon: Calendar, path: `${PATIENT_PORTAL_PATH}/appointments`, label: 'Appts', labelKey: 'navAppts', feature: 'showAppointments' },
+  { icon: Scale, path: `${PATIENT_PORTAL_PATH}/progress`, label: 'Progress', labelKey: 'navProgress', feature: 'showWeightTracking' },
+  { icon: Pill, path: `${PATIENT_PORTAL_PATH}/medications`, label: 'Meds', labelKey: 'navMeds', feature: null },
+  { icon: User, path: `${PATIENT_PORTAL_PATH}/settings`, label: 'Profile', labelKey: 'navProfile', feature: null },
 ];
 
 function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
@@ -63,6 +65,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const features = usePortalFeatures();
+  const { t } = usePatientPortalLanguage();
 
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -90,7 +93,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     
     // Security: Redirect to login if no valid session
     if (!user || !token) {
-      router.push('/login?redirect=/patient-portal&reason=no_session');
+      router.push(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
       return;
     }
 
@@ -99,7 +102,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       
       // Verify user has patient role
       if (data.role?.toLowerCase() !== 'patient') {
-        router.push('/login?redirect=/patient-portal&reason=invalid_role');
+        router.push(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_role`);
         return;
       }
       
@@ -109,7 +112,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('user');
       localStorage.removeItem('auth-token');
       localStorage.removeItem('patient-token');
-      router.push('/login?redirect=/patient-portal&reason=invalid_session');
+      router.push(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`);
       return;
     }
     
@@ -121,25 +124,11 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const handleLogout = async () => {
-    try {
-      // Call the logout API to terminate server session
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }).catch(() => {
-          // Non-blocking - continue with client-side cleanup even if API fails
-          console.warn('[Logout] API call failed, continuing with client cleanup');
-        });
-      }
-    } catch (error) {
-      console.warn('[Logout] Error calling logout API:', error);
-    }
-
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
@@ -150,8 +139,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const isActive = (path: string, exact?: boolean) => {
-    if (exact) return pathname === path;
-    return pathname === path || pathname?.startsWith(path + '/');
+    const current = pathname?.startsWith('/patient-portal') ? pathname.replace('/patient-portal', PATIENT_PORTAL_PATH) : pathname ?? '';
+    if (exact) return current === path;
+    return current === path || current.startsWith(path + '/');
   };
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
@@ -177,7 +167,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="mb-6 flex items-center justify-center px-4">
-          <Link href="/patient-portal">
+          <Link href={PATIENT_PORTAL_PATH}>
             <img
               src={branding?.logoUrl || EONPRO_LOGO}
               alt={branding?.clinicName || 'EONPRO'}
@@ -203,7 +193,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.path}
                 href={item.path}
-                title={!sidebarExpanded ? item.label : undefined}
+                title={!sidebarExpanded ? t(item.labelKey) : undefined}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
                   active ? 'text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
@@ -211,7 +201,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
-                  <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                  <span className="whitespace-nowrap text-sm font-medium">{t(item.labelKey)}</span>
                 )}
               </Link>
             );
@@ -225,13 +215,14 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
           )}
           <button
+            type="button"
             onClick={handleLogout}
-            title={!sidebarExpanded ? 'Sign Out' : undefined}
+            title={!sidebarExpanded ? t('navSignOut') : undefined}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {sidebarExpanded && (
-              <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
+              <span className="whitespace-nowrap text-sm font-medium">{t('navSignOut')}</span>
             )}
           </button>
         </div>
@@ -241,7 +232,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       <header className="fixed left-0 right-0 top-0 z-50 bg-white/95 backdrop-blur-lg lg:hidden">
         <div className="safe-top" />
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/patient-portal" className="flex items-center gap-3">
+          <Link href={PATIENT_PORTAL_PATH} className="flex items-center gap-3">
             <img 
               src={branding?.logoUrl || EONPRO_LOGO} 
               alt={branding?.clinicName || 'EONPRO'} 
@@ -305,7 +296,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                     style={active ? { backgroundColor: primaryColor } : {}}
                   >
                     <Icon className="h-6 w-6" />
-                    <span className="text-base font-semibold">{item.label}</span>
+                    <span className="text-base font-semibold">{t(item.labelKey)}</span>
                   </Link>
                 );
               })}
@@ -313,11 +304,12 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
             <div className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-gray-50 p-3">
               <div className="safe-bottom">
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="flex w-full items-center justify-center gap-3 rounded-2xl bg-red-50 px-4 py-4 text-red-600 active:bg-red-100"
                 >
                   <LogOut className="h-6 w-6" />
-                  <span className="text-base font-semibold">Sign Out</span>
+                  <span className="text-base font-semibold">{t('navSignOut')}</span>
                 </button>
               </div>
             </div>
@@ -373,7 +365,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                     className={`mt-0.5 text-[11px] transition-all ${active ? 'font-semibold' : 'font-medium'}`}
                     style={{ color: active ? primaryColor : '#9ca3af' }}
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </span>
                 </Link>
               );
@@ -387,7 +379,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       {/* Floating Chat Button - Above bottom nav on mobile (conditional on feature flag) */}
       {showChat && (
         <Link
-          href="/patient-portal/chat"
+          href={`${PATIENT_PORTAL_PATH}/chat`}
           className="fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all active:scale-95 lg:bottom-6 lg:right-6"
           style={{
             backgroundColor: primaryColor,
@@ -406,10 +398,12 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 export default function PatientPortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClinicBrandingProvider>
-      <OfflineBanner />
-      <PatientPortalLayoutInner>{children}</PatientPortalLayoutInner>
-      <PWAUpdateBanner />
-      <InstallPrompt />
+      <PatientPortalLanguageProvider>
+        <OfflineBanner />
+        <PatientPortalLayoutInner>{children}</PatientPortalLayoutInner>
+        <PWAUpdateBanner />
+        <InstallPrompt />
+      </PatientPortalLanguageProvider>
     </ClinicBrandingProvider>
   );
 }

@@ -17,6 +17,7 @@ import {
   fetchAllCalendarEvents,
   importExternalEventsAsBlockedTime,
   getCalendarSyncStats,
+  getGoogleOAuthConfig,
   CalendarProvider,
   SyncDirection,
 } from '@/lib/calendar-sync';
@@ -94,10 +95,15 @@ export const GET = withProviderAuth(
           return NextResponse.json({ success: true, integrations: defaultStatus });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Calendar sync GET error', { error: errorMessage });
+      const errMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errStack = error instanceof Error ? error.stack : undefined;
+      logger.error('Calendar sync GET error', { error: errMessage });
       return NextResponse.json(
-        { error: 'Failed to get calendar info' },
+        {
+          error: 'Failed to get calendar info',
+          detail: errMessage,
+          ...(process.env.NODE_ENV === 'development' && { stack: errStack }),
+        },
         { status: 500 }
       );
     }
@@ -135,12 +141,40 @@ export const POST = withProviderAuth(
             );
           }
 
-          const authUrl = await getCalendarAuthUrl(
-            connectParsed.data.provider as CalendarProvider,
-            provider.id,
-            provider.clinicId || 0
-          );
+          let authUrl: Awaited<ReturnType<typeof getCalendarAuthUrl>>;
+          try {
+            authUrl = await getCalendarAuthUrl(
+              connectParsed.data.provider as CalendarProvider,
+              provider.id,
+              provider.clinicId || 0
+            );
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : '';
+            if (msg.includes('GOOGLE_CLIENT_ID') || msg.includes('Google Calendar OAuth is not configured')) {
+              return NextResponse.json(
+                {
+                  error: 'Google Calendar is not configured for this environment. Contact your administrator to set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.',
+                  code: 'GOOGLE_OAUTH_NOT_CONFIGURED',
+                },
+                { status: 503 }
+              );
+            }
+            throw err;
+          }
 
+          // For Google, include config so you can verify against Google Console (401 invalid_client)
+          if (connectParsed.data.provider === 'google') {
+            const config = getGoogleOAuthConfig();
+            return NextResponse.json({
+              success: true,
+              authUrl,
+              _debug: {
+                redirectUri: config.redirectUri,
+                clientId: config.clientId,
+                hint: 'If you get 401 invalid_client, ensure this redirectUri is in Google Console → Authorized redirect URIs and this clientId matches your OAuth client.',
+              },
+            });
+          }
           return NextResponse.json({ success: true, authUrl });
 
         case 'sync':

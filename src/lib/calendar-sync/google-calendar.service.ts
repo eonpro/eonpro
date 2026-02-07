@@ -9,12 +9,21 @@ import { OAuth2Client } from 'google-auth-library';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
-// OAuth2 configuration
-const oauth2Client = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI || `${process.env.NEXTAUTH_URL}/api/calendar-sync/google/callback`
-);
+// OAuth2 configuration - client is built lazily so we can validate env before redirecting
+function getOAuth2Client(): OAuth2Client {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || clientId.trim() === '') {
+    throw new Error(
+      'Google Calendar OAuth is not configured. Set GOOGLE_CLIENT_ID (and GOOGLE_CLIENT_SECRET) in environment variables.'
+    );
+  }
+  return new OAuth2Client(
+    clientId,
+    clientSecret || undefined,
+    process.env.GOOGLE_REDIRECT_URI || `${process.env.NEXTAUTH_URL || ''}/api/calendar-sync/google/callback`
+  );
+}
 
 // Scopes required for calendar access
 const SCOPES = [
@@ -44,11 +53,25 @@ export interface SyncResult {
 }
 
 /**
- * Generate Google OAuth authorization URL
+ * Return the redirect URI and client ID used for Google OAuth (for debugging 401 invalid_client).
+ * Client ID is not secret once the user is sent to Google.
+ */
+export function getGoogleOAuthConfig(): { redirectUri: string; clientId: string } {
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
+  const redirectUri =
+    process.env.GOOGLE_REDIRECT_URI ||
+    `${process.env.NEXTAUTH_URL || ''}/api/calendar-sync/google/callback`;
+  return { redirectUri, clientId };
+}
+
+/**
+ * Generate Google OAuth authorization URL.
+ * Throws if GOOGLE_CLIENT_ID is not set (avoids redirecting to Google with missing client_id).
  */
 export function getGoogleAuthUrl(providerId: number, clinicId: number): string {
+  const oauth2Client = getOAuth2Client();
   const state = Buffer.from(JSON.stringify({ providerId, clinicId })).toString('base64');
-  
+
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
@@ -66,6 +89,7 @@ export async function exchangeCodeForTokens(
   clinicId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const oauth2Client = getOAuth2Client();
     const { tokens } = await oauth2Client.getToken(code);
     
     if (!tokens.access_token || !tokens.refresh_token) {
@@ -126,6 +150,7 @@ async function getCalendarClient(providerId: number): Promise<calendar_v3.Calend
     return null;
   }
 
+  const oauth2Client = getOAuth2Client();
   oauth2Client.setCredentials({
     access_token: integration.accessToken,
     refresh_token: integration.refreshToken,

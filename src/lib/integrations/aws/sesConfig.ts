@@ -50,6 +50,7 @@ export enum EmailTemplate {
   // Patient Communications
   WELCOME = 'welcome',
   PATIENT_WELCOME_VERIFICATION = 'patient_welcome_verification',
+  PATIENT_PORTAL_INVITE = 'patient_portal_invite',
   APPOINTMENT_CONFIRMATION = 'appointment_confirmation',
   APPOINTMENT_REMINDER = 'appointment_reminder',
   APPOINTMENT_CANCELLED = 'appointment_cancelled',
@@ -160,6 +161,7 @@ export function validateEmail(email: string): boolean {
 export const DEFAULT_SUBJECTS: Record<EmailTemplate, string> = {
   [EmailTemplate.WELCOME]: 'Welcome to Lifefile Health!',
   [EmailTemplate.PATIENT_WELCOME_VERIFICATION]: 'Verify Your Email - Welcome to {{clinicName}}',
+  [EmailTemplate.PATIENT_PORTAL_INVITE]: 'Create Your Patient Portal Account - {{clinicName}}',
   [EmailTemplate.APPOINTMENT_CONFIRMATION]: 'Your Appointment is Confirmed',
   [EmailTemplate.APPOINTMENT_REMINDER]: 'Appointment Reminder - {{date}}',
   [EmailTemplate.APPOINTMENT_CANCELLED]: 'Appointment Cancelled',

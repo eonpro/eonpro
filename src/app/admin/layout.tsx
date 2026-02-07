@@ -246,26 +246,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      // Call the logout API to terminate server session
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }).catch(() => {
-          // Non-blocking - continue with client-side cleanup even if API fails
-          console.warn('[Logout] API call failed, continuing with client cleanup');
-        });
-      }
-    } catch (error) {
-      console.warn('[Logout] Error calling logout API:', error);
-    }
-
-    // Clear all localStorage items
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -276,17 +261,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_timestamp');
-
-    // Clear all auth cookies to prevent session mismatch on next login
-    const authCookies = [
-      'auth-token', 'admin-token', 'super_admin-token',
-      'provider-token', 'patient-token', 'staff-token',
-      'support-token', 'affiliate-token', 'influencer-token'
-    ];
-    authCookies.forEach(name => {
+    ['auth-token', 'admin-token', 'super_admin-token', 'provider-token', 'patient-token', 'staff-token', 'support-token', 'affiliate-token', 'influencer-token'].forEach(name => {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });
-
     window.location.href = '/login';
   };
 
@@ -407,6 +384,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         {/* Logout */}
         <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
           <button
+            type="button"
             onClick={handleLogout}
             title={!sidebarExpanded ? "Logout" : undefined}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all w-full"

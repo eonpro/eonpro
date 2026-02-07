@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { 
   Menu, X, Bell, User, LogOut, MessageSquare, CalendarPlus,
   Heart, Calendar, Pill, TestTube, FileText, Package, CreditCard,
@@ -78,29 +79,24 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
   const handleQuickAction = (action: string) => {
     switch(action) {
       case 'book-appointment':
-        router.push('/patient-portal/appointments?action=book');
+        router.push(`${PATIENT_PORTAL_PATH}/appointments?action=book`);
         break;
       case 'message-provider':
-        router.push('/patient-portal/chat');
+        router.push(`${PATIENT_PORTAL_PATH}/chat`);
         break;
       case 'refill-rx':
-        router.push('/patient-portal/medications?action=refill');
+        router.push(`${PATIENT_PORTAL_PATH}/medications?action=refill`);
         break;
       default:
         break;
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).catch(() => {});
-      }
-    } catch {}
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
@@ -175,7 +171,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
 
               {/* Messages */}
               <button 
-                onClick={() => router.push('/patient-portal/messages')}
+                onClick={() => router.push(`${PATIENT_PORTAL_PATH}/messages`)}
                 className="relative p-2 text-gray-500 hover:text-gray-700"
               >
                 <MessageSquare className="h-6 w-6" />
@@ -218,15 +214,16 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
                       <p className="text-xs text-gray-500 mt-1">{userData?.email}</p>
                     </div>
                     <div className="py-1">
-                      <Link href="/patient-portal/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <Link href={`${PATIENT_PORTAL_PATH}/settings`} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         <User className="h-4 w-4 mr-2" />
                         My Profile
                       </Link>
-                      <Link href="/patient-portal/settings?tab=security" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <Link href={`${PATIENT_PORTAL_PATH}/settings?tab=security`} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         <Shield className="h-4 w-4 mr-2" />
                         Privacy & Security
                       </Link>
                       <button 
+                        type="button"
                         onClick={handleLogout}
                         className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
@@ -263,7 +260,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
                 </div>
               ))}
             </div>
-            <Link href="/patient-portal/health-score" className="text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">
+            <Link href={`${PATIENT_PORTAL_PATH}/health-score`} className="text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">
               View Full Summary →
             </Link>
           </div>
@@ -349,7 +346,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
       {/* Main Content */}
       <main className="lg:mt-0">
         {/* Reminders Section */}
-        {reminders.length > 0 && pathname === '/patient-portal' && (
+        {reminders.length > 0 && (pathname === PATIENT_PORTAL_PATH || pathname === '/patient-portal') && (
           <div className="bg-white border-b border-gray-200">
             <div className="px-4 sm:px-6 lg:px-8 py-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Today's Reminders</h3>

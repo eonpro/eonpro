@@ -145,6 +145,22 @@ export default function TicketsPage() {
     hasSlaBreach: searchParams.get('hasSlaBreach') === 'true',
   });
 
+  // Auth token for API calls (login stores in localStorage, not cookies)
+  const getAuthHeaders = useCallback((): HeadersInit => {
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('auth-token') ||
+          localStorage.getItem('admin-token') ||
+          localStorage.getItem('super_admin-token') ||
+          localStorage.getItem('provider-token') ||
+          localStorage.getItem('staff-token') ||
+          localStorage.getItem('support-token')
+        : null;
+    return {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  }, []);
+
   // Fetch tickets
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -169,9 +185,16 @@ export default function TicketsPage() {
       if (filters.isUnassigned) params.set('isUnassigned', 'true');
       if (filters.hasSlaBreach) params.set('hasSlaBreach', 'true');
 
-      const response = await fetch(`/api/tickets?${params.toString()}`);
-      
+      const response = await fetch(`/api/tickets?${params.toString()}`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
+
       if (!response.ok) {
+        if (response.status === 401) {
+          setError('Session expired. Please log in again.');
+          return;
+        }
         throw new Error('Failed to fetch tickets');
       }
 
@@ -188,7 +211,7 @@ export default function TicketsPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchParams, searchQuery, filters]);
+  }, [searchParams, searchQuery, filters, getAuthHeaders]);
 
   useEffect(() => {
     fetchTickets();

@@ -222,10 +222,10 @@ export default function NewPatientPage() {
       if (response.ok) {
         setSuccess(true);
         setLoading(false);
-        // Show success briefly then redirect
+        // Full page navigation so redirect always happens (router.push can defer)
         setTimeout(() => {
-          router.push('/admin/intakes');
-        }, 1500);
+          window.location.href = '/admin/intakes';
+        }, 800);
         return;
       } else {
         // Parse Zod validation errors

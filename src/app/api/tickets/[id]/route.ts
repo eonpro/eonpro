@@ -11,8 +11,8 @@
 
 import { NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth';
-import { ticketService } from '@/domains/ticket';
-import { handleApiError, NotFoundError } from '@/domains/shared/errors';
+import { ticketService, reportTicketError } from '@/domains/ticket';
+import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 import type { UpdateTicketInput } from '@/domains/ticket';
 
@@ -53,7 +53,15 @@ export const GET = withAuth(async (request, user, { params }: RouteParams) => {
 
     return NextResponse.json({ ticket });
   } catch (error) {
-    return handleApiError(error, { route: `GET /api/tickets/${(await params).id}` });
+    const { id } = await params;
+    reportTicketError(error, {
+      route: `GET /api/tickets/${id}`,
+      ticketId: /^\d+$/.test(id) ? parseInt(id, 10) : undefined,
+      clinicId: user.clinicId ?? undefined,
+      userId: user.id,
+      operation: 'get',
+    });
+    return handleApiError(error, { route: `GET /api/tickets/${id}` });
   }
 });
 
@@ -114,7 +122,15 @@ export const PATCH = withAuth(async (request, user, { params }: RouteParams) => 
       message: 'Ticket updated successfully',
     });
   } catch (error) {
-    return handleApiError(error, { route: `PATCH /api/tickets/${(await params).id}` });
+    const { id } = await params;
+    reportTicketError(error, {
+      route: `PATCH /api/tickets/${id}`,
+      ticketId: parseInt(id, 10),
+      clinicId: user.clinicId ?? undefined,
+      userId: user.id,
+      operation: 'update',
+    });
+    return handleApiError(error, { route: `PATCH /api/tickets/${id}` });
   }
 });
 
@@ -159,6 +175,14 @@ export const DELETE = withAuth(async (request, user, { params }: RouteParams) =>
       message: 'Ticket deleted successfully',
     });
   } catch (error) {
-    return handleApiError(error, { route: `DELETE /api/tickets/${(await params).id}` });
+    const { id } = await params;
+    reportTicketError(error, {
+      route: `DELETE /api/tickets/${id}`,
+      ticketId: parseInt(id, 10),
+      clinicId: user.clinicId ?? undefined,
+      userId: user.id,
+      operation: 'delete',
+    });
+    return handleApiError(error, { route: `DELETE /api/tickets/${id}` });
   }
 });

@@ -44,17 +44,11 @@ export default function ConditionalHeader() {
     };
   }, [mobileMenuOpen]);
 
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('provider-token') || localStorage.getItem('super_admin-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).catch(() => {});
-      }
-    } catch {}
-    
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('provider-token') || localStorage.getItem('super_admin-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
     localStorage.removeItem('provider-token');
@@ -62,11 +56,9 @@ export default function ConditionalHeader() {
     localStorage.removeItem('user');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    
     document.cookie.split(";").forEach((c) => {
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
-    
     window.location.href = '/login';
   };
 
@@ -94,6 +86,7 @@ export default function ConditionalHeader() {
     '/verify-email',
     '/influencer',
     '/patient-portal',
+    '/portal',
     '/provider',
     '/staff',
     '/support',
@@ -105,7 +98,7 @@ export default function ConditionalHeader() {
     '/intake-forms',
   ];
   
-  const isNoHeaderPage = noHeaderPages.some(page => pathname?.startsWith(page));
+  const isNoHeaderPage = noHeaderPages.some(page => pathname?.startsWith(page)) && !pathname?.startsWith('/portal/affiliate');
   const multiClinicEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true';
   
   if (isNoHeaderPage) {
@@ -208,6 +201,7 @@ export default function ConditionalHeader() {
                     )}
                     
                     <button
+                      type="button"
                       onClick={handleLogout}
                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                     >
@@ -319,6 +313,7 @@ export default function ConditionalHeader() {
         {/* Mobile Menu Footer */}
         <div className="border-t border-gray-200 p-4 safe-bottom">
           <button
+            type="button"
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 active:bg-red-200 transition"
           >

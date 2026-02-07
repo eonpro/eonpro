@@ -32,6 +32,7 @@ function getAllTsAndTsxFiles(dir: string, files: string[] = []): string[] {
 function extractLogoutFunctionBodies(content: string): string[] {
   const bodies: string[] = [];
   const markers = [
+    'handleLogout = (e: React.MouseEvent) =>',
     'handleLogout = async () =>',
     'const logout = useCallback(async () =>',
     'const logout = async () =>',
@@ -77,7 +78,7 @@ describe('Logout redirect regression', () => {
       const relativePath = path.relative(process.cwd(), filePath);
 
       // Only check files that define a logout handler
-      const hasHandleLogout = /handleLogout\s*=\s*async|const\s+logout\s*=\s*(async|useCallback)/.test(content);
+      const hasHandleLogout = /handleLogout\s*=\s*(async|\(e:\s*React\.MouseEvent\))|const\s+logout\s*=\s*(async|useCallback)/.test(content);
       if (!hasHandleLogout) continue;
 
       const logoutBodies = extractLogoutFunctionBodies(content);

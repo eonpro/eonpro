@@ -52,8 +52,9 @@ function ProviderCalendarContent() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch appointments');
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.detail || errorData.error || 'Failed to fetch appointments';
+        throw new Error(message);
       }
 
       const data = await response.json();

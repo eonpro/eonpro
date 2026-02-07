@@ -145,7 +145,8 @@ export default function FinanceOverviewPage() {
         setSyncMessage(data.message || 'Subscriptions synced from Stripe.');
         loadData(true);
       } else {
-        setSyncMessage(data.error || data.details || 'Sync failed.');
+        const detail = data.details ? ` ${data.details}` : '';
+        setSyncMessage((data.error || 'Sync failed.') + detail);
       }
     } catch (e) {
       setSyncMessage('Request failed.');

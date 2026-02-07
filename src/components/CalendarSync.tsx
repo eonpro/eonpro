@@ -52,18 +52,27 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
   const googleConnected = googleIntegration?.isConnected || false;
   const appleConnected = appleIntegration?.isConnected || false;
 
-  // Fetch calendar integration status on mount
+  // Fetch calendar integration status on mount (with timeout so we don't hang forever)
+  const FETCH_STATUS_TIMEOUT_MS = 15_000;
+
   const fetchStatus = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch('/api/calendar-sync?action=status');
+      setIsLoading(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_STATUS_TIMEOUT_MS);
+
+      const res = await fetch('/api/calendar-sync?action=status', { signal: controller.signal });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         if (res.status === 401) {
           setError('Please log in to manage calendar integrations');
           return;
         }
-        throw new Error('Failed to fetch calendar status');
+        const errBody = await res.json().catch(() => ({}));
+        const detail = errBody.detail || errBody.error;
+        throw new Error(typeof detail === 'string' ? detail : 'Failed to fetch calendar status');
       }
 
       const data = await res.json();
@@ -78,8 +87,13 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
         }));
       }
     } catch (err) {
+      const isAbort = err instanceof Error && err.name === 'AbortError';
       console.error('Failed to fetch calendar status:', err);
-      setError('Failed to load calendar status. Please try again.');
+      setError(
+        isAbort
+          ? 'Calendar status took too long. Check your connection and try again.'
+          : 'Failed to load calendar status. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -286,12 +300,21 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
         </button>
       </div>
 
-      {/* Error message */}
+      {/* Error message with retry */}
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-start">
             <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
+            <div className="flex-1">
+              <p className="text-sm text-red-700">{error}</p>
+              <button
+                type="button"
+                onClick={() => fetchStatus()}
+                className="mt-2 text-sm font-medium text-red-700 hover:text-red-800 underline"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -59,25 +59,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     }
   }, [router]);
 
-  const handleLogout = async () => {
-    try {
-      // Call the logout API to terminate server session
-      const token = safeLocalStorage.getItem('auth-token') || safeLocalStorage.getItem('super_admin-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }).catch(() => {
-          // Non-blocking - continue with client-side cleanup even if API fails
-          console.warn('[Logout] API call failed, continuing with client cleanup');
-        });
-      }
-    } catch (error) {
-      console.warn('[Logout] Error calling logout API:', error);
-    }
-
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = safeLocalStorage.getItem('auth-token') || safeLocalStorage.getItem('super_admin-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     safeLocalStorage.removeItem('user');
     safeLocalStorage.removeItem('auth-token');
     safeLocalStorage.removeItem('admin-token');
@@ -86,8 +72,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     safeLocalStorage.removeItem('access_token');
     safeLocalStorage.removeItem('refresh_token');
     safeLocalStorage.removeItem('token_timestamp');
-    // Clear cookies (only on client-side)
-    if (isBrowser && document?.cookie) {
+    if (typeof document !== 'undefined' && document.cookie) {
       document.cookie.split(";").forEach((c) => {
         document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
       });
@@ -194,6 +179,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               </div>
             )}
             <button
+              type="button"
               onClick={handleLogout}
               title={!sidebarExpanded ? "Logout" : undefined}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all w-full"

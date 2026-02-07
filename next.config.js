@@ -59,6 +59,20 @@ const nextConfig = {
   // Turbopack configuration (Next.js 16+ default bundler)
   turbopack: {},
   
+  // Patient portal at /portal (eonmeds.eonpro.io/portal, wellmedr.eonpro.io/portal, etc.)
+  // beforeFiles so /portal is rewritten before filesystem (avoids 404 when app/portal/ exists).
+  // /portal/affiliate is unchanged (affiliate portal).
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: '/portal/affiliate', destination: '/portal/affiliate' },
+        { source: '/portal/affiliate/:path*', destination: '/portal/affiliate/:path*' },
+        { source: '/portal', destination: '/patient-portal' },
+        { source: '/portal/:path*', destination: '/patient-portal/:path*' },
+      ],
+    };
+  },
+
   // Headers for security and caching
   async headers() {
     return [

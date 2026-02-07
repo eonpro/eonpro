@@ -34,6 +34,19 @@ This document covers the comprehensive calendar synchronization and Zoom telehea
 - `src/lib/calendar-sync/google-calendar.service.ts`
 - `src/app/api/calendar-sync/google/callback/route.ts`
 
+**Google Cloud Console – OAuth client (Web application):**
+
+When creating the OAuth client ID in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → Create OAuth client ID → Application type: **Web application**:
+
+- **Authorized JavaScript origins** (add each you use):
+  - Production: `https://app.eonpro.io`
+  - Local dev: `http://localhost:3000` (or `http://localhost:3001` if that’s your dev port)
+- **Authorized redirect URIs** (must match exactly; add each you use):
+  - Production: `https://app.eonpro.io/api/calendar-sync/google/callback`
+  - Local dev: `http://localhost:3000/api/calendar-sync/google/callback` (or port 3001)
+
+Then set in your environment: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `NEXTAUTH_URL` (or `GOOGLE_REDIRECT_URI`) to match the redirect URI above.
+
 #### Outlook Calendar Integration
 
 1. **OAuth Flow**: Provider clicks "Connect" → redirected to Microsoft → grants permission

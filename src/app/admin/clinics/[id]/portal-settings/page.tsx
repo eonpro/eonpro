@@ -15,6 +15,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Plus,
+  User,
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 
@@ -36,6 +37,8 @@ interface PortalSettings {
     showResources: boolean;
     showBilling: boolean;
   };
+  autoInviteOnFirstPayment: boolean;
+  autoInviteOnFirstOrder: boolean;
   resourceVideos: Array<{
     id: string;
     title: string;
@@ -64,6 +67,8 @@ const defaultSettings: PortalSettings = {
     showResources: true,
     showBilling: true,
   },
+  autoInviteOnFirstPayment: false,
+  autoInviteOnFirstOrder: false,
   resourceVideos: [],
 };
 
@@ -105,6 +110,8 @@ export default function ClinicPortalSettingsPage() {
           accentColor: data.accentColor || '#d3f931',
           customCss: data.customCss,
           features: { ...defaultSettings.features, ...data.features },
+          autoInviteOnFirstPayment: data.autoInviteOnFirstPayment ?? false,
+          autoInviteOnFirstOrder: data.autoInviteOnFirstOrder ?? false,
           resourceVideos: data.resourceVideos || [],
         });
       }
@@ -156,6 +163,11 @@ export default function ClinicPortalSettingsPage() {
         [feature]: !prev.features[feature],
       },
     }));
+    setSaved(false);
+  };
+
+  const handleAutoInviteToggle = (field: 'autoInviteOnFirstPayment' | 'autoInviteOnFirstOrder') => {
+    setSettings((prev) => ({ ...prev, [field]: !prev[field] }));
     setSaved(false);
   };
 
@@ -477,6 +489,39 @@ export default function ClinicPortalSettingsPage() {
                   />
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Auto-invite (portal access when treatment starts) */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <User className="h-5 w-5 text-[#4fa77e]" />
+              Portal Access (Auto-invite)
+            </h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Automatically send a one-time &quot;Create your patient portal&quot; email when treatment starts.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 py-2">
+                <div>
+                  <p className="font-medium text-gray-900">On first payment</p>
+                  <p className="text-sm text-gray-500">Send portal invite when a payment is recorded for the patient</p>
+                </div>
+                <Toggle
+                  enabled={settings.autoInviteOnFirstPayment}
+                  onChange={() => handleAutoInviteToggle('autoInviteOnFirstPayment')}
+                />
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium text-gray-900">On first prescription/order</p>
+                  <p className="text-sm text-gray-500">Send portal invite when the first order is created for the patient</p>
+                </div>
+                <Toggle
+                  enabled={settings.autoInviteOnFirstOrder}
+                  onChange={() => handleAutoInviteToggle('autoInviteOnFirstOrder')}
+                />
+              </div>
             </div>
           </div>
 

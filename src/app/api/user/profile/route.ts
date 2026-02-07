@@ -19,6 +19,7 @@ const updateProfileSchema = z.object({
   firstName: z.string().min(1).max(100).optional(),
   lastName: z.string().min(1).max(100).optional(),
   phone: z.string().max(20).optional().nullable(),
+  preferredLanguage: z.enum(['en', 'es']).optional(),
 });
 
 /**
@@ -42,6 +43,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         twoFactorEnabled: true,
         createdAt: true,
         lastLogin: true,
+        metadata: true,
         clinic: {
           select: {
             id: true,
@@ -54,6 +56,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     if (!dbUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    const metadata = (dbUser.metadata as Record<string, unknown>) || {};
+    const preferredLanguage = (metadata.preferredLanguage as string) || 'en';
 
     return NextResponse.json({
       id: dbUser.id,
@@ -68,6 +73,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       twoFactorEnabled: dbUser.twoFactorEnabled,
       createdAt: dbUser.createdAt,
       lastLogin: dbUser.lastLogin,
+      preferredLanguage: preferredLanguage === 'es' ? 'es' : 'en',
       clinic: dbUser.clinic,
     });
   } catch (error) {
@@ -102,10 +108,10 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const { firstName, lastName, phone } = parseResult.data;
+    const { firstName, lastName, phone, preferredLanguage } = parseResult.data;
 
     // Build update object with only provided fields
-    const updateData: Record<string, string | null> = {};
+    const updateData: Record<string, unknown> = {};
     
     if (firstName !== undefined) {
       updateData.firstName = firstName;
@@ -117,6 +123,15 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     
     if (phone !== undefined) {
       updateData.phone = phone || null;
+    }
+
+    if (preferredLanguage !== undefined) {
+      const current = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { metadata: true },
+      });
+      const metadata = (current?.metadata as Record<string, unknown>) || {};
+      updateData.metadata = { ...metadata, preferredLanguage };
     }
 
     // If no fields to update
@@ -139,6 +154,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         phone: true,
         role: true,
         avatarUrl: true,
+        metadata: true,
       },
     });
 

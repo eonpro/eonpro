@@ -216,7 +216,9 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
           : sesConfig.replyToEmail
             ? [sesConfig.replyToEmail]
             : undefined,
-        ConfigurationSetName: sesConfig.configurationSet,
+        ...(sesConfig.configurationSet
+          ? { ConfigurationSetName: sesConfig.configurationSet }
+          : {}),
       });
 
       // SOC 2 Compliance: Wrapped with circuit breaker for availability
@@ -473,6 +475,61 @@ The {{clinicName}} Team
 
 ---
 This email was sent by {{COMPANY_NAME}} on behalf of {{clinicName}}.
+      `,
+    },
+
+    [EmailTemplate.PATIENT_PORTAL_INVITE]: {
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #efece7; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: #059669; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .header h1 { margin: 0; font-size: 24px; }
+              .content { padding: 30px 20px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
+              .cta-button { display: inline-block; padding: 14px 32px; background: #059669; color: white !important; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+              .info-box { background: #efece7; border-radius: 8px; padding: 16px; margin: 20px 0; }
+              .footer { text-align: center; padding: 20px; color: #6B7280; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header"><h1>Create Your Patient Portal</h1></div>
+              <div class="content">
+                <h2>Hello {{firstName}},</h2>
+                <p><strong>{{clinicName}}</strong> has invited you to create your patient portal account.</p>
+                <p>With your account you can:</p>
+                <ul>
+                  <li>View your health records and medications</li>
+                  <li>Track orders and shipments</li>
+                  <li>Schedule appointments</li>
+                  <li>Message your care team</li>
+                </ul>
+                <p style="text-align: center;"><a href="{{inviteLink}}" class="cta-button">Create My Account</a></p>
+                <div class="info-box"><p style="margin: 0;">This link expires in {{expiresIn}}. Use it once to set your password and verify your email.</p></div>
+                <p style="word-break: break-all; color: #059669; font-size: 12px;">{{inviteLink}}</p>
+                <p>Best regards,<br>The {{clinicName}} Team</p>
+              </div>
+              <div class="footer"><p>{{COMPANY_NAME}} · {{COMPANY_ADDRESS}}</p></div>
+            </div>
+          </body>
+        </html>
+      `,
+      text: `
+Hello {{firstName}},
+
+{{clinicName}} has invited you to create your patient portal account.
+
+Create your account: {{inviteLink}}
+
+This link expires in {{expiresIn}}. Use it once to set your password and verify your email.
+
+With your account you can view health records, medications, track orders, schedule appointments, and message your care team.
+
+Best regards,
+The {{clinicName}} Team
       `,
     },
 

@@ -260,10 +260,50 @@ async function loginHandler(req: NextRequest) {
       }
     }
 
+    // When frontend doesn't send role (e.g. main login page), default is 'patient'
+    // so legacy providers/admins would not be found. Try legacy lookups by email once.
+    if (!user) {
+      const legacyProvider = await basePrisma.provider.findFirst({
+        where: { email: email.toLowerCase() },
+      });
+      if (legacyProvider) {
+        const providerData = legacyProvider as typeof legacyProvider & {
+          passwordHash?: string;
+          firstName?: string;
+          lastName?: string;
+          clinicId?: number;
+        };
+        user = {
+          id: providerData.id,
+          email: providerData.email || '',
+          firstName: providerData.firstName || '',
+          lastName: providerData.lastName || '',
+          role: 'provider',
+          status: 'ACTIVE',
+          providerId: providerData.id,
+          clinicId: providerData.clinicId,
+        } as unknown as FlexibleUser;
+        passwordHash = providerData.passwordHash || null;
+      }
+      if (!user) {
+        const adminUser = await prisma.user.findFirst({
+          where: {
+            email: email.toLowerCase(),
+            role: { in: ['ADMIN', 'SUPER_ADMIN'] },
+          },
+          include: { provider: true },
+        });
+        if (adminUser) {
+          user = adminUser as FlexibleUser;
+          passwordHash = adminUser.passwordHash;
+        }
+      }
+    }
+
     // Check if user exists
     if (!user) {
-      // Log failed attempt
-      logger.warn(`Failed login attempt for ${email} (${role})`);
+      // Log failed attempt (no PHI in message)
+      logger.warn('Failed login attempt', { emailPrefix: email.substring(0, 3) + '***', role });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -274,7 +314,7 @@ async function loginHandler(req: NextRequest) {
     if (passwordHash) {
       const isValid = await bcrypt.compare(password, passwordHash);
       if (!isValid) {
-        logger.warn(`Invalid password for ${email} (${role})`);
+        logger.warn('Invalid password for login attempt', { emailPrefix: email.substring(0, 3) + '***', role });
 
         // Return with rate limit info so user knows their status
         return NextResponse.json(
@@ -307,7 +347,7 @@ async function loginHandler(req: NextRequest) {
     // Check if email is verified for patients
     const userWithEmail = user as typeof user & { emailVerified?: boolean };
     if (user.role === 'PATIENT' && userWithEmail.emailVerified === false) {
-      logger.warn(`Unverified email login attempt for ${email}`);
+      logger.warn('Unverified email login attempt', { emailPrefix: email.substring(0, 3) + '***' });
       return NextResponse.json(
         {
           error: 'Please verify your email before logging in.',

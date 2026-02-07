@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTracker';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 interface WeightEntry {
   dateInput: string;
@@ -382,7 +383,7 @@ export default function PatientPortalDashboard() {
 
       {/* Weight Progress Card - Hero */}
       {features.showWeightTracking && (
-        <Link href="/patient-portal/progress" className="mb-6 block">
+        <Link href={`${PATIENT_PORTAL_PATH}/progress`} className="mb-6 block">
           <div
             className="rounded-2xl p-6 text-white shadow-lg"
             style={{ backgroundColor: accentColor }}
@@ -448,7 +449,7 @@ export default function PatientPortalDashboard() {
         {/* Next Medication */}
         {features.showMedicationReminders && nextReminder && (
           <Link
-            href="/patient-portal/medications"
+            href={`${PATIENT_PORTAL_PATH}/medications`}
             className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
           >
             <div className="mb-2 flex items-center gap-3">
@@ -467,7 +468,7 @@ export default function PatientPortalDashboard() {
         {/* Shipment Status */}
         {features.showShipmentTracking && recentShipment && (
           <Link
-            href="/patient-portal/shipments"
+            href={`${PATIENT_PORTAL_PATH}/shipments`}
             className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
           >
             <div className="mb-2 flex items-center gap-3">
@@ -484,7 +485,7 @@ export default function PatientPortalDashboard() {
 
       {/* Photos Widget */}
       <div className="mb-6">
-        <Link href="/patient-portal/photos" className="block">
+        <Link href={`${PATIENT_PORTAL_PATH}/photos`} className="block">
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
@@ -567,7 +568,7 @@ export default function PatientPortalDashboard() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {features.showWeightTracking && (
             <Link
-              href="/patient-portal/progress"
+              href={`${PATIENT_PORTAL_PATH}/progress`}
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <Scale className="mb-2 h-6 w-6" style={{ color: primaryColor }} />
@@ -577,7 +578,7 @@ export default function PatientPortalDashboard() {
 
           {features.showDoseCalculator && (
             <Link
-              href="/patient-portal/calculators"
+              href={`${PATIENT_PORTAL_PATH}/calculators`}
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <Calculator className="mb-2 h-6 w-6 text-purple-600" />
@@ -587,7 +588,7 @@ export default function PatientPortalDashboard() {
 
           {features.showResources && (
             <Link
-              href="/patient-portal/resources"
+              href={`${PATIENT_PORTAL_PATH}/resources`}
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <BookOpen className="mb-2 h-6 w-6 text-amber-600" />
@@ -597,7 +598,7 @@ export default function PatientPortalDashboard() {
 
           {/* Photos Quick Action */}
           <Link
-            href="/patient-portal/photos"
+            href={`${PATIENT_PORTAL_PATH}/photos`}
             className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
           >
             <Camera className="mb-2 h-6 w-6 text-blue-600" />
@@ -606,7 +607,7 @@ export default function PatientPortalDashboard() {
 
           {features.showShipmentTracking && (
             <Link
-              href="/patient-portal/shipments"
+              href={`${PATIENT_PORTAL_PATH}/shipments`}
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <Package className="mb-2 h-6 w-6 text-blue-600" />
@@ -638,7 +639,7 @@ export default function PatientPortalDashboard() {
             </span>
           </div>
           <Link
-            href="/patient-portal/medications"
+            href={`${PATIENT_PORTAL_PATH}/medications`}
             className="block w-full rounded-xl py-2.5 text-center font-medium text-white"
             style={{ backgroundColor: primaryColor }}
           >
@@ -649,7 +650,7 @@ export default function PatientPortalDashboard() {
 
       {/* BMI Calculator Preview */}
       {features.showBMICalculator && (
-        <Link href="/patient-portal/calculators/bmi" className="mb-6 block">
+        <Link href={`${PATIENT_PORTAL_PATH}/calculators/bmi`} className="mb-6 block">
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">

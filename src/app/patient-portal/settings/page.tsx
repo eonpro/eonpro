@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import {
   User,
   Mail,
@@ -15,6 +16,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  Languages,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -35,6 +37,7 @@ interface UserProfile {
 export default function SettingsPage() {
   const router = useRouter();
   const { branding } = useClinicBranding();
+  const { t, language, setLanguage } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -42,7 +45,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [activeSection, setActiveSection] = useState<
-    'profile' | 'password' | 'notifications' | 'privacy'
+    'profile' | 'password' | 'notifications' | 'privacy' | 'language'
   >('profile');
 
   // Password change state
@@ -185,16 +188,11 @@ export default function SettingsPage() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).catch(() => {});
-      }
-    } catch {}
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
@@ -220,14 +218,14 @@ export default function SettingsPage() {
       {showSuccess && (
         <div className="fixed right-4 top-4 z-50 flex items-center gap-2 rounded-xl bg-green-500 px-4 py-3 text-white shadow-lg">
           <Check className="h-5 w-5" />
-          Changes saved successfully!
+          {t('changesSaved')}
         </div>
       )}
 
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-        <p className="mt-1 text-gray-500">Manage your account and preferences</p>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('settingsTitle')}</h1>
+        <p className="mt-1 text-gray-500">{t('settingsSubtitle')}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-4">
@@ -235,10 +233,11 @@ export default function SettingsPage() {
         <div className="lg:col-span-1">
           <div className="rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
             {[
-              { id: 'profile', label: 'Profile', icon: User },
-              { id: 'password', label: 'Password', icon: Lock },
-              { id: 'notifications', label: 'Notifications', icon: Bell },
-              { id: 'privacy', label: 'Privacy', icon: Shield },
+              { id: 'profile', labelKey: 'settingsProfile', icon: User },
+              { id: 'password', labelKey: 'settingsPassword', icon: Lock },
+              { id: 'notifications', labelKey: 'settingsNotifications', icon: Bell },
+              { id: 'language', labelKey: 'settingsLanguage', icon: Languages },
+              { id: 'privacy', labelKey: 'settingsPrivacy', icon: Shield },
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeSection === item.id;
@@ -252,7 +251,7 @@ export default function SettingsPage() {
                   style={isActive ? { backgroundColor: primaryColor } : {}}
                 >
                   <Icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <span className="font-medium">{t(item.labelKey)}</span>
                 </button>
               );
             })}
@@ -260,11 +259,12 @@ export default function SettingsPage() {
             <hr className="my-2" />
 
             <button
+              type="button"
               onClick={handleLogout}
               className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-red-600 transition-all hover:bg-red-50"
             >
               <LogOut className="h-5 w-5" />
-              <span className="font-medium">Sign Out</span>
+              <span className="font-medium">{t('navSignOut')}</span>
             </button>
           </div>
         </div>
@@ -274,11 +274,11 @@ export default function SettingsPage() {
           {/* Profile Section */}
           {activeSection === 'profile' && profile && (
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-semibold text-gray-900">Personal Information</h2>
+              <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('personalInfo')}</h2>
 
               <div className="mb-6 grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">First Name</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">{t('firstName')}</label>
                   <input
                     type="text"
                     value={profile.firstName}
@@ -288,7 +288,7 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Last Name</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">{t('lastName')}</label>
                   <input
                     type="text"
                     value={profile.lastName}
@@ -300,7 +300,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="mb-4">
-                <label className="mb-2 block text-sm font-medium text-gray-700">Email</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">{t('email')}</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                   <input
@@ -314,7 +314,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="mb-4">
-                <label className="mb-2 block text-sm font-medium text-gray-700">Phone</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">{t('phone')}</label>
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                   <input
@@ -329,7 +329,7 @@ export default function SettingsPage() {
 
               <div className="mb-6">
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Date of Birth
+                  {t('dateOfBirth')}
                 </label>
                 <input
                   type="date"
@@ -346,20 +346,54 @@ export default function SettingsPage() {
                 className="rounded-xl px-6 py-3 font-medium text-white transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ backgroundColor: primaryColor }}
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? t('saving') : t('saveChanges')}
               </button>
+            </div>
+          )}
+
+          {/* Language Section */}
+          {activeSection === 'language' && (
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+              <h2 className="mb-2 text-lg font-semibold text-gray-900">{t('settingsLanguage')}</h2>
+              <p className="mb-6 text-sm text-gray-500">{t('settingsLanguageDesc')}</p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => setLanguage('en')}
+                  className={`rounded-xl border-2 px-5 py-3 font-medium transition-all ${
+                    language === 'en'
+                      ? 'border-transparent text-white'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={language === 'en' ? { backgroundColor: primaryColor } : {}}
+                >
+                  {t('settingsEnglish')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLanguage('es')}
+                  className={`rounded-xl border-2 px-5 py-3 font-medium transition-all ${
+                    language === 'es'
+                      ? 'border-transparent text-white'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={language === 'es' ? { backgroundColor: primaryColor } : {}}
+                >
+                  {t('settingsSpanish')}
+                </button>
+              </div>
             </div>
           )}
 
           {/* Password Section */}
           {activeSection === 'password' && (
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-semibold text-gray-900">Change Password</h2>
+              <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('changePassword')}</h2>
 
               <div className="mb-6 space-y-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Current Password
+                    {t('currentPassword')}
                   </label>
                   <div className="relative">
                     <input
@@ -387,7 +421,7 @@ export default function SettingsPage() {
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    New Password
+                    {t('newPassword')}
                   </label>
                   <div className="relative">
                     <input
@@ -415,7 +449,7 @@ export default function SettingsPage() {
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Confirm New Password
+                    {t('confirmNewPassword')}
                   </label>
                   <div className="relative">
                     <input
@@ -448,7 +482,7 @@ export default function SettingsPage() {
                 className="rounded-xl px-6 py-3 font-medium text-white transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ backgroundColor: primaryColor }}
               >
-                {saving ? 'Updating...' : 'Update Password'}
+                {saving ? t('updating') : t('updatePassword')}
               </button>
             </div>
           )}
@@ -456,43 +490,23 @@ export default function SettingsPage() {
           {/* Notifications Section */}
           {activeSection === 'notifications' && (
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-semibold text-gray-900">Notification Preferences</h2>
+              <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('notificationPreferences')}</h2>
 
               <div className="space-y-4">
                 {[
-                  {
-                    key: 'emailReminders',
-                    label: 'Email Reminders',
-                    desc: 'Medication and appointment reminders via email',
-                  },
-                  {
-                    key: 'smsReminders',
-                    label: 'SMS Reminders',
-                    desc: 'Text message reminders for appointments',
-                  },
-                  {
-                    key: 'shipmentUpdates',
-                    label: 'Shipment Updates',
-                    desc: 'Notifications about your medication shipments',
-                  },
-                  {
-                    key: 'appointmentReminders',
-                    label: 'Appointment Reminders',
-                    desc: '24-hour advance notice for appointments',
-                  },
-                  {
-                    key: 'promotionalEmails',
-                    label: 'Promotional Emails',
-                    desc: 'News, tips, and special offers',
-                  },
+                  { key: 'emailReminders', labelKey: 'emailReminders', descKey: 'emailRemindersDesc' },
+                  { key: 'smsReminders', labelKey: 'smsReminders', descKey: 'smsRemindersDesc' },
+                  { key: 'shipmentUpdates', labelKey: 'shipmentUpdates', descKey: 'shipmentUpdatesDesc' },
+                  { key: 'appointmentReminders', labelKey: 'appointmentReminders', descKey: 'appointmentRemindersDesc' },
+                  { key: 'promotionalEmails', labelKey: 'promotionalEmails', descKey: 'promotionalEmailsDesc' },
                 ].map((item) => (
                   <div
                     key={item.key}
                     className="flex items-center justify-between rounded-xl bg-gray-50 p-4"
                   >
                     <div>
-                      <p className="font-medium text-gray-900">{item.label}</p>
-                      <p className="text-sm text-gray-500">{item.desc}</p>
+                      <p className="font-medium text-gray-900">{t(item.labelKey)}</p>
+                      <p className="text-sm text-gray-500">{t(item.descKey)}</p>
                     </div>
                     <button
                       onClick={() =>
@@ -527,7 +541,7 @@ export default function SettingsPage() {
           {/* Privacy Section */}
           {activeSection === 'privacy' && (
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-semibold text-gray-900">Privacy & Data</h2>
+              <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('privacyData')}</h2>
 
               <div className="mb-6 space-y-4">
                 <a
@@ -535,7 +549,7 @@ export default function SettingsPage() {
                   target="_blank"
                   className="flex items-center justify-between rounded-xl bg-gray-50 p-4 transition-colors hover:bg-gray-100"
                 >
-                  <span className="font-medium text-gray-900">Privacy Policy</span>
+                  <span className="font-medium text-gray-900">{t('privacyPolicy')}</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </a>
                 <a
@@ -543,7 +557,7 @@ export default function SettingsPage() {
                   target="_blank"
                   className="flex items-center justify-between rounded-xl bg-gray-50 p-4 transition-colors hover:bg-gray-100"
                 >
-                  <span className="font-medium text-gray-900">Terms of Service</span>
+                  <span className="font-medium text-gray-900">{t('termsOfService')}</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </a>
                 <a
@@ -551,19 +565,18 @@ export default function SettingsPage() {
                   target="_blank"
                   className="flex items-center justify-between rounded-xl bg-gray-50 p-4 transition-colors hover:bg-gray-100"
                 >
-                  <span className="font-medium text-gray-900">HIPAA Notice</span>
+                  <span className="font-medium text-gray-900">{t('hipaaNotice')}</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </a>
               </div>
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <h3 className="mb-2 font-semibold text-amber-900">Request Data Export</h3>
+                <h3 className="mb-2 font-semibold text-amber-900">{t('requestDataExport')}</h3>
                 <p className="mb-3 text-sm text-amber-800">
-                  You can request a copy of all your personal data. This may take up to 30 days to
-                  process.
+                  {t('requestDataExportDesc')}
                 </p>
                 <button className="text-sm font-medium text-amber-700 hover:text-amber-900">
-                  Request Data Export →
+                  {t('requestDataExportBtn')}
                 </button>
               </div>
             </div>

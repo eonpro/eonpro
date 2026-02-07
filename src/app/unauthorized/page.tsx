@@ -6,26 +6,17 @@ import { ShieldX, ArrowLeft, LogOut, Home } from 'lucide-react';
 export default function UnauthorizedPage() {
   const router = useRouter();
 
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('admin-token') || 
-                    localStorage.getItem('provider-token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).catch(() => {});
-      }
-    } catch {}
-    
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('provider-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
     localStorage.removeItem('provider-token');
     localStorage.removeItem('super_admin-token');
     localStorage.removeItem('patient-token');
-    
     window.location.href = '/login';
   };
 
@@ -62,6 +53,7 @@ export default function UnauthorizedPage() {
           </button>
           
           <button
+            type="button"
             onClick={handleLogout}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-red-300 text-red-600 rounded-xl hover:bg-red-50 transition-colors"
           >

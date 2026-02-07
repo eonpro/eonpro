@@ -110,11 +110,27 @@ export default function NewTicketPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientSearch, setPatientSearch] = useState('');
 
+  // Auth token for API calls (login stores in localStorage, not cookies)
+  const getAuthHeaders = (): HeadersInit => {
+    if (typeof window === 'undefined') return {};
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('admin-token') ||
+      localStorage.getItem('super_admin-token') ||
+      localStorage.getItem('provider-token') ||
+      localStorage.getItem('staff-token') ||
+      localStorage.getItem('support-token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   // Fetch users for assignment dropdown
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch('/api/users?role=staff,admin,provider,support&limit=100');
+        const response = await fetch('/api/users?role=staff,admin,provider,support&limit=100', {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (response.ok) {
           const data = await response.json();
           setUsers(data.users || []);
@@ -135,7 +151,10 @@ export default function NewTicketPage() {
 
     const searchPatients = async () => {
       try {
-        const response = await fetch(`/api/patients?search=${encodeURIComponent(patientSearch)}&limit=10`);
+        const response = await fetch(
+          `/api/patients?search=${encodeURIComponent(patientSearch)}&limit=10`,
+          { credentials: 'include', headers: getAuthHeaders() }
+        );
         if (response.ok) {
           const data = await response.json();
           setPatients(data.patients || []);
@@ -181,7 +200,11 @@ export default function NewTicketPage() {
 
       const response = await fetch('/api/tickets', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify(payload),
       });
 

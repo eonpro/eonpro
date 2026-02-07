@@ -11,6 +11,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { logger } from '@/lib/logger';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 // Auth types
 interface User {
@@ -56,6 +57,7 @@ const ROUTE_PERMISSIONS = {
   '/billing': ['admin'],
   '/soap-notes': ['admin', 'provider'],
   '/patient-portal': ['patient', 'admin', 'provider'],
+  '/portal': ['patient', 'admin', 'provider'],
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -182,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.push('/influencer/dashboard');
             break;
           case 'patient':
-            router.push('/patient-portal');
+            router.push(PATIENT_PORTAL_PATH);
             break;
           default:
             router.push('/');

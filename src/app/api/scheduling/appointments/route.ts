@@ -55,22 +55,28 @@ const updateAppointmentSchema = z.object({
 
 /**
  * GET /api/scheduling/appointments
- * List appointments with filters
+ * List appointments with filters.
+ * For provider users, defaults to their providerId when not specified in query.
  */
 export const GET = withAuth(
   async (req: NextRequest, user) => {
     try {
       const searchParams = req.nextUrl.searchParams;
       const clinicId = searchParams.get('clinicId');
-      const providerId = searchParams.get('providerId');
+      let providerIdParam = searchParams.get('providerId');
       const patientId = searchParams.get('patientId');
       const status = searchParams.get('status');
-      
+
+      // For provider role, default to their providerId so they see only their appointments
+      if (!providerIdParam && user.role && String(user.role).toLowerCase() === 'provider' && user.providerId) {
+        providerIdParam = String(user.providerId);
+      }
+
       // Support both 'date' (single day) and 'startDate/endDate' (range)
       let startDate = searchParams.get('startDate');
       let endDate = searchParams.get('endDate');
       const singleDate = searchParams.get('date');
-      
+
       // If single date provided, convert to start/end of that day
       if (singleDate && !startDate && !endDate) {
         const date = new Date(singleDate);
@@ -87,7 +93,7 @@ export const GET = withAuth(
 
       const appointments = await getAppointments({
         clinicId: clinicId ? parseInt(clinicId) : (user.clinicId || undefined),
-        providerId: providerId ? parseInt(providerId) : undefined,
+        providerId: providerIdParam ? parseInt(providerIdParam) : undefined,
         patientId: patientId ? parseInt(patientId) : undefined,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
@@ -96,9 +102,15 @@ export const GET = withAuth(
 
       return NextResponse.json({ appointments });
     } catch (error) {
-      logger.error('Failed to fetch appointments', { error });
+      const errMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errStack = error instanceof Error ? error.stack : undefined;
+      logger.error('Failed to fetch appointments', { error, message: errMessage });
       return NextResponse.json(
-        { error: 'Failed to fetch appointments' },
+        {
+          error: 'Failed to fetch appointments',
+          detail: errMessage,
+          ...(process.env.NODE_ENV === 'development' && { stack: errStack }),
+        },
         { status: 500 }
       );
     }

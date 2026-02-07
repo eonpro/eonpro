@@ -153,7 +153,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       }
     };
 
-    let messages;
+    let messages: Awaited<ReturnType<typeof basePrisma.internalMessage.findMany>>;
     try {
       messages = await basePrisma.internalMessage.findMany({
         where: whereClause,
@@ -165,47 +165,111 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         skip: offset
       });
     } catch (queryError) {
-      // If the main query fails, try a minimal fallback query
+      // If the main query fails, try fallbacks so we never 500 for notification/unread count
       logger.warn('Primary message query failed, attempting fallback', {
         error: queryError instanceof Error ? queryError.message : 'Unknown error',
         userId,
         unreadOnly
       });
 
-      // Fallback: try with minimal includes but still get reactions
-      try {
-        messages = await basePrisma.internalMessage.findMany({
-          where: whereClause,
-          include: {
-            sender: {
-              select: { id: true, firstName: true, lastName: true, email: true, role: true }
-            },
-            recipient: {
-              select: { id: true, firstName: true, lastName: true, email: true, role: true }
-            },
-            reactions: {
-              include: {
-                user: {
-                  select: { id: true, firstName: true, lastName: true }
-                }
-              }
+      if (unreadOnly) {
+        // Unread-only: second try with no includes (avoids any relation/table missing issues)
+        try {
+          const bare = await basePrisma.internalMessage.findMany({
+            where: whereClause,
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset,
+            select: {
+              id: true,
+              message: true,
+              createdAt: true,
+              senderId: true,
+              recipientId: true,
+              isRead: true,
+              messageType: true,
+              channelId: true,
+              parentMessageId: true,
+              readAt: true,
+              attachments: true,
+              metadata: true,
+              clinicId: true
             }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          },
-          take: limit,
-          skip: offset
-        });
-
-        // If fallback succeeds, log that the full include was the problem
-        logger.warn('Fallback query succeeded - replies relation may have issues', {
-          userId,
-          messageCount: messages.length
-        });
-      } catch (fallbackError) {
-        // Even fallback failed - re-throw to outer catch
-        throw queryError;
+          });
+          messages = bare.map(m => ({
+            ...m,
+            sender: null,
+            recipient: null,
+            replies: [],
+            reactions: []
+          })) as typeof messages;
+          logger.warn('Unread messages fallback (no includes) succeeded', {
+            userId,
+            messageCount: messages.length
+          });
+        } catch (noIncludeError) {
+          throw queryError;
+        }
+      } else {
+        // Full list: try with sender/recipient only (no replies, no reactions)
+        try {
+          messages = await basePrisma.internalMessage.findMany({
+            where: whereClause,
+            include: {
+              sender: {
+                select: { id: true, firstName: true, lastName: true, email: true, role: true }
+              },
+              recipient: {
+                select: { id: true, firstName: true, lastName: true, email: true, role: true }
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset
+          });
+          logger.warn('Fallback query (no replies/reactions) succeeded', {
+            userId,
+            messageCount: messages.length
+          });
+        } catch (fallbackError) {
+          // Last resort: no includes
+          try {
+            const bare = await basePrisma.internalMessage.findMany({
+              where: whereClause,
+              orderBy: { createdAt: 'desc' },
+              take: limit,
+              skip: offset,
+              select: {
+                id: true,
+                message: true,
+                createdAt: true,
+                senderId: true,
+                recipientId: true,
+                isRead: true,
+                messageType: true,
+                channelId: true,
+                parentMessageId: true,
+                readAt: true,
+                attachments: true,
+                metadata: true,
+                clinicId: true
+              }
+            });
+            messages = bare.map(m => ({
+              ...m,
+              sender: null,
+              recipient: null,
+              replies: [],
+              reactions: []
+            })) as typeof messages;
+            logger.warn('Minimal fallback (no includes) succeeded', {
+              userId,
+              messageCount: messages.length
+            });
+          } catch (noIncludeError) {
+            throw queryError;
+          }
+        }
       }
     }
 

@@ -46,7 +46,7 @@ function EmailVerifiedContent() {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#efece7] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Card */}
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
@@ -93,6 +93,11 @@ function EmailVerifiedContent() {
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">Verification Failed</h1>
                   <p className="text-gray-600">{errorMessage}</p>
+                  {(errorMessage.includes('already been used') || errorMessage.includes('Too many attempts')) && (
+                    <p className="mt-3 text-emerald-700 font-medium">
+                      If you already verified your email, try logging in.
+                    </p>
+                  )}
                 </div>
                 
                 <div className="bg-gray-50 rounded-xl p-4 text-left">
@@ -184,7 +189,7 @@ function EmailVerifiedContent() {
 export default function EmailVerifiedPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#efece7] flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-600 border-t-transparent" />
       </div>
     }>

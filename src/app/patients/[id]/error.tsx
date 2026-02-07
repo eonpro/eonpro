@@ -34,6 +34,15 @@ export default function PatientDetailError({ error, reset }: ErrorProps) {
     error.message.includes('permission') ||
     error.message.includes('not authorized');
 
+  // Check if this is a connection/network error (often seen when server closes stream)
+  const isConnectionError =
+    error.message.includes('Connection closed') ||
+    error.message.includes('connection closed') ||
+    error.message.includes('fetch failed') ||
+    error.message.includes('Failed to fetch') ||
+    error.message.includes('NetworkError') ||
+    error.message.includes('Load failed');
+
   if (isAuthError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-slate-50 to-slate-100">
@@ -82,6 +91,45 @@ export default function PatientDetailError({ error, reset }: ErrorProps) {
             <ArrowLeft className="w-5 h-5" />
             Back to Patient List
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isConnectionError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="max-w-md w-full text-center">
+          <div className="mb-8">
+            <div className="mx-auto w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center">
+              <AlertTriangle className="w-10 h-10 text-amber-600" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Connection Problem
+          </h1>
+          <p className="text-gray-600 mb-4">
+            The connection was closed before the patient data could load. This can happen due to network issues or a brief server hiccup.
+          </p>
+          <p className="text-gray-500 text-sm mb-8">
+            If you are a clinic admin, this can also occur when the patient belongs to another clinic. Try again or go back to the patient list.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={reset}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Try Again
+            </button>
+            <Link
+              href="/provider/patients"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Patients
+            </Link>
+          </div>
         </div>
       </div>
     );

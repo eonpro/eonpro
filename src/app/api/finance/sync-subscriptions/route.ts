@@ -34,9 +34,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const stripeContext = await getStripeForClinic(clinicId);
-    const { stripe } = stripeContext;
+    let stripeContext: Awaited<ReturnType<typeof getStripeForClinic>>;
+    try {
+      stripeContext = await getStripeForClinic(clinicId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      logger.error('[SyncSubscriptions] getStripeForClinic failed', { clinicId, error: msg });
+      return NextResponse.json(
+        {
+          error: 'Stripe is not configured for this clinic',
+          details: msg.includes('not configured') || msg.includes('not found')
+            ? msg
+            : 'Set EONMEDS_STRIPE_SECRET_KEY for Eonmeds, or connect Stripe in clinic settings.',
+        },
+        { status: 400 }
+      );
+    }
 
+    const { stripe } = stripeContext;
     if (!stripe) {
       return NextResponse.json(
         { error: 'This clinic does not have a Stripe account configured' },
@@ -51,11 +66,24 @@ export async function POST(request: NextRequest) {
       const listParams = withConnectedAccount(stripeContext, {
         limit: 100,
         status: 'all',
-        expand: ['data.items.data.price.product'],
         ...(startingAfter ? { starting_after: startingAfter } : {}),
       } as Stripe.SubscriptionListParams);
 
-      const subs = await stripe.subscriptions.list(listParams);
+      let subs: Stripe.ApiList<Stripe.Subscription>;
+      try {
+        subs = await stripe.subscriptions.list(listParams);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : undefined;
+        logger.error('[SyncSubscriptions] Stripe subscriptions.list failed', { clinicId, error: msg, code });
+        return NextResponse.json(
+          {
+            error: 'Failed to list subscriptions from Stripe',
+            details: code === 'StripeAuthenticationError' ? 'Invalid or missing Stripe API key for this clinic.' : msg,
+          },
+          { status: 502 }
+        );
+      }
 
       for (const sub of subs.data) {
         try {

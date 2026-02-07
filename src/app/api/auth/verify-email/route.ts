@@ -22,10 +22,17 @@ import { verifyEmail } from '@/lib/auth/registration';
 export async function GET(req: NextRequest): Promise<Response> {
   try {
     const { searchParams } = new URL(req.url);
-    const token = searchParams.get('token');
+    let token = searchParams.get('token');
+    // Normalize: trim and decode (links can be percent-encoded)
+    if (token) {
+      try {
+        token = decodeURIComponent(token).trim();
+      } catch {
+        token = token.trim();
+      }
+    }
 
     if (!token) {
-      // Redirect to error page
       return NextResponse.redirect(
         new URL('/email-verified?status=error&message=Missing+verification+token', req.url)
       );

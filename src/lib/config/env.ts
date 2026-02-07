@@ -31,7 +31,8 @@ const envSchema = z.object({
   NEXTAUTH_SECRET: z.string().optional(),
   NEXTAUTH_URL: z.string().url().optional(),
   
-  // Application URLs
+  // Application URLs (APP_URL/NEXTAUTH_URL used at runtime for invite/verification links)
+  APP_URL: z.string().url().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
   NEXT_PUBLIC_API_URL: z.string().url().optional(),
   
@@ -101,6 +102,10 @@ const envSchema = z.object({
   // Google Maps
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
+  // Google Calendar OAuth (required for Connect Google Calendar)
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().url().optional(),
 });
 
 /**

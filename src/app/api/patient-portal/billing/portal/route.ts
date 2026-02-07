@@ -43,7 +43,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     // Create portal session
     const session = await stripe.billingPortal.sessions.create({
       customer: patient.stripeCustomerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/patient-portal/billing`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/billing`,
     });
 
     return NextResponse.json({ url: session.url });

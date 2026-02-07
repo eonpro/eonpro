@@ -647,6 +647,11 @@ class PrismaWithClinicFilter {
     return this.client.phoneOtp;
   }
 
+  // Patient portal invite (patient-scoped; access controlled by API via patient)
+  get patientPortalInvite() {
+    return this.client.patientPortalInvite;
+  }
+
   // Payment reconciliation (system-wide)
   get paymentReconciliation() {
     return this.client.paymentReconciliation;

@@ -189,7 +189,7 @@ const TIRZEPATIDE_30MG_TEMPLATES: SigTemplate[] = [
   },
   {
     label: "High Dose · 15 mg",
-    sig: "Inject 15 mg (0.5 mL / 50 units) subcutaneously once weekly for increased effect.",
+    sig: "Vial contains 2 mL (200 units total). Inject 15 mg (0.5 mL / 50 units*) subcutaneously once weekly. Maximum dose. Monitor weight loss progress and metabolic parameters.",
     quantity: "1",
     refills: "1",
     daysSupply: 28,

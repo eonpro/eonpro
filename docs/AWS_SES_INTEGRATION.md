@@ -129,10 +129,50 @@ AWS_SES_MAX_SEND_RATE=14
 
 4. **Set Up DKIM**
    - Enable DKIM signing for better deliverability
-   - Add CNAME records to your DNS
+   - Add CNAME records to your DNS (see [DNS on Vercel](#dns-for-ses-when-your-domain-is-on-vercel) below)
 
 5. **Configure SPF**
    - Add SPF record to DNS: `"v=spf1 include:amazonses.com ~all"`
+
+### DNS for SES when your domain is on Vercel
+
+If **eonpro.io** (or your sending domain) is on Vercel, add the SES records in Vercel’s DNS:
+
+1. **Open Domains in Vercel**
+   - Go to [vercel.com](https://vercel.com) → your **Team** → **Settings** → **Domains**  
+   - Or: **Project** → **Settings** → **Domains** and use **Edit** on the root domain (e.g. `eonpro.io`).
+
+2. **Find where to add DNS records**
+   - Click the root domain **eonpro.io** (not only `app.eonpro.io`).
+   - Look for **DNS Records**, **Manage DNS**, or **Records**.
+   - If you don’t see it, the domain may be using external nameservers; add the records at the provider that hosts DNS for `eonpro.io`.
+
+3. **Add the 3 DKIM CNAME records** (from SES “Domain DNS records” modal):
+
+   | Type  | Name (host) | Value |
+   |-------|-------------|--------|
+   | CNAME | `ty2xrmci77xerey7rnl6rfcecfdhz55e._domainkey` | `ty2xrmci77xerey7rnl6rfcecfdhz55e.dkim.amazonses.com` |
+   | CNAME | `txtjqiu5dr3zehhf5ssdqrnqh373oyit._domainkey` | `txtjqiu5dr3zehhf5ssdqrnqh373oyit.dkim.amazonses.com` |
+   | CNAME | `tagrrnmuioyyxqkvuiyrm7aogf3q7jsv._domainkey` | `tagrrnmuioyyxqkvuiyrm7aogf3q7jsv.dkim.amazonses.com` |
+
+   - In Vercel, **Name** is usually the part *before* `eonpro.io` (e.g. `ty2xrmci77xerey7rnl6rfcecfdhz55e._domainkey`). If it asks for a full name, use e.g. `ty2xrmci77xerey7rnl6rfcecfdhz55e._domainkey.eonpro.io`.
+   - **Value** = the full target (e.g. `ty2xrmci77xerey7rnl6rfcecfdhz55e.dkim.amazonses.com`).
+
+4. **Add the DMARC TXT record**
+
+   | Type | Name (host) | Value |
+   |------|-------------|--------|
+   | TXT  | `_dmarc`    | `v=DMARC1; p=none;` |
+
+   - Name: `_dmarc` (or `_dmarc.eonpro.io` if it requires the full name).
+   - Value: `v=DMARC1; p=none;` (some UIs add quotes; both are valid).
+
+5. **Save and wait for verification**
+   - DNS can take a few minutes to a few hours to propagate.
+   - In **AWS SES** → **Verified identities** → **eonpro.io**, DKIM status will change to **Verified** once the CNAMEs are visible.
+
+6. **Custom MAIL FROM (fix “MAIL FROM record is not aligned”)**
+   - The SES modal showed “No MAIL FROM records found.” Aligning the envelope sender (Return-Path) with your domain improves deliverability and [DMARC compliance](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dmarc.html). **In SES:** Configuration → **Identities** → **eonpro.io** → **Authentication** → **Custom MAIL FROM domain** → **Edit**. Enable **Use a custom MAIL FROM domain**, set **MAIL FROM domain** to a subdomain of `eonpro.io` not used for sending/receiving (e.g. `bounce.eonpro.io`). **Behavior on MX failure:** **Use default MAIL FROM domain**. Save. **In Vercel DNS:** add the MX and TXT (SPF) records from SES **Publish DNS records** (MX: name `bounce`, value `10 feedback-smtp.us-east-2.amazonses.com`; TXT: name `bounce`, value `"v=spf1 include:amazonses.com ~all"`). Exactly one MX on the MAIL FROM subdomain. Verification can take minutes to 72 hours.
 
 ## 📧 Using the Email Service
 
@@ -291,6 +331,62 @@ Use AWS SES Configuration Sets for:
 - Reputation tracking
 - IP pool management
 
+### Set up SES monitoring (Configuration Set + SNS)
+
+This wires SES send/delivery/bounce/complaint events to your app so you can track and react (e.g. your existing `/api/webhooks/ses-bounce` handler).
+
+**1. Create a Configuration Set in AWS**
+
+1. In **AWS Console** go to **Amazon SES** → **Configuration** → **Configuration sets**.
+2. Click **Create configuration set**.
+3. **Configuration set name:** e.g. `eonpro-email-events`.
+4. Leave event destination empty for now → **Create**.
+
+**2. Create an SNS topic**
+
+1. Go to **Amazon SNS** → **Topics** → **Create topic**.
+2. **Type:** Standard.
+3. **Name:** e.g. `ses-eonpro-events`.
+4. **Create topic**.
+5. Copy the **Topic ARN** (e.g. `arn:aws:sns:us-east-2:123456789012:ses-eonpro-events`).
+
+**3. Add an event destination to the Configuration Set**
+
+1. Back in **SES** → **Configuration sets** → open **eonpro-email-events**.
+2. **Event destinations** tab → **Add destination**.
+3. **Event destination type:** Amazon SNS.
+4. **SNS topic:** choose the topic you created (e.g. `ses-eonpro-events`).
+5. **Event types:** enable **Send**, **Delivery**, **Bounce**, **Complaint** (and **Reject** if you want).
+6. **Add destination**.
+
+**4. Subscribe your webhook to the SNS topic**
+
+1. In **SNS** → **Topics** → open **ses-eonpro-events**.
+2. **Create subscription**.
+3. **Protocol:** HTTPS.
+4. **Endpoint:** your app’s webhook URL, e.g. `https://app.eonpro.io/api/webhooks/ses-bounce`.
+5. **Create subscription**.
+6. AWS will send a **SubscriptionConfirmation** to that URL; your app’s webhook already handles it and confirms automatically. In SNS, the subscription status should change to **Confirmed** after the first request.
+
+**5. Use the Configuration Set when sending**
+
+Set the configuration set name in your environment so all SES sends use it:
+
+- In **production:** set `AWS_SES_CONFIGURATION_SET=eonpro-email-events` in your deployment env (e.g. Vercel → Project → Settings → Environment Variables).
+- In **local:** add the same to `.env.local` or `.env.production.local` if you test against production SES.
+
+The app only attaches the configuration set to outbound emails when `AWS_SES_CONFIGURATION_SET` is set; if it’s empty, sends are unchanged.
+
+**6. Verify**
+
+- Send a test email (e.g. from your app or the SES console).
+- In **SNS** → **Topics** → **ses-eonpro-events** → **Subscriptions**, the subscription should be **Confirmed**.
+- Check your app logs or `email_log` (if you log there) for webhook requests; you should see SNS notifications for Send/Delivery (and Bounce/Complaint when they occur).
+
+**Optional: CloudWatch**
+
+- In the Configuration Set’s event destination you can also add a **CloudWatch** destination to get metrics (e.g. send count, bounce count) in CloudWatch without going through your webhook.
+
 ## 🚨 Troubleshooting
 
 ### Common Issues
@@ -360,5 +456,6 @@ Use AWS SES Configuration Sets for:
 - [ ] Review email logs
 - [ ] Request production access
 - [ ] Configure domain authentication
-- [ ] Set up monitoring alerts
+- [ ] Set up monitoring (Configuration Set + SNS → webhook); see [Set up SES monitoring](#set-up-ses-monitoring-configuration-set--sns)
+- [ ] Set `AWS_SES_CONFIGURATION_SET` in production env
 - [ ] Deploy to production

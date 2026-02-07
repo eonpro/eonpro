@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 type LoginStep = 'identifier' | 'password' | 'otp' | 'clinic' | 'forgot' | 'reset';
 type LoginMethod = 'email' | 'phone';
@@ -589,7 +590,7 @@ export default function LoginPage() {
         router.push('/support');
         break;
       case 'patient':
-        router.push('/patient-portal');
+        router.push(PATIENT_PORTAL_PATH);
         break;
       case 'influencer':
         router.push('/influencer/dashboard');
