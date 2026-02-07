@@ -541,6 +541,75 @@ async function processWebhookEvent(
       }
 
       // ================================================================
+      // Subscription Events - sync to local Subscription for MRR/ARR
+      // ================================================================
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const { syncSubscriptionFromStripe } = await import('@/services/stripe/subscriptionSyncService');
+        const result = await syncSubscriptionFromStripe(subscription, event.id);
+        if (!result.success) {
+          return {
+            success: false,
+            error: result.error ?? 'Subscription sync failed',
+            details: { stripeSubscriptionId: subscription.id, subscriptionId: result.subscriptionId },
+          };
+        }
+        return {
+          success: true,
+          details: {
+            stripeSubscriptionId: subscription.id,
+            subscriptionId: result.subscriptionId,
+            skipped: result.skipped,
+            reason: result.reason,
+          },
+        };
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const { cancelSubscriptionFromStripe } = await import('@/services/stripe/subscriptionSyncService');
+        const canceledAt = subscription.canceled_at
+          ? new Date(subscription.canceled_at * 1000)
+          : new Date();
+        const result = await cancelSubscriptionFromStripe(subscription.id, canceledAt);
+        if (!result.success) {
+          return {
+            success: false,
+            error: result.error ?? 'Subscription cancel sync failed',
+            details: { stripeSubscriptionId: subscription.id },
+          };
+        }
+        return {
+          success: true,
+          details: {
+            stripeSubscriptionId: subscription.id,
+            subscriptionId: result.subscriptionId,
+            skipped: result.skipped,
+          },
+        };
+      }
+
+      case 'customer.subscription.paused':
+      case 'customer.subscription.resumed':
+      case 'customer.subscription.trial_will_end': {
+        // Paused/resumed: re-sync to update status; trial_will_end: no DB change, just for notifications
+        if (event.type === 'customer.subscription.paused' || event.type === 'customer.subscription.resumed') {
+          const subscription = event.data.object as Stripe.Subscription;
+          const { syncSubscriptionFromStripe } = await import('@/services/stripe/subscriptionSyncService');
+          const result = await syncSubscriptionFromStripe(subscription, event.id);
+          if (!result.success) {
+            return {
+              success: false,
+              error: result.error ?? 'Subscription sync failed',
+              details: { stripeSubscriptionId: subscription.id },
+            };
+          }
+        }
+        return { success: true, details: { eventType: event.type } };
+      }
+
+      // ================================================================
       // Customer Events
       // ================================================================
       case 'customer.created':

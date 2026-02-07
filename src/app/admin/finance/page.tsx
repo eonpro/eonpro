@@ -76,6 +76,8 @@ export default function FinanceOverviewPage() {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'ytd'>('30d');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [syncingFromStripe, setSyncingFromStripe] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const loadData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -121,6 +123,36 @@ export default function FinanceOverviewPage() {
       setRefreshing(false);
     }
   }, [dateRange]);
+
+  const syncFromStripe = useCallback(async () => {
+    setSyncingFromStripe(true);
+    setSyncMessage(null);
+    try {
+      const token = localStorage.getItem('auth-token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('admin-token') ||
+        localStorage.getItem('token');
+      const res = await fetch('/api/finance/sync-subscriptions', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setSyncMessage(data.message || 'Subscriptions synced from Stripe.');
+        loadData(true);
+      } else {
+        setSyncMessage(data.error || data.details || 'Sync failed.');
+      }
+    } catch (e) {
+      setSyncMessage('Request failed.');
+    } finally {
+      setSyncingFromStripe(false);
+    }
+  }, [loadData]);
 
   useEffect(() => {
     loadData();
@@ -259,6 +291,15 @@ export default function FinanceOverviewPage() {
             ))}
           </div>
           
+          {/* Sync from Stripe - backfill subscriptions so MRR/ARR match Stripe */}
+          <button
+            onClick={syncFromStripe}
+            disabled={syncingFromStripe}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+          >
+            <RefreshCcw className={`h-4 w-4 ${syncingFromStripe ? 'animate-spin' : ''}`} />
+            Sync from Stripe
+          </button>
           {/* Refresh Button */}
           <button
             onClick={() => loadData(true)}
@@ -270,6 +311,11 @@ export default function FinanceOverviewPage() {
           </button>
         </div>
       </div>
+      {syncMessage && (
+        <p className={`text-sm ${syncMessage.startsWith('Synced') ? 'text-emerald-600' : 'text-amber-600'}`}>
+          {syncMessage}
+        </p>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

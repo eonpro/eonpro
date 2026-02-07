@@ -28,7 +28,17 @@ const WEBHOOK_ENDPOINTS: WebhookEndpoint[] = [
     name: 'Main Stripe Payments (EonMeds)',
     requiredEnvVars: [],
     optionalEnvVars: ['EONMEDS_STRIPE_SECRET_KEY', 'STRIPE_SECRET_KEY', 'EONMEDS_STRIPE_WEBHOOK_SECRET', 'STRIPE_WEBHOOK_SECRET'],
-    stripeEvents: ['payment_intent.succeeded', 'charge.succeeded', 'checkout.session.completed', 'invoice.payment_succeeded'],
+    stripeEvents: [
+      'payment_intent.succeeded',
+      'charge.succeeded',
+      'checkout.session.completed',
+      'invoice.payment_succeeded',
+      'customer.subscription.created',
+      'customer.subscription.updated',
+      'customer.subscription.deleted',
+      'customer.subscription.paused',
+      'customer.subscription.resumed',
+    ],
   },
   {
     path: '/api/v2/stripe/webhook',

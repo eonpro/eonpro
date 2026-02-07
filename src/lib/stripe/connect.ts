@@ -47,9 +47,12 @@ const dedicatedAccountClients: Map<string, Stripe> = new Map();
 
 /**
  * Supported dedicated account subdomains and their environment variable prefixes
- * Add new dedicated accounts here as needed
+ * Add new dedicated accounts here as needed.
+ * Eonmeds uses EONMEDS_STRIPE_* (standalone account); when subdomain is eonmeds we use that
+ * so Finance Hub and all Stripe API calls for Eonmeds use the correct account.
  */
 const DEDICATED_ACCOUNT_CONFIG: Record<string, { envPrefix: string; displayName: string }> = {
+  'eonmeds': { envPrefix: 'EONMEDS', displayName: 'EonMeds' },
   'ot': { envPrefix: 'OT', displayName: 'Overtime (OT)' },
   // Add more dedicated accounts here:
   // 'another-clinic': { envPrefix: 'ANOTHER', displayName: 'Another Clinic' },

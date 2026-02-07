@@ -73,7 +73,12 @@ let stripeClient: Stripe | null = null;
 
 function getStripeClient(): Stripe | null {
   if (!stripeClient) {
-    const secretKey = process.env.OT_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
+    // Main webhook is Eonmeds; reconciliation cron uses getStripe() (Eonmeds). Use same key here
+    // so fetchStripeCustomerData hits the correct Stripe account.
+    const secretKey =
+      process.env.EONMEDS_STRIPE_SECRET_KEY ||
+      process.env.OT_STRIPE_SECRET_KEY ||
+      process.env.STRIPE_SECRET_KEY;
     if (!secretKey) {
       logger.warn('[PaymentMatching] No Stripe secret key configured');
       return null;
@@ -1078,6 +1083,24 @@ export async function processStripePayment(
       patientCreated,
       clinicId: patient.clinicId,
     });
+
+    // Optional: auto-send portal invite on first payment (enterprise patient portal)
+    try {
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: patient.clinicId },
+        select: { settings: true },
+      });
+      const settings = (clinic?.settings as { patientPortal?: { autoInviteOnFirstPayment?: boolean } })?.patientPortal;
+      if (settings?.autoInviteOnFirstPayment) {
+        const { createAndSendPortalInvite } = await import('@/lib/portal-invite/service');
+        await createAndSendPortalInvite(patient.id, 'first_payment');
+      }
+    } catch (inviteErr) {
+      logger.warn('[PaymentMatching] Portal invite on first payment failed (non-fatal)', {
+        patientId: patient.id,
+        error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+      });
+    }
 
     return {
       success: true,
