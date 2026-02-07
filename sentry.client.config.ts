@@ -16,8 +16,8 @@ if (SENTRY_DSN) {
     tracesSampleRate: isProduction ? 0.1 : 1.0, // 10% in production, 100% in development
     tracePropagationTargets: [
       "localhost",
-      /^https:\/\/yourserver\.io\/api/,
-      /^https:\/\/(staging\.)?lifefile\.com/
+      /^https:\/\/[^/]*\.eonpro\.io/,
+      /^https:\/\/[^/]*\.vercel\.app/,
     ],
     
     // Session Replay

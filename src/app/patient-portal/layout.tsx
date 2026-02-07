@@ -362,7 +362,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       {/* Mobile Bottom Navigation - iPhone optimized */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg lg:hidden">
         <div className="border-t border-gray-200">
-          <div className="mx-auto flex max-w-md justify-around">
+          <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
             {mobileNavItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path, item.exact);
@@ -370,7 +370,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.path}
                   href={item.path}
-                  className="group relative flex flex-1 flex-col items-center py-2"
+                  className="group relative flex min-w-0 flex-1 flex-col items-center py-2"
                 >
                   {/* Active indicator bar */}
                   {active && (
@@ -381,7 +381,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   )}
                   {/* Icon container - 44x44 touch target */}
                   <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-2xl transition-all ${
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all ${
                       active ? '' : 'group-active:bg-gray-100'
                     }`}
                     style={active ? { backgroundColor: `${primaryColor}15` } : {}}
@@ -392,9 +392,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                       strokeWidth={active ? 2.5 : 2}
                     />
                   </div>
-                  {/* Label */}
+                  {/* Label - truncate so long text (e.g. Medicamentos) fits */}
                   <span
-                    className={`mt-0.5 text-[11px] transition-all ${active ? 'font-semibold' : 'font-medium'}`}
+                    className={`mt-0.5 min-w-0 max-w-full truncate px-0.5 text-center text-[10px] transition-all sm:text-[11px] ${active ? 'font-semibold' : 'font-medium'}`}
                     style={{ color: active ? primaryColor : '#9ca3af' }}
                   >
                     {t(item.labelKey)}

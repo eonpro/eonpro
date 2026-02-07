@@ -110,6 +110,9 @@ model Patient {
   // PATIENT PORTAL: Progress photos, ID verification, medical images
   photos PatientPhoto[]
 
+  // BLOODWORK: Parsed lab reports (e.g. Quest PDF upload)
+  labReports LabReport[]
+
   @@unique([clinicId, patientId])
   @@index([clinicId])
   @@index([profileStatus]) // For efficiently querying pending profiles
@@ -281,10 +284,50 @@ model PatientDocument {
   category           PatientDocumentCategory @default(OTHER)
   patient            Patient                 @relation(fields: [patientId], references: [id])
   soapNotes          SOAPNote[]
+  labReport          LabReport?
   // Future fields (require DB migration):
   // intakeData         Json?                   // Structured intake form answers
   // pdfGeneratedAt     DateTime?               // When the PDF was generated
   // intakeVersion      String?                 // Track intake form version
+}
+
+/// Parsed bloodwork/lab report (e.g. from Quest Diagnostics PDF). One per upload.
+model LabReport {
+  id           Int       @id @default(autoincrement())
+  createdAt    DateTime  @default(now())
+  patientId    Int
+  clinicId     Int
+  /// Source PDF document (LAB_RESULTS)
+  documentId   Int?      @unique
+  document     PatientDocument? @relation(fields: [documentId], references: [id])
+  patient      Patient   @relation(fields: [patientId], references: [id])
+  clinic       Clinic    @relation(fields: [clinicId], references: [id])
+  labName      String    @default("Quest Diagnostics")
+  specimenId   String?
+  collectedAt  DateTime?
+  reportedAt   DateTime?
+  fasting      Boolean?  // true/false when known
+  results      LabReportResult[]
+
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+/// Single biomarker/test result within a lab report. PHI: do not log values.
+model LabReportResult {
+  id             Int       @id @default(autoincrement())
+  labReportId     Int
+  labReport      LabReport @relation(fields: [labReportId], references: [id], onDelete: Cascade)
+  testName       String
+  value          String   // e.g. "176", "<30", "163"
+  valueNumeric    Float?    // For charting when value is numeric
+  unit           String?
+  referenceRange String?
+  flag           String?   // "H", "L" for high/low
+  category       String?   // "heart", "metabolic", "hormones", "liver", "kidney", etc.
+  sortOrder      Int       @default(0)
+
+  @@index([labReportId])
 }
 
 model PatientCounter {
@@ -2596,6 +2639,7 @@ model Clinic {
   subscriptions         Subscription[]
   soapNotes             SOAPNote[]
   documents             PatientDocument[]
+  labReports            LabReport[]
   auditLogs             ClinicAuditLog[]
   aiConversations       AIConversation[]
   influencers           Influencer[]

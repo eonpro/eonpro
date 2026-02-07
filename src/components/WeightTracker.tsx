@@ -311,7 +311,7 @@ export default function WeightTracker({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40 md:rounded-3xl md:shadow-xl md:shadow-gray-200/50">
+    <div className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40 md:rounded-3xl md:shadow-xl md:shadow-gray-200/50">
       {/* Hero Header - compact on mobile for native iPhone fit */}
       <div
         className="relative overflow-hidden px-4 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6 md:px-8 md:pb-8 md:pt-10"
@@ -444,8 +444,8 @@ export default function WeightTracker({
       </div>
 
       {/* Chart Section - shorter on mobile to fit viewport */}
-      <div className="p-4 sm:p-6 md:p-8">
-        <div className="mb-3 flex items-center justify-between sm:mb-6">
+      <div className="w-full min-w-0 p-4 sm:p-6 md:p-8">
+        <div className="mb-3 flex items-center justify-between gap-2 sm:mb-6">
           <div>
             <h3 className="text-base font-semibold text-gray-900 sm:text-xl">{t('weightTrackerYourProgress')}</h3>
             <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">{t('weightTrackerLast7')}</p>
@@ -463,14 +463,16 @@ export default function WeightTracker({
           )}
         </div>
 
-        <div className="h-48 sm:h-56 md:h-64 lg:h-72">
+        <div className="relative h-48 w-full min-h-[120px] sm:h-56 md:h-64 lg:h-72">
           {chartData.length > 0 ? (
-            <Line data={data} options={chartOptions} />
+            <div className="absolute inset-0 w-full">
+              <Line data={data} options={chartOptions} />
+            </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-4 sm:rounded-2xl">
-              <Scale className="mb-2 h-10 w-10 text-gray-300 sm:mb-3 sm:h-12 sm:w-12" />
-              <p className="text-sm font-semibold text-gray-400 sm:text-base">{t('weightTrackerNoDataYet')}</p>
-              <p className="mt-0.5 text-center text-xs text-gray-400 sm:mt-1 sm:text-sm">{t('weightTrackerLogFirstWeight')}</p>
+            <div className="flex h-full min-h-[120px] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-100/80 px-4 py-6 sm:rounded-2xl">
+              <Scale className="mb-2 h-10 w-10 shrink-0 text-gray-500 sm:mb-3 sm:h-12 sm:w-12" />
+              <p className="text-center text-sm font-semibold text-gray-600 sm:text-base">{t('weightTrackerNoDataYet')}</p>
+              <p className="mt-1 text-center text-xs text-gray-500 sm:mt-1.5 sm:text-sm">{t('weightTrackerLogFirstWeight')}</p>
             </div>
           )}
         </div>

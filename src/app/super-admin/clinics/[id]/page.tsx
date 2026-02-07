@@ -1275,9 +1275,11 @@ export default function ClinicDetailPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subdomain</label>
+                  <label htmlFor="branding-subdomain" className="block text-sm font-medium text-gray-700 mb-1">Subdomain</label>
                   <div className="flex">
                     <input
+                      id="branding-subdomain"
+                      name="subdomain"
                       type="text"
                       value={formData.subdomain}
                       onChange={(e) => setFormData({ ...formData, subdomain: e.target.value })}
@@ -1289,8 +1291,10 @@ export default function ClinicDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain (optional)</label>
+                  <label htmlFor="branding-custom-domain" className="block text-sm font-medium text-gray-700 mb-1">Custom Domain (optional)</label>
                   <input
+                    id="branding-custom-domain"
+                    name="customDomain"
                     type="text"
                     value={formData.customDomain}
                     onChange={(e) => setFormData({ ...formData, customDomain: e.target.value })}
@@ -1362,59 +1366,77 @@ export default function ClinicDetailPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
+                  <label htmlFor="branding-primary-color" className="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
                   <p className="text-xs text-gray-500 mb-2">Main brand color for buttons and links</p>
                   <div className="flex items-center gap-3">
                     <input
+                      id="branding-primary-color"
+                      name="primaryColor"
                       type="color"
                       value={/^#[0-9A-Fa-f]{6}$/.test(formData.primaryColor) ? formData.primaryColor : '#10B981'}
                       onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
                       className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                      aria-label="Primary color picker"
                     />
                     <input
+                      id="branding-primary-color-hex"
+                      name="primaryColorHex"
                       type="text"
                       value={formData.primaryColor}
                       onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
                       placeholder="#10B981"
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm"
+                      aria-label="Primary color hex value"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
+                  <label htmlFor="branding-secondary-color" className="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
                   <p className="text-xs text-gray-500 mb-2">Supporting color for backgrounds</p>
                   <div className="flex items-center gap-3">
                     <input
+                      id="branding-secondary-color"
+                      name="secondaryColor"
                       type="color"
                       value={/^#[0-9A-Fa-f]{6}$/.test(formData.secondaryColor) ? formData.secondaryColor : '#3B82F6'}
                       onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
                       className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                      aria-label="Secondary color picker"
                     />
                     <input
+                      id="branding-secondary-color-hex"
+                      name="secondaryColorHex"
                       type="text"
                       value={formData.secondaryColor}
                       onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
                       placeholder="#3B82F6"
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm"
+                      aria-label="Secondary color hex value"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Accent Color</label>
+                  <label htmlFor="branding-accent-color" className="block text-sm font-medium text-gray-700 mb-1">Accent Color</label>
                   <p className="text-xs text-gray-500 mb-2">Highlight color for badges and alerts</p>
                   <div className="flex items-center gap-3">
                     <input
+                      id="branding-accent-color"
+                      name="accentColor"
                       type="color"
                       value={/^#[0-9A-Fa-f]{6}$/.test(formData.accentColor) ? formData.accentColor : '#d3f931'}
                       onChange={(e) => setFormData({ ...formData, accentColor: e.target.value })}
                       className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                      aria-label="Accent color picker"
                     />
                     <input
+                      id="branding-accent-color-hex"
+                      name="accentColorHex"
                       type="text"
                       value={formData.accentColor}
                       onChange={(e) => setFormData({ ...formData, accentColor: e.target.value })}
                       placeholder="#d3f931"
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm"
+                      aria-label="Accent color hex value"
                     />
                   </div>
                 </div>
@@ -1434,6 +1456,7 @@ export default function ClinicDetailPage() {
                   ].map((option) => (
                     <label
                       key={option.value}
+                      htmlFor={`branding-button-text-${option.value}`}
                       className={`flex-1 p-3 rounded-lg border-2 cursor-pointer transition-all ${
                         formData.buttonTextColor === option.value
                           ? 'border-teal-500 bg-teal-50'
@@ -1441,6 +1464,7 @@ export default function ClinicDetailPage() {
                       }`}
                     >
                       <input
+                        id={`branding-button-text-${option.value}`}
                         type="radio"
                         name="buttonTextColor"
                         value={option.value}

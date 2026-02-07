@@ -97,7 +97,7 @@ export const GET = withAuthParams(async (
       { status: 500 }
     );
   }
-}, { roles: ['admin', 'provider', 'patient'] });
+}, { roles: ['admin', 'provider', 'staff', 'patient'] });
 
 export const POST = withAuthParams(async (
   request: NextRequest,
@@ -189,7 +189,7 @@ export const POST = withAuthParams(async (
 
     const uploadedDocuments: { id: number; filename: string; category: string; mimeType: string; uploadedAt: string; size: number; url: string }[] = [];
 
-    // Map category string to FileCategory enum for S3
+    // Map category string/enum to FileCategory for S3 (Prisma enum values are strings at runtime)
     const categoryToFileCategory: Record<string, FileCategory> = {
       'MEDICAL_RECORDS': FileCategory.MEDICAL_RECORDS,
       'LAB_RESULTS': FileCategory.LAB_RESULTS,
@@ -197,6 +197,7 @@ export const POST = withAuthParams(async (
       'IMAGING': FileCategory.IMAGING,
       'INSURANCE': FileCategory.INSURANCE,
       'CONSENT_FORMS': FileCategory.CONSENT_FORMS,
+      'MEDICAL_INTAKE_FORM': FileCategory.INTAKE_FORMS,
       'INTAKE_FORMS': FileCategory.INTAKE_FORMS,
       'OTHER': FileCategory.OTHER,
     };
@@ -220,8 +221,9 @@ export const POST = withAuthParams(async (
       const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
 
       if (isS3Enabled()) {
-        // Upload to S3 - use the category enum value as the S3 category
-        const s3Category = categoryToFileCategory[category] || FileCategory.OTHER;
+        // Upload to S3 - use the category enum value as the S3 category (enum is string at runtime)
+        const categoryKey = typeof category === 'string' ? category : String(category);
+        const s3Category = categoryToFileCategory[categoryKey] || FileCategory.OTHER;
         const s3Result = await uploadToS3({
           file: buffer,
           fileName: file.name,
@@ -303,10 +305,22 @@ export const POST = withAuthParams(async (
     return NextResponse.json(uploadedDocuments);
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error uploading documents:', error);
-    return NextResponse.json(
-      { error: `Failed to upload documents: ${errorMessage}` },
-      { status: 500 }
-    );
+    logger.error('Error uploading documents', {
+      userId: user?.id,
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    // Storage/S3 failures: return 503 so UI can show "storage unavailable" and suggest Bloodwork upload for lab PDFs
+    const isStorageError =
+      /storage|S3|upload failed|not configured|credentials|bucket/i.test(errorMessage) ||
+      (error?.name && /NetworkError|TimeoutError/i.test(error.name));
+    const status = isStorageError ? 503 : 500;
+    const body: { error: string; code?: string } = {
+      error: isStorageError
+        ? 'Document storage is temporarily unavailable. For lab results, use the "Bloodwork (Quest)" upload above.'
+        : `Failed to upload documents: ${errorMessage}`,
+    };
+    if (isStorageError) body.code = 'STORAGE_UNAVAILABLE';
+    return NextResponse.json(body, { status });
   }
-}, { roles: ['admin', 'provider'] });
+}, { roles: ['admin', 'provider', 'staff'] });

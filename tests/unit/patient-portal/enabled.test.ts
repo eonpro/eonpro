@@ -47,7 +47,7 @@ const defaultFeatures: PortalFeatures = {
 
 describe('Patient portal registry', () => {
   it('NAV_MODULES has expected length and ids', () => {
-    expect(NAV_MODULES.length).toBe(16);
+    expect(NAV_MODULES.length).toBe(17);
     const ids = NAV_MODULES.map((m) => m.id);
     expect(ids).toContain('home');
     expect(ids).toContain('appointments');
@@ -83,8 +83,8 @@ describe('getEnabledNavModuleIds', () => {
 
   it('with empty features uses defaultOn for flags', () => {
     const ids = getEnabledNavModuleIds({});
-    // All current modules have defaultOn: true; so we still get 16
-    expect(ids.length).toBe(16);
+    // All current modules have defaultOn: true; so we still get 17
+    expect(ids.length).toBe(17);
   });
 
   it('with showWeightTracking false hides progress only', () => {

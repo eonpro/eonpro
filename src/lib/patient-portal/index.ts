@@ -25,3 +25,7 @@ export {
   applyPresetToFeatures,
   type PortalFeaturePreset,
 } from './presets';
+export {
+  getTreatmentTypeFromMedicationName,
+  getTreatmentTypeFromOrder,
+} from './treatment-from-prescription';

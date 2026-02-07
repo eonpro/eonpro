@@ -351,6 +351,7 @@ export function ClinicBrandingProvider({
       try {
         const response = await fetch(`/api/patient-portal/branding?clinicId=${cId}`, {
           signal: brandingController.signal,
+          credentials: 'include', // Send cookies so patient auth can drive per-patient treatment (portal features)
         });
         clearTimeout(brandingTimeoutId);
 

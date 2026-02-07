@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { relaxedRateLimiter } from '@/lib/security/rate-limiter-redis';
+import { getTreatmentTypeFromOrder } from '@/lib/patient-portal/treatment-from-prescription';
+import type { PortalTreatmentType } from '@/lib/patient-portal/types';
 
 // Query params validation
 const getBrandingQuerySchema = z.object({
@@ -10,10 +12,41 @@ const getBrandingQuerySchema = z.object({
 });
 
 /**
+ * When request is from an authenticated patient, resolve their treatment type from
+ * their most recent order/prescription so portal features match their treatment (e.g.
+ * semaglutide → weight loss tools, testosterone → hormone/bloodwork tools).
+ */
+async function resolvePatientTreatmentType(patientId: number): Promise<PortalTreatmentType | null> {
+  try {
+    const order = await prisma.order.findFirst({
+      where: {
+        patientId,
+        cancelledAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        primaryMedName: true,
+        rxs: { select: { medName: true } },
+      },
+    });
+    if (!order) return null;
+    return getTreatmentTypeFromOrder({
+      primaryMedName: order.primaryMedName,
+      rxs: order.rxs,
+    });
+  } catch (err) {
+    logger.warn('Failed to resolve patient treatment from orders', { patientId, error: (err as Error).message });
+    return null;
+  }
+}
+
+/**
  * GET /api/patient-portal/branding
  *
- * Fetches clinic branding for the patient portal
- * This is intentionally public as it's needed to render the login page
+ * Fetches clinic branding for the patient portal.
+ * Public (no auth required) for login page; when Authorization is present and user
+ * is a patient, primaryTreatment is overridden from the patient's prescription so
+ * portal tabs/tools match their treatment (e.g. weight loss vs hormone therapy).
  * Query params: clinicId (required)
  *
  * Rate limited: 300 requests per minute (relaxed, for page loads)
@@ -35,6 +68,18 @@ const getBrandingHandler = async (request: NextRequest) => {
     }
 
     const { clinicId } = parseResult.data;
+
+    // Optional: resolve patient-specific treatment when authenticated as patient
+    let patientTreatment: PortalTreatmentType | null = null;
+    try {
+      const { verifyAuth } = await import('@/lib/auth/middleware');
+      const authResult = await verifyAuth(request);
+      if (authResult.success && authResult.user?.role === 'patient' && authResult.user.patientId) {
+        patientTreatment = await resolvePatientTreatmentType(authResult.user.patientId);
+      }
+    } catch {
+      // Non-blocking: continue with clinic default
+    }
 
     // Note: Not selecting buttonTextColor directly as it may not exist in production DB
     // if migration hasn't run yet. We'll add it back once migration is deployed.
@@ -65,6 +110,10 @@ const getBrandingHandler = async (request: NextRequest) => {
     const patientPortalSettings = settings.patientPortal || {};
     const treatmentSettings = settings.treatment || {};
 
+    // Use patient's treatment from prescription when available; else clinic default
+    const primaryTreatment: PortalTreatmentType =
+      patientTreatment ?? (treatmentSettings.primaryTreatment as PortalTreatmentType) ?? 'weight_loss';
+
     // buttonTextColor defaults to 'auto' until migration is deployed
     const branding = {
       clinicId: clinic.id,
@@ -78,9 +127,9 @@ const getBrandingHandler = async (request: NextRequest) => {
       buttonTextColor: (clinic as any).buttonTextColor || 'auto',
       customCss: clinic.customCss,
       
-      // Treatment configuration
+      // Treatment configuration (primaryTreatment per-patient when auth present)
       treatmentTypes: treatmentSettings.treatmentTypes || ['weight_loss'],
-      primaryTreatment: treatmentSettings.primaryTreatment || 'weight_loss',
+      primaryTreatment,
       treatmentProtocols: treatmentSettings.protocols || [],
       medicationCategories: treatmentSettings.medicationCategories || ['glp1'],
       

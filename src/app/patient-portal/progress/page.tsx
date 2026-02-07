@@ -388,7 +388,7 @@ export default function ProgressPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-2xl mx-auto px-4 py-4 pb-36 safe-left safe-right md:pb-6">
+    <div className="min-h-[100dvh] w-full min-w-0 max-w-full overflow-x-hidden px-4 py-4 pb-36 safe-left safe-right md:pb-6 md:max-w-2xl md:mx-auto">
       {/* Success Toast - below status bar on mobile */}
       {showSuccess && (
         <div
@@ -408,9 +408,9 @@ export default function ProgressPage() {
         <p className="mt-0.5 text-sm text-gray-500">{t('progressSubtitle')}</p>
       </div>
 
-      {/* Tab Navigation - Scrollable, no horizontal page overflow */}
-      <div className="mb-4 -mx-4 overflow-x-auto overflow-y-hidden">
-        <div className="flex gap-2 min-w-max px-4 pb-1 safe-left safe-right">
+      {/* Tab Navigation - Scrollable within viewport, no page overflow */}
+      <div className="mb-4 w-full min-w-0 overflow-x-auto overflow-y-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex gap-2 min-w-max pb-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;

@@ -169,10 +169,25 @@ export function BrandingImageUploader({
     }
   };
 
+  const fileInputId = `branding-upload-${imageType}${clinicId != null ? `-${clinicId}` : ''}`;
+  const urlInputId = `branding-url-${imageType}${clinicId != null ? `-${clinicId}` : ''}`;
+
   return (
     <div className="space-y-2">
+      {/* File input always in DOM so label htmlFor is valid and ref works */}
+      <input
+        ref={fileInputRef}
+        id={fileInputId}
+        name={`brandingFile-${imageType}`}
+        type="file"
+        accept={accept}
+        className="sr-only"
+        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+        disabled={disabled || uploading}
+        aria-label={`Upload ${label}`}
+      />
       <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <label htmlFor={fileInputId} className="block text-sm font-medium text-gray-700">{label}</label>
         {!imageUrl && !showUrlInput && (
           <button
             type="button"
@@ -192,14 +207,18 @@ export function BrandingImageUploader({
 
       {showUrlInput ? (
         <div className="space-y-2">
+          <label htmlFor={urlInputId} className="sr-only">{label} image URL</label>
           <div className="flex gap-2">
             <input
+              id={urlInputId}
+              name={`brandingUrl-${imageType}`}
               type="url"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="https://example.com/image.png"
               className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               disabled={disabled}
+              aria-label={`${label} image URL`}
             />
             <button
               type="button"
@@ -230,14 +249,6 @@ export function BrandingImageUploader({
             ${error ? 'border-red-300 bg-red-50' : ''}
           `}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={accept}
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-            disabled={disabled || uploading}
-          />
 
           {imageUrl ? (
             <div className="relative group">

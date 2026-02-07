@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { z } from 'zod';
+import * as Sentry from '@sentry/nextjs';
 import { prisma, basePrisma } from '@/lib/db';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
@@ -336,13 +337,19 @@ async function loginHandler(req: NextRequest) {
     }
 
     // ============================================================================
-    // SUCCESS - Clear rate limit for this email/IP combination
+    // SUCCESS - Clear rate limit for this email/IP combination (non-blocking)
     // ============================================================================
-    await authRateLimiter.clearRateLimit(clientIp, email);
-    logger.info('[Login] Rate limit cleared on successful login', {
-      ip: clientIp,
-      email: email.substring(0, 3) + '***',
-    });
+    try {
+      await authRateLimiter.clearRateLimit(clientIp, email);
+      logger.info('[Login] Rate limit cleared on successful login', {
+        ip: clientIp,
+        email: email.substring(0, 3) + '***',
+      });
+    } catch (clearErr: unknown) {
+      logger.warn('[Login] Rate limit clear failed (login continues)', {
+        error: clearErr instanceof Error ? clearErr.message : 'Unknown error',
+      });
+    }
 
     // Check if email is verified for patients
     const userWithEmail = user as typeof user & { emailVerified?: boolean };
@@ -358,8 +365,8 @@ async function loginHandler(req: NextRequest) {
       );
     }
 
-    // Normalize role to lowercase for consistency
-    const userRole = (user.role || role).toLowerCase();
+    // Normalize role to lowercase for consistency (Prisma enum may be string e.g. SUPER_ADMIN)
+    const userRole = String(user.role ?? role).toLowerCase();
 
     // Fetch user's clinics for multi-clinic support
     let clinics: Array<{
@@ -582,19 +589,24 @@ async function loginHandler(req: NextRequest) {
     // Log successful login
     logger.debug(`Successful login: ${email} (${role})`);
 
-    // Update last login if it's a User model
+    // Update last login, audit log, and session (non-blocking - do not fail login if these fail)
     const loginTime = new Date();
     if (user && 'lastLogin' in user) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          lastLogin: loginTime,
-          failedLoginAttempts: 0,
-        },
-      });
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            lastLogin: loginTime,
+            failedLoginAttempts: 0,
+          },
+        });
+      } catch (updateErr: unknown) {
+        logger.warn('Failed to update user lastLogin', {
+          userId: user.id,
+          error: updateErr instanceof Error ? updateErr.message : 'Unknown error',
+        });
+      }
 
-      // Also update Provider.lastLogin if user has a linked provider
-      // Use basePrisma to bypass clinic filtering since providers can be shared
       if (tokenPayload.providerId) {
         await basePrisma.provider.update({
           where: { id: tokenPayload.providerId },
@@ -604,8 +616,8 @@ async function loginHandler(req: NextRequest) {
         });
       }
 
-      // Create audit log with session details
-      await prisma.userAuditLog.create({ data: {
+      await prisma.userAuditLog.create({
+        data: {
           userId: user.id,
           action: 'LOGIN',
           ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
@@ -621,21 +633,22 @@ async function loginHandler(req: NextRequest) {
         logger.warn('Failed to create audit log:', error);
       });
 
-      // Create/update user session for online tracking
       try {
         await prisma.userSession.create({
           data: {
             userId: user.id,
-            token: token.substring(0, 64), // Store truncated token for lookup
+            token: token.substring(0, 64),
             refreshToken: refreshToken.substring(0, 64),
             ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
             userAgent: req.headers.get('user-agent') || 'unknown',
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
             lastActivity: loginTime,
           },
         });
       } catch (sessionError) {
-        logger.warn('Failed to create user session:', { error: sessionError instanceof Error ? sessionError.message : 'Unknown error' });
+        logger.warn('Failed to create user session', {
+          error: sessionError instanceof Error ? sessionError.message : 'Unknown error',
+        });
       }
     }
 
@@ -733,6 +746,19 @@ async function loginHandler(req: NextRequest) {
     });
 
     logger.error('Login error:', error instanceof Error ? error : new Error(errorMessage));
+
+    // Report to Sentry (no PHI - step and code only)
+    Sentry.captureException(error, {
+      tags: {
+        route: 'POST /api/auth/login',
+        step: String(debugInfo?.step ?? 'unknown'),
+        prismaCode: prismaError ? String(prismaError) : undefined,
+      },
+      extra: {
+        duration,
+        hasDebugStep: !!debugInfo?.step,
+      },
+    });
 
     // Return error details (safe to show in production for debugging login issues)
     return NextResponse.json(

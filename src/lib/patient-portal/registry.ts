@@ -25,6 +25,7 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
   { id: 'calculators', pathSuffix: '/calculators', labelKey: 'navTools', featureFlagKey: null, navSlot: 'main', defaultOn: true },
   { id: 'resources', pathSuffix: '/resources', labelKey: 'navResources', featureFlagKey: 'showResources', navSlot: 'main', defaultOn: true },
   { id: 'documents', pathSuffix: '/documents', labelKey: 'navDocuments', featureFlagKey: 'showLabResults', navSlot: 'main', defaultOn: true },
+  { id: 'bloodwork', pathSuffix: '/bloodwork', labelKey: 'navBloodwork', featureFlagKey: 'showLabResults', navSlot: 'main', defaultOn: true },
   { id: 'billing', pathSuffix: '/subscription', labelKey: 'navBilling', featureFlagKey: 'showBilling', navSlot: 'main', defaultOn: true },
   { id: 'settings', pathSuffix: '/settings', labelKey: 'navSettings', featureFlagKey: null, navSlot: 'both', defaultOn: true },
 ] as const;

@@ -4,6 +4,8 @@
 **Last Updated:** January 21, 2026  
 **Classification:** INTERNAL - Engineering Team  
 
+**To enable Sentry in production:** see [SENTRY_SETUP.md](./SENTRY_SETUP.md) (env vars and checklist).
+
 ---
 
 ## 1. Overview
