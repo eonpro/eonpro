@@ -18,6 +18,38 @@ import {
   User,
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
+import {
+  TREATMENT_PRESETS,
+  TREATMENT_PRESET_LABELS,
+  applyPresetToFeatures,
+} from '@/lib/patient-portal';
+import type { PortalTreatmentType } from '@/lib/patient-portal';
+
+/** All patient portal feature keys (must stay in sync with branding API and registry) */
+type PortalFeatureKey =
+  | 'showBMICalculator'
+  | 'showCalorieCalculator'
+  | 'showDoseCalculator'
+  | 'showShipmentTracking'
+  | 'showMedicationReminders'
+  | 'showWeightTracking'
+  | 'showResources'
+  | 'showBilling'
+  | 'showProgressPhotos'
+  | 'showLabResults'
+  | 'showDietaryPlans'
+  | 'showExerciseTracking'
+  | 'showWaterTracking'
+  | 'showSleepTracking'
+  | 'showSymptomChecker'
+  | 'showHealthScore'
+  | 'showAchievements'
+  | 'showCommunityChat'
+  | 'showAppointments'
+  | 'showTelehealth'
+  | 'showChat'
+  | 'showCarePlan'
+  | 'showCareTeam';
 
 interface PortalSettings {
   logoUrl: string | null;
@@ -27,16 +59,7 @@ interface PortalSettings {
   secondaryColor: string;
   accentColor: string;
   customCss: string | null;
-  features: {
-    showBMICalculator: boolean;
-    showCalorieCalculator: boolean;
-    showDoseCalculator: boolean;
-    showShipmentTracking: boolean;
-    showMedicationReminders: boolean;
-    showWeightTracking: boolean;
-    showResources: boolean;
-    showBilling: boolean;
-  };
+  features: Record<PortalFeatureKey, boolean>;
   autoInviteOnFirstPayment: boolean;
   autoInviteOnFirstOrder: boolean;
   resourceVideos: Array<{
@@ -49,6 +72,32 @@ interface PortalSettings {
   }>;
 }
 
+const defaultFeatures: Record<PortalFeatureKey, boolean> = {
+  showBMICalculator: true,
+  showCalorieCalculator: true,
+  showDoseCalculator: true,
+  showShipmentTracking: true,
+  showMedicationReminders: true,
+  showWeightTracking: true,
+  showResources: true,
+  showBilling: true,
+  showProgressPhotos: false,
+  showLabResults: false,
+  showDietaryPlans: true,
+  showExerciseTracking: true,
+  showWaterTracking: true,
+  showSleepTracking: true,
+  showSymptomChecker: true,
+  showHealthScore: true,
+  showAchievements: true,
+  showCommunityChat: false,
+  showAppointments: true,
+  showTelehealth: false,
+  showChat: true,
+  showCarePlan: true,
+  showCareTeam: true,
+};
+
 const defaultSettings: PortalSettings = {
   logoUrl: null,
   iconUrl: null,
@@ -57,16 +106,7 @@ const defaultSettings: PortalSettings = {
   secondaryColor: '#3B82F6',
   accentColor: '#d3f931',
   customCss: null,
-  features: {
-    showBMICalculator: true,
-    showCalorieCalculator: true,
-    showDoseCalculator: true,
-    showShipmentTracking: true,
-    showMedicationReminders: true,
-    showWeightTracking: true,
-    showResources: true,
-    showBilling: true,
-  },
+  features: { ...defaultFeatures },
   autoInviteOnFirstPayment: false,
   autoInviteOnFirstOrder: false,
   resourceVideos: [],
@@ -85,6 +125,7 @@ export default function ClinicPortalSettingsPage() {
 
   const [settings, setSettings] = useState<PortalSettings>(defaultSettings);
   const [previewMode, setPreviewMode] = useState(false);
+  const [presetSelection, setPresetSelection] = useState<PortalTreatmentType>('weight_loss');
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
@@ -109,7 +150,7 @@ export default function ClinicPortalSettingsPage() {
           secondaryColor: data.secondaryColor || '#3B82F6',
           accentColor: data.accentColor || '#d3f931',
           customCss: data.customCss,
-          features: { ...defaultSettings.features, ...data.features },
+          features: { ...defaultFeatures, ...data.features } as Record<PortalFeatureKey, boolean>,
           autoInviteOnFirstPayment: data.autoInviteOnFirstPayment ?? false,
           autoInviteOnFirstOrder: data.autoInviteOnFirstOrder ?? false,
           resourceVideos: data.resourceVideos || [],
@@ -155,13 +196,23 @@ export default function ClinicPortalSettingsPage() {
     setSaved(false);
   };
 
-  const handleFeatureToggle = (feature: keyof typeof settings.features) => {
+  const handleFeatureToggle = (feature: PortalFeatureKey) => {
     setSettings((prev) => ({
       ...prev,
       features: {
         ...prev.features,
-        [feature]: !prev.features[feature],
+        [feature]: !(prev.features[feature] ?? defaultFeatures[feature]),
       },
+    }));
+    setSaved(false);
+  };
+
+  const handleApplyPreset = () => {
+    const preset = TREATMENT_PRESETS[presetSelection];
+    if (!preset || Object.keys(preset).length === 0) return;
+    setSettings((prev) => ({
+      ...prev,
+      features: applyPresetToFeatures(prev.features, preset),
     }));
     setSaved(false);
   };
@@ -425,71 +476,113 @@ export default function ClinicPortalSettingsPage() {
             </div>
           </div>
 
-          {/* Feature Toggles */}
+          {/* Feature Toggles — grouped; all flags in sync with patient portal registry */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-gray-900">
               <ToggleRight className="h-5 w-5 text-[#4fa77e]" />
-              Feature Toggles
+              Patient Portal Features
             </h2>
-
-            <div className="space-y-4">
-              {[
-                {
-                  key: 'showWeightTracking',
-                  label: 'Weight Tracking',
-                  desc: 'Allow patients to log and track weight',
-                },
-                {
-                  key: 'showBMICalculator',
-                  label: 'BMI Calculator',
-                  desc: 'Show BMI calculator tool',
-                },
-                {
-                  key: 'showCalorieCalculator',
-                  label: 'Calorie Calculator',
-                  desc: 'Show calorie deficit calculator',
-                },
-                {
-                  key: 'showDoseCalculator',
-                  label: 'Dose Calculator',
-                  desc: 'Show medication dose calculator',
-                },
-                {
-                  key: 'showMedicationReminders',
-                  label: 'Medication Reminders',
-                  desc: 'Calendar reminder functionality',
-                },
-                {
-                  key: 'showShipmentTracking',
-                  label: 'Shipment Tracking',
-                  desc: 'Order tracking functionality',
-                },
-                {
-                  key: 'showResources',
-                  label: 'Resources & Videos',
-                  desc: 'Tutorial videos and guides',
-                },
-                {
-                  key: 'showBilling',
-                  label: 'Billing & Subscription',
-                  desc: 'Payment and subscription management',
-                },
-              ].map(({ key, label, desc }) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between border-b border-gray-100 py-2 last:border-0"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900">{label}</p>
-                    <p className="text-sm text-gray-500">{desc}</p>
-                  </div>
-                  <Toggle
-                    enabled={settings.features[key as keyof typeof settings.features]}
-                    onChange={() => handleFeatureToggle(key as keyof typeof settings.features)}
-                  />
-                </div>
-              ))}
+            <p className="mb-4 text-sm text-gray-500">
+              Turn on or off tabs and tools per clinic. Disabled features are hidden from the patient portal.
+            </p>
+            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <span className="text-sm font-medium text-gray-700">Apply preset by treatment:</span>
+              <select
+                value={presetSelection}
+                onChange={(e) => setPresetSelection(e.target.value as PortalTreatmentType)}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              >
+                {(Object.keys(TREATMENT_PRESET_LABELS) as PortalTreatmentType[]).map((key) => (
+                  <option key={key} value={key}>
+                    {TREATMENT_PRESET_LABELS[key]}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleApplyPreset}
+                disabled={presetSelection === 'custom'}
+                className="rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d9268] disabled:opacity-50 disabled:hover:bg-[#4fa77e]"
+              >
+                Apply preset
+              </button>
+              {presetSelection !== 'custom' && (
+                <span className="text-xs text-gray-500">
+                  Merges recommended toggles into current settings. Save changes to persist.
+                </span>
+              )}
             </div>
+            {[
+              {
+                groupLabel: 'Tracking & Progress',
+                features: [
+                  { key: 'showWeightTracking' as PortalFeatureKey, label: 'Weight Tracking', desc: 'Progress page: log and track weight' },
+                  { key: 'showWaterTracking' as PortalFeatureKey, label: 'Water Tracking', desc: 'Progress page: water intake' },
+                  { key: 'showExerciseTracking' as PortalFeatureKey, label: 'Exercise Tracking', desc: 'Progress page: exercise log' },
+                  { key: 'showSleepTracking' as PortalFeatureKey, label: 'Sleep Tracking', desc: 'Progress page: sleep log' },
+                  { key: 'showDietaryPlans' as PortalFeatureKey, label: 'Nutrition', desc: 'Progress page: nutrition log' },
+                  { key: 'showProgressPhotos' as PortalFeatureKey, label: 'Progress Photos', desc: 'Photo uploads for progress' },
+                  { key: 'showHealthScore' as PortalFeatureKey, label: 'Health Score', desc: 'Health score dashboard' },
+                  { key: 'showAchievements' as PortalFeatureKey, label: 'Achievements', desc: 'Gamification and achievements' },
+                ],
+              },
+              {
+                groupLabel: 'Tools & Calculators',
+                features: [
+                  { key: 'showBMICalculator' as PortalFeatureKey, label: 'BMI Calculator', desc: 'BMI calculator tool' },
+                  { key: 'showCalorieCalculator' as PortalFeatureKey, label: 'Calorie Calculator', desc: 'Calorie deficit calculator' },
+                  { key: 'showDoseCalculator' as PortalFeatureKey, label: 'Dose Calculator', desc: 'Medication dose calculator' },
+                  { key: 'showSymptomChecker' as PortalFeatureKey, label: 'Symptom Checker', desc: 'Symptom checker tool' },
+                ],
+              },
+              {
+                groupLabel: 'Care & Communication',
+                features: [
+                  { key: 'showAppointments' as PortalFeatureKey, label: 'Appointments', desc: 'Book and view appointments' },
+                  { key: 'showCarePlan' as PortalFeatureKey, label: 'Care Plan', desc: 'My Care Plan tab' },
+                  { key: 'showCareTeam' as PortalFeatureKey, label: 'Care Team', desc: 'Care team view' },
+                  { key: 'showChat' as PortalFeatureKey, label: 'Chat', desc: 'Messaging with care team' },
+                  { key: 'showTelehealth' as PortalFeatureKey, label: 'Telehealth', desc: 'Video visits' },
+                  { key: 'showCommunityChat' as PortalFeatureKey, label: 'Community Chat', desc: 'Patient community (if enabled)' },
+                ],
+              },
+              {
+                groupLabel: 'Content & Resources',
+                features: [
+                  { key: 'showResources' as PortalFeatureKey, label: 'Resources & Videos', desc: 'Tutorial videos and guides' },
+                  { key: 'showLabResults' as PortalFeatureKey, label: 'Lab Results', desc: 'View lab results' },
+                ],
+              },
+              {
+                groupLabel: 'Orders & Billing',
+                features: [
+                  { key: 'showMedicationReminders' as PortalFeatureKey, label: 'Medication Reminders', desc: 'Medication reminder functionality' },
+                  { key: 'showShipmentTracking' as PortalFeatureKey, label: 'Shipment Tracking', desc: 'Order tracking' },
+                  { key: 'showBilling' as PortalFeatureKey, label: 'Billing & Subscription', desc: 'Payment and subscription management' },
+                ],
+              },
+            ].map(({ groupLabel, features: groupFeatures }) => (
+              <div key={groupLabel} className="mb-6 last:mb-0">
+                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{groupLabel}</h3>
+                <div className="space-y-1">
+                  {groupFeatures.map(({ key, label, desc }) => (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between border-b border-gray-100 py-2 last:border-0"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900">{label}</p>
+                        <p className="text-sm text-gray-500">{desc}</p>
+                      </div>
+                      <Toggle
+                        enabled={settings.features[key] ?? defaultFeatures[key]}
+                        onChange={() => handleFeatureToggle(key)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Auto-invite (portal access when treatment starts) */}

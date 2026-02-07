@@ -157,6 +157,12 @@ model Order {
   assignedAt         DateTime? // When provider was assigned
   assignmentSource   String? // 'state_match', 'round_robin', 'manual', 'self_select', 'direct'
 
+  // Admin queue → provider approval workflow (enterprise compliance)
+  queuedForProviderAt DateTime? // When admin queued for provider review
+  queuedByUserId      Int?      // User ID who queued (admin)
+  approvedByUserId   Int?      // User ID who approved and sent to pharmacy (provider)
+  approvedAt         DateTime? // When provider approved and sent to Lifefile
+
   provider          Provider                @relation(fields: [providerId], references: [id])
   patient           Patient                 @relation(fields: [patientId], references: [id])
   events            OrderEvent[]
@@ -174,6 +180,7 @@ model Order {
 
   @@index([cancelledAt])
   @@index([assignedProviderId])
+  @@index([clinicId, status])
 }
 
 model Rx {

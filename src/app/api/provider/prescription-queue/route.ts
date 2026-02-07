@@ -104,7 +104,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // - WellMedR/Heyflow patients have intake data in invoice metadata, not IntakeFormSubmission
     // - EONmeds patients use internal intake forms (IntakeFormSubmission)
     // The prescription process handles both scenarios
-    const [invoices, invoiceCount, refills, refillCount] = await Promise.all([
+    // Also fetch orders queued by admin for provider approval (status = queued_for_provider)
+    const [invoices, invoiceCount, refills, refillCount, queuedOrders, queuedOrderCount] = await Promise.all([
       prisma.invoice.findMany({
         where: {
           clinicId: clinicId,
@@ -259,9 +260,60 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
         },
       }),
+      prisma.order.findMany({
+        where: {
+          clinicId: clinicId,
+          status: 'queued_for_provider',
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
+            },
+          },
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+              clinicId: true,
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
+                },
+              },
+            },
+          },
+          provider: { select: { id: true, firstName: true, lastName: true, email: true } },
+          rxs: true,
+        },
+        orderBy: { queuedForProviderAt: 'asc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.order.count({
+        where: {
+          clinicId: clinicId,
+          status: 'queued_for_provider',
+        },
+      }),
     ]);
-    
-    const totalCount = invoiceCount + refillCount;
+
+    const totalCount = invoiceCount + refillCount + queuedOrderCount;
 
     // Helper function to normalize keys for comparison (lowercase, remove spaces/dashes/underscores)
     const normalizeKey = (key: string) => key.toLowerCase().replace(/[-_\s]/g, '');
@@ -559,10 +611,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Fetch documents separately for patients that might not have them in the relation
     // This handles cases where the Patient -> Document link might not be populated
-    // IMPORTANT: Include both invoice AND refill patients
+    // IMPORTANT: Include invoice, refill, AND queued-order patients
     const invoicePatientIds = (invoices as any[]).map((inv: any) => inv.patient.id);
     const refillPatientIds = (refills as any[]).map((ref: any) => ref.patient.id);
-    const allPatientIds = [...new Set([...invoicePatientIds, ...refillPatientIds])];
+    const queuedOrderPatientIds = (queuedOrders as any[]).map((o: any) => o.patient.id);
+    const allPatientIds = [...new Set([...invoicePatientIds, ...refillPatientIds, ...queuedOrderPatientIds])];
     const patientDocsMap = new Map<number, PatientDocumentWithData[]>();
     
     if (allPatientIds.length > 0) {
@@ -913,9 +966,69 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         patientClinicId: refillPatientClinicId,
       };
     });
+
+    // Transform admin-queued orders (awaiting provider approval and send to pharmacy)
+    const queuedOrderItems = (queuedOrders as any[]).map((order: any) => {
+      const soapNote = order.patient?.soapNotes?.[0] || null;
+      const hasSoapNote = soapNote !== null && soapNote.id !== undefined;
+      const soapNoteApproved = soapNote?.status === 'APPROVED' || soapNote?.status === 'LOCKED';
+      const treatmentDisplay = order.primaryMedName
+        ? `${order.primaryMedName}${order.primaryMedStrength ? ` ${order.primaryMedStrength}` : ''}${order.primaryMedForm ? ` ${order.primaryMedForm}` : ''}`
+        : 'Prescription (queued by admin)';
+      return {
+        queueType: 'queued_order' as const,
+        orderId: order.id,
+        invoiceId: null,
+        refillId: null,
+        patientId: order.patient.id,
+        patientDisplayId: order.patient.patientId,
+        patientName: `${safeDecrypt(order.patient.firstName) || order.patient.firstName} ${safeDecrypt(order.patient.lastName) || order.patient.lastName}`,
+        patientEmail: safeDecrypt(order.patient.email),
+        patientPhone: safeDecrypt(order.patient.phone),
+        patientDob: safeDecrypt(order.patient.dob),
+        treatment: treatmentDisplay,
+        plan: 'N/A',
+        planMonths: 1,
+        vialCount: 1,
+        isRefill: false,
+        lastOrderId: null,
+        amount: null,
+        amountFormatted: '-',
+        paidAt: order.queuedForProviderAt,
+        createdAt: order.createdAt,
+        queuedAt: order.queuedForProviderAt,
+        invoiceNumber: `QUEUED-${order.id}`,
+        intakeCompletedAt: null,
+        glp1Info: { usedGlp1: false, glp1Type: null, lastDose: null },
+        soapNote: soapNote ? {
+          id: soapNote.id,
+          status: soapNote.status,
+          createdAt: soapNote.createdAt,
+          approvedAt: soapNote.approvedAt,
+          isApproved: soapNoteApproved,
+        } : null,
+        hasSoapNote,
+        soapNoteStatus: soapNote?.status || 'MISSING',
+        clinicId: order.clinicId,
+        clinic: order.clinic ? {
+          id: order.clinic.id,
+          name: order.clinic.name,
+          subdomain: order.clinic.subdomain,
+          lifefileEnabled: order.clinic.lifefileEnabled,
+          practiceName: order.clinic.lifefilePracticeName,
+        } : null,
+        clinicMismatch: false,
+        patientClinicId: order.patient.clinicId,
+        // For approve-and-send: order payload is in requestJson; provider and rxs on order
+        provider: order.provider,
+        rxs: order.rxs,
+        requestJson: order.requestJson,
+        queuedByUserId: order.queuedByUserId,
+      };
+    });
     
     // Combine and sort by queuedAt (oldest first - FIFO)
-    const queueItems = [...invoiceItems, ...refillItems].sort((a, b) => {
+    const queueItems = [...invoiceItems, ...refillItems, ...queuedOrderItems].sort((a, b) => {
       const dateA = new Date(a.queuedAt || a.createdAt).getTime();
       const dateB = new Date(b.queuedAt || b.createdAt).getTime();
       return dateA - dateB;
@@ -926,6 +1039,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       total: totalCount,
       invoiceCount,
       refillCount,
+      queuedOrderCount,
       limit,
       offset,
       hasMore: offset + queueItems.length < totalCount,

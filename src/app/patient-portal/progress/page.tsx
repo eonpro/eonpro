@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { useState, useEffect, useMemo } from 'react';
+import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { getEnabledProgressTabIds } from '@/lib/patient-portal';
 import WeightTracker from '@/components/WeightTracker';
 import {
   Scale,
@@ -38,13 +39,14 @@ interface WeightLog {
 
 type TabType = 'weight' | 'water' | 'exercise' | 'sleep' | 'nutrition';
 
-const tabs = [
-  { id: 'weight' as TabType, label: 'Weight', icon: Scale },
-  { id: 'water' as TabType, label: 'Water', icon: Droplets },
-  { id: 'exercise' as TabType, label: 'Exercise', icon: Footprints },
-  { id: 'sleep' as TabType, label: 'Sleep', icon: Moon },
-  { id: 'nutrition' as TabType, label: 'Nutrition', icon: Utensils },
-];
+/** Tab display metadata (label/icon); visibility driven by registry + clinic features */
+const TAB_META: Record<TabType, { label: string; icon: typeof Scale }> = {
+  weight: { label: 'Weight', icon: Scale },
+  water: { label: 'Water', icon: Droplets },
+  exercise: { label: 'Exercise', icon: Footprints },
+  sleep: { label: 'Sleep', icon: Moon },
+  nutrition: { label: 'Nutrition', icon: Utensils },
+};
 
 const exerciseTypes = [
   { value: 'walking', label: 'Walking', icon: '🚶' },
@@ -66,9 +68,17 @@ const mealTypes = [
 
 export default function ProgressPage() {
   const { branding } = useClinicBranding();
+  const features = usePortalFeatures();
   const { t } = usePatientPortalLanguage();
   const accentColor = branding?.accentColor || '#d3f931';
   const primaryColor = branding?.primaryColor || '#4fa77e';
+
+  // Tabs driven by clinic feature flags and treatment (registry); fallback to weight if none enabled
+  const tabs = useMemo(() => {
+    const enabledIds = getEnabledProgressTabIds(features, branding?.primaryTreatment);
+    const ids = enabledIds.length > 0 ? enabledIds : (['weight'] as TabType[]);
+    return ids.map((id) => ({ id, ...TAB_META[id] }));
+  }, [features, branding?.primaryTreatment]);
 
   const [patientId, setPatientId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('weight');
@@ -76,6 +86,14 @@ export default function ProgressPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState('');
+
+  // Keep activeTab in sync with enabled tabs (e.g. clinic disables current tab)
+  useEffect(() => {
+    const enabledIds = tabs.map((tab) => tab.id);
+    if (enabledIds.length > 0 && !enabledIds.includes(activeTab)) {
+      setActiveTab(enabledIds[0]);
+    }
+  }, [tabs, activeTab]);
 
   // Weight state
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);

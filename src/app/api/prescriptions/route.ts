@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { NextRequest, NextResponse } from 'next/server';
 import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { markPrescribed, queueForProvider } from '@/services/refill';
 import { providerCompensationService } from '@/services/provider';
 import { platformFeeService } from '@/services/billing';
@@ -88,6 +89,18 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       );
     }
     const p = parsed.data;
+
+    // Queue-for-provider is admin-only (compliance: admin queues, provider approves)
+    if (p.queueForProvider && !['admin', 'super_admin'].includes(user.role)) {
+      logger.security('Non-admin attempted to queue prescription for provider', {
+        userId: user.id,
+        role: user.role,
+      });
+      return NextResponse.json(
+        { error: 'Only clinic admins can queue prescriptions for provider review' },
+        { status: 403 }
+      );
+    }
 
     // Use basePrisma to bypass clinic filtering for provider lookup
     const provider = await basePrisma.provider.findUnique({
@@ -576,6 +589,9 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
 
         // Create order within transaction
         // CRITICAL: Use patientClinicId to ensure order is in same clinic as patient
+        // When queueForProvider: status = queued_for_provider, no Lifefile call (provider approves later)
+        const orderStatus = p.queueForProvider ? 'queued_for_provider' : 'PENDING';
+        const now = new Date();
         const order = await tx.order.create({
           data: {
             messageId,
@@ -587,8 +603,14 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             primaryMedName: primary.med.name,
             primaryMedStrength: primary.med.strength,
             primaryMedForm: primary.med.formLabel ?? primary.med.form,
-            status: "PENDING",
+            status: orderStatus,
             requestJson: JSON.stringify(orderPayload),
+            ...(p.queueForProvider
+              ? {
+                  queuedForProviderAt: now,
+                  queuedByUserId: user.id,
+                }
+              : {}),
           },
         });
 
@@ -649,6 +671,37 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       }
 
       const { order, patient: patientRecord } = transactionResult;
+
+      // When admin chose "Queue for provider", do not call Lifefile; record audit and return
+      if (p.queueForProvider) {
+        try {
+          await auditLog(req, {
+            userId: user.id,
+            userEmail: user.email,
+            userRole: user.role,
+            clinicId: order.clinicId ?? undefined,
+            eventType: AuditEventType.PRESCRIPTION_QUEUED,
+            resourceType: 'Order',
+            resourceId: String(order.id),
+            patientId: patientRecord.id,
+            action: 'prescription_queued_for_provider',
+            outcome: 'SUCCESS',
+            metadata: { orderId: order.id, providerId: p.providerId },
+          });
+        } catch (auditErr) {
+          logger.error('[PRESCRIPTIONS] Audit log failed for queued prescription', {
+            orderId: order.id,
+            error: auditErr instanceof Error ? auditErr.message : 'Unknown',
+          });
+        }
+        return NextResponse.json({
+          success: true,
+          order,
+          patientId: patientRecord.id,
+          queuedForProvider: true,
+          message: 'Prescription queued for provider review. A provider can approve and send it to the pharmacy from the prescription queue.',
+        });
+      }
 
       // ENTERPRISE: External API call AFTER transaction commits
       // This ensures DB state is consistent even if Lifefile fails

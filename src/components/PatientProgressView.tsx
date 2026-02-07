@@ -237,10 +237,10 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
       </div>
 
-      {/* Weight Tracker Widget - entire container #faffac */}
+      {/* Weight Tracker Widget - entire container #faffac, border dark variant */}
       <div
-        className="rounded-xl border border-green-200 p-6"
-        style={{ backgroundColor: '#faffac' }}
+        className="rounded-xl border p-6"
+        style={{ backgroundColor: '#faffac', borderColor: '#a8ac40' }}
       >
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -352,8 +352,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
 
         {/* Chart Container - transparent chart on #faffac background */}
         <div
-          className="relative h-64 overflow-hidden rounded-lg border border-gray-100 p-4 shadow-sm"
-          style={{ backgroundColor: '#faffac' }}
+          className="relative h-64 overflow-hidden rounded-lg border p-4 shadow-sm"
+          style={{ backgroundColor: '#faffac', borderColor: '#a8ac40' }}
         >
           {weightData.length > 0 ? (
             <div className="h-full w-full [&_canvas]:!bg-transparent">

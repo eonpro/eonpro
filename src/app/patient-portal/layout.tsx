@@ -31,34 +31,34 @@ import { ClinicBrandingProvider, useClinicBranding, usePortalFeatures } from '@/
 import { PatientPortalLanguageProvider, usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { PWAUpdateBanner, OfflineBanner, InstallPrompt } from '@/components/PWAUpdateBanner';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import {
+  NAV_MODULES,
+  MOBILE_LABEL_OVERRIDE,
+  getEnabledNavModuleIds,
+  getNavModuleIdForPath,
+  isPortalPath,
+} from '@/lib/patient-portal';
+import type { LucideIcon } from 'lucide-react';
 
 // Default EONPRO logo
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
 
-// All possible nav items with their feature flag requirements and i18n keys
-const allNavItems = [
-  { icon: Home, path: PATIENT_PORTAL_PATH, label: 'Home', labelKey: 'navHome', exact: true, feature: null },
-  { icon: Calendar, path: `${PATIENT_PORTAL_PATH}/appointments`, label: 'Appointments', labelKey: 'navAppointments', feature: 'showAppointments' },
-  { icon: HeartPulse, path: `${PATIENT_PORTAL_PATH}/care-plan`, label: 'My Care Plan', labelKey: 'navCarePlan', feature: 'showCarePlan' },
-  { icon: Scale, path: `${PATIENT_PORTAL_PATH}/progress`, label: 'Progress', labelKey: 'navProgress', feature: 'showWeightTracking' },
-  { icon: Camera, path: `${PATIENT_PORTAL_PATH}/photos`, label: 'Photos', labelKey: 'navPhotos', feature: null },
-  { icon: Trophy, path: `${PATIENT_PORTAL_PATH}/achievements`, label: 'Achievements', labelKey: 'navAchievements', feature: 'showAchievements' },
-  { icon: Pill, path: `${PATIENT_PORTAL_PATH}/medications`, label: 'Medications', labelKey: 'navMedications', feature: null },
-  { icon: Package, path: `${PATIENT_PORTAL_PATH}/shipments`, label: 'Shipments', labelKey: 'navShipments', feature: 'showShipmentTracking' },
-  { icon: Activity, path: `${PATIENT_PORTAL_PATH}/symptom-checker`, label: 'Symptom Checker', labelKey: 'navSymptomChecker', feature: 'showSymptomChecker' },
-  { icon: Calculator, path: `${PATIENT_PORTAL_PATH}/calculators`, label: 'Tools', labelKey: 'navTools', feature: null },
-  { icon: BookOpen, path: `${PATIENT_PORTAL_PATH}/resources`, label: 'Resources', labelKey: 'navResources', feature: 'showResources' },
-  { icon: CreditCard, path: `${PATIENT_PORTAL_PATH}/subscription`, label: 'Billing', labelKey: 'navBilling', feature: 'showBilling' },
-  { icon: Settings, path: `${PATIENT_PORTAL_PATH}/settings`, label: 'Settings', labelKey: 'navSettings', feature: null },
-];
-
-const allMobileNavItems = [
-  { icon: Home, path: PATIENT_PORTAL_PATH, label: 'Home', labelKey: 'navHome', exact: true, feature: null },
-  { icon: Calendar, path: `${PATIENT_PORTAL_PATH}/appointments`, label: 'Appts', labelKey: 'navAppts', feature: 'showAppointments' },
-  { icon: Scale, path: `${PATIENT_PORTAL_PATH}/progress`, label: 'Progress', labelKey: 'navProgress', feature: 'showWeightTracking' },
-  { icon: Pill, path: `${PATIENT_PORTAL_PATH}/medications`, label: 'Meds', labelKey: 'navMeds', feature: null },
-  { icon: User, path: `${PATIENT_PORTAL_PATH}/settings`, label: 'Profile', labelKey: 'navProfile', feature: null },
-];
+// Icon mapping for nav (registry holds data; icons stay here for tree-shaking)
+const NAV_ICON_MAP: Record<string, LucideIcon> = {
+  home: Home,
+  appointments: Calendar,
+  'care-plan': HeartPulse,
+  progress: Scale,
+  photos: Camera,
+  achievements: Trophy,
+  medications: Pill,
+  shipments: Package,
+  'symptom-checker': Activity,
+  calculators: Calculator,
+  resources: BookOpen,
+  billing: CreditCard,
+  settings: Settings,
+};
 
 function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -73,16 +73,24 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState(3);
 
-  // Filter nav items based on clinic feature flags
-  const mainNavItems = allNavItems.filter(item => {
-    if (item.feature === null) return true; // Always show items without feature requirement
-    return features[item.feature as keyof typeof features] === true;
-  });
-
-  const mobileNavItems = allMobileNavItems.filter(item => {
-    if (item.feature === null) return true;
-    return features[item.feature as keyof typeof features] === true;
-  });
+  // Build nav from registry (single source of truth; clinic features + treatment gate visibility)
+  const enabledNavIds = getEnabledNavModuleIds(features, branding?.primaryTreatment);
+  const mainNavItems = NAV_MODULES.filter(
+    (m) => (m.navSlot === 'main' || m.navSlot === 'both') && enabledNavIds.includes(m.id)
+  ).map((m) => ({
+    icon: NAV_ICON_MAP[m.id] ?? Settings,
+    path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
+    labelKey: m.labelKey,
+    exact: m.exact ?? false,
+  }));
+  const mobileNavItems = NAV_MODULES.filter(
+    (m) => m.navSlot === 'both' && enabledNavIds.includes(m.id)
+  ).map((m) => ({
+    icon: m.id === 'settings' ? User : (NAV_ICON_MAP[m.id] ?? Settings),
+    path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
+    labelKey: MOBILE_LABEL_OVERRIDE[m.id] ?? m.labelKey,
+    exact: m.exact ?? false,
+  }));
 
   // Check if chat should be shown
   const showChat = features.showChat !== false;
@@ -118,6 +126,16 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     
     setLoading(false);
   }, [router]);
+
+  // Route guard: redirect if user landed on a disabled module URL (e.g. bookmark)
+  useEffect(() => {
+    if (loading || brandingLoading || !pathname) return;
+    if (!isPortalPath(pathname, PATIENT_PORTAL_PATH)) return;
+    const moduleId = getNavModuleIdForPath(pathname, PATIENT_PORTAL_PATH);
+    if (moduleId != null && !enabledNavIds.includes(moduleId)) {
+      router.replace(PATIENT_PORTAL_PATH);
+    }
+  }, [pathname, loading, brandingLoading, enabledNavIds, router]);
 
   // Close mobile menu on route change
   useEffect(() => {

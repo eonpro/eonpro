@@ -1,0 +1,43 @@
+/**
+ * Patient portal module registry — single source of truth for nav and progress tabs.
+ * Add new modules here with defaultOn: false to ship without affecting existing clinics.
+ * Layout and progress page consume this; admin UI uses it to show all toggles.
+ */
+
+import type { PortalNavModule, ProgressTrackingModule } from './types';
+
+/** Base path is applied by consumer (PATIENT_PORTAL_PATH from config) */
+export const NAV_MODULES: readonly PortalNavModule[] = [
+  { id: 'home', pathSuffix: '', labelKey: 'navHome', featureFlagKey: null, navSlot: 'both', exact: true, defaultOn: true },
+  { id: 'appointments', pathSuffix: '/appointments', labelKey: 'navAppointments', featureFlagKey: 'showAppointments', navSlot: 'both', defaultOn: true },
+  { id: 'care-plan', pathSuffix: '/care-plan', labelKey: 'navCarePlan', featureFlagKey: 'showCarePlan', navSlot: 'main', defaultOn: true },
+  { id: 'progress', pathSuffix: '/progress', labelKey: 'navProgress', featureFlagKey: 'showWeightTracking', navSlot: 'both', defaultOn: true },
+  { id: 'photos', pathSuffix: '/photos', labelKey: 'navPhotos', featureFlagKey: null, navSlot: 'main', defaultOn: true },
+  { id: 'achievements', pathSuffix: '/achievements', labelKey: 'navAchievements', featureFlagKey: 'showAchievements', navSlot: 'main', defaultOn: true },
+  { id: 'medications', pathSuffix: '/medications', labelKey: 'navMedications', featureFlagKey: null, navSlot: 'both', defaultOn: true },
+  { id: 'shipments', pathSuffix: '/shipments', labelKey: 'navShipments', featureFlagKey: 'showShipmentTracking', navSlot: 'main', defaultOn: true },
+  { id: 'symptom-checker', pathSuffix: '/symptom-checker', labelKey: 'navSymptomChecker', featureFlagKey: 'showSymptomChecker', navSlot: 'main', defaultOn: true },
+  { id: 'calculators', pathSuffix: '/calculators', labelKey: 'navTools', featureFlagKey: null, navSlot: 'main', defaultOn: true },
+  { id: 'resources', pathSuffix: '/resources', labelKey: 'navResources', featureFlagKey: 'showResources', navSlot: 'main', defaultOn: true },
+  { id: 'billing', pathSuffix: '/subscription', labelKey: 'navBilling', featureFlagKey: 'showBilling', navSlot: 'main', defaultOn: true },
+  { id: 'settings', pathSuffix: '/settings', labelKey: 'navSettings', featureFlagKey: null, navSlot: 'both', defaultOn: true },
+] as const;
+
+/** Mobile nav uses shorter label keys for some items; registry uses main labelKey; layout maps id -> mobile labelKey where different */
+export const MOBILE_LABEL_OVERRIDE: Record<string, string> = {
+  appointments: 'navAppts',
+  medications: 'navMeds',
+  settings: 'navProfile',
+};
+
+/** Progress page sub-tabs — visibility gated by feature flags and (future) treatment type */
+export const PROGRESS_TRACKING_MODULES: readonly ProgressTrackingModule[] = [
+  { id: 'progress-weight', tabId: 'weight', labelKey: 'progressWeight', featureFlagKey: 'showWeightTracking', defaultOn: true },
+  { id: 'progress-water', tabId: 'water', labelKey: 'progressWater', featureFlagKey: 'showWaterTracking', defaultOn: true },
+  { id: 'progress-exercise', tabId: 'exercise', labelKey: 'progressExercise', featureFlagKey: 'showExerciseTracking', defaultOn: true },
+  { id: 'progress-sleep', tabId: 'sleep', labelKey: 'progressSleep', featureFlagKey: 'showSleepTracking', defaultOn: true },
+  { id: 'progress-nutrition', tabId: 'nutrition', labelKey: 'progressNutrition', featureFlagKey: 'showDietaryPlans', defaultOn: true },
+] as const;
+
+export type NavModuleId = (typeof NAV_MODULES)[number]['id'];
+export type ProgressTabId = (typeof PROGRESS_TRACKING_MODULES)[number]['tabId'];

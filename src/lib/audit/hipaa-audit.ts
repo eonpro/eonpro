@@ -56,6 +56,10 @@ export enum AuditEventType {
   SYSTEM_ACCESS = 'SYSTEM_ACCESS',
   CONFIGURATION_CHANGE = 'CONFIGURATION_CHANGE',
   SECURITY_ALERT = 'SECURITY_ALERT',
+
+  // Prescription queue workflow (admin queue → provider approve → pharmacy)
+  PRESCRIPTION_QUEUED = 'PRESCRIPTION_QUEUED',   // Admin queued for provider review
+  PRESCRIPTION_APPROVED = 'PRESCRIPTION_APPROVED', // Provider approved and sent to pharmacy
 }
 
 // Audit context interface

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   Home, Users, ShoppingCart, Store, TrendingUp,
   DollarSign, Settings, LogOut, Search, Clock, ChevronRight,
-  UserPlus, CreditCard, RefreshCw, FileText, Key, Pill
+  UserPlus, CreditCard, RefreshCw, FileText, Key, Pill, Ticket
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -42,6 +42,7 @@ const navItems = [
   { icon: Users, path: '/admin/patients', label: 'Patients' },
   { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
+  { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
   { icon: DollarSign, path: '/admin/finance', label: 'Finance' },

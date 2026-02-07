@@ -316,7 +316,10 @@ function getPatientAddress(patient: { address1?: string | null; address2?: strin
 // ============================================================================
 
 interface QueueItem {
-  invoiceId: number;
+  queueType?: 'invoice' | 'refill' | 'queued_order';
+  invoiceId: number | null;
+  orderId?: number;
+  refillId?: number | null;
   patientId: number;
   patientDisplayId: string;
   patientName: string;
@@ -326,7 +329,7 @@ interface QueueItem {
   treatment: string;
   plan: string;        // e.g., "Monthly", "Quarterly", "6-Month"
   planMonths: number;  // e.g., 1, 3, 6
-  amount: number;
+  amount: number | null;
   amountFormatted: string;
   paidAt: string;
   createdAt: string;
@@ -356,6 +359,10 @@ interface QueueItem {
     approvedAt: string | null;
     isApproved: boolean;
   } | null;
+  // Queued order only: admin-queued prescription awaiting provider approve-and-send
+  rxs?: Array<{ medicationKey: string; medName: string; strength: string; form: string; quantity: string; refills: string; sig: string }>;
+  requestJson?: string | null;
+  queuedByUserId?: number | null;
 }
 
 interface PatientDetails {
@@ -492,6 +499,7 @@ export default function PrescriptionQueuePage() {
     zip: "",
   });
   const [submittingPrescription, setSubmittingPrescription] = useState(false);
+  const [approvingOrderId, setApprovingOrderId] = useState<number | null>(null);
 
   // SOAP Note generation state
   const [generatingSoapNote, setGeneratingSoapNote] = useState<number | null>(null);
@@ -708,13 +716,38 @@ export default function PrescriptionQueuePage() {
   // Check if current user can approve (provider or super_admin)
   const canApprove = userRole === 'provider' || userRole === 'super_admin';
 
+  // Approve and send admin-queued order to pharmacy (provider only)
+  const handleApproveAndSendOrder = async (orderId: number, patientName: string) => {
+    setApprovingOrderId(orderId);
+    setError('');
+    try {
+      const res = await fetch(`/api/orders/${orderId}/approve-and-send`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setQueueItems((prev) => prev.filter((i) => (i as QueueItem).orderId !== orderId));
+        setTotal((prev) => Math.max(0, prev - 1));
+        setPrescriptionPanel(null);
+        setSuccessMessage(`Prescription for ${patientName} approved and sent to pharmacy.`);
+        setTimeout(() => setSuccessMessage(''), 5000);
+      } else {
+        setError(data.error || data.details || 'Failed to send to pharmacy');
+      }
+    } catch (err) {
+      setError('Failed to approve and send prescription');
+    } finally {
+      setApprovingOrderId(null);
+    }
+  };
+
   const handleOpenPrescriptionPanel = async (item: QueueItem) => {
-    const details = await fetchPatientDetails(item.invoiceId);
+    if (item.queueType === 'queued_order') return; // Queued orders use Approve & Send from list (no panel)
+    const details = await fetchPatientDetails(item.invoiceId!);
     if (details) {
       setPrescriptionPanel({ item, details });
-      // Parse address - handles combined strings like "123 Main, APT 4, City, State, 12345"
       const parsedAddress = getPatientAddress(details.patient);
-      // Reset form with fresh medication and pre-populate address from patient data
       setPrescriptionForm({
         medications: [createEmptyMedication()],
         shippingMethod: "8115",
@@ -724,7 +757,6 @@ export default function PrescriptionQueuePage() {
         state: parsedAddress.state,
         zip: parsedAddress.zip,
       });
-      // Try to auto-select medication based on treatment
       autoSelectMedication(item.treatment, details);
     }
   };
@@ -1177,9 +1209,12 @@ export default function PrescriptionQueuePage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredItems.map((item) => (
+            {filteredItems.map((item) => {
+              const itemKey = item.orderId ?? item.invoiceId ?? item.refillId ?? item.patientId;
+              const isQueuedOrder = item.queueType === 'queued_order';
+              return (
               <div
-                key={item.invoiceId}
+                key={itemKey}
                 className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md"
               >
                 {/* Main Card Content - Grid for alignment */}
@@ -1297,56 +1332,79 @@ export default function PrescriptionQueuePage() {
 
                     {/* Actions - Col 6 */}
                     <div className="flex items-center gap-1 justify-end">
-                      <button
-                        onClick={() => handleExpandItem(item.invoiceId)}
-                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="View patient details"
-                      >
-                        {expandedItem === item.invoiceId ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleOpenPrescriptionPanel(item)}
-                        disabled={!item.clinic?.lifefileEnabled}
-                        className="flex items-center gap-1 px-2 py-1.5 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm font-medium text-sm"
-                        title={
-                          item.clinic?.lifefileEnabled
-                            ? "Write and send prescription"
-                            : "Lifefile not configured for this clinic"
-                        }
-                      >
-                        <Send className="w-4 h-4" />
-                        <span className="hidden 2xl:inline">Write Rx</span>
-                      </button>
-                      <button
-                        onClick={() => handleMarkProcessed(item.invoiceId, item.patientName)}
-                        disabled={processing === item.invoiceId}
-                        className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all font-medium text-sm"
-                        title="Mark as done"
-                      >
-                        {processing === item.invoiceId ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Check className="w-4 h-4" />
-                        )}
-                        <span className="hidden 2xl:inline">Done</span>
-                      </button>
-                      <button
-                        onClick={() => setDeclineModal({ item })}
-                        className="flex items-center gap-1 px-2 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-medium text-sm border border-red-200"
-                        title="Decline prescription request"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      {!isQueuedOrder && (
+                        <>
+                          <button
+                            onClick={() => handleExpandItem(item.invoiceId!)}
+                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="View patient details"
+                          >
+                            {expandedItem === item.invoiceId ? (
+                              <ChevronUp className="w-5 h-5" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleOpenPrescriptionPanel(item)}
+                            disabled={!item.clinic?.lifefileEnabled}
+                            className="flex items-center gap-1 px-2 py-1.5 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm font-medium text-sm"
+                            title={
+                              item.clinic?.lifefileEnabled
+                                ? "Write and send prescription"
+                                : "Lifefile not configured for this clinic"
+                            }
+                          >
+                            <Send className="w-4 h-4" />
+                            <span className="hidden 2xl:inline">Write Rx</span>
+                          </button>
+                          <button
+                            onClick={() => handleMarkProcessed(item.invoiceId!, item.patientName)}
+                            disabled={processing === item.invoiceId}
+                            className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all font-medium text-sm"
+                            title="Mark as done"
+                          >
+                            {processing === item.invoiceId ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )}
+                            <span className="hidden 2xl:inline">Done</span>
+                          </button>
+                          <button
+                            onClick={() => setDeclineModal({ item })}
+                            className="flex items-center gap-1 px-2 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-medium text-sm border border-red-200"
+                            title="Decline prescription request"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      {isQueuedOrder && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Approve and send this prescription for ${item.patientName} to the pharmacy? This will be logged for compliance.`)) {
+                              item.orderId && handleApproveAndSendOrder(item.orderId, item.patientName);
+                            }
+                          }}
+                          disabled={!item.clinic?.lifefileEnabled || approvingOrderId === item.orderId}
+                          className="flex items-center gap-1 px-2 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm font-medium text-sm"
+                          title="Approve and send to pharmacy (queued by admin)"
+                        >
+                          {approvingOrderId === item.orderId ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ClipboardCheck className="w-4 h-4" />
+                          )}
+                          <span className="hidden 2xl:inline">Approve & Send</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Expanded Patient Details */}
-                {expandedItem === item.invoiceId && (
+                {/* Expanded Patient Details (invoice/refill only) */}
+                {!isQueuedOrder && expandedItem === item.invoiceId && (
                   <div className="border-t border-gray-100 bg-gray-50 p-5">
                     {loadingDetails ? (
                       <div className="flex items-center justify-center py-8">
@@ -1534,7 +1592,8 @@ export default function PrescriptionQueuePage() {
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
@@ -1682,14 +1741,20 @@ export default function PrescriptionQueuePage() {
             <div className="w-screen max-w-lg transform transition-transform duration-300 ease-in-out">
               <div className="flex h-full flex-col bg-white shadow-xl">
                 {/* Panel Header */}
-                <div className="bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-5">
+                <div className={`px-6 py-5 ${prescriptionPanel.item.queueType === 'queued_order' ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-rose-500 to-rose-600'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-white/20 rounded-lg">
-                        <Send className="w-5 h-5 text-white" />
+                        {prescriptionPanel.item.queueType === 'queued_order' ? (
+                          <ClipboardCheck className="w-5 h-5 text-white" />
+                        ) : (
+                          <Send className="w-5 h-5 text-white" />
+                        )}
                       </div>
                       <div>
-                        <h2 className="text-lg font-semibold text-white">Write Prescription</h2>
+                        <h2 className="text-lg font-semibold text-white">
+                          {prescriptionPanel.item.queueType === 'queued_order' ? 'Approve & send to pharmacy' : 'Write Prescription'}
+                        </h2>
                         <p className="text-sm text-rose-100">
                           {prescriptionPanel.item.patientName}
                         </p>
@@ -1706,6 +1771,69 @@ export default function PrescriptionQueuePage() {
 
                 {/* Panel Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {prescriptionPanel.item.queueType === 'queued_order' ? (
+                    <div className="space-y-6">
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <p className="text-sm text-amber-800">
+                          This prescription was queued by an admin for your review. Review the details below, then approve and send to the pharmacy. This action is logged for compliance.
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                          <User className="w-4 h-4 text-rose-500" />
+                          Patient
+                        </h3>
+                        <p className="font-medium">{prescriptionPanel.item.patientName}</p>
+                        <p className="text-sm text-gray-500">{prescriptionPanel.item.patientDisplayId}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                          <Pill className="w-4 h-4 text-rose-500" />
+                          Medications
+                        </h3>
+                        <ul className="space-y-2">
+                          {prescriptionPanel.item.rxs?.map((rx: { medName: string; strength: string; form: string; quantity: string; refills: string; sig: string }, i: number) => (
+                            <li key={i} className="text-sm border-b border-gray-100 pb-2 last:border-0">
+                              <span className="font-medium">{rx.medName} {rx.strength} {rx.form}</span>
+                              <p className="text-gray-600">Qty: {rx.quantity}, Refills: {rx.refills}</p>
+                              <p className="text-gray-500 italic">{rx.sig}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {error && (
+                        <div className="bg-red-50 text-red-700 rounded-lg p-3 text-sm">{error}</div>
+                      )}
+                      <div className="flex gap-3 pt-4">
+                        <button
+                          type="button"
+                          onClick={() => setPrescriptionPanel(null)}
+                          className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => prescriptionPanel.item.orderId && handleApproveAndSendOrder(prescriptionPanel.item.orderId, prescriptionPanel.item.patientName)}
+                          disabled={approvingOrderId === prescriptionPanel.item.orderId || !prescriptionPanel.item.clinic?.lifefileEnabled}
+                          className="flex-1 px-4 py-2.5 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {approvingOrderId === prescriptionPanel.item.orderId ? (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              Sending to pharmacy...
+                            </>
+                          ) : (
+                            <>
+                              <ClipboardCheck className="w-5 h-5" />
+                              Approve and send to pharmacy
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
                   {/* Patient Summary */}
                   <div className="bg-gray-50 rounded-xl p-4">
                     <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
@@ -2158,9 +2286,8 @@ export default function PrescriptionQueuePage() {
                       ))}
                     </div>
                   </div>
-                </div>
 
-                {/* Panel Footer */}
+                {/* Panel Footer - still inside space-y-6 (else branch) */}
                 <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
                   <div className="flex gap-3">
                     <button
@@ -2201,6 +2328,9 @@ export default function PrescriptionQueuePage() {
                       )}
                     </button>
                   </div>
+                </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

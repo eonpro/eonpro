@@ -205,6 +205,7 @@ export default function PrescriptionForm({
   
   // Determine if user is a provider (uses their own profile) or admin (selects from dropdown)
   const isProviderRole = userRole === 'provider';
+  const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
   const selectedProvider = isProviderRole 
     ? selfProvider 
     : providers.find((p: any) => p.id === form.providerId);
@@ -463,7 +464,7 @@ export default function PrescriptionForm({
     setShowConfirmation(true);
   }
 
-  async function submit() {
+  async function submit(queueForProvider = false) {
     try {
       setIsSubmitting(true);
       // Include patientId when prescribing for an existing patient
@@ -471,6 +472,7 @@ export default function PrescriptionForm({
       const submissionData = {
         ...form,
         patientId: selectedPatientId || null,
+        queueForProvider: queueForProvider && isAdminRole,
       };
       const res = await fetch("/api/prescriptions", {
         method: "POST",
@@ -487,20 +489,27 @@ export default function PrescriptionForm({
         return;
       }
 
+      // If queued for provider, show success message; redirect/navigate same as sent
+      if (data.queuedForProvider) {
+        if (onSuccess) onSuccess();
+        else if (selectedPatientId)
+          window.location.href = `/patients/${selectedPatientId}?tab=prescriptions&queued=1`;
+        else if (data.patientId)
+          window.location.href = `/patients/${data.patientId}?tab=prescriptions&queued=1`;
+        else
+          window.location.href = "/orders/dashboard?queued=1";
+        return;
+      }
       // If onSuccess callback is provided, call it (modal flow stays in place)
-      // Otherwise, navigate to the redirect path or patient profile
       if (onSuccess) {
         onSuccess();
       } else if (redirectPath) {
         window.location.href = redirectPath;
       } else if (selectedPatientId) {
-        // Navigate to patient profile with prescriptions tab if we have a patient ID
         window.location.href = `/patients/${selectedPatientId}?tab=prescriptions&submitted=1`;
       } else if (data.patientId) {
-        // Use patient ID from the API response (for newly created patients)
         window.location.href = `/patients/${data.patientId}?tab=prescriptions&submitted=1`;
       } else {
-        // Fallback to orders dashboard (should rarely happen)
         window.location.href = "/orders/dashboard?submitted=1";
       }
     } catch (err: any) {
@@ -533,6 +542,11 @@ export default function PrescriptionForm({
               Please review all prescription details carefully before sending to the pharmacy.
               Once submitted, this prescription will be processed and sent for fulfillment.
             </p>
+            {isAdminRole && (
+              <p className="text-sm text-amber-700 mt-2">
+                As an admin, you can <strong>Queue for Provider</strong> to send this prescription to your clinic&apos;s provider queue. A provider will then review, approve, and send it to the pharmacy. This is logged for compliance.
+              </p>
+            )}
           </div>
 
           {/* Patient Information */}
@@ -677,17 +691,36 @@ export default function PrescriptionForm({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <button
               onClick={() => setShowConfirmation(false)}
-              className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              className="flex-1 min-w-[120px] px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
             >
               ← Back to Edit
             </button>
+            {isAdminRole && (
+              <button
+                onClick={() => submit(true)}
+                disabled={isSubmitting}
+                className="flex-1 min-w-[180px] px-6 py-3 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Queueing...
+                  </span>
+                ) : (
+                  "Queue for Provider"
+                )}
+              </button>
+            )}
             <button
-              onClick={submit}
+              onClick={() => submit(false)}
               disabled={isSubmitting}
-              className="flex-1 px-6 py-3 bg-[#4fa77e] text-white rounded-lg font-medium hover:bg-[#3f8660] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 min-w-[180px] px-6 py-3 bg-[#4fa77e] text-white rounded-lg font-medium hover:bg-[#3f8660] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center">
