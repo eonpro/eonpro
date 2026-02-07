@@ -2,9 +2,33 @@
 
 import { useState, useEffect } from 'react';
 import { logger } from '../lib/logger';
-
+import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  ChartOptions,
+} from 'chart.js';
 import { format } from 'date-fns';
 import { TrendingUp, TrendingDown, Activity, Calendar, FileText, Play, Plus, Scale, Check, X } from 'lucide-react';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface PatientProgressViewProps {
   patient: {
@@ -36,12 +60,13 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
     setHasActiveTreatment(hasTracking || false);
   }, [patient.orders]);
 
-  // Fetch weight data from API
+  // Fetch weight data from API (same source as patient portal)
   const fetchWeightData = async () => {
     if (patient.id) {
       try {
         const response = await fetch(
-          `/api/patient-progress/weight?patientId=${patient.id}&limit=20`
+          `/api/patient-progress/weight?patientId=${patient.id}&limit=100`,
+          { headers: getAuthHeaders(), credentials: 'include' }
         );
         if (response.ok) {
           const result = await response.json();
@@ -79,7 +104,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
     try {
       const response = await fetch('/api/patient-progress/weight', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({
           patientId: patient.id,
           weight: parseFloat(newWeight),
@@ -119,7 +145,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       if (patient.id) {
         try {
           const response = await fetch(
-            `/api/patient-progress/medication-reminders?patientId=${patient.id}`
+            `/api/patient-progress/medication-reminders?patientId=${patient.id}`,
+            { headers: getAuthHeaders(), credentials: 'include' }
           );
           if (response.ok) {
             const result = await response.json();
@@ -320,62 +347,51 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           </div>
         )}
 
-        {/* Chart Container */}
+        {/* Chart Container - same data source as patient portal; no CDN/iframe (CSP-safe) */}
         <div className="relative h-64 overflow-hidden rounded-lg bg-black/90 p-4">
-          <iframe
-            srcDoc={`<!DOCTYPE html>
-<html>
-<head>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { margin: 0; background: transparent; font-family: system-ui; }
-    canvas { display: block; width: 100% !important; height: 100% !important; }
-  </style>
-</head>
-<body>
-  <canvas id="weightChart"></canvas>
-  <script>
-    const weights = ${JSON.stringify(weightData.map((d) => d.weight))};
-    const labels = ${JSON.stringify(weightData.map((d) => format(d.date, 'M/d')))};
-    const ctx = document.getElementById('weightChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          data: weights,
-          borderColor: '#d3f931',
-          pointBackgroundColor: '#d3f931',
-          pointRadius: 6,
-          fill: true,
-          tension: 0.4,
-          backgroundColor: 'rgba(211, 249, 49, 0.2)'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: {
-            title: { display: true, text: 'Date', color: '#fff' },
-            ticks: { color: '#fff' },
-            grid: { color: 'rgba(255,255,255,0.1)' }
-          },
-          y: {
-            title: { display: true, text: 'Weight (lbs)', color: '#fff' },
-            ticks: { color: '#fff' },
-            grid: { color: 'rgba(255,255,255,0.1)' }
-          }
-        }
-      }
-    });
-  </script>
-</body>
-</html>`}
-            className="h-full w-full border-0"
-            title="Weight Chart"
-          />
+          {weightData.length > 0 ? (
+            <div className="h-full w-full">
+              <Line
+                data={{
+                  labels: weightData.map((d) => format(d.date, 'M/d')),
+                  datasets: [
+                    {
+                      data: weightData.map((d) => d.weight),
+                      borderColor: '#d3f931',
+                      pointBackgroundColor: '#d3f931',
+                      pointRadius: 6,
+                      fill: true,
+                      tension: 0.4,
+                      backgroundColor: 'rgba(211, 249, 49, 0.2)',
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    x: {
+                      title: { display: true, text: 'Date', color: '#fff' },
+                      ticks: { color: '#fff' },
+                      grid: { color: 'rgba(255,255,255,0.1)' },
+                    },
+                    y: {
+                      title: { display: true, text: 'Weight (lbs)', color: '#fff' },
+                      ticks: { color: '#fff' },
+                      grid: { color: 'rgba(255,255,255,0.1)' },
+                    },
+                  },
+                } as ChartOptions<'line'>}
+              />
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center text-white/70">
+              <Scale className="mb-2 h-10 w-10" />
+              <p className="text-sm font-medium">No weight data yet</p>
+              <p className="mt-1 text-xs">Add weight above or patient can log from their portal</p>
+            </div>
+          )}
         </div>
 
         {/* Recent Entries */}

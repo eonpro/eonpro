@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { TrendingDown, TrendingUp, Scale, BarChart3 } from 'lucide-react';
 
 interface WeightProgressSummaryProps {
@@ -30,7 +31,8 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
     const fetchWeightData = async () => {
       try {
         const response = await fetch(
-          `/api/patient-progress/weight?patientId=${patientId}&limit=100`
+          `/api/patient-progress/weight?patientId=${patientId}&limit=100`,
+          { headers: getAuthHeaders(), credentials: 'include' }
         );
         if (response.ok) {
           const result = await response.json();
