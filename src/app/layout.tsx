@@ -1,5 +1,6 @@
 import "../styles/globals.css";
 import type { ReactNode } from "react";
+import type { Viewport } from "next";
 import { Suspense } from "react";
 import Script from "next/script";
 import ConditionalHeader from "@/components/ConditionalHeader";
@@ -21,6 +22,11 @@ import { outfitFont as sofiaPro } from "./fonts-fallback";
 // import { sofiaPro } from "./fonts"; // Uncomment when Sofia Pro files are added // Uncomment when Sofia Pro files are added
 
 export const metadata = { title: "EONPRO" };
+
+/** White browser chrome (status bar + URL bar) on mobile for patient portal and app. */
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   // Google Maps API key is optional - only needed for address autocomplete feature
