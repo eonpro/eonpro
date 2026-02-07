@@ -47,10 +47,13 @@ const defaultFeatures: PortalFeatures = {
 
 describe('Patient portal registry', () => {
   it('NAV_MODULES has expected length and ids', () => {
-    expect(NAV_MODULES.length).toBe(13);
+    expect(NAV_MODULES.length).toBe(16);
     const ids = NAV_MODULES.map((m) => m.id);
     expect(ids).toContain('home');
     expect(ids).toContain('appointments');
+    expect(ids).toContain('care-team');
+    expect(ids).toContain('health-score');
+    expect(ids).toContain('documents');
     expect(ids).toContain('progress');
     expect(ids).toContain('settings');
     expect(ids).toContain('medications');
@@ -66,19 +69,22 @@ describe('Patient portal registry', () => {
 });
 
 describe('getEnabledNavModuleIds', () => {
-  it('with default features returns all 13 nav modules', () => {
+  it('with default features returns all 16 nav modules', () => {
     const ids = getEnabledNavModuleIds(defaultFeatures);
-    expect(ids.length).toBe(13);
+    expect(ids.length).toBe(16);
     expect(ids).toContain('home');
     expect(ids).toContain('settings');
     expect(ids).toContain('progress');
     expect(ids).toContain('appointments');
+    expect(ids).toContain('care-team');
+    expect(ids).toContain('health-score');
+    expect(ids).toContain('documents');
   });
 
   it('with empty features uses defaultOn for flags', () => {
     const ids = getEnabledNavModuleIds({});
-    // All current modules have defaultOn: true; so we still get 13
-    expect(ids.length).toBe(13);
+    // All current modules have defaultOn: true; so we still get 16
+    expect(ids.length).toBe(16);
   });
 
   it('with showWeightTracking false hides progress only', () => {
@@ -86,13 +92,13 @@ describe('getEnabledNavModuleIds', () => {
     expect(ids).not.toContain('progress');
     expect(ids).toContain('home');
     expect(ids).toContain('appointments');
-    expect(ids.length).toBe(12);
+    expect(ids.length).toBe(15);
   });
 
   it('with showAppointments false hides appointments only', () => {
     const ids = getEnabledNavModuleIds({ ...defaultFeatures, showAppointments: false });
     expect(ids).not.toContain('appointments');
-    expect(ids.length).toBe(12);
+    expect(ids.length).toBe(15);
   });
 
   it('items with featureFlagKey null are always included', () => {
@@ -199,8 +205,15 @@ describe('Treatment presets', () => {
     expect(Object.keys(merged).length).toBeGreaterThan(2);
   });
 
-  it('getEnabledNavModuleIds with primaryTreatment is backward compatible when no treatmentTypes on modules', () => {
+  it('getEnabledNavModuleIds with primaryTreatment includes all modules for weight_loss (achievements has treatmentTypes)', () => {
     const ids = getEnabledNavModuleIds(defaultFeatures, 'weight_loss');
-    expect(ids.length).toBe(13);
+    expect(ids.length).toBe(16);
+    expect(ids).toContain('achievements');
+  });
+
+  it('getEnabledNavModuleIds with primaryTreatment sexual_health excludes achievements (treatmentTypes filter)', () => {
+    const ids = getEnabledNavModuleIds(defaultFeatures, 'sexual_health');
+    expect(ids).not.toContain('achievements');
+    expect(ids.length).toBe(15);
   });
 });

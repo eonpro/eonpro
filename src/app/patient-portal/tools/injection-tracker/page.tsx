@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import {
   ArrowLeft,
   Syringe,
@@ -113,7 +114,7 @@ export default function InjectionTrackerPage() {
       {/* Header */}
       <div className="mb-6">
         <Link
-          href="/patient-portal/calculators"
+          href={`${PATIENT_PORTAL_PATH}/calculators`}
           className="group mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
@@ -456,7 +457,7 @@ export default function InjectionTrackerPage() {
 
           {/* Link to Dose Calculator */}
           <Link
-            href="/patient-portal/calculators/semaglutide"
+            href={`${PATIENT_PORTAL_PATH}/calculators/semaglutide`}
             className="block rounded-2xl bg-white p-5 shadow-lg shadow-gray-100 transition-shadow hover:shadow-xl"
           >
             <div className="flex items-center gap-4">

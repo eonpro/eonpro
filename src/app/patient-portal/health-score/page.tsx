@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import Link from 'next/link';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 interface HealthMetric {
   id: string;
@@ -378,7 +379,7 @@ export default function HealthScorePage() {
       <div className="space-y-3">
         <h3 className="font-semibold text-gray-900">Improve Your Score</h3>
         <Link
-          href="/patient-portal/progress"
+          href={`${PATIENT_PORTAL_PATH}/progress`}
           className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm hover:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-3">
@@ -394,7 +395,7 @@ export default function HealthScorePage() {
         </Link>
 
         <Link
-          href="/patient-portal/achievements"
+          href={`${PATIENT_PORTAL_PATH}/achievements`}
           className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm hover:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-3">

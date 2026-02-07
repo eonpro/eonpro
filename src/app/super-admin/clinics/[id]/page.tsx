@@ -13,6 +13,13 @@ import {
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 import { CheckboxGroup } from '@/components/ui/Checkbox';
+import {
+  TREATMENT_PRESETS,
+  TREATMENT_PRESET_LABELS,
+  applyPresetToFeatures,
+} from '@/lib/patient-portal';
+import type { PortalTreatmentType } from '@/lib/patient-portal';
+import type { PortalFeatureFlagKey } from '@/lib/patient-portal';
 
 // Helper function to calculate text color based on background luminance
 function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string {
@@ -70,6 +77,75 @@ interface ClinicUser {
   status: string;
   createdAt: string;
   lastLogin?: string;
+}
+
+function PatientPortalPresetBlock({ clinicId }: { clinicId: number }) {
+  const [presetSelection, setPresetSelection] = useState<PortalTreatmentType>('weight_loss');
+  const [applying, setApplying] = useState(false);
+
+  const handleApplyPreset = async () => {
+    if (presetSelection === 'custom') return;
+    const preset = TREATMENT_PRESETS[presetSelection];
+    if (!preset || Object.keys(preset).length === 0) return;
+    setApplying(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const getRes = await fetch(`/api/patient-portal/branding?clinicId=${clinicId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const current = getRes.ok ? (await getRes.json()).features ?? {} : {};
+      const merged = applyPresetToFeatures(current as Record<PortalFeatureFlagKey, boolean>, preset);
+      const putRes = await fetch('/api/patient-portal/branding', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ clinicId, features: merged }),
+      });
+      if (putRes.ok) alert('Patient portal preset applied. Patients will see the updated features.');
+      else alert((await putRes.json()).error || 'Failed to apply preset');
+    } catch (e) {
+      alert('Failed to apply preset');
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl p-6 border border-gray-200">
+      <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+        <Zap className="h-5 w-5 text-teal-600" />
+        Patient portal features
+      </h3>
+      <p className="text-sm text-gray-500 mb-4">
+        Apply a treatment-based preset to set which tabs and tools patients see. For full control, use Admin portal settings.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <select
+          value={presetSelection}
+          onChange={(e) => setPresetSelection(e.target.value as PortalTreatmentType)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+        >
+          {(Object.keys(TREATMENT_PRESET_LABELS) as PortalTreatmentType[]).map((key) => (
+            <option key={key} value={key}>{TREATMENT_PRESET_LABELS[key]}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={handleApplyPreset}
+          disabled={presetSelection === 'custom' || applying}
+          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+        >
+          {applying ? 'Applying…' : 'Apply preset'}
+        </button>
+        <Link
+          href={`/admin/clinics/${clinicId}/portal-settings`}
+          className="inline-flex items-center gap-1 text-sm text-teal-600 hover:underline"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Configure all toggles in Admin
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 export default function ClinicDetailPage() {
@@ -1382,6 +1458,9 @@ export default function ClinicDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Patient portal preset — apply treatment-based feature set */}
+            <PatientPortalPresetBlock clinicId={parseInt(clinicId as string)} />
 
             {/* Live Preview */}
             <div className="bg-white rounded-xl p-6 border border-gray-200">

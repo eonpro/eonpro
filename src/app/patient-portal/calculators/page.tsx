@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import {
   Activity,
   Flame,
@@ -15,67 +16,13 @@ import {
   Utensils,
 } from 'lucide-react';
 
-const calculators = [
-  {
-    id: 'bmi',
-    title: 'BMI Calculator',
-    description: 'Calculate your Body Mass Index',
-    icon: Activity,
-    color: '#8B5CF6',
-    bgColor: '#8B5CF615',
-    feature: 'showBMICalculator',
-    href: '/patient-portal/calculators/bmi',
-  },
-  {
-    id: 'calories',
-    title: 'Calorie Calculator',
-    description: 'Find your daily calorie needs',
-    icon: Flame,
-    color: '#F59E0B',
-    bgColor: '#F59E0B15',
-    feature: 'showCalorieCalculator',
-    href: '/patient-portal/calculators/calories',
-  },
-  {
-    id: 'macros',
-    title: 'Macro Calculator',
-    description: 'Calculate protein, carbs & fat targets',
-    icon: Target,
-    color: '#EF4444',
-    bgColor: '#EF444415',
-    feature: 'showCalorieCalculator',
-    href: '/patient-portal/calculators/macros',
-  },
-  {
-    id: 'semaglutide',
-    title: 'Semaglutide Dose',
-    description: 'Convert units to mg for your injection',
-    icon: Syringe,
-    color: '#10B981',
-    bgColor: '#10B98115',
-    feature: 'showDoseCalculator',
-    href: '/patient-portal/calculators/semaglutide',
-  },
-  {
-    id: 'tirzepatide',
-    title: 'Tirzepatide Dose',
-    description: 'Calculate your Tirzepatide dose',
-    icon: Syringe,
-    color: '#3B82F6',
-    bgColor: '#3B82F615',
-    feature: 'showDoseCalculator',
-    href: '/patient-portal/calculators/tirzepatide',
-  },
-  {
-    id: 'injection-tracker',
-    title: 'Injection Site Tracker',
-    description: 'Track and rotate your injection sites',
-    icon: MapPin,
-    color: '#14B8A6',
-    bgColor: '#14B8A615',
-    feature: 'showDoseCalculator',
-    href: '/patient-portal/tools/injection-tracker',
-  },
+const getCalculators = () => [
+  { id: 'bmi', title: 'BMI Calculator', description: 'Calculate your Body Mass Index', icon: Activity, color: '#8B5CF6', bgColor: '#8B5CF615', feature: 'showBMICalculator' as const, href: `${PATIENT_PORTAL_PATH}/calculators/bmi` },
+  { id: 'calories', title: 'Calorie Calculator', description: 'Find your daily calorie needs', icon: Flame, color: '#F59E0B', bgColor: '#F59E0B15', feature: 'showCalorieCalculator' as const, href: `${PATIENT_PORTAL_PATH}/calculators/calories` },
+  { id: 'macros', title: 'Macro Calculator', description: 'Calculate protein, carbs & fat targets', icon: Target, color: '#EF4444', bgColor: '#EF444415', feature: 'showCalorieCalculator' as const, href: `${PATIENT_PORTAL_PATH}/calculators/macros` },
+  { id: 'semaglutide', title: 'Semaglutide Dose', description: 'Convert units to mg for your injection', icon: Syringe, color: '#10B981', bgColor: '#10B98115', feature: 'showDoseCalculator' as const, href: `${PATIENT_PORTAL_PATH}/calculators/semaglutide` },
+  { id: 'tirzepatide', title: 'Tirzepatide Dose', description: 'Calculate your Tirzepatide dose', icon: Syringe, color: '#3B82F6', bgColor: '#3B82F615', feature: 'showDoseCalculator' as const, href: `${PATIENT_PORTAL_PATH}/calculators/tirzepatide` },
+  { id: 'injection-tracker', title: 'Injection Site Tracker', description: 'Track and rotate your injection sites', icon: MapPin, color: '#14B8A6', bgColor: '#14B8A615', feature: 'showDoseCalculator' as const, href: `${PATIENT_PORTAL_PATH}/tools/injection-tracker` },
 ];
 
 export default function CalculatorsPage() {
@@ -83,7 +30,7 @@ export default function CalculatorsPage() {
   const features = usePortalFeatures();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
-  // Filter calculators based on features
+  const calculators = getCalculators();
   const availableCalculators = calculators.filter((calc) => {
     if (calc.feature === 'showBMICalculator') return features.showBMICalculator;
     if (calc.feature === 'showCalorieCalculator') return features.showCalorieCalculator;
@@ -146,7 +93,7 @@ export default function CalculatorsPage() {
       {/* Quick Links */}
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <Link
-          href="/patient-portal/progress"
+          href={`${PATIENT_PORTAL_PATH}/progress`}
           className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300"
         >
           <Scale className="h-5 w-5 text-gray-400" />
@@ -154,7 +101,7 @@ export default function CalculatorsPage() {
           <ChevronRight className="ml-auto h-4 w-4 text-gray-300" />
         </Link>
         <Link
-          href="/patient-portal/dietary/meal-planner"
+          href={`${PATIENT_PORTAL_PATH}/dietary/meal-planner`}
           className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300"
         >
           <Utensils className="h-5 w-5 text-gray-400" />
@@ -162,7 +109,7 @@ export default function CalculatorsPage() {
           <ChevronRight className="ml-auto h-4 w-4 text-gray-300" />
         </Link>
         <Link
-          href="/patient-portal/medications"
+          href={`${PATIENT_PORTAL_PATH}/medications`}
           className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300"
         >
           <Heart className="h-5 w-5 text-gray-400" />

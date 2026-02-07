@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { ArrowLeft, AlertTriangle, Syringe, Droplets, Check, ChevronRight } from 'lucide-react';
 
 const concentrations = [
@@ -51,7 +52,7 @@ export default function SemaglutideDoseCalculatorPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          href="/patient-portal/calculators"
+          href={`${PATIENT_PORTAL_PATH}/calculators`}
           className="group mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
@@ -383,7 +384,7 @@ export default function SemaglutideDoseCalculatorPage() {
 
           {/* Injection Tracker Link */}
           <Link
-            href="/patient-portal/tools/injection-tracker"
+            href={`${PATIENT_PORTAL_PATH}/tools/injection-tracker`}
             className="block overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50 transition-shadow hover:shadow-2xl"
           >
             <div className="flex items-center gap-4 p-6">

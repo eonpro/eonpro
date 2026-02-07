@@ -4,21 +4,27 @@
  * Layout and progress page consume this; admin UI uses it to show all toggles.
  */
 
-import type { PortalNavModule, ProgressTrackingModule } from './types';
+import type { PortalNavModule, ProgressTrackingModule, PortalTreatmentType } from './types';
+
+/** Treatment types that show achievements (streaks, milestones); empty = all treatments */
+const ACHIEVEMENTS_TREATMENTS: PortalTreatmentType[] = ['weight_loss', 'general_wellness', 'mens_health', 'womens_health', 'anti_aging'];
 
 /** Base path is applied by consumer (PATIENT_PORTAL_PATH from config) */
 export const NAV_MODULES: readonly PortalNavModule[] = [
   { id: 'home', pathSuffix: '', labelKey: 'navHome', featureFlagKey: null, navSlot: 'both', exact: true, defaultOn: true },
   { id: 'appointments', pathSuffix: '/appointments', labelKey: 'navAppointments', featureFlagKey: 'showAppointments', navSlot: 'both', defaultOn: true },
   { id: 'care-plan', pathSuffix: '/care-plan', labelKey: 'navCarePlan', featureFlagKey: 'showCarePlan', navSlot: 'main', defaultOn: true },
+  { id: 'care-team', pathSuffix: '/care-team', labelKey: 'navCareTeam', featureFlagKey: 'showCareTeam', navSlot: 'main', defaultOn: true },
+  { id: 'health-score', pathSuffix: '/health-score', labelKey: 'navHealthScore', featureFlagKey: 'showHealthScore', navSlot: 'main', defaultOn: true },
   { id: 'progress', pathSuffix: '/progress', labelKey: 'navProgress', featureFlagKey: 'showWeightTracking', navSlot: 'both', defaultOn: true },
   { id: 'photos', pathSuffix: '/photos', labelKey: 'navPhotos', featureFlagKey: null, navSlot: 'main', defaultOn: true },
-  { id: 'achievements', pathSuffix: '/achievements', labelKey: 'navAchievements', featureFlagKey: 'showAchievements', navSlot: 'main', defaultOn: true },
+  { id: 'achievements', pathSuffix: '/achievements', labelKey: 'navAchievements', featureFlagKey: 'showAchievements', navSlot: 'main', defaultOn: true, treatmentTypes: ACHIEVEMENTS_TREATMENTS },
   { id: 'medications', pathSuffix: '/medications', labelKey: 'navMedications', featureFlagKey: null, navSlot: 'both', defaultOn: true },
   { id: 'shipments', pathSuffix: '/shipments', labelKey: 'navShipments', featureFlagKey: 'showShipmentTracking', navSlot: 'main', defaultOn: true },
   { id: 'symptom-checker', pathSuffix: '/symptom-checker', labelKey: 'navSymptomChecker', featureFlagKey: 'showSymptomChecker', navSlot: 'main', defaultOn: true },
   { id: 'calculators', pathSuffix: '/calculators', labelKey: 'navTools', featureFlagKey: null, navSlot: 'main', defaultOn: true },
   { id: 'resources', pathSuffix: '/resources', labelKey: 'navResources', featureFlagKey: 'showResources', navSlot: 'main', defaultOn: true },
+  { id: 'documents', pathSuffix: '/documents', labelKey: 'navDocuments', featureFlagKey: 'showLabResults', navSlot: 'main', defaultOn: true },
   { id: 'billing', pathSuffix: '/subscription', labelKey: 'navBilling', featureFlagKey: 'showBilling', navSlot: 'main', defaultOn: true },
   { id: 'settings', pathSuffix: '/settings', labelKey: 'navSettings', featureFlagKey: null, navSlot: 'both', defaultOn: true },
 ] as const;

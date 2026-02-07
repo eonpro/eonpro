@@ -11,20 +11,21 @@ import {
   Star,
   Calendar,
 } from 'lucide-react';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 export default function CareTeamPage() {
   const router = useRouter();
 
   // Navigation handlers
-  const handleChat = () => router.push('/patient-portal/chat');
+  const handleChat = () => router.push(`${PATIENT_PORTAL_PATH}/chat`);
   const handleCall = () => {
     // For phone calls, we could integrate with Twilio or show clinic phone
     alert('Phone support: Please call (800) 555-0123 to speak with our care team.');
   };
-  const handleVideo = () => router.push('/patient-portal/appointments?type=video');
-  const handleMessage = (providerId: number) => router.push(`/patient-portal/chat?provider=${providerId}`);
-  const handleBookAppointment = (providerId: number) => router.push(`/patient-portal/appointments?provider=${providerId}`);
-  const handleContactConcierge = () => router.push('/patient-portal/chat?concierge=true');
+  const handleVideo = () => router.push(`${PATIENT_PORTAL_PATH}/appointments?type=video`);
+  const handleMessage = (providerId: number) => router.push(`${PATIENT_PORTAL_PATH}/chat?provider=${providerId}`);
+  const handleBookAppointment = (providerId: number) => router.push(`${PATIENT_PORTAL_PATH}/appointments?provider=${providerId}`);
+  const handleContactConcierge = () => router.push(`${PATIENT_PORTAL_PATH}/chat?concierge=true`);
   const careTeam = [
     {
       id: 1,
@@ -74,7 +75,7 @@ export default function CareTeamPage() {
       <div className="sticky top-0 z-10 border-b bg-white">
         <div className="mx-auto max-w-2xl px-4 py-3">
           <div className="flex items-center gap-3">
-            <Link href="/patient-portal" className="rounded-lg p-2 hover:bg-gray-100">
+            <Link href={PATIENT_PORTAL_PATH} className="rounded-lg p-2 hover:bg-gray-100">
               <ChevronLeft className="h-5 w-5" />
             </Link>
             <h1 className="text-lg font-semibold">My Care Team</h1>

@@ -48,6 +48,8 @@ const NAV_ICON_MAP: Record<string, LucideIcon> = {
   home: Home,
   appointments: Calendar,
   'care-plan': HeartPulse,
+  'care-team': MessageCircle,
+  'health-score': Activity,
   progress: Scale,
   photos: Camera,
   achievements: Trophy,
@@ -56,6 +58,7 @@ const NAV_ICON_MAP: Record<string, LucideIcon> = {
   'symptom-checker': Activity,
   calculators: Calculator,
   resources: BookOpen,
+  documents: BookOpen,
   billing: CreditCard,
   settings: Settings,
 };
@@ -350,8 +353,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       <main
         className={`flex-1 transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
-        {/* Content padding accounts for header and bottom nav on mobile */}
-        <div className="min-h-[100dvh] pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0">
+        {/* Content padding accounts for header and bottom nav on mobile; no horizontal overflow */}
+        <div className="min-h-[100dvh] w-full min-w-0 overflow-x-hidden pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0">
           {children}
         </div>
       </main>

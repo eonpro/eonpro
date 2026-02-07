@@ -39,13 +39,13 @@ interface WeightLog {
 
 type TabType = 'weight' | 'water' | 'exercise' | 'sleep' | 'nutrition';
 
-/** Tab display metadata (label/icon); visibility driven by registry + clinic features */
-const TAB_META: Record<TabType, { label: string; icon: typeof Scale }> = {
-  weight: { label: 'Weight', icon: Scale },
-  water: { label: 'Water', icon: Droplets },
-  exercise: { label: 'Exercise', icon: Footprints },
-  sleep: { label: 'Sleep', icon: Moon },
-  nutrition: { label: 'Nutrition', icon: Utensils },
+/** Tab display metadata (labelKey/icon); visibility driven by registry + clinic features */
+const TAB_META: Record<TabType, { labelKey: string; icon: typeof Scale }> = {
+  weight: { labelKey: 'progressTabWeight', icon: Scale },
+  water: { labelKey: 'progressTabWater', icon: Droplets },
+  exercise: { labelKey: 'progressTabExercise', icon: Footprints },
+  sleep: { labelKey: 'progressTabSleep', icon: Moon },
+  nutrition: { labelKey: 'progressTabNutrition', icon: Utensils },
 };
 
 const exerciseTypes = [
@@ -388,7 +388,7 @@ export default function ProgressPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] px-4 py-4 pb-28 max-w-2xl mx-auto safe-left safe-right md:pb-6">
+    <div className="min-h-[100dvh] w-full max-w-2xl mx-auto px-4 py-4 pb-36 safe-left safe-right md:pb-6">
       {/* Success Toast - below status bar on mobile */}
       {showSuccess && (
         <div
@@ -425,7 +425,7 @@ export default function ProgressPage() {
                 }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
-                <span className="text-sm whitespace-nowrap">{tab.label}</span>
+                <span className="text-sm whitespace-nowrap">{t(tab.labelKey)}</span>
               </button>
             );
           })}
@@ -470,13 +470,14 @@ export default function ProgressPage() {
             </div>
           </div>
 
-          {/* Weight Tracker - mobile-optimized inside component */}
+          {/* Weight Tracker - mobile-optimized, uses portal i18n */}
           <WeightTracker
             patientId={patientId || undefined}
             variant="hims"
             accentColor={accentColor}
             showBMI={true}
             onWeightSaved={fetchData}
+            usePortalI18n
           />
 
           {/* Progress Photos Link - compact touch target */}

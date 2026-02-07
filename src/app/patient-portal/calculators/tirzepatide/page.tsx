@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { ArrowLeft, Info, AlertTriangle, Syringe, ChevronRight, Check } from 'lucide-react';
 
 // Tirzepatide concentration options (compounded)
@@ -53,7 +54,7 @@ export default function TirzepatideDoseCalculatorPage() {
       {/* Header */}
       <div className="mb-6">
         <Link
-          href="/patient-portal/calculators"
+          href={`${PATIENT_PORTAL_PATH}/calculators`}
           className="mb-2 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -343,7 +344,7 @@ export default function TirzepatideDoseCalculatorPage() {
 
           {/* Injection Tracker Link */}
           <Link
-            href="/patient-portal/tools/injection-tracker"
+            href={`${PATIENT_PORTAL_PATH}/tools/injection-tracker`}
             className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
           >
             <div className="flex items-center gap-4">

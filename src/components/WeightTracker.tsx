@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { logger } from '../lib/logger';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
+import { getPatientPortalTranslation } from '@/lib/i18n/patient-portal';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -44,10 +46,19 @@ interface WeightTrackerProps {
   showBMI?: boolean;
   heightInches?: number;
   onWeightSaved?: () => void;
+  /** When true, use patient portal i18n (usePatientPortalLanguage) for all labels */
+  usePortalI18n?: boolean;
 }
 
 const calculateBMI = (weightLbs: number, heightInches: number): number => {
   return (weightLbs / (heightInches * heightInches)) * 703;
+};
+
+const getBMICategoryKey = (bmi: number): string => {
+  if (bmi < 18.5) return 'weightTrackerBMIUnderweight';
+  if (bmi < 25) return 'weightTrackerBMIHealthy';
+  if (bmi < 30) return 'weightTrackerBMIOverweight';
+  return 'weightTrackerBMIObese';
 };
 
 const getBMICategory = (bmi: number): { label: string; color: string; bgColor: string } => {
@@ -65,7 +76,10 @@ export default function WeightTracker({
   showBMI = true,
   heightInches = 70,
   onWeightSaved,
+  usePortalI18n = false,
 }: WeightTrackerProps) {
+  const { t: tPortal } = usePatientPortalLanguage();
+  const t = usePortalI18n ? tPortal : (key: string) => getPatientPortalTranslation('en', key);
   const [currentWeight, setCurrentWeight] = useState('');
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -316,7 +330,7 @@ export default function WeightTracker({
           <div className="mb-0.5 flex items-center gap-2 sm:mb-1">
             <Scale className="h-3.5 w-3.5 text-gray-700/60 sm:h-4 sm:w-4" />
             <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-700/60 sm:text-xs">
-              Current Weight
+              {t('weightTrackerCurrentWeight')}
             </span>
           </div>
 
@@ -325,7 +339,7 @@ export default function WeightTracker({
               <span className="text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl md:text-7xl">
                 {latestWeight || '---'}
               </span>
-              <span className="mb-1 text-lg font-medium text-gray-700/70 sm:mb-2 sm:text-2xl">lbs</span>
+              <span className="mb-1 text-lg font-medium text-gray-700/70 sm:mb-2 sm:text-2xl">{t('weightTrackerLbs')}</span>
             </div>
 
             {weightChange !== 0 && (
@@ -342,7 +356,7 @@ export default function WeightTracker({
                 <span
                   className={`text-sm font-semibold sm:text-lg ${weightChange < 0 ? 'text-emerald-700' : 'text-rose-700'}`}
                 >
-                  {Math.abs(weightChange).toFixed(1)} lbs
+                  {Math.abs(weightChange).toFixed(1)} {t('weightTrackerLbs')}
                 </span>
               </div>
             )}
@@ -363,7 +377,7 @@ export default function WeightTracker({
                   style={{ backgroundColor: bmiCategory.color }}
                 />
                 <span className="text-xs font-semibold sm:text-sm" style={{ color: bmiCategory.color }}>
-                  {bmiCategory.label}
+                  {usePortalI18n ? t(getBMICategoryKey(currentBMI)) : bmiCategory.label}
                 </span>
               </div>
             </div>
@@ -375,7 +389,7 @@ export default function WeightTracker({
       <div className="border-b border-gray-100 p-4 sm:p-5 md:p-8">
         <div className="mb-3 flex items-center gap-2 sm:mb-4">
           <Sparkles className="h-3.5 w-3.5 text-gray-400 sm:h-4 sm:w-4" />
-          <span className="text-xs font-semibold text-gray-500 sm:text-sm">Log Today's Weight</span>
+          <span className="text-xs font-semibold text-gray-500 sm:text-sm">{t('weightTrackerLogToday')}</span>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
@@ -391,14 +405,14 @@ export default function WeightTracker({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               onKeyDown={(e) => e.key === 'Enter' && handleWeightSubmit()}
-              placeholder="Enter weight"
+              placeholder={t('weightTrackerEnterWeight')}
               className={`w-full min-h-[48px] rounded-xl border-2 bg-gray-50 px-4 py-3 text-lg font-semibold text-gray-900 outline-none transition-all placeholder:font-normal placeholder:text-gray-400 sm:min-h-0 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-xl md:px-6 md:py-5 ${
                 isFocused ? 'border-gray-900 bg-white shadow-lg' : 'border-transparent'
               }`}
               style={{ fontSize: '16px' }} /* Prevent iOS zoom on focus */
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 sm:right-5 sm:text-base md:right-6 md:text-lg">
-              lbs
+              {t('weightTrackerLbs')}
             </span>
           </div>
 
@@ -412,15 +426,15 @@ export default function WeightTracker({
             {isLoading ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-900 border-t-transparent" />
-                <span className="relative">Saving...</span>
+                <span className="relative">{t('weightTrackerSaving')}</span>
               </div>
             ) : showSuccess ? (
               <div className="flex items-center justify-center gap-2">
                 <Check className="h-5 w-5" />
-                <span className="relative">Saved!</span>
+                <span className="relative">{t('weightTrackerSaved')}</span>
               </div>
             ) : (
-              <span className="relative">Log Weight</span>
+              <span className="relative">{t('weightTrackerLogWeight')}</span>
             )}
           </button>
           {saveError && (
@@ -433,8 +447,8 @@ export default function WeightTracker({
       <div className="p-4 sm:p-6 md:p-8">
         <div className="mb-3 flex items-center justify-between sm:mb-6">
           <div>
-            <h3 className="text-base font-semibold text-gray-900 sm:text-xl">Your Progress</h3>
-            <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">Last 7 check-ins</p>
+            <h3 className="text-base font-semibold text-gray-900 sm:text-xl">{t('weightTrackerYourProgress')}</h3>
+            <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">{t('weightTrackerLast7')}</p>
           </div>
           {percentChange > 0 && weightChange !== 0 && (
             <div className="text-right">
@@ -444,19 +458,19 @@ export default function WeightTracker({
                 {weightChange < 0 ? '-' : '+'}
                 {percentChange.toFixed(1)}%
               </span>
-              <p className="text-[10px] text-gray-500 sm:text-xs">since start</p>
+              <p className="text-[10px] text-gray-500 sm:text-xs">{t('weightTrackerSinceStart')}</p>
             </div>
           )}
         </div>
 
-        <div className="h-52 sm:h-64 md:h-72">
+        <div className="h-48 sm:h-56 md:h-64 lg:h-72">
           {chartData.length > 0 ? (
             <Line data={data} options={chartOptions} />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 sm:rounded-2xl">
+            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-4 sm:rounded-2xl">
               <Scale className="mb-2 h-10 w-10 text-gray-300 sm:mb-3 sm:h-12 sm:w-12" />
-              <p className="text-sm font-semibold text-gray-400 sm:text-base">No data yet</p>
-              <p className="mt-0.5 text-xs text-gray-400 sm:mt-1 sm:text-sm">Log your first weight to see progress</p>
+              <p className="text-sm font-semibold text-gray-400 sm:text-base">{t('weightTrackerNoDataYet')}</p>
+              <p className="mt-0.5 text-center text-xs text-gray-400 sm:mt-1 sm:text-sm">{t('weightTrackerLogFirstWeight')}</p>
             </div>
           )}
         </div>
@@ -466,27 +480,27 @@ export default function WeightTracker({
       {sortedData.length > 1 && (
         <div className="grid grid-cols-2 gap-px border-t border-gray-100 bg-gray-100 sm:grid-cols-4 sm:divide-x sm:divide-gray-100 sm:gap-0">
           {[
-            { label: 'Starting', value: `${startingWeight}`, unit: 'lbs', color: 'text-gray-600' },
-            { label: 'Current', value: `${latestWeight}`, unit: 'lbs', color: 'text-gray-900' },
+            { labelKey: 'weightTrackerStatStarting', value: `${startingWeight}`, unitKey: 'weightTrackerLbs', color: 'text-gray-600' },
+            { labelKey: 'weightTrackerStatCurrent', value: `${latestWeight}`, unitKey: 'weightTrackerLbs', color: 'text-gray-900' },
             {
-              label: 'Change',
+              labelKey: 'weightTrackerStatChange',
               value: `${weightChange > 0 ? '+' : ''}${weightChange.toFixed(1)}`,
-              unit: 'lbs',
+              unitKey: 'weightTrackerLbs',
               color: weightChange < 0 ? 'text-emerald-600' : 'text-rose-600',
             },
             {
-              label: 'Check-ins',
+              labelKey: 'weightTrackerStatCheckins',
               value: `${weightData.length}`,
-              unit: 'total',
+              unitKey: 'weightTrackerStatTotal',
               color: 'text-gray-900',
             },
           ].map((stat, i) => (
             <div key={i} className="bg-gray-50/50 px-3 py-3 text-center sm:px-6 sm:py-5">
               <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:mb-1 sm:text-xs">
-                {stat.label}
+                {t(stat.labelKey)}
               </p>
               <p className={`text-lg font-semibold sm:text-2xl ${stat.color}`}>{stat.value}</p>
-              <p className="text-[10px] text-gray-400 sm:text-xs">{stat.unit}</p>
+              <p className="text-[10px] text-gray-400 sm:text-xs">{t(stat.unitKey)}</p>
             </div>
           ))}
         </div>

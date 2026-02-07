@@ -6,6 +6,7 @@ import { logger } from '../../../lib/logger';
 import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 interface Document {
   id: number;
@@ -32,7 +33,7 @@ export default function PatientPortalDocuments() {
   useEffect(() => {
     const storedPatientId = localStorage.getItem('patientId');
     if (!storedPatientId) {
-      router.push('/patient-portal');
+      router.push(PATIENT_PORTAL_PATH);
       return;
     }
     setPatientId(parseInt(storedPatientId));
@@ -276,7 +277,7 @@ export default function PatientPortalDocuments() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center">
-              <Link href="/patient-portal" className="mr-4">
+              <Link href={PATIENT_PORTAL_PATH} className="mr-4">
                 <ArrowLeft className="h-5 w-5 text-gray-600 hover:text-gray-900" />
               </Link>
               <h1 className="text-xl font-semibold text-gray-900">My Documents</h1>

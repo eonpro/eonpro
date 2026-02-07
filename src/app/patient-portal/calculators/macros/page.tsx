@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { ArrowLeft, Info, Target, Beef, Wheat, Droplet, Check, Utensils } from 'lucide-react';
 import {
   calculateMacros,
@@ -51,7 +52,7 @@ export default function MacroCalculatorPage() {
       {/* Header */}
       <div className="mb-6">
         <Link
-          href="/patient-portal/calculators"
+          href={`${PATIENT_PORTAL_PATH}/calculators`}
           className="group mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
@@ -87,7 +88,7 @@ export default function MacroCalculatorPage() {
             <p className="mt-3 text-center text-sm text-gray-500">
               Use our{' '}
               <Link
-                href="/patient-portal/calculators/calories"
+                href={`${PATIENT_PORTAL_PATH}/calculators/calories`}
                 className="font-medium underline"
                 style={{ color: primaryColor }}
               >

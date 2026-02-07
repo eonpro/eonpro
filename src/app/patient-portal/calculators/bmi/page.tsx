@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { ArrowLeft, Info, Target, TrendingDown, Sparkles } from 'lucide-react';
 
 interface BMICategory {
@@ -106,7 +107,7 @@ export default function BMICalculatorPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          href="/patient-portal/calculators"
+          href={`${PATIENT_PORTAL_PATH}/calculators`}
           className="group mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
