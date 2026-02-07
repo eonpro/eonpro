@@ -347,8 +347,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           </div>
         )}
 
-        {/* Chart Container - same data source as patient portal; no CDN/iframe (CSP-safe) */}
-        <div className="relative h-64 overflow-hidden rounded-lg bg-black/90 p-4">
+        {/* Chart Container - matches platform UI (light background, green accent) */}
+        <div className="relative h-64 overflow-hidden rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
           {weightData.length > 0 ? (
             <div className="h-full w-full">
               <Line
@@ -357,12 +357,14 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                   datasets: [
                     {
                       data: weightData.map((d) => d.weight),
-                      borderColor: '#d3f931',
-                      pointBackgroundColor: '#d3f931',
+                      borderColor: '#16a34a',
+                      pointBackgroundColor: '#16a34a',
+                      pointBorderColor: '#fff',
+                      pointBorderWidth: 2,
                       pointRadius: 6,
                       fill: true,
                       tension: 0.4,
-                      backgroundColor: 'rgba(211, 249, 49, 0.2)',
+                      backgroundColor: 'rgba(22, 163, 74, 0.12)',
                     },
                   ],
                 }}
@@ -372,22 +374,22 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                   plugins: { legend: { display: false } },
                   scales: {
                     x: {
-                      title: { display: true, text: 'Date', color: '#fff' },
-                      ticks: { color: '#fff' },
-                      grid: { color: 'rgba(255,255,255,0.1)' },
+                      title: { display: true, text: 'Date', color: '#374151' },
+                      ticks: { color: '#6b7280' },
+                      grid: { color: '#e5e7eb' },
                     },
                     y: {
-                      title: { display: true, text: 'Weight (lbs)', color: '#fff' },
-                      ticks: { color: '#fff' },
-                      grid: { color: 'rgba(255,255,255,0.1)' },
+                      title: { display: true, text: 'Weight (lbs)', color: '#374151' },
+                      ticks: { color: '#6b7280' },
+                      grid: { color: '#e5e7eb' },
                     },
                   },
                 } as ChartOptions<'line'>}
               />
             </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center text-white/70">
-              <Scale className="mb-2 h-10 w-10" />
+            <div className="flex h-full flex-col items-center justify-center text-gray-500">
+              <Scale className="mb-2 h-10 w-10 text-gray-400" />
               <p className="text-sm font-medium">No weight data yet</p>
               <p className="mt-1 text-xs">Add weight above or patient can log from their portal</p>
             </div>
