@@ -37,11 +37,11 @@ interface PatientSidebarProps {
 
 const navItems = [
   { id: 'profile', label: 'Profile', icon: 'Pp' },
+  { id: 'lab', label: 'Labs', icon: 'Lb' },
   { id: 'intake', label: 'Intake', icon: 'Pi' },
   { id: 'prescriptions', label: 'Prescriptions', icon: 'Rx' },
   { id: 'soap-notes', label: 'Soap Notes', icon: 'Sn' },
   { id: 'progress', label: 'Progress', icon: 'Ps' },
-  { id: 'lab', label: 'Lab', icon: 'Lb' },
   { id: 'photos', label: 'Photos', icon: 'Ph' },
   { id: 'billing', label: 'Invoices', icon: '$' },
   { id: 'chat', label: 'Chat', icon: 'Ch' },

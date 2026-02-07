@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import { Upload, FileText, Trash2, Download, Eye, Image, File, FileType } from "lucide-react";
 import { logger } from '@/lib/logger';
 
@@ -35,14 +36,10 @@ export default function PatientDocumentsView({
     const fetchDocuments = async () => {
       try {
         setIsLoading(true);
-        // Get the auth token from localStorage (set by demo login)
-        const token = localStorage.getItem('auth-token') || '';
-        
+        const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
         const response = await fetch(`/api/patients/${patientId}/documents`, {
           credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          }
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         
         if (response.ok) {
@@ -126,15 +123,11 @@ export default function PatientDocumentsView({
         });
       }, 200);
 
-      // Get the auth token from localStorage
-      const token = localStorage.getItem('auth-token') || '';
-      
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
       const response = await fetch(`/api/patients/${patientId}/documents`, {
         method: "POST",
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
@@ -144,24 +137,22 @@ export default function PatientDocumentsView({
       if (response.ok) {
         const newDocuments = await response.json();
         setDocuments([...documents, ...newDocuments]);
-        
-        // Reset after successful upload
         setTimeout(() => {
           setIsUploading(false);
           setUploadProgress(0);
         }, 500);
       } else {
-        throw new Error("Upload failed");
+        const data = await response.json().catch(() => ({}));
+        const msg = data?.error || `Upload failed (${response.status})`;
+        throw new Error(msg);
       }
     } catch (error: any) {
-      // Always clear the interval on error
       if (progressInterval) clearInterval(progressInterval);
-    // @ts-ignore
-   
       logger.error("Upload error:", error);
       setIsUploading(false);
       setUploadProgress(0);
-      alert("Failed to upload documents. Please try again.");
+      const message = error instanceof Error ? error.message : "Failed to upload documents. Please try again.";
+      alert(message + (message.includes("Lab tab") ? "" : "\n\nFor lab results (Quest PDFs), use the Lab tab in this patient profile."));
     }
   };
 
@@ -171,15 +162,11 @@ export default function PatientDocumentsView({
     }
 
     try {
-      // Get the auth token from localStorage
-      const token = localStorage.getItem('auth-token') || '';
-      
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
       const response = await fetch(`/api/patients/${patientId}/documents/${documentId}`, {
         method: "DELETE",
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (response.ok) {
@@ -197,15 +184,10 @@ export default function PatientDocumentsView({
 
   const handleView = async (doc: Document) => {
     try {
-      // Get the auth token from localStorage
-      const token = localStorage.getItem('auth-token') || '';
-      
-      // Fetch the document with authentication
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
       const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}`, {
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       
       if (response.ok) {
@@ -227,14 +209,10 @@ export default function PatientDocumentsView({
 
   const handleDownload = async (doc: Document) => {
     try {
-      // Get the auth token from localStorage
-      const token = localStorage.getItem('auth-token') || '';
-      
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
       const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}/download`, {
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (response.ok) {
         const blob = await response.blob();
@@ -272,6 +250,9 @@ export default function PatientDocumentsView({
 
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <strong>Lab results (Quest PDFs):</strong> Use the <Link href={`/patients/${patientId}?tab=lab`} className="underline font-medium">Labs</Link> tab to upload and view parsed bloodwork. This tab is for other documents (insurance, consent forms, etc.).
+      </div>
       {/* Upload Section */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">Upload Documents</h2>
