@@ -8,7 +8,7 @@ import { logger } from '@/lib/logger';
  *
  * Test endpoint to verify all patient progress database operations work correctly.
  * Returns a comprehensive report of what data exists and can be retrieved.
- * 
+ *
  * RESTRICTED: Only available to super_admin and admin roles
  */
 const getHandler = withAuth(async (request: NextRequest, user) => {
@@ -223,18 +223,19 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     // Final status
     results.overallStatus = results.summary.failed === 0 ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED';
 
-    logger.info('Patient progress test completed', { userId: user.id, passed: results.summary.passed, failed: results.summary.failed });
-    
+    logger.info('Patient progress test completed', {
+      userId: user.id,
+      passed: results.summary.passed,
+      failed: results.summary.failed,
+    });
+
     return NextResponse.json(results, {
       status: results.summary.failed > 0 ? 500 : 200,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Test endpoint failed', { error: errorMessage, userId: user.id });
-    return NextResponse.json(
-      { error: 'Test endpoint failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Test endpoint failed' }, { status: 500 });
   }
 });
 
@@ -322,7 +323,9 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
           createdCount++;
         } catch (error: unknown) {
           // Skip if already exists (unique constraint)
-          logger.warn('[PATIENT-PROGRESS-TEST] Reminder creation skipped (duplicate)', { error: error instanceof Error ? error.message : 'Unknown error' });
+          logger.warn('[PATIENT-PROGRESS-TEST] Reminder creation skipped (duplicate)', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
         }
       }
 
@@ -330,7 +333,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     }
 
     logger.info('Test data created', { userId: user.id, patientId: pid });
-    
+
     return NextResponse.json({
       success: true,
       message: 'Test data created',
@@ -339,10 +342,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to create test data', { error: errorMessage, userId: user.id });
-    return NextResponse.json(
-      { error: 'Failed to create test data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create test data' }, { status: 500 });
   }
 });
 

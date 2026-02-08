@@ -11,13 +11,13 @@
  * - Input validation and sanitization
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { prisma, basePrisma, runWithClinicContext, setClinicContext } from "@/lib/db";
-import { logger } from "@/lib/logger";
-import { withAuth, AuthUser } from "@/lib/auth/middleware";
-import { standardRateLimit } from "@/lib/rateLimit";
-import { sendSMS, formatPhoneNumber } from "@/lib/integrations/twilio/smsService";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma, basePrisma, runWithClinicContext, setClinicContext } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { standardRateLimit } from '@/lib/rateLimit';
+import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
+import { z } from 'zod';
 
 // ============================================================================
 // SECURITY: Input Sanitization
@@ -44,47 +44,58 @@ function sanitizeText(text: string): string {
 // ============================================================================
 
 const sendMessageSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform(val => {
+  patientId: z.union([z.string(), z.number()]).transform((val) => {
     const num = typeof val === 'string' ? parseInt(val, 10) : val;
     if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
     return num;
   }),
-  message: z.string().min(1, 'Message cannot be empty').max(2000, 'Message too long').transform(sanitizeText),
-  channel: z.enum(["WEB", "SMS"]).default("WEB"),
+  message: z
+    .string()
+    .min(1, 'Message cannot be empty')
+    .max(2000, 'Message too long')
+    .transform(sanitizeText),
+  channel: z.enum(['WEB', 'SMS']).default('WEB'),
   threadId: z.string().max(100).optional(),
   replyToId: z.number().positive().optional(),
 });
 
 const getMessagesSchema = z.object({
-  patientId: z.string().nullable().transform((val, ctx) => {
-    if (!val) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'patientId is required',
-      });
-      return z.NEVER;
-    }
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'patientId must be a positive integer',
-      });
-      return z.NEVER;
-    }
-    return num;
-  }),
-  limit: z.string().nullable().optional().transform(val => {
-    if (!val) return 50;
-    const num = parseInt(val, 10);
-    return isNaN(num) || num <= 0 ? 50 : Math.min(num, 100);
-  }),
+  patientId: z
+    .string()
+    .nullable()
+    .transform((val, ctx) => {
+      if (!val) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'patientId is required',
+        });
+        return z.NEVER;
+      }
+      const num = parseInt(val, 10);
+      if (isNaN(num) || num <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'patientId must be a positive integer',
+        });
+        return z.NEVER;
+      }
+      return num;
+    }),
+  limit: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => {
+      if (!val) return 50;
+      const num = parseInt(val, 10);
+      return isNaN(num) || num <= 0 ? 50 : Math.min(num, 100);
+    }),
   before: z.string().nullable().optional(), // ISO datetime string for pagination
   threadId: z.string().max(100).nullable().optional(),
 });
 
 const markReadSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform(val => {
+  patientId: z.union([z.string(), z.number()]).transform((val) => {
     const num = typeof val === 'string' ? parseInt(val, 10) : val;
     if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
     return num;
@@ -112,7 +123,7 @@ async function canAccessPatientMessages(
     // Fetch patient to get clinic context
     const patient = await basePrisma.patient.findUnique({
       where: { id: patientId },
-      select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true }
+      select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true },
     });
     return { allowed: !!patient, patient, reason: patient ? undefined : 'Patient not found' };
   }
@@ -127,7 +138,7 @@ async function canAccessPatientMessages(
   if (user.role === 'super_admin') {
     const patient = await basePrisma.patient.findUnique({
       where: { id: patientId },
-      select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true }
+      select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true },
     });
     return { allowed: !!patient, patient, reason: patient ? undefined : 'Patient not found' };
   }
@@ -135,7 +146,7 @@ async function canAccessPatientMessages(
   // For regular staff, validate clinic membership
   const patient = await basePrisma.patient.findUnique({
     where: { id: patientId },
-    select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true }
+    select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true },
   });
 
   if (!patient) {
@@ -189,7 +200,7 @@ async function auditChatAccess(
           messageCount: details?.messageCount,
           ...details,
         },
-      }
+      },
     });
   } catch (error) {
     // Don't fail the request if audit logging fails
@@ -211,11 +222,11 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     if (!parseResult.success) {
       return NextResponse.json(
         {
-          error: "Invalid input",
-          details: parseResult.error.issues.map(i => ({
+          error: 'Invalid input',
+          details: parseResult.error.issues.map((i) => ({
             field: i.path.join('.'),
-            message: i.message
-          }))
+            message: i.message,
+          })),
         },
         { status: 400 }
       );
@@ -226,7 +237,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     // Validate access with clinic check
     const accessCheck = await canAccessPatientMessages(user, patientId);
     if (!accessCheck.allowed) {
-      return NextResponse.json({ error: accessCheck.reason || "Access denied" }, { status: 403 });
+      return NextResponse.json({ error: accessCheck.reason || 'Access denied' }, { status: 403 });
     }
 
     const patient = accessCheck.patient!;
@@ -235,7 +246,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     // Validate SMS channel requirements
     if (channel === 'SMS' && !patient.phone) {
       return NextResponse.json(
-        { error: "Cannot send SMS - patient has no phone number on file" },
+        { error: 'Cannot send SMS - patient has no phone number on file' },
         { status: 400 }
       );
     }
@@ -244,20 +255,17 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     if (replyToId) {
       const replyMessage = await basePrisma.patientChatMessage.findUnique({
         where: { id: replyToId },
-        select: { id: true, patientId: true }
+        select: { id: true, patientId: true },
       });
       if (!replyMessage || replyMessage.patientId !== patientId) {
-        return NextResponse.json(
-          { error: "Invalid reply reference" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid reply reference' }, { status: 400 });
       }
     }
 
     // Determine message direction and sender info
     const isPatient = user.role === 'patient';
     const direction = isPatient ? 'INBOUND' : 'OUTBOUND';
-    const senderType = isPatient ? 'PATIENT' : (user.role === 'provider' ? 'PROVIDER' : 'STAFF');
+    const senderType = isPatient ? 'PATIENT' : user.role === 'provider' ? 'PROVIDER' : 'STAFF';
 
     // Create or use thread ID
     const finalThreadId = threadId || generateThreadId(clinicId);
@@ -274,9 +282,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
           channel,
           senderType,
           senderId: isPatient ? null : user.id,
-          senderName: isPatient
-            ? `${patient.firstName} ${patient.lastName}`
-            : user.email,
+          senderName: isPatient ? `${patient.firstName} ${patient.lastName}` : user.email,
           status: 'SENT',
           threadId: finalThreadId,
           replyToId: replyToId || null,
@@ -284,7 +290,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
             userAgent: request.headers.get('user-agent'),
             createdBy: user.id,
           },
-        }
+        },
       });
 
       return chatMessage;
@@ -307,7 +313,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
               status: 'DELIVERED',
               externalId: smsResult.messageId,
               deliveredAt: new Date(),
-            }
+            },
           });
           smsStatus = 'delivered';
         } else {
@@ -316,7 +322,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
             data: {
               status: 'FAILED',
               failureReason: smsResult.error || 'SMS delivery failed',
-            }
+            },
           });
           smsStatus = 'failed';
 
@@ -335,7 +341,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
           data: {
             status: 'FAILED',
             failureReason: errMsg,
-          }
+          },
         });
         smsStatus = 'failed';
       }
@@ -346,9 +352,9 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       where: { id: result.id },
       include: {
         replyTo: {
-          select: { id: true, message: true, senderName: true }
-        }
-      }
+          select: { id: true, message: true, senderName: true },
+        },
+      },
     });
 
     // Audit log
@@ -375,7 +381,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
 
-    logger.error("Failed to send chat message", {
+    logger.error('Failed to send chat message', {
       error: errorMsg,
       stack: errorStack,
       userId: user.id,
@@ -383,7 +389,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     });
 
     return NextResponse.json(
-      { error: "Failed to send message", requestId: `req_${Date.now()}` },
+      { error: 'Failed to send message', requestId: `req_${Date.now()}` },
       { status: 500 }
     );
   }
@@ -402,28 +408,31 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     const urlParams = new URL(request.url).searchParams;
     const nextParams = request.nextUrl.searchParams;
     const getParam = (key: string) => nextParams.get(key) ?? urlParams.get(key);
+    let patientIdParam = getParam('patientId');
+    if (patientIdParam == null && user.role === 'patient' && user.patientId != null)
+      patientIdParam = String(user.patientId);
     const parseResult = getMessagesSchema.safeParse({
-      patientId: getParam("patientId"),
-      limit: getParam("limit"),
-      before: getParam("before"),
-      threadId: getParam("threadId"),
+      patientId: patientIdParam,
+      limit: getParam('limit'),
+      before: getParam('before'),
+      threadId: getParam('threadId'),
     });
 
     if (!parseResult.success) {
       logger.warn('Patient chat GET validation failed', {
         issues: parseResult.error.issues,
         rawParams: {
-          patientId: getParam("patientId"),
-          limit: getParam("limit"),
+          patientId: getParam('patientId'),
+          limit: getParam('limit'),
         },
       });
       return NextResponse.json(
         {
-          error: "Invalid parameters",
-          details: parseResult.error.issues.map(i => ({
+          error: 'Invalid parameters',
+          details: parseResult.error.issues.map((i) => ({
             field: i.path.join('.'),
-            message: i.message
-          }))
+            message: i.message,
+          })),
         },
         { status: 400 }
       );
@@ -434,7 +443,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     // Validate access with clinic check
     const accessCheck = await canAccessPatientMessages(user, patientId);
     if (!accessCheck.allowed) {
-      return NextResponse.json({ error: accessCheck.reason || "Access denied" }, { status: 403 });
+      return NextResponse.json({ error: accessCheck.reason || 'Access denied' }, { status: 403 });
     }
 
     const patient = accessCheck.patient!;
@@ -461,9 +470,9 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       take: limit,
       include: {
         replyTo: {
-          select: { id: true, message: true, senderName: true }
-        }
-      }
+          select: { id: true, message: true, senderName: true },
+        },
+      },
     });
 
     // Get unread count for staff viewing patient messages
@@ -475,15 +484,15 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           direction: 'INBOUND',
           readAt: null,
           ...(patient.clinicId && { clinicId: patient.clinicId }),
-        }
+        },
       });
     }
 
     // Mark inbound messages as read when staff views them
     if (user.role !== 'patient' && messages.length > 0) {
       const unreadMessageIds = messages
-        .filter(m => m.direction === 'INBOUND' && !m.readAt)
-        .map(m => m.id);
+        .filter((m) => m.direction === 'INBOUND' && !m.readAt)
+        .map((m) => m.id);
 
       if (unreadMessageIds.length > 0) {
         await basePrisma.patientChatMessage.updateMany({
@@ -495,7 +504,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           },
           data: {
             readAt: new Date(),
-          }
+          },
         });
       }
     }
@@ -523,18 +532,18 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         patientId,
         hasMore: messages.length === limit,
         oldestTimestamp: messages.length > 0 ? messages[messages.length - 1].createdAt : null,
-      }
+      },
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    logger.error("Failed to fetch chat messages", {
+    logger.error('Failed to fetch chat messages', {
       error: errorMsg,
       userId: user.id,
       durationMs: Date.now() - startTime,
     });
 
     return NextResponse.json(
-      { error: "Failed to fetch messages", requestId: `req_${Date.now()}` },
+      { error: 'Failed to fetch messages', requestId: `req_${Date.now()}` },
       { status: 500 }
     );
   }
@@ -556,11 +565,11 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
     if (!parseResult.success) {
       return NextResponse.json(
         {
-          error: "Invalid parameters",
-          details: parseResult.error.issues.map(i => ({
+          error: 'Invalid parameters',
+          details: parseResult.error.issues.map((i) => ({
             field: i.path.join('.'),
-            message: i.message
-          }))
+            message: i.message,
+          })),
         },
         { status: 400 }
       );
@@ -571,7 +580,7 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
     // Validate access with clinic check
     const accessCheck = await canAccessPatientMessages(user, patientId);
     if (!accessCheck.allowed) {
-      return NextResponse.json({ error: accessCheck.reason || "Access denied" }, { status: 403 });
+      return NextResponse.json({ error: accessCheck.reason || 'Access denied' }, { status: 403 });
     }
 
     const patient = accessCheck.patient!;
@@ -586,7 +595,7 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
       },
       data: {
         readAt: new Date(),
-      }
+      },
     });
 
     // Audit log
@@ -606,18 +615,18 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
 
     return NextResponse.json({
       success: true,
-      updated: result.count
+      updated: result.count,
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    logger.error("Failed to mark messages as read", {
+    logger.error('Failed to mark messages as read', {
       error: errorMsg,
       userId: user.id,
       durationMs: Date.now() - startTime,
     });
 
     return NextResponse.json(
-      { error: "Failed to update messages", requestId: `req_${Date.now()}` },
+      { error: 'Failed to update messages', requestId: `req_${Date.now()}` },
       { status: 500 }
     );
   }

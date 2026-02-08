@@ -1,29 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { logger } from "@/lib/logger";
-import { withAuth } from "@/lib/auth/middleware";
-import { standardRateLimit } from "@/lib/rateLimit";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import { withAuth } from '@/lib/auth/middleware';
+import { standardRateLimit } from '@/lib/rateLimit';
+import { z } from 'zod';
 
 // Validation schemas
 const createWaterLogSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform(val => {
+  patientId: z.union([z.string(), z.number()]).transform((val) => {
     const num = typeof val === 'string' ? parseInt(val, 10) : val;
     if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
     return num;
   }),
-  amount: z.union([z.string(), z.number()]).transform(val => {
+  amount: z.union([z.string(), z.number()]).transform((val) => {
     const num = typeof val === 'string' ? parseFloat(val) : val;
     if (isNaN(num) || num <= 0) throw new Error('Invalid amount');
     return num;
   }),
-  unit: z.enum(["oz", "ml"]).default("oz"),
+  unit: z.enum(['oz', 'ml']).default('oz'),
   notes: z.string().max(500).optional(),
   recordedAt: z.string().datetime().optional(),
 });
 
 const getWaterLogsSchema = z.object({
-  patientId: z.string().transform(val => {
+  patientId: z.string().transform((val) => {
     const num = parseInt(val, 10);
     if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
     return num;
@@ -43,18 +43,18 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
   try {
     const rawData = await request.json();
     const parseResult = createWaterLogSchema.safeParse(rawData);
-    
+
     if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Invalid input", details: parseResult.error.issues.map(i => i.message) },
+        { error: 'Invalid input', details: parseResult.error.issues.map((i) => i.message) },
         { status: 400 }
       );
     }
-    
+
     const { patientId, amount, unit, notes, recordedAt } = parseResult.data;
 
     if (!canAccessPatient(user, patientId)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     const waterLog = await prisma.patientWaterLog.create({
@@ -65,14 +65,14 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
         unit,
         notes: notes || null,
         recordedAt: recordedAt ? new Date(recordedAt) : new Date(),
-        source: user.role === 'patient' ? "patient" : "provider"
-      }
+        source: user.role === 'patient' ? 'patient' : 'provider',
+      },
     });
 
     return NextResponse.json(waterLog, { status: 201 });
   } catch (error) {
-    logger.error("Failed to create water log", { error });
-    return NextResponse.json({ error: "Failed to create water log" }, { status: 500 });
+    logger.error('Failed to create water log', { error });
+    return NextResponse.json({ error: 'Failed to create water log' }, { status: 500 });
   }
 });
 
@@ -83,19 +83,22 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
     const urlParams = new URL(request.url).searchParams;
     const nextParams = request.nextUrl.searchParams;
+    let patientIdParam = nextParams.get('patientId') ?? urlParams.get('patientId');
+    if (patientIdParam == null && user.role === 'patient' && user.patientId != null)
+      patientIdParam = String(user.patientId);
     const parseResult = getWaterLogsSchema.safeParse({
-      patientId: nextParams.get("patientId") ?? urlParams.get("patientId"),
-      date: nextParams.get("date") ?? urlParams.get("date"),
+      patientId: patientIdParam,
+      date: nextParams.get('date') ?? urlParams.get('date'),
     });
 
     if (!parseResult.success) {
-      return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
     const { patientId, date } = parseResult.data;
 
     if (!canAccessPatient(user, patientId)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Build date filter
@@ -108,14 +111,14 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       dateFilter = {
         recordedAt: {
           gte: startOfDay,
-          lte: endOfDay
-        }
+          lte: endOfDay,
+        },
       };
     }
 
     const waterLogs = await prisma.patientWaterLog.findMany({
       where: { patientId, ...dateFilter },
-      orderBy: { recordedAt: "desc" },
+      orderBy: { recordedAt: 'desc' },
       take: 100,
     });
 
@@ -128,20 +131,20 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     const todayLogs = await prisma.patientWaterLog.findMany({
       where: {
         patientId,
-        recordedAt: { gte: today, lte: todayEnd }
-      }
+        recordedAt: { gte: today, lte: todayEnd },
+      },
     });
 
-    type WaterLog = typeof todayLogs[number];
+    type WaterLog = (typeof todayLogs)[number];
     const todayTotal = todayLogs.reduce((sum: number, log: WaterLog) => sum + log.amount, 0);
 
     return NextResponse.json({
       data: waterLogs,
-      meta: { count: waterLogs.length, todayTotal, patientId }
+      meta: { count: waterLogs.length, todayTotal, patientId },
     });
   } catch (error) {
-    logger.error("Failed to fetch water logs", { error });
-    return NextResponse.json({ error: "Failed to fetch water logs" }, { status: 500 });
+    logger.error('Failed to fetch water logs', { error });
+    return NextResponse.json({ error: 'Failed to fetch water logs' }, { status: 500 });
   }
 });
 

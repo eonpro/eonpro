@@ -1,45 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { logger } from "@/lib/logger";
-import { withAuth } from "@/lib/auth/middleware";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import { withAuth } from '@/lib/auth/middleware';
+import { z } from 'zod';
 
 // ============================================================================
 // VALIDATION SCHEMAS
 // ============================================================================
 
 const createWeightLogSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform(val => {
+  patientId: z.union([z.string(), z.number()]).transform((val) => {
     const num = typeof val === 'string' ? parseInt(val, 10) : val;
     if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
     return num;
   }),
-  weight: z.union([z.string(), z.number()]).transform(val => {
+  weight: z.union([z.string(), z.number()]).transform((val) => {
     const num = typeof val === 'string' ? parseFloat(val) : val;
     if (isNaN(num) || num <= 0 || num > 2000) throw new Error('Invalid weight');
     return num;
   }),
-  unit: z.enum(["lbs", "kg"]).default("lbs"),
+  unit: z.enum(['lbs', 'kg']).default('lbs'),
   notes: z.string().max(1000).optional(),
   recordedAt: z.string().datetime().optional(),
 });
 
 const getWeightLogsSchema = z.object({
-  patientId: z.string().transform(val => {
+  patientId: z.string().transform((val) => {
     const num = parseInt(val, 10);
     if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
     return num;
   }),
-  limit: z.string().optional().transform(val => {
-    if (!val) return 100; // Default pagination limit
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) return 100;
-    return Math.min(num, 500); // Max 500 records
-  }),
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return 100; // Default pagination limit
+      const num = parseInt(val, 10);
+      if (isNaN(num) || num <= 0) return 100;
+      return Math.min(num, 500); // Max 500 records
+    }),
 });
 
 const deleteWeightLogSchema = z.object({
-  id: z.string().transform(val => {
+  id: z.string().transform((val) => {
     const num = parseInt(val, 10);
     if (isNaN(num) || num <= 0) throw new Error('Invalid id');
     return num;
@@ -72,33 +75,33 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     // Parse and validate input
     const rawData = await request.json();
     const parseResult = createWeightLogSchema.safeParse(rawData);
-    
+
     if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Invalid input", details: parseResult.error.issues.map(i => i.message) },
+        { error: 'Invalid input', details: parseResult.error.issues.map((i) => i.message) },
         { status: 400 }
       );
     }
-    
+
     const { patientId, weight, unit, notes, recordedAt } = parseResult.data;
 
     // AUTHORIZATION CHECK FIRST - before any data access
     if (!canAccessPatient(user, patientId)) {
-      logger.warn("Unauthorized weight log access attempt", { 
-        userId: user.id, 
-        attemptedPatientId: patientId 
+      logger.warn('Unauthorized weight log access attempt', {
+        userId: user.id,
+        attemptedPatientId: patientId,
       });
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Verify patient exists (and is in user's clinic via Prisma middleware)
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
-      select: { id: true }
+      select: { id: true },
     });
 
     if (!patient) {
-      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     // Create weight log
@@ -109,25 +112,22 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
         unit,
         notes: notes || null,
         recordedAt: recordedAt ? new Date(recordedAt) : new Date(),
-        source: user.role === 'patient' ? "patient" : "provider"
-      }
+        source: user.role === 'patient' ? 'patient' : 'provider',
+      },
     });
 
-    logger.info("Weight log created", { 
-      patientId, 
+    logger.info('Weight log created', {
+      patientId,
       weight: weightLog.weight,
       id: weightLog.id,
-      userId: user.id
+      userId: user.id,
     });
 
     return NextResponse.json(weightLog, { status: 201 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error("Failed to create weight log", { error: errorMessage, userId: user.id });
-    return NextResponse.json(
-      { error: "Failed to create weight log" },
-      { status: 500 }
-    );
+    logger.error('Failed to create weight log', { error: errorMessage, userId: user.id });
+    return NextResponse.json({ error: 'Failed to create weight log' }, { status: 500 });
   }
 });
 
@@ -140,7 +140,9 @@ export const POST = postHandler;
 /**
  * Extract initial weight from intake documents or submissions
  */
-async function getIntakeWeight(patientId: number): Promise<{ weight: number; recordedAt: Date } | null> {
+async function getIntakeWeight(
+  patientId: number
+): Promise<{ weight: number; recordedAt: Date } | null> {
   try {
     // Fetch patient with intake documents and submissions
     const patient = await prisma.patient.findUnique({
@@ -247,7 +249,11 @@ async function getIntakeWeight(patientId: number): Promise<{ weight: number; rec
         } catch {
           // Ignore parse errors
         }
-      } else if (typeof doc.data === 'object' && (doc.data as any).type === 'Buffer' && Array.isArray((doc.data as any).data)) {
+      } else if (
+        typeof doc.data === 'object' &&
+        (doc.data as any).type === 'Buffer' &&
+        Array.isArray((doc.data as any).data)
+      ) {
         try {
           const jsonStr = Buffer.from((doc.data as any).data).toString('utf-8');
           parsedData = JSON.parse(jsonStr);
@@ -267,21 +273,26 @@ async function getIntakeWeight(patientId: number): Promise<{ weight: number; rec
     if (isNaN(weight) || weight <= 0 || weight > 2000) return null;
 
     // Use the intake document/submission creation date
-    const recordedAt = doc?.createdAt || patient.intakeSubmissions[0]?.createdAt || patient.createdAt;
+    const recordedAt =
+      doc?.createdAt || patient.intakeSubmissions[0]?.createdAt || patient.createdAt;
 
     return { weight, recordedAt: new Date(recordedAt) };
   } catch (error) {
-    logger.error("Failed to extract intake weight", { patientId, error });
+    logger.error('Failed to extract intake weight', { patientId, error });
     return null;
   }
 }
 
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
-    // nextUrl.searchParams can omit query string on some Vercel/serverless runs; fallback to request.url
+    // nextUrl.searchParams can omit query string on some Vercel/serverless runs; fallback to request.url then auth
     const nextParams = request.nextUrl.searchParams;
-    const patientIdParam = nextParams.get("patientId") ?? new URL(request.url).searchParams.get("patientId");
-    const limitParam = nextParams.get("limit") ?? new URL(request.url).searchParams.get("limit");
+    const urlParams = new URL(request.url).searchParams;
+    let patientIdParam = nextParams.get('patientId') ?? urlParams.get('patientId');
+    const limitParam = nextParams.get('limit') ?? urlParams.get('limit');
+    if (patientIdParam == null && user.role === 'patient' && user.patientId != null) {
+      patientIdParam = String(user.patientId);
+    }
 
     const parseResult = getWeightLogsSchema.safeParse({
       patientId: patientIdParam,
@@ -290,7 +301,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Invalid parameters", details: parseResult.error.issues.map(i => i.message) },
+        { error: 'Invalid parameters', details: parseResult.error.issues.map((i) => i.message) },
         { status: 400 }
       );
     }
@@ -299,17 +310,17 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     // AUTHORIZATION CHECK FIRST - before any data access
     if (!canAccessPatient(user, patientId)) {
-      logger.warn("Unauthorized weight log access attempt", {
+      logger.warn('Unauthorized weight log access attempt', {
         userId: user.id,
-        attemptedPatientId: patientId
+        attemptedPatientId: patientId,
       });
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Fetch weight logs from database
     const weightLogs = await prisma.patientWeightLog.findMany({
       where: { patientId },
-      orderBy: { recordedAt: "desc" },
+      orderBy: { recordedAt: 'desc' },
       take: limit,
     });
 
@@ -321,15 +332,17 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     if (intakeWeight) {
       // Check if we already have a weight log at or before the intake date
-      const hasEarlierOrSameEntry = weightLogs.some(log =>
-        new Date(log.recordedAt).getTime() <= intakeWeight.recordedAt.getTime()
+      const hasEarlierOrSameEntry = weightLogs.some(
+        (log) => new Date(log.recordedAt).getTime() <= intakeWeight.recordedAt.getTime()
       );
 
       // Also check if intake weight is roughly the same as any existing entry
       // (to avoid duplicates if someone manually added the intake weight)
-      const hasSimilarWeight = weightLogs.some(log =>
-        Math.abs(log.weight - intakeWeight.weight) < 0.5 &&
-        Math.abs(new Date(log.recordedAt).getTime() - intakeWeight.recordedAt.getTime()) < 24 * 60 * 60 * 1000 // Within 24 hours
+      const hasSimilarWeight = weightLogs.some(
+        (log) =>
+          Math.abs(log.weight - intakeWeight.weight) < 0.5 &&
+          Math.abs(new Date(log.recordedAt).getTime() - intakeWeight.recordedAt.getTime()) <
+            24 * 60 * 60 * 1000 // Within 24 hours
       );
 
       if (!hasEarlierOrSameEntry && !hasSimilarWeight) {
@@ -346,9 +359,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         } as any);
 
         // Re-sort by date descending
-        allLogs.sort((a, b) =>
-          new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
-        );
+        allLogs.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
       }
     }
 
@@ -359,15 +370,12 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         limit,
         patientId,
         hasIntakeWeight: !!intakeWeight,
-      }
+      },
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error("Failed to fetch weight logs", { error: errorMessage, userId: user.id });
-    return NextResponse.json(
-      { error: "Failed to fetch weight logs" },
-      { status: 500 }
-    );
+    logger.error('Failed to fetch weight logs', { error: errorMessage, userId: user.id });
+    return NextResponse.json({ error: 'Failed to fetch weight logs' }, { status: 500 });
   }
 });
 
@@ -380,55 +388,49 @@ export const GET = getHandler;
 const deleteHandler = withAuth(async (request: NextRequest, user) => {
   try {
     const nextParams = request.nextUrl.searchParams;
-    const idParam = nextParams.get("id") ?? new URL(request.url).searchParams.get("id");
+    const idParam = nextParams.get('id') ?? new URL(request.url).searchParams.get('id');
 
     const parseResult = deleteWeightLogSchema.safeParse({
       id: idParam,
     });
 
     if (!parseResult.success) {
-      return NextResponse.json(
-        { error: "Invalid parameters" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
     const { id } = parseResult.data;
 
     // Fetch the log to check ownership BEFORE deletion
-    const log = await prisma.patientWeightLog.findUnique({ 
+    const log = await prisma.patientWeightLog.findUnique({
       where: { id },
-      select: { id: true, patientId: true }
+      select: { id: true, patientId: true },
     });
 
     if (!log) {
-      return NextResponse.json({ error: "Weight log not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Weight log not found' }, { status: 404 });
     }
 
     // AUTHORIZATION CHECK - verify user can access this patient's data
     if (!canAccessPatient(user, log.patientId)) {
-      logger.warn("Unauthorized weight log deletion attempt", { 
-        userId: user.id, 
+      logger.warn('Unauthorized weight log deletion attempt', {
+        userId: user.id,
         logId: id,
-        patientId: log.patientId 
+        patientId: log.patientId,
       });
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     await prisma.patientWeightLog.delete({
-      where: { id }
+      where: { id },
     });
 
-    logger.info("Weight log deleted", { id, userId: user.id, patientId: log.patientId });
+    logger.info('Weight log deleted', { id, userId: user.id, patientId: log.patientId });
 
     return NextResponse.json({ success: true, deletedId: id });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error("Failed to delete weight log", { error: errorMessage, userId: user.id });
-    return NextResponse.json(
-      { error: "Failed to delete weight log" },
-      { status: 500 }
-    );
+    logger.error('Failed to delete weight log', { error: errorMessage, userId: user.id });
+    return NextResponse.json({ error: 'Failed to delete weight log' }, { status: 500 });
   }
 });
 
