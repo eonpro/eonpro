@@ -523,13 +523,22 @@ export async function GET(req: NextRequest) {
     // Basic check (always public)
     const dbCheck = await checkDatabase();
     
-    // Quick response for basic health check
+    // Quick response for basic health check (includes deploy identity for verifying which code is live)
     if (!fullCheck) {
-      return NextResponse.json({
+      const payload: Record<string, unknown> = {
         status: dbCheck.status,
         timestamp: new Date().toISOString(),
         database: dbCheck.status,
-        responseTime: Date.now() - startTime
+        responseTime: Date.now() - startTime,
+      };
+      if (process.env.VERCEL_GIT_COMMIT_SHA) {
+        payload.commit = process.env.VERCEL_GIT_COMMIT_SHA;
+      }
+      if (process.env.VERCEL_URL) {
+        payload.buildId = process.env.VERCEL_BUILD_ID ?? undefined;
+      }
+      return NextResponse.json(payload, {
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
       });
     }
 
