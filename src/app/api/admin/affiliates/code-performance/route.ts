@@ -17,13 +17,14 @@ interface CodePerformance {
   affiliateId: number;
   affiliateName: string;
   affiliateStatus: string;
-  uses: number;  // Code uses (someone entered the code in intake)
-  clicks: number;  // Alias for uses (for backward compatibility)
-  conversions: number;  // Actual paying customers
+  uses: number; // Code uses (someone entered the code in intake)
+  clicks: number; // Alias for uses (for backward compatibility)
+  conversions: number; // Actual paying customers
   revenue: number; // in cents
   conversionRate: number; // percentage
+  taggedProfiles: number; // Patient count with this ref code (attributionRefCode or tags)
   lastUseAt: string | null;
-  lastClickAt: string | null;  // Alias for lastUseAt
+  lastClickAt: string | null; // Alias for lastUseAt
   lastConversionAt: string | null;
   createdAt: string;
 }
@@ -33,7 +34,7 @@ interface CodePerformanceResponse {
   totals: {
     totalCodes: number;
     totalUses: number;
-    totalClicks: number;  // Alias for totalUses
+    totalClicks: number; // Alias for totalUses
     totalConversions: number;
     totalRevenue: number;
     avgConversionRate: number;
@@ -64,11 +65,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
   try {
     // Determine clinic filter based on user role
     // For super_admin, no clinic filter; for admin, filter by their clinic
-    const clinicFilter = user.role === 'super_admin'
-      ? {}
-      : user.clinicId
-        ? { clinicId: user.clinicId }
-        : {}; // If no clinicId, show all (fallback)
+    const clinicFilter =
+      user.role === 'super_admin' ? {} : user.clinicId ? { clinicId: user.clinicId } : {}; // If no clinicId, show all (fallback)
 
     // Calculate date range
     let dateFrom: Date;
@@ -105,12 +103,14 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       ...clinicFilter,
       ...(affiliateId ? { affiliateId: parseInt(affiliateId, 10) } : {}),
       ...(status ? { affiliate: { status } } : {}),
-      ...(search ? {
-        OR: [
-          { refCode: { contains: search, mode: 'insensitive' } },
-          { affiliate: { displayName: { contains: search, mode: 'insensitive' } } },
-        ],
-      } : {}),
+      ...(search
+        ? {
+            OR: [
+              { refCode: { contains: search, mode: 'insensitive' } },
+              { affiliate: { displayName: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
     };
 
     // Fetch all ref codes with affiliate info from modern system
@@ -131,12 +131,14 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     const legacyInfluencers = await prisma.influencer.findMany({
       where: {
         ...(user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : {}),
-        ...(search ? {
-          OR: [
-            { promoCode: { contains: search, mode: 'insensitive' as const } },
-            { name: { contains: search, mode: 'insensitive' as const } },
-          ],
-        } : {}),
+        ...(search
+          ? {
+              OR: [
+                { promoCode: { contains: search, mode: 'insensitive' as const } },
+                { name: { contains: search, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -152,6 +154,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     type RefCodeWithAffiliate = {
       refCode: string;
       affiliateId: number;
+      clinicId: number | null;
       createdAt: Date;
       isLegacy: boolean;
       affiliate: {
@@ -162,11 +165,13 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     };
 
     // Define types for the records
-    type ModernRefCode = typeof modernRefCodes[number];
-    type LegacyInfluencer = typeof legacyInfluencers[number];
+    type ModernRefCode = (typeof modernRefCodes)[number];
+    type LegacyInfluencer = (typeof legacyInfluencers)[number];
 
     // Build a Set of modern ref codes for deduplication
-    const modernCodeSet = new Set(modernRefCodes.map((rc: ModernRefCode) => rc.refCode.toUpperCase()));
+    const modernCodeSet = new Set(
+      modernRefCodes.map((rc: ModernRefCode) => rc.refCode.toUpperCase())
+    );
 
     // Combine both systems, but deduplicate (prefer modern over legacy)
     const refCodes: RefCodeWithAffiliate[] = [
@@ -174,6 +179,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       ...modernRefCodes.map((rc: ModernRefCode) => ({
         refCode: rc.refCode,
         affiliateId: rc.affiliateId,
+        clinicId: rc.clinicId,
         createdAt: rc.createdAt,
         isLegacy: false,
         affiliate: {
@@ -184,12 +190,14 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       })),
       // Legacy influencer codes (only if not already in modern system)
       ...legacyInfluencers
-        .filter((inf: LegacyInfluencer) =>
-          inf.promoCode && !modernCodeSet.has(inf.promoCode.toUpperCase())
+        .filter(
+          (inf: LegacyInfluencer) =>
+            inf.promoCode && !modernCodeSet.has(inf.promoCode.toUpperCase())
         )
         .map((inf: LegacyInfluencer) => ({
           refCode: inf.promoCode!,
           affiliateId: inf.id,
+          clinicId: inf.clinicId,
           createdAt: inf.createdAt,
           isLegacy: true,
           affiliate: {
@@ -215,13 +223,29 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     // Get performance metrics for each code
     const codePerformances: CodePerformance[] = await Promise.all(
       refCodes.map(async (refCode: RefCodeWithAffiliate) => {
-        let uses = 0;  // Code uses (intake submissions with this code)
-        let conversions = 0;  // Actual paying customers
+        let uses = 0; // Code uses (intake submissions with this code)
+        let conversions = 0; // Actual paying customers
         let revenue = 0;
         let lastUseAt: Date | null = null;
         let lastConversionAt: Date | null = null;
+        let taggedProfiles = 0;
 
         try {
+          // Tagged profiles = patients with this ref code (attributionRefCode or tags) in this code's clinic
+          const normalizedCode = refCode.refCode.trim().toUpperCase();
+          if (refCode.clinicId != null) {
+            const taggedWhere = {
+              clinicId: refCode.clinicId,
+              OR: [
+                { attributionRefCode: { equals: normalizedCode, mode: 'insensitive' as const } },
+                { tags: { array_contains: [normalizedCode] } },
+                { tags: { array_contains: [`affiliate:${normalizedCode}`] } },
+                { tags: { array_contains: [`influencer:${normalizedCode}`] } },
+              ],
+            };
+            taggedProfiles = await prisma.patient.count({ where: taggedWhere });
+          }
+
           if (refCode.isLegacy) {
             // For legacy codes, get data from ReferralTracking table
             const referralCount = await prisma.referralTracking.count({
@@ -256,156 +280,158 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             });
             lastUseAt = lastReferral?.createdAt || null;
           } else {
-          // For modern codes, get data from BOTH AffiliateTouch (modern) AND ReferralTracking (legacy)
-          // This is important because legacy tracking data may exist for codes that are now in the modern system
-          
-          // Modern uses from AffiliateTouch
-          const modernUsesResult = await prisma.affiliateTouch.aggregate({
-            where: {
-              refCode: refCode.refCode,
-              ...clinicFilter,
-              createdAt: {
-                gte: dateFrom,
-                lte: dateTo,
-              },
-            },
-            _count: true,
-          });
-          
-          // Legacy uses from ReferralTracking (case-insensitive match)
-          const legacyUsesResult = await prisma.referralTracking.count({
-            where: {
-              promoCode: { equals: refCode.refCode, mode: 'insensitive' },
-              createdAt: {
-                gte: dateFrom,
-                lte: dateTo,
-              },
-            },
-          });
-          
-          uses = modernUsesResult._count + legacyUsesResult;
+            // For modern codes, get data from BOTH AffiliateTouch (modern) AND ReferralTracking (legacy)
+            // This is important because legacy tracking data may exist for codes that are now in the modern system
 
-          // Debug logging for specific codes
-          if (['TEAMSAV', 'JACOB10', 'INST69D37F'].includes(refCode.refCode.toUpperCase())) {
-            logger.info('[CodePerformance] Code debug', {
-              code: refCode.refCode,
-              isLegacy: refCode.isLegacy,
-              modernUses: modernUsesResult._count,
-              legacyUses: legacyUsesResult,
-              totalUses: uses,
-              clinicFilter,
-              dateFrom: dateFrom.toISOString(),
-              dateTo: dateTo.toISOString(),
-            });
-          }
-
-          // Conversions = touches with convertedAt set (paying customers) from both systems
-          // Modern conversions from AffiliateTouch
-          const modernConversionsResult = await prisma.affiliateTouch.aggregate({
-            where: {
-              refCode: refCode.refCode,
-              ...clinicFilter,
-              convertedAt: { not: null },
-              createdAt: {
-                gte: dateFrom,
-                lte: dateTo,
-              },
-            },
-            _count: true,
-          });
-          
-          // Legacy conversions from ReferralTracking (isConverted = true)
-          const legacyConversionsResult = await prisma.referralTracking.count({
-            where: {
-              promoCode: { equals: refCode.refCode, mode: 'insensitive' },
-              isConverted: true,
-              createdAt: {
-                gte: dateFrom,
-                lte: dateTo,
-              },
-            },
-          });
-          
-          conversions = modernConversionsResult._count + legacyConversionsResult;
-
-          // Get revenue from commission events
-          const revenueResult = await prisma.affiliateCommissionEvent.aggregate({
-            where: {
-              affiliate: {
-                refCodes: {
-                  some: { refCode: refCode.refCode },
+            // Modern uses from AffiliateTouch
+            const modernUsesResult = await prisma.affiliateTouch.aggregate({
+              where: {
+                refCode: refCode.refCode,
+                ...clinicFilter,
+                createdAt: {
+                  gte: dateFrom,
+                  lte: dateTo,
                 },
               },
-              ...clinicFilter,
-              createdAt: {
-                gte: dateFrom,
-                lte: dateTo,
-              },
-              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-            },
-            _sum: {
-              eventAmountCents: true,
-            },
-          });
-          revenue = revenueResult._sum.eventAmountCents || 0;
+              _count: true,
+            });
 
-          // Get last use (most recent touch) from both systems
-          const lastModernUse = await prisma.affiliateTouch.findFirst({
-            where: {
-              refCode: refCode.refCode,
-              ...clinicFilter,
-            },
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true },
-          });
-          
-          const lastLegacyUse = await prisma.referralTracking.findFirst({
-            where: {
-              promoCode: { equals: refCode.refCode, mode: 'insensitive' },
-            },
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true },
-          });
-          
-          // Use the most recent of the two
-          if (lastModernUse && lastLegacyUse) {
-            lastUseAt = lastModernUse.createdAt > lastLegacyUse.createdAt 
-              ? lastModernUse.createdAt 
-              : lastLegacyUse.createdAt;
-          } else {
-            lastUseAt = lastModernUse?.createdAt || lastLegacyUse?.createdAt || null;
+            // Legacy uses from ReferralTracking (case-insensitive match)
+            const legacyUsesResult = await prisma.referralTracking.count({
+              where: {
+                promoCode: { equals: refCode.refCode, mode: 'insensitive' },
+                createdAt: {
+                  gte: dateFrom,
+                  lte: dateTo,
+                },
+              },
+            });
+
+            uses = modernUsesResult._count + legacyUsesResult;
+
+            // Debug logging for specific codes
+            if (['TEAMSAV', 'JACOB10', 'INST69D37F'].includes(refCode.refCode.toUpperCase())) {
+              logger.info('[CodePerformance] Code debug', {
+                code: refCode.refCode,
+                isLegacy: refCode.isLegacy,
+                modernUses: modernUsesResult._count,
+                legacyUses: legacyUsesResult,
+                totalUses: uses,
+                clinicFilter,
+                dateFrom: dateFrom.toISOString(),
+                dateTo: dateTo.toISOString(),
+              });
+            }
+
+            // Conversions = touches with convertedAt set (paying customers) from both systems
+            // Modern conversions from AffiliateTouch
+            const modernConversionsResult = await prisma.affiliateTouch.aggregate({
+              where: {
+                refCode: refCode.refCode,
+                ...clinicFilter,
+                convertedAt: { not: null },
+                createdAt: {
+                  gte: dateFrom,
+                  lte: dateTo,
+                },
+              },
+              _count: true,
+            });
+
+            // Legacy conversions from ReferralTracking (isConverted = true)
+            const legacyConversionsResult = await prisma.referralTracking.count({
+              where: {
+                promoCode: { equals: refCode.refCode, mode: 'insensitive' },
+                isConverted: true,
+                createdAt: {
+                  gte: dateFrom,
+                  lte: dateTo,
+                },
+              },
+            });
+
+            conversions = modernConversionsResult._count + legacyConversionsResult;
+
+            // Get revenue from commission events
+            const revenueResult = await prisma.affiliateCommissionEvent.aggregate({
+              where: {
+                affiliate: {
+                  refCodes: {
+                    some: { refCode: refCode.refCode },
+                  },
+                },
+                ...clinicFilter,
+                createdAt: {
+                  gte: dateFrom,
+                  lte: dateTo,
+                },
+                status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+              },
+              _sum: {
+                eventAmountCents: true,
+              },
+            });
+            revenue = revenueResult._sum.eventAmountCents || 0;
+
+            // Get last use (most recent touch) from both systems
+            const lastModernUse = await prisma.affiliateTouch.findFirst({
+              where: {
+                refCode: refCode.refCode,
+                ...clinicFilter,
+              },
+              orderBy: { createdAt: 'desc' },
+              select: { createdAt: true },
+            });
+
+            const lastLegacyUse = await prisma.referralTracking.findFirst({
+              where: {
+                promoCode: { equals: refCode.refCode, mode: 'insensitive' },
+              },
+              orderBy: { createdAt: 'desc' },
+              select: { createdAt: true },
+            });
+
+            // Use the most recent of the two
+            if (lastModernUse && lastLegacyUse) {
+              lastUseAt =
+                lastModernUse.createdAt > lastLegacyUse.createdAt
+                  ? lastModernUse.createdAt
+                  : lastLegacyUse.createdAt;
+            } else {
+              lastUseAt = lastModernUse?.createdAt || lastLegacyUse?.createdAt || null;
+            }
+
+            // Get last conversion (most recent converted touch)
+            const lastConversionRecord = await prisma.affiliateTouch.findFirst({
+              where: {
+                refCode: refCode.refCode,
+                ...clinicFilter,
+                convertedAt: { not: null },
+              },
+              orderBy: { convertedAt: 'desc' },
+              select: { convertedAt: true },
+            });
+            lastConversionAt = lastConversionRecord?.convertedAt || null;
           }
 
-          // Get last conversion (most recent converted touch)
-          const lastConversionRecord = await prisma.affiliateTouch.findFirst({
-            where: {
-              refCode: refCode.refCode,
-              ...clinicFilter,
-              convertedAt: { not: null },
-            },
-            orderBy: { convertedAt: 'desc' },
-            select: { convertedAt: true },
-          });
-          lastConversionAt = lastConversionRecord?.convertedAt || null;
-        }
+          const conversionRate = uses > 0 ? (conversions / uses) * 100 : 0;
 
-        const conversionRate = uses > 0 ? (conversions / uses) * 100 : 0;
-
-        return {
-          code: refCode.refCode,
-          affiliateId: refCode.affiliateId,
-          affiliateName: refCode.affiliate.displayName,
-          affiliateStatus: String(refCode.affiliate.status),
-          uses,
-          clicks: uses,  // Backward compatibility alias
-          conversions,
-          revenue,
-          conversionRate,
-          lastUseAt: lastUseAt?.toISOString() || null,
-          lastClickAt: lastUseAt?.toISOString() || null,  // Backward compatibility alias
-          lastConversionAt: lastConversionAt?.toISOString() || null,
-          createdAt: refCode.createdAt.toISOString(),
-        };
+          return {
+            code: refCode.refCode,
+            affiliateId: refCode.affiliateId,
+            affiliateName: refCode.affiliate.displayName,
+            affiliateStatus: String(refCode.affiliate.status),
+            uses,
+            clicks: uses, // Backward compatibility alias
+            conversions,
+            revenue,
+            conversionRate,
+            taggedProfiles,
+            lastUseAt: lastUseAt?.toISOString() || null,
+            lastClickAt: lastUseAt?.toISOString() || null, // Backward compatibility alias
+            lastConversionAt: lastConversionAt?.toISOString() || null,
+            createdAt: refCode.createdAt.toISOString(),
+          };
         } catch (err) {
           // Return empty metrics if query fails for this code
           logger.warn('[CodePerformance] Failed to get metrics for code', {
@@ -422,6 +448,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             conversions: 0,
             revenue: 0,
             conversionRate: 0,
+            taggedProfiles: 0,
             lastUseAt: null,
             lastClickAt: null,
             lastConversionAt: null,
@@ -442,7 +469,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           comparison = a.affiliateName.localeCompare(b.affiliateName);
           break;
         case 'uses':
-        case 'clicks':  // Backward compatibility
+        case 'clicks': // Backward compatibility
           comparison = a.uses - b.uses;
           break;
         case 'conversions':
@@ -455,7 +482,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           comparison = a.conversionRate - b.conversionRate;
           break;
         case 'lastUseAt':
-        case 'lastClickAt':  // Backward compatibility
+        case 'lastClickAt': // Backward compatibility
           comparison = (a.lastUseAt || '').localeCompare(b.lastUseAt || '');
           break;
         default:
@@ -469,12 +496,14 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     const totals = {
       totalCodes: sortedPerformances.length,
       totalUses,
-      totalClicks: totalUses,  // Backward compatibility alias
+      totalClicks: totalUses, // Backward compatibility alias
       totalConversions: sortedPerformances.reduce((sum, c) => sum + c.conversions, 0),
       totalRevenue: sortedPerformances.reduce((sum, c) => sum + c.revenue, 0),
-      avgConversionRate: sortedPerformances.length > 0
-        ? sortedPerformances.reduce((sum, c) => sum + c.conversionRate, 0) / sortedPerformances.length
-        : 0,
+      avgConversionRate:
+        sortedPerformances.length > 0
+          ? sortedPerformances.reduce((sum, c) => sum + c.conversionRate, 0) /
+            sortedPerformances.length
+          : 0,
     };
 
     // Apply pagination
@@ -499,10 +528,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to fetch code performance data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch code performance data' }, { status: 500 });
   }
 }
 
