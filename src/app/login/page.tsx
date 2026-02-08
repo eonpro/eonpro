@@ -676,7 +676,7 @@ export default function LoginPage() {
                 <img
                   src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
                   alt="EONPRO"
-                  className="h-3.5 w-auto"
+                  className="h-4 w-auto"
                 />
               </p>
             </>
@@ -1288,7 +1288,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="p-6 text-center">
           <p className="text-xs text-gray-500">
-            HIPAA Compliant Healthcare Platform • © 2026 {branding?.name || 'EONPRO'}
+            HIPAA Compliant Healthcare Platform • © 2026 EONPro
           </p>
         </div>
       </div>

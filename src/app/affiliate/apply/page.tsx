@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Application Page
- * 
+ *
  * Public form for applying to become an affiliate.
  * Collects: Full name, Phone, Email, Address, Social media profiles.
  */
@@ -47,11 +47,56 @@ const AUDIENCE_SIZES = [
 ];
 
 const US_STATES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
 ];
 
 // Helper function to calculate text color based on background luminance
@@ -95,7 +140,8 @@ export default function AffiliateApplyPage() {
   });
 
   // Social media form state
-  const [newSocialPlatform, setNewSocialPlatform] = useState<SocialProfile['platform']>('instagram');
+  const [newSocialPlatform, setNewSocialPlatform] =
+    useState<SocialProfile['platform']>('instagram');
   const [newSocialUrl, setNewSocialUrl] = useState('');
 
   // Load clinic branding
@@ -160,13 +206,18 @@ export default function AffiliateApplyPage() {
 
     // Check for duplicates
     if (formData.socialProfiles.some((p) => p.platform === newSocialPlatform)) {
-      setError(`You've already added a ${SOCIAL_PLATFORMS.find((p) => p.id === newSocialPlatform)?.name} profile`);
+      setError(
+        `You've already added a ${SOCIAL_PLATFORMS.find((p) => p.id === newSocialPlatform)?.name} profile`
+      );
       return;
     }
 
     setFormData((prev) => ({
       ...prev,
-      socialProfiles: [...prev.socialProfiles, { platform: newSocialPlatform, url: newSocialUrl.trim() }],
+      socialProfiles: [
+        ...prev.socialProfiles,
+        { platform: newSocialPlatform, url: newSocialUrl.trim() },
+      ],
     }));
     setNewSocialUrl('');
     setError(null);
@@ -280,9 +331,12 @@ export default function AffiliateApplyPage() {
   // Loading state
   if (!brandingLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#EFECE7' }}>
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: '#EFECE7' }}
+      >
         <div
-          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+          className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
         />
       </div>
@@ -291,11 +345,15 @@ export default function AffiliateApplyPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#EFECE7' }}>
-      <div className="min-h-screen flex flex-col">
+      <div className="flex min-h-screen flex-col">
         {/* Logo */}
-        <div className="flex flex-col items-center pt-8 pb-4">
+        <div className="flex flex-col items-center pb-4 pt-8">
           {branding?.logoUrl ? (
-            <img src={branding.logoUrl} alt={branding.name} className="h-10 max-w-[180px] object-contain" />
+            <img
+              src={branding.logoUrl}
+              alt={branding.name}
+              className="h-10 max-w-[180px] object-contain"
+            />
           ) : (
             <h1 className="text-2xl font-bold" style={{ color: primaryColor }}>
               {branding?.name || 'EONPRO'}
@@ -309,13 +367,12 @@ export default function AffiliateApplyPage() {
             {['info', 'address', 'social', 'review'].map((s, i) => (
               <div
                 key={s}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  s === step ? 'w-6' : ''
-                }`}
+                className={`h-2 w-2 rounded-full transition-all ${s === step ? 'w-6' : ''}`}
                 style={{
-                  backgroundColor: ['info', 'address', 'social', 'review'].indexOf(step) >= i 
-                    ? primaryColor 
-                    : '#D1D5DB',
+                  backgroundColor:
+                    ['info', 'address', 'social', 'review'].indexOf(step) >= i
+                      ? primaryColor
+                      : '#D1D5DB',
                 }}
               />
             ))}
@@ -323,7 +380,7 @@ export default function AffiliateApplyPage() {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col items-center px-4 pb-8">
+        <main className="flex flex-1 flex-col items-center px-4 pb-8">
           <AnimatePresence mode="wait">
             {step === 'info' && (
               <motion.div
@@ -333,44 +390,54 @@ export default function AffiliateApplyPage() {
                 exit={{ opacity: 0, x: -20 }}
                 className="w-full max-w-md"
               >
-                <h2 className="text-3xl font-light text-gray-900 text-center mb-2">Become a Partner</h2>
-                <p className="text-gray-600 text-center mb-6">Start earning by sharing products you love</p>
+                <h2 className="mb-2 text-center text-3xl font-light text-gray-900">
+                  Become a Partner
+                </h2>
+                <p className="mb-6 text-center text-gray-600">
+                  Start earning by sharing products you love
+                </p>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Full Name *
+                    </label>
                     <input
                       type="text"
                       value={formData.fullName}
                       onChange={(e) => handleInputChange('fullName', e.target.value)}
                       placeholder="Your full legal name"
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Email *</label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
                       placeholder="you@example.com"
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Phone Number *
+                    </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">+1</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                        +1
+                      </span>
                       <input
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
                         placeholder="(555) 555-5555"
-                        className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                        className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       />
                     </div>
@@ -381,15 +448,15 @@ export default function AffiliateApplyPage() {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                    className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3"
                   >
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </motion.div>
                 )}
 
                 <button
                   onClick={nextStep}
-                  className="w-full mt-6 px-6 py-4 rounded-xl font-semibold transition-all hover:opacity-90"
+                  className="mt-6 w-full rounded-xl px-6 py-4 font-semibold transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                 >
                   Continue
@@ -397,7 +464,11 @@ export default function AffiliateApplyPage() {
 
                 <p className="mt-4 text-center text-sm text-gray-500">
                   Already a partner?{' '}
-                  <Link href="/affiliate/login" className="font-medium hover:opacity-80" style={{ color: primaryColor }}>
+                  <Link
+                    href="/affiliate/login"
+                    className="font-medium hover:opacity-80"
+                    style={{ color: primaryColor }}
+                  >
                     Sign in
                   </Link>
                 </p>
@@ -412,78 +483,100 @@ export default function AffiliateApplyPage() {
                 exit={{ opacity: 0, x: -20 }}
                 className="w-full max-w-md"
               >
-                <button onClick={prevStep} className="mb-4 text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <button
+                  onClick={prevStep}
+                  className="mb-4 flex items-center gap-1 text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
                   </svg>
                   Back
                 </button>
 
-                <h2 className="text-3xl font-light text-gray-900 text-center mb-2">Your Address</h2>
-                <p className="text-gray-600 text-center mb-6">For commission payments and tax documents</p>
+                <h2 className="mb-2 text-center text-3xl font-light text-gray-900">Your Address</h2>
+                <p className="mb-6 text-center text-gray-600">
+                  For commission payments and tax documents
+                </p>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 *</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Address Line 1 *
+                    </label>
                     <input
                       type="text"
                       value={formData.addressLine1}
                       onChange={(e) => handleInputChange('addressLine1', e.target.value)}
                       placeholder="Street address"
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Address Line 2
+                    </label>
                     <input
                       type="text"
                       value={formData.addressLine2}
                       onChange={(e) => handleInputChange('addressLine2', e.target.value)}
                       placeholder="Apt, suite, unit (optional)"
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">City *</label>
                       <input
                         type="text"
                         value={formData.city}
                         onChange={(e) => handleInputChange('city', e.target.value)}
                         placeholder="City"
-                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        State *
+                      </label>
                       <select
                         value={formData.state}
                         onChange={(e) => handleInputChange('state', e.target.value)}
-                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       >
                         <option value="">Select</option>
                         {US_STATES.map((state) => (
-                          <option key={state} value={state}>{state}</option>
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
                         ))}
                       </select>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code *</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      ZIP Code *
+                    </label>
                     <input
                       type="text"
                       value={formData.zipCode}
-                      onChange={(e) => handleInputChange('zipCode', e.target.value.replace(/\D/g, '').slice(0, 5))}
+                      onChange={(e) =>
+                        handleInputChange('zipCode', e.target.value.replace(/\D/g, '').slice(0, 5))
+                      }
                       placeholder="12345"
                       maxLength={5}
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     />
                   </div>
@@ -493,15 +586,15 @@ export default function AffiliateApplyPage() {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                    className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3"
                   >
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </motion.div>
                 )}
 
                 <button
                   onClick={nextStep}
-                  className="w-full mt-6 px-6 py-4 rounded-xl font-semibold transition-all hover:opacity-90"
+                  className="mt-6 w-full rounded-xl px-6 py-4 font-semibold transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                 >
                   Continue
@@ -517,36 +610,60 @@ export default function AffiliateApplyPage() {
                 exit={{ opacity: 0, x: -20 }}
                 className="w-full max-w-md"
               >
-                <button onClick={prevStep} className="mb-4 text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <button
+                  onClick={prevStep}
+                  className="mb-4 flex items-center gap-1 text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
                   </svg>
                   Back
                 </button>
 
-                <h2 className="text-3xl font-light text-gray-900 text-center mb-2">Social Profiles</h2>
-                <p className="text-gray-600 text-center mb-6">Add at least one social media profile</p>
+                <h2 className="mb-2 text-center text-3xl font-light text-gray-900">
+                  Social Profiles
+                </h2>
+                <p className="mb-6 text-center text-gray-600">
+                  Add at least one social media profile
+                </p>
 
                 {/* Added profiles */}
                 {formData.socialProfiles.length > 0 && (
-                  <div className="space-y-2 mb-4">
+                  <div className="mb-4 space-y-2">
                     {formData.socialProfiles.map((profile) => (
                       <div
                         key={profile.platform}
-                        className="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-200"
+                        className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-3"
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-medium text-gray-900">
                             {SOCIAL_PLATFORMS.find((p) => p.id === profile.platform)?.name}
                           </span>
-                          <span className="text-sm text-gray-500 truncate max-w-[180px]">{profile.url}</span>
+                          <span className="max-w-[180px] truncate text-sm text-gray-500">
+                            {profile.url}
+                          </span>
                         </div>
                         <button
                           onClick={() => removeSocialProfile(profile.platform)}
                           className="text-red-500 hover:text-red-700"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          <svg
+                            className="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
                           </svg>
                         </button>
                       </div>
@@ -558,8 +675,10 @@ export default function AffiliateApplyPage() {
                 <div className="space-y-3">
                   <select
                     value={newSocialPlatform}
-                    onChange={(e) => setNewSocialPlatform(e.target.value as SocialProfile['platform'])}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                    onChange={(e) =>
+                      setNewSocialPlatform(e.target.value as SocialProfile['platform'])
+                    }
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                   >
                     {SOCIAL_PLATFORMS.filter(
@@ -579,13 +698,15 @@ export default function AffiliateApplyPage() {
                         setNewSocialUrl(e.target.value);
                         setError(null);
                       }}
-                      placeholder={SOCIAL_PLATFORMS.find((p) => p.id === newSocialPlatform)?.placeholder}
-                      className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                      placeholder={
+                        SOCIAL_PLATFORMS.find((p) => p.id === newSocialPlatform)?.placeholder
+                      }
+                      className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     />
                     <button
                       onClick={addSocialProfile}
-                      className="px-4 py-3 rounded-xl font-medium transition-all hover:opacity-90"
+                      className="rounded-xl px-4 py-3 font-medium transition-all hover:opacity-90"
                       style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                     >
                       Add
@@ -596,24 +717,26 @@ export default function AffiliateApplyPage() {
                 {/* Optional fields */}
                 <div className="mt-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Audience Size (optional)
                     </label>
                     <select
                       value={formData.audienceSize}
                       onChange={(e) => handleInputChange('audienceSize', e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     >
                       <option value="">Select your total audience</option>
                       {AUDIENCE_SIZES.map((size) => (
-                        <option key={size.value} value={size.value}>{size.label}</option>
+                        <option key={size.value} value={size.value}>
+                          {size.label}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       How do you plan to promote? (optional)
                     </label>
                     <textarea
@@ -621,7 +744,7 @@ export default function AffiliateApplyPage() {
                       onChange={(e) => handleInputChange('promotionPlan', e.target.value)}
                       placeholder="Tell us about your content style, audience demographics, etc."
                       rows={3}
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent resize-none"
+                      className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     />
                   </div>
@@ -631,9 +754,9 @@ export default function AffiliateApplyPage() {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                    className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3"
                   >
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </motion.div>
                 )}
 
@@ -641,7 +764,7 @@ export default function AffiliateApplyPage() {
                   onClick={() => {
                     if (validateStep('social')) setStep('review');
                   }}
-                  className="w-full mt-6 px-6 py-4 rounded-xl font-semibold transition-all hover:opacity-90"
+                  className="mt-6 w-full rounded-xl px-6 py-4 font-semibold transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                 >
                   Review Application
@@ -657,35 +780,49 @@ export default function AffiliateApplyPage() {
                 exit={{ opacity: 0, x: -20 }}
                 className="w-full max-w-md"
               >
-                <button onClick={prevStep} className="mb-4 text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <button
+                  onClick={prevStep}
+                  className="mb-4 flex items-center gap-1 text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
                   </svg>
                   Back
                 </button>
 
-                <h2 className="text-3xl font-light text-gray-900 text-center mb-2">Review & Submit</h2>
-                <p className="text-gray-600 text-center mb-6">Please verify your information</p>
+                <h2 className="mb-2 text-center text-3xl font-light text-gray-900">
+                  Review & Submit
+                </h2>
+                <p className="mb-6 text-center text-gray-600">Please verify your information</p>
 
                 <div className="space-y-4">
-                  <div className="p-4 bg-white rounded-xl border border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Contact</h3>
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">Contact</h3>
                     <p className="font-medium text-gray-900">{formData.fullName}</p>
                     <p className="text-gray-600">{formData.email}</p>
                     <p className="text-gray-600">+1 {formData.phone}</p>
                   </div>
 
-                  <div className="p-4 bg-white rounded-xl border border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Address</h3>
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">Address</h3>
                     <p className="text-gray-900">{formData.addressLine1}</p>
-                    {formData.addressLine2 && <p className="text-gray-900">{formData.addressLine2}</p>}
+                    {formData.addressLine2 && (
+                      <p className="text-gray-900">{formData.addressLine2}</p>
+                    )}
                     <p className="text-gray-600">
                       {formData.city}, {formData.state} {formData.zipCode}
                     </p>
                   </div>
 
-                  <div className="p-4 bg-white rounded-xl border border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Social Profiles</h3>
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
+                      Social Profiles
+                    </h3>
                     {formData.socialProfiles.map((profile) => (
                       <div key={profile.platform} className="flex items-center gap-2 text-gray-900">
                         <span className="font-medium">
@@ -695,14 +832,14 @@ export default function AffiliateApplyPage() {
                           href={profile.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[#b5a05a] hover:underline truncate"
+                          className="truncate text-[#b5a05a] hover:underline"
                         >
                           {profile.url}
                         </a>
                       </div>
                     ))}
                     {formData.audienceSize && (
-                      <p className="text-gray-600 mt-2">Audience: {formData.audienceSize}</p>
+                      <p className="mt-2 text-gray-600">Audience: {formData.audienceSize}</p>
                     )}
                   </div>
                 </div>
@@ -711,22 +848,22 @@ export default function AffiliateApplyPage() {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                    className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3"
                   >
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </motion.div>
                 )}
 
                 <button
                   onClick={handleSubmit}
                   disabled={isLoading}
-                  className={`w-full mt-6 px-6 py-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                    isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                  className={`mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 font-semibold transition-all ${
+                    isLoading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
                   }`}
                   style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                 >
                   {isLoading ? (
-                    <span className="inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                   ) : (
                     'Submit Application'
                   )}
@@ -734,8 +871,13 @@ export default function AffiliateApplyPage() {
 
                 <p className="mt-4 text-center text-xs text-gray-500">
                   By submitting, you agree to our{' '}
-                  <a href="/terms" className="underline">Terms of Service</a> and{' '}
-                  <a href="/privacy" className="underline">Privacy Policy</a>
+                  <a href="/terms" className="underline">
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a href="/privacy" className="underline">
+                    Privacy Policy
+                  </a>
                 </p>
               </motion.div>
             )}
@@ -751,39 +893,44 @@ export default function AffiliateApplyPage() {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', duration: 0.5 }}
-                  className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+                  className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full"
                   style={{ backgroundColor: `${primaryColor}20` }}
                 >
                   <svg
-                    className="w-10 h-10"
+                    className="h-10 w-10"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                     style={{ color: primaryColor }}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 </motion.div>
 
-                <h2 className="text-3xl font-light text-gray-900 mb-4">Application Submitted!</h2>
-                <p className="text-gray-600 mb-8">
-                  Thank you for your interest in becoming a partner. We'll review your application and get back to you
-                  within 2-3 business days.
+                <h2 className="mb-4 text-3xl font-light text-gray-900">Application Submitted!</h2>
+                <p className="mb-8 text-gray-600">
+                  Thank you for your interest in becoming a partner. We'll review your application
+                  and get back to you within 2-3 business days.
                 </p>
 
-                <div className="p-4 bg-white rounded-xl border border-gray-200 text-left mb-6">
-                  <h3 className="font-semibold text-gray-900 mb-2">What happens next?</h3>
+                <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 text-left">
+                  <h3 className="mb-2 font-semibold text-gray-900">What happens next?</h3>
                   <ul className="space-y-2 text-sm text-gray-600">
                     <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span className="mt-0.5 text-green-500">✓</span>
                       Our team will review your application
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span className="mt-0.5 text-green-500">✓</span>
                       You'll receive an email once approved
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span className="mt-0.5 text-green-500">✓</span>
                       Start earning commissions on referrals
                     </li>
                   </ul>
@@ -791,7 +938,7 @@ export default function AffiliateApplyPage() {
 
                 <Link
                   href="/"
-                  className="inline-block px-6 py-3 rounded-xl font-semibold transition-all hover:opacity-90"
+                  className="inline-block rounded-xl px-6 py-3 font-semibold transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                 >
                   Return Home
@@ -804,7 +951,7 @@ export default function AffiliateApplyPage() {
         {/* Footer */}
         <footer className="p-4 text-center">
           <p className="text-xs text-gray-400">
-            © 2026 {branding?.name || 'EONPRO'} • Partner Program
+            © 2026 EONPro • Partner Program
           </p>
         </footer>
       </div>
