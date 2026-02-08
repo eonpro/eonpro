@@ -262,7 +262,7 @@ export default function AffiliateLoginPage() {
                 <img
                   src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
                   alt="EONPRO"
-                  className="h-[1.12rem] w-auto"
+                  className="h-[21px] w-auto"
                 />
               </p>
             </>
