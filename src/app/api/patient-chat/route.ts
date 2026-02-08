@@ -399,20 +399,22 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
   const startTime = Date.now();
 
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const urlParams = new URL(request.url).searchParams;
+    const nextParams = request.nextUrl.searchParams;
+    const getParam = (key: string) => nextParams.get(key) ?? urlParams.get(key);
     const parseResult = getMessagesSchema.safeParse({
-      patientId: searchParams.get("patientId"),
-      limit: searchParams.get("limit"),
-      before: searchParams.get("before"),
-      threadId: searchParams.get("threadId"),
+      patientId: getParam("patientId"),
+      limit: getParam("limit"),
+      before: getParam("before"),
+      threadId: getParam("threadId"),
     });
 
     if (!parseResult.success) {
       logger.warn('Patient chat GET validation failed', {
         issues: parseResult.error.issues,
         rawParams: {
-          patientId: searchParams.get("patientId"),
-          limit: searchParams.get("limit"),
+          patientId: getParam("patientId"),
+          limit: getParam("limit"),
         },
       });
       return NextResponse.json(

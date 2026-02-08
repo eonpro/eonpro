@@ -278,12 +278,14 @@ async function getIntakeWeight(patientId: number): Promise<{ weight: number; rec
 
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    // nextUrl.searchParams can omit query string on some Vercel/serverless runs; fallback to request.url
+    const nextParams = request.nextUrl.searchParams;
+    const patientIdParam = nextParams.get("patientId") ?? new URL(request.url).searchParams.get("patientId");
+    const limitParam = nextParams.get("limit") ?? new URL(request.url).searchParams.get("limit");
 
-    // Validate query parameters
     const parseResult = getWeightLogsSchema.safeParse({
-      patientId: searchParams.get("patientId"),
-      limit: searchParams.get("limit"),
+      patientId: patientIdParam,
+      limit: limitParam,
     });
 
     if (!parseResult.success) {
@@ -377,11 +379,11 @@ export const GET = getHandler;
 
 const deleteHandler = withAuth(async (request: NextRequest, user) => {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    
-    // Validate query parameters
+    const nextParams = request.nextUrl.searchParams;
+    const idParam = nextParams.get("id") ?? new URL(request.url).searchParams.get("id");
+
     const parseResult = deleteWeightLogSchema.safeParse({
-      id: searchParams.get("id"),
+      id: idParam,
     });
 
     if (!parseResult.success) {

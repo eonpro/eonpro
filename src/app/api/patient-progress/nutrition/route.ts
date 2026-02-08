@@ -107,9 +107,10 @@ export const POST = standardRateLimit(postHandler);
 
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const urlParams = new URL(request.url).searchParams;
+    const nextParams = request.nextUrl.searchParams;
     const parseResult = getNutritionLogsSchema.safeParse({
-      patientId: searchParams.get("patientId"),
+      patientId: nextParams.get("patientId") ?? urlParams.get("patientId"),
     });
 
     if (!parseResult.success) {

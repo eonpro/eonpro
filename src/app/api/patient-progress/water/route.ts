@@ -81,10 +81,11 @@ export const POST = standardRateLimit(postHandler);
 // GET - Get water logs
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const urlParams = new URL(request.url).searchParams;
+    const nextParams = request.nextUrl.searchParams;
     const parseResult = getWaterLogsSchema.safeParse({
-      patientId: searchParams.get("patientId"),
-      date: searchParams.get("date"),
+      patientId: nextParams.get("patientId") ?? urlParams.get("patientId"),
+      date: nextParams.get("date") ?? urlParams.get("date"),
     });
 
     if (!parseResult.success) {
