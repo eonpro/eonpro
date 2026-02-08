@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 import {
   Package,
   Truck,
@@ -98,7 +99,10 @@ export default function ActiveShipmentTracker({
   const fetchShipments = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/patient-portal/tracking');
+      const response = await fetch('/api/patient-portal/tracking', {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
 
       if (!response.ok) {
         if (response.status === 401) {

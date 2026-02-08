@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { logger } from '../../../lib/logger';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 
 import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -29,14 +30,42 @@ export default function PatientPortalDocuments() {
   const [error, setError] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
 
-  // Get patient ID from localStorage
+  // Get patient ID from user (same as progress/dashboard so data matches admin profile)
   useEffect(() => {
-    const storedPatientId = localStorage.getItem('patientId');
-    if (!storedPatientId) {
-      router.push(PATIENT_PORTAL_PATH);
-      return;
-    }
-    setPatientId(parseInt(storedPatientId));
+    let cancelled = false;
+
+    const run = async () => {
+      const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (!userJson) {
+        router.push(PATIENT_PORTAL_PATH);
+        return;
+      }
+      try {
+        const userData = JSON.parse(userJson);
+        let pid: number | null = userData.patientId ?? null;
+        if (pid == null && userData.role?.toLowerCase() === 'patient') {
+          const meRes = await fetch('/api/auth/me', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          });
+          if (meRes.ok && !cancelled) {
+            const meData = await meRes.json();
+            const fromMe = meData?.user?.patientId;
+            if (typeof fromMe === 'number' && fromMe > 0) {
+              pid = fromMe;
+              localStorage.setItem('user', JSON.stringify({ ...userData, patientId: fromMe }));
+            }
+          }
+        }
+        if (!cancelled && pid != null) setPatientId(pid);
+        else if (!cancelled) router.push(PATIENT_PORTAL_PATH);
+      } catch {
+        if (!cancelled) router.push(PATIENT_PORTAL_PATH);
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
   }, [router]);
 
   // Fetch existing documents on component mount
@@ -47,7 +76,10 @@ export default function PatientPortalDocuments() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch(`/api/patients/${patientId}/documents`);
+        const response = await fetch(`/api/patients/${patientId}/documents`, {
+          headers: getAuthHeaders(),
+          credentials: 'include',
+        });
         if (response.ok) {
           const data = await response.json();
           setDocuments(data);
@@ -131,6 +163,8 @@ export default function PatientPortalDocuments() {
 
       const response = await fetch(`/api/patients/${patientId}/documents`, {
         method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
         body: formData,
       });
 
@@ -169,6 +203,8 @@ export default function PatientPortalDocuments() {
     try {
       const response = await fetch(`/api/patients/${patientId}/documents/${documentId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -186,15 +222,9 @@ export default function PatientPortalDocuments() {
     if (!patientId) return;
 
     try {
-      // Get the auth token from localStorage
-      const token = localStorage.getItem('auth-token') || '';
-
-      // Fetch the document with authentication
       const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}`, {
+        headers: getAuthHeaders(),
         credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (response.ok) {
@@ -216,7 +246,10 @@ export default function PatientPortalDocuments() {
     if (!patientId) return;
 
     try {
-      const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}/download`);
+      const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}/download`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);

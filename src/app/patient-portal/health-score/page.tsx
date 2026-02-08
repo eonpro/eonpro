@@ -2,7 +2,8 @@
 
 /**
  * Health Score Dashboard
- * Unified view of all health metrics with a calculated health score
+ * Unified view of all health metrics with a calculated health score.
+ * Production: no demo data; shows empty state when no data from API.
  */
 
 import { useEffect, useState } from 'react';
@@ -23,6 +24,7 @@ import {
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 
 interface HealthMetric {
   id: string;
@@ -60,7 +62,10 @@ export default function HealthScorePage() {
 
   const fetchHealthScore = async () => {
     try {
-      const res = await fetch('/api/patient-portal/health-score');
+      const res = await fetch('/api/patient-portal/health-score', {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
       if (res.ok) {
         const result = await res.json();
         setData(result);
@@ -72,97 +77,8 @@ export default function HealthScorePage() {
     }
   };
 
-  // Demo data for visualization
-  const demoData: HealthScoreData = {
-    overallScore: 78,
-    previousScore: 72,
-    metrics: [
-      {
-        id: 'weight',
-        name: 'Weight Progress',
-        value: -12.5,
-        unit: 'lbs',
-        target: -25,
-        trend: 'up',
-        trendValue: '-2.3 this week',
-        score: 85,
-        lastUpdated: 'Today',
-        icon: Scale,
-        color: '#22c55e',
-      },
-      {
-        id: 'hydration',
-        name: 'Hydration',
-        value: 58,
-        unit: 'oz/day avg',
-        target: 64,
-        trend: 'up',
-        trendValue: '+8oz from last week',
-        score: 75,
-        lastUpdated: 'Today',
-        icon: Droplet,
-        color: '#3b82f6',
-      },
-      {
-        id: 'sleep',
-        name: 'Sleep',
-        value: 7.2,
-        unit: 'hrs/night',
-        target: 8,
-        trend: 'stable',
-        trendValue: 'Same as last week',
-        score: 80,
-        lastUpdated: 'Yesterday',
-        icon: Moon,
-        color: '#8b5cf6',
-      },
-      {
-        id: 'exercise',
-        name: 'Exercise',
-        value: 120,
-        unit: 'min/week',
-        target: 150,
-        trend: 'up',
-        trendValue: '+30min from last week',
-        score: 70,
-        lastUpdated: '2 days ago',
-        icon: Activity,
-        color: '#f97316',
-      },
-      {
-        id: 'adherence',
-        name: 'Medication',
-        value: 100,
-        unit: '% adherence',
-        trend: 'stable',
-        score: 100,
-        lastUpdated: 'This week',
-        icon: Heart,
-        color: '#ec4899',
-      },
-      {
-        id: 'streak',
-        name: 'Logging Streak',
-        value: 14,
-        unit: 'days',
-        trend: 'up',
-        trendValue: 'Personal best!',
-        score: 90,
-        lastUpdated: 'Active',
-        icon: Flame,
-        color: '#ef4444',
-      },
-    ],
-    insights: [
-      'Your hydration has improved! Keep drinking water throughout the day.',
-      'Great job maintaining your medication schedule this week.',
-      'Consider adding 30 more minutes of exercise to hit your weekly goal.',
-    ],
-    weeklyTrend: [72, 73, 74, 75, 76, 77, 78],
-  };
-
-  const displayData = data || demoData;
-  const scoreDiff = displayData.overallScore - displayData.previousScore;
+  const displayData = data;
+  const scoreDiff = displayData ? displayData.overallScore - displayData.previousScore : 0;
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return '#22c55e';
@@ -180,6 +96,28 @@ export default function HealthScorePage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (!displayData) {
+    return (
+      <div className="min-h-[60vh] px-4 py-8">
+        <div className="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <Activity className="mx-auto h-12 w-12 text-gray-300" />
+          <h2 className="mt-4 text-lg font-semibold text-gray-900">No health score data yet</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            Log weight, water, exercise, and sleep in Progress to build your health score.
+          </p>
+          <Link
+            href={`${PATIENT_PORTAL_PATH}/progress`}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl px-4 py-2 font-medium text-white"
+            style={{ backgroundColor: primaryColor }}
+          >
+            Go to Progress
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
     );
   }

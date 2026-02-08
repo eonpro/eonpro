@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import {
@@ -87,21 +88,8 @@ export default function SettingsPage() {
         address: userData.address,
       });
     } else {
-      // Demo profile
-      setProfile({
-        id: 1,
-        email: 'patient@example.com',
-        firstName: 'Patient',
-        lastName: 'User',
-        phone: '(555) 123-4567',
-        dateOfBirth: '1990-01-15',
-        address: {
-          street: '123 Main St',
-          city: 'Miami',
-          state: 'FL',
-          zip: '33101',
-        },
-      });
+      router.replace(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
+      return;
     }
     setLoading(false);
   };

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { PatientPhotoType } from '@prisma/client';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 
 // =============================================================================
 // Types
@@ -236,10 +237,11 @@ export function PhotoUploader({
           prev.map((p) => (p.id === photo.id ? { ...p, status: 'uploading' as const } : p))
         );
 
-        // Get presigned URL
+        // Get presigned URL (auth required so photo is tied to patient)
         const presignedResponse = await fetch('/api/patient-portal/photos/upload', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          credentials: 'include',
           body: JSON.stringify({
             type: photoType,
             contentType: 'image/jpeg',
@@ -284,10 +286,11 @@ export function PhotoUploader({
           }
         }
 
-        // Create photo record in database
+        // Create photo record in database (auth required for patientId resolution)
         const createResponse = await fetch('/api/patient-portal/photos', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          credentials: 'include',
           body: JSON.stringify({
             type: photoType,
             category,
@@ -403,8 +406,11 @@ export function PhotoUploader({
       });
       setCameraStream(stream);
       setIsCameraOpen(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      // Assign stream to video and play (required on iOS/Safari webview for feed to show)
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        video.play().catch(() => {});
       }
     } catch (error) {
       onUploadError?.('Unable to access camera. Please check permissions.');
@@ -606,7 +612,7 @@ export function PhotoUploader({
       {isCameraOpen && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">
           {/* Camera Header */}
-          <div className="flex items-center justify-between p-4 bg-black/80">
+          <div className="flex items-center justify-between p-4 bg-black/80 shrink-0">
             <button onClick={closeCamera} className="p-2 text-white hover:bg-white/20 rounded-full">
               <X className="h-6 w-6" />
             </button>
@@ -616,19 +622,26 @@ export function PhotoUploader({
             </button>
           </div>
 
-          {/* Video Feed */}
-          <div className="flex-1 flex items-center justify-center overflow-hidden">
+          {/* Video Feed - flex-1 so button stays visible above browser chrome */}
+          <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="max-w-full max-h-full object-contain"
+              className="max-w-full max-h-full object-contain w-full h-full"
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget;
+                v.play().catch(() => {});
+              }}
             />
           </div>
 
-          {/* Capture Button */}
-          <div className="p-6 bg-black/80 flex justify-center">
+          {/* Capture Button - safe-area so not cut off by mobile browser bar (PWA/webview) */}
+          <div
+            className="shrink-0 pt-6 px-6 bg-black/80 flex justify-center"
+            style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))' }}
+          >
             <button
               onClick={capturePhoto}
               className="w-20 h-20 rounded-full bg-white border-4 border-gray-300 hover:scale-105 transition-transform flex items-center justify-center"

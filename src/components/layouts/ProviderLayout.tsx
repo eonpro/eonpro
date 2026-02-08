@@ -131,38 +131,11 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
   };
 
   const loadProviderData = async () => {
-    // Load notifications and patient count
+    // Production: load from APIs when available; no demo data
     try {
-      // Mock data for demo
-      setNotifications([
-        {
-          id: '1',
-          patientName: 'John Smith',
-          type: 'lab',
-          message: 'Lab results ready for review',
-          priority: 'high',
-          time: '5 minutes ago'
-        },
-        {
-          id: '2',
-          patientName: 'Jane Doe',
-          type: 'message',
-          message: 'New message from patient',
-          priority: 'medium',
-          time: '1 hour ago'
-        },
-        {
-          id: '3',
-          patientName: 'Robert Johnson',
-          type: 'appointment',
-          message: 'Appointment in 30 minutes',
-          priority: 'high',
-          time: '30 minutes'
-        }
-      ]);
-      setCurrentPatientCount(12);
-    } catch (error) {
-      // Fallback values
+      setNotifications([]);
+      setCurrentPatientCount(0);
+    } catch {
       setCurrentPatientCount(0);
     }
   };

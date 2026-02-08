@@ -54,25 +54,13 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
   }, []);
 
   const loadPatientData = async () => {
-    // Load patient-specific data
+    // Production: load from APIs when available; no demo data
     try {
-      // Mock data for demo
-      setHealthMetrics([
-        { label: 'Blood Pressure', value: '120/80', trend: 'stable', color: 'green' },
-        { label: 'Weight', value: '165 lbs', trend: 'down', color: 'blue' },
-        { label: 'Glucose', value: '95 mg/dL', trend: 'stable', color: 'green' },
-        { label: 'Next Appointment', value: 'Dec 15', trend: 'stable', color: 'purple' }
-      ]);
-      
-      setReminders([
-        { id: '1', type: 'medication', title: 'Take morning medication', time: '8:00 AM', urgent: false },
-        { id: '2', type: 'appointment', title: 'Dr. Smith - Annual Checkup', time: 'Dec 15, 2:30 PM', urgent: false },
-        { id: '3', type: 'refill', title: 'Prescription refill needed', time: '5 days left', urgent: true }
-      ]);
-      
-      setUnreadMessages(2);
-    } catch (error) {
-      // Fallback values
+      setHealthMetrics([]);
+      setReminders([]);
+      setUnreadMessages(0);
+    } catch {
+      // Leave empty
     }
   };
 
@@ -200,7 +188,9 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
                     <p className="text-sm font-medium text-gray-900">
                       {userData?.firstName} {userData?.lastName}
                     </p>
-                    <p className="text-xs text-gray-500">Patient ID: {userData?.patientId || 'P12345'}</p>
+                    {userData?.patientId && (
+                      <p className="text-xs text-gray-500">Patient ID: {userData.patientId}</p>
+                    )}
                   </div>
                 </button>
 

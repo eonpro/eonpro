@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 import {
   Pill,
   Clock,
@@ -60,16 +61,41 @@ export default function MedicationsPage() {
   const [loading, setLoading] = useState(true);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedMed, setSelectedMed] = useState<Medication | null>(null);
+  /** When adding a reminder without a medication card (no prescriptions on file), user enters name here */
+  const [customMedicationName, setCustomMedicationName] = useState('');
   const [newReminder, setNewReminder] = useState({ dayOfWeek: 3, time: '08:00' });
   const [showSuccess, setShowSuccess] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      setPatientId(userData.patientId || userData.id);
-    }
+    let cancelled = false;
+    const run = async () => {
+      const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (!userJson) return;
+      try {
+        const userData = JSON.parse(userJson);
+        let pid: number | null = userData.patientId ?? null;
+        if (pid == null && userData.role?.toLowerCase() === 'patient') {
+          const meRes = await fetch('/api/auth/me', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          });
+          if (meRes.ok && !cancelled) {
+            const meData = await meRes.json();
+            const fromMe = meData?.user?.patientId;
+            if (typeof fromMe === 'number' && fromMe > 0) {
+              pid = fromMe;
+              localStorage.setItem('user', JSON.stringify({ ...userData, patientId: fromMe }));
+            }
+          }
+        }
+        if (!cancelled && pid != null) setPatientId(pid);
+      } catch {
+        if (!cancelled) setPatientId(null);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -79,33 +105,14 @@ export default function MedicationsPage() {
   }, [patientId]);
 
   const loadData = async () => {
-    const demoMeds: Medication[] = [
-      {
-        id: 1,
-        name: 'Semaglutide',
-        dosage: '0.5mg',
-        frequency: 'Weekly injection',
-        instructions: 'Inject subcutaneously once weekly, same day each week',
-        status: 'active',
-        startDate: '2025-12-01',
-        refillDate: '2026-02-01',
-      },
-      {
-        id: 2,
-        name: 'Vitamin B12',
-        dosage: '1000mcg',
-        frequency: 'Daily',
-        instructions: 'Take with food in the morning',
-        status: 'active',
-        startDate: '2025-12-01',
-      },
-    ];
-    setMedications(demoMeds);
+    // Production: medications list from API when available; until then empty (reminders still work)
+    setMedications([]);
 
     if (patientId) {
       try {
         const response = await fetch(
-          `/api/patient-progress/medication-reminders?patientId=${patientId}`
+          `/api/patient-progress/medication-reminders?patientId=${patientId}`,
+          { headers: getAuthHeaders(), credentials: 'include' }
         );
         if (response.ok) {
           const result = await response.json();
@@ -121,16 +128,20 @@ export default function MedicationsPage() {
   };
 
   const addReminder = async () => {
-    if (!selectedMed || !patientId) return;
+    const medicationName = selectedMed
+      ? `${selectedMed.name} ${selectedMed.dosage}`
+      : (customMedicationName?.trim() || '');
+    if (!medicationName || !patientId) return;
 
     setSaving(true);
     try {
       const response = await fetch('/api/patient-progress/medication-reminders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({
           patientId,
-          medicationName: `${selectedMed.name} ${selectedMed.dosage}`,
+          medicationName,
           dayOfWeek: newReminder.dayOfWeek,
           timeOfDay: newReminder.time,
           isActive: true,
@@ -142,6 +153,7 @@ export default function MedicationsPage() {
         setReminders((prev) => [...prev, savedReminder]);
         setShowReminderModal(false);
         setSelectedMed(null);
+        setCustomMedicationName('');
         setShowSuccess('Reminder saved successfully!');
         setTimeout(() => setShowSuccess(''), 3000);
       }
@@ -156,6 +168,8 @@ export default function MedicationsPage() {
     try {
       const response = await fetch(`/api/patient-progress/medication-reminders?id=${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
       if (response.ok) {
         setReminders((prev) => prev.filter((r) => r.id !== id));
@@ -167,7 +181,7 @@ export default function MedicationsPage() {
     }
   };
 
-  const generateICS = (med: Medication, reminder: Reminder) => {
+  const generateICS = (med: { name: string; dosage?: string; instructions?: string }, reminder: Reminder) => {
     const [hours, minutes] = reminder.timeOfDay.split(':').map(Number);
     const today = new Date();
     const eventDate = new Date(today);
@@ -179,6 +193,8 @@ export default function MedicationsPage() {
     endDate.setMinutes(endDate.getMinutes() + 30);
 
     const formatDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const summary = med.dosage ? `${med.name} - ${med.dosage}` : med.name;
+    const description = med.instructions || 'Medication reminder';
 
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -188,8 +204,8 @@ METHOD:PUBLISH
 BEGIN:VEVENT
 DTSTART:${formatDate(eventDate)}
 DTEND:${formatDate(endDate)}
-SUMMARY:${med.name} - ${med.dosage}
-DESCRIPTION:${med.instructions}
+SUMMARY:${summary}
+DESCRIPTION:${description}
 RRULE:FREQ=WEEKLY;COUNT=12
 END:VEVENT
 END:VCALENDAR`;
@@ -198,7 +214,7 @@ END:VCALENDAR`;
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${med.name.toLowerCase()}-reminder.ics`;
+    link.download = `${med.name.toLowerCase().replace(/\s+/g, '-')}-reminder.ics`;
     link.click();
     URL.revokeObjectURL(url);
 
@@ -235,7 +251,95 @@ END:VCALENDAR`;
         <p className="mt-2 text-gray-500">Your prescriptions and dose reminders</p>
       </div>
 
-      {/* Medications */}
+      {/* When no medications on file: show reminders only and allow adding by name */}
+      {medications.length === 0 && (
+        <div className="mb-10 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
+          <div className="border-b border-gray-100 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-gray-400" />
+                <span className="text-lg font-semibold text-gray-900">Medication reminders</span>
+                {reminders.length > 0 && (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                    {reminders.length}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedMed(null);
+                  setCustomMedicationName('');
+                  setShowReminderModal(true);
+                }}
+                className="flex items-center gap-2 rounded-xl px-4 py-2 font-semibold text-white transition-all hover:scale-105"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <Plus className="h-4 w-4" />
+                Add reminder
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-gray-500">
+              No prescriptions on file. You can still add reminders for any medication.
+            </p>
+          </div>
+          <div className="p-6">
+            {reminders.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
+                <Bell className="mx-auto mb-2 h-10 w-10 text-gray-300" />
+                <p className="font-medium text-gray-600">No reminders yet</p>
+                <p className="mt-1 text-sm text-gray-500">Add a reminder to never miss a dose</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reminders.map((reminder) => (
+                  <div
+                    key={reminder.id}
+                    className="group flex items-center justify-between rounded-2xl bg-gray-50 p-4 transition-all hover:bg-gray-100"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-xl"
+                        style={{ backgroundColor: `${accentColor}` }}
+                      >
+                        <Bell className="h-5 w-5 text-gray-700" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">{reminder.medicationName}</p>
+                        <p className="text-sm text-gray-500">
+                          {daysOfWeek.find((d) => d.value === reminder.dayOfWeek)?.full} at{' '}
+                          {reminder.timeOfDay}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          generateICS(
+                            { name: reminder.medicationName, instructions: '' },
+                            reminder
+                          )
+                        }
+                        className="rounded-xl p-3 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                        title="Download to calendar"
+                      >
+                        <Download className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => removeReminder(reminder.id)}
+                        className="rounded-xl p-3 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Medications (when we have a list from API in the future) */}
       <div className="mb-10 space-y-6">
         {medications
           .filter((m) => m.status === 'active')
@@ -460,11 +564,15 @@ END:VCALENDAR`;
       </div>
 
       {/* Add Reminder Modal */}
-      {showReminderModal && selectedMed && (
+      {showReminderModal && (
         <>
           <div
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowReminderModal(false)}
+            onClick={() => {
+              setShowReminderModal(false);
+              setSelectedMed(null);
+              setCustomMedicationName('');
+            }}
           />
           <div className="fixed inset-x-4 top-1/2 z-50 -translate-y-1/2 md:inset-auto md:left-1/2 md:top-1/2 md:w-full md:max-w-lg md:-translate-x-1/2">
             <div className="overflow-hidden rounded-3xl bg-white shadow-2xl">
@@ -478,12 +586,20 @@ END:VCALENDAR`;
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-2xl font-semibold text-gray-900">Add Reminder</h2>
-                    <p className="mt-1 text-gray-700">
-                      {selectedMed.name} ({selectedMed.dosage})
-                    </p>
+                    {selectedMed ? (
+                      <p className="mt-1 text-gray-700">
+                        {selectedMed.name} ({selectedMed.dosage})
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-600">Enter medication name below</p>
+                    )}
                   </div>
                   <button
-                    onClick={() => setShowReminderModal(false)}
+                    onClick={() => {
+                      setShowReminderModal(false);
+                      setSelectedMed(null);
+                      setCustomMedicationName('');
+                    }}
                     className="rounded-xl p-2 text-gray-700 transition-colors hover:bg-black/10"
                   >
                     <X className="h-6 w-6" />
@@ -492,6 +608,22 @@ END:VCALENDAR`;
               </div>
 
               <div className="p-6">
+                {/* Medication name (when no prescription selected) */}
+                {!selectedMed && (
+                  <div className="mb-6">
+                    <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
+                      Medication name
+                    </label>
+                    <input
+                      type="text"
+                      value={customMedicationName}
+                      onChange={(e) => setCustomMedicationName(e.target.value)}
+                      placeholder="e.g. Semaglutide 0.5mg"
+                      className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition-all focus:border-gray-900 focus:bg-white"
+                    />
+                  </div>
+                )}
+
                 {/* Day Selection */}
                 <div className="mb-6">
                   <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">

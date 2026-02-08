@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 import {
   Send,
   ArrowLeft,
@@ -87,7 +88,10 @@ export default function PatientChatPage() {
     if (!patientId) return;
     
     try {
-      const response = await fetch(`/api/patient-chat?patientId=${patientId}&limit=100`);
+      const response = await fetch(`/api/patient-chat?patientId=${patientId}&limit=100`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
       if (response.ok) {
         const result = await response.json();
         setMessages(result.data || []);
@@ -137,7 +141,8 @@ export default function PatientChatPage() {
     try {
       const response = await fetch('/api/patient-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({
           patientId,
           message: messageText,

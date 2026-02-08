@@ -1,7 +1,13 @@
 'use client';
 
+/**
+ * Subscription & Billing – production: data from GET /api/patient-portal/billing (Stripe + local).
+ * No demo data; empty state when no subscription.
+ */
+
 import { useState, useEffect } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { getAuthHeaders } from '@/lib/utils/auth-token';
 import {
   CreditCard,
   Calendar,
@@ -20,7 +26,7 @@ interface Subscription {
   amount: number;
   interval: 'month' | 'year';
   nextBillingDate: string;
-  paymentMethod: {
+  paymentMethod?: {
     brand: string;
     last4: string;
     expMonth: number;
@@ -45,73 +51,86 @@ export default function SubscriptionPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [managingBilling, setManagingBilling] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   useEffect(() => {
     loadSubscriptionData();
   }, []);
 
   const loadSubscriptionData = async () => {
-    // Demo data - in production, fetch from Stripe API
-    const demoSubscription: Subscription = {
-      id: 'sub_1234567890',
-      planName: 'Weight Loss Program - Monthly',
-      status: 'active',
-      amount: 299,
-      interval: 'month',
-      nextBillingDate: '2026-02-18',
-      paymentMethod: {
-        brand: 'visa',
-        last4: '4242',
-        expMonth: 12,
-        expYear: 2027,
-      },
-    };
+    setBillingError(null);
+    try {
+      const res = await fetch('/api/patient-portal/billing', {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setBillingError(err?.error || 'Failed to load billing');
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
 
-    const demoInvoices: Invoice[] = [
-      {
-        id: 'inv_001',
-        date: '2026-01-18',
-        amount: 299,
-        status: 'paid',
-        description: 'Weight Loss Program - Monthly',
-      },
-      {
-        id: 'inv_002',
-        date: '2025-12-18',
-        amount: 299,
-        status: 'paid',
-        description: 'Weight Loss Program - Monthly',
-      },
-      {
-        id: 'inv_003',
-        date: '2025-11-18',
-        amount: 299,
-        status: 'paid',
-        description: 'Weight Loss Program - Monthly',
-      },
-    ];
+      if (data.subscription) {
+        const sub = data.subscription;
+        const amountCents = typeof sub.amount === 'number' ? sub.amount : 0;
+        setSubscription({
+          id: sub.id || '',
+          planName: sub.planName || 'Subscription',
+          status: sub.status === 'ACTIVE' ? 'active' : (sub.status?.toLowerCase() || 'active'),
+          amount: amountCents / 100,
+          interval: (sub.interval === 'year' ? 'year' : 'month') as 'month' | 'year',
+          nextBillingDate: sub.currentPeriodEnd || sub.nextBillingDate || '',
+          paymentMethod:
+            data.paymentMethods?.length > 0
+              ? {
+                  brand: data.paymentMethods[0].brand || 'card',
+                  last4: data.paymentMethods[0].last4 || '****',
+                  expMonth: data.paymentMethods[0].expMonth || 0,
+                  expYear: data.paymentMethods[0].expYear || 0,
+                }
+              : undefined,
+        });
+      } else {
+        setSubscription(null);
+      }
 
-    setSubscription(demoSubscription);
-    setInvoices(demoInvoices);
-    setLoading(false);
+      const invList = Array.isArray(data.invoices) ? data.invoices : [];
+      setInvoices(
+        invList.map((inv: any) => ({
+          id: String(inv.id),
+          date: inv.date || inv.dueDate || '',
+          amount: typeof inv.amount === 'number' ? inv.amount / 100 : 0,
+          status: inv.status || 'pending',
+          description: inv.description || 'Invoice',
+        }))
+      );
+    } catch (e) {
+      console.error('Billing fetch error:', e);
+      setBillingError('Failed to load billing');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleManageBilling = async () => {
     setManagingBilling(true);
     try {
-      // In production, redirect to Stripe Customer Portal
       const response = await fetch('/api/stripe/customer-portal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({ returnUrl: window.location.href }),
       });
 
       if (response.ok) {
         const { url } = await response.json();
-        window.location.href = url;
+        if (url) window.location.href = url;
+        else alert('Billing portal is not configured. Please contact support.');
       } else {
-        // Demo fallback
-        alert('Stripe Customer Portal would open here in production.');
+        const err = await response.json().catch(() => ({}));
+        alert(err?.error || 'Unable to open billing portal. Please contact support.');
       }
     } catch (error) {
       console.error('Error opening billing portal:', error);
@@ -133,6 +152,50 @@ export default function SubscriptionPage() {
           className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
         />
+      </div>
+    );
+  }
+
+  if (billingError) {
+    return (
+      <div className="min-h-screen p-4 md:p-6 lg:p-8">
+        <div className="mx-auto max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+          <AlertCircle className="mx-auto h-10 w-10 text-amber-600" />
+          <h2 className="mt-3 font-semibold text-amber-900">Unable to load billing</h2>
+          <p className="mt-1 text-sm text-amber-800">{billingError}</p>
+          <button
+            onClick={loadSubscriptionData}
+            className="mt-4 rounded-xl px-4 py-2 font-medium text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!subscription) {
+    return (
+      <div className="min-h-screen p-4 md:p-6 lg:p-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900">Subscription & Billing</h1>
+          <p className="mt-1 text-gray-500">Manage your subscription and payment details</p>
+        </div>
+        <div className="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <CreditCard className="mx-auto h-12 w-12 text-gray-300" />
+          <h2 className="mt-4 text-lg font-semibold text-gray-900">No active subscription</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            You don&apos;t have an active subscription. Contact your clinic or complete checkout to get started.
+          </p>
+          <button
+            onClick={handleManageBilling}
+            disabled={managingBilling}
+            className="mt-6 rounded-xl px-4 py-2 font-medium text-white disabled:opacity-50"
+            style={{ backgroundColor: primaryColor }}
+          >
+            {managingBilling ? 'Opening…' : 'Manage billing'}
+          </button>
+        </div>
       </div>
     );
   }

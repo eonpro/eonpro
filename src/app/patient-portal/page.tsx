@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
 import {
   Scale,
@@ -40,6 +41,7 @@ interface IntakeVitals {
 }
 
 export default function PatientPortalDashboard() {
+  const router = useRouter();
   const { branding } = useClinicBranding();
   const features = usePortalFeatures();
   const { t, language } = usePatientPortalLanguage();
@@ -70,13 +72,7 @@ export default function PatientPortalDashboard() {
       try {
         const userJson = localStorage.getItem('user');
         if (!userJson) {
-          setPatient({
-            id: 1,
-            firstName: 'Patient',
-            lastName: 'User',
-            patientId: 'P12345',
-          });
-          loadDemoData();
+          if (!cancelled) router.replace(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
           return;
         }
 
@@ -105,18 +101,11 @@ export default function PatientPortalDashboard() {
         if (cancelled) return;
         if (patientId != null && patientId > 0) {
           loadPatientData(patientId);
-        } else {
-          loadDemoData();
         }
+        // No demo: if no valid patientId, leave state empty (user may see empty dashboard or redirect handled by layout)
       } catch (error) {
         console.error('[PatientPortal] Failed to load user data:', error);
-        setPatient({
-          id: 1,
-          firstName: 'Patient',
-          lastName: 'User',
-          patientId: 'P12345',
-        });
-        loadDemoData();
+        if (!cancelled) router.replace(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`);
       }
     };
 
@@ -248,40 +237,7 @@ export default function PatientPortalDashboard() {
       }
     } catch (error) {
       console.error('Error loading patient data:', error);
-      loadDemoData();
-    }
-  };
-
-  const loadDemoData = () => {
-    // Demo weight data - only shown when no real data exists
-    const demoWeights = [
-      { dateInput: '2025-07-01', currentWeightInput: 200 },
-      { dateInput: '2025-08-01', currentWeightInput: 185 },
-      { dateInput: '2025-09-01', currentWeightInput: 175 },
-      { dateInput: '2026-01-15', currentWeightInput: 168 },
-    ];
-    // Only set demo data if no real data loaded
-    if (weightData.length === 0) {
-      setWeightData(demoWeights);
-      setCurrentWeight(168);
-      setWeightChange(-32);
-    }
-
-    // Only set demo shipment/reminder if not already set from API
-    if (!recentShipment) {
-      setRecentShipment({
-        status: 'shipped',
-        trackingNumber: '1Z999AA10123456784',
-        estimatedDelivery: 'Jan 22, 2026',
-      });
-    }
-
-    if (!nextReminder) {
-      setNextReminder({
-        medication: 'Semaglutide',
-        nextDose: 'Wednesday',
-        time: '8:00 AM',
-      });
+      // Production: no demo data; leave state as-is (empty or partial)
     }
   };
 
