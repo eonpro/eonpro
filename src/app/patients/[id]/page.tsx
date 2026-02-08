@@ -331,7 +331,9 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     SHIPPING_METHODS.map((method: any) => [method.id, method.label])
   );
   const resolvedSearchParams = await searchParams;
-  const activeTab = resolvedSearchParams?.tab || 'profile';
+  let activeTab = resolvedSearchParams?.tab || 'profile';
+  // Support both ?tab=lab and ?tab=labs (normalize to 'lab')
+  if (activeTab === 'labs') activeTab = 'lab';
   const validTabs = [
     'profile',
     'intake',
