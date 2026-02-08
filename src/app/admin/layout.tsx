@@ -14,6 +14,7 @@ import {
   NotificationToastContainer
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { getAdminNavConfig } from '@/lib/nav/adminNav';
 
 // Error Boundary to catch and recover from React errors
 interface ErrorBoundaryState {
@@ -81,24 +82,22 @@ interface UserClinic {
   isPrimary: boolean;
 }
 
-const baseNavItems = [
-  { icon: Home, path: '/', label: 'Home' },
-  { icon: UserPlus, path: '/admin/intakes', label: 'Intakes' },
-  { icon: Users, path: '/admin/patients', label: 'Patients' },
-  { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
-  { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
-  { icon: Ticket, path: '/tickets', label: 'Tickets' },
-  { icon: Store, path: '/admin/products', label: 'Products' },
-  { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
-  { icon: UserCheck, path: '/admin/affiliates', label: 'Affiliates' },
-  { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
-  { icon: CreditCard, path: '/admin/stripe-dashboard', label: 'Stripe' },
-  { icon: Key, path: '/admin/registration-codes', label: 'Registration Codes' },
-  { icon: Settings, path: '/admin/settings', label: 'Settings' },
-];
-
-// Clinics tab only shown for multi-clinic admins or super_admin
-const clinicsNavItem = { icon: Building2, path: '/admin/clinics', label: 'Clinics' };
+const adminNavIconMap = {
+  Home,
+  UserPlus,
+  Users,
+  Pill,
+  ShoppingCart,
+  Ticket,
+  Store,
+  TrendingUp,
+  UserCheck,
+  DollarSign,
+  CreditCard,
+  Key,
+  Settings,
+  Building2,
+} as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -176,16 +175,13 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
-  // Build navigation items - only show Clinics tab for super_admin
+  // Build navigation items from shared config (same as patients layout for consistency)
   const navItems = useMemo(() => {
-    const items = [...baseNavItems];
-
-    // Insert Clinics tab after RX Queue for super_admin only
-    if (userRole === 'super_admin') {
-      items.splice(4, 0, clinicsNavItem);
-    }
-
-    return items;
+    const config = getAdminNavConfig(userRole);
+    return config.map((item) => ({
+      ...item,
+      icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
+    }));
   }, [userRole]);
 
   // Handle clinic switching with password confirmation

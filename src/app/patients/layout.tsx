@@ -5,19 +5,36 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home, Users, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, ClipboardList
+  DollarSign, Settings, LogOut, ChevronRight, ClipboardList,
+  UserPlus, Pill, Ticket, UserCheck, CreditCard, Key, Building2
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { getAdminNavConfig } from '@/lib/nav/adminNav';
 
 // Default EONPRO logos
 const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
 const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
-// Base nav items - patients path will be set dynamically based on role
-const getNavItems = (userRole: string | null) => {
-  // Determine the correct patients path based on role
-  const patientsPath = userRole === 'provider' ? '/provider/patients' : '/admin/patients';
+const adminNavIconMap = {
+  Home,
+  UserPlus,
+  Users,
+  Pill,
+  ShoppingCart,
+  Ticket,
+  Store,
+  TrendingUp,
+  UserCheck,
+  DollarSign,
+  CreditCard,
+  Key,
+  Settings,
+  Building2,
+} as const;
 
+/** Nav items for provider/staff/support (reduced set when not admin). */
+function getNonAdminNavItems(userRole: string | null) {
+  const patientsPath = userRole === 'provider' ? '/provider/patients' : '/admin/patients';
   return [
     { icon: Home, path: '/', label: 'Home' },
     { icon: Users, path: patientsPath, label: 'Patients' },
@@ -28,7 +45,7 @@ const getNavItems = (userRole: string | null) => {
     { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
     { icon: Settings, path: '/admin/settings', label: 'Settings' },
   ];
-};
+}
 
 // Roles allowed to access patient pages
 const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
@@ -48,8 +65,17 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const clinicName = branding?.clinicName || 'EONPRO';
   const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
-  // Get nav items based on user role
-  const navItems = useMemo(() => getNavItems(userRole), [userRole]);
+  // Use same full admin nav as Home/admin when user is admin or super_admin (consistent sidebar)
+  const navItems = useMemo(() => {
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      const config = getAdminNavConfig(userRole);
+      return config.map((item) => ({
+        ...item,
+        icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
+      }));
+    }
+    return getNonAdminNavItems(userRole);
+  }, [userRole]);
 
   // Authentication check on mount ONLY - removed pathname dependency to prevent logout on navigation
   useEffect(() => {
