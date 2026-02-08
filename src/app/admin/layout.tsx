@@ -4,17 +4,38 @@ import React, { useEffect, useState, useMemo, Component, ErrorInfo } from 'react
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home, Users, UserPlus, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, X, Lock, Pill, UserCheck, Bell, AlertTriangle, RefreshCw, Ticket
+  Home,
+  Users,
+  UserPlus,
+  Building2,
+  ShoppingCart,
+  Store,
+  TrendingUp,
+  DollarSign,
+  Settings,
+  LogOut,
+  ChevronRight,
+  CreditCard,
+  Key,
+  X,
+  Lock,
+  Pill,
+  UserCheck,
+  Bell,
+  AlertTriangle,
+  RefreshCw,
+  Ticket,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
   NotificationProvider,
   NotificationCenter,
-  NotificationToastContainer
+  NotificationToastContainer,
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
+import { logger } from '@/lib/logger';
+import * as Sentry from '@sentry/nextjs';
 
 // Error Boundary to catch and recover from React errors
 interface ErrorBoundaryState {
@@ -33,19 +54,24 @@ class AdminErrorBoundary extends Component<{ children: React.ReactNode }, ErrorB
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[AdminErrorBoundary] Caught error:', error, errorInfo);
+    logger.error('AdminErrorBoundary caught an error', error, { componentStack: errorInfo.componentStack });
+    Sentry.withScope((scope) => {
+      scope.setContext('errorBoundary', { componentStack: errorInfo.componentStack });
+      scope.setLevel('error');
+      Sentry.captureException(error);
+    });
   }
 
   override render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#efece7] flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-4 text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-red-600" />
+        <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
+          <div className="mx-4 max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <AlertTriangle className="h-8 w-8 text-red-600" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="mb-2 text-xl font-semibold text-gray-900">Something went wrong</h2>
+            <p className="mb-6 text-gray-600">
               {this.state.error?.message || 'An unexpected error occurred'}
             </p>
             <button
@@ -53,9 +79,9 @@ class AdminErrorBoundary extends Component<{ children: React.ReactNode }, ErrorB
                 this.setState({ hasError: false, error: null });
                 window.location.reload();
               }}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-white transition-colors hover:bg-green-700"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" />
               Reload Page
             </button>
           </div>
@@ -68,8 +94,10 @@ class AdminErrorBoundary extends Component<{ children: React.ReactNode }, ErrorB
 }
 
 // Default EONPRO logos
-const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
-const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
+const EONPRO_LOGO =
+  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_ICON =
+  'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
 interface UserClinic {
   id: number;
@@ -165,7 +193,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       setLoading(false);
 
       // Fetch user's clinics for multi-clinic support (non-blocking)
-      fetchUserClinics().catch(err => {
+      fetchUserClinics().catch((err) => {
         console.error('Error fetching user clinics:', err);
       });
     } catch (error) {
@@ -245,8 +273,15 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('admin-token') ||
+      localStorage.getItem('super_admin-token');
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -257,7 +292,17 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_timestamp');
-    ['auth-token', 'admin-token', 'super_admin-token', 'provider-token', 'patient-token', 'staff-token', 'support-token', 'affiliate-token', 'influencer-token'].forEach(name => {
+    [
+      'auth-token',
+      'admin-token',
+      'super_admin-token',
+      'provider-token',
+      'patient-token',
+      'staff-token',
+      'support-token',
+      'affiliate-token',
+      'influencer-token',
+    ].forEach((name) => {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });
     window.location.href = '/login';
@@ -270,9 +315,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (loading || brandingLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
+      <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
         <div
-          className="animate-spin rounded-full h-12 w-12 border-2 border-t-transparent"
+          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
         ></div>
       </div>
@@ -280,15 +325,15 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#efece7] flex">
+    <div className="flex min-h-screen bg-[#efece7]">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 ${
           sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
         {/* Logo */}
-        <div className="flex flex-col items-center mb-6 px-4">
+        <div className="mb-6 flex flex-col items-center px-4">
           <Link href="/">
             {sidebarExpanded ? (
               <img
@@ -297,23 +342,26 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
-              <img
-                src={clinicIcon}
-                alt={clinicName}
-                className="h-10 w-10 object-contain"
-              />
+              <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
             )}
           </Link>
           {/* Powered by EONPRO - shown for white-labeled clinics */}
           {isWhiteLabeled && sidebarExpanded && (
-            <span className="text-[10px] text-gray-400 mt-1">Powered by EONPRO</span>
+            <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
+              Powered by{' '}
+              <img
+                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                alt="EONPRO"
+                className="h-3 w-auto"
+              />
+            </span>
           )}
         </div>
 
         {/* Expand Button */}
         <button
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 focus:outline-none transition-all ${
+          className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
             sidebarExpanded ? 'rotate-180' : ''
           }`}
         >
@@ -321,7 +369,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         </button>
 
         {/* Navigation Icons */}
-        <nav className="flex-1 flex flex-col px-3 space-y-1">
+        <nav className="flex flex-1 flex-col space-y-1 px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -334,7 +382,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               console.log('[Nav] Button clicked:', item.path);
 
               // Handle special case for Clinics tab
-              if (item.path === '/admin/clinics' && hasMultipleClinics && userRole !== 'super_admin') {
+              if (
+                item.path === '/admin/clinics' &&
+                hasMultipleClinics &&
+                userRole !== 'super_admin'
+              ) {
                 setShowClinicSwitchModal(true);
                 return;
               }
@@ -357,16 +409,14 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   console.log('[Nav] MouseDown:', item.path);
                 }}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer w-full text-left ${
-                  active
-                    ? ''
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                  active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
-                  <span className="text-sm font-medium whitespace-nowrap">
+                  <span className="whitespace-nowrap text-sm font-medium">
                     {isClinicsTab && hasMultipleClinics && userRole !== 'super_admin'
                       ? 'Switch Clinic'
                       : item.label}
@@ -378,16 +428,16 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Logout */}
-        <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
+        <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
           <button
             type="button"
             onClick={handleLogout}
-            title={!sidebarExpanded ? "Logout" : undefined}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all w-full"
+            title={!sidebarExpanded ? 'Logout' : undefined}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {sidebarExpanded && (
-              <span className="text-sm font-medium whitespace-nowrap">Logout</span>
+              <span className="whitespace-nowrap text-sm font-medium">Logout</span>
             )}
           </button>
         </div>
@@ -396,10 +446,13 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
         {/* Top Left Notification Bar */}
-        <div className="sticky top-0 z-40 px-6 py-3 bg-[#efece7]/95 backdrop-blur-sm border-b border-gray-200/50">
+        <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-6 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <NotificationCenter notificationsPath="/admin/notifications" dropdownPosition="left" />
+              <NotificationCenter
+                notificationsPath="/admin/notifications"
+                dropdownPosition="left"
+              />
               <span className="text-sm font-medium text-gray-600">Notifications</span>
             </div>
           </div>
@@ -409,22 +462,22 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Internal Team Chat */}
-      {userId && (
-        <InternalChat currentUserId={userId} currentUserRole={userRole} />
-      )}
+      {userId && <InternalChat currentUserId={userId} currentUserRole={userRole} />}
 
       {/* Clinic Switch Modal - for multi-clinic admins */}
       {showClinicSwitchModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
                   <Building2 className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Switch Clinic</h2>
-                  <p className="text-sm text-gray-500">Select a clinic and confirm with your password</p>
+                  <p className="text-sm text-gray-500">
+                    Select a clinic and confirm with your password
+                  </p>
                 </div>
               </div>
               <button
@@ -434,7 +487,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   setSwitchError('');
                   setSelectedClinicId(null);
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-400" />
               </button>
@@ -442,62 +495,62 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
             {/* Current Clinic */}
             {activeClinicId && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
-                <p className="text-xs font-medium text-green-700 mb-1">Current Clinic</p>
+              <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3">
+                <p className="mb-1 text-xs font-medium text-green-700">Current Clinic</p>
                 <p className="text-sm font-semibold text-green-900">
-                  {userClinics.find(c => c.id === activeClinicId)?.name || 'Unknown'}
+                  {userClinics.find((c) => c.id === activeClinicId)?.name || 'Unknown'}
                 </p>
               </div>
             )}
 
             {/* Clinic Selection */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Clinic
-              </label>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {userClinics.filter(c => c.id !== activeClinicId).map((clinic) => (
-                  <button
-                    key={clinic.id}
-                    onClick={() => setSelectedClinicId(clinic.id)}
-                    className={`w-full p-3 rounded-xl border text-left transition-all ${
-                      selectedClinicId === clinic.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-                      {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
-                        <img
-                          src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
-                          alt={clinic.name}
-                          className="w-8 h-8 rounded-lg object-contain"
-                        />
-                      ) : (
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                          style={{ backgroundColor: clinic.primaryColor || primaryColor }}
-                        >
-                          {clinic.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-medium text-gray-900">{clinic.name}</p>
-                        {clinic.subdomain && (
-                          <p className="text-xs text-gray-500">{clinic.subdomain}</p>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Select Clinic</label>
+              <div className="max-h-48 space-y-2 overflow-y-auto">
+                {userClinics
+                  .filter((c) => c.id !== activeClinicId)
+                  .map((clinic) => (
+                    <button
+                      key={clinic.id}
+                      onClick={() => setSelectedClinicId(clinic.id)}
+                      className={`w-full rounded-xl border p-3 text-left transition-all ${
+                        selectedClinicId === clinic.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
+                        {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
+                          <img
+                            src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
+                            alt={clinic.name}
+                            className="h-8 w-8 rounded-lg object-contain"
+                          />
+                        ) : (
+                          <div
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
+                            style={{ backgroundColor: clinic.primaryColor || primaryColor }}
+                          >
+                            {clinic.name.charAt(0).toUpperCase()}
+                          </div>
                         )}
+                        <div>
+                          <p className="font-medium text-gray-900">{clinic.name}</p>
+                          {clinic.subdomain && (
+                            <p className="text-xs text-gray-500">{clinic.subdomain}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
               </div>
             </div>
 
             {/* Password Confirmation */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Lock className="h-4 w-4 inline mr-1" />
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                <Lock className="mr-1 inline h-4 w-4" />
                 Confirm Password
               </label>
               <input
@@ -508,11 +561,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   setSwitchError('');
                 }}
                 placeholder="Enter your password"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               />
-              {switchError && (
-                <p className="mt-2 text-sm text-red-600">{switchError}</p>
-              )}
+              {switchError && <p className="mt-2 text-sm text-red-600">{switchError}</p>}
             </div>
 
             {/* Actions */}
@@ -524,14 +575,14 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   setSwitchError('');
                   setSelectedClinicId(null);
                 }}
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-gray-700 transition-colors hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleClinicSwitch}
                 disabled={!selectedClinicId || !password || switching}
-                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-xl bg-blue-600 px-4 py-2.5 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {switching ? 'Switching...' : 'Switch Clinic'}
               </button>

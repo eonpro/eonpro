@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Login Page
- * 
+ *
  * Email + password authentication with clinic branding.
  * Mobile-first, minimal design.
  */
@@ -47,19 +47,19 @@ export default function AffiliateLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/affiliate';
-  
+
   const [step, setStep] = useState<LoginStep>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Branding state
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
   const [brandingLoaded, setBrandingLoaded] = useState(false);
   const [isMainApp, setIsMainApp] = useState(false);
-  
+
   const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,14 +72,14 @@ export default function AffiliateLoginPage() {
 
         if (response.ok) {
           const data = await response.json();
-          
+
           // Check if this is the main app (not a white-labeled clinic)
           if (data.isMainApp) {
             setIsMainApp(true);
             setBrandingLoaded(true);
             return;
           }
-          
+
           setBranding({
             clinicId: data.clinicId,
             name: data.name,
@@ -94,7 +94,9 @@ export default function AffiliateLoginPage() {
 
           // Update favicon if clinic has one
           if (data.branding.faviconUrl) {
-            const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+            const link =
+              (document.querySelector("link[rel*='icon']") as HTMLLinkElement) ||
+              document.createElement('link');
             link.type = 'image/x-icon';
             link.rel = 'shortcut icon';
             link.href = data.branding.faviconUrl;
@@ -131,9 +133,9 @@ export default function AffiliateLoginPage() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const trimmedEmail = email.trim().toLowerCase();
-    
+
     if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       setError('Please enter a valid email address');
       return;
@@ -145,7 +147,7 @@ export default function AffiliateLoginPage() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!password) {
       setError('Please enter your password');
       return;
@@ -159,7 +161,7 @@ export default function AffiliateLoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
         }),
@@ -178,24 +180,27 @@ export default function AffiliateLoginPage() {
       localStorage.removeItem('admin-token');
       localStorage.removeItem('provider-token');
       localStorage.removeItem('staff-token');
-      
+
       // Store affiliate-specific tokens and user data
       if (data.token) {
         localStorage.setItem('affiliate-token', data.token);
         localStorage.setItem('auth-token', data.token);
         localStorage.setItem('influencer-token', data.token); // For compatibility
-        
+
         // Store user data for role-based redirects
-        localStorage.setItem('user', JSON.stringify({
-          id: data.affiliate?.id,
-          email: data.affiliate?.email,
-          name: data.affiliate?.displayName,
-          role: 'affiliate',
-        }));
+        localStorage.setItem(
+          'user',
+          JSON.stringify({
+            id: data.affiliate?.id,
+            email: data.affiliate?.email,
+            name: data.affiliate?.displayName,
+            role: 'affiliate',
+          })
+        );
       }
 
       setStep('success');
-      
+
       // Brief success state before redirect
       setTimeout(() => {
         router.push(redirectTo);
@@ -221,9 +226,12 @@ export default function AffiliateLoginPage() {
   // Show loading while branding is being fetched
   if (!brandingLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#EFECE7' }}>
-        <div 
-          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: '#EFECE7' }}
+      >
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
         />
       </div>
@@ -231,14 +239,11 @@ export default function AffiliateLoginPage() {
   }
 
   return (
-    <div 
-      className="min-h-screen"
-      style={{ backgroundColor: '#EFECE7' }}
-    >
+    <div className="min-h-screen" style={{ backgroundColor: '#EFECE7' }}>
       {/* Content */}
-      <div className="min-h-screen flex flex-col">
+      <div className="flex min-h-screen flex-col">
         {/* Logo centered at top - uses clinic logo if available */}
-        <div className="flex flex-col items-center pt-12 pb-8">
+        <div className="flex flex-col items-center pb-8 pt-12">
           {branding && !isMainApp ? (
             <>
               {branding.logoUrl ? (
@@ -248,15 +253,17 @@ export default function AffiliateLoginPage() {
                   className="h-12 max-w-[200px] object-contain"
                 />
               ) : (
-                <h1
-                  className="text-3xl font-bold"
-                  style={{ color: primaryColor }}
-                >
+                <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
                   {branding.name}
                 </h1>
               )}
-              <p className="text-xs text-gray-500 mt-2">
-                Powered by <span className="font-medium">EONPRO</span>
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+                Powered by{' '}
+                <img
+                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  alt="EONPRO"
+                  className="h-3.5 w-auto"
+                />
               </p>
             </>
           ) : (
@@ -269,7 +276,7 @@ export default function AffiliateLoginPage() {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+        <main className="flex flex-1 flex-col items-center justify-center px-6 py-8">
           <AnimatePresence mode="wait">
             {step === 'email' && (
               <motion.div
@@ -281,8 +288,8 @@ export default function AffiliateLoginPage() {
                 className="w-full max-w-md"
               >
                 {/* Welcome Text */}
-                <div className="text-center mb-8">
-                  <h1 className="text-5xl md:text-6xl font-light text-gray-900 tracking-tight">
+                <div className="mb-8 text-center">
+                  <h1 className="text-5xl font-light tracking-tight text-gray-900 md:text-6xl">
                     Partner Portal
                   </h1>
                 </div>
@@ -307,9 +314,7 @@ export default function AffiliateLoginPage() {
                           setError(null);
                         }}
                         placeholder="Email address"
-                        className="w-full pl-12 pr-4 py-4 text-lg bg-white border border-gray-200 rounded-2xl 
-                                 focus:outline-none focus:ring-2 focus:border-transparent transition-all
-                                 placeholder:text-gray-400"
+                        className="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-12 pr-4 text-lg transition-all placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       />
                     </div>
@@ -319,17 +324,19 @@ export default function AffiliateLoginPage() {
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="p-4 bg-red-50 border border-red-200 rounded-2xl"
+                      className="rounded-2xl border border-red-200 bg-red-50 p-4"
                     >
-                      <p className="text-sm text-red-600 text-center">{error}</p>
+                      <p className="text-center text-sm text-red-600">{error}</p>
                     </motion.div>
                   )}
 
                   <button
                     type="submit"
                     disabled={isLoading || !email.trim()}
-                    className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                      isLoading || !email.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                    className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
+                      isLoading || !email.trim()
+                        ? 'cursor-not-allowed opacity-50'
+                        : 'hover:opacity-90'
                     }`}
                     style={{
                       backgroundColor: isLoading || !email.trim() ? '#9CA3AF' : primaryColor,
@@ -343,14 +350,32 @@ export default function AffiliateLoginPage() {
 
                 <p className="mt-6 text-center text-sm text-gray-500">
                   Not a partner yet?{' '}
-                  <a href="/affiliate/apply" className="font-medium hover:opacity-80" style={{ color: primaryColor }}>Apply now</a>
+                  <a
+                    href="/affiliate/apply"
+                    className="font-medium hover:opacity-80"
+                    style={{ color: primaryColor }}
+                  >
+                    Apply now
+                  </a>
                 </p>
 
                 <p className="mt-4 text-center text-xs text-gray-400">
                   By continuing, you agree to our{' '}
-                  <a href="/terms" className="font-medium hover:opacity-80" style={{ color: primaryColor }}>Terms</a>
-                  {' '}and{' '}
-                  <a href="/privacy" className="font-medium hover:opacity-80" style={{ color: primaryColor }}>Privacy Policy</a>
+                  <a
+                    href="/terms"
+                    className="font-medium hover:opacity-80"
+                    style={{ color: primaryColor }}
+                  >
+                    Terms
+                  </a>{' '}
+                  and{' '}
+                  <a
+                    href="/privacy"
+                    className="font-medium hover:opacity-80"
+                    style={{ color: primaryColor }}
+                  >
+                    Privacy Policy
+                  </a>
                 </p>
               </motion.div>
             )}
@@ -366,24 +391,29 @@ export default function AffiliateLoginPage() {
               >
                 <button
                   onClick={handleBack}
-                  className="mb-6 text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
+                  className="mb-6 flex items-center gap-1 text-gray-500 transition-colors hover:text-gray-700"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
                   </svg>
                   Back
                 </button>
 
                 {/* Email Display */}
-                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl mb-6">
+                <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Email</p>
-                    <p className="text-gray-900 font-medium">{email}</p>
+                    <p className="mb-1 text-xs text-gray-500">Email</p>
+                    <p className="font-medium text-gray-900">{email}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
                   >
                     Edit
                   </button>
@@ -400,9 +430,7 @@ export default function AffiliateLoginPage() {
                         setPassword(e.target.value);
                         setError(null);
                       }}
-                      className="w-full px-4 py-4 pr-12 bg-white border border-gray-200 rounded-2xl 
-                               focus:outline-none focus:ring-2 focus:border-transparent transition-all 
-                               text-gray-900 placeholder-gray-400"
+                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       placeholder="Password"
                       autoComplete="current-password"
@@ -410,7 +438,7 @@ export default function AffiliateLoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
@@ -420,17 +448,17 @@ export default function AffiliateLoginPage() {
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="p-4 bg-red-50 border border-red-200 rounded-2xl"
+                      className="rounded-2xl border border-red-200 bg-red-50 p-4"
                     >
-                      <p className="text-sm text-red-600 text-center">{error}</p>
+                      <p className="text-center text-sm text-red-600">{error}</p>
                     </motion.div>
                   )}
 
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                      isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                    className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
+                      isLoading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
                     }`}
                     style={{
                       backgroundColor: isLoading ? '#9CA3AF' : primaryColor,
@@ -438,7 +466,7 @@ export default function AffiliateLoginPage() {
                     }}
                   >
                     {isLoading ? (
-                      <span className="inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     ) : (
                       'Log in'
                     )}
@@ -446,9 +474,9 @@ export default function AffiliateLoginPage() {
                 </form>
 
                 <div className="mt-4 text-center">
-                  <a 
-                    href="/affiliate/forgot-password" 
-                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                  <a
+                    href="/affiliate/forgot-password"
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
                   >
                     Forgot password?
                   </a>
@@ -467,22 +495,25 @@ export default function AffiliateLoginPage() {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', duration: 0.5 }}
-                  className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                  className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
                   style={{ backgroundColor: `${primaryColor}20` }}
                 >
-                  <svg 
-                    className="w-8 h-8" 
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className="h-8 w-8"
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                     style={{ color: primaryColor }}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 </motion.div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Welcome back!
-                </h2>
+                <h2 className="text-xl font-semibold text-gray-900">Welcome back!</h2>
               </motion.div>
             )}
           </AnimatePresence>
@@ -492,15 +523,15 @@ export default function AffiliateLoginPage() {
         <footer className="p-6 text-center">
           <p className="text-xs text-gray-500">
             Need help?{' '}
-            <a 
-              href={`mailto:support@${branding?.name?.toLowerCase().replace(/\s+/g, '') || 'eonpro'}.com`} 
+            <a
+              href={`mailto:support@${branding?.name?.toLowerCase().replace(/\s+/g, '') || 'eonpro'}.com`}
               className="font-medium hover:opacity-80"
               style={{ color: primaryColor }}
             >
               Contact support
             </a>
           </p>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="mt-2 text-xs text-gray-400">
             © 2026 {branding?.name || 'EONPRO'} • Partner Portal
           </p>
         </footer>

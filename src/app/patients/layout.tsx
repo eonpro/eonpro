@@ -4,16 +4,33 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home, Users, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, ClipboardList,
-  UserPlus, Pill, Ticket, UserCheck, CreditCard, Key, Building2
+  Home,
+  Users,
+  ShoppingCart,
+  Store,
+  TrendingUp,
+  DollarSign,
+  Settings,
+  LogOut,
+  ChevronRight,
+  ClipboardList,
+  UserPlus,
+  Pill,
+  Ticket,
+  UserCheck,
+  CreditCard,
+  Key,
+  Building2,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
+import { logger } from '@/lib/logger';
 
 // Default EONPRO logos
-const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
-const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
+const EONPRO_LOGO =
+  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_ICON =
+  'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
 const adminNavIconMap = {
   Home,
@@ -100,14 +117,25 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('user');
       router.push('/login');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]); // Intentionally exclude pathname - auth check should only run on mount
 
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('provider-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('admin-token') ||
+      localStorage.getItem('provider-token');
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((err: unknown) => {
+        logger.debug('Logout API call failed (continuing with redirect)', {
+          message: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -121,9 +149,11 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
     if (path === '/') return pathname === '/';
     // Handle both admin and provider patient paths
     if (path === '/admin/patients' || path === '/provider/patients') {
-      return pathname?.startsWith('/patients') ||
-             pathname?.startsWith('/admin/patients') ||
-             pathname?.startsWith('/provider/patients');
+      return (
+        pathname?.startsWith('/patients') ||
+        pathname?.startsWith('/admin/patients') ||
+        pathname?.startsWith('/provider/patients')
+      );
     }
     return pathname === path || pathname?.startsWith(path + '/');
   };
@@ -131,9 +161,9 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   // Show loading state while checking auth or loading branding
   if (loading || brandingLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
+      <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
         <div
-          className="animate-spin rounded-full h-12 w-12 border-2 border-t-transparent"
+          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
         ></div>
       </div>
@@ -141,15 +171,15 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#efece7] flex">
+    <div className="flex min-h-screen bg-[#efece7]">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 ${
           sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
         {/* Logo */}
-        <div className="flex flex-col items-center mb-6 px-4">
+        <div className="mb-6 flex flex-col items-center px-4">
           <Link href="/">
             {sidebarExpanded ? (
               <img
@@ -158,23 +188,26 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
                 className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
-              <img
-                src={clinicIcon}
-                alt={clinicName}
-                className="h-10 w-10 object-contain"
-              />
+              <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
             )}
           </Link>
           {/* Powered by EONPRO - shown for white-labeled clinics */}
           {isWhiteLabeled && sidebarExpanded && (
-            <span className="text-[10px] text-gray-400 mt-1">Powered by EONPRO</span>
+            <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
+              Powered by{' '}
+              <img
+                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                alt="EONPRO"
+                className="h-3 w-auto"
+              />
+            </span>
           )}
         </div>
 
         {/* Expand Button */}
         <button
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 focus:outline-none transition-all ${
+          className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
             sidebarExpanded ? 'rotate-180' : ''
           }`}
         >
@@ -182,7 +215,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
         </button>
 
         {/* Navigation Icons */}
-        <nav className="flex-1 flex flex-col px-3 space-y-1">
+        <nav className="flex flex-1 flex-col space-y-1 px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -191,16 +224,14 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
                 key={item.path}
                 href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                  active
-                    ? ''
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
+                  active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
-                  <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                  <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
               </Link>
             );
@@ -212,12 +243,12 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={handleLogout}
-            title={!sidebarExpanded ? "Logout" : undefined}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all w-full"
+            title={!sidebarExpanded ? 'Logout' : undefined}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {sidebarExpanded && (
-              <span className="text-sm font-medium whitespace-nowrap">Logout</span>
+              <span className="whitespace-nowrap text-sm font-medium">Logout</span>
             )}
           </button>
         </div>

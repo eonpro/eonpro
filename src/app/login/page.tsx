@@ -106,14 +106,14 @@ export default function LoginPage() {
 
         if (response.ok) {
           const data = await response.json();
-          
+
           // Check if this is the main app (not a white-labeled clinic)
           if (data.isMainApp) {
             setIsMainApp(true);
             // Don't set branding for main app - use default EONPRO branding
             return;
           }
-          
+
           setResolvedClinicId(data.clinicId);
           setBranding({
             clinicId: data.clinicId,
@@ -129,7 +129,9 @@ export default function LoginPage() {
 
           // Update favicon if clinic has one
           if (data.branding.faviconUrl) {
-            const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+            const link =
+              (document.querySelector("link[rel*='icon']") as HTMLLinkElement) ||
+              document.createElement('link');
             link.type = 'image/x-icon';
             link.rel = 'shortcut icon';
             link.href = data.branding.faviconUrl;
@@ -203,14 +205,14 @@ export default function LoginPage() {
   const handleIdentifierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     const trimmedIdentifier = identifier.trim();
-    
+
     if (!trimmedIdentifier) {
       setError('Please enter your email or phone number');
       return;
     }
-    
+
     // Detect login method
     if (isPhoneNumber(trimmedIdentifier)) {
       setLoginMethod('phone');
@@ -228,25 +230,24 @@ export default function LoginPage() {
   const sendOtp = async (phone: string) => {
     setLoading(true);
     setError('');
-    
+
     try {
       const response = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to send verification code');
       }
-      
+
       setOtpSent(true);
       setOtpCountdown(60); // 60 second cooldown
       setCanResend(false);
       setStep('otp');
-      
     } catch (err: any) {
       setError(err.message || 'Failed to send verification code. Please try again.');
     } finally {
@@ -283,7 +284,6 @@ export default function LoginPage() {
       setResetCountdown(60);
       setCanResendReset(false);
       setStep('forgot');
-
     } catch (err: any) {
       setError(err.message || 'Failed to send reset code');
     } finally {
@@ -310,7 +310,7 @@ export default function LoginPage() {
     }
 
     // Move to password step when all digits entered
-    if (digit && index === 5 && newCode.every(d => d)) {
+    if (digit && index === 5 && newCode.every((d) => d)) {
       setStep('reset');
     }
   };
@@ -378,7 +378,6 @@ export default function LoginPage() {
       setStep('password');
       setError(''); // Clear any errors
       setSessionMessage('Password reset successful! Please log in with your new password.');
-
     } catch (err: any) {
       setError(err.message || 'Failed to reset password');
     } finally {
@@ -390,18 +389,18 @@ export default function LoginPage() {
   const handleOtpChange = (index: number, value: string) => {
     // Only allow digits
     const digit = value.replace(/\D/g, '').slice(-1);
-    
+
     const newOtp = [...otp];
     newOtp[index] = digit;
     setOtp(newOtp);
-    
+
     // Auto-focus next input
     if (digit && index < 5) {
       otpRefs.current[index + 1]?.focus();
     }
-    
+
     // Auto-submit when all digits entered
-    if (digit && index === 5 && newOtp.every(d => d)) {
+    if (digit && index === 5 && newOtp.every((d) => d)) {
       verifyOtp(newOtp.join(''));
     }
   };
@@ -410,7 +409,7 @@ export default function LoginPage() {
   const handleOtpPaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    
+
     if (pastedData.length === 6) {
       const newOtp = pastedData.split('');
       setOtp(newOtp);
@@ -430,23 +429,22 @@ export default function LoginPage() {
   const verifyOtp = async (code: string) => {
     setLoading(true);
     setError('');
-    
+
     try {
       const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: identifier, code }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Invalid verification code');
       }
-      
+
       // Success - store tokens and redirect
       handleLoginSuccess(data);
-      
     } catch (err: any) {
       setError(err.message || 'Invalid verification code. Please try again.');
       setOtp(['', '', '', '', '', '']);
@@ -494,7 +492,6 @@ export default function LoginPage() {
       }
 
       handleLoginSuccess(data);
-      
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
     } finally {
@@ -513,8 +510,8 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: identifier, 
+        body: JSON.stringify({
+          email: identifier,
           password,
           clinicId,
         }),
@@ -527,7 +524,6 @@ export default function LoginPage() {
       }
 
       handleLoginSuccess(data);
-      
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
     } finally {
@@ -536,7 +532,12 @@ export default function LoginPage() {
   };
 
   // Handle successful login
-  const handleLoginSuccess = (data: { token?: string; user?: { email?: string; role?: string }; clinics?: Array<{ id: number }>; activeClinicId?: number }) => {
+  const handleLoginSuccess = (data: {
+    token?: string;
+    user?: { email?: string; role?: string };
+    clinics?: Array<{ id: number }>;
+    activeClinicId?: number;
+  }) => {
     if (!data.token) {
       setError('Login failed: No authentication token received');
       return;
@@ -617,7 +618,7 @@ export default function LoginPage() {
   const buttonTextColor = getTextColorForBg(primaryColor, buttonTextMode);
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden">
       {/* Gradient Background - uses branding colors */}
       <div
         className="absolute inset-0"
@@ -643,12 +644,12 @@ export default function LoginPage() {
       />
 
       {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col">
+      <div className="relative z-10 flex min-h-screen flex-col">
         {/* Header with X button */}
         <div className="p-6">
           <button
             onClick={() => router.push('/')}
-            className="p-2 hover:bg-black/5 rounded-full transition-colors"
+            className="rounded-full p-2 transition-colors hover:bg-black/5"
             aria-label="Close"
           >
             <X className="h-6 w-6 text-gray-700" />
@@ -656,7 +657,7 @@ export default function LoginPage() {
         </div>
 
         {/* Logo centered at top - uses clinic logo if available */}
-        <div className="flex flex-col items-center pt-4 pb-8">
+        <div className="flex flex-col items-center pb-8 pt-4">
           {branding && !isMainApp ? (
             <>
               {branding.logoUrl ? (
@@ -666,15 +667,17 @@ export default function LoginPage() {
                   className="h-12 max-w-[200px] object-contain"
                 />
               ) : (
-                <h1
-                  className="text-3xl font-bold"
-                  style={{ color: primaryColor }}
-                >
+                <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
                   {branding.name}
                 </h1>
               )}
-              <p className="text-xs text-gray-500 mt-2">
-                Powered by <span className="font-medium">EONPRO</span>
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+                Powered by{' '}
+                <img
+                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  alt="EONPRO"
+                  className="h-3.5 w-auto"
+                />
               </p>
             </>
           ) : (
@@ -688,18 +691,17 @@ export default function LoginPage() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center px-6 pt-8">
+        <div className="flex flex-1 flex-col items-center px-6 pt-8">
           {/* Welcome Text */}
-          <h1 className="text-5xl md:text-6xl font-light text-gray-900 mb-4 tracking-tight">
+          <h1 className="mb-4 text-5xl font-light tracking-tight text-gray-900 md:text-6xl">
             Welcome
           </h1>
-          <p className="text-gray-600 text-lg mb-12">
-            {branding && !isMainApp ? `Sign in to ${branding.name}` : "Sign in to EONPRO"}
+          <p className="mb-12 text-lg text-gray-600">
+            {branding && !isMainApp ? `Sign in to ${branding.name}` : 'Sign in to EONPRO'}
           </p>
 
           {/* Login Form */}
           <div className="w-full max-w-md">
-            
             {/* STEP 1: Email or Phone Input */}
             {step === 'identifier' && (
               <form onSubmit={handleIdentifierSubmit} className="space-y-4">
@@ -716,7 +718,7 @@ export default function LoginPage() {
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-12 pr-4 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Email or phone number"
                     required
@@ -726,22 +728,22 @@ export default function LoginPage() {
                 </div>
 
                 {sessionMessage && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl">
-                    <p className="text-sm text-amber-700 text-center">{sessionMessage}</p>
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-center text-sm text-amber-700">{sessionMessage}</p>
                   </div>
                 )}
 
                 {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
+                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
                   }`}
                   style={{
                     backgroundColor: loading ? '#9CA3AF' : primaryColor,
@@ -750,7 +752,7 @@ export default function LoginPage() {
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent" />
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                       {isPhoneNumber(identifier) ? 'Sending code...' : 'Continue'}
                     </>
                   ) : (
@@ -763,7 +765,7 @@ export default function LoginPage() {
 
                 {/* New Patient Registration Link */}
                 <div className="pt-4">
-                  <p className="text-sm text-center text-gray-600">
+                  <p className="text-center text-sm text-gray-600">
                     New patient?{' '}
                     <a
                       href="/register"
@@ -781,15 +783,15 @@ export default function LoginPage() {
             {step === 'password' && (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
                 {/* Email Display */}
-                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Email</p>
-                    <p className="text-gray-900 font-medium">{identifier}</p>
+                    <p className="mb-1 text-xs text-gray-500">Email</p>
+                    <p className="font-medium text-gray-900">{identifier}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
                   >
                     Edit
                   </button>
@@ -802,7 +804,7 @@ export default function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-4 pr-12 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Password"
                     required
@@ -812,23 +814,23 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
 
                 {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
+                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
                   }`}
                   style={{
                     backgroundColor: loading ? '#9CA3AF' : primaryColor,
@@ -837,7 +839,7 @@ export default function LoginPage() {
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent" />
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                       Logging in...
                     </>
                   ) : (
@@ -846,33 +848,35 @@ export default function LoginPage() {
                 </button>
 
                 <div className="flex items-center gap-4 py-2">
-                  <div className="flex-1 h-px bg-gray-200" />
+                  <div className="h-px flex-1 bg-gray-200" />
                   <span className="text-sm text-gray-500">Or other log-in options</span>
-                  <div className="flex-1 h-px bg-gray-200" />
+                  <div className="h-px flex-1 bg-gray-200" />
                 </div>
 
                 <button
                   type="button"
-                  className="w-full px-6 py-4 rounded-2xl font-semibold text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 transition-all"
-                  onClick={() => {/* TODO: Implement magic link */}}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-6 py-4 font-semibold text-gray-900 transition-all hover:bg-gray-50"
+                  onClick={() => {
+                    /* TODO: Implement magic link */
+                  }}
                 >
                   Email login code
                 </button>
 
                 <div className="flex items-center justify-center gap-4 pt-4">
-                  <button 
+                  <button
                     type="button"
                     onClick={handleForgotPassword}
                     disabled={loading}
-                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors disabled:opacity-50"
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
                   >
                     Forgot password?
                   </button>
                   <span className="text-gray-300">•</span>
-                  <button 
+                  <button
                     type="button"
                     onClick={handleBack}
-                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
                   >
                     Not you? Log in here
                   </button>
@@ -884,15 +888,15 @@ export default function LoginPage() {
             {step === 'otp' && (
               <div className="space-y-6">
                 {/* Phone Display */}
-                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Phone number</p>
-                    <p className="text-gray-900 font-medium">{formatPhoneDisplay(identifier)}</p>
+                    <p className="mb-1 text-xs text-gray-500">Phone number</p>
+                    <p className="font-medium text-gray-900">{formatPhoneDisplay(identifier)}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
                   >
                     Edit
                   </button>
@@ -900,9 +904,7 @@ export default function LoginPage() {
 
                 {/* OTP Instructions */}
                 <div className="text-center">
-                  <p className="text-gray-600">
-                    Enter the 6-digit code sent to your phone
-                  </p>
+                  <p className="text-gray-600">Enter the 6-digit code sent to your phone</p>
                 </div>
 
                 {/* OTP Input */}
@@ -910,7 +912,9 @@ export default function LoginPage() {
                   {otp.map((digit, index) => (
                     <input
                       key={index}
-                      ref={(el) => { otpRefs.current[index] = el; }}
+                      ref={(el) => {
+                        otpRefs.current[index] = el;
+                      }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
@@ -918,7 +922,7 @@ export default function LoginPage() {
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleOtpPaste : undefined}
-                      className="w-12 h-14 text-center text-2xl font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
@@ -926,16 +930,18 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </div>
                 )}
 
                 {loading && (
                   <div className="flex justify-center">
                     <div
-                      className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-                      style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+                      className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+                      style={{
+                        borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                      }}
                     />
                   </div>
                 )}
@@ -953,18 +959,16 @@ export default function LoginPage() {
                       Resend code
                     </button>
                   ) : otpCountdown > 0 ? (
-                    <p className="text-gray-500 text-sm">
-                      Resend code in {otpCountdown}s
-                    </p>
+                    <p className="text-sm text-gray-500">Resend code in {otpCountdown}s</p>
                   ) : null}
                 </div>
 
                 {/* Bottom Links */}
                 <div className="flex items-center justify-center gap-4 pt-4">
-                  <button 
+                  <button
                     type="button"
                     onClick={handleBack}
-                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
                   >
                     Use a different number
                   </button>
@@ -976,10 +980,10 @@ export default function LoginPage() {
             {step === 'forgot' && (
               <div className="space-y-6">
                 {/* Email Display */}
-                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Reset code sent to</p>
-                    <p className="text-gray-900 font-medium">{identifier}</p>
+                    <p className="mb-1 text-xs text-gray-500">Reset code sent to</p>
+                    <p className="font-medium text-gray-900">{identifier}</p>
                   </div>
                   <button
                     type="button"
@@ -988,7 +992,7 @@ export default function LoginPage() {
                       setResetCode(['', '', '', '', '', '']);
                       setResetCodeSent(false);
                     }}
-                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
                   >
                     Cancel
                   </button>
@@ -996,10 +1000,8 @@ export default function LoginPage() {
 
                 {/* Instructions */}
                 <div className="text-center">
-                  <Mail className="h-12 w-12 mx-auto mb-4" style={{ color: primaryColor }} />
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Check your email
-                  </h2>
+                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
+                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Check your email</h2>
                   <p className="text-gray-600">
                     Enter the 6-digit code we sent to reset your password
                   </p>
@@ -1010,7 +1012,9 @@ export default function LoginPage() {
                   {resetCode.map((digit, index) => (
                     <input
                       key={index}
-                      ref={(el) => { resetCodeRefs.current[index] = el; }}
+                      ref={(el) => {
+                        resetCodeRefs.current[index] = el;
+                      }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
@@ -1018,7 +1022,7 @@ export default function LoginPage() {
                       onChange={(e) => handleResetCodeChange(index, e.target.value)}
                       onKeyDown={(e) => handleResetCodeKeyDown(index, e)}
                       onPaste={index === 0 ? handleResetCodePaste : undefined}
-                      className="w-12 h-14 text-center text-2xl font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
@@ -1026,8 +1030,8 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </div>
                 )}
 
@@ -1044,9 +1048,7 @@ export default function LoginPage() {
                       Resend code
                     </button>
                   ) : resetCountdown > 0 ? (
-                    <p className="text-gray-500 text-sm">
-                      Resend code in {resetCountdown}s
-                    </p>
+                    <p className="text-sm text-gray-500">Resend code in {resetCountdown}s</p>
                   ) : null}
                 </div>
 
@@ -1060,7 +1062,7 @@ export default function LoginPage() {
                       setResetCodeSent(false);
                       setError('');
                     }}
-                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
                   >
                     Back to login
                   </button>
@@ -1072,21 +1074,17 @@ export default function LoginPage() {
             {step === 'reset' && (
               <form onSubmit={handleResetPassword} className="space-y-6">
                 {/* Email Display */}
-                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Resetting password for</p>
-                    <p className="text-gray-900 font-medium">{identifier}</p>
+                    <p className="mb-1 text-xs text-gray-500">Resetting password for</p>
+                    <p className="font-medium text-gray-900">{identifier}</p>
                   </div>
                 </div>
 
                 {/* Instructions */}
                 <div className="text-center">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Create new password
-                  </h2>
-                  <p className="text-gray-600">
-                    Enter your new password below
-                  </p>
+                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Create new password</h2>
+                  <p className="text-gray-600">Enter your new password below</p>
                 </div>
 
                 {/* New Password Input */}
@@ -1095,7 +1093,7 @@ export default function LoginPage() {
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-4 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:border-transparent transition-all pr-12"
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="New password"
                     required
@@ -1105,7 +1103,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
                   >
                     {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -1117,7 +1115,7 @@ export default function LoginPage() {
                     type={showNewPassword ? 'text' : 'password'}
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className={`w-full px-4 py-4 bg-white border rounded-2xl focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                    className={`w-full rounded-2xl border bg-white px-4 py-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 ${
                       confirmNewPassword && newPassword !== confirmNewPassword
                         ? 'border-red-300'
                         : 'border-gray-200'
@@ -1130,21 +1128,23 @@ export default function LoginPage() {
                 </div>
 
                 {/* Password requirements hint */}
-                <p className="text-xs text-gray-500 text-center">
+                <p className="text-center text-xs text-gray-500">
                   Password must be at least 8 characters
                 </p>
 
                 {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading || !newPassword || !confirmNewPassword}
-                  className={`w-full px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                    loading || !newPassword || !confirmNewPassword ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
+                    loading || !newPassword || !confirmNewPassword
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:opacity-90'
                   }`}
                   style={{
                     backgroundColor: primaryColor,
@@ -1153,7 +1153,7 @@ export default function LoginPage() {
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent" />
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                       Resetting...
                     </>
                   ) : (
@@ -1169,7 +1169,7 @@ export default function LoginPage() {
                       setStep('forgot');
                       setError('');
                     }}
-                    className="text-sm text-gray-700 hover:text-gray-900 underline underline-offset-2 transition-colors"
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
                   >
                     Re-enter code
                   </button>
@@ -1181,15 +1181,15 @@ export default function LoginPage() {
             {step === 'clinic' && (
               <div className="space-y-6">
                 {/* User Display */}
-                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Logged in as</p>
-                    <p className="text-gray-900 font-medium">{identifier}</p>
+                    <p className="mb-1 text-xs text-gray-500">Logged in as</p>
+                    <p className="font-medium text-gray-900">{identifier}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
                   >
                     Change
                   </button>
@@ -1197,10 +1197,8 @@ export default function LoginPage() {
 
                 {/* Clinic Selection Instructions */}
                 <div className="text-center">
-                  <Building2 className="h-12 w-12 mx-auto mb-4" style={{ color: primaryColor }} />
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Select a Clinic
-                  </h2>
+                  <Building2 className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
+                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Select a Clinic</h2>
                   <p className="text-gray-600">
                     You have access to multiple clinics. Choose which one to access now.
                   </p>
@@ -1213,18 +1211,19 @@ export default function LoginPage() {
                       key={clinic.id}
                       onClick={() => handleClinicSelect(clinic.id)}
                       disabled={loading}
-                      className={`w-full p-4 text-left rounded-2xl border-2 transition-all ${
-                        loading ? 'opacity-50 cursor-not-allowed' : ''
+                      className={`w-full rounded-2xl border-2 p-4 text-left transition-all ${
+                        loading ? 'cursor-not-allowed opacity-50' : ''
                       }`}
                       style={{
                         borderColor: selectedClinicId === clinic.id ? primaryColor : '#e5e7eb',
-                        backgroundColor: selectedClinicId === clinic.id ? `${primaryColor}10` : 'white',
+                        backgroundColor:
+                          selectedClinicId === clinic.id ? `${primaryColor}10` : 'white',
                       }}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-                          {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
+                          {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
                             <img
                               src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                               alt={clinic.name}
@@ -1232,7 +1231,7 @@ export default function LoginPage() {
                             />
                           ) : (
                             <div
-                              className="h-10 w-10 rounded-lg flex items-center justify-center"
+                              className="flex h-10 w-10 items-center justify-center rounded-lg"
                               style={{ backgroundColor: `${primaryColor}20` }}
                             >
                               <Building2 className="h-5 w-5" style={{ color: primaryColor }} />
@@ -1240,13 +1239,13 @@ export default function LoginPage() {
                           )}
                           <div>
                             <p className="font-medium text-gray-900">{clinic.name}</p>
-                            <p className="text-sm text-gray-500 capitalize">{clinic.role}</p>
+                            <p className="text-sm capitalize text-gray-500">{clinic.role}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {clinic.isPrimary && (
                             <span
-                              className="text-xs px-2 py-1 rounded-full"
+                              className="rounded-full px-2 py-1 text-xs"
                               style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
                             >
                               Primary
@@ -1262,26 +1261,27 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-center text-sm text-red-600">{error}</p>
                   </div>
                 )}
 
                 {loading && (
                   <div className="flex justify-center">
                     <div
-                      className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-                      style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+                      className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+                      style={{
+                        borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                      }}
                     />
                   </div>
                 )}
 
-                <p className="text-xs text-center text-gray-500">
+                <p className="text-center text-xs text-gray-500">
                   You can switch clinics anytime from your dashboard
                 </p>
               </div>
             )}
-            
           </div>
         </div>
 

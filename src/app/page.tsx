@@ -4,17 +4,34 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home, Users, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, Search, Clock, ChevronRight,
-  UserPlus, CreditCard, RefreshCw, FileText, Key, Pill, Ticket
+  Home,
+  Users,
+  ShoppingCart,
+  Store,
+  TrendingUp,
+  DollarSign,
+  Settings,
+  LogOut,
+  Search,
+  Clock,
+  ChevronRight,
+  UserPlus,
+  CreditCard,
+  RefreshCw,
+  FileText,
+  Key,
+  Pill,
+  Ticket,
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 // Default EONPRO logos
-const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
-const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
+const EONPRO_LOGO =
+  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_ICON =
+  'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
 interface PatientIntake {
   id: number;
@@ -92,7 +109,7 @@ function HomePageInner() {
       try {
         const parsedUser = JSON.parse(user);
         const role = parsedUser.role?.toLowerCase();
-        
+
         // For affiliate/influencer roles, verify auth is still valid before redirecting
         // This prevents redirect loops when session is expired but localStorage persists
         if (role === 'affiliate' || role === 'influencer') {
@@ -125,7 +142,7 @@ function HomePageInner() {
           router.push('/staff');
           return;
         }
-        
+
         setUserData(parsedUser);
         setLoading(false);
         loadDashboardData();
@@ -134,20 +151,22 @@ function HomePageInner() {
         router.push('/login');
       }
     };
-    
+
     checkAuthAndRedirect();
   }, [router]);
 
   const loadDashboardData = async () => {
     try {
       // Fetch recent patient intakes from last 24 hours (includeContact=true for dashboard display)
-      const intakesResponse = await apiFetch('/api/patients?limit=100&recent=24h&includeContact=true');
+      const intakesResponse = await apiFetch(
+        '/api/patients?limit=100&recent=24h&includeContact=true'
+      );
 
       if (intakesResponse.ok) {
         const intakesData = await intakesResponse.json();
         const patients = intakesData.patients || [];
         setRecentIntakes(patients);
-        setStats(prev => ({ ...prev, newIntakes: patients.length }));
+        setStats((prev) => ({ ...prev, newIntakes: patients.length }));
       }
 
       // Fetch revenue stats for last 7 days from finance metrics (same source as Finance page)
@@ -159,7 +178,7 @@ function HomePageInner() {
           const newRevenue = (metricsData.grossRevenue || 0) / 100;
           // mrr (Monthly Recurring Revenue) is also in cents
           const recurringRevenue = (metricsData.mrr || 0) / 100;
-          setStats(prev => ({ ...prev, newRevenue, recurringRevenue }));
+          setStats((prev) => ({ ...prev, newRevenue, recurringRevenue }));
         }
       } catch (e: any) {
         // Skip if auth error (already handled by apiFetch)
@@ -174,7 +193,7 @@ function HomePageInner() {
         if (ordersResponse.ok) {
           const ordersData = await ordersResponse.json();
           const orders = ordersData.orders || [];
-          setStats(prev => ({ ...prev, newPrescriptions: orders.length }));
+          setStats((prev) => ({ ...prev, newPrescriptions: orders.length }));
         }
       } catch (e: any) {
         // Skip if auth error (already handled by apiFetch)
@@ -198,7 +217,11 @@ function HomePageInner() {
     e.preventDefault();
     e.stopPropagation();
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -231,23 +254,25 @@ function HomePageInner() {
     }).format(amount);
   };
 
-  const filteredIntakes = recentIntakes.filter(patient => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      patient.firstName?.toLowerCase().includes(query) ||
-      patient.lastName?.toLowerCase().includes(query) ||
-      patient.email?.toLowerCase().includes(query) ||
-      patient.phone?.includes(query) ||
-      patient.id?.toString().includes(query)
-    );
-  }).slice(0, 8); // Limit to 8 items
+  const filteredIntakes = recentIntakes
+    .filter((patient) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        patient.firstName?.toLowerCase().includes(query) ||
+        patient.lastName?.toLowerCase().includes(query) ||
+        patient.email?.toLowerCase().includes(query) ||
+        patient.phone?.includes(query) ||
+        patient.id?.toString().includes(query)
+      );
+    })
+    .slice(0, 8); // Limit to 8 items
 
   if (loading || brandingLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
+      <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
         <div
-          className="animate-spin rounded-full h-12 w-12 border-2 border-t-transparent"
+          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
         ></div>
       </div>
@@ -257,15 +282,15 @@ function HomePageInner() {
   const displayName = userData?.firstName || userData?.email?.split('@')[0] || 'there';
 
   return (
-    <div className="min-h-screen bg-[#efece7] flex">
+    <div className="flex min-h-screen bg-[#efece7]">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 ${
           sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
         {/* Logo */}
-        <div className="flex flex-col items-center mb-6 px-4">
+        <div className="mb-6 flex flex-col items-center px-4">
           <Link href="/">
             {sidebarExpanded ? (
               <img
@@ -274,23 +299,26 @@ function HomePageInner() {
                 className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
-              <img
-                src={clinicIcon}
-                alt={clinicName}
-                className="h-10 w-10 object-contain"
-              />
+              <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
             )}
           </Link>
           {/* Powered by EONPRO - shown for white-labeled clinics */}
           {isWhiteLabeled && sidebarExpanded && (
-            <span className="text-[10px] text-gray-400 mt-1">Powered by EONPRO</span>
+            <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
+              Powered by{' '}
+              <img
+                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                alt="EONPRO"
+                className="h-3 w-auto"
+              />
+            </span>
           )}
         </div>
 
         {/* Expand Button */}
         <button
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 focus:outline-none transition-all ${
+          className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
             sidebarExpanded ? 'rotate-180' : ''
           }`}
         >
@@ -298,7 +326,7 @@ function HomePageInner() {
         </button>
 
         {/* Navigation Icons */}
-        <nav className="flex-1 flex flex-col px-3 space-y-1">
+        <nav className="flex flex-1 flex-col space-y-1 px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -306,16 +334,16 @@ function HomePageInner() {
                 key={item.path}
                 href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                  item.active
-                    ? ''
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
+                  item.active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
-                style={item.active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                style={
+                  item.active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}
+                }
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
-                  <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                  <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
               </Link>
             );
@@ -327,12 +355,12 @@ function HomePageInner() {
           <button
             type="button"
             onClick={handleLogout}
-            title={!sidebarExpanded ? "Logout" : undefined}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all w-full"
+            title={!sidebarExpanded ? 'Logout' : undefined}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {sidebarExpanded && (
-              <span className="text-sm font-medium whitespace-nowrap">Logout</span>
+              <span className="whitespace-nowrap text-sm font-medium">Logout</span>
             )}
           </button>
         </div>
@@ -342,51 +370,64 @@ function HomePageInner() {
       <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
         <div className="p-8">
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="mb-6 flex items-start justify-between">
             {/* Left: Status & Time */}
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="mb-1 flex items-center gap-2">
                 <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: systemStatus === 'healthy' ? primaryColor : systemStatus === 'warning' ? '#f59e0b' : '#ef4444' }}
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor:
+                      systemStatus === 'healthy'
+                        ? primaryColor
+                        : systemStatus === 'warning'
+                          ? '#f59e0b'
+                          : '#ef4444',
+                  }}
                 />
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
                   SYSTEM: {systemStatus.toUpperCase()}
                 </span>
               </div>
               <p className="text-sm text-gray-800">
-                {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                {currentTime.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
               </p>
               <p className="text-sm text-gray-600">
-                {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
+                {currentTime
+                  .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                  .toLowerCase()}
               </p>
             </div>
 
             {/* Right: Search */}
             <div className="relative w-96">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search patients"
-                className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 transition-all text-sm"
+                className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm transition-all focus:outline-none focus:ring-2"
                 style={{ '--tw-ring-color': `${primaryColor}33` } as React.CSSProperties}
               />
             </div>
           </div>
 
           {/* Welcome */}
-          <h1 className="text-3xl font-semibold text-gray-900 mb-6">
+          <h1 className="mb-6 text-3xl font-semibold text-gray-900">
             Welcome, <span className="text-gray-900">{displayName}</span>
           </h1>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {/* Intakes (24h) */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+            <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                className="flex h-12 w-12 items-center justify-center rounded-xl"
                 style={{ backgroundColor: `${primaryColor}15` }}
               >
                 <UserPlus className="h-6 w-6" style={{ color: primaryColor }} />
@@ -398,33 +439,37 @@ function HomePageInner() {
             </div>
 
             {/* Revenue (7 days) */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
+            <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                className="flex h-12 w-12 items-center justify-center rounded-xl"
                 style={{ backgroundColor: `${primaryColor}15` }}
               >
                 <CreditCard className="h-6 w-6" style={{ color: primaryColor }} />
               </div>
               <div>
-                <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.newRevenue)}</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {formatCurrency(stats.newRevenue)}
+                </p>
                 <p className="text-sm text-gray-500">Revenue (7 days)</p>
               </div>
             </div>
 
             {/* Recurring Revenue */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
                 <RefreshCw className="h-6 w-6 text-amber-500" />
               </div>
               <div>
-                <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.recurringRevenue)}</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {formatCurrency(stats.recurringRevenue)}
+                </p>
                 <p className="text-sm text-gray-500">Recurring</p>
               </div>
             </div>
 
             {/* Scripts (24h) */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
+            <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10">
                 <FileText className="h-6 w-6 text-rose-500" />
               </div>
               <div>
@@ -435,13 +480,15 @@ function HomePageInner() {
           </div>
 
           {/* Patient Intakes Card */}
-          <div className="bg-white rounded-2xl border border-gray-200">
+          <div className="rounded-2xl border border-gray-200 bg-white">
             {/* Header */}
-            <div className="px-6 py-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Patient Intakes (Last 24 Hours)</h2>
+            <div className="flex items-center justify-between px-6 py-5">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Patient Intakes (Last 24 Hours)
+              </h2>
               <Link
                 href="/admin/patients"
-                className="text-sm text-gray-500 font-medium hover:opacity-80"
+                className="text-sm font-medium text-gray-500 hover:opacity-80"
                 style={{ color: primaryColor }}
               >
                 Load More
@@ -455,7 +502,7 @@ function HomePageInner() {
                 placeholder="Search patients by name, email, phone, ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:outline-none focus:ring-2"
                 style={{ '--tw-ring-color': `${primaryColor}33` } as React.CSSProperties}
               />
             </div>
@@ -465,40 +512,61 @@ function HomePageInner() {
               {intakesLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <div
-                    className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-                    style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
+                    className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+                    style={{
+                      borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                    }}
                   ></div>
                 </div>
               ) : (
                 <table className="w-full">
                   <thead>
                     <tr className="border-t border-gray-100">
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        DOB
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        Contact
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredIntakes.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="px-6 py-16 text-center">
-                          <Clock className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-500 font-medium">No patient intakes in the last 24 hours</p>
-                          <p className="text-sm text-gray-400 mt-1">New intakes will appear here automatically</p>
+                          <Clock className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                          <p className="font-medium text-gray-500">
+                            No patient intakes in the last 24 hours
+                          </p>
+                          <p className="mt-1 text-sm text-gray-400">
+                            New intakes will appear here automatically
+                          </p>
                         </td>
                       </tr>
                     ) : (
                       filteredIntakes.map((patient) => (
-                        <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => { window.location.href = `/patients/${patient.id}`; }}>
+                        <tr
+                          key={patient.id}
+                          className="cursor-pointer transition-colors hover:bg-gray-50/50"
+                          onClick={() => {
+                            window.location.href = `/patients/${patient.id}`;
+                          }}
+                        >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div
-                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                className="h-2 w-2 flex-shrink-0 rounded-full"
                                 style={{
-                                  backgroundColor: new Date(patient.createdAt).getTime() > Date.now() - 3600000
-                                    ? primaryColor
-                                    : '#fbbf24'
+                                  backgroundColor:
+                                    new Date(patient.createdAt).getTime() > Date.now() - 3600000
+                                      ? primaryColor
+                                      : '#fbbf24',
                                 }}
                               />
                               <div>
@@ -510,17 +578,25 @@ function HomePageInner() {
                                 >
                                   {patient.firstName} {patient.lastName}
                                 </Link>
-                                <p className="text-xs text-gray-400">#{String(patient.id).padStart(6, '0')}</p>
+                                <p className="text-xs text-gray-400">
+                                  #{String(patient.id).padStart(6, '0')}
+                                </p>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-600">{formatDate(patient.dateOfBirth)}</p>
-                            <p className="text-xs text-gray-400">({formatGender(patient.gender)})</p>
+                            <p className="text-sm text-gray-600">
+                              {formatDate(patient.dateOfBirth)}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              ({formatGender(patient.gender)})
+                            </p>
                           </td>
                           <td className="px-6 py-4">
                             <p className="text-sm text-gray-600">{patient.phone || 'N/A'}</p>
-                            <p className="text-xs text-gray-400 truncate max-w-[180px]">{patient.email || 'N/A'}</p>
+                            <p className="max-w-[180px] truncate text-xs text-gray-400">
+                              {patient.email || 'N/A'}
+                            </p>
                           </td>
                           <td className="px-6 py-4">
                             <Link

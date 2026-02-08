@@ -4,32 +4,51 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home, Users, UserPlus, Building2, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, CreditCard, Key, AlertTriangle, RefreshCw, Pill, UserCheck, Ticket
+  Home,
+  Users,
+  UserPlus,
+  Building2,
+  ShoppingCart,
+  Store,
+  TrendingUp,
+  DollarSign,
+  Settings,
+  LogOut,
+  ChevronRight,
+  CreditCard,
+  Key,
+  AlertTriangle,
+  RefreshCw,
+  Pill,
+  UserCheck,
+  Ticket,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
   NotificationProvider,
   NotificationCenter,
-  NotificationToastContainer
+  NotificationToastContainer,
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { logger } from '@/lib/logger';
 
 // Fallback UI for ticket errors (used by ErrorBoundary - reports to Sentry)
 const TicketsErrorFallback = (
-  <div className="min-h-screen bg-[#efece7] flex items-center justify-center">
-    <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-4 text-center">
-      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <AlertTriangle className="w-8 h-8 text-red-600" />
+  <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
+    <div className="mx-4 max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+        <AlertTriangle className="h-8 w-8 text-red-600" />
       </div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
-      <p className="text-gray-600 mb-6">The tickets page encountered an error. Our team has been notified.</p>
+      <h2 className="mb-2 text-xl font-semibold text-gray-900">Something went wrong</h2>
+      <p className="mb-6 text-gray-600">
+        The tickets page encountered an error. Our team has been notified.
+      </p>
       <button
         onClick={() => window.location.reload()}
-        className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+        className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-white transition-colors hover:bg-green-700"
       >
-        <RefreshCw className="w-4 h-4" />
+        <RefreshCw className="h-4 w-4" />
         Reload Page
       </button>
     </div>
@@ -37,8 +56,10 @@ const TicketsErrorFallback = (
 );
 
 // Default EONPRO logos
-const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
-const EONPRO_ICON = 'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
+const EONPRO_LOGO =
+  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_ICON =
+  'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
 // Navigation items based on role
 const getNavItemsForRole = (role: string) => {
@@ -142,7 +163,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
 
     // Add Clinics tab for super_admin after RX Queue
     if (userRole === 'super_admin') {
-      const rxQueueIndex = items.findIndex(item => item.path.includes('rx-queue'));
+      const rxQueueIndex = items.findIndex((item) => item.path.includes('rx-queue'));
       if (rxQueueIndex !== -1) {
         items.splice(rxQueueIndex + 1, 0, clinicsNavItem);
       }
@@ -154,8 +175,20 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token') || localStorage.getItem('provider-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('admin-token') ||
+      localStorage.getItem('super_admin-token') ||
+      localStorage.getItem('provider-token');
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((err: unknown) => {
+        logger.debug('Logout API call failed (continuing with redirect)', {
+          message: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -166,7 +199,17 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_timestamp');
-    ['auth-token', 'admin-token', 'super_admin-token', 'provider-token', 'patient-token', 'staff-token', 'support-token', 'affiliate-token', 'influencer-token'].forEach(name => {
+    [
+      'auth-token',
+      'admin-token',
+      'super_admin-token',
+      'provider-token',
+      'patient-token',
+      'staff-token',
+      'support-token',
+      'affiliate-token',
+      'influencer-token',
+    ].forEach((name) => {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });
     window.location.href = '/login';
@@ -181,9 +224,9 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (loading || brandingLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#efece7]">
+      <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
         <div
-          className="animate-spin rounded-full h-12 w-12 border-2 border-t-transparent"
+          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
         ></div>
       </div>
@@ -191,15 +234,15 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#efece7] flex">
+    <div className="flex min-h-screen bg-[#efece7]">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 ${
           sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
         {/* Logo */}
-        <div className="flex flex-col items-center mb-6 px-4">
+        <div className="mb-6 flex flex-col items-center px-4">
           <Link href={navItems[0]?.path || '/admin'}>
             {sidebarExpanded ? (
               <img
@@ -208,23 +251,26 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 className="h-10 w-auto max-w-[140px] object-contain"
               />
             ) : (
-              <img
-                src={clinicIcon}
-                alt={clinicName}
-                className="h-10 w-10 object-contain"
-              />
+              <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
             )}
           </Link>
           {/* Powered by EONPRO - shown for white-labeled clinics */}
           {isWhiteLabeled && sidebarExpanded && (
-            <span className="text-[10px] text-gray-400 mt-1">Powered by EONPRO</span>
+            <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
+              Powered by{' '}
+              <img
+                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                alt="EONPRO"
+                className="h-3 w-auto"
+              />
+            </span>
           )}
         </div>
 
         {/* Expand Button */}
         <button
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 focus:outline-none transition-all ${
+          className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
             sidebarExpanded ? 'rotate-180' : ''
           }`}
         >
@@ -232,7 +278,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
         </button>
 
         {/* Navigation Icons */}
-        <nav className="flex-1 flex flex-col px-3 space-y-1">
+        <nav className="flex flex-1 flex-col space-y-1 px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -253,18 +299,14 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 key={item.path}
                 onClick={handleNavClick}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer w-full text-left ${
-                  active
-                    ? ''
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                  active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
-                  <span className="text-sm font-medium whitespace-nowrap">
-                    {item.label}
-                  </span>
+                  <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
               </button>
             );
@@ -272,16 +314,16 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Logout */}
-        <div className="px-3 space-y-2 border-t border-gray-100 pt-4">
+        <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
           <button
             type="button"
             onClick={handleLogout}
-            title={!sidebarExpanded ? "Logout" : undefined}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all w-full"
+            title={!sidebarExpanded ? 'Logout' : undefined}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {sidebarExpanded && (
-              <span className="text-sm font-medium whitespace-nowrap">Logout</span>
+              <span className="whitespace-nowrap text-sm font-medium">Logout</span>
             )}
           </button>
         </div>
@@ -290,24 +332,23 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
         {/* Top Left Notification Bar */}
-        <div className="sticky top-0 z-40 px-6 py-3 bg-[#efece7]/95 backdrop-blur-sm border-b border-gray-200/50">
+        <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-6 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <NotificationCenter notificationsPath="/admin/notifications" dropdownPosition="left" />
+              <NotificationCenter
+                notificationsPath="/admin/notifications"
+                dropdownPosition="left"
+              />
               <span className="text-sm font-medium text-gray-600">Notifications</span>
             </div>
           </div>
         </div>
 
-        <div className="p-6">
-          {children}
-        </div>
+        <div className="p-6">{children}</div>
       </main>
 
       {/* Internal Team Chat */}
-      {userId && (
-        <InternalChat currentUserId={userId} currentUserRole={userRole} />
-      )}
+      {userId && <InternalChat currentUserId={userId} currentUserRole={userRole} />}
     </div>
   );
 }
