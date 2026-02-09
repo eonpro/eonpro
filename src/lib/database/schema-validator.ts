@@ -1,13 +1,13 @@
 /**
  * DATABASE SCHEMA VALIDATOR
- * 
+ *
  * CRITICAL: This module ensures database schema consistency for our enterprise medical platform.
  * Schema mismatches can cause:
  * - Data appearing/disappearing (invoices, prescriptions, appointments)
  * - Double-charging patients
  * - Missing prescription records (DANGEROUS for patient safety)
  * - Audit trail gaps (HIPAA violations)
- * 
+ *
  * This validator runs:
  * 1. At application startup
  * 2. Before critical database operations
@@ -46,68 +46,103 @@ export interface SchemaWarning {
 
 /**
  * CRITICAL TABLES AND COLUMNS
- * These MUST exist for the platform to function safely
- * Missing any of these should BLOCK deployment
+ * MUST match actual Prisma schema / DB table and column names.
+ * Prisma uses model name as table name (e.g. Rx not Prescription).
  */
-const CRITICAL_SCHEMA = {
-  // Patient data - HIPAA critical
+const CRITICAL_SCHEMA: Record<
+  string,
+  { columns: string[]; critical: boolean }
+> = {
+  // Patient - HIPAA critical (schema: dob, no updatedAt)
   Patient: {
-    columns: ['id', 'firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'clinicId', 'createdAt', 'updatedAt'],
+    columns: [
+      'id',
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'dob',
+      'clinicId',
+      'createdAt',
+    ],
     critical: true,
   },
-  
-  // Invoice data - Financial critical (the issue we just fixed)
+
   Invoice: {
-    columns: ['id', 'patientId', 'status', 'amount', 'amountDue', 'amountPaid', 'stripeInvoiceId', 
-              'createdAt', 'updatedAt', 'createSubscription', 'subscriptionCreated'],
+    columns: [
+      'id',
+      'patientId',
+      'status',
+      'amount',
+      'amountDue',
+      'amountPaid',
+      'stripeInvoiceId',
+      'createdAt',
+      'updatedAt',
+      'createSubscription',
+      'subscriptionCreated',
+    ],
     critical: true,
   },
-  
-  // Payments - Financial critical
+
   Payment: {
     columns: ['id', 'patientId', 'amount', 'status', 'stripePaymentIntentId', 'createdAt'],
     critical: true,
   },
-  
-  // Subscriptions - Recurring billing critical
+
   Subscription: {
-    columns: ['id', 'patientId', 'status', 'stripeSubscriptionId', 'currentPeriodStart', 'currentPeriodEnd'],
+    columns: [
+      'id',
+      'patientId',
+      'status',
+      'stripeSubscriptionId',
+      'currentPeriodStart',
+      'currentPeriodEnd',
+    ],
     critical: true,
   },
-  
-  // SOAP Notes - Medical records critical
+
+  // SOAPNote - no providerId in schema; has updatedAt
   SOAPNote: {
-    columns: ['id', 'patientId', 'providerId', 'subjective', 'objective', 'assessment', 'plan', 'createdAt'],
+    columns: [
+      'id',
+      'patientId',
+      'subjective',
+      'objective',
+      'assessment',
+      'plan',
+      'createdAt',
+      'updatedAt',
+    ],
     critical: true,
   },
-  
-  // Prescriptions - Patient safety critical
-  Prescription: {
-    columns: ['id', 'patientId', 'providerId', 'medication', 'dosage', 'status', 'createdAt'],
+
+  // Rx = prescription table (Prisma model Rx, not Prescription)
+  Rx: {
+    columns: ['id', 'orderId', 'medicationKey', 'medName', 'strength', 'form', 'quantity', 'refills', 'sig'],
     critical: true,
   },
-  
-  // Audit logs - HIPAA compliance critical
+
+  // AuditLog - schema uses resource, resourceId, createdAt
   AuditLog: {
-    columns: ['id', 'userId', 'action', 'entityType', 'entityId', 'timestamp'],
+    columns: ['id', 'userId', 'action', 'resource', 'resourceId', 'createdAt'],
     critical: true,
   },
-  
-  // Users/Providers - Access control critical
+
   User: {
     columns: ['id', 'email', 'role', 'clinicId', 'createdAt'],
     critical: true,
   },
-  
-  // Products - Billing accuracy
+
+  // Product - schema uses isActive, not active
   Product: {
-    columns: ['id', 'name', 'price', 'stripeProductId', 'stripePriceId', 'active'],
+    columns: ['id', 'name', 'price', 'stripeProductId', 'stripePriceId', 'isActive'],
     critical: true,
   },
-  
-  // Invoice Items - Billing line items
+
+  // InvoiceItem - schema uses amount, not total
   InvoiceItem: {
-    columns: ['id', 'invoiceId', 'productId', 'quantity', 'unitPrice', 'total'],
+    columns: ['id', 'invoiceId', 'productId', 'quantity', 'unitPrice', 'amount'],
     critical: true,
   },
 };
@@ -116,7 +151,9 @@ const CRITICAL_SCHEMA = {
  * Validates the database schema matches expected structure
  * Should be called at startup and before deployments
  */
-export async function validateDatabaseSchema(providedPrisma?: PrismaClient): Promise<SchemaValidationResult> {
+export async function validateDatabaseSchema(
+  providedPrisma?: PrismaClient
+): Promise<SchemaValidationResult> {
   const startTime = Date.now();
   const errors: SchemaError[] = [];
   const warnings: SchemaWarning[] = [];
@@ -132,7 +169,9 @@ export async function validateDatabaseSchema(providedPrisma?: PrismaClient): Pro
     logger.info('[SchemaValidator] Starting database schema validation...');
 
     // Get actual database schema from information_schema
-    const tableColumns = await db.$queryRaw<Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>>`
+    const tableColumns = await db.$queryRaw<
+      Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>
+    >`
       SELECT table_name, column_name, data_type, is_nullable
       FROM information_schema.columns
       WHERE table_schema = 'public'
@@ -151,9 +190,9 @@ export async function validateDatabaseSchema(providedPrisma?: PrismaClient): Pro
     // Validate each critical table
     for (const [tableName, config] of Object.entries(CRITICAL_SCHEMA)) {
       tablesChecked++;
-      
+
       const actualColumns = actualSchema.get(tableName);
-      
+
       if (!actualColumns) {
         errors.push({
           type: 'MISSING_TABLE',
@@ -167,7 +206,7 @@ export async function validateDatabaseSchema(providedPrisma?: PrismaClient): Pro
       // Check each expected column
       for (const columnName of config.columns) {
         columnsChecked++;
-        
+
         if (!actualColumns.has(columnName)) {
           errors.push({
             type: 'MISSING_COLUMN',
@@ -185,7 +224,7 @@ export async function validateDatabaseSchema(providedPrisma?: PrismaClient): Pro
     warnings.push(...orphanChecks);
 
     const duration = Date.now() - startTime;
-    const valid = errors.filter(e => e.severity === 'CRITICAL').length === 0;
+    const valid = errors.filter((e) => e.severity === 'CRITICAL').length === 0;
 
     const result: SchemaValidationResult = {
       valid,
@@ -199,7 +238,7 @@ export async function validateDatabaseSchema(providedPrisma?: PrismaClient): Pro
     if (!valid) {
       logger.error('[SchemaValidator] CRITICAL: Schema validation FAILED', {
         errorCount: errors.length,
-        criticalErrors: errors.filter(e => e.severity === 'CRITICAL').length,
+        criticalErrors: errors.filter((e) => e.severity === 'CRITICAL').length,
         duration,
       });
     } else if (errors.length > 0) {
@@ -217,18 +256,19 @@ export async function validateDatabaseSchema(providedPrisma?: PrismaClient): Pro
     }
 
     return result;
-
   } catch (error: any) {
     logger.error('[SchemaValidator] Failed to validate schema', { error: error.message });
-    
+
     return {
       valid: false,
-      errors: [{
-        type: 'MISSING_TABLE',
-        table: 'DATABASE',
-        severity: 'CRITICAL',
-        message: `Database connection/query failed: ${error.message}`,
-      }],
+      errors: [
+        {
+          type: 'MISSING_TABLE',
+          table: 'DATABASE',
+          severity: 'CRITICAL',
+          message: `Database connection/query failed: ${error.message}`,
+        },
+      ],
       warnings: [],
       checkedAt: new Date(),
       tablesChecked: 0,
@@ -251,7 +291,7 @@ async function checkOrphanedRecords(db: PrismaClient): Promise<SchemaWarning[]> 
       LEFT JOIN "Patient" p ON i."patientId" = p.id
       WHERE p.id IS NULL AND i."patientId" IS NOT NULL
     `;
-    
+
     if (orphanedInvoices[0] && Number(orphanedInvoices[0].count) > 0) {
       warnings.push({
         type: 'ORPHANED_RECORDS',
@@ -266,7 +306,7 @@ async function checkOrphanedRecords(db: PrismaClient): Promise<SchemaWarning[]> 
       LEFT JOIN "Invoice" i ON pay."invoiceId" = i.id
       WHERE i.id IS NULL AND pay."invoiceId" IS NOT NULL
     `;
-    
+
     if (orphanedPayments[0] && Number(orphanedPayments[0].count) > 0) {
       warnings.push({
         type: 'ORPHANED_RECORDS',
@@ -274,7 +314,6 @@ async function checkOrphanedRecords(db: PrismaClient): Promise<SchemaWarning[]> 
         message: `Found ${orphanedPayments[0].count} payments referencing non-existent invoices`,
       });
     }
-
   } catch (error) {
     // Non-critical - just log and continue
     logger.warn('[SchemaValidator] Could not check for orphaned records', { error });
@@ -303,8 +342,8 @@ export async function validateTableBeforeOperation(
       WHERE table_schema = 'public' AND table_name = ${tableName}
     `;
 
-    const actualColumns = new Set(columns.map(c => c.column_name));
-    const missingColumns = config.columns.filter(col => !actualColumns.has(col));
+    const actualColumns = new Set(columns.map((c) => c.column_name));
+    const missingColumns = config.columns.filter((col) => !actualColumns.has(col));
 
     if (missingColumns.length > 0) {
       return {
@@ -323,7 +362,8 @@ export async function validateTableBeforeOperation(
 }
 
 /**
- * Run validation at startup - call this from your app initialization
+ * Run validation at startup - called from Next.js instrumentation in production.
+ * In production, critical schema errors block startup unless ALLOW_SCHEMA_ERRORS=true.
  */
 export async function runStartupValidation(): Promise<void> {
   if (process.env.SKIP_SCHEMA_VALIDATION === 'true') {
@@ -332,20 +372,25 @@ export async function runStartupValidation(): Promise<void> {
   }
 
   const result = await validateDatabaseSchema();
-  
+
   if (!result.valid) {
-    const criticalErrors = result.errors.filter(e => e.severity === 'CRITICAL');
-    
+    const criticalErrors = result.errors.filter((e) => e.severity === 'CRITICAL');
+
     logger.error('[SchemaValidator] ⛔ CRITICAL SCHEMA ERRORS DETECTED', {
-      errors: criticalErrors.map(e => e.message),
+      errors: criticalErrors.map((e) => e.message),
     });
 
-    // In production, we might want to prevent startup
-    if (process.env.NODE_ENV === 'production' && process.env.BLOCK_ON_SCHEMA_ERROR === 'true') {
+    // In production: block startup on critical errors unless explicitly allowed (enterprise default: fail fast)
+    const blockInProduction =
+      process.env.NODE_ENV === 'production' &&
+      (process.env.BLOCK_ON_SCHEMA_ERROR === 'true' || process.env.ALLOW_SCHEMA_ERRORS !== 'true');
+
+    if (criticalErrors.length > 0 && blockInProduction) {
       throw new Error(
         `Database schema validation failed with ${criticalErrors.length} critical errors. ` +
-        `Deployment blocked to prevent data integrity issues. ` +
-        `Errors: ${criticalErrors.map(e => e.message).join('; ')}`
+          `Deployment blocked to prevent data integrity issues. ` +
+          `Set ALLOW_SCHEMA_ERRORS=true to override (not recommended). ` +
+          `Errors: ${criticalErrors.map((e) => e.message).join('; ')}`
       );
     }
   }
