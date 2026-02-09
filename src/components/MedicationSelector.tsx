@@ -1,12 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import { MEDS, MedicationConfig } from "@/lib/medications";
-import { getMedicationCategory } from "@/lib/medications-enhanced";
-import { ChevronDown, Search, X, Check, AlertTriangle, Pill } from "lucide-react";
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { MEDS, MedicationConfig } from '@/lib/medications';
+import { getMedicationCategory } from '@/lib/medications-enhanced';
+import { ChevronDown, Search, X, Check, AlertTriangle, Pill } from 'lucide-react';
 
 // Category configuration with colors and icons
-const CATEGORY_CONFIG: Record<string, { label: string; color: string; bgColor: string; borderColor: string; emoji: string }> = {
+const CATEGORY_CONFIG: Record<
+  string,
+  { label: string; color: string; bgColor: string; borderColor: string; emoji: string }
+> = {
   'GLP-1': {
     label: 'GLP-1 Weight Loss',
     color: 'text-emerald-700',
@@ -14,7 +17,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string; bgColor: s
     borderColor: 'border-emerald-200',
     emoji: '💉',
   },
-  'TRT': {
+  TRT: {
     label: 'Testosterone (TRT)',
     color: 'text-blue-700',
     bgColor: 'bg-blue-50',
@@ -28,21 +31,21 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string; bgColor: s
     borderColor: 'border-purple-200',
     emoji: '⚖️',
   },
-  'Peptide': {
+  Peptide: {
     label: 'Peptides',
     color: 'text-orange-700',
     bgColor: 'bg-orange-50',
     borderColor: 'border-orange-200',
     emoji: '🧬',
   },
-  'ED': {
+  ED: {
     label: 'Sexual Health',
     color: 'text-pink-700',
     bgColor: 'bg-pink-50',
     borderColor: 'border-pink-200',
     emoji: '❤️',
   },
-  'Other': {
+  Other: {
     label: 'Other Medications',
     color: 'text-gray-700',
     bgColor: 'bg-gray-50',
@@ -65,11 +68,12 @@ function getFriendlyName(name: string): { displayName: string; details: string }
   const vialMatch = name.match(/\((\d+(?:\.\d+)?)\s*ML(?:\s*VIAL)?\)/i);
   const vialSizeMl = vialMatch ? parseFloat(vialMatch[1]) : 0;
   const vialSizeLabel = vialMatch ? vialMatch[1] + 'ML' : '';
-  
-  // Extract concentration (e.g., "2.5/20MG/ML" -> 2.5, "10/20MG/ML" -> 10)
-  const concMatch = name.match(/(\d+(?:\.\d+)?)(\/\d+)?MG\/ML/i);
+
+  // Extract concentration (e.g., "2.5/20MG/ML" -> 2.5, "10/20MG/ML" -> 10, "30/20" -> 30)
+  const concMatch = name.match(/(\d+(?:\.\d+)?)(?:\/(\d+))?MG\/ML/i);
   const concentrationMgPerMl = concMatch ? parseFloat(concMatch[1]) : 0;
-  
+  const conc2 = concMatch && concMatch[2] ? concMatch[2] : '20';
+
   // Determine medication type
   const nameLower = name.toLowerCase();
   let medType = '';
@@ -85,22 +89,30 @@ function getFriendlyName(name: string): { displayName: string; details: string }
   else if (nameLower.includes('enclomiphene')) medType = 'Enclomiphene';
   else if (nameLower.includes('nad')) medType = 'NAD+';
   else medType = name.split('/')[0].split(' ')[0];
-  
-  // For GLP-1 medications, calculate total mg in vial and display prominently
-  if (isGLP1 && vialSizeMl > 0 && concentrationMgPerMl > 0) {
+
+  // Tirzepatide: exact format "TIRZEPATIDE/GLYCINE" with "10mg/20mg/1mL (10mg)" etc.
+  if (nameLower.includes('tirzepatide') && vialSizeMl > 0 && concentrationMgPerMl > 0) {
+    const totalMg = Math.round(vialSizeMl * concentrationMgPerMl);
+    const displayName = 'TIRZEPATIDE/GLYCINE';
+    const details = `${concentrationMgPerMl % 1 === 0 ? concentrationMgPerMl : concentrationMgPerMl.toFixed(1)}mg/${conc2}mg/${vialSizeMl % 1 === 0 ? vialSizeMl : vialSizeMl.toFixed(1)}mL (${totalMg}mg)`;
+    return { displayName, details };
+  }
+
+  // Semaglutide: exact format "SEMAGLUTIDE/GLYCINE" with "2.5mg/20mg/1mL (2.5mg)" etc.
+  if (nameLower.includes('semaglutide') && vialSizeMl > 0 && concentrationMgPerMl > 0) {
     const totalMg = vialSizeMl * concentrationMgPerMl;
-    // Format: remove unnecessary decimals (e.g., 5.0 -> 5, but keep 2.5 as 2.5)
     const totalMgFormatted = totalMg % 1 === 0 ? totalMg.toFixed(0) : totalMg.toFixed(1);
-    // Display: "Semaglutide 1ML VIAL" with badge showing total mg "2.5mg"
-    const displayName = `${medType} ${vialSizeLabel} VIAL`;
-    const details = `${totalMgFormatted}mg`;
+    const concFormatted = concentrationMgPerMl % 1 === 0 ? concentrationMgPerMl : concentrationMgPerMl.toFixed(1);
+    const vialFormatted = vialSizeMl % 1 === 0 ? vialSizeMl : vialSizeMl.toFixed(1);
+    const displayName = 'SEMAGLUTIDE/GLYCINE';
+    const details = `${concFormatted}mg/${conc2}mg/${vialFormatted}mL (${totalMgFormatted}mg)`;
     return { displayName, details };
   }
 
   // Build friendly display name for non-GLP-1 meds
   const displayName = vialSizeLabel ? `${medType} ${vialSizeLabel}` : medType;
   const details = concMatch ? `${concMatch[0]}` : '';
-  
+
   return { displayName, details };
 }
 
@@ -130,12 +142,14 @@ export default function MedicationSelector({
   onChange,
   expectedMedicationType,
   disabled = false,
-  className = "",
+  className = '',
   showCategoryBadge = true,
 }: MedicationSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<'all' | 'semaglutide' | 'tirzepatide' | 'other'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'semaglutide' | 'tirzepatide' | 'other'>(
+    'all'
+  );
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -146,8 +160,8 @@ export default function MedicationSelector({
         setIsOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Focus search input when opening
@@ -175,7 +189,7 @@ export default function MedicationSelector({
       const category = getMedicationCategory(key);
       const subCategory = category === 'GLP-1' ? getGLP1SubCategory(med.name) : null;
       const { displayName, details } = getFriendlyName(med.name);
-      
+
       meds.push({
         key,
         name: med.name,
@@ -189,18 +203,27 @@ export default function MedicationSelector({
       });
     });
 
-    // Tirzepatide: only offer 10mg/3ml vial (3ML VIAL); exclude 30mg/2ml and 15mg/2ml
-    const TIRZEPATIDE_3ML_VIAL_KEY = '203449364';
-    const filtered = meds.filter(
-      (m) => (m.subCategory === 'Tirzepatide' ? m.key === TIRZEPATIDE_3ML_VIAL_KEY : true)
-    );
-    
-    // Sort: GLP-1 first (Semaglutide, then Tirzepatide), then others alphabetically
+    // GLP-1: only the standard options in display order
+    const SEMAGLUTIDE_KEYS = ['203448971', '203448947', '203449363', '202851329', '203448974']; // 1mL, 2mL, 3mL, 5/20 2mL, 5mL
+    const TIRZEPATIDE_KEYS = ['203448972', '203448973', '203449364', '203449500', '203418602'];
+    const filtered = meds.filter((m) => {
+      if (m.subCategory === 'Semaglutide') return SEMAGLUTIDE_KEYS.includes(m.key);
+      if (m.subCategory === 'Tirzepatide') return TIRZEPATIDE_KEYS.includes(m.key);
+      return true;
+    });
+
+    // Sort: GLP-1 first (Semaglutide, then Tirzepatide), each in reference order
     return filtered.sort((a, b) => {
       if (a.category === 'GLP-1' && b.category !== 'GLP-1') return -1;
       if (a.category !== 'GLP-1' && b.category === 'GLP-1') return 1;
       if (a.subCategory && b.subCategory && a.subCategory !== b.subCategory) {
         return a.subCategory === 'Semaglutide' ? -1 : 1;
+      }
+      if (a.subCategory === 'Semaglutide' && b.subCategory === 'Semaglutide') {
+        return SEMAGLUTIDE_KEYS.indexOf(a.key) - SEMAGLUTIDE_KEYS.indexOf(b.key);
+      }
+      if (a.subCategory === 'Tirzepatide' && b.subCategory === 'Tirzepatide') {
+        return TIRZEPATIDE_KEYS.indexOf(a.key) - TIRZEPATIDE_KEYS.indexOf(b.key);
       }
       return a.displayName.localeCompare(b.displayName);
     });
@@ -209,49 +232,52 @@ export default function MedicationSelector({
   // Filter medications based on search and active tab
   const filteredMedications = useMemo(() => {
     let filtered = allMedications;
-    
+
     // Filter by tab
     if (activeTab === 'semaglutide') {
-      filtered = filtered.filter(m => m.subCategory === 'Semaglutide');
+      filtered = filtered.filter((m) => m.subCategory === 'Semaglutide');
     } else if (activeTab === 'tirzepatide') {
-      filtered = filtered.filter(m => m.subCategory === 'Tirzepatide');
+      filtered = filtered.filter((m) => m.subCategory === 'Tirzepatide');
     } else if (activeTab === 'other') {
-      filtered = filtered.filter(m => m.category !== 'GLP-1');
+      filtered = filtered.filter((m) => m.category !== 'GLP-1');
     }
-    
+
     // Filter by search
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(m => 
-        m.name.toLowerCase().includes(search) ||
-        m.displayName.toLowerCase().includes(search) ||
-        m.strength.toLowerCase().includes(search)
+      filtered = filtered.filter(
+        (m) =>
+          m.name.toLowerCase().includes(search) ||
+          m.displayName.toLowerCase().includes(search) ||
+          m.strength.toLowerCase().includes(search)
       );
     }
-    
+
     return filtered;
   }, [allMedications, activeTab, searchTerm]);
 
   // Group medications by sub-category for display
   const groupedMedications = useMemo(() => {
-    const semaglutide = filteredMedications.filter(m => m.subCategory === 'Semaglutide');
-    const tirzepatide = filteredMedications.filter(m => m.subCategory === 'Tirzepatide');
-    const other = filteredMedications.filter(m => m.category !== 'GLP-1');
-    
+    const semaglutide = filteredMedications.filter((m) => m.subCategory === 'Semaglutide');
+    const tirzepatide = filteredMedications.filter((m) => m.subCategory === 'Tirzepatide');
+    const other = filteredMedications.filter((m) => m.category !== 'GLP-1');
+
     return { semaglutide, tirzepatide, other };
   }, [filteredMedications]);
 
   // Get selected medication info
-  const selectedMed = value ? allMedications.find(m => m.key === value) : null;
+  const selectedMed = value ? allMedications.find((m) => m.key === value) : null;
 
   // Check if selection matches expected type
-  const isMismatch = expectedMedicationType && selectedMed?.subCategory &&
+  const isMismatch =
+    expectedMedicationType &&
+    selectedMed?.subCategory &&
     expectedMedicationType.toLowerCase() !== selectedMed.subCategory.toLowerCase();
 
   const handleSelect = (key: string) => {
     onChange(key);
     setIsOpen(false);
-    setSearchTerm("");
+    setSearchTerm('');
   };
 
   return (
@@ -261,65 +287,79 @@ export default function MedicationSelector({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-rose-400 focus:border-transparent bg-white text-left flex items-center justify-between ${
+        className={`flex w-full items-center justify-between rounded-xl border bg-white px-4 py-3 text-left focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
           isMismatch
             ? 'border-amber-400 bg-amber-50'
             : isOpen
-            ? 'border-rose-400 ring-2 ring-rose-100'
-            : 'border-gray-300 hover:border-gray-400'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              ? 'border-rose-400 ring-2 ring-rose-100'
+              : 'border-gray-300 hover:border-gray-400'
+        } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
           {selectedMed ? (
             <>
               {/* Medication Type Icon */}
-              <div className={`p-2 rounded-lg flex-shrink-0 ${
-                selectedMed.subCategory === 'Semaglutide'
-                  ? 'bg-teal-100'
-                  : selectedMed.subCategory === 'Tirzepatide'
-                  ? 'bg-violet-100'
-                  : 'bg-gray-100'
-              }`}>
-                <Pill className={`w-4 h-4 ${
+              <div
+                className={`flex-shrink-0 rounded-lg p-2 ${
                   selectedMed.subCategory === 'Semaglutide'
-                    ? 'text-teal-600'
+                    ? 'bg-teal-100'
                     : selectedMed.subCategory === 'Tirzepatide'
-                    ? 'text-violet-600'
-                    : 'text-gray-600'
-                }`} />
+                      ? 'bg-violet-100'
+                      : 'bg-gray-100'
+                }`}
+              >
+                <Pill
+                  className={`h-4 w-4 ${
+                    selectedMed.subCategory === 'Semaglutide'
+                      ? 'text-teal-600'
+                      : selectedMed.subCategory === 'Tirzepatide'
+                        ? 'text-violet-600'
+                        : 'text-gray-600'
+                  }`}
+                />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-900">{selectedMed.displayName}</span>
                   {selectedMed.subCategory && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      selectedMed.subCategory === 'Semaglutide'
-                        ? 'bg-teal-100 text-teal-700'
-                        : 'bg-violet-100 text-violet-700'
-                    }`}>
-                      {selectedMed.subCategory === 'Semaglutide' ? '🟢' : '🟣'} {selectedMed.subCategory}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        selectedMed.subCategory === 'Semaglutide'
+                          ? 'bg-teal-100 text-teal-700'
+                          : 'bg-violet-100 text-violet-700'
+                      }`}
+                    >
+                      {selectedMed.subCategory === 'Semaglutide' ? '🟢' : '🟣'}{' '}
+                      {selectedMed.subCategory}
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500 truncate">{selectedMed.strength}</p>
+                <p className="truncate text-sm text-gray-500">
+                  {(selectedMed.subCategory === 'Tirzepatide' || selectedMed.subCategory === 'Semaglutide')
+                    ? selectedMed.details
+                    : selectedMed.strength}
+                </p>
               </div>
             </>
           ) : (
             <span className="text-gray-400">Select a medication...</span>
           )}
         </div>
-        <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {/* Mismatch Warning */}
       {isMismatch && (
-        <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500" />
           <div className="text-sm">
             <p className="font-medium text-amber-800">Medication Type Mismatch</p>
-            <p className="text-amber-700 mt-0.5">
-              Patient treatment is <strong>{expectedMedicationType}</strong>, but you selected <strong>{selectedMed?.subCategory}</strong>.
-              Please verify this is correct before proceeding.
+            <p className="mt-0.5 text-amber-700">
+              Patient treatment is <strong>{expectedMedicationType}</strong>, but you selected{' '}
+              <strong>{selectedMed?.subCategory}</strong>. Please verify this is correct before
+              proceeding.
             </p>
           </div>
         </div>
@@ -327,25 +367,25 @@ export default function MedicationSelector({
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-[500px] overflow-hidden">
+        <div className="absolute z-50 mt-2 max-h-[500px] w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
           {/* Search */}
-          <div className="p-3 border-b border-gray-100">
+          <div className="border-b border-gray-100 p-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
                 ref={searchInputRef}
                 type="text"
                 placeholder="Search medications..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-400 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-10 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
               />
               {searchTerm && (
                 <button
-                  onClick={() => setSearchTerm("")}
+                  onClick={() => setSearchTerm('')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>
@@ -357,7 +397,7 @@ export default function MedicationSelector({
               onClick={() => setActiveTab('all')}
               className={`flex-1 px-3 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === 'all'
-                  ? 'text-rose-600 border-b-2 border-rose-500 bg-white'
+                  ? 'border-b-2 border-rose-500 bg-white text-rose-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -365,9 +405,9 @@ export default function MedicationSelector({
             </button>
             <button
               onClick={() => setActiveTab('semaglutide')}
-              className={`flex-1 px-3 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === 'semaglutide'
-                  ? 'text-teal-600 border-b-2 border-teal-500 bg-white'
+                  ? 'border-b-2 border-teal-500 bg-white text-teal-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -375,9 +415,9 @@ export default function MedicationSelector({
             </button>
             <button
               onClick={() => setActiveTab('tirzepatide')}
-              className={`flex-1 px-3 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === 'tirzepatide'
-                  ? 'text-violet-600 border-b-2 border-violet-500 bg-white'
+                  ? 'border-b-2 border-violet-500 bg-white text-violet-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -387,7 +427,7 @@ export default function MedicationSelector({
               onClick={() => setActiveTab('other')}
               className={`flex-1 px-3 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === 'other'
-                  ? 'text-gray-700 border-b-2 border-gray-500 bg-white'
+                  ? 'border-b-2 border-gray-500 bg-white text-gray-700'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -396,22 +436,24 @@ export default function MedicationSelector({
           </div>
 
           {/* Medication List */}
-          <div className="overflow-y-auto max-h-[350px]">
+          <div className="max-h-[350px] overflow-y-auto">
             {filteredMedications.length === 0 ? (
               <div className="p-6 text-center text-gray-500">
-                <Pill className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <Pill className="mx-auto mb-2 h-8 w-8 text-gray-300" />
                 <p>No medications found</p>
-                <p className="text-xs mt-1">Try adjusting your search or category</p>
+                <p className="mt-1 text-xs">Try adjusting your search or category</p>
               </div>
             ) : activeTab === 'all' ? (
               <>
                 {/* Semaglutide Group */}
                 {groupedMedications.semaglutide.length > 0 && (
                   <div>
-                    <div className="sticky top-0 px-4 py-2 bg-teal-50 border-b border-teal-100">
-                      <span className="text-sm font-semibold text-teal-700 flex items-center gap-2">
+                    <div className="sticky top-0 border-b border-teal-100 bg-teal-50 px-4 py-2">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-teal-700">
                         🟢 Semaglutide
-                        <span className="text-xs font-normal text-teal-600">({groupedMedications.semaglutide.length} options)</span>
+                        <span className="text-xs font-normal text-teal-600">
+                          ({groupedMedications.semaglutide.length} options)
+                        </span>
                       </span>
                     </div>
                     {groupedMedications.semaglutide.map((med) => (
@@ -425,14 +467,16 @@ export default function MedicationSelector({
                     ))}
                   </div>
                 )}
-                
+
                 {/* Tirzepatide Group */}
                 {groupedMedications.tirzepatide.length > 0 && (
                   <div>
-                    <div className="sticky top-0 px-4 py-2 bg-violet-50 border-b border-violet-100">
-                      <span className="text-sm font-semibold text-violet-700 flex items-center gap-2">
+                    <div className="sticky top-0 border-b border-violet-100 bg-violet-50 px-4 py-2">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-violet-700">
                         🟣 Tirzepatide
-                        <span className="text-xs font-normal text-violet-600">({groupedMedications.tirzepatide.length} options)</span>
+                        <span className="text-xs font-normal text-violet-600">
+                          ({groupedMedications.tirzepatide.length} options)
+                        </span>
                       </span>
                     </div>
                     {groupedMedications.tirzepatide.map((med) => (
@@ -446,14 +490,16 @@ export default function MedicationSelector({
                     ))}
                   </div>
                 )}
-                
+
                 {/* Other Medications Group */}
                 {groupedMedications.other.length > 0 && (
                   <div>
-                    <div className="sticky top-0 px-4 py-2 bg-gray-50 border-b border-gray-100">
-                      <span className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <div className="sticky top-0 border-b border-gray-100 bg-gray-50 px-4 py-2">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         💊 Other Medications
-                        <span className="text-xs font-normal text-gray-500">({groupedMedications.other.length} options)</span>
+                        <span className="text-xs font-normal text-gray-500">
+                          ({groupedMedications.other.length} options)
+                        </span>
                       </span>
                     </div>
                     {groupedMedications.other.map((med) => (
@@ -477,8 +523,11 @@ export default function MedicationSelector({
                   isSelected={value === med.key}
                   onSelect={handleSelect}
                   colorClass={
-                    med.subCategory === 'Semaglutide' ? 'teal' :
-                    med.subCategory === 'Tirzepatide' ? 'violet' : 'gray'
+                    med.subCategory === 'Semaglutide'
+                      ? 'teal'
+                      : med.subCategory === 'Tirzepatide'
+                        ? 'violet'
+                        : 'gray'
                   }
                 />
               ))
@@ -522,35 +571,41 @@ function MedicationOption({
       badge: 'bg-gray-100 text-gray-700',
     },
   };
-  
+
   const colors = colorClasses[colorClass];
-  
+
+  const isGLP1TableFormat = med.subCategory === 'Tirzepatide' || med.subCategory === 'Semaglutide';
+
   return (
     <button
       onClick={() => onSelect(med.key)}
-      className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left ${
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
         isSelected ? colors.selected : `${colors.bg} border-l-4 border-transparent`
       }`}
     >
-      <div className={`p-2 rounded-lg flex-shrink-0 ${colors.icon}`}>
-        <Pill className="w-4 h-4" />
+      <div className={`flex-shrink-0 rounded-lg p-2 ${colors.icon}`}>
+        <Pill className="h-4 w-4" />
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-medium text-gray-900">{med.displayName}</span>
-          {med.details && (
-            <span className={`text-xs px-2 py-0.5 rounded-full ${colors.badge}`}>
+          {med.details && !isGLP1TableFormat && (
+            <span className={`rounded-full px-2 py-0.5 text-xs ${colors.badge}`}>
               {med.details}
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 truncate mt-0.5" title={med.name}>
-          {med.strength} • {med.formLabel || med.form}
-        </p>
+        {isGLP1TableFormat ? (
+          <p className="mt-0.5 text-sm text-gray-700" title={med.name}>
+            {med.details}
+          </p>
+        ) : (
+          <p className="mt-0.5 truncate text-xs text-gray-500" title={med.name}>
+            {med.strength} • {med.formLabel || med.form}
+          </p>
+        )}
       </div>
-      {isSelected && (
-        <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
-      )}
+      {isSelected && <Check className="h-5 w-5 flex-shrink-0 text-green-600" />}
     </button>
   );
 }
