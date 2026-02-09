@@ -91,6 +91,10 @@ export default function LoginPage() {
   const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
   const [isMainApp, setIsMainApp] = useState(false);
 
+  // Wrong clinic domain: show message + link to correct clinic login
+  const [wrongClinicRedirectUrl, setWrongClinicRedirectUrl] = useState<string | null>(null);
+  const [wrongClinicName, setWrongClinicName] = useState<string | null>(null);
+
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -458,6 +462,8 @@ export default function LoginPage() {
   const handlePasswordLogin = async (e: React.FormEvent, clinicId?: number) => {
     e?.preventDefault?.();
     setError('');
+    setWrongClinicRedirectUrl(null);
+    setWrongClinicName(null);
     setLoading(true);
 
     try {
@@ -480,8 +486,19 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
+        // User logged in on wrong clinic domain — show message and link to correct URL
+        if (data.code === 'WRONG_CLINIC_DOMAIN') {
+          setError(data.error || "This login page is for a different clinic.");
+          setWrongClinicRedirectUrl(data.correctLoginUrl ?? null);
+          setWrongClinicName(data.clinicName ?? null);
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error || 'Login failed');
       }
+
+      setWrongClinicRedirectUrl(null);
+      setWrongClinicName(null);
 
       // Check if user needs to select a clinic
       if (data.requiresClinicSelection && data.clinics?.length > 1) {
@@ -520,9 +537,18 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.code === 'WRONG_CLINIC_DOMAIN') {
+          setError(data.error || "This login page is for a different clinic.");
+          setWrongClinicRedirectUrl(data.correctLoginUrl ?? null);
+          setWrongClinicName(data.clinicName ?? null);
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error || 'Login failed');
       }
 
+      setWrongClinicRedirectUrl(null);
+      setWrongClinicName(null);
       handleLoginSuccess(data);
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
@@ -607,6 +633,8 @@ export default function LoginPage() {
     setPassword('');
     setOtp(['', '', '', '', '', '']);
     setError('');
+    setWrongClinicRedirectUrl(null);
+    setWrongClinicName(null);
     setOtpSent(false);
   };
 
@@ -821,8 +849,22 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
                     <p className="text-center text-sm text-red-600">{error}</p>
+                    {wrongClinicRedirectUrl && (
+                      <div className="text-center">
+                        <a
+                          href={wrongClinicRedirectUrl}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
+                          style={{
+                            backgroundColor: primaryColor,
+                            color: buttonTextColor,
+                          }}
+                        >
+                          Go to {wrongClinicName ? `${wrongClinicName} login` : "your clinic's login"}
+                        </a>
+                      </div>
+                    )}
                   </div>
                 )}
 

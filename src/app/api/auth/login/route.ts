@@ -27,7 +27,9 @@ import { logger } from '@/lib/logger';
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
-  role: z.enum(['patient', 'provider', 'admin', 'super_admin', 'influencer', 'staff', 'support']).default('patient'),
+  role: z
+    .enum(['patient', 'provider', 'admin', 'super_admin', 'influencer', 'staff', 'support'])
+    .default('patient'),
   clinicId: z.number().nullable().optional(), // Accept null, undefined, or number
   captchaToken: z.string().optional(), // For CAPTCHA verification when required
 });
@@ -61,13 +63,19 @@ async function loginHandler(req: NextRequest) {
       );
     }
 
-    const { email, password, role, clinicId: selectedClinicId, captchaToken } = validationResult.data;
+    const {
+      email,
+      password,
+      role,
+      clinicId: selectedClinicId,
+      captchaToken,
+    } = validationResult.data;
 
     // ============================================================================
     // ENTERPRISE RATE LIMITING - Check before any database operations
     // ============================================================================
     const rateLimitResult = await authRateLimiter.checkAndRecord(clientIp, email, false);
-    
+
     if (!rateLimitResult.allowed) {
       // Log the rate limit event
       logger.warn('[Login] Rate limit exceeded', {
@@ -95,7 +103,9 @@ async function loginHandler(req: NextRequest) {
           status: 429,
           headers: {
             'X-RateLimit-Remaining': rateLimitResult.remainingAttempts.toString(),
-            'X-RateLimit-Reset': new Date(Date.now() + rateLimitResult.resetInSeconds * 1000).toISOString(),
+            'X-RateLimit-Reset': new Date(
+              Date.now() + rateLimitResult.resetInSeconds * 1000
+            ).toISOString(),
             'Retry-After': rateLimitResult.resetInSeconds.toString(),
             'X-Security-Level': rateLimitResult.securityLevel.toString(),
           },
@@ -131,7 +141,7 @@ async function loginHandler(req: NextRequest) {
       permissions?: unknown;
       features?: unknown;
     };
-    
+
     let user: FlexibleUser | null = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
       include: {
@@ -175,7 +185,7 @@ async function loginHandler(req: NextRequest) {
               email: providerData.email || '',
               firstName: providerData.firstName || '',
               lastName: providerData.lastName || '',
-              role: "provider",
+              role: 'provider',
               status: 'ACTIVE',
               providerId: providerData.id,
               clinicId: providerData.clinicId,
@@ -194,7 +204,7 @@ async function loginHandler(req: NextRequest) {
               email: influencer.email,
               firstName: influencer.name,
               lastName: '',
-              role: "influencer",
+              role: 'influencer',
               status: 'ACTIVE',
             } as unknown as FlexibleUser;
             passwordHash = influencer.passwordHash;
@@ -227,7 +237,7 @@ async function loginHandler(req: NextRequest) {
           const adminUser = await prisma.user.findFirst({
             where: {
               email: email.toLowerCase(),
-              role: { in: ['ADMIN', 'SUPER_ADMIN'] }
+              role: { in: ['ADMIN', 'SUPER_ADMIN'] },
             },
             include: {
               provider: true,
@@ -245,7 +255,7 @@ async function loginHandler(req: NextRequest) {
           const staffUser = await prisma.user.findFirst({
             where: {
               email: email.toLowerCase(),
-              role: { in: ['STAFF', 'SUPPORT'] }
+              role: { in: ['STAFF', 'SUPPORT'] },
             },
           });
           if (staffUser) {
@@ -305,17 +315,17 @@ async function loginHandler(req: NextRequest) {
     if (!user) {
       // Log failed attempt (no PHI in message)
       logger.warn('Failed login attempt', { emailPrefix: email.substring(0, 3) + '***', role });
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
     // Verify password (if passwordHash exists)
     if (passwordHash) {
       const isValid = await bcrypt.compare(password, passwordHash);
       if (!isValid) {
-        logger.warn('Invalid password for login attempt', { emailPrefix: email.substring(0, 3) + '***', role });
+        logger.warn('Invalid password for login attempt', {
+          emailPrefix: email.substring(0, 3) + '***',
+          role,
+        });
 
         // Return with rate limit info so user knows their status
         return NextResponse.json(
@@ -328,7 +338,10 @@ async function loginHandler(req: NextRequest) {
           {
             status: 401,
             headers: {
-              'X-RateLimit-Remaining': Math.max(0, rateLimitResult.remainingAttempts - 1).toString(),
+              'X-RateLimit-Remaining': Math.max(
+                0,
+                rateLimitResult.remainingAttempts - 1
+              ).toString(),
               'X-Security-Level': rateLimitResult.securityLevel.toString(),
             },
           }
@@ -384,7 +397,14 @@ async function loginHandler(req: NextRequest) {
     if (user.clinicId) {
       const primaryClinic = await prisma.clinic.findUnique({
         where: { id: user.clinicId },
-        select: { id: true, name: true, subdomain: true, logoUrl: true, iconUrl: true, faviconUrl: true },
+        select: {
+          id: true,
+          name: true,
+          subdomain: true,
+          logoUrl: true,
+          iconUrl: true,
+          faviconUrl: true,
+        },
       });
       if (primaryClinic) {
         clinics.push({
@@ -404,14 +424,21 @@ async function loginHandler(req: NextRequest) {
         },
         include: {
           clinic: {
-            select: { id: true, name: true, subdomain: true, logoUrl: true, iconUrl: true, faviconUrl: true },
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              logoUrl: true,
+              iconUrl: true,
+              faviconUrl: true,
+            },
           },
         },
         orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
       });
 
       for (const uc of userClinics) {
-        if (!clinics.find(c => c.id === uc.clinic.id)) {
+        if (!clinics.find((c) => c.id === uc.clinic.id)) {
           clinics.push({
             ...uc.clinic,
             role: uc.role,
@@ -423,14 +450,14 @@ async function loginHandler(req: NextRequest) {
       // UserClinic might not exist (pre-migration), continue with primary clinic
       logger.debug('[Login] UserClinic lookup skipped', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        userId: user.id
+        userId: user.id,
       });
     }
 
     // Determine active clinic - use selected, subdomain-based, primary, or first available
     let activeClinicId: number | undefined = undefined;
     if (userRole !== 'super_admin') {
-      if (selectedClinicId && clinics.find(c => c.id === selectedClinicId)) {
+      if (selectedClinicId && clinics.find((c) => c.id === selectedClinicId)) {
         activeClinicId = selectedClinicId;
       } else {
         // Try to detect clinic from subdomain (for white-labeled login)
@@ -446,7 +473,8 @@ async function loginHandler(req: NextRequest) {
 
           if (subdomainClinic) {
             // Check if user has access to this clinic
-            const hasAccess = clinics.some(c => c.id === subdomainClinic.id) ||
+            const hasAccess =
+              clinics.some((c) => c.id === subdomainClinic.id) ||
               user.clinicId === subdomainClinic.id;
 
             if (hasAccess) {
@@ -457,15 +485,30 @@ async function loginHandler(req: NextRequest) {
                 userId: user.id,
               });
             } else {
-              // User doesn't have access but is trying to login via subdomain
-              // Check if we should auto-add them (e.g., for new users created at this clinic)
-              // For now, just log and use their default
-              logger.warn('[Login] User logged in via subdomain without access', {
+              // User is on a clinic subdomain they don't have access to — reject to avoid confusion
+              const primaryOrFirst = clinics.find((c) => c.isPrimary) || clinics[0];
+              const correctSubdomain = primaryOrFirst?.subdomain;
+              const correctLoginUrl = correctSubdomain
+                ? buildClinicLoginUrl(req.headers.get('host') || '', correctSubdomain)
+                : null;
+
+              logger.warn('[Login] Login rejected: user on wrong clinic domain', {
                 subdomain,
                 subdomainClinicId: subdomainClinic.id,
                 userId: user.id,
                 userClinicId: user.clinicId,
               });
+
+              return NextResponse.json(
+                {
+                  error:
+                    "This login page is for a different clinic. Use your clinic's login URL to sign in.",
+                  code: 'WRONG_CLINIC_DOMAIN',
+                  correctLoginUrl,
+                  clinicName: primaryOrFirst?.name ?? undefined,
+                },
+                { status: 403 }
+              );
             }
           }
         }
@@ -527,7 +570,7 @@ async function loginHandler(req: NextRequest) {
         // Log but don't fail on fallback lookup errors
         logger.debug('[Login] Provider fallback lookup failed', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          email: user.email
+          email: user.email,
         });
       }
     }
@@ -557,7 +600,7 @@ async function loginHandler(req: NextRequest) {
         // Log but don't fail on fallback lookup errors
         logger.debug('[Login] Patient fallback lookup failed', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          email: user.email
+          email: user.email,
         });
       }
     }
@@ -608,30 +651,34 @@ async function loginHandler(req: NextRequest) {
       }
 
       if (tokenPayload.providerId) {
-        await basePrisma.provider.update({
-          where: { id: tokenPayload.providerId },
-          data: { lastLogin: loginTime },
-        }).catch((error: Error) => {
-          logger.warn('Failed to update provider lastLogin:', error);
-        });
+        await basePrisma.provider
+          .update({
+            where: { id: tokenPayload.providerId },
+            data: { lastLogin: loginTime },
+          })
+          .catch((error: Error) => {
+            logger.warn('Failed to update provider lastLogin:', error);
+          });
       }
 
-      await prisma.userAuditLog.create({
-        data: {
-          userId: user.id,
-          action: 'LOGIN',
-          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-          userAgent: req.headers.get('user-agent'),
-          details: {
-            role: userRole,
-            clinicId: activeClinicId,
-            providerId: tokenPayload.providerId,
-            loginMethod: 'password',
+      await prisma.userAuditLog
+        .create({
+          data: {
+            userId: user.id,
+            action: 'LOGIN',
+            ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+            userAgent: req.headers.get('user-agent'),
+            details: {
+              role: userRole,
+              clinicId: activeClinicId,
+              providerId: tokenPayload.providerId,
+              loginMethod: 'password',
+            },
           },
-        },
-      }).catch((error: Error) => {
-        logger.warn('Failed to create audit log:', error);
-      });
+        })
+        .catch((error: Error) => {
+          logger.warn('Failed to create audit log:', error);
+        });
 
       try {
         await prisma.userSession.create({
@@ -639,7 +686,8 @@ async function loginHandler(req: NextRequest) {
             userId: user.id,
             token: token.substring(0, 64),
             refreshToken: refreshToken.substring(0, 64),
-            ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+            ipAddress:
+              req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
             userAgent: req.headers.get('user-agent') || 'unknown',
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
             lastActivity: loginTime,
@@ -772,6 +820,31 @@ async function loginHandler(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Build the login URL for a clinic subdomain using the same base domain as the request.
+ * e.g., host "wellmedr.eonpro.io", subdomain "ot" -> "https://ot.eonpro.io/login"
+ *       host "wellmedr.localhost:3000", subdomain "ot" -> "http://ot.localhost:3000/login"
+ */
+function buildClinicLoginUrl(host: string, subdomain: string): string {
+  const [hostname, port] = host.split(':');
+  const normalizedHost = hostname.toLowerCase();
+  const protocol = normalizedHost.includes('localhost') ? 'http' : 'https';
+
+  let baseDomain: string;
+  if (normalizedHost.includes('localhost')) {
+    baseDomain = 'localhost';
+  } else if (normalizedHost.endsWith('.eonpro.io')) {
+    baseDomain = 'eonpro.io';
+  } else {
+    const parts = normalizedHost.split('.');
+    baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : normalizedHost;
+  }
+
+  const portSuffix = port ? `:${port}` : '';
+  const origin = `${protocol}://${subdomain}.${baseDomain}${portSuffix}`;
+  return `${origin}/login`;
 }
 
 /**
