@@ -801,13 +801,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
             affiliateCode={affiliateCode}
             currentSalesRep={patientWithDecryptedPHI.salesRepAssignments?.[0]?.salesRep || null}
             userRole={user.role}
-            showLabsTab={(() => {
-              const sub = patientWithDecryptedPHI.clinic?.subdomain?.toLowerCase();
-              const isOT = sub === 'ot' || sub === 'overtime';
-              if (isOT) return true;
-              if (patientWithDecryptedPHI.clinic == null) return true;
-              return (patientWithDecryptedPHI.clinic.features as Record<string, boolean> | null)?.BLOODWORK_LABS !== false;
-            })()}
+            showLabsTab={true}
           />
 
           {/* Main Content Area */}
