@@ -1,6 +1,6 @@
 /**
  * Enhanced Medication Sig Templates
- * 
+ *
  * Comprehensive prescription directions with storage, administration,
  * warnings, and missed dose instructions.
  *
@@ -52,13 +52,13 @@ export interface EnhancedSigTemplate {
   quantity: string;
   refills: string;
   daysSupply?: number;
-  
+
   // Enhanced sections
   storage?: StorageInfo;
   administration?: AdministrationInfo;
   warnings?: WarningsInfo;
   missedDose?: string;
-  
+
   // Metadata
   phase?: 'initiation' | 'escalation' | 'maintenance' | 'standard';
   targetDose?: string;
@@ -115,7 +115,8 @@ export const ADMINISTRATION_PRESETS = {
     route: 'Subcutaneous injection',
     sites: ['Abdomen (at least 2 inches from belly button)', 'Front of thigh', 'Upper outer arm'],
     timing: 'Once weekly, on the same day each week, with or without food',
-    specialTechnique: 'Use a 100-unit insulin syringe (U-100). Pinch skin, insert needle at 45-90° angle, inject slowly, hold for 5-10 seconds before removing.',
+    specialTechnique:
+      'Use a 100-unit insulin syringe (U-100). Pinch skin, insert needle at 45-90° angle, inject slowly, hold for 5-10 seconds before removing.',
     preparationSteps: [
       'Wash hands thoroughly',
       'Allow medication to reach room temperature (15-30 min)',
@@ -129,7 +130,8 @@ export const ADMINISTRATION_PRESETS = {
     route: 'Subcutaneous injection',
     sites: ['Abdomen (at least 2 inches from belly button)', 'Inner arm'],
     timing: 'As directed, typically at bedtime on an empty stomach',
-    specialTechnique: 'Use a 100-unit insulin syringe (U-100). Inject slowly into pinched skin fold.',
+    specialTechnique:
+      'Use a 100-unit insulin syringe (U-100). Inject slowly into pinched skin fold.',
     preparationSteps: [
       'Wash hands thoroughly',
       'Clean injection site with alcohol swab',
@@ -139,9 +141,14 @@ export const ADMINISTRATION_PRESETS = {
   },
   INTRAMUSCULAR: {
     route: 'Intramuscular injection',
-    sites: ['Gluteal muscle (upper outer quadrant)', 'Deltoid muscle', 'Vastus lateralis (outer thigh)'],
+    sites: [
+      'Gluteal muscle (upper outer quadrant)',
+      'Deltoid muscle',
+      'Vastus lateralis (outer thigh)',
+    ],
     timing: 'As directed, typically once weekly',
-    specialTechnique: 'Use 1-1.5 inch needle (22-25 gauge). Inject into muscle at 90° angle. Aspirate before injecting. For SubQ, use insulin syringe.',
+    specialTechnique:
+      'Use 1-1.5 inch needle (22-25 gauge). Inject into muscle at 90° angle. Aspirate before injecting. For SubQ, use insulin syringe.',
     preparationSteps: [
       'Warm medication to body temperature',
       'Wash hands and clean injection site',
@@ -245,24 +252,11 @@ export const WARNINGS_PRESETS = {
       'Headache',
       'Fatigue or increased energy',
     ],
-    monitoring: [
-      'IGF-1 levels periodically',
-      'Blood glucose',
-      'Symptoms and response',
-    ],
+    monitoring: ['IGF-1 levels periodically', 'Blood glucose', 'Symptoms and response'],
   },
   AROMATASE_INHIBITOR: {
-    commonSideEffects: [
-      'Joint pain/stiffness',
-      'Hot flashes',
-      'Fatigue',
-      'Mood changes',
-    ],
-    monitoring: [
-      'Estradiol levels',
-      'Bone density if long-term use',
-      'Lipid panel',
-    ],
+    commonSideEffects: ['Joint pain/stiffness', 'Hot flashes', 'Fatigue', 'Mood changes'],
+    monitoring: ['Estradiol levels', 'Bone density if long-term use', 'Lipid panel'],
   },
 };
 
@@ -286,7 +280,8 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
       timing: 'Once weekly on the same day. Morning or evening - consistency is key.',
     },
     warnings: WARNINGS_PRESETS.GLP1,
-    missedDose: 'If a dose is missed, administer as soon as possible within 4 days. If more than 4 days have passed, skip the missed dose and resume on regular schedule.',
+    missedDose:
+      'If a dose is missed, administer as soon as possible within 4 days. If more than 4 days have passed, skip the missed dose and resume on regular schedule.',
   },
   {
     label: 'Escalation - Weeks 5-8 · 5 mg',
@@ -300,7 +295,8 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
     administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
     warnings: WARNINGS_PRESETS.GLP1,
-    missedDose: 'If a dose is missed, administer as soon as possible within 4 days. If more than 4 days have passed, skip and resume on regular schedule.',
+    missedDose:
+      'If a dose is missed, administer as soon as possible within 4 days. If more than 4 days have passed, skip and resume on regular schedule.',
   },
   {
     label: 'Escalation - Weeks 9-12 · 7.5 mg',
@@ -344,6 +340,84 @@ export const TIRZEPATIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   },
 ];
 
+// TIRZEPATIDE 30 MG/ML (2 ML VIAL = 60 mg) - concentration-specific templates
+// 1 mL = 100 units, 2 mL = 200 units. 30 mg/mL → 30 mg per 100 units. Dose (mg) / 30 * 100 = units.
+const TIRZEPATIDE_30MG_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
+  {
+    label: 'Initiation - Weeks 1-4 · 2.5 mg',
+    phase: 'initiation',
+    weekRange: '1-4',
+    targetDose: '2.5 mg',
+    sig: 'Inject 2.5 mg (0.08 mL / 8 units) subcutaneously once weekly for 4 weeks to initiate therapy. Inject on the same day each week. Rotate injection sites. Vial: 2 mL = 200 units; 30 mg per mL = 30 mg per 100 units.',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: {
+      ...ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+      timing: 'Once weekly on the same day. Morning or evening - consistency is key.',
+    },
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose:
+      'If a dose is missed, administer as soon as possible within 4 days. If more than 4 days have passed, skip the missed dose and resume on regular schedule.',
+  },
+  {
+    label: 'Escalation - Weeks 5-8 · 5 mg',
+    phase: 'escalation',
+    weekRange: '5-8',
+    targetDose: '5 mg',
+    sig: 'Inject 5 mg (0.17 mL / 17 units) subcutaneously once weekly. Continue if tolerating initiation dose well. Monitor for GI side effects.',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose:
+      'If a dose is missed, administer as soon as possible within 4 days. If more than 4 days have passed, skip and resume on regular schedule.',
+  },
+  {
+    label: 'Escalation - Weeks 9-12 · 7.5 mg',
+    phase: 'escalation',
+    weekRange: '9-12',
+    targetDose: '7.5 mg',
+    sig: 'Inject 7.5 mg (0.25 mL / 25 units) subcutaneously once weekly. Titrate only if prior dose was well tolerated. Report any persistent nausea or GI symptoms.',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose: 'If a dose is missed, administer as soon as possible within 4 days.',
+  },
+  {
+    label: 'Maintenance - 10 mg',
+    phase: 'maintenance',
+    targetDose: '10 mg',
+    sig: 'Inject 10 mg (0.33 mL / 33 units) subcutaneously once weekly for maintenance therapy. Continue lifestyle modifications including diet and exercise.',
+    quantity: '1',
+    refills: '2',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose: 'If a dose is missed, administer as soon as possible within 4 days.',
+  },
+  {
+    label: 'Maximum - 15 mg',
+    phase: 'maintenance',
+    targetDose: '15 mg',
+    sig: 'Inject 15 mg (0.5 mL / 50 units) subcutaneously once weekly. Maximum dose. Monitor weight loss progress and metabolic parameters. Vial: 1 mL = 100 units, 2 mL = 200 units; 30 mg per mL means 15 mg = 50 units.',
+    quantity: '1',
+    refills: '2',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose: 'If a dose is missed, administer as soon as possible within 4 days.',
+  },
+];
+
 // SEMAGLUTIDE ENHANCED TEMPLATES (2.5 mg/mL concentration)
 // Calculation: dose (mg) / 2.5 (mg/mL) = volume (mL), volume × 100 = units
 // Example: 0.5 mg / 2.5 = 0.2 mL = 20 units
@@ -360,7 +434,8 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
     administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
     warnings: WARNINGS_PRESETS.GLP1,
-    missedDose: 'If a dose is missed, inject as soon as possible within 5 days. If more than 5 days, skip and resume on regular schedule.',
+    missedDose:
+      'If a dose is missed, inject as soon as possible within 5 days. If more than 5 days, skip and resume on regular schedule.',
   },
   {
     label: 'Escalation - Weeks 5-8 · 0.5 mg',
@@ -418,6 +493,80 @@ export const SEMAGLUTIDE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   },
 ];
 
+// SEMAGLUTIDE 5 MG/ML (2 ML VIAL = 10 mg) - concentration-specific templates
+// 1 mL = 100 units, 2 mL = 200 units. 5 mg/mL → 5 mg per 100 units. Dose (mg) / 5 * 100 = units.
+const SEMAGLUTIDE_5MG_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
+  {
+    label: 'Initiation - Weeks 1-4 · 0.25 mg',
+    phase: 'initiation',
+    weekRange: '1-4',
+    targetDose: '0.25 mg',
+    sig: 'Inject 0.25 mg (0.05 mL / 5 units) subcutaneously once weekly for 4 weeks to initiate therapy. Rotate injection sites. Vial: 2 mL = 200 units; 5 mg per mL = 5 mg per 100 units.',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose:
+      'If a dose is missed, inject as soon as possible within 5 days. If more than 5 days, skip and resume on regular schedule.',
+  },
+  {
+    label: 'Escalation - Weeks 5-8 · 0.5 mg',
+    phase: 'escalation',
+    weekRange: '5-8',
+    targetDose: '0.5 mg',
+    sig: 'Inject 0.5 mg (0.1 mL / 10 units) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose: 'If a dose is missed, inject as soon as possible within 5 days.',
+  },
+  {
+    label: 'Escalation - Weeks 9-12 · 1 mg',
+    phase: 'escalation',
+    weekRange: '9-12',
+    targetDose: '1 mg',
+    sig: 'Inject 1 mg (0.2 mL / 20 units) subcutaneously once weekly. Continue lifestyle counseling. Monitor fasting glucose if diabetic.',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose: 'If a dose is missed, inject as soon as possible within 5 days.',
+  },
+  {
+    label: 'Maintenance - 1.7 mg',
+    phase: 'maintenance',
+    targetDose: '1.7 mg',
+    sig: 'Inject 1.7 mg (0.34 mL / 34 units) subcutaneously once weekly for weight maintenance. Continue diet and exercise program.',
+    quantity: '1',
+    refills: '2',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose: 'If a dose is missed, inject as soon as possible within 5 days.',
+  },
+  {
+    label: 'Maximum - 2.4 mg',
+    phase: 'maintenance',
+    targetDose: '2.4 mg',
+    sig: 'Inject 2.4 mg (0.48 mL / 48 units) subcutaneously once weekly. Maximum dose for weight management. Monitor for efficacy and tolerance. Vial: 1 mL = 100 units, 2 mL = 200 units; 5 mg per mL means 2.4 mg = 48 units.',
+    quantity: '1',
+    refills: '2',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.REFRIGERATED_GLP1,
+    administration: ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+    warnings: WARNINGS_PRESETS.GLP1,
+    missedDose: 'If a dose is missed, inject as soon as possible within 5 days.',
+  },
+];
+
 export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
     label: 'Standard - 100 mg Weekly',
@@ -430,7 +579,8 @@ export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     storage: STORAGE_PRESETS.TESTOSTERONE,
     administration: ADMINISTRATION_PRESETS.INTRAMUSCULAR,
     warnings: WARNINGS_PRESETS.TESTOSTERONE,
-    missedDose: 'If a dose is missed, inject as soon as remembered. Do not double dose. Continue weekly schedule from the new injection date.',
+    missedDose:
+      'If a dose is missed, inject as soon as remembered. Do not double dose. Continue weekly schedule from the new injection date.',
   },
   {
     label: 'Standard - 200 mg Biweekly',
@@ -443,7 +593,8 @@ export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     storage: STORAGE_PRESETS.TESTOSTERONE,
     administration: ADMINISTRATION_PRESETS.INTRAMUSCULAR,
     warnings: WARNINGS_PRESETS.TESTOSTERONE,
-    missedDose: 'If a dose is missed, inject as soon as remembered and resume biweekly schedule from that date.',
+    missedDose:
+      'If a dose is missed, inject as soon as remembered and resume biweekly schedule from that date.',
   },
   {
     label: 'TRT - 50 mg Twice Weekly',
@@ -460,7 +611,8 @@ export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
       timing: 'Twice weekly, 3-4 days apart (e.g., Monday/Thursday)',
     },
     warnings: WARNINGS_PRESETS.TESTOSTERONE,
-    missedDose: 'If a dose is missed, inject as soon as remembered. Maintain 3-4 day spacing between doses.',
+    missedDose:
+      'If a dose is missed, inject as soon as remembered. Maintain 3-4 day spacing between doses.',
   },
   {
     label: 'Low Dose - 80 mg Weekly',
@@ -506,7 +658,8 @@ export const ENCLOMIPHENE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
         'Estradiol levels',
       ],
     },
-    missedDose: 'If a dose is missed, take as soon as remembered unless close to next dose. Do not double dose.',
+    missedDose:
+      'If a dose is missed, take as soon as remembered unless close to next dose. Do not double dose.',
   },
   {
     label: 'Pulse - 5 days on / 2 days off',
@@ -525,7 +678,8 @@ export const ENCLOMIPHENE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
       commonSideEffects: ['Headache', 'Hot flashes', 'Mood changes'],
       monitoring: ['Testosterone levels', 'LH/FSH', 'Estradiol'],
     },
-    missedDose: 'If a weekday dose is missed, skip it and continue the next weekday. Keep weekend break.',
+    missedDose:
+      'If a weekday dose is missed, skip it and continue the next weekday. Keep weekend break.',
   },
   {
     label: 'Low Dose - 12.5 mg Daily',
@@ -560,7 +714,8 @@ export const ANASTROZOLE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
       timing: 'Twice weekly (Monday and Thursday) at the same times',
     },
     warnings: WARNINGS_PRESETS.AROMATASE_INHIBITOR,
-    missedDose: 'If a dose is missed, take as soon as remembered unless next dose is within 2 days. Do not double dose.',
+    missedDose:
+      'If a dose is missed, take as soon as remembered unless next dose is within 2 days. Do not double dose.',
   },
   {
     label: '0.25 mg Three Times Weekly',
@@ -644,16 +799,28 @@ export const SERMORELIN_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
 // UTILITY FUNCTIONS
 // ============================================================================
 
+// Product keys for concentration-specific GLP-1 vials (use special template sets)
+const TIRZEPATIDE_30MG_2ML_KEY = '203418602'; // TIRZEPATIDE/GLYCINE 30/20MG/ML (2ML VIAL) - 60mg, 30mg/mL
+const SEMAGLUTIDE_5MG_2ML_KEY = '202851329'; // SEMAGLUTIDE/GLYCINE 5/20MG/ML (2ML VIAL) - 10mg, 5mg/mL
+
 /**
  * Get enhanced templates for a medication by key
  */
 export function getEnhancedTemplates(medicationKey: string): EnhancedSigTemplate[] | null {
   const med = MEDS[medicationKey];
   if (!med) return null;
-  
+
+  // Concentration-specific vials: use 30mg/2mL tirzepatide or 5mg/2mL semaglutide templates only for these keys
+  if (medicationKey === TIRZEPATIDE_30MG_2ML_KEY) {
+    return TIRZEPATIDE_30MG_ENHANCED_TEMPLATES;
+  }
+  if (medicationKey === SEMAGLUTIDE_5MG_2ML_KEY) {
+    return SEMAGLUTIDE_5MG_ENHANCED_TEMPLATES;
+  }
+
   const name = med.name.toLowerCase();
-  
-  // Match by medication name
+
+  // Match by medication name (all other vial sizes unchanged)
   if (name.includes('tirzepatide')) {
     return TIRZEPATIDE_ENHANCED_TEMPLATES;
   }
@@ -672,7 +839,7 @@ export function getEnhancedTemplates(medicationKey: string): EnhancedSigTemplate
   if (name.includes('sermorelin')) {
     return SERMORELIN_ENHANCED_TEMPLATES;
   }
-  
+
   return null;
 }
 
@@ -713,7 +880,8 @@ export function getDefaultAdministration(form: string): AdministrationInfo {
       return {
         route: 'Sublingual (under tongue)',
         timing: 'Allow to dissolve completely under tongue. Do not chew or swallow.',
-        specialTechnique: 'Place under tongue and let dissolve for 15-30 minutes. Do not eat or drink during this time.',
+        specialTechnique:
+          'Place under tongue and let dissolve for 15-30 minutes. Do not eat or drink during this time.',
       };
     case 'CREAM':
     case 'GEL':
@@ -741,13 +909,13 @@ export function buildComprehensiveSig(
     includeWarnings = false,
     includeMissedDose = false,
   } = options;
-  
+
   let sig = template.sig;
-  
+
   if (includeStorage && template.storage) {
     sig += ` STORAGE: ${template.storage.text}`;
   }
-  
+
   if (includeAdministration && template.administration) {
     const admin = template.administration;
     if (admin.timing) {
@@ -757,18 +925,18 @@ export function buildComprehensiveSig(
       sig += ` INJECTION SITES: ${admin.sites.join(', ')}.`;
     }
   }
-  
+
   if (includeWarnings && template.warnings) {
     const warnings = template.warnings;
     if (warnings.emergencySymptoms && warnings.emergencySymptoms.length > 0) {
       sig += ` SEEK MEDICAL ATTENTION FOR: ${warnings.emergencySymptoms.slice(0, 2).join('; ')}.`;
     }
   }
-  
+
   if (includeMissedDose && template.missedDose) {
     sig += ` MISSED DOSE: ${template.missedDose}`;
   }
-  
+
   return sig;
 }
 
@@ -778,14 +946,15 @@ export function buildComprehensiveSig(
 export function getMedicationCategory(medicationKey: string): string {
   const med = MEDS[medicationKey];
   if (!med) return 'Other';
-  
+
   const name = med.name.toLowerCase();
-  
+
   if (name.includes('tirzepatide') || name.includes('semaglutide')) return 'GLP-1';
   if (name.includes('testosterone')) return 'TRT';
   if (name.includes('enclomiphene') || name.includes('anastrozole')) return 'Hormone Support';
-  if (name.includes('sermorelin') || name.includes('bpc') || name.includes('tb-500')) return 'Peptide';
+  if (name.includes('sermorelin') || name.includes('bpc') || name.includes('tb-500'))
+    return 'Peptide';
   if (name.includes('sildenafil') || name.includes('tadalafil')) return 'ED';
-  
+
   return 'Other';
 }
