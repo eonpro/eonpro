@@ -1,27 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { logger } from '@/lib/logger';
+import type { LayoutUser } from '@/types/common';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home, Users, ShoppingCart, Store, TrendingUp,
-  DollarSign, Settings, LogOut, ChevronRight, Ticket
+  Home,
+  Users,
+  ShoppingCart,
+  Store,
+  TrendingUp,
+  DollarSign,
+  Settings,
+  LogOut,
+  ChevronRight,
+  Ticket,
+  UserPlus,
+  Pill,
+  UserCheck,
+  CreditCard,
+  Key,
+  Building2,
 } from 'lucide-react';
+import { getAdminNavConfig } from '@/lib/nav/adminNav';
 
-const navItems = [
-  { icon: Home, path: '/admin', label: 'Dashboard' },
-  { icon: Users, path: '/admin/patients', label: 'Patients' },
-  { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
-  { icon: Ticket, path: '/tickets', label: 'Tickets' },
-  { icon: Store, path: '/admin/products', label: 'Products' },
-  { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
-  { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
-  { icon: Settings, path: '/admin/settings', label: 'Settings' },
-];
+const adminNavIconMap = {
+  Home,
+  UserPlus,
+  Users,
+  Pill,
+  ShoppingCart,
+  Ticket,
+  Store,
+  TrendingUp,
+  UserCheck,
+  DollarSign,
+  CreditCard,
+  Key,
+  Settings,
+  Building2,
+} as const;
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  userData?: any;
+  userData?: LayoutUser | null;
 }
 
 export default function AdminLayout({ children, userData }: AdminLayoutProps) {
@@ -29,11 +52,33 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
   const router = useRouter();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
+  const role = userData?.role?.toLowerCase() ?? 'admin';
+  const navItems = useMemo(() => {
+    const config = getAdminNavConfig(role);
+    const items = config.map((item) => ({
+      path: item.path,
+      label: item.label,
+      icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
+    }));
+    if (items[0]?.path === '/') {
+      items[0] = { ...items[0], path: '/admin', label: 'Dashboard' };
+    }
+    return items;
+  }, [role]);
+
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((err: unknown) => {
+        logger.debug('Logout API call failed (continuing with redirect)', {
+          message: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -50,15 +95,15 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#efece7] flex">
+    <div className="flex min-h-screen bg-[#efece7]">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 flex flex-col py-4 z-50 transition-all duration-300 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 ${
           sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center mb-6 px-4">
+        <div className="mb-6 flex items-center justify-center px-4">
           <Link href="/">
             {sidebarExpanded ? (
               <img
@@ -79,7 +124,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
         {/* Expand Button */}
         <button
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 focus:outline-none transition-all ${
+          className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
             sidebarExpanded ? 'rotate-180' : ''
           }`}
         >
@@ -87,7 +132,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
         </button>
 
         {/* Navigation Icons */}
-        <nav className="flex-1 flex flex-col px-3 space-y-1">
+        <nav className="flex flex-1 flex-col space-y-1 px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -96,7 +141,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
                 key={item.path}
                 href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
                   active
                     ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -104,7 +149,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
-                  <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                  <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
               </Link>
             );
@@ -116,12 +161,12 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
           <button
             type="button"
             onClick={handleLogout}
-            title={!sidebarExpanded ? "Logout" : undefined}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all w-full"
+            title={!sidebarExpanded ? 'Logout' : undefined}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {sidebarExpanded && (
-              <span className="text-sm font-medium whitespace-nowrap">Logout</span>
+              <span className="whitespace-nowrap text-sm font-medium">Logout</span>
             )}
           </button>
         </div>
@@ -129,9 +174,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
 
       {/* Main Content */}
       <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
-        <div className="p-8">
-          {children}
-        </div>
+        <div className="p-8">{children}</div>
       </main>
     </div>
   );

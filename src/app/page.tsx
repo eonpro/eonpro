@@ -16,6 +16,7 @@ import {
   Clock,
   ChevronRight,
   UserPlus,
+  UserCheck,
   CreditCard,
   RefreshCw,
   FileText,
@@ -53,6 +54,7 @@ interface DashboardStats {
   newPrescriptions: number;
 }
 
+// Match order and items from lib/nav/adminNav (baseAdminNavConfig) for consistent sidebar
 const navItems = [
   { icon: Home, path: '/', label: 'Home', active: true },
   { icon: UserPlus, path: '/admin/intakes', label: 'Intakes' },
@@ -62,6 +64,7 @@ const navItems = [
   { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
+  { icon: UserCheck, path: '/admin/affiliates', label: 'Affiliates' },
   { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
   { icon: CreditCard, path: '/admin/stripe-dashboard', label: 'Stripe' },
   { icon: Key, path: '/admin/registration-codes', label: 'Registration Codes' },

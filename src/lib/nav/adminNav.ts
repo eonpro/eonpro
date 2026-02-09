@@ -42,3 +42,21 @@ export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
   }
   return items;
 }
+
+/**
+ * Reduced nav for provider/staff/support (no Intakes, RX Queue, Tickets, Affiliates, Stripe, Registration Codes).
+ * Used so sidebar is consistent when same role visits /patients, /orders, or /intake-forms.
+ */
+export function getNonAdminNavConfig(userRole: string | null): AdminNavItemConfig[] {
+  const patientsPath = userRole === 'provider' ? '/provider/patients' : '/admin/patients';
+  return [
+    { path: '/', label: 'Home', iconKey: 'Home' },
+    { path: patientsPath, label: 'Patients', iconKey: 'Users' },
+    { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
+    { path: '/admin/products', label: 'Products', iconKey: 'Store' },
+    { path: '/intake-forms', label: 'Intake Forms', iconKey: 'ClipboardList' },
+    { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
+    { path: '/admin/finance', label: 'Finance', iconKey: 'DollarSign' },
+    { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
+  ];
+}

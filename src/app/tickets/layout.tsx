@@ -31,7 +31,28 @@ import {
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { getStoredUserRole } from '@/lib/auth/stored-role';
+import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
+
+const TICKETS_ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
+
+const adminNavIconMap = {
+  Home,
+  UserPlus,
+  Users,
+  Pill,
+  ShoppingCart,
+  Ticket,
+  Store,
+  TrendingUp,
+  UserCheck,
+  DollarSign,
+  CreditCard,
+  Key,
+  Settings,
+  Building2,
+} as const;
 
 // Fallback UI for ticket errors (used by ErrorBoundary - reports to Sentry)
 const TicketsErrorFallback = (
@@ -61,26 +82,9 @@ const EONPRO_LOGO =
 const EONPRO_ICON =
   'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
 
-// Navigation items based on role
-const getNavItemsForRole = (role: string) => {
+// Non-admin nav (provider/staff/support) – role-specific paths
+const getNavItemsForNonAdminRole = (role: string) => {
   switch (role) {
-    case 'super_admin':
-    case 'admin':
-      return [
-        { icon: Home, path: '/admin', label: 'Dashboard' },
-        { icon: UserPlus, path: '/admin/intakes', label: 'Intakes' },
-        { icon: Users, path: '/admin/patients', label: 'Patients' },
-        { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
-        { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
-        { icon: Ticket, path: '/tickets', label: 'Tickets' },
-        { icon: Store, path: '/admin/products', label: 'Products' },
-        { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
-        { icon: UserCheck, path: '/admin/affiliates', label: 'Affiliates' },
-        { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
-        { icon: CreditCard, path: '/admin/stripe-dashboard', label: 'Stripe' },
-        { icon: Key, path: '/admin/registration-codes', label: 'Registration Codes' },
-        { icon: Settings, path: '/admin/settings', label: 'Settings' },
-      ];
     case 'provider':
       return [
         { icon: Home, path: '/provider', label: 'Dashboard' },
@@ -110,9 +114,6 @@ const getNavItemsForRole = (role: string) => {
   }
 };
 
-// Clinics tab only shown for super_admin
-const clinicsNavItem = { icon: Building2, path: '/admin/clinics', label: 'Clinics' };
-
 function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -120,7 +121,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
-  const [userRole, setUserRole] = useState<string>('admin');
+  const [userRole, setUserRole] = useState<string>(() => getStoredUserRole(TICKETS_ALLOWED_ROLES) ?? 'admin');
 
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';
@@ -157,19 +158,21 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
-  // Build navigation items based on role
+  // Build navigation from shared adminNav for admin/super_admin; role-specific for others
   const navItems = useMemo(() => {
-    const items = getNavItemsForRole(userRole);
-
-    // Add Clinics tab for super_admin after RX Queue
-    if (userRole === 'super_admin') {
-      const rxQueueIndex = items.findIndex((item) => item.path.includes('rx-queue'));
-      if (rxQueueIndex !== -1) {
-        items.splice(rxQueueIndex + 1, 0, clinicsNavItem);
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      const config = getAdminNavConfig(userRole);
+      const items = config.map((item) => ({
+        path: item.path,
+        label: item.label,
+        icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
+      }));
+      if (items[0]?.path === '/') {
+        items[0] = { ...items[0], path: '/admin', label: 'Dashboard' };
       }
+      return items;
     }
-
-    return items;
+    return getNavItemsForNonAdminRole(userRole);
   }, [userRole]);
 
   const handleLogout = (e: React.MouseEvent) => {

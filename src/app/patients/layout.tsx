@@ -23,7 +23,8 @@ import {
   Building2,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import { getAdminNavConfig } from '@/lib/nav/adminNav';
+import { getStoredUserRole } from '@/lib/auth/stored-role';
+import { getAdminNavConfig, getNonAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 
 // Default EONPRO logos
@@ -47,21 +48,14 @@ const adminNavIconMap = {
   Key,
   Settings,
   Building2,
+  ClipboardList,
 } as const;
 
-/** Nav items for provider/staff/support (reduced set when not admin). */
-function getNonAdminNavItems(userRole: string | null) {
-  const patientsPath = userRole === 'provider' ? '/provider/patients' : '/admin/patients';
-  return [
-    { icon: Home, path: '/', label: 'Home' },
-    { icon: Users, path: patientsPath, label: 'Patients' },
-    { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
-    { icon: Store, path: '/admin/products', label: 'Products' },
-    { icon: ClipboardList, path: '/intake-forms', label: 'Intake Forms' },
-    { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
-    { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
-    { icon: Settings, path: '/admin/settings', label: 'Settings' },
-  ];
+function navConfigToItems(config: { path: string; label: string; iconKey: string }[]) {
+  return config.map((item) => ({
+    ...item,
+    icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
+  }));
 }
 
 // Roles allowed to access patient pages
@@ -73,7 +67,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(() => getStoredUserRole(ALLOWED_ROLES));
 
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';
@@ -84,14 +78,11 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Use same full admin nav as Home/admin when user is admin or super_admin (consistent sidebar)
   const navItems = useMemo(() => {
-    if (userRole === 'admin' || userRole === 'super_admin') {
-      const config = getAdminNavConfig(userRole);
-      return config.map((item) => ({
-        ...item,
-        icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
-      }));
-    }
-    return getNonAdminNavItems(userRole);
+    const config =
+      userRole === 'admin' || userRole === 'super_admin'
+        ? getAdminNavConfig(userRole)
+        : getNonAdminNavConfig(userRole);
+    return navConfigToItems(config);
   }, [userRole]);
 
   // Authentication check on mount ONLY - removed pathname dependency to prevent logout on navigation

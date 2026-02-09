@@ -1,6 +1,6 @@
 /**
  * Auth Module - Central Exports
- * 
+ *
  * This file provides a unified export point for authentication utilities.
  */
 
@@ -35,7 +35,15 @@ export { validateSession } from './session-manager';
 export { validatePassword } from './registration';
 
 // Re-export from permissions
-export { hasPermission as checkPermission, getRolePermissions as getPermissionsForRole, PERMISSIONS, ROLE_PERMISSIONS } from './permissions';
+export {
+  hasPermission as checkPermission,
+  getRolePermissions as getPermissionsForRole,
+  PERMISSIONS,
+  ROLE_PERMISSIONS,
+} from './permissions';
+
+// Client-side stored role (for layout nav consistency)
+export { getStoredUserRole } from './stored-role';
 
 // Convenience aliases for common patterns
 import { NextRequest } from 'next/server';
@@ -44,7 +52,7 @@ import { verifyAuth, type AuthUser } from './middleware';
 /**
  * Get authenticated user from request
  * Returns null if not authenticated
- * 
+ *
  * @example
  * const user = await getAuthUser(request);
  * if (!user) {
@@ -53,13 +61,13 @@ import { verifyAuth, type AuthUser } from './middleware';
  */
 export async function getAuthUser(request: NextRequest): Promise<AuthUser | null> {
   const result = await verifyAuth(request);
-  return result.success ? result.user ?? null : null;
+  return result.success ? (result.user ?? null) : null;
 }
 
 /**
  * Require authentication - throws if not authenticated
  * Use getAuthUser for more control over error handling
- * 
+ *
  * @example
  * const user = await requireAuth(request);
  * // If we get here, user is guaranteed to be authenticated
