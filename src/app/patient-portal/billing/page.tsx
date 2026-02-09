@@ -20,7 +20,9 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import Link from 'next/link';
+import NextLink from 'next/link';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 interface PaymentMethod {
   id: string;
@@ -76,14 +78,22 @@ export default function BillingPage() {
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'methods'>('overview');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBillingData();
   }, []);
 
   const fetchBillingData = async () => {
+    setLoadError(null);
     try {
-      const res = await fetch('/api/patient-portal/billing');
+      const res = await portalFetch('/api/patient-portal/billing');
+      const err = getPortalResponseError(res);
+      if (err) {
+        setLoadError(err);
+        setLoading(false);
+        return;
+      }
       if (res.ok) {
         const result = await res.json();
         setData(result);
@@ -97,7 +107,7 @@ export default function BillingPage() {
 
   const openCustomerPortal = async () => {
     try {
-      const res = await fetch('/api/patient-portal/billing/portal', {
+      const res = await portalFetch('/api/patient-portal/billing/portal', {
         method: 'POST',
       });
       if (res.ok) {
@@ -126,36 +136,51 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto pb-24">
+    <div className="mx-auto max-w-4xl p-4 pb-24 md:p-6">
+      {loadError && (
+        <div
+          className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          role="alert"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+          <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
+          <NextLink
+            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/billing`)}&reason=session_expired`}
+            className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+          >
+            Log in
+          </NextLink>
+        </div>
+      )}
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
-        <p className="text-gray-600 mt-1">Manage your subscription and payment history</p>
+        <p className="mt-1 text-gray-600">Manage your subscription and payment history</p>
       </div>
 
       {/* Subscription Card */}
       {data?.subscription && (
         <div
-          className="rounded-2xl p-6 mb-6 text-white"
+          className="mb-6 rounded-2xl p-6 text-white"
           style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
         >
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-white/80 text-sm">Current Plan</p>
-              <h2 className="text-2xl font-bold mt-1">{data.subscription.planName}</h2>
-              <p className="text-white/90 mt-2">
+              <p className="text-sm text-white/80">Current Plan</p>
+              <h2 className="mt-1 text-2xl font-bold">{data.subscription.planName}</h2>
+              <p className="mt-2 text-white/90">
                 {formatCurrency(data.subscription.amount)} / {data.subscription.interval}
               </p>
             </div>
             <div
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
+              className={`rounded-full px-3 py-1 text-sm font-medium ${
                 data.subscription.status === 'active'
                   ? 'bg-white/20 text-white'
                   : 'bg-red-500/20 text-red-200'
@@ -166,7 +191,7 @@ export default function BillingPage() {
           </div>
 
           {data.subscription.cancelAtPeriodEnd && (
-            <div className="mt-4 p-3 bg-white/10 rounded-xl">
+            <div className="mt-4 rounded-xl bg-white/10 p-3">
               <p className="text-sm">
                 Your subscription will cancel on {formatDate(data.subscription.currentPeriodEnd)}
               </p>
@@ -174,12 +199,12 @@ export default function BillingPage() {
           )}
 
           {data.upcomingInvoice && (
-            <div className="mt-4 pt-4 border-t border-white/20">
+            <div className="mt-4 border-t border-white/20 pt-4">
               <div className="flex justify-between text-sm">
                 <span className="text-white/80">Next billing date</span>
                 <span className="font-medium">{formatDate(data.upcomingInvoice.date)}</span>
               </div>
-              <div className="flex justify-between text-sm mt-1">
+              <div className="mt-1 flex justify-between text-sm">
                 <span className="text-white/80">Amount</span>
                 <span className="font-medium">{formatCurrency(data.upcomingInvoice.amount)}</span>
               </div>
@@ -188,16 +213,16 @@ export default function BillingPage() {
 
           <button
             onClick={openCustomerPortal}
-            className="mt-4 w-full py-3 bg-white/20 hover:bg-white/30 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/20 py-3 font-medium transition-colors hover:bg-white/30"
           >
             Manage Subscription
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'history', label: 'Payment History' },
@@ -206,10 +231,8 @@ export default function BillingPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.id
-                ? 'text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            className={`whitespace-nowrap rounded-xl px-4 py-2 font-medium transition-colors ${
+              activeTab === tab.id ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
             style={activeTab === tab.id ? { backgroundColor: primaryColor } : {}}
           >
@@ -223,10 +246,10 @@ export default function BillingPage() {
         <div className="space-y-6">
           {/* Quick Stats */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <Receipt className="w-5 h-5 text-blue-500" />
-                <span className="text-gray-600 text-sm">Total Paid</span>
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-1 flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-blue-500" />
+                <span className="text-sm text-gray-600">Total Paid</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
                 {formatCurrency(
@@ -236,10 +259,10 @@ export default function BillingPage() {
                 )}
               </p>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <Calendar className="w-5 h-5 text-green-500" />
-                <span className="text-gray-600 text-sm">Member Since</span>
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-1 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-green-500" />
+                <span className="text-sm text-gray-600">Member Since</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
                 {data?.invoices.length
@@ -251,18 +274,20 @@ export default function BillingPage() {
 
           {/* Recent Invoices */}
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Recent Invoices</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Recent Invoices</h3>
             <div className="space-y-3">
               {data?.invoices.slice(0, 3).map((invoice) => {
                 const status = STATUS_CONFIG[invoice.status];
                 const StatusIcon = status.icon;
 
                 return (
-                  <div key={invoice.id} className="bg-white rounded-xl p-4 shadow-sm">
+                  <div key={invoice.id} className="rounded-xl bg-white p-4 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full ${status.bg} flex items-center justify-center`}>
-                          <StatusIcon className={`w-5 h-5 ${status.color}`} />
+                        <div
+                          className={`h-10 w-10 rounded-full ${status.bg} flex items-center justify-center`}
+                        >
+                          <StatusIcon className={`h-5 w-5 ${status.color}`} />
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">{invoice.description}</p>
@@ -270,7 +295,9 @@ export default function BillingPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-gray-900">{formatCurrency(invoice.amount)}</p>
+                        <p className="font-semibold text-gray-900">
+                          {formatCurrency(invoice.amount)}
+                        </p>
                         <span className={`text-xs font-medium ${status.color}`}>
                           {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                         </span>
@@ -281,8 +308,8 @@ export default function BillingPage() {
               })}
 
               {(!data?.invoices || data.invoices.length === 0) && (
-                <div className="text-center py-8 bg-gray-50 rounded-xl">
-                  <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <div className="rounded-xl bg-gray-50 py-8 text-center">
+                  <Receipt className="mx-auto mb-3 h-12 w-12 text-gray-300" />
                   <p className="text-gray-600">No invoices yet</p>
                 </div>
               )}
@@ -290,14 +317,14 @@ export default function BillingPage() {
           </div>
 
           {/* Security Notice */}
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
             <div className="flex items-start gap-3">
-              <Shield className="w-5 h-5 text-green-600 mt-0.5" />
+              <Shield className="mt-0.5 h-5 w-5 text-green-600" />
               <div>
                 <h4 className="font-medium text-gray-900">Secure Payments</h4>
-                <p className="text-sm text-gray-600 mt-1">
-                  Your payment information is securely processed by Stripe. We never store your
-                  full card details.
+                <p className="mt-1 text-sm text-gray-600">
+                  Your payment information is securely processed by Stripe. We never store your full
+                  card details.
                 </p>
               </div>
             </div>
@@ -313,11 +340,13 @@ export default function BillingPage() {
             const StatusIcon = status.icon;
 
             return (
-              <div key={invoice.id} className="bg-white rounded-xl p-4 shadow-sm">
+              <div key={invoice.id} className="rounded-xl bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-full ${status.bg} flex items-center justify-center flex-shrink-0`}>
-                      <StatusIcon className={`w-5 h-5 ${status.color}`} />
+                    <div
+                      className={`h-10 w-10 rounded-full ${status.bg} flex flex-shrink-0 items-center justify-center`}
+                    >
+                      <StatusIcon className={`h-5 w-5 ${status.color}`} />
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">{invoice.description}</p>
@@ -335,10 +364,10 @@ export default function BillingPage() {
                         href={invoice.pdfUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-sm mt-2 hover:underline"
+                        className="mt-2 flex items-center gap-1 text-sm hover:underline"
                         style={{ color: primaryColor }}
                       >
-                        <Download className="w-4 h-4" />
+                        <Download className="h-4 w-4" />
                         Download
                       </a>
                     )}
@@ -349,8 +378,8 @@ export default function BillingPage() {
           })}
 
           {(!data?.invoices || data.invoices.length === 0) && (
-            <div className="text-center py-12 bg-gray-50 rounded-xl">
-              <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <div className="rounded-xl bg-gray-50 py-12 text-center">
+              <Receipt className="mx-auto mb-3 h-12 w-12 text-gray-300" />
               <p className="text-gray-600">No payment history yet</p>
             </div>
           )}
@@ -361,15 +390,16 @@ export default function BillingPage() {
       {activeTab === 'methods' && (
         <div className="space-y-4">
           {data?.paymentMethods.map((method) => (
-            <div key={method.id} className="bg-white rounded-xl p-4 shadow-sm">
+            <div key={method.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-8 rounded bg-gray-100 flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 text-gray-500" />
+                  <div className="flex h-8 w-12 items-center justify-center rounded bg-gray-100">
+                    <CreditCard className="h-6 w-6 text-gray-500" />
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">
-                      {method.brand.charAt(0).toUpperCase() + method.brand.slice(1)} •••• {method.last4}
+                      {method.brand.charAt(0).toUpperCase() + method.brand.slice(1)} ••••{' '}
+                      {method.last4}
                     </p>
                     <p className="text-sm text-gray-500">
                       Expires {method.expMonth}/{method.expYear}
@@ -377,7 +407,7 @@ export default function BillingPage() {
                   </div>
                 </div>
                 {method.isDefault && (
-                  <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700">
+                  <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
                     Default
                   </span>
                 )}
@@ -386,18 +416,18 @@ export default function BillingPage() {
           ))}
 
           {(!data?.paymentMethods || data.paymentMethods.length === 0) && (
-            <div className="text-center py-12 bg-gray-50 rounded-xl">
-              <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <div className="rounded-xl bg-gray-50 py-12 text-center">
+              <CreditCard className="mx-auto mb-3 h-12 w-12 text-gray-300" />
               <p className="text-gray-600">No payment methods on file</p>
             </div>
           )}
 
           <button
             onClick={openCustomerPortal}
-            className="w-full py-3 rounded-xl font-medium text-white flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-medium text-white"
             style={{ backgroundColor: primaryColor }}
           >
-            <CreditCard className="w-5 h-5" />
+            <CreditCard className="h-5 w-5" />
             Update Payment Method
           </button>
         </div>

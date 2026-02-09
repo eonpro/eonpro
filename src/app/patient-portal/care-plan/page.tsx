@@ -18,7 +18,9 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import Link from 'next/link';
+import NextLink from 'next/link';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 interface CarePlanGoal {
   id: number;
@@ -62,14 +64,22 @@ export default function CarePlanPage() {
   const [carePlan, setCarePlan] = useState<CarePlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'goals' | 'activities'>('overview');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCarePlan();
   }, []);
 
   const fetchCarePlan = async () => {
+    setLoadError(null);
     try {
-      const res = await fetch('/api/patient-portal/care-plan');
+      const res = await portalFetch('/api/patient-portal/care-plan');
+      const err = getPortalResponseError(res);
+      if (err) {
+        setLoadError(err);
+        setLoading(false);
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setCarePlan(data.carePlan);
@@ -83,7 +93,7 @@ export default function CarePlanPage() {
 
   const completeActivity = async (activityId: number) => {
     try {
-      const res = await fetch('/api/patient-portal/care-plan/activity', {
+      const res = await portalFetch('/api/patient-portal/care-plan/activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activityId, action: 'complete' }),
@@ -99,31 +109,51 @@ export default function CarePlanPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-2xl p-6">
+        <div
+          className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          role="alert"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+          <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
+          <NextLink
+            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/care-plan`)}&reason=session_expired`}
+            className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+          >
+            Log in
+          </NextLink>
+        </div>
       </div>
     );
   }
 
   if (!carePlan) {
     return (
-      <div className="p-6 max-w-2xl mx-auto text-center">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
-          <FileText className="w-10 h-10 text-gray-400" />
+      <div className="mx-auto max-w-2xl p-6 text-center">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+          <FileText className="h-10 w-10 text-gray-400" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">No Care Plan Yet</h1>
-        <p className="text-gray-600 mb-6">
+        <h1 className="mb-2 text-2xl font-bold text-gray-900">No Care Plan Yet</h1>
+        <p className="mb-6 text-gray-600">
           Your care team hasn&apos;t created a personalized care plan for you yet. This will be
           available after your initial consultation.
         </p>
-        <Link
+        <NextLink
           href="/patient-portal/appointments"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white"
+          className="inline-flex items-center gap-2 rounded-xl px-6 py-3 font-medium text-white"
           style={{ backgroundColor: primaryColor }}
         >
-          <Calendar className="w-5 h-5" />
+          <Calendar className="h-5 w-5" />
           Book Consultation
-        </Link>
+        </NextLink>
       </div>
     );
   }
@@ -134,46 +164,46 @@ export default function CarePlanPage() {
       : 0;
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto pb-24">
+    <div className="mx-auto max-w-4xl p-4 pb-24 md:p-6">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">{carePlan.name}</h1>
-        <p className="text-gray-600 mt-1">{carePlan.description}</p>
+        <p className="mt-1 text-gray-600">{carePlan.description}</p>
       </div>
 
       {/* Progress Overview Card */}
       <div
-        className="rounded-2xl p-6 mb-6 text-white"
+        className="mb-6 rounded-2xl p-6 text-white"
         style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-white/80 text-sm">Overall Progress</p>
+            <p className="text-sm text-white/80">Overall Progress</p>
             <p className="text-4xl font-bold">{overallProgress}%</p>
           </div>
           <div className="text-right">
-            <p className="text-white/80 text-sm">Current Phase</p>
+            <p className="text-sm text-white/80">Current Phase</p>
             <p className="text-lg font-semibold">{carePlan.phase}</p>
           </div>
         </div>
 
-        <div className="h-3 bg-white/30 rounded-full overflow-hidden">
+        <div className="h-3 overflow-hidden rounded-full bg-white/30">
           <div
-            className="h-full bg-white rounded-full transition-all"
+            className="h-full rounded-full bg-white transition-all"
             style={{ width: `${overallProgress}%` }}
           />
         </div>
 
         {carePlan.nextMilestone && (
-          <div className="mt-4 pt-4 border-t border-white/20">
-            <p className="text-white/80 text-sm">Next Milestone</p>
+          <div className="mt-4 border-t border-white/20 pt-4">
+            <p className="text-sm text-white/80">Next Milestone</p>
             <p className="font-medium">{carePlan.nextMilestone}</p>
           </div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
         {[
           { id: 'overview', label: 'Overview', icon: FileText },
           { id: 'goals', label: 'Goals', icon: Target },
@@ -182,14 +212,12 @@ export default function CarePlanPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.id
-                ? 'text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 font-medium transition-colors ${
+              activeTab === tab.id ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
             style={activeTab === tab.id ? { backgroundColor: primaryColor } : {}}
           >
-            <tab.icon className="w-4 h-4" />
+            <tab.icon className="h-4 w-4" />
             {tab.label}
           </button>
         ))}
@@ -200,20 +228,21 @@ export default function CarePlanPage() {
         <div className="space-y-6">
           {/* Quick Stats */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <Target className="w-5 h-5 text-blue-500" />
-                <span className="text-gray-600 text-sm">Goals</span>
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-1 flex items-center gap-2">
+                <Target className="h-5 w-5 text-blue-500" />
+                <span className="text-sm text-gray-600">Goals</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                {carePlan.goals.filter((g) => g.status === 'COMPLETED').length} / {carePlan.goals.length}
+                {carePlan.goals.filter((g) => g.status === 'COMPLETED').length} /{' '}
+                {carePlan.goals.length}
               </p>
               <p className="text-sm text-gray-500">completed</p>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                <span className="text-gray-600 text-sm">Activities</span>
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-1 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span className="text-sm text-gray-600">Activities</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
                 {carePlan.activities.filter((a) => a.status === 'COMPLETED').length}
@@ -224,14 +253,14 @@ export default function CarePlanPage() {
 
           {/* Provider Notes */}
           {carePlan.providerNotes && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <BookOpen className="w-5 h-5 text-blue-600" />
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                  <BookOpen className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">From Your Care Team</h3>
-                  <p className="text-gray-700 text-sm mt-1">{carePlan.providerNotes}</p>
+                  <p className="mt-1 text-sm text-gray-700">{carePlan.providerNotes}</p>
                 </div>
               </div>
             </div>
@@ -239,26 +268,26 @@ export default function CarePlanPage() {
 
           {/* Top Goals Preview */}
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Active Goals</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Active Goals</h3>
             <div className="space-y-3">
               {carePlan.goals
                 .filter((g) => g.status === 'IN_PROGRESS')
                 .slice(0, 3)
                 .map((goal) => (
-                  <div key={goal.id} className="bg-white rounded-xl p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={goal.id} className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between">
                       <h4 className="font-medium text-gray-900">{goal.name}</h4>
                       <span className="text-sm font-semibold" style={{ color: primaryColor }}>
                         {goal.progress}%
                       </span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{ width: `${goal.progress}%`, backgroundColor: primaryColor }}
                       />
                     </div>
-                    <p className="text-sm text-gray-500 mt-2">
+                    <p className="mt-2 text-sm text-gray-500">
                       {goal.currentValue} / {goal.targetValue} {goal.unit}
                     </p>
                   </div>
@@ -272,40 +301,40 @@ export default function CarePlanPage() {
       {activeTab === 'goals' && (
         <div className="space-y-4">
           {carePlan.goals.map((goal) => (
-            <div key={goal.id} className="bg-white rounded-xl p-4 shadow-sm">
+            <div key={goal.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
                     goal.status === 'COMPLETED' ? 'bg-green-100' : 'bg-blue-100'
                   }`}
                 >
                   {goal.status === 'COMPLETED' ? (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <CheckCircle className="h-5 w-5 text-green-600" />
                   ) : (
-                    <Target className="w-5 h-5 text-blue-600" />
+                    <Target className="h-5 w-5 text-blue-600" />
                   )}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-gray-900">{goal.name}</h4>
                     <span
-                      className={`text-xs font-medium px-2 py-1 rounded-full ${
+                      className={`rounded-full px-2 py-1 text-xs font-medium ${
                         goal.status === 'COMPLETED'
                           ? 'bg-green-100 text-green-700'
                           : goal.status === 'IN_PROGRESS'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-600'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-600'
                       }`}
                     >
                       {goal.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{goal.description}</p>
+                  <p className="mt-1 text-sm text-gray-600">{goal.description}</p>
 
                   {goal.status !== 'COMPLETED' && (
                     <>
                       <div className="mt-3">
-                        <div className="flex justify-between text-sm mb-1">
+                        <div className="mb-1 flex justify-between text-sm">
                           <span className="text-gray-600">
                             {goal.currentValue} / {goal.targetValue} {goal.unit}
                           </span>
@@ -313,7 +342,7 @@ export default function CarePlanPage() {
                             {goal.progress}%
                           </span>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                           <div
                             className="h-full rounded-full transition-all"
                             style={{ width: `${goal.progress}%`, backgroundColor: primaryColor }}
@@ -321,8 +350,8 @@ export default function CarePlanPage() {
                         </div>
                       </div>
                       {goal.targetDate && (
-                        <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
+                        <p className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+                          <Clock className="h-3 w-3" />
                           Target: {new Date(goal.targetDate).toLocaleDateString()}
                         </p>
                       )}
@@ -339,31 +368,33 @@ export default function CarePlanPage() {
       {activeTab === 'activities' && (
         <div className="space-y-4">
           {carePlan.activities.map((activity) => (
-            <div key={activity.id} className="bg-white rounded-xl p-4 shadow-sm">
+            <div key={activity.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <button
                   onClick={() => activity.status !== 'COMPLETED' && completeActivity(activity.id)}
                   disabled={activity.status === 'COMPLETED'}
-                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                  className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                     activity.status === 'COMPLETED'
-                      ? 'bg-green-500 border-green-500 text-white'
+                      ? 'border-green-500 bg-green-500 text-white'
                       : 'border-gray-300 hover:border-green-500'
                   }`}
                 >
-                  {activity.status === 'COMPLETED' && <CheckCircle className="w-4 h-4" />}
+                  {activity.status === 'COMPLETED' && <CheckCircle className="h-4 w-4" />}
                 </button>
                 <div className="flex-1">
                   <h4
                     className={`font-medium ${
-                      activity.status === 'COMPLETED' ? 'text-gray-500 line-through' : 'text-gray-900'
+                      activity.status === 'COMPLETED'
+                        ? 'text-gray-500 line-through'
+                        : 'text-gray-900'
                     }`}
                   >
                     {activity.name}
                   </h4>
-                  <p className="text-sm text-gray-600 mt-0.5">{activity.description}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                  <p className="mt-0.5 text-sm text-gray-600">{activity.description}</p>
+                  <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                      <Clock className="h-3 w-3" />
                       {activity.frequency}
                     </span>
                     {activity.lastCompletedAt && (
