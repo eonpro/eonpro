@@ -745,7 +745,7 @@ export default function LoginPage() {
               <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
                 Powered by{' '}
                 <img
-                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  src="/api/assets/eonpro-logo"
                   alt="EONPRO"
                   className="h-[21px] w-auto"
                 />
@@ -754,7 +754,7 @@ export default function LoginPage() {
           ) : (
             /* Main app (app.eonpro.io) - show EONPRO logo only, no "Powered by" */
             <img
-              src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+              src="/api/assets/eonpro-logo"
               alt="EONPRO"
               className="h-10 w-auto"
             />
