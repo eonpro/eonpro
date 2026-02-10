@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   Plus as PlusIcon,
   Filter as FunnelIcon,
@@ -284,22 +285,20 @@ export default function TicketsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tickets</h1>
-          <p className="text-sm text-gray-500">
-            Manage support tickets and issue resolution
-          </p>
+          <p className="text-sm text-gray-500">Manage support tickets and issue resolution</p>
         </div>
-        <button
-          onClick={() => router.push('/tickets/new')}
+        <Link
+          href="/tickets/new"
           className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           <PlusIcon className="h-5 w-5" />
           New Ticket
-        </button>
+        </Link>
       </div>
 
       {/* Search and Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <form onSubmit={handleSearch} className="flex-1 max-w-md">
+        <form onSubmit={handleSearch} className="max-w-md flex-1">
           <div className="relative">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
@@ -316,16 +315,17 @@ export default function TicketsPage() {
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium ${
-              showFilters || Object.values(filters).some((v) => Array.isArray(v) ? v.length > 0 : v)
+              showFilters ||
+              Object.values(filters).some((v) => (Array.isArray(v) ? v.length > 0 : v))
                 ? 'border-blue-500 bg-blue-50 text-blue-700'
                 : 'border-gray-300 text-gray-700 hover:bg-gray-50'
             }`}
           >
             <FunnelIcon className="h-5 w-5" />
             Filters
-            {Object.values(filters).some((v) => Array.isArray(v) ? v.length > 0 : v) && (
+            {Object.values(filters).some((v) => (Array.isArray(v) ? v.length > 0 : v)) && (
               <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
-                {Object.values(filters).filter((v) => Array.isArray(v) ? v.length > 0 : v).length}
+                {Object.values(filters).filter((v) => (Array.isArray(v) ? v.length > 0 : v)).length}
               </span>
             )}
           </button>
@@ -346,11 +346,17 @@ export default function TicketsPage() {
           <div className="grid gap-4 md:grid-cols-3">
             {/* Status Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Status</label>
               <div className="space-y-2">
-                {['NEW', 'OPEN', 'IN_PROGRESS', 'PENDING_CUSTOMER', 'ON_HOLD', 'ESCALATED', 'RESOLVED'].map((status) => (
+                {[
+                  'NEW',
+                  'OPEN',
+                  'IN_PROGRESS',
+                  'PENDING_CUSTOMER',
+                  'ON_HOLD',
+                  'ESCALATED',
+                  'RESOLVED',
+                ].map((status) => (
                   <label key={status} className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -363,7 +369,9 @@ export default function TicketsPage() {
                       }}
                       className="rounded border-gray-300"
                     />
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[status]}`}>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[status]}`}
+                    >
                       {status.replace(/_/g, ' ')}
                     </span>
                   </label>
@@ -373,9 +381,7 @@ export default function TicketsPage() {
 
             {/* Priority Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Priority
-              </label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Priority</label>
               <div className="space-y-2">
                 {['P0_CRITICAL', 'P1_URGENT', 'P2_HIGH', 'P3_MEDIUM', 'P4_LOW'].map((priority) => (
                   <label key={priority} className="flex items-center gap-2">
@@ -390,7 +396,9 @@ export default function TicketsPage() {
                       }}
                       className="rounded border-gray-300"
                     />
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[priority]}`}>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[priority]}`}
+                    >
                       {PRIORITY_LABELS[priority]}
                     </span>
                   </label>
@@ -400,9 +408,7 @@ export default function TicketsPage() {
 
             {/* Quick Filters */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Quick Filters
-              </label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Quick Filters</label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2">
                   <input
@@ -520,24 +526,28 @@ export default function TicketsPage() {
                     <div className="flex flex-col items-center">
                       {warning ? (
                         <>
-                          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100">
                             <ExclamationTriangleIcon className="h-8 w-8 text-yellow-600" />
                           </div>
-                          <h3 className="text-lg font-medium text-gray-900 mb-2">System Upgrade in Progress</h3>
-                          <p className="text-sm text-gray-500 max-w-md">{warning}</p>
-                          <p className="mt-2 text-xs text-gray-400">This usually takes a few minutes. Please check back shortly.</p>
+                          <h3 className="mb-2 text-lg font-medium text-gray-900">
+                            System Upgrade in Progress
+                          </h3>
+                          <p className="max-w-md text-sm text-gray-500">{warning}</p>
+                          <p className="mt-2 text-xs text-gray-400">
+                            This usually takes a few minutes. Please check back shortly.
+                          </p>
                         </>
                       ) : (
                         <>
                           <TagIcon className="h-12 w-12 text-gray-300" />
                           <p className="mt-2 text-sm text-gray-500">No tickets found</p>
-                          <button
-                            onClick={() => router.push('/tickets/new')}
+                          <Link
+                            href="/tickets/new"
                             className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
                           >
                             <PlusIcon className="h-4 w-4" />
                             Create your first ticket
-                          </button>
+                          </Link>
                         </>
                       )}
                     </div>
@@ -606,9 +616,7 @@ export default function TicketsPage() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm text-gray-500">
-                        {formatDate(ticket.createdAt)}
-                      </span>
+                      <span className="text-sm text-gray-500">{formatDate(ticket.createdAt)}</span>
                     </td>
                   </tr>
                 ))
@@ -621,9 +629,9 @@ export default function TicketsPage() {
         {pagination && pagination.totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-gray-200 bg-white px-6 py-3">
             <p className="text-sm text-gray-500">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-              {pagination.total} tickets
+              Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}{' '}
+              tickets
             </p>
             <div className="flex gap-2">
               <button
