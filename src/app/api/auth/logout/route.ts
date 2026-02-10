@@ -18,7 +18,7 @@ import { terminateSession } from '@/lib/auth/session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
-import { getRequestHost } from '@/lib/request-host';
+import { getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
 
 const LOGOUT_CLEANUP_TIMEOUT_MS = 4000; // Don't block response; avoid holding DB connection
 
@@ -35,9 +35,8 @@ const COOKIE_NAMES = [
 ];
 
 function clearCookiesOnResponse(response: NextResponse, req: NextRequest): void {
-  const host = getRequestHost(req);
-  const isEonproIo =
-    host && host.endsWith('.eonpro.io') && process.env.NODE_ENV === 'production';
+  const host = getRequestHostWithUrlFallback(req);
+  const isEonproIo = shouldUseEonproCookieDomain(host);
   const clearOpts = {
     value: '',
     ...AUTH_CONFIG.cookie,

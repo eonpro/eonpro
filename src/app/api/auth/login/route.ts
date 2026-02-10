@@ -20,7 +20,7 @@ import { prisma, basePrisma } from '@/lib/db';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
-import { getRequestHost } from '@/lib/request-host';
+import { getRequestHost, getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
 // Note: Patient, Provider, Order types imported from models are not directly used
 // The Prisma client provides type-safe queries for these entities
 
@@ -769,10 +769,8 @@ async function loginHandler(req: NextRequest) {
     });
 
     // Share auth across *.eonpro.io so one login works on wellmedr, ot, eonmeds, app
-    const host = getRequestHost(req);
-    const isEonproIo =
-      host && host.endsWith('.eonpro.io') && process.env.NODE_ENV === 'production';
-    const cookieDomain = isEonproIo ? '.eonpro.io' : undefined;
+    const host = getRequestHostWithUrlFallback(req);
+    const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
 
     if (cookieDomain) {
       // Clear any host-only auth cookies so the server doesn't receive a stale token first

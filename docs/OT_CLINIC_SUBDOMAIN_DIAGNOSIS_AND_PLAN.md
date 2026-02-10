@@ -268,9 +268,9 @@ Ways to resolve or harden the issue beyond P0/P1.
 
 **Cause:** Auth cookies were host-only (no `domain`), so a session created on one host (e.g. app.eonpro.io) was not sent to another (e.g. wellmedr.eonpro.io). The server received no token and returned 401.
 
-**Fix (in code):** Login sets auth cookies with `domain=.eonpro.io` when host is `*.eonpro.io` (production), and clears host-only auth cookies on that response so the browser does not send a stale token. Logout clears cookies both with `domain=.eonpro.io` and without domain when on `*.eonpro.io`.
+**Fix (in code):** Login sets auth cookies with `domain=.eonpro.io` when host is `*.eonpro.io` (production), and clears host-only auth cookies on that response so the browser does not send a stale token. Logout clears cookies both with `domain=.eonpro.io` and without domain when on `*.eonpro.io`. Host is resolved from `x-forwarded-host` / `host`, then from the request URL (`nextUrl.hostname` or `req.url`) so it works even when the proxy does not forward the original host. Optional: set **`EONPRO_COOKIE_DOMAIN=.eonpro.io`** in production env to force shared cookies if the host is still wrong.
 
-**After deploy:** Users must log in again on any `*.eonpro.io` host (or clear site cookies) so the new domain-scoped cookies are set.
+**After deploy:** Users must log in again on any `*.eonpro.io` host (or clear site cookies) so the new domain-scoped cookies are set. If 401 persists, set `EONPRO_COOKIE_DOMAIN=.eonpro.io` in Vercel (Production) and redeploy.
 
 ---
 
