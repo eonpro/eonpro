@@ -442,6 +442,11 @@ describe('Real-world WellMedR Address Scenarios', () => {
         input: '4554 Hammocks Dr, Apt 201, Erie, Pennsylvania, 16506',
         expected: { address1: '4554 Hammocks Dr', address2: 'Apt 201', city: 'Erie', state: 'PA', zip: '16506' },
       },
+      // User-reported: apartment number caused city=Apt 1, state missing, zip=CA
+      {
+        input: '1537 Stanford Street, Apt 1, Santa Monica, CA, 90404',
+        expected: { address1: '1537 Stanford Street', address2: 'Apt 1', city: 'Santa Monica', state: 'CA', zip: '90404' },
+      },
     ];
 
     for (const { input, expected } of testCases) {
@@ -470,6 +475,23 @@ describe('Real-world WellMedR Address Scenarios', () => {
     expect(result.city).toBe('Spring Hill');
     expect(result.state).toBe('FL');
     expect(result.zip).toBe('34606');
+  });
+
+  it('should prefer combined shipping_address when individual fields are corrupted (apt in city, state in zip)', () => {
+    // Bug: Airtable/webhook sent both shipping_address and wrong split fields
+    const payload = {
+      shipping_address: '1537 Stanford Street, Apt 1, Santa Monica, CA, 90404',
+      address1: '1537 Stanford Street',
+      city: 'Apt 1', // wrong: apartment in city
+      state: '', // missing
+      zip: 'CA', // wrong: state in zip
+    };
+    const result = extractAddressFromPayload(payload);
+    expect(result.address1).toBe('1537 Stanford Street');
+    expect(result.address2).toBe('Apt 1');
+    expect(result.city).toBe('Santa Monica');
+    expect(result.state).toBe('CA');
+    expect(result.zip).toBe('90404');
   });
 });
 
