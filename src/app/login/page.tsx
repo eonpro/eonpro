@@ -516,7 +516,9 @@ export default function LoginPage() {
     }
   };
 
-  // Handle email/password login
+  const LOGIN_TIMEOUT_MS = 25000;
+
+  // Handle email/password login (with timeout so spinner doesn't hang)
   const handlePasswordLogin = async (e: React.FormEvent, clinicId?: number) => {
     e?.preventDefault?.();
     setError('');
@@ -529,6 +531,9 @@ export default function LoginPage() {
       const redirectParam = searchParams.get('redirect');
       const inferredRole = getLoginRoleFromRedirect(redirectParam);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -538,7 +543,10 @@ export default function LoginPage() {
           clinicId: clinicId || selectedClinicId || resolvedClinicId,
           ...(inferredRole && { role: inferredRole }),
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await parseJsonResponse(response);
 
@@ -580,7 +588,12 @@ export default function LoginPage() {
 
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
+      const isTimeout = err?.name === 'AbortError';
+      setError(
+        isTimeout
+          ? 'Login is taking too long. Check your connection and try again, or use the Provider login link below.'
+          : err.message || 'An error occurred during login'
+      );
     } finally {
       setLoading(false);
     }
@@ -597,6 +610,9 @@ export default function LoginPage() {
       const redirectParam = searchParams.get('redirect');
       const inferredRole = getLoginRoleFromRedirect(redirectParam);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
+
       // Re-authenticate with selected clinic
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -607,7 +623,10 @@ export default function LoginPage() {
           clinicId,
           ...(inferredRole && { role: inferredRole }),
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await parseJsonResponse(response);
 
@@ -632,7 +651,12 @@ export default function LoginPage() {
       setWrongClinicName(null);
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
+      const isTimeout = err?.name === 'AbortError';
+      setError(
+        isTimeout
+          ? 'Login is taking too long. Check your connection and try again.'
+          : err.message || 'An error occurred during login'
+      );
     } finally {
       setLoading(false);
     }
@@ -1008,23 +1032,31 @@ export default function LoginPage() {
                   Email login code
                 </button>
 
-                <div className="flex items-center justify-center gap-4 pt-4">
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={loading}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
+                <div className="flex flex-col items-center gap-3 pt-4">
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={loading}
+                      className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
+                    >
+                      Forgot password?
+                    </button>
+                    <span className="text-gray-300">•</span>
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    >
+                      Not you? Log in here
+                    </button>
+                  </div>
+                  <a
+                    href="/login?redirect=/provider"
+                    className="text-sm text-gray-600 underline underline-offset-2 transition-colors hover:text-gray-900"
                   >
-                    Forgot password?
-                  </button>
-                  <span className="text-gray-300">•</span>
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
-                  >
-                    Not you? Log in here
-                  </button>
+                    Provider? Log in as provider
+                  </a>
                 </div>
               </form>
             )}
