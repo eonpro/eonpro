@@ -51,7 +51,8 @@ function getRefreshToken(): string | null {
 }
 
 /**
- * Parse JWT token to get expiration time
+ * Parse JWT token to get expiration time (for refresh timing only).
+ * This is decode-only; no authorization. Server verifies the token on every request.
  */
 function parseTokenExpiry(token: string): number | null {
   try {
@@ -94,7 +95,7 @@ async function refreshAuthToken(): Promise<boolean> {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${refreshToken}`,
+          Authorization: `Bearer ${refreshToken}`,
         },
       });
 
@@ -166,6 +167,7 @@ export function clearAuthTokens() {
   const tokenKeys = [
     'auth-token',
     'access_token',
+    'refresh-token',
     'refresh_token',
     'super_admin-token',
     'admin-token',
@@ -193,13 +195,14 @@ export function clearAuthTokens() {
 }
 
 /**
- * Redirect to login page with reason
+ * Redirect to login page with reason.
+ * Does not pass redirect param so that after login the user goes to role-based home,
+ * not the page they were on when the system logged them out.
  */
 export function redirectToLogin(reason: string = 'session_expired') {
   if (typeof window === 'undefined') return;
 
-  const currentPath = window.location.pathname;
-  const loginUrl = `/login?redirect=${encodeURIComponent(currentPath)}&reason=${reason}`;
+  const loginUrl = `/login?reason=${encodeURIComponent(reason)}`;
 
   // Use replace to prevent back navigation to expired page
   window.location.replace(loginUrl);

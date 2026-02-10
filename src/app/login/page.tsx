@@ -49,6 +49,37 @@ function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string
   return luminance > 0.5 ? '#1f2937' : '#ffffff';
 }
 
+/** Shape of /api/auth/login response (success or error). */
+type LoginResponseData = {
+  error?: string;
+  code?: string;
+  correctLoginUrl?: string | null;
+  clinicName?: string | null;
+  requiresClinicSelection?: boolean;
+  clinics?: Clinic[];
+  token?: string;
+  user?: unknown;
+  [key: string]: unknown;
+};
+
+/** Parse JSON from fetch response safely to avoid "Unexpected end of JSON input" when server returns non-JSON (e.g. 405/500 HTML or empty). */
+async function parseJsonResponse(response: Response): Promise<LoginResponseData> {
+  const text = await response.text();
+  if (!text.trim())
+    return {
+      error:
+        response.status === 405 ? 'Login method not allowed' : response.statusText || 'Empty response',
+    };
+  try {
+    return JSON.parse(text) as LoginResponseData;
+  } catch {
+    return {
+      error:
+        response.status === 500 ? 'Server error. Please try again.' : response.statusText || 'Invalid response',
+    };
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -477,7 +508,7 @@ export default function LoginPage() {
         }),
       });
 
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
 
       if (!response.ok) {
         // Handle unverified email specially
@@ -501,14 +532,14 @@ export default function LoginPage() {
       setWrongClinicName(null);
 
       // Check if user needs to select a clinic
-      if (data.requiresClinicSelection && data.clinics?.length > 1) {
-        setClinics(data.clinics);
+      if (data.requiresClinicSelection && (data.clinics?.length ?? 0) > 1) {
+        setClinics(data.clinics ?? []);
         setPendingLoginData(data);
         setStep('clinic');
         return;
       }
 
-      handleLoginSuccess(data);
+      handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
     } finally {
@@ -534,7 +565,7 @@ export default function LoginPage() {
         }),
       });
 
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
 
       if (!response.ok) {
         if (data.code === 'WRONG_CLINIC_DOMAIN') {
@@ -549,7 +580,7 @@ export default function LoginPage() {
 
       setWrongClinicRedirectUrl(null);
       setWrongClinicName(null);
-      handleLoginSuccess(data);
+      handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
     } finally {
@@ -592,14 +623,26 @@ export default function LoginPage() {
       localStorage.setItem('staff-token', data.token);
     }
 
-    // Check for redirect parameter first
-    const redirectTo = searchParams.get('redirect');
+    // When the system logged the user out (session expired, invalid session, etc.),
+    // always send them to role-based home—never back to the previous URL.
+    const reason = searchParams.get('reason') ?? '';
+    const systemLogoutReasons = [
+      'session_expired',
+      'no_session',
+      'invalid_session',
+      'invalid_role',
+      'error',
+      'session_mismatch',
+    ];
+    const wasSystemLogout = systemLogoutReasons.includes(reason);
+
+    const redirectTo = wasSystemLogout ? null : searchParams.get('redirect');
     if (redirectTo) {
       router.push(redirectTo);
       return;
     }
 
-    // Otherwise redirect based on role
+    // Otherwise redirect based on role (home for that role)
     switch (userRole) {
       case 'super_admin':
         router.push('/super-admin/clinics');
