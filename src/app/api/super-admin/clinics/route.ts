@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
 
 /**
  * Middleware to check for Super Admin role
  */
-function withSuperAdminAuth(
-  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
-) {
-  return withAuth(handler, { roles: ['super_admin', 'super_admin'] });
+function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
+  return withAuth(handler, { roles: ['super_admin'] });
 }
 
 /**
@@ -17,7 +16,7 @@ function withSuperAdminAuth(
  */
 export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    console.log('[SUPER-ADMIN/CLINICS] Fetching clinics for user:', user.email, 'role:', user.role);
+    logger.info('Super-admin clinics list', { userId: user.id, role: user.role });
 
     // Note: Explicitly selecting fields for backwards compatibility
     // (buttonTextColor may not exist in production DB if migration hasn't run)
@@ -41,17 +40,17 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
           select: {
             patients: true,
             users: true,
-          }
-        }
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    console.log('[SUPER-ADMIN/CLINICS] Found', clinics.length, 'clinics');
+    logger.debug('Super-admin clinics fetched', { count: clinics.length });
 
     // Count providers per clinic - users with PROVIDER role (matches Users tab display)
     const clinicsWithProviderCount = await Promise.all(
-      clinics.map(async (clinic: typeof clinics[number]) => {
+      clinics.map(async (clinic: (typeof clinics)[number]) => {
         const providerCount = await prisma.user.count({
           where: {
             clinicId: clinic.id,
@@ -79,15 +78,16 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       totalProviders,
       totalClinics: clinics.length,
     });
-  } catch (error: any) {
-    console.error('[SUPER-ADMIN/CLINICS] Error fetching clinics:', error);
-    console.error('[SUPER-ADMIN/CLINICS] Error details:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+  } catch (error) {
+    logger.error('Error fetching clinics', error instanceof Error ? error : undefined, {
+      route: 'GET /api/super-admin/clinics',
+      userId: user.id,
     });
     return NextResponse.json(
-      { error: 'Failed to fetch clinics', details: error.message },
+      {
+        error: 'Failed to fetch clinics',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
@@ -100,7 +100,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
 export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     const body = await req.json();
-    
+
     const {
       name,
       subdomain,
@@ -140,10 +140,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     });
 
     if (existingClinic) {
-      return NextResponse.json(
-        { error: 'Subdomain is already taken' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Subdomain is already taken' }, { status: 400 });
     }
 
     // Check if custom domain is already taken
@@ -153,10 +150,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         select: { id: true },
       });
       if (existingDomain) {
-        return NextResponse.json(
-          { error: 'Custom domain is already in use' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Custom domain is already in use' }, { status: 400 });
       }
     }
 
@@ -195,7 +189,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       const dbUser = await prisma.user.findUnique({
         where: { id: user.id },
       });
-      
+
       if (dbUser) {
         await prisma.clinicAuditLog.create({
           data: {
@@ -212,20 +206,20 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         // User not in DB - audit log skipped for this clinic creation
       }
     } catch (auditError) {
-      // Don't fail the request if audit log fails
-      console.error('Failed to create audit log:', auditError);
+      logger.error('Failed to create audit log', auditError instanceof Error ? auditError : undefined);
     }
 
     return NextResponse.json({
       clinic,
       message: 'Clinic created successfully',
     });
-  } catch (error: any) {
-    console.error('Error creating clinic:', error);
+  } catch (error) {
+    logger.error('Error creating clinic', error instanceof Error ? error : undefined, {
+      route: 'POST /api/super-admin/clinics',
+    });
     return NextResponse.json(
-      { error: error.message || 'Failed to create clinic' },
+      { error: error instanceof Error ? error.message : 'Failed to create clinic' },
       { status: 500 }
     );
   }
 });
-

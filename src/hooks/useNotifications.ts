@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { getAuthToken, isServerlessEnvironment } from '@/lib/utils/auth-token';
+import { apiGet, apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
 // Types
@@ -62,7 +63,7 @@ export interface UseNotificationsOptions {
 // ============================================================================
 
 const DEFAULT_REFRESH_INTERVAL = 60000; // 1 minute
-const SERVERLESS_POLLING_INTERVAL = 15000; // 15 seconds for serverless (no WebSocket)
+const SERVERLESS_POLLING_INTERVAL = 120000; // 2 minutes on serverless to avoid connection pool exhaustion (P2024)
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
 
@@ -89,7 +90,7 @@ async function withRetry<T>(
 
       if (attempt < maxAttempts) {
         // Exponential backoff: 1s, 2s, 4s...
-        await new Promise(resolve => setTimeout(resolve, delayMs * Math.pow(2, attempt - 1)));
+        await new Promise((resolve) => setTimeout(resolve, delayMs * Math.pow(2, attempt - 1)));
       }
     }
   }
@@ -128,90 +129,95 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   useEffect(() => {
     if (isBrowser) {
       isServerless.current = isServerlessEnvironment();
-      console.debug('[Notifications] Environment:', isServerless.current ? 'serverless (polling mode)' : 'standard (WebSocket + polling)');
+      console.debug(
+        '[Notifications] Environment:',
+        isServerless.current ? 'serverless (polling mode)' : 'standard (WebSocket + polling)'
+      );
     }
   }, []);
 
   // Build query string
-  const buildQueryString = useCallback((page: number) => {
-    const params = new URLSearchParams();
-    params.set('page', page.toString());
-    params.set('pageSize', pageSize.toString());
-    if (category) params.set('category', category);
-    if (unreadOnly) params.set('isRead', 'false');
-    params.set('isArchived', 'false');
-    return params.toString();
-  }, [pageSize, category, unreadOnly]);
+  const buildQueryString = useCallback(
+    (page: number) => {
+      const params = new URLSearchParams();
+      params.set('page', page.toString());
+      params.set('pageSize', pageSize.toString());
+      if (category) params.set('category', category);
+      if (unreadOnly) params.set('isRead', 'false');
+      params.set('isArchived', 'false');
+      return params.toString();
+    },
+    [pageSize, category, unreadOnly]
+  );
 
   // Fetch notifications with retry logic
-  const fetchNotifications = useCallback(async (page = 1, append = false) => {
-    if (!isBrowser) return;
+  const fetchNotifications = useCallback(
+    async (page = 1, append = false) => {
+      if (!isBrowser) return;
 
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    const token = getAuthToken();
-
-    if (!token) {
-      setState(prev => ({ ...prev, loading: false, error: 'Not authenticated' }));
-      return;
-    }
-
-    if (!append) {
-      setState(prev => ({ ...prev, loading: true, error: null }));
-    }
-
-    try {
-      const data = await withRetry(async () => {
-        const response = await fetch(
-          `/api/notifications?${buildQueryString(page)}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: abortControllerRef.current?.signal,
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch notifications: ${response.status}`);
-        }
-
-        return response.json();
-      });
-
-      lastFetchTime.current = Date.now();
-      console.debug('[Notifications] Fetched:', {
-        count: data.notifications?.length ?? 0,
-        unread: data.unreadCount ?? 0,
-        total: data.total ?? 0,
-        warning: data._warning,
-      });
-
-      setState(prev => ({
-        notifications: append
-          ? [...prev.notifications, ...data.notifications]
-          : data.notifications,
-        unreadCount: data.unreadCount ?? 0,
-        total: data.total ?? 0,
-        loading: false,
-        error: null,
-        page: data.page ?? page,
-        hasMore: data.hasMore ?? false,
-      }));
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return; // Request was cancelled
+      // Cancel previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
-      console.error('Failed to fetch notifications:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }));
-    }
-  }, [buildQueryString]);
+      abortControllerRef.current = new AbortController();
+
+      const token = getAuthToken();
+
+      if (!token) {
+        setState((prev) => ({ ...prev, loading: false, error: 'Not authenticated' }));
+        return;
+      }
+
+      if (!append) {
+        setState((prev) => ({ ...prev, loading: true, error: null }));
+      }
+
+      try {
+        const data = await withRetry(async () => {
+          const response = await apiFetch(`/api/notifications?${buildQueryString(page)}`, {
+            signal: abortControllerRef.current?.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch notifications: ${response.status}`);
+          }
+
+          return response.json();
+        });
+
+        lastFetchTime.current = Date.now();
+        console.debug('[Notifications] Fetched:', {
+          count: data.notifications?.length ?? 0,
+          unread: data.unreadCount ?? 0,
+          total: data.total ?? 0,
+          warning: data._warning,
+        });
+
+        setState((prev) => ({
+          notifications: append
+            ? [...prev.notifications, ...data.notifications]
+            : data.notifications,
+          unreadCount: data.unreadCount ?? 0,
+          total: data.total ?? 0,
+          loading: false,
+          error: null,
+          page: data.page ?? page,
+          hasMore: data.hasMore ?? false,
+        }));
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return; // Request was cancelled
+        }
+        console.error('Failed to fetch notifications:', error);
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }));
+      }
+    },
+    [buildQueryString]
+  );
 
   // Fetch unread count only (lightweight) - with retry
   const fetchUnreadCount = useCallback(async () => {
@@ -222,9 +228,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
     try {
       const data = await withRetry(async () => {
-        const response = await fetch('/api/notifications/count', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await apiGet('/api/notifications/count');
 
         if (!response.ok) {
           throw new Error(`Failed to fetch count: ${response.status}`);
@@ -233,7 +237,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         return response.json();
       }, 2); // Only 2 retries for lightweight count check
 
-      setState(prev => ({ ...prev, unreadCount: data.count ?? 0 }));
+      setState((prev) => ({ ...prev, unreadCount: data.count ?? 0 }));
     } catch (error) {
       // Silent fail for count - non-critical
       console.debug('Failed to fetch unread count:', error);
@@ -253,160 +257,161 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   }, [fetchNotifications]);
 
   // Mark single notification as read
-  const markAsRead = useCallback(async (notificationId: number) => {
-    if (!isBrowser) return;
+  const markAsRead = useCallback(
+    async (notificationId: number) => {
+      if (!isBrowser) return;
 
-    const token = getAuthToken();
-    if (!token) return;
+      const token = getAuthToken();
+      if (!token) return;
 
-    // Optimistic update
-    setState(prev => ({
-      ...prev,
-      notifications: prev.notifications.map(n =>
-        n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
-      ),
-      unreadCount: Math.max(0, prev.unreadCount - 1),
-    }));
+      // Optimistic update
+      setState((prev) => ({
+        ...prev,
+        notifications: prev.notifications.map((n) =>
+          n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
+        ),
+        unreadCount: Math.max(0, prev.unreadCount - 1),
+      }));
 
-    try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      try {
+        const response = await apiFetch(`/api/notifications/${notificationId}/read`, {
+          method: 'POST',
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        // Sync with server count
-        setState(prev => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
+        if (response.ok) {
+          const data = await response.json();
+          // Sync with server count
+          setState((prev) => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
+        }
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+        // Revert optimistic update on error would require storing previous state
+        // For now, just refetch to sync
+        fetchUnreadCount();
       }
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
-      // Revert optimistic update on error would require storing previous state
-      // For now, just refetch to sync
-      fetchUnreadCount();
-    }
-  }, [fetchUnreadCount]);
+    },
+    [fetchUnreadCount]
+  );
 
   // Mark multiple notifications as read
-  const markManyAsRead = useCallback(async (notificationIds: number[]) => {
-    if (!isBrowser || notificationIds.length === 0) return;
+  const markManyAsRead = useCallback(
+    async (notificationIds: number[]) => {
+      if (!isBrowser || notificationIds.length === 0) return;
 
-    const token = getAuthToken();
-    if (!token) return;
+      const token = getAuthToken();
+      if (!token) return;
 
-    // Optimistic update
-    const idsSet = new Set(notificationIds);
-    setState(prev => ({
-      ...prev,
-      notifications: prev.notifications.map(n =>
-        idsSet.has(n.id) ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
-      ),
-      unreadCount: Math.max(0, prev.unreadCount - notificationIds.length),
-    }));
+      // Optimistic update
+      const idsSet = new Set(notificationIds);
+      setState((prev) => ({
+        ...prev,
+        notifications: prev.notifications.map((n) =>
+          idsSet.has(n.id) ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
+        ),
+        unreadCount: Math.max(0, prev.unreadCount - notificationIds.length),
+      }));
 
-    try {
-      const response = await fetch('/api/notifications', {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ notificationIds }),
-      });
+      try {
+        const response = await apiFetch('/api/notifications', {
+          method: 'PUT',
+          body: JSON.stringify({ notificationIds }),
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setState(prev => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
+        if (response.ok) {
+          const data = await response.json();
+          setState((prev) => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
+        }
+      } catch (error) {
+        console.error('Failed to mark notifications as read:', error);
+        fetchUnreadCount();
       }
-    } catch (error) {
-      console.error('Failed to mark notifications as read:', error);
-      fetchUnreadCount();
-    }
-  }, [fetchUnreadCount]);
+    },
+    [fetchUnreadCount]
+  );
 
   // Mark all notifications as read
-  const markAllAsRead = useCallback(async (filterCategory?: NotificationCategory) => {
-    if (!isBrowser) return;
+  const markAllAsRead = useCallback(
+    async (filterCategory?: NotificationCategory) => {
+      if (!isBrowser) return;
 
-    const token = getAuthToken();
-    if (!token) return;
+      const token = getAuthToken();
+      if (!token) return;
 
-    // Optimistic update
-    setState(prev => ({
-      ...prev,
-      notifications: prev.notifications.map(n =>
-        (!filterCategory || n.category === filterCategory)
-          ? { ...n, isRead: true, readAt: new Date().toISOString() }
-          : n
-      ),
-      unreadCount: filterCategory
-        ? prev.notifications.filter(n => n.category !== filterCategory && !n.isRead).length
-        : 0,
-    }));
+      // Optimistic update
+      setState((prev) => ({
+        ...prev,
+        notifications: prev.notifications.map((n) =>
+          !filterCategory || n.category === filterCategory
+            ? { ...n, isRead: true, readAt: new Date().toISOString() }
+            : n
+        ),
+        unreadCount: filterCategory
+          ? prev.notifications.filter((n) => n.category !== filterCategory && !n.isRead).length
+          : 0,
+      }));
 
-    try {
-      const response = await fetch('/api/notifications', {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ markAll: true, category: filterCategory }),
-      });
+      try {
+        const response = await apiFetch('/api/notifications', {
+          method: 'PUT',
+          body: JSON.stringify({ markAll: true, category: filterCategory }),
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setState(prev => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
+        if (response.ok) {
+          const data = await response.json();
+          setState((prev) => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
+        }
+      } catch (error) {
+        console.error('Failed to mark all notifications as read:', error);
+        fetchUnreadCount();
       }
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
-      fetchUnreadCount();
-    }
-  }, [fetchUnreadCount]);
+    },
+    [fetchUnreadCount]
+  );
 
   // Archive notifications
-  const archiveNotifications = useCallback(async (notificationIds: number[]) => {
-    if (!isBrowser || notificationIds.length === 0) return;
+  const archiveNotifications = useCallback(
+    async (notificationIds: number[]) => {
+      if (!isBrowser || notificationIds.length === 0) return;
 
-    const token = getAuthToken();
-    if (!token) return;
+      const token = getAuthToken();
+      if (!token) return;
 
-    // Get unread count before archiving for optimistic update
-    const idsSet = new Set(notificationIds);
-    const unreadBeingArchived = state.notifications.filter(n => idsSet.has(n.id) && !n.isRead).length;
+      // Get unread count before archiving for optimistic update
+      const idsSet = new Set(notificationIds);
+      const unreadBeingArchived = state.notifications.filter(
+        (n) => idsSet.has(n.id) && !n.isRead
+      ).length;
 
-    // Optimistic update
-    setState(prev => ({
-      ...prev,
-      notifications: prev.notifications.filter(n => !idsSet.has(n.id)),
-      total: Math.max(0, prev.total - notificationIds.length),
-      unreadCount: Math.max(0, prev.unreadCount - unreadBeingArchived),
-    }));
+      // Optimistic update
+      setState((prev) => ({
+        ...prev,
+        notifications: prev.notifications.filter((n) => !idsSet.has(n.id)),
+        total: Math.max(0, prev.total - notificationIds.length),
+        unreadCount: Math.max(0, prev.unreadCount - unreadBeingArchived),
+      }));
 
-    try {
-      const response = await fetch('/api/notifications', {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ notificationIds }),
-      });
+      try {
+        const response = await apiFetch('/api/notifications', {
+          method: 'DELETE',
+          body: JSON.stringify({ notificationIds }),
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setState(prev => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
+        if (response.ok) {
+          const data = await response.json();
+          setState((prev) => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
+        }
+      } catch (error) {
+        console.error('Failed to archive notifications:', error);
+        // Refetch to restore state on error
+        fetchNotifications(1, false);
       }
-    } catch (error) {
-      console.error('Failed to archive notifications:', error);
-      // Refetch to restore state on error
-      fetchNotifications(1, false);
-    }
-  }, [state.notifications, fetchNotifications]);
+    },
+    [state.notifications, fetchNotifications]
+  );
 
   // Add a new notification (for WebSocket integration)
   const addNotification = useCallback((notification: Notification) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       notifications: [notification, ...prev.notifications],
       total: prev.total + 1,
@@ -430,14 +435,19 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       ? Math.min(refreshInterval, SERVERLESS_POLLING_INTERVAL)
       : refreshInterval;
 
-    console.debug('[Notifications] Polling interval set to:', effectiveInterval, 'ms', isServerless.current ? '(serverless mode)' : '');
+    console.debug(
+      '[Notifications] Polling interval set to:',
+      effectiveInterval,
+      'ms',
+      isServerless.current ? '(serverless mode)' : ''
+    );
 
     const interval = setInterval(() => {
       console.debug('[Notifications] Polling...');
       fetchUnreadCount();
 
       // On serverless, also do a full fetch periodically to catch new notifications
-      if (isServerless.current && Date.now() - lastFetchTime.current > 30000) {
+      if (isServerless.current && Date.now() - lastFetchTime.current > 60000) {
         console.debug('[Notifications] Full refresh on serverless...');
         fetchNotifications(1, false);
       }

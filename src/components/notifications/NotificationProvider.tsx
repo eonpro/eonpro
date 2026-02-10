@@ -1,10 +1,15 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { useNotifications, type Notification, type NotificationCategory } from '@/hooks/useNotifications';
+import {
+  useNotifications,
+  type Notification,
+  type NotificationCategory,
+} from '@/hooks/useNotifications';
 import { useWebSocket, EventType } from '@/hooks/useWebSocket';
 import { getLocalStorageItem, setLocalStorageItem, isBrowser } from '@/lib/utils/ssr-safe';
 import { useDebouncedCallback } from 'use-debounce';
+import { apiGet, apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
 // Types
@@ -15,30 +20,30 @@ export interface NotificationPreferences {
   soundEnabled: boolean;
   soundVolume: number; // 0-100
   soundForPriorities: ('LOW' | 'NORMAL' | 'HIGH' | 'URGENT')[];
-  
+
   // Visual settings
   toastEnabled: boolean;
   toastDuration: number; // ms
   toastPosition: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
-  
+
   // Browser notifications
   browserNotificationsEnabled: boolean;
-  
+
   // Do Not Disturb
   dndEnabled: boolean;
   dndSchedule: {
     enabled: boolean;
     startTime: string; // HH:MM
-    endTime: string;   // HH:MM
-    days: number[];    // 0-6, Sunday = 0
+    endTime: string; // HH:MM
+    days: number[]; // 0-6, Sunday = 0
   };
-  
+
   // Category preferences
   mutedCategories: NotificationCategory[];
-  
+
   // Grouping
   groupSimilar: boolean;
-  
+
   // Desktop badge
   showDesktopBadge: boolean;
 
@@ -65,7 +70,7 @@ export interface NotificationContextValue {
   preferences: NotificationPreferences;
   isConnected: boolean;
   isDndActive: boolean;
-  
+
   // Actions
   markAsRead: (id: number) => Promise<void>;
   markManyAsRead: (ids: number[]) => Promise<void>;
@@ -73,18 +78,18 @@ export interface NotificationContextValue {
   archiveNotifications: (ids: number[]) => Promise<void>;
   loadMore: () => void;
   refresh: () => void;
-  
+
   // Toast actions
   dismissToast: (toastId: string) => void;
   dismissAllToasts: () => void;
   pinToast: (toastId: string) => void;
-  
+
   // Preferences
   updatePreferences: (prefs: Partial<NotificationPreferences>) => void;
   toggleDnd: () => void;
   muteCategory: (category: NotificationCategory) => void;
   unmuteCategory: (category: NotificationCategory) => void;
-  
+
   // Utilities
   playNotificationSound: (priority?: string) => void;
   requestBrowserPermission: () => Promise<boolean>;
@@ -126,17 +131,24 @@ function apiPrefsToLocal(apiPrefs: Record<string, unknown>): Partial<Notificatio
   return {
     soundEnabled: apiPrefs.soundEnabled as boolean | undefined,
     soundVolume: apiPrefs.soundVolume as number | undefined,
-    soundForPriorities: apiPrefs.soundForPriorities as ('LOW' | 'NORMAL' | 'HIGH' | 'URGENT')[] | undefined,
+    soundForPriorities: apiPrefs.soundForPriorities as
+      | ('LOW' | 'NORMAL' | 'HIGH' | 'URGENT')[]
+      | undefined,
     toastEnabled: apiPrefs.toastEnabled as boolean | undefined,
     toastDuration: apiPrefs.toastDuration as number | undefined,
-    toastPosition: apiPrefs.toastPosition as 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | undefined,
+    toastPosition: apiPrefs.toastPosition as
+      | 'top-right'
+      | 'top-left'
+      | 'bottom-right'
+      | 'bottom-left'
+      | undefined,
     browserNotificationsEnabled: apiPrefs.browserNotificationsEnabled as boolean | undefined,
     dndEnabled: apiPrefs.dndEnabled as boolean | undefined,
     dndSchedule: {
-      enabled: apiPrefs.dndScheduleEnabled as boolean ?? false,
-      startTime: apiPrefs.dndStartTime as string ?? '22:00',
-      endTime: apiPrefs.dndEndTime as string ?? '08:00',
-      days: apiPrefs.dndDays as number[] ?? [0, 1, 2, 3, 4, 5, 6],
+      enabled: (apiPrefs.dndScheduleEnabled as boolean) ?? false,
+      startTime: (apiPrefs.dndStartTime as string) ?? '22:00',
+      endTime: (apiPrefs.dndEndTime as string) ?? '08:00',
+      days: (apiPrefs.dndDays as number[]) ?? [0, 1, 2, 3, 4, 5, 6],
     },
     mutedCategories: apiPrefs.mutedCategories as NotificationCategory[] | undefined,
     groupSimilar: apiPrefs.groupSimilar as boolean | undefined,
@@ -152,14 +164,16 @@ function apiPrefsToLocal(apiPrefs: Record<string, unknown>): Partial<Notificatio
  */
 function localPrefsToApi(prefs: Partial<NotificationPreferences>): Record<string, unknown> {
   const apiPrefs: Record<string, unknown> = {};
-  
+
   if (prefs.soundEnabled !== undefined) apiPrefs.soundEnabled = prefs.soundEnabled;
   if (prefs.soundVolume !== undefined) apiPrefs.soundVolume = prefs.soundVolume;
-  if (prefs.soundForPriorities !== undefined) apiPrefs.soundForPriorities = prefs.soundForPriorities;
+  if (prefs.soundForPriorities !== undefined)
+    apiPrefs.soundForPriorities = prefs.soundForPriorities;
   if (prefs.toastEnabled !== undefined) apiPrefs.toastEnabled = prefs.toastEnabled;
   if (prefs.toastDuration !== undefined) apiPrefs.toastDuration = prefs.toastDuration;
   if (prefs.toastPosition !== undefined) apiPrefs.toastPosition = prefs.toastPosition;
-  if (prefs.browserNotificationsEnabled !== undefined) apiPrefs.browserNotificationsEnabled = prefs.browserNotificationsEnabled;
+  if (prefs.browserNotificationsEnabled !== undefined)
+    apiPrefs.browserNotificationsEnabled = prefs.browserNotificationsEnabled;
   if (prefs.dndEnabled !== undefined) apiPrefs.dndEnabled = prefs.dndEnabled;
   if (prefs.dndSchedule !== undefined) {
     apiPrefs.dndScheduleEnabled = prefs.dndSchedule.enabled;
@@ -170,10 +184,13 @@ function localPrefsToApi(prefs: Partial<NotificationPreferences>): Record<string
   if (prefs.mutedCategories !== undefined) apiPrefs.mutedCategories = prefs.mutedCategories;
   if (prefs.groupSimilar !== undefined) apiPrefs.groupSimilar = prefs.groupSimilar;
   if (prefs.showDesktopBadge !== undefined) apiPrefs.showDesktopBadge = prefs.showDesktopBadge;
-  if (prefs.emailNotificationsEnabled !== undefined) apiPrefs.emailNotificationsEnabled = prefs.emailNotificationsEnabled;
-  if (prefs.emailDigestEnabled !== undefined) apiPrefs.emailDigestEnabled = prefs.emailDigestEnabled;
-  if (prefs.emailDigestFrequency !== undefined) apiPrefs.emailDigestFrequency = prefs.emailDigestFrequency;
-  
+  if (prefs.emailNotificationsEnabled !== undefined)
+    apiPrefs.emailNotificationsEnabled = prefs.emailNotificationsEnabled;
+  if (prefs.emailDigestEnabled !== undefined)
+    apiPrefs.emailDigestEnabled = prefs.emailDigestEnabled;
+  if (prefs.emailDigestFrequency !== undefined)
+    apiPrefs.emailDigestFrequency = prefs.emailDigestFrequency;
+
   return apiPrefs;
 }
 
@@ -234,15 +251,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       if (!token) return;
 
       try {
-        const response = await fetch('/api/notifications/preferences', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await apiGet('/api/notifications/preferences');
 
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.preferences) {
             const apiPrefs = apiPrefsToLocal(data.preferences);
-            setPreferences(prev => {
+            setPreferences((prev) => {
               const merged = { ...prev, ...apiPrefs };
               // Also update localStorage
               setLocalStorageItem(PREFERENCES_STORAGE_KEY, JSON.stringify(merged));
@@ -269,12 +284,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     setIsSyncing(true);
     try {
       const apiPrefs = localPrefsToApi(prefsToSync);
-      await fetch('/api/notifications/preferences', {
+      await apiFetch('/api/notifications/preferences', {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(apiPrefs),
       });
     } catch (error) {
@@ -316,19 +327,19 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   // Check if DND is currently active
   const isDndActive = useCallback(() => {
     if (!preferences.dndEnabled) return false;
-    
+
     if (preferences.dndSchedule.enabled) {
       const now = new Date();
       const currentDay = now.getDay();
-      
+
       if (!preferences.dndSchedule.days.includes(currentDay)) return false;
-      
+
       const currentTime = now.getHours() * 60 + now.getMinutes();
       const [startH, startM] = preferences.dndSchedule.startTime.split(':').map(Number);
       const [endH, endM] = preferences.dndSchedule.endTime.split(':').map(Number);
       const startMinutes = startH * 60 + startM;
       const endMinutes = endH * 60 + endM;
-      
+
       if (startMinutes <= endMinutes) {
         return currentTime >= startMinutes && currentTime <= endMinutes;
       } else {
@@ -336,84 +347,93 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         return currentTime >= startMinutes || currentTime <= endMinutes;
       }
     }
-    
+
     return true; // Manual DND is on
   }, [preferences.dndEnabled, preferences.dndSchedule]);
 
   // Play notification sound
-  const playNotificationSound = useCallback((priority: string = 'NORMAL') => {
-    if (!preferences.soundEnabled) return;
-    if (isDndActive()) return;
-    if (!preferences.soundForPriorities.includes(priority as any)) return;
-    
-    try {
-      if (!audioRef.current) {
-        audioRef.current = new Audio('/sounds/notification.mp3');
+  const playNotificationSound = useCallback(
+    (priority: string = 'NORMAL') => {
+      if (!preferences.soundEnabled) return;
+      if (isDndActive()) return;
+      if (!preferences.soundForPriorities.includes(priority as any)) return;
+
+      try {
+        if (!audioRef.current) {
+          audioRef.current = new Audio('/sounds/notification.mp3');
+        }
+        audioRef.current.volume = preferences.soundVolume / 100;
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {
+          // Autoplay may be blocked
+        });
+      } catch (error) {
+        console.warn('Failed to play notification sound:', error);
       }
-      audioRef.current.volume = preferences.soundVolume / 100;
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {
-        // Autoplay may be blocked
-      });
-    } catch (error) {
-      console.warn('Failed to play notification sound:', error);
-    }
-  }, [preferences.soundEnabled, preferences.soundVolume, preferences.soundForPriorities, isDndActive]);
+    },
+    [preferences.soundEnabled, preferences.soundVolume, preferences.soundForPriorities, isDndActive]
+  );
 
   // Show browser notification
-  const showBrowserNotification = useCallback((notification: Notification) => {
-    if (!preferences.browserNotificationsEnabled) return;
-    if (isDndActive()) return;
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    
-    try {
-      const browserNotif = new Notification(notification.title, {
-        body: notification.message,
-        icon: '/icons/notification-icon.png',
-        badge: '/icons/badge-icon.png',
-        tag: `notification-${notification.id}`,
-        requireInteraction: notification.priority === 'URGENT',
-      });
-      
-      browserNotif.onclick = () => {
-        window.focus();
-        if (notification.actionUrl) {
-          window.location.href = notification.actionUrl;
-        }
-        browserNotif.close();
-      };
-    } catch (error) {
-      console.warn('Failed to show browser notification:', error);
-    }
-  }, [preferences.browserNotificationsEnabled, isDndActive]);
+  const showBrowserNotification = useCallback(
+    (notification: Notification) => {
+      if (!preferences.browserNotificationsEnabled) return;
+      if (isDndActive()) return;
+      if (typeof window === 'undefined' || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+
+      try {
+        const browserNotif = new Notification(notification.title, {
+          body: notification.message,
+          icon: '/icons/notification-icon.png',
+          badge: '/icons/badge-icon.png',
+          tag: `notification-${notification.id}`,
+          requireInteraction: notification.priority === 'URGENT',
+        });
+
+        browserNotif.onclick = () => {
+          window.focus();
+          if (notification.actionUrl) {
+            window.location.href = notification.actionUrl;
+          }
+          browserNotif.close();
+        };
+      } catch (error) {
+        console.warn('Failed to show browser notification:', error);
+      }
+    },
+    [preferences.browserNotificationsEnabled, isDndActive]
+  );
 
   // Add toast notification
-  const addToast = useCallback((notification: Notification) => {
-    if (!preferences.toastEnabled) return;
-    if (isDndActive()) return;
-    if (preferences.mutedCategories.includes(notification.category)) return;
-    
-    const toastId = `toast-${++toastIdRef.current}`;
-    const toast: ToastNotification = {
-      ...notification,
-      toastId,
-      expiresAt: Date.now() + preferences.toastDuration,
-    };
-    
-    setToasts(prev => [...prev, toast]);
-    
-    // Auto-dismiss (unless URGENT)
-    if (notification.priority !== 'URGENT') {
-      setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.toastId !== toastId));
-      }, preferences.toastDuration);
-    }
-  }, [preferences.toastEnabled, preferences.toastDuration, preferences.mutedCategories, isDndActive]);
+  const addToast = useCallback(
+    (notification: Notification) => {
+      if (!preferences.toastEnabled) return;
+      if (isDndActive()) return;
+      if (preferences.mutedCategories.includes(notification.category)) return;
+
+      const toastId = `toast-${++toastIdRef.current}`;
+      const toast: ToastNotification = {
+        ...notification,
+        toastId,
+        expiresAt: Date.now() + preferences.toastDuration,
+      };
+
+      setToasts((prev) => [...prev, toast]);
+
+      // Auto-dismiss (unless URGENT)
+      if (notification.priority !== 'URGENT') {
+        setTimeout(() => {
+          setToasts((prev) => prev.filter((t) => t.toastId !== toastId));
+        }, preferences.toastDuration);
+      }
+    },
+    [preferences.toastEnabled, preferences.toastDuration, preferences.mutedCategories, isDndActive]
+  );
 
   // Dismiss toast
   const dismissToast = useCallback((toastId: string) => {
-    setToasts(prev => prev.filter(t => t.toastId !== toastId));
+    setToasts((prev) => prev.filter((t) => t.toastId !== toastId));
   }, []);
 
   // Dismiss all toasts
@@ -423,29 +443,29 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
   // Pin toast (prevent auto-dismiss)
   const pinToast = useCallback((toastId: string) => {
-    setToasts(prev => prev.map(t => 
-      t.toastId === toastId ? { ...t, isPinned: true, expiresAt: Infinity } : t
-    ));
+    setToasts((prev) =>
+      prev.map((t) => (t.toastId === toastId ? { ...t, isPinned: true, expiresAt: Infinity } : t))
+    );
   }, []);
 
   // Handle incoming WebSocket notifications
   useEffect(() => {
     const unsubscribe = subscribe(EventType.NOTIFICATION_PUSH, (data: unknown) => {
       const payload = data as { notification?: Notification; broadcast?: boolean };
-      
+
       if (payload.notification) {
         // Add to list
         addNotification(payload.notification);
-        
+
         // Show toast
         addToast(payload.notification);
-        
+
         // Play sound
         playNotificationSound(payload.notification.priority);
-        
+
         // Browser notification
         showBrowserNotification(payload.notification);
-        
+
         // Update document title badge
         if (preferences.showDesktopBadge) {
           updateDocumentTitle(unreadCount + 1);
@@ -456,12 +476,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     });
 
     return () => unsubscribe();
-  }, [subscribe, addNotification, addToast, playNotificationSound, showBrowserNotification, refresh, unreadCount, preferences.showDesktopBadge]);
+  }, [
+    subscribe,
+    addNotification,
+    addToast,
+    playNotificationSound,
+    showBrowserNotification,
+    refresh,
+    unreadCount,
+    preferences.showDesktopBadge,
+  ]);
 
   // Update document title with unread count
   const updateDocumentTitle = useCallback((count: number) => {
     if (typeof document === 'undefined') return;
-    
+
     const baseTitle = document.title.replace(/^\(\d+\)\s*/, '');
     document.title = count > 0 ? `(${count}) ${baseTitle}` : baseTitle;
   }, []);
@@ -474,16 +503,19 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   }, [unreadCount, preferences.showDesktopBadge, updateDocumentTitle]);
 
   // Update preferences (local + API sync)
-  const updatePreferences = useCallback((newPrefs: Partial<NotificationPreferences>) => {
-    setPreferences(prev => {
-      const updated = { ...prev, ...newPrefs };
-      // Update localStorage immediately
-      setLocalStorageItem(PREFERENCES_STORAGE_KEY, JSON.stringify(updated));
-      // Sync to API (debounced)
-      syncToApi(newPrefs);
-      return updated;
-    });
-  }, [syncToApi]);
+  const updatePreferences = useCallback(
+    (newPrefs: Partial<NotificationPreferences>) => {
+      setPreferences((prev) => {
+        const updated = { ...prev, ...newPrefs };
+        // Update localStorage immediately
+        setLocalStorageItem(PREFERENCES_STORAGE_KEY, JSON.stringify(updated));
+        // Sync to API (debounced)
+        syncToApi(newPrefs);
+        return updated;
+      });
+    },
+    [syncToApi]
+  );
 
   // Toggle DND
   const toggleDnd = useCallback(() => {
@@ -491,39 +523,45 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   }, [preferences.dndEnabled, updatePreferences]);
 
   // Mute/unmute categories
-  const muteCategory = useCallback((category: NotificationCategory) => {
-    if (!preferences.mutedCategories.includes(category)) {
-      updatePreferences({ mutedCategories: [...preferences.mutedCategories, category] });
-    }
-  }, [preferences.mutedCategories, updatePreferences]);
+  const muteCategory = useCallback(
+    (category: NotificationCategory) => {
+      if (!preferences.mutedCategories.includes(category)) {
+        updatePreferences({ mutedCategories: [...preferences.mutedCategories, category] });
+      }
+    },
+    [preferences.mutedCategories, updatePreferences]
+  );
 
-  const unmuteCategory = useCallback((category: NotificationCategory) => {
-    updatePreferences({ 
-      mutedCategories: preferences.mutedCategories.filter(c => c !== category) 
-    });
-  }, [preferences.mutedCategories, updatePreferences]);
+  const unmuteCategory = useCallback(
+    (category: NotificationCategory) => {
+      updatePreferences({
+        mutedCategories: preferences.mutedCategories.filter((c) => c !== category),
+      });
+    },
+    [preferences.mutedCategories, updatePreferences]
+  );
 
   // Request browser notification permission
   const requestBrowserPermission = useCallback(async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return false;
     }
-    
+
     if (Notification.permission === 'granted') {
       updatePreferences({ browserNotificationsEnabled: true });
       return true;
     }
-    
+
     if (Notification.permission === 'denied') {
       return false;
     }
-    
+
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       updatePreferences({ browserNotificationsEnabled: true });
       return true;
     }
-    
+
     return false;
   }, [updatePreferences]);
 
@@ -538,32 +576,28 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     preferences,
     isConnected,
     isDndActive: isDndActive(),
-    
+
     markAsRead,
     markManyAsRead,
     markAllAsRead,
     archiveNotifications,
     loadMore,
     refresh,
-    
+
     dismissToast,
     dismissAllToasts,
     pinToast,
-    
+
     updatePreferences,
     toggleDnd,
     muteCategory,
     unmuteCategory,
-    
+
     playNotificationSound,
     requestBrowserPermission,
   };
 
-  return (
-    <NotificationContext.Provider value={value}>
-      {children}
-    </NotificationContext.Provider>
-  );
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
 
 export default NotificationProvider;

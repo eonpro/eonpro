@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { logger } from '../lib/logger';
+import { apiGet, apiFetch } from '@/lib/api/fetch';
 import {
   MessageCircle,
   X,
@@ -75,7 +76,12 @@ const REACTION_EMOJIS = {
   like: { icon: ThumbsUp, label: 'Like', color: 'text-blue-500', bg: 'bg-blue-50' },
   dislike: { icon: ThumbsDown, label: 'Dislike', color: 'text-gray-500', bg: 'bg-gray-100' },
   question: { icon: HelpCircle, label: 'Question', color: 'text-purple-500', bg: 'bg-purple-50' },
-  exclamation: { icon: AlertCircle, label: 'Emphasis', color: 'text-orange-500', bg: 'bg-orange-50' },
+  exclamation: {
+    icon: AlertCircle,
+    label: 'Emphasis',
+    color: 'text-orange-500',
+    bg: 'bg-orange-50',
+  },
   laugh: { icon: Laugh, label: 'Ha ha', color: 'text-yellow-500', bg: 'bg-yellow-50' },
 } as const;
 
@@ -171,11 +177,11 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
         match: Number(currentUserId) === storedUserId,
       });
 
-      const response = await fetch('/api/internal/messages');
+      const response = await apiGet('/api/internal/messages');
       if (response.ok) {
         const data = await response.json();
         // Handle both old format (array) and new format (object with messages and _meta)
-        const messageList = Array.isArray(data) ? data : (data.messages || data.data || []);
+        const messageList = Array.isArray(data) ? data : data.messages || data.data || [];
         const apiUserId = data._meta?.authenticatedUserId;
 
         // CRITICAL: Detect and handle auth mismatch between client and server
@@ -196,8 +202,16 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
             console.warn('[InternalChat] Forcing re-authentication due to session mismatch');
             localStorage.removeItem('user');
             // Clear all auth cookies
-            const authCookies = ['auth-token', 'admin-token', 'super_admin-token', 'provider-token', 'patient-token', 'staff-token', 'support-token'];
-            authCookies.forEach(name => {
+            const authCookies = [
+              'auth-token',
+              'admin-token',
+              'super_admin-token',
+              'provider-token',
+              'patient-token',
+              'staff-token',
+              'support-token',
+            ];
+            authCookies.forEach((name) => {
               document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
             });
             window.location.href = '/login?reason=session_mismatch';
@@ -275,11 +289,13 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const response = await fetch('/api/internal/messages?unreadOnly=true');
+      const response = await apiGet('/api/internal/messages?unreadOnly=true');
       if (response.ok) {
         const data = await response.json();
         // Handle both old format (array) and new format (object with messages)
-        const messageList: Message[] = Array.isArray(data) ? data : (data.messages || data.data || []);
+        const messageList: Message[] = Array.isArray(data)
+          ? data
+          : data.messages || data.data || [];
         const newCount = messageList.length;
 
         // Check if we have NEW unread messages (count increased)
@@ -441,9 +457,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     setMessages((prev) => [...prev, tempMessage]);
 
     try {
-      const response = await fetch('/api/internal/messages', {
+      const response = await apiFetch('/api/internal/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipientId: selectedRecipient.id,
           message: messageText,
@@ -506,9 +521,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     setActiveReactionPicker(null);
 
     try {
-      const response = await fetch(`/api/internal/messages/${messageId}/reactions`, {
+      const response = await apiFetch(`/api/internal/messages/${messageId}/reactions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emoji }),
       });
 
@@ -539,8 +553,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     );
 
     try {
-      const response = await fetch(
-        `/api/internal/messages/${messageId}/reactions?emoji=${emoji}`,
+      const response = await apiFetch(
+        `/api/internal/messages/${messageId}/reactions?emoji=${encodeURIComponent(emoji)}`,
         { method: 'DELETE' }
       );
 
@@ -835,13 +849,16 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                         300000;
 
                     // Group reactions by emoji
-                    const reactionGroups = (message.reactions || []).reduce((acc, r) => {
-                      if (!acc[r.emoji]) {
-                        acc[r.emoji] = [];
-                      }
-                      acc[r.emoji].push(r);
-                      return acc;
-                    }, {} as Record<string, Reaction[]>);
+                    const reactionGroups = (message.reactions || []).reduce(
+                      (acc, r) => {
+                        if (!acc[r.emoji]) {
+                          acc[r.emoji] = [];
+                        }
+                        acc[r.emoji].push(r);
+                        return acc;
+                      },
+                      {} as Record<string, Reaction[]>
+                    );
 
                     const hasReactions = Object.keys(reactionGroups).length > 0;
 
@@ -861,9 +878,11 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                                   ? 'rounded-br-md bg-gradient-to-r from-blue-500 to-blue-600 text-white'
                                   : 'rounded-bl-md bg-gray-100 text-gray-900'
                               }`}
-                              onDoubleClick={() => setActiveReactionPicker(
-                                activeReactionPicker === message.id ? null : message.id
-                              )}
+                              onDoubleClick={() =>
+                                setActiveReactionPicker(
+                                  activeReactionPicker === message.id ? null : message.id
+                                )
+                              }
                             >
                               <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
                                 {message.message}
@@ -888,22 +907,30 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
                             {/* Reactions Display */}
                             {hasReactions && (
-                              <div className={`mt-1 flex flex-wrap gap-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                              <div
+                                className={`mt-1 flex flex-wrap gap-1 ${isOwn ? 'justify-end' : 'justify-start'}`}
+                              >
                                 {Object.entries(reactionGroups).map(([emoji, reactions]) => {
                                   const config = REACTION_EMOJIS[emoji as ReactionType];
                                   if (!config) return null;
                                   const Icon = config.icon;
-                                  const hasUserReacted = reactions.some(r => r.userId === currentUserId);
+                                  const hasUserReacted = reactions.some(
+                                    (r) => r.userId === currentUserId
+                                  );
                                   return (
                                     <button
                                       key={emoji}
-                                      onClick={() => toggleReaction(message.id, emoji as ReactionType)}
+                                      onClick={() =>
+                                        toggleReaction(message.id, emoji as ReactionType)
+                                      }
                                       className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] transition-all ${
                                         hasUserReacted
-                                          ? `${config.bg} ${config.color} ring-1 ring-inset ring-current/20`
+                                          ? `${config.bg} ${config.color} ring-current/20 ring-1 ring-inset`
                                           : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                       }`}
-                                      title={reactions.map(r => `${r.user.firstName} ${r.user.lastName}`.trim()).join(', ')}
+                                      title={reactions
+                                        .map((r) => `${r.user.firstName} ${r.user.lastName}`.trim())
+                                        .join(', ')}
                                     >
                                       <Icon className="h-3 w-3" />
                                       {reactions.length > 1 && <span>{reactions.length}</span>}
@@ -932,7 +959,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                                       className={`rounded-full p-1.5 transition-all hover:scale-110 ${
                                         hasUserReacted
                                           ? `${config.bg} ${config.color}`
-                                          : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
+                                          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                                       }`}
                                       title={config.label}
                                     >
@@ -945,9 +972,11 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
                             {/* Hover indicator to open reaction picker */}
                             <button
-                              onClick={() => setActiveReactionPicker(
-                                activeReactionPicker === message.id ? null : message.id
-                              )}
+                              onClick={() =>
+                                setActiveReactionPicker(
+                                  activeReactionPicker === message.id ? null : message.id
+                                )
+                              }
                               className={`absolute ${isOwn ? '-left-7' : '-right-7'} top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100`}
                               title="Add reaction"
                             >
