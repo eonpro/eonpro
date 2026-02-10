@@ -456,6 +456,61 @@ async function loginHandler(req: NextRequest) {
       });
     }
 
+    // PROVIDER FIX: If provider has no clinics from User/UserClinic, use ProviderClinic assignments
+    // (e.g. gsiglemd@eonmedicalcenter.com when User exists but has no clinicId/UserClinic)
+    if (userRole === 'provider' && clinics.length === 0) {
+      let providerIdForClinics: number | null = null;
+      if ('providerId' in user && user.providerId) {
+        providerIdForClinics = user.providerId as number;
+      } else if ('provider' in user && user.provider && typeof user.provider === 'object') {
+        providerIdForClinics = (user.provider as { id: number }).id;
+      } else {
+        const providerByEmail = await basePrisma.provider.findFirst({
+          where: { email: user.email.toLowerCase() },
+          select: { id: true },
+        });
+        if (providerByEmail) providerIdForClinics = providerByEmail.id;
+      }
+      if (providerIdForClinics && basePrisma.providerClinic) {
+        try {
+          const assignments = await basePrisma.providerClinic.findMany({
+            where: { providerId: providerIdForClinics, isActive: true },
+            select: {
+              isPrimary: true,
+              clinic: {
+                select: {
+                  id: true,
+                  name: true,
+                  subdomain: true,
+                  logoUrl: true,
+                  iconUrl: true,
+                  faviconUrl: true,
+                },
+              },
+            },
+            orderBy: { isPrimary: 'desc' },
+          });
+          for (const a of assignments) {
+            clinics.push({
+              ...a.clinic,
+              role: userRole,
+              isPrimary: a.isPrimary,
+            });
+          }
+          if (clinics.length > 0) {
+            logger.info('[Login] Populated provider clinics from ProviderClinic', {
+              providerId: providerIdForClinics,
+              clinicCount: clinics.length,
+            });
+          }
+        } catch (err) {
+          logger.debug('[Login] ProviderClinic lookup for clinics failed', {
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+        }
+      }
+    }
+
     // Determine active clinic: subdomain wins when user is on a clinic subdomain (e.g. ot.eonpro.io), then body selectedClinicId, then fallback
     let activeClinicId: number | undefined = undefined;
     if (userRole !== 'super_admin') {
@@ -517,6 +572,23 @@ async function loginHandler(req: NextRequest) {
       // 3) Fallback to user's primary or first available
       if (!activeClinicId) {
         activeClinicId = user.clinicId || clinics[0]?.id;
+      }
+
+      // Require a clinic for non–super_admin so the session is usable (avoids "No clinic context" on every API call)
+      if (activeClinicId == null && userRole !== 'super_admin') {
+        logger.warn('[Login] No clinic assigned', {
+          userId: user.id,
+          role: userRole,
+          emailPrefix: user.email?.substring(0, 3) + '***',
+        });
+        return NextResponse.json(
+          {
+            error:
+              'No clinic is assigned to your account. Please contact your administrator to be assigned to a clinic.',
+            code: 'NO_CLINIC_ASSIGNED',
+          },
+          { status: 403 }
+        );
       }
 
       // Observability: clinic context for eonpro.io (no PHI) for production diagnosis
@@ -785,7 +857,7 @@ async function loginHandler(req: NextRequest) {
     const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
 
     if (cookieDomain) {
-      // Clear any host-only auth cookies so the server doesn't receive a stale token first
+      // Clear existing auth cookies for this domain so new ones are used (must use same domain to clear)
       const authCookieNames = [
         'auth-token',
         'admin-token',
@@ -804,6 +876,7 @@ async function loginHandler(req: NextRequest) {
           path: '/',
           maxAge: 0,
           expires: new Date(0),
+          domain: cookieDomain,
         });
       }
     }

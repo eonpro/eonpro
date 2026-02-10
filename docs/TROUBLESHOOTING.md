@@ -369,6 +369,21 @@ JWT_EXPIRES_IN=7d          # Token lifetime
 2. Check TOTP secret is stored correctly
 3. Try backup codes if available
 
+### Login stuck on "Logging in..." (browser/extension issues)
+
+**Symptoms:** The login button shows "Logging in..." with a spinner and never completes; the browser console shows errors such as `FrameIsBrowserFrameError`, `strUrl is not defined`, or `Failed to load resource: net::ERR_FILE_NOT_FOUND` for files like `utils.js`, `extensionState.js`, or `heuristicsRedefinitions.js`.
+
+**Cause:** Those errors usually come from **browser extensions** (e.g. password managers, ad blockers, or security tools), not from the app. They can block or break the login request so the page never receives a response.
+
+**What to do:**
+
+1. **Try an incognito/private window** (extensions are often disabled). If login works there, the issue is extension-related.
+2. **Temporarily disable extensions** (especially password managers and ad blockers) and try again on the clinic subdomain (e.g. `wellmedr.eonpro.io`).
+3. **Check the Network tab:** In DevTools → Network, find the `POST` to `/api/auth/login`. If it stays "pending" forever or fails (blocked, CORS, or non-2xx), the server or network is the cause; if it returns 200 with a JSON body, the problem is likely client-side (e.g. extension breaking the response handling).
+4. **Safety net:** The login page now clears the "Logging in..." state after 30 seconds and shows a message suggesting incognito or disabling extensions if the request never completes.
+
+**Related:** `/api/auth/login` is a public route; clinic subdomains (e.g. wellmedr.eonpro.io) resolve clinic via `/api/clinic/resolve` and send `clinicId` in the login body. If the request never reaches the server, the issue is client or network, not backend.
+
 ### Login 503 — "Service is busy. Please try again in a moment."
 
 **What it means:** The login API returned **503 Service Unavailable**. In this codebase, that happens when the **database connection pool is exhausted** (Prisma error **P2024**): the server cannot get a DB connection to verify credentials.

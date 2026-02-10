@@ -244,6 +244,21 @@ export default function LoginPage() {
     return undefined;
   }, [retryAfterCountdown]);
 
+  // Safety net: if login loading stays true too long (e.g. request never settles due to extension/network), clear it
+  useEffect(() => {
+    if (!loading) return;
+    const safetyMs = 30_000; // 25s login timeout + 5s buffer
+    const t = setTimeout(() => {
+      setLoading(false);
+      setError((prev) =>
+        prev
+          ? prev
+          : 'Login is taking too long. Try again or use an incognito window if you use password managers or extensions.'
+      );
+    }, safetyMs);
+    return () => clearTimeout(t);
+  }, [loading]);
+
   // Detect if input is phone number or email
   const isPhoneNumber = (value: string): boolean => {
     // Remove all non-digit characters for checking
@@ -537,6 +552,7 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           email: identifier,
           password,
@@ -617,6 +633,7 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           email: identifier,
           password,
