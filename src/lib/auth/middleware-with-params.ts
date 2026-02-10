@@ -6,66 +6,92 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { JWT_SECRET } from './config';
-import { setClinicContext } from '@/lib/db';
+import { setClinicContext, basePrisma } from '@/lib/db';
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { logger } from '@/lib/logger';
 import type { AuthUser } from './middleware';
 
 // Re-export AuthUser type for convenience
 export type { AuthUser };
 
+async function hasAccessToClinic(user: AuthUser, clinicId: number): Promise<boolean> {
+  try {
+    const [uc, pc] = await Promise.all([
+      basePrisma.userClinic.findFirst({
+        where: { userId: user.id, clinicId, isActive: true },
+        select: { id: true },
+      }),
+      user.providerId
+        ? basePrisma.providerClinic.findFirst({
+            where: { providerId: user.providerId, clinicId, isActive: true },
+            select: { id: true },
+          })
+        : Promise.resolve(null),
+    ]);
+    return !!uc || !!pc;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Verify JWT token from various sources
- * 
+ *
  * SECURITY: Demo tokens are DISABLED in production environments.
  * They are only available when NODE_ENV !== 'production' AND
  * ENABLE_DEMO_TOKENS === 'true' (explicit opt-in required).
  */
 async function verifyToken(token: string): Promise<AuthUser | null> {
   // SECURITY: Demo tokens only work in non-production with explicit flag
-  const isDemoEnabled = process.env.NODE_ENV !== 'production' && 
-                        process.env.ENABLE_DEMO_TOKENS === 'true';
-  
+  const isDemoEnabled =
+    process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO_TOKENS === 'true';
+
   if (isDemoEnabled && token.includes('demo-')) {
     // Demo tokens for development/testing only
     // WARNING: Never enable in production!
     const demoUsers: Record<string, AuthUser> = {
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBsaWZlZmlsZS5jb20iLCJyb2xlIjoiYWRtaW4iLCJjbGluaWNJZCI6MX0.demo-admin-token': {
-        id: 1,
-        email: 'admin@eonpro.com',
-        role: 'admin',
-        clinicId: 1
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiZW1haWwiOiJwcm92aWRlckBsaWZlZmlsZS5jb20iLCJyb2xlIjoicHJvdmlkZXIiLCJjbGluaWNJZCI6MX0.demo-provider-token': {
-        id: 2,
-        email: 'provider@eonpro.com',
-        role: 'provider',
-        clinicId: 1
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiZW1haWwiOiJzdGFmZkBsaWZlZmlsZS5jb20iLCJyb2xlIjoic3RhZmYiLCJjbGluaWNJZCI6MX0.demo-staff-token': {
-        id: 3,
-        email: 'staff@eonpro.com',
-        role: 'staff',
-        clinicId: 1
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NCwiZW1haWwiOiJzdXBwb3J0QGxpZmVmaWxlLmNvbSIsInJvbGUiOiJzdXBwb3J0IiwiY2xpbmljSWQiOjF9.demo-support-token': {
-        id: 4,
-        email: 'support@eonpro.com',
-        role: 'support',
-        clinicId: 1
-      },
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJwYXRpZW50QGV4YW1wbGUuY29tIiwicm9sZSI6InBhdGllbnQiLCJjbGluaWNJZCI6MX0.demo-patient-token': {
-        id: 5,
-        email: 'patient@example.com',
-        role: 'patient',
-        clinicId: 1,
-        patientId: 1
-      }
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBsaWZlZmlsZS5jb20iLCJyb2xlIjoiYWRtaW4iLCJjbGluaWNJZCI6MX0.demo-admin-token':
+        {
+          id: 1,
+          email: 'admin@eonpro.com',
+          role: 'admin',
+          clinicId: 1,
+        },
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiZW1haWwiOiJwcm92aWRlckBsaWZlZmlsZS5jb20iLCJyb2xlIjoicHJvdmlkZXIiLCJjbGluaWNJZCI6MX0.demo-provider-token':
+        {
+          id: 2,
+          email: 'provider@eonpro.com',
+          role: 'provider',
+          clinicId: 1,
+        },
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiZW1haWwiOiJzdGFmZkBsaWZlZmlsZS5jb20iLCJyb2xlIjoic3RhZmYiLCJjbGluaWNJZCI6MX0.demo-staff-token':
+        {
+          id: 3,
+          email: 'staff@eonpro.com',
+          role: 'staff',
+          clinicId: 1,
+        },
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NCwiZW1haWwiOiJzdXBwb3J0QGxpZmVmaWxlLmNvbSIsInJvbGUiOiJzdXBwb3J0IiwiY2xpbmljSWQiOjF9.demo-support-token':
+        {
+          id: 4,
+          email: 'support@eonpro.com',
+          role: 'support',
+          clinicId: 1,
+        },
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJwYXRpZW50QGV4YW1wbGUuY29tIiwicm9sZSI6InBhdGllbnQiLCJjbGluaWNJZCI6MX0.demo-patient-token':
+        {
+          id: 5,
+          email: 'patient@example.com',
+          role: 'patient',
+          clinicId: 1,
+          patientId: 1,
+        },
     };
-    
+
     return demoUsers[token] || null;
   }
-  
+
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     return payload as unknown as AuthUser;
@@ -90,7 +116,7 @@ function extractToken(req: NextRequest): string | null {
   // Note: Order matters - more specific cookies should be checked first
   const cookieTokens = [
     'affiliate_session', // Affiliate portal - check first for affiliate routes
-    'influencer-token',  // Legacy influencer portal
+    'influencer-token', // Legacy influencer portal
     'affiliate-token',
     'auth-token',
     'super_admin-token',
@@ -99,7 +125,7 @@ function extractToken(req: NextRequest): string | null {
     'patient-token',
     'staff-token',
     'support-token',
-    'token',             // Generic fallback
+    'token', // Generic fallback
     'SUPER_ADMIN-token', // Legacy case variant
   ];
 
@@ -135,7 +161,7 @@ export function withAuthParams<T extends { params: any }>(
       if (options.optional) {
         return handler(req, null as any, context);
       }
-      
+
       // Log failed authentication
       await auditLog(req, {
         userId: 'unknown',
@@ -143,13 +169,10 @@ export function withAuthParams<T extends { params: any }>(
         resourceType: 'API',
         action: 'AUTHENTICATION_FAILED',
         outcome: 'FAILURE',
-        reason: 'No token provided'
+        reason: 'No token provided',
       });
-      
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     const user = await verifyToken(token);
@@ -158,7 +181,7 @@ export function withAuthParams<T extends { params: any }>(
       if (options.optional) {
         return handler(req, null as any, context);
       }
-      
+
       // Log failed authentication
       await auditLog(req, {
         userId: 'unknown',
@@ -166,30 +189,34 @@ export function withAuthParams<T extends { params: any }>(
         resourceType: 'API',
         action: 'AUTHENTICATION_FAILED',
         outcome: 'FAILURE',
-        reason: 'Invalid or expired token'
+        reason: 'Invalid or expired token',
       });
-      
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
+
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    
+
     // Validate session (check for timeout)
-    // Security: Log tokens without sessionId for monitoring
+    // Security: Log tokens without sessionId for monitoring (super_admin may use API tokens without session)
     if (!user.sessionId) {
-      // Log warning for tokens missing sessionId - potential old token or manipulation
-      console.warn('[Auth] Token missing sessionId', {
-        userId: user.id,
-        role: user.role,
-        path: req.nextUrl.pathname,
-      });
+      const isSuperAdmin = user.role === 'super_admin';
+      if (!isSuperAdmin) {
+        logger.warn('Token missing sessionId', {
+          userId: user.id,
+          role: user.role,
+          path: req.nextUrl.pathname,
+        });
+      } else {
+        logger.debug('Token missing sessionId (super_admin)', {
+          userId: user.id,
+          path: req.nextUrl.pathname,
+        });
+      }
     } else {
       const sessionValidation = await validateSession(token, req);
-      
+
       if (!sessionValidation.valid) {
         setClinicContext(undefined);
-        
+
         await auditLog(req, {
           userId: user.id.toString(),
           userEmail: user.email,
@@ -199,9 +226,9 @@ export function withAuthParams<T extends { params: any }>(
           resourceId: user.sessionId,
           action: 'SESSION_VALIDATION_FAILED',
           outcome: 'FAILURE',
-          reason: sessionValidation.reason
+          reason: sessionValidation.reason,
         });
-        
+
         return NextResponse.json(
           { error: sessionValidation.reason || 'Session expired' },
           { status: 401 }
@@ -212,7 +239,7 @@ export function withAuthParams<T extends { params: any }>(
     // Check role-based access
     if (options.roles && options.roles.length > 0) {
       const userRole = user.role.toLowerCase();
-      const allowedRoles = options.roles.map(r => r.toLowerCase());
+      const allowedRoles = options.roles.map((r) => r.toLowerCase());
       if (!allowedRoles.includes(userRole)) {
         await auditLog(req, {
           userId: user.id.toString(),
@@ -223,19 +250,46 @@ export function withAuthParams<T extends { params: any }>(
           resourceType: 'API',
           action: 'AUTHORIZATION_FAILED',
           outcome: 'FAILURE',
-          reason: `Required roles: ${options.roles.join(', ')}`
+          reason: `Required roles: ${options.roles.join(', ')}`,
         });
-        
-        return NextResponse.json(
-          { error: 'Insufficient permissions' },
-          { status: 403 }
-        );
+
+        return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
       }
     }
-    
+
+    // Resolve effective clinic: use subdomain clinic when on clinic subdomain (e.g. ot.eonpro.io) if user has access
+    let effectiveClinicId = user.clinicId ?? undefined;
+    const subdomain = req.headers.get('x-clinic-subdomain');
+    if (
+      subdomain &&
+      user.clinicId != null &&
+      user.role !== 'super_admin' &&
+      !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())
+    ) {
+      try {
+        const subdomainClinic = await basePrisma.clinic.findFirst({
+          where: {
+            subdomain: { equals: subdomain, mode: 'insensitive' },
+            status: 'ACTIVE',
+          },
+          select: { id: true },
+        });
+        if (subdomainClinic && subdomainClinic.id !== user.clinicId) {
+          const hasAccess =
+            user.clinicId === subdomainClinic.id ||
+            (await hasAccessToClinic(user, subdomainClinic.id));
+          if (hasAccess) {
+            effectiveClinicId = subdomainClinic.id;
+          }
+        }
+      } catch {
+        // Keep effectiveClinicId from user
+      }
+    }
+
     // Set clinic context for database queries
-    if (user.clinicId) {
-      setClinicContext(user.clinicId);
+    if (effectiveClinicId != null) {
+      setClinicContext(effectiveClinicId);
     }
 
     // Add user to request headers for downstream use
@@ -243,16 +297,19 @@ export function withAuthParams<T extends { params: any }>(
     modifiedReq.headers.set('x-user-id', user.id.toString());
     modifiedReq.headers.set('x-user-email', user.email);
     modifiedReq.headers.set('x-user-role', user.role);
-    if (user.clinicId) {
-      modifiedReq.headers.set('x-clinic-id', user.clinicId.toString());
+    if (effectiveClinicId != null) {
+      modifiedReq.headers.set('x-clinic-id', effectiveClinicId.toString());
     }
-    
+
+    const userForHandler: AuthUser =
+      effectiveClinicId !== user.clinicId ? { ...user, clinicId: effectiveClinicId } : user;
+
     try {
-      const response = await handler(modifiedReq as NextRequest, user, context);
-      
+      const response = await handler(modifiedReq as NextRequest, userForHandler, context);
+
       // Clear clinic context after request
       setClinicContext(undefined);
-      
+
       return response;
     } catch (error) {
       // Clear clinic context on error

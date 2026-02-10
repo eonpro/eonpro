@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, JWTPayload } from 'jose';
 import { Prisma } from '@prisma/client';
 import { JWT_SECRET, AUTH_CONFIG } from './config';
-import { setClinicContext, runWithClinicContext, prisma } from '@/lib/db';
+import { setClinicContext, runWithClinicContext, prisma, basePrisma } from '@/lib/db';
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
@@ -406,21 +406,22 @@ export function withAuth<T = unknown>(
       const user = tokenResult.user;
 
       // Session validation
-      // Security: All authenticated requests should have sessionId unless explicitly skipped
+      // Security: All authenticated requests should have sessionId unless explicitly skipped (enterprise audit P0)
       if (!options.skipSessionValidation) {
-        // Require sessionId for non-skipped routes to prevent session timeout bypass
         if (!user.sessionId) {
-          // Log this as a potential security event - old tokens without sessionId
           logger.warn('Token missing sessionId - possible old token or manipulation', {
             userId: user.id,
             role: user.role,
             tokenIat: user.iat,
             requestId,
           });
-
-          // Allow the request but mark for monitoring
-          // In strict mode, you could return 401 here instead:
-          // return NextResponse.json({ error: 'Invalid session', code: 'SESSION_INVALID', requestId }, { status: 401 });
+          // Production: reject to prevent session timeout bypass; dev: allow for compatibility
+          if (process.env.NODE_ENV === 'production') {
+            return NextResponse.json(
+              { error: 'Invalid session', code: 'SESSION_INVALID', requestId },
+              { status: 401 }
+            );
+          }
         } else {
           const sessionResult = await validateSession(token, req);
 
@@ -511,8 +512,46 @@ export function withAuth<T = unknown>(
 
       // Determine clinic context for multi-tenant queries
       // Super admins should NOT have clinic context so they can access all data
-      const effectiveClinicId =
+      let effectiveClinicId =
         user.clinicId && user.role !== 'super_admin' ? user.clinicId : undefined;
+
+      // When on a clinic subdomain (e.g. ot.eonpro.io), use that clinic if the user has access
+      // so that "changes" and data shown are for the subdomain's clinic, not the JWT's original clinic
+      const subdomain = req.headers.get('x-clinic-subdomain');
+      if (
+        subdomain &&
+        effectiveClinicId != null &&
+        user.role !== 'super_admin' &&
+        !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())
+      ) {
+        try {
+          const subdomainClinic = await basePrisma.clinic.findFirst({
+            where: {
+              subdomain: { equals: subdomain, mode: 'insensitive' },
+              status: 'ACTIVE',
+            },
+            select: { id: true },
+          });
+          if (subdomainClinic && subdomainClinic.id !== effectiveClinicId) {
+            const hasAccess =
+              user.clinicId === subdomainClinic.id ||
+              (await userHasAccessToClinic(user, subdomainClinic.id));
+            if (hasAccess) {
+              effectiveClinicId = subdomainClinic.id;
+              logger.debug('[Auth] Using subdomain clinic for context', {
+                userId: user.id,
+                subdomain,
+                clinicId: subdomainClinic.id,
+              });
+            }
+          }
+        } catch (err) {
+          logger.warn('[Auth] Subdomain clinic lookup failed', {
+            subdomain,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
 
       // Also set the legacy global for backwards compatibility
       setClinicContext(effectiveClinicId);
@@ -522,14 +561,14 @@ export function withAuth<T = unknown>(
         // Silently ignore errors - this is non-critical
       });
 
-      // Inject user info into request headers
+      // Inject user info into request headers (use effectiveClinicId so routes see subdomain clinic when overridden)
       const headers = new Headers(req.headers);
       headers.set('x-user-id', user.id.toString());
       headers.set('x-user-email', user.email);
       headers.set('x-user-role', user.role);
       headers.set('x-request-id', requestId);
-      if (user.clinicId) {
-        headers.set('x-clinic-id', user.clinicId.toString());
+      if (effectiveClinicId != null) {
+        headers.set('x-clinic-id', effectiveClinicId.toString());
       }
 
       // Create a new NextRequest with the modified headers
@@ -539,9 +578,15 @@ export function withAuth<T = unknown>(
         body: req.body,
       });
 
+      // Pass user with effective clinic so handlers see subdomain clinic when overridden
+      const userForHandler: AuthUser =
+        effectiveClinicId !== user.clinicId
+          ? { ...user, clinicId: effectiveClinicId }
+          : user;
+
       // Execute handler within clinic context (thread-safe using AsyncLocalStorage)
       const response = await runWithClinicContext(effectiveClinicId, async () => {
-        return handler(modifiedReq, user, context);
+        return handler(modifiedReq, userForHandler, context);
       });
 
       // Clear legacy clinic context
@@ -555,7 +600,7 @@ export function withAuth<T = unknown>(
         logger.api(req.method, new URL(req.url).pathname, {
           userId: user.id,
           role: user.role,
-          clinicId: user.clinicId,
+          clinicId: effectiveClinicId,
           duration: Date.now() - startTime,
           requestId,
         });
@@ -568,9 +613,9 @@ export function withAuth<T = unknown>(
       // Distinguish database connection errors from authentication errors
       // This helps with debugging and allows clients to retry on transient failures
       if (isDatabaseConnectionError(error)) {
-        logger.error('Database connection error in auth middleware', error as Error, { 
+        logger.error('Database connection error in auth middleware', error as Error, {
           requestId,
-          errorType: 'DATABASE_CONNECTION'
+          errorType: 'DATABASE_CONNECTION',
         });
 
         return NextResponse.json(
@@ -580,11 +625,11 @@ export function withAuth<T = unknown>(
             requestId,
             retryAfter: 5,
           },
-          { 
+          {
             status: 503,
             headers: {
               'Retry-After': '5',
-            }
+            },
           }
         );
       }
@@ -601,6 +646,38 @@ export function withAuth<T = unknown>(
       );
     }
   };
+}
+
+/**
+ * Check if the user has access to the given clinic (for subdomain-override).
+ * Uses UserClinic and ProviderClinic; user.clinicId already checked by caller.
+ */
+async function userHasAccessToClinic(user: AuthUser, clinicId: number): Promise<boolean> {
+  try {
+    const [userClinic, providerClinic] = await Promise.all([
+      basePrisma.userClinic.findFirst({
+        where: {
+          userId: user.id,
+          clinicId,
+          isActive: true,
+        },
+        select: { id: true },
+      }),
+      user.providerId
+        ? basePrisma.providerClinic.findFirst({
+            where: {
+              providerId: user.providerId,
+              clinicId,
+              isActive: true,
+            },
+            select: { id: true },
+          })
+        : Promise.resolve(null),
+    ]);
+    return !!userClinic || !!providerClinic;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -632,7 +709,7 @@ function isDatabaseConnectionError(error: unknown): boolean {
       'database server',
       'cannot connect',
     ];
-    return connectionPatterns.some(pattern => message.includes(pattern));
+    return connectionPatterns.some((pattern) => message.includes(pattern));
   }
 
   return false;

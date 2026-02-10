@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import { getRequestHost } from '@/lib/request-host';
 
 // Edge-compatible JWT secret (don't import from config to avoid process.argv)
 const getJwtSecret = () => {
@@ -98,8 +99,8 @@ export async function clinicMiddleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-clinic-id', clinicId?.toString() || '');
 
-  // For subdomain-based routing, also set the clinic subdomain
-  const hostname = request.headers.get('host') || '';
+  // For subdomain-based routing, also set the clinic subdomain (use request host for proxy correctness)
+  const hostname = getRequestHost(request);
   const subdomain = extractSubdomain(hostname);
   if (subdomain) {
     requestHeaders.set('x-clinic-subdomain', subdomain);
@@ -143,15 +144,25 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
     }
   }
 
-  // Priority 4: Check subdomain (handled by client-side redirect if needed)
-  // NOTE: We can't do DB lookups in Edge Runtime, so subdomain->clinicId
-  // mapping must be done by the client calling /api/clinic/resolve
-  const hostname = request.headers.get('host') || '';
+  // Priority 4: Check subdomain
+  const hostname = getRequestHost(request);
   const subdomain = extractSubdomain(hostname);
   if (subdomain && !['www', 'app', 'api', 'admin'].includes(subdomain)) {
-    // Set header so API routes can look up the clinic
-    // The actual DB lookup happens in the API route
-    return null; // Will trigger redirect to clinic-select or use default
+    // 4a: Optional env map so Edge can set clinicId without DB (e.g. SUBDOMAIN_CLINIC_ID_MAP=ot:5,wellmedr:2,eonmeds:3)
+    const mapEnv = process.env.SUBDOMAIN_CLINIC_ID_MAP;
+    if (mapEnv && typeof mapEnv === 'string') {
+      const normalizedSub = subdomain.toLowerCase();
+      for (const pair of mapEnv.split(',')) {
+        const [key, val] = pair.split(':').map((s) => s.trim());
+        if (key?.toLowerCase() === normalizedSub && val) {
+          const id = parseInt(val, 10);
+          if (!isNaN(id)) return id;
+          break;
+        }
+      }
+    }
+    // 4b: No DB in Edge; API routes use x-clinic-subdomain for lookup
+    return null;
   }
 
   // Priority 5: Default clinic ID from env (for single-clinic deployments)

@@ -4,6 +4,9 @@
  * Terminates the user session and clears authentication cookies.
  * HIPAA Compliant: Logs all logout events for audit trail.
  *
+ * Responds immediately with cleared cookies to avoid Vercel timeout when
+ * the DB connection pool is exhausted; session/audit cleanup runs best-effort in background.
+ *
  * @module api/auth/logout
  */
 
@@ -16,22 +19,46 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
+const LOGOUT_CLEANUP_TIMEOUT_MS = 4000; // Don't block response; avoid holding DB connection
+
+const COOKIE_NAMES = [
+  'auth-token',
+  'admin-token',
+  'provider-token',
+  'patient-token',
+  'influencer-token',
+  'super_admin-token',
+  'staff-token',
+  'support-token',
+  'selected-clinic', // So next visit doesn't use stale clinic context (critical for ot.eonpro.io and multi-subdomain)
+];
+
+function clearCookiesOnResponse(response: NextResponse): void {
+  for (const name of COOKIE_NAMES) {
+    response.cookies.set({
+      name,
+      value: '',
+      ...AUTH_CONFIG.cookie,
+      maxAge: 0,
+      expires: new Date(0),
+    });
+  }
+}
+
 /**
  * POST /api/auth/logout
- * Logout endpoint - terminates session and clears cookies
+ * Logout endpoint - clears cookies and returns immediately; session/audit cleanup is best-effort.
  */
 export async function POST(req: NextRequest) {
   try {
-    // Get token from Authorization header or cookies
-    const authHeader = req.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
     let userId: string | undefined;
     let sessionId: string | undefined;
     let userRole: string | undefined;
     let clinicId: number | undefined;
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
 
-    // Try to decode token to get user info for audit logging
+    // Decode token only for audit context (fast, no DB)
     if (token) {
       try {
         const { payload } = await jwtVerify(token, JWT_SECRET);
@@ -39,91 +66,71 @@ export async function POST(req: NextRequest) {
         sessionId = payload.sessionId as string;
         userRole = payload.role as string;
         clinicId = payload.clinicId as number;
-
-        // Terminate session if sessionId exists
-        if (sessionId) {
-          await terminateSession(sessionId, 'user_logout', req);
-        }
-
-        // Also invalidate any UserSession records in database
-        if (userId) {
-          try {
-            // Delete user sessions by truncated token
-            const tokenPrefix = token.substring(0, 64);
-            await prisma.userSession.deleteMany({
-              where: {
-                OR: [
-                  { userId: parseInt(userId, 10) },
-                  { token: tokenPrefix },
-                ],
-              },
-            });
-          } catch (dbError) {
-            // UserSession table might not exist or query might fail
-            logger.debug('[Logout] UserSession cleanup skipped', {
-              error: dbError instanceof Error ? dbError.message : 'Unknown error',
-            });
-          }
-        }
-
-        // Audit log the logout
-        await auditLog(req, {
-          userId,
-          userRole,
-          clinicId,
-          eventType: AuditEventType.LOGOUT,
-          resourceType: 'Session',
-          resourceId: sessionId || 'unknown',
-          action: 'LOGOUT',
-          outcome: 'SUCCESS',
-        });
-
-        logger.info('[Logout] User logged out successfully', {
-          userId,
-          role: userRole,
-          clinicId,
-        });
-      } catch (verifyError) {
-        // Token is invalid or expired, but we still want to clear cookies
-        logger.debug('[Logout] Token verification failed during logout', {
-          error: verifyError instanceof Error ? verifyError.message : 'Unknown error',
-        });
+      } catch {
+        // Invalid/expired token - still clear cookies
       }
     }
 
-    // Prepare response
+    // Build response and clear cookies first so we never block on DB
     const response = NextResponse.json({ success: true });
+    clearCookiesOnResponse(response);
 
-    // Clear all authentication cookies
     const cookieStore = await cookies();
-    const cookieNames = [
-      'auth-token',
-      'admin-token',
-      'provider-token',
-      'patient-token',
-      'influencer-token',
-      'super_admin-token',
-      'staff-token',
-      'support-token',
-    ];
-
-    // Delete cookies via cookieStore
-    for (const name of cookieNames) {
+    for (const name of COOKIE_NAMES) {
       try {
         cookieStore.delete(name);
       } catch {
-        // Cookie might not exist, ignore
+        // ignore
       }
     }
 
-    // Also set expired cookies in response (belt and suspenders approach)
-    for (const name of cookieNames) {
-      response.cookies.set({
-        name,
-        value: '',
-        ...AUTH_CONFIG.cookie,
-        maxAge: 0,
-        expires: new Date(0),
+    // Best-effort cleanup in background so logout never times out when pool is exhausted
+    if (token && (sessionId || userId)) {
+      const cleanup = async () => {
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Logout cleanup timeout')), LOGOUT_CLEANUP_TIMEOUT_MS)
+        );
+        await Promise.race([
+          (async () => {
+            if (sessionId) await terminateSession(sessionId, 'user_logout', req);
+            if (userId) {
+              try {
+                const tokenPrefix = token.substring(0, 64);
+                await prisma.userSession.deleteMany({
+                  where: {
+                    OR: [{ userId: parseInt(userId!, 10) }, { token: tokenPrefix }],
+                  },
+                });
+              } catch (dbError) {
+                logger.debug('[Logout] UserSession cleanup skipped', {
+                  error: dbError instanceof Error ? dbError.message : 'Unknown error',
+                });
+              }
+            }
+            await auditLog(req, {
+              userId: userId ?? 'anonymous',
+              userRole,
+              clinicId: clinicId ?? undefined,
+              eventType: AuditEventType.LOGOUT,
+              resourceType: 'Session',
+              resourceId: sessionId || 'unknown',
+              action: 'LOGOUT',
+              outcome: 'SUCCESS',
+            });
+            logger.info('[Logout] User logged out successfully', {
+              userId,
+              role: userRole,
+              clinicId,
+            });
+          })(),
+          timeout,
+        ]);
+      };
+      cleanup().catch((err) => {
+        logger.warn('[Logout] Background cleanup failed (user still logged out)', {
+          error: err instanceof Error ? err.message : String(err),
+          userId,
+        });
       });
     }
 
@@ -131,30 +138,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Logout] Error during logout', { error: errorMessage });
-
-    // Even on error, clear cookies and return success
-    // User should still be logged out client-side
     const response = NextResponse.json({ success: true });
-
-    const cookieNames = [
-      'auth-token',
-      'admin-token',
-      'provider-token',
-      'patient-token',
-      'influencer-token',
-      'super_admin-token',
-    ];
-
-    for (const name of cookieNames) {
-      response.cookies.set({
-        name,
-        value: '',
-        ...AUTH_CONFIG.cookie,
-        maxAge: 0,
-        expires: new Date(0),
-      });
-    }
-
+    clearCookiesOnResponse(response);
     return response;
   }
 }

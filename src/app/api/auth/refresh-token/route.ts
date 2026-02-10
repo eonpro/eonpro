@@ -33,18 +33,12 @@ export async function POST(req: NextRequest) {
       payload = result.payload;
     } catch (error: unknown) {
       logger.warn('Invalid refresh token attempt');
-      return NextResponse.json(
-        { error: 'Invalid or expired refresh token' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid or expired refresh token' }, { status: 401 });
     }
 
     // Check if it's a refresh token
     if (payload.type !== 'refresh') {
-      return NextResponse.json(
-        { error: 'Invalid token type' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid token type' }, { status: 401 });
     }
 
     // Get user based on ID and role from the token
@@ -56,17 +50,19 @@ export async function POST(req: NextRequest) {
     // Try provider first
     const providerUser = await prisma.provider.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, firstName: true, lastName: true },
+      select: { id: true, email: true, firstName: true, lastName: true, clinicId: true },
     });
 
     if (providerUser) {
-      // Create new access token for provider
-      const newAccessToken = await new SignJWT({
+      const payload: Record<string, unknown> = {
         id: providerUser.id,
         email: providerUser.email || '',
         name: `${providerUser.firstName} ${providerUser.lastName}`,
         role: 'provider',
-      })
+      };
+      if (providerUser.clinicId != null) payload.clinicId = providerUser.clinicId;
+
+      const newAccessToken = await new SignJWT(payload)
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.provider)
@@ -82,7 +78,7 @@ export async function POST(req: NextRequest) {
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
         .sign(JWT_SECRET);
 
-      logger.info(`Token refreshed for provider: ${providerUser.email}`);
+      logger.info('Token refreshed for provider', { userId: providerUser.id });
 
       return NextResponse.json({
         token: newAccessToken,
@@ -125,7 +121,7 @@ export async function POST(req: NextRequest) {
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
         .sign(JWT_SECRET);
 
-      logger.info(`Token refreshed for influencer: ${influencerUser.email}`);
+      logger.info('Token refreshed for influencer', { userId: influencerUser.id });
 
       return NextResponse.json({
         token: newAccessToken,
@@ -135,6 +131,78 @@ export async function POST(req: NextRequest) {
           email: influencerUser.email,
           name: influencerUser.name,
           role: 'influencer',
+        },
+      });
+    }
+
+    // Try User table (unified: admin, staff, support, patient, sales_rep)
+    const appUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        clinicId: true,
+        providerId: true,
+        patientId: true,
+        permissions: true,
+        features: true,
+      },
+    });
+
+    if (appUser) {
+      const expiry =
+        String(appUser.role).toUpperCase() === 'PATIENT'
+          ? AUTH_CONFIG.tokenExpiry.patient
+          : AUTH_CONFIG.tokenExpiry.access;
+      const payload: Record<string, unknown> = {
+        id: appUser.id,
+        email: appUser.email,
+        name: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim() || appUser.email,
+        role: appUser.role,
+      };
+      if (appUser.clinicId != null) payload.clinicId = appUser.clinicId;
+      if (appUser.providerId != null) payload.providerId = appUser.providerId;
+      if (appUser.patientId != null) payload.patientId = appUser.patientId;
+      if (Array.isArray(appUser.permissions)) payload.permissions = appUser.permissions;
+      if (Array.isArray(appUser.features)) payload.features = appUser.features;
+
+      const newAccessToken = await new SignJWT(payload)
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(expiry)
+        .sign(JWT_SECRET);
+
+      const newRefreshToken = await new SignJWT({
+        id: appUser.id,
+        type: 'refresh',
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
+        .sign(JWT_SECRET);
+
+      logger.info('Token refreshed for user', {
+        userId: appUser.id,
+        role: appUser.role,
+        clinicId: appUser.clinicId ?? undefined,
+      });
+
+      return NextResponse.json({
+        token: newAccessToken,
+        refreshToken: newRefreshToken,
+        user: {
+          id: appUser.id,
+          email: appUser.email,
+          firstName: appUser.firstName,
+          lastName: appUser.lastName,
+          name: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim() || appUser.email,
+          role: appUser.role,
+          clinicId: appUser.clinicId ?? undefined,
+          providerId: appUser.providerId ?? undefined,
+          patientId: appUser.patientId ?? undefined,
         },
       });
     }
@@ -176,15 +244,9 @@ export async function POST(req: NextRequest) {
     }
 
     // No user found
-    return NextResponse.json(
-      { error: 'User not found' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
   } catch (error: unknown) {
     logger.error('Token refresh error:', error instanceof Error ? error : new Error(String(error)));
-    return NextResponse.json(
-      { error: 'Failed to refresh token' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to refresh token' }, { status: 500 });
   }
 }

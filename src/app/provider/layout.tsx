@@ -29,6 +29,7 @@ import {
   NotificationToastContainer,
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
 
 // Default EONPRO logos
 const EONPRO_LOGO =
@@ -398,6 +399,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   return (
     <ClinicBrandingProvider>
       <NotificationProvider>
+        <SubdomainClinicBanner />
         <ProviderLayoutInner>{children}</ProviderLayoutInner>
         <NotificationToastContainer />
       </NotificationProvider>

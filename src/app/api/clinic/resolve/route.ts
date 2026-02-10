@@ -13,7 +13,10 @@ import { logger } from '@/lib/logger';
  * Query params:
  * - domain: The full hostname (e.g., "wellmedr.eonpro.io" or "portal.wellmedr.com")
  *
- * Returns clinic branding info (public data only - no sensitive fields)
+ * Returns clinic branding info (public data only - no sensitive fields).
+ *
+ * Caching: Responses send Cache-Control: no-store. Any server-side caller must use
+ * fetch(..., { cache: 'no-store' }) so branding changes take effect immediately.
  */
 // Default EONPRO payload for main app / unknown subdomains (no DB)
 const defaultBrandingPayload = {
@@ -86,6 +89,11 @@ export async function GET(request: NextRequest) {
         logger.info('[ClinicResolve] Unknown eonpro.io subdomain, returning default branding', {
           domain: normalizedDomain,
         });
+        logger.info('[ClinicResolve] eonpro.io subdomain result', {
+          domain: normalizedDomain,
+          resolved: false,
+          clinicId: null,
+        });
         return NextResponse.json(defaultBrandingPayload, {
           headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
         });
@@ -102,6 +110,16 @@ export async function GET(request: NextRequest) {
       clinicId: clinic.id,
       clinicName: clinic.name,
     });
+
+    // Observability: one-line summary for *.eonpro.io (no PHI) for production diagnosis
+    const normalized = domain.split(':')[0].toLowerCase();
+    if (normalized.endsWith('.eonpro.io')) {
+      logger.info('[ClinicResolve] eonpro.io subdomain result', {
+        domain: normalized,
+        resolved: true,
+        clinicId: clinic.id,
+      });
+    }
 
     // Return only public branding data
     const buttonTextColor = clinic.buttonTextColor ?? 'auto';

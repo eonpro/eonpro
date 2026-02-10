@@ -20,6 +20,7 @@ import { prisma, basePrisma } from '@/lib/db';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
+import { getRequestHost } from '@/lib/request-host';
 // Note: Patient, Provider, Order types imported from models are not directly used
 // The Prisma client provides type-safe queries for these entities
 
@@ -454,69 +455,76 @@ async function loginHandler(req: NextRequest) {
       });
     }
 
-    // Determine active clinic - use selected, subdomain-based, primary, or first available
+    // Determine active clinic: subdomain wins when user is on a clinic subdomain (e.g. ot.eonpro.io), then body selectedClinicId, then fallback
     let activeClinicId: number | undefined = undefined;
     if (userRole !== 'super_admin') {
-      if (selectedClinicId && clinics.find((c) => c.id === selectedClinicId)) {
-        activeClinicId = selectedClinicId;
-      } else {
-        // Try to detect clinic from subdomain (for white-labeled login)
-        const host = req.headers.get('host') || '';
-        const subdomain = extractSubdomain(host);
+      const host = getRequestHost(req);
+      const subdomain = extractSubdomain(host);
 
-        if (subdomain) {
-          // Find clinic by subdomain (case-insensitive)
-          const subdomainClinic = await basePrisma.clinic.findFirst({
-            where: { subdomain: { equals: subdomain, mode: 'insensitive' }, status: 'ACTIVE' },
-            select: { id: true },
-          });
+      // 1) When Host is a clinic subdomain and user has access, use that clinic (so "landed on ot.eonpro.io" always means OT)
+      if (subdomain) {
+        const subdomainClinic = await basePrisma.clinic.findFirst({
+          where: { subdomain: { equals: subdomain, mode: 'insensitive' }, status: 'ACTIVE' },
+          select: { id: true },
+        });
 
-          if (subdomainClinic) {
-            // Check if user has access to this clinic
-            const hasAccess =
-              clinics.some((c) => c.id === subdomainClinic.id) ||
-              user.clinicId === subdomainClinic.id;
+        if (subdomainClinic) {
+          const hasAccess =
+            clinics.some((c) => c.id === subdomainClinic.id) ||
+            user.clinicId === subdomainClinic.id;
 
-            if (hasAccess) {
-              activeClinicId = subdomainClinic.id;
-              logger.info('[Login] Using subdomain clinic', {
-                subdomain,
-                clinicId: subdomainClinic.id,
-                userId: user.id,
-              });
-            } else {
-              // User is on a clinic subdomain they don't have access to — reject to avoid confusion
-              const primaryOrFirst = clinics.find((c) => c.isPrimary) || clinics[0];
-              const correctSubdomain = primaryOrFirst?.subdomain;
-              const correctLoginUrl = correctSubdomain
-                ? buildClinicLoginUrl(req.headers.get('host') || '', correctSubdomain)
-                : null;
+          if (hasAccess) {
+            activeClinicId = subdomainClinic.id;
+            logger.info('[Login] Using subdomain clinic', {
+              subdomain,
+              clinicId: subdomainClinic.id,
+              userId: user.id,
+            });
+          } else {
+            const primaryOrFirst = clinics.find((c) => c.isPrimary) || clinics[0];
+            const correctSubdomain = primaryOrFirst?.subdomain;
+            const correctLoginUrl = correctSubdomain
+              ? buildClinicLoginUrl(host, correctSubdomain)
+              : null;
 
-              logger.warn('[Login] Login rejected: user on wrong clinic domain', {
-                subdomain,
-                subdomainClinicId: subdomainClinic.id,
-                userId: user.id,
-                userClinicId: user.clinicId,
-              });
+            logger.warn('[Login] Login rejected: user on wrong clinic domain', {
+              subdomain,
+              subdomainClinicId: subdomainClinic.id,
+              userId: user.id,
+              userClinicId: user.clinicId,
+            });
 
-              return NextResponse.json(
-                {
-                  error:
-                    "This login page is for a different clinic. Use your clinic's login URL to sign in.",
-                  code: 'WRONG_CLINIC_DOMAIN',
-                  correctLoginUrl,
-                  clinicName: primaryOrFirst?.name ?? undefined,
-                },
-                { status: 403 }
-              );
-            }
+            return NextResponse.json(
+              {
+                error:
+                  "This login page is for a different clinic. Use your clinic's login URL to sign in.",
+                code: 'WRONG_CLINIC_DOMAIN',
+                correctLoginUrl,
+                clinicName: primaryOrFirst?.name ?? undefined,
+              },
+              { status: 403 }
+            );
           }
         }
+      }
 
-        // Fallback to user's primary clinic or first available
-        if (!activeClinicId) {
-          activeClinicId = user.clinicId || clinics[0]?.id;
-        }
+      // 2) Else use body selectedClinicId if valid
+      if (!activeClinicId && selectedClinicId && clinics.find((c) => c.id === selectedClinicId)) {
+        activeClinicId = selectedClinicId;
+      }
+
+      // 3) Fallback to user's primary or first available
+      if (!activeClinicId) {
+        activeClinicId = user.clinicId || clinics[0]?.id;
+      }
+
+      // Observability: clinic context for eonpro.io (no PHI) for production diagnosis
+      if (host && host.includes('eonpro.io')) {
+        logger.info('[Login] clinic context', {
+          host,
+          subdomain: subdomain ?? null,
+          activeClinicId: activeClinicId ?? null,
+        });
       }
     }
 
@@ -776,24 +784,32 @@ async function loginHandler(req: NextRequest) {
       maxAge: 60 * 60 * 24, // 24 hours
     });
 
+    // Set selected-clinic so middleware and client stay in sync with JWT clinic (critical for ot.eonpro.io and other clinic subdomains)
+    if (activeClinicId != null) {
+      response.cookies.set({
+        name: 'selected-clinic',
+        value: String(activeClinicId),
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: false, // Allow client to read for clinic switcher UI
+      });
+    }
+
     return response;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
-    const prismaError = (error as any)?.code;
+    const prismaError = (error as { code?: string })?.code;
     const duration = Date.now() - startTime;
+    const isPoolExhausted = prismaError === 'P2024';
 
-    // Log detailed error for debugging
-    console.error('[LOGIN_ERROR]', {
-      message: errorMessage,
-      stack: errorStack,
-      type: error?.constructor?.name,
+    logger.error('Login error', error instanceof Error ? error : new Error(errorMessage), {
+      step: debugInfo?.step,
       prismaCode: prismaError,
-      debugInfo,
       duration,
     });
-
-    logger.error('Login error:', error instanceof Error ? error : new Error(errorMessage));
 
     // Report to Sentry (no PHI - step and code only)
     Sentry.captureException(error, {
@@ -807,6 +823,21 @@ async function loginHandler(req: NextRequest) {
         hasDebugStep: !!debugInfo?.step,
       },
     });
+
+    // P2024 = connection pool exhausted: return 503 so client can show "try again" and respect Retry-After
+    if (isPoolExhausted) {
+      return NextResponse.json(
+        {
+          error: 'Service is busy. Please try again in a moment.',
+          code: 'SERVICE_UNAVAILABLE',
+          retryAfter: 10,
+        },
+        {
+          status: 503,
+          headers: { 'Retry-After': '10' },
+        }
+      );
+    }
 
     // Return error details (safe to show in production for debugging login issues)
     return NextResponse.json(
@@ -889,3 +920,18 @@ function extractSubdomain(hostname: string): string | null {
 
 // Export handler directly - rate limiting is handled inside with enterprise features
 export const POST = loginHandler;
+
+/**
+ * OPTIONS /api/auth/login
+ * CORS preflight - allows browser to send POST from subdomains (e.g. wellmedr.eonpro.io).
+ * Without this, some clients may get 405 Method Not Allowed on the preflight.
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      Allow: 'POST, OPTIONS',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}

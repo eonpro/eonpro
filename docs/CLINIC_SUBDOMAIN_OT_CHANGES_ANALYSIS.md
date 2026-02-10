@@ -89,6 +89,8 @@ See `src/middleware/clinic.ts`. As of this doc, the list includes (among others)
 
 Any new API used on the login page or before auth on a clinic subdomain should be added here.
 
+**Full diagnosis and fix plan:** See **`docs/OT_CLINIC_SUBDOMAIN_DIAGNOSIS_AND_PLAN.md`** for a line-by-line trace, root-cause analysis, and prioritized fix plan (P0: `selected-clinic` cookie on login; P1: subdomain-override in auth).
+
 ## Verification: Why OT might still show “no change”
 
 If `ot.eonpro.io` still doesn’t reflect changes after the fixes above:

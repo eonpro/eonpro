@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Ticket,
+  Gauge,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -33,6 +34,7 @@ import {
   NotificationToastContainer,
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
@@ -125,6 +127,7 @@ const adminNavIconMap = {
   Key,
   Settings,
   Building2,
+  Gauge,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
@@ -599,6 +602,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <AdminErrorBoundary>
       <ClinicBrandingProvider>
         <NotificationProvider>
+          <SubdomainClinicBanner />
           <AdminLayoutInner>{children}</AdminLayoutInner>
           <NotificationToastContainer />
         </NotificationProvider>
