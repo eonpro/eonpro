@@ -768,20 +768,26 @@ async function loginHandler(req: NextRequest) {
       refreshToken,
     });
 
-    // Set secure cookie - use the actual user role for cookie name
+    // Share auth across *.eonpro.io so one login works on wellmedr, ot, eonmeds, app
+    const host = getRequestHost(req);
+    const isEonproIo =
+      host && host.endsWith('.eonpro.io') && process.env.NODE_ENV === 'production';
+    const cookieDomain = isEonproIo ? '.eonpro.io' : undefined;
+
     response.cookies.set({
       name: `${userRole}-token`,
       value: token,
       ...AUTH_CONFIG.cookie,
       maxAge: 60 * 60 * 24, // 24 hours
+      ...(cookieDomain && { domain: cookieDomain }),
     });
 
-    // Also set a generic auth-token cookie for broader compatibility
     response.cookies.set({
       name: 'auth-token',
       value: token,
       ...AUTH_CONFIG.cookie,
       maxAge: 60 * 60 * 24, // 24 hours
+      ...(cookieDomain && { domain: cookieDomain }),
     });
 
     // Set selected-clinic so middleware and client stay in sync with JWT clinic (critical for ot.eonpro.io and other clinic subdomains)
@@ -794,6 +800,7 @@ async function loginHandler(req: NextRequest) {
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
         httpOnly: false, // Allow client to read for clinic switcher UI
+        ...(cookieDomain && { domain: cookieDomain }),
       });
     }
 

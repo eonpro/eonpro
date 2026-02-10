@@ -18,6 +18,7 @@ import { terminateSession } from '@/lib/auth/session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
+import { getRequestHost } from '@/lib/request-host';
 
 const LOGOUT_CLEANUP_TIMEOUT_MS = 4000; // Don't block response; avoid holding DB connection
 
@@ -33,7 +34,11 @@ const COOKIE_NAMES = [
   'selected-clinic', // So next visit doesn't use stale clinic context (critical for ot.eonpro.io and multi-subdomain)
 ];
 
-function clearCookiesOnResponse(response: NextResponse): void {
+function clearCookiesOnResponse(response: NextResponse, req: NextRequest): void {
+  const host = getRequestHost(req);
+  const isEonproIo =
+    host && host.endsWith('.eonpro.io') && process.env.NODE_ENV === 'production';
+  const cookieDomain = isEonproIo ? '.eonpro.io' : undefined;
   for (const name of COOKIE_NAMES) {
     response.cookies.set({
       name,
@@ -41,6 +46,7 @@ function clearCookiesOnResponse(response: NextResponse): void {
       ...AUTH_CONFIG.cookie,
       maxAge: 0,
       expires: new Date(0),
+      ...(cookieDomain && { domain: cookieDomain }),
     });
   }
 }
@@ -73,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     // Build response and clear cookies first so we never block on DB
     const response = NextResponse.json({ success: true });
-    clearCookiesOnResponse(response);
+    clearCookiesOnResponse(response, req);
 
     const cookieStore = await cookies();
     for (const name of COOKIE_NAMES) {
@@ -139,7 +145,7 @@ export async function POST(req: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Logout] Error during logout', { error: errorMessage });
     const response = NextResponse.json({ success: true });
-    clearCookiesOnResponse(response);
+    clearCookiesOnResponse(response, req);
     return response;
   }
 }
