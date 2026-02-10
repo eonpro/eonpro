@@ -59,6 +59,8 @@ type LoginResponseData = {
   clinics?: Clinic[];
   token?: string;
   user?: unknown;
+  /** When status is 503, server may send seconds after which to retry */
+  retryAfter?: number;
   [key: string]: unknown;
 };
 
@@ -125,6 +127,9 @@ export default function LoginPage() {
   // Wrong clinic domain: show message + link to correct clinic login
   const [wrongClinicRedirectUrl, setWrongClinicRedirectUrl] = useState<string | null>(null);
   const [wrongClinicName, setWrongClinicName] = useState<string | null>(null);
+
+  // 503 Service Unavailable: show retry countdown (from Retry-After / retryAfter)
+  const [retryAfterCountdown, setRetryAfterCountdown] = useState(0);
 
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -216,6 +221,15 @@ export default function LoginPage() {
     }
     return undefined;
   }, [resetCountdown, resetCodeSent]);
+
+  // 503 retry countdown (Service is busy)
+  useEffect(() => {
+    if (retryAfterCountdown > 0) {
+      const timer = setTimeout(() => setRetryAfterCountdown(retryAfterCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [retryAfterCountdown]);
 
   // Detect if input is phone number or email
   const isPhoneNumber = (value: string): boolean => {
@@ -495,6 +509,7 @@ export default function LoginPage() {
     setError('');
     setWrongClinicRedirectUrl(null);
     setWrongClinicName(null);
+    setRetryAfterCountdown(0);
     setLoading(true);
 
     try {
@@ -525,6 +540,13 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
+        // 503 Service Unavailable (e.g. DB pool exhausted): show message and retry countdown
+        if (response.status === 503 && typeof data.retryAfter === 'number' && data.retryAfter > 0) {
+          setError(data.error || 'Service is busy. Please try again in a moment.');
+          setRetryAfterCountdown(data.retryAfter);
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error || 'Login failed');
       }
 
@@ -552,6 +574,7 @@ export default function LoginPage() {
     setSelectedClinicId(clinicId);
     setLoading(true);
     setError('');
+    setRetryAfterCountdown(0);
 
     try {
       // Re-authenticate with selected clinic
@@ -572,6 +595,12 @@ export default function LoginPage() {
           setError(data.error || "This login page is for a different clinic.");
           setWrongClinicRedirectUrl(data.correctLoginUrl ?? null);
           setWrongClinicName(data.clinicName ?? null);
+          setLoading(false);
+          return;
+        }
+        if (response.status === 503 && typeof data.retryAfter === 'number' && data.retryAfter > 0) {
+          setError(data.error || 'Service is busy. Please try again in a moment.');
+          setRetryAfterCountdown(data.retryAfter);
           setLoading(false);
           return;
         }
@@ -899,6 +928,11 @@ export default function LoginPage() {
                 {error && (
                   <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
                     <p className="text-center text-sm text-red-600">{error}</p>
+                    {retryAfterCountdown > 0 && (
+                      <p className="text-center text-sm text-red-600">
+                        You can try again in {retryAfterCountdown} second{retryAfterCountdown !== 1 ? 's' : ''}.
+                      </p>
+                    )}
                     {wrongClinicRedirectUrl && (
                       <div className="text-center">
                         <a
@@ -918,12 +952,12 @@ export default function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || retryAfterCountdown > 0}
                   className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
-                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
+                    loading || retryAfterCountdown > 0 ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
                   }`}
                   style={{
-                    backgroundColor: loading ? '#9CA3AF' : primaryColor,
+                    backgroundColor: loading || retryAfterCountdown > 0 ? '#9CA3AF' : primaryColor,
                     color: buttonTextColor,
                   }}
                 >

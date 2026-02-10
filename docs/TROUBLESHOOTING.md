@@ -20,11 +20,13 @@ Solutions to common issues encountered during development and deployment.
 #### Port Already in Use
 
 **Error:**
+
 ```
 Error: listen EADDRINUSE: address already in use :::3001
 ```
 
 **Solution:**
+
 ```bash
 # Find and kill the process
 lsof -i :3001
@@ -37,11 +39,13 @@ PORT=3002 npm run dev
 #### Module Not Found
 
 **Error:**
+
 ```
 Module not found: Can't resolve '@/lib/...'
 ```
 
 **Solution:**
+
 ```bash
 # Reinstall dependencies
 rm -rf node_modules
@@ -63,10 +67,11 @@ rm -rf .next
 1. Check file name (must be `.env.local` for development)
 2. Restart the dev server after changes
 3. Verify no syntax errors in .env file:
+
    ```bash
    # Bad (spaces around =)
    DATABASE_URL = "postgresql://..."
-   
+
    # Good
    DATABASE_URL="postgresql://..."
    ```
@@ -76,11 +81,13 @@ rm -rf .next
 #### "Cannot find module" for Prisma
 
 **Error:**
+
 ```
 Cannot find module '@prisma/client'
 ```
 
 **Solution:**
+
 ```bash
 npx prisma generate
 ```
@@ -88,6 +95,7 @@ npx prisma generate
 #### Type Errors After Schema Change
 
 **Solution:**
+
 ```bash
 # Regenerate types
 npx prisma generate
@@ -100,11 +108,68 @@ npx prisma generate
 
 ## Database Issues
 
+### Database Down / Nothing Showing in Platform
+
+**Symptoms:** Health check shows database unhealthy, dashboard is empty, lists don’t load, or you see generic 500/503 errors.
+
+**Quick checks:**
+
+1. **Run the health endpoint** (replace with your app URL):
+   ```bash
+   curl -s https://YOUR_DOMAIN/api/health | jq .
+   ```
+   If `database` is `"unhealthy"`, the app cannot reach the DB.
+
+2. **Run the database diagnostic script** (from repo root, with correct `.env`):
+   ```bash
+   npx tsx scripts/check-database.ts
+   ```
+   Or with Prisma only:
+   ```bash
+   npx prisma db execute --schema=./prisma/schema.prisma --stdin <<< "SELECT 1 as ok"
+   ```
+   The script or command will print the exact error (e.g. connection refused, timeout, auth failed).
+
+3. **Environment and hosting:**
+   - **Vercel:** In Project → Settings → Environment Variables, confirm `DATABASE_URL` (and if used `DIRECT_DATABASE_URL`) are set for the right environment (Production/Preview). No spaces or quotes inside the value.
+   - **Supabase:** If the project is paused, resume it in the dashboard. Use the **pooler** URL (port 6543) for `DATABASE_URL` and the **direct** URL (port 5432) for `DIRECT_DATABASE_URL` (migrations).
+   - **Neon:** Check the project isn’t suspended. Use the pooled connection string for `DATABASE_URL`.
+   - **AWS RDS:** Confirm the instance is running and security groups allow inbound from the app (e.g. Vercel IPs or your NAT). If using RDS Proxy, use the proxy endpoint in `DATABASE_URL`.
+
+4. **Local vs production:** If the app works locally but not in production, the production `DATABASE_URL` (or network path to the DB) is wrong or the DB is unreachable from the host (e.g. Vercel). Fix env vars or DB/network as above.
+
+5. **After changing env vars:** Redeploy the app (e.g. trigger a new deployment on Vercel) so the new values are applied.
+
+#### Deployed app – fix in 5 steps (Vercel / production)
+
+1. **Confirm the symptom:**  
+   `curl -s https://YOUR_PRODUCTION_DOMAIN/api/health`  
+   If you see `"database": "unhealthy"`, the deployed app cannot reach the DB.
+
+2. **Vercel env vars:**  
+   [Vercel Dashboard](https://vercel.com) → your project → **Settings** → **Environment Variables**.  
+   Ensure **DATABASE_URL** exists for **Production** (and **Preview** if you use previews).  
+   If your DB uses a pooler (Supabase/Neon), use the **pooled** connection string.  
+   Add **DIRECT_DATABASE_URL** only if you use PgBouncer/Supabase pooler (direct URL for migrations).
+
+3. **DB provider:**  
+   - **Supabase:** Project might be **paused**. In Supabase Dashboard → Project → resume. Use **Connection string** → **Transaction** (pooler, port 6543) for `DATABASE_URL`.  
+   - **Neon:** Dashboard → confirm project is active; use the **pooled** connection string.  
+   - **RDS:** Instance running; security groups allow inbound from the internet (or Vercel’s egress); use RDS Proxy URL if you have one.
+
+4. **Redeploy:**  
+   After changing env vars, trigger a new deployment (Vercel → Deployments → **Redeploy** on latest, or push a commit). Env changes apply only on new builds.
+
+5. **Recheck:**  
+   `curl -s https://YOUR_PRODUCTION_DOMAIN/api/health`  
+   Expect `"database": "healthy"` and the app loading data again.
+
 ### Connection Failed
 
 #### PostgreSQL
 
 **Error:**
+
 ```
 Error: P1001: Can't reach database server
 ```
@@ -112,18 +177,20 @@ Error: P1001: Can't reach database server
 **Solutions:**
 
 1. Check PostgreSQL is running:
+
    ```bash
    # macOS
    brew services list | grep postgres
-   
+
    # Linux
    systemctl status postgresql
-   
+
    # Docker
    docker ps | grep postgres
    ```
 
 2. Verify connection string:
+
    ```bash
    # Test connection
    psql "postgresql://user:pass@localhost:5432/dbname"
@@ -134,11 +201,13 @@ Error: P1001: Can't reach database server
 #### SQLite
 
 **Error:**
+
 ```
 Error: P1003: Database file not found
 ```
 
 **Solution:**
+
 ```bash
 # Create database with migration
 npm run db:migrate:dev
@@ -149,6 +218,7 @@ npm run db:migrate:dev
 #### Migration Failed
 
 **Error:**
+
 ```
 Error: P3006: Migration failed to apply
 ```
@@ -169,11 +239,13 @@ Error: P3006: Migration failed to apply
 #### Schema Drift
 
 **Error:**
+
 ```
 Error: P3005: Database schema is not in sync
 ```
 
 **Solution:**
+
 ```bash
 # Development: reset and re-migrate
 npm run db:reset
@@ -185,11 +257,13 @@ npx prisma migrate dev --name fix_drift
 ### Prisma Studio Won't Open
 
 **Error:**
+
 ```
 Error: Could not start Prisma Studio
 ```
 
 **Solution:**
+
 ```bash
 # Kill existing studio process
 pkill -f "prisma studio"
@@ -205,6 +279,7 @@ npx prisma studio --port 5556
 ### "Invalid token" Error
 
 **Causes:**
+
 1. Token expired
 2. JWT_SECRET changed
 3. Token format invalid
@@ -224,11 +299,13 @@ npx prisma studio --port 5556
 **Debugging steps:**
 
 1. Check if token exists:
+
    ```javascript
    console.log(document.cookie);
    ```
 
 2. Verify middleware is applied:
+
    ```typescript
    // Route should use withAuth
    export const GET = withAuth(async (req, user) => {
@@ -261,6 +338,26 @@ JWT_EXPIRES_IN=7d          # Token lifetime
 2. Check TOTP secret is stored correctly
 3. Try backup codes if available
 
+### Login 503 — "Service is busy. Please try again in a moment."
+
+**What it means:** The login API returned **503 Service Unavailable**. In this codebase, that happens when the **database connection pool is exhausted** (Prisma error **P2024**): the server cannot get a DB connection to verify credentials.
+
+**How to confirm:**
+
+1. **Server logs:** Look for `Login error` with `prismaCode: 'P2024'` (e.g. in Vercel logs, CloudWatch, or your logging service).
+2. **Health/ready:** `GET /api/health` or `GET /api/ready` — if DB is unhealthy, login will keep failing until DB is back.
+
+**Remediation:**
+
+1. **Short term:** Ask users to retry in 10–30 seconds. The API sends `Retry-After: 10`; the login page can show a "Retry" option after that.
+2. **Database:** Check DB connectivity and limits:
+   - **Vercel + serverless:** Each function can open connections; pool can exhaust under load. Use a **connection pooler** (e.g. **RDS Proxy**, **PgBouncer**, or Vercel Postgres pooler) so connections are shared.
+   - **Direct RDS:** Ensure `connection_limit` in Prisma (or default) is not too high for your RDS `max_connections`; many serverless instances × limit can exceed RDS capacity.
+3. **RDS Proxy (recommended for production):** See `docs/infrastructure/RDS_PROXY_SETUP.md`. Proxy pools connections and reduces P2024 under burst traffic.
+4. **Reduce pool size per instance:** In `schema.prisma` or `DATABASE_URL`, you can lower `?connection_limit=5` (or similar) so each serverless instance uses fewer connections; combine with a pooler.
+
+**Related:** `src/app/api/auth/login/route.ts` returns 503 only for P2024; other DB errors return 500 with details. `docs/BLOODWORK_TROUBLESHOOTING.md` has a similar 503/connection pattern for the Labs tab.
+
 ---
 
 ## Build & Deployment Issues
@@ -270,11 +367,13 @@ JWT_EXPIRES_IN=7d          # Token lifetime
 #### Out of Memory
 
 **Error:**
+
 ```
 FATAL ERROR: Reached heap limit
 ```
 
 **Solution:**
+
 ```bash
 # Increase Node.js memory
 NODE_OPTIONS="--max-old-space-size=4096" npm run build
@@ -285,11 +384,13 @@ NODE_OPTIONS="--max-old-space-size=4096" npm run build
 **Solutions:**
 
 1. Run type check first:
+
    ```bash
    npm run type-check
    ```
 
 2. Check for missing dependencies:
+
    ```bash
    npm install
    ```
@@ -305,6 +406,7 @@ NODE_OPTIONS="--max-old-space-size=4096" npm run build
 #### Container Won't Start
 
 **Check logs:**
+
 ```bash
 docker logs eonpro-app
 ```
@@ -312,6 +414,7 @@ docker logs eonpro-app
 **Common fixes:**
 
 1. Environment variables not set:
+
    ```bash
    # Check env file exists
    ls -la .env.production
@@ -326,11 +429,13 @@ docker logs eonpro-app
 #### Database Connection in Docker
 
 **Error:**
+
 ```
 Error: Can't connect to database at localhost
 ```
 
 **Solution:** Use Docker network hostname:
+
 ```bash
 # In docker-compose.yml, use service name
 DATABASE_URL="postgresql://user:pass@postgres:5432/db"
@@ -354,6 +459,7 @@ DATABASE_URL="postgresql://user:pass@postgres:5432/db"
 #### Environment Variables Missing
 
 **Check:**
+
 1. Variables are set in Vercel dashboard
 2. Names match exactly (case-sensitive)
 3. Redeploy after adding variables
@@ -367,6 +473,7 @@ DATABASE_URL="postgresql://user:pass@postgres:5432/db"
 #### Webhook Signature Invalid
 
 **Error:**
+
 ```
 Error: Webhook signature verification failed
 ```
@@ -374,6 +481,7 @@ Error: Webhook signature verification failed
 **Solutions:**
 
 1. Use correct webhook secret:
+
    ```bash
    # Local development (Stripe CLI)
    stripe listen --forward-to localhost:3001/api/webhooks/stripe
@@ -384,11 +492,7 @@ Error: Webhook signature verification failed
    ```typescript
    // Correct: use raw body
    const rawBody = await request.text();
-   const event = stripe.webhooks.constructEvent(
-     rawBody,
-     signature,
-     webhookSecret
-   );
+   const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
    ```
 
 #### Test Mode vs Live Mode
@@ -396,6 +500,7 @@ Error: Webhook signature verification failed
 **Symptoms:** Payments work in test but not production
 
 **Solution:** Ensure you're using the correct API keys:
+
 - Test: `sk_test_...`, `pk_test_...`
 - Live: `sk_live_...`, `pk_live_...`
 
@@ -406,6 +511,7 @@ Error: Webhook signature verification failed
 **Debugging:**
 
 1. Check credentials:
+
    ```bash
    curl -X POST "https://api.twilio.com/2010-04-01/Accounts/$TWILIO_ACCOUNT_SID/Messages.json" \
      -u "$TWILIO_ACCOUNT_SID:$TWILIO_AUTH_TOKEN" \
@@ -434,6 +540,7 @@ Error: Webhook signature verification failed
 #### CORS Errors
 
 **Add CORS configuration to bucket:**
+
 ```json
 {
   "CORSRules": [
@@ -456,6 +563,7 @@ Error: Webhook signature verification failed
 **Debugging:**
 
 1. Enable query logging:
+
    ```typescript
    // In prisma client initialization
    const prisma = new PrismaClient({
@@ -464,13 +572,14 @@ Error: Webhook signature verification failed
    ```
 
 2. Check for N+1 queries:
+
    ```typescript
    // Bad: N+1
    const patients = await prisma.patient.findMany();
    for (const p of patients) {
      const orders = await prisma.order.findMany({ where: { patientId: p.id } });
    }
-   
+
    // Good: Include relation
    const patients = await prisma.patient.findMany({
      include: { orders: true },
@@ -487,6 +596,7 @@ Error: Webhook signature verification failed
 **Solutions:**
 
 1. Check for memory leaks:
+
    ```bash
    node --inspect npm run dev
    # Open chrome://inspect
@@ -506,13 +616,15 @@ Error: Webhook signature verification failed
 **Solutions:**
 
 1. Use data preloader:
+
    ```typescript
    import { dataPreloader } from '@/lib/database';
-   
+
    const dashboard = await dataPreloader.preloadClinicDashboard(clinicId);
    ```
 
 2. Check cache hit rate:
+
    ```bash
    GET /api/admin/database-metrics
    # Look for cacheHitRate
@@ -571,4 +683,5 @@ npm run dev
 
 ---
 
-If your issue isn't covered here, check the [GitHub Issues](https://github.com/your-org/eonpro/issues) or ask in the team Slack channel.
+If your issue isn't covered here, check the
+[GitHub Issues](https://github.com/your-org/eonpro/issues) or ask in the team Slack channel.
