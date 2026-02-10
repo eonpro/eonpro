@@ -13,6 +13,9 @@ import { logger } from '@/lib/logger';
 
 type Params = { params: Promise<{ id: string }> };
 
+const BLOODWORK_UNAVAILABLE_MESSAGE =
+  'Lab reports are temporarily unavailable. If this persists, ask your administrator to run database migrations.';
+
 /** Return true if error indicates missing table/column or schema mismatch (should return 503). */
 function isSchemaOrTableError(err: unknown): boolean {
   if (err && typeof err === 'object' && 'code' in err) {
@@ -21,13 +24,38 @@ function isSchemaOrTableError(err: unknown): boolean {
   }
   const msg = err instanceof Error ? err.message : String(err);
   const lower = msg.toLowerCase();
-  return lower.includes('does not exist') || lower.includes('unknown field') || lower.includes('unknown argument');
+  return (
+    lower.includes('does not exist') ||
+    lower.includes('unknown field') ||
+    lower.includes('unknown argument') ||
+    lower.includes('labreport') ||
+    lower.includes('lab report')
+  );
+}
+
+/** Return true if error looks like Prisma client missing model (e.g. labReport undefined). */
+function isPrismaModelMissingError(err: unknown): boolean {
+  if (err instanceof TypeError) {
+    const msg = err.message.toLowerCase();
+    return msg.includes('findmany') || msg.includes('labreport') || msg.includes('undefined');
+  }
+  return false;
 }
 
 export const GET = withAuthParams(
   async (req: NextRequest, user, { params }: Params) => {
-    const { id } = await params;
-    const patientId = parseInt(id, 10);
+    let patientId: number;
+    try {
+      const resolved = await params;
+      const id = resolved?.id;
+      if (id == null || typeof id !== 'string') {
+        return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
+      }
+      patientId = parseInt(id, 10);
+    } catch (err) {
+      logger.warn('Bloodwork list params resolution failed', { error: err instanceof Error ? err.message : String(err) });
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    }
     if (isNaN(patientId)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
@@ -41,6 +69,11 @@ export const GET = withAuthParams(
     }
     if (user.role !== 'super_admin' && user.clinicId !== patient.clinicId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    if (typeof (prisma as any).labReport?.findMany !== 'function') {
+      logger.warn('Bloodwork list: LabReport model not available (migrations or Prisma generate may be needed)');
+      return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });
     }
 
     try {
@@ -82,8 +115,10 @@ export const GET = withAuthParams(
           reportCount: list.length,
         });
       } catch (auditErr) {
-        // Do not fail the request if audit logging fails (e.g. DB schema)
-        logger.warn('Bloodwork list PHI audit log failed', { patientId, error: auditErr instanceof Error ? auditErr.message : 'Unknown' });
+        logger.warn('Bloodwork list PHI audit log failed', {
+          patientId,
+          error: auditErr instanceof Error ? auditErr.message : 'Unknown',
+        });
       }
 
       return NextResponse.json({ reports: list });
@@ -96,16 +131,10 @@ export const GET = withAuthParams(
         stack: err instanceof Error ? err.stack : undefined,
       });
       if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
-        return NextResponse.json(
-          { error: 'Lab reports are temporarily unavailable. If this persists, ask your administrator to run database migrations.' },
-          { status: 503 }
-        );
+        return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });
       }
-      if (isSchemaOrTableError(err)) {
-        return NextResponse.json(
-          { error: 'Lab reports are temporarily unavailable. If this persists, ask your administrator to run database migrations.' },
-          { status: 503 }
-        );
+      if (isSchemaOrTableError(err) || isPrismaModelMissingError(err)) {
+        return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });
       }
       return handleApiError(err, {
         route: 'GET /api/patients/[id]/bloodwork',
