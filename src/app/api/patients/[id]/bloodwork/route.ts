@@ -71,11 +71,6 @@ export const GET = withAuthParams(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    if (typeof (prisma as any).labReport?.findMany !== 'function') {
-      logger.warn('Bloodwork list: LabReport model not available (migrations or Prisma generate may be needed)');
-      return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });
-    }
-
     try {
       const reports = await prisma.labReport.findMany({
         where: { patientId },

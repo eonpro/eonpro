@@ -1,76 +1,92 @@
 /**
  * Admin/Provider: get a single bloodwork report with all results for a patient.
+ * HIPAA: PHI access is audited (view lab report).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { prisma } from '@/lib/db';
+import { logPHIAccess } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
 
 type Params = { params: Promise<{ id: string; reportId: string }> };
 
-export const GET = withAuthParams(async (_req: NextRequest, user, { params }: Params) => {
-  const { id, reportId } = await params;
-  const patientId = parseInt(id, 10);
-  const reportIdNum = parseInt(reportId, 10);
-  if (isNaN(patientId)) {
-    return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
-  }
-  if (isNaN(reportIdNum)) {
-    return NextResponse.json({ error: 'Invalid report ID' }, { status: 400 });
-  }
+export const GET = withAuthParams(
+  async (req: NextRequest, user, { params }: Params) => {
+    const { id, reportId } = await params;
+    const patientId = parseInt(id, 10);
+    const reportIdNum = parseInt(reportId, 10);
+    if (isNaN(patientId)) {
+      return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
+    }
+    if (isNaN(reportIdNum)) {
+      return NextResponse.json({ error: 'Invalid report ID' }, { status: 400 });
+    }
 
-  const patient = await prisma.patient.findUnique({
-    where: { id: patientId },
-    select: { id: true, clinicId: true },
-  });
-  if (!patient) {
-    return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-  }
-  if (user.role !== 'super_admin' && user.clinicId !== patient.clinicId) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-  }
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { id: true, clinicId: true },
+    });
+    if (!patient) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+    }
+    if (user.role !== 'super_admin' && user.clinicId !== patient.clinicId) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
-  const report = await prisma.labReport.findFirst({
-    where: { id: reportIdNum, patientId },
-    include: {
-      results: { orderBy: { sortOrder: 'asc' } },
-    },
-  });
+    try {
+      const report = await prisma.labReport.findFirst({
+        where: { id: reportIdNum, patientId },
+        include: {
+          results: { orderBy: { sortOrder: 'asc' } },
+        },
+      });
 
-  if (!report) {
-    return NextResponse.json({ error: 'Report not found' }, { status: 404 });
-  }
+      if (!report) {
+        return NextResponse.json({ error: 'Report not found' }, { status: 404 });
+      }
 
-  const results = report.results.map((r) => ({
-    id: r.id,
-    testName: r.testName,
-    value: r.value,
-    valueNumeric: r.valueNumeric,
-    unit: r.unit,
-    referenceRange: r.referenceRange,
-    flag: r.flag,
-    category: r.category,
-  }));
+      await logPHIAccess(req, user, 'LabReport', String(report.id), patientId);
 
-  const outOfRange = report.results.filter((r) => r.flag === 'H' || r.flag === 'L').length;
-  const optimal = report.results.filter((r) => !r.flag).length;
-  const inRange = report.results.length - outOfRange;
+      type ResultRow = (typeof report.results)[number];
+      const results = report.results.map((r: ResultRow) => ({
+        id: r.id,
+        testName: r.testName,
+        value: r.value,
+        valueNumeric: r.valueNumeric,
+        unit: r.unit,
+        referenceRange: r.referenceRange,
+        flag: r.flag,
+        category: r.category,
+      }));
 
-  return NextResponse.json({
-    id: report.id,
-    documentId: report.documentId,
-    labName: report.labName,
-    specimenId: report.specimenId,
-    collectedAt: report.collectedAt?.toISOString() ?? null,
-    reportedAt: report.reportedAt?.toISOString() ?? null,
-    fasting: report.fasting,
-    createdAt: report.createdAt.toISOString(),
-    results,
-    summary: {
-      total: report.results.length,
-      optimal,
-      inRange,
-      outOfRange,
-    },
-  });
-}, { roles: ['admin', 'provider', 'staff', 'super_admin'] });
+      const outOfRange = report.results.filter((r: ResultRow) => r.flag === 'H' || r.flag === 'L').length;
+      const optimal = report.results.filter((r: ResultRow) => !r.flag).length;
+      const inRange = report.results.length - outOfRange;
+
+      return NextResponse.json({
+        id: report.id,
+        documentId: report.documentId,
+        labName: report.labName,
+        specimenId: report.specimenId,
+        collectedAt: report.collectedAt?.toISOString() ?? null,
+        reportedAt: report.reportedAt?.toISOString() ?? null,
+        fasting: report.fasting,
+        createdAt: report.createdAt.toISOString(),
+        results,
+        summary: {
+          total: report.results.length,
+          optimal,
+          inRange,
+          outOfRange,
+        },
+      });
+    } catch (err) {
+      return handleApiError(err, {
+        route: 'GET /api/patients/[id]/bloodwork/[reportId]',
+        context: { userId: user.id, patientId, reportId: reportIdNum },
+      });
+    }
+  },
+  { roles: ['admin', 'provider', 'staff', 'super_admin'] }
+);
