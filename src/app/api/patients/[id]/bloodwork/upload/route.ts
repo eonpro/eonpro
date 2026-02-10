@@ -10,6 +10,7 @@ import { createBloodworkReportFromPdf } from '@/lib/bloodwork/service';
 import { logPHICreate } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 import { rateLimit } from '@/lib/rateLimit';
+import { logger } from '@/lib/logger';
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 
@@ -87,10 +88,18 @@ async function postHandler(
       mimeType,
       uploadedByUserId: user.id,
     });
-    await logPHICreate(req, { id: user.id, role: user.role, clinicId: user.clinicId }, 'LabReport', result.labReportId, patient.id, {
-      documentId: result.documentId,
-      resultCount: result.resultCount,
-    });
+    try {
+      await logPHICreate(req, { id: user.id, role: user.role, clinicId: user.clinicId }, 'LabReport', result.labReportId, patient.id, {
+        documentId: result.documentId,
+        resultCount: result.resultCount,
+      });
+    } catch (auditErr) {
+      logger.warn('Bloodwork upload PHI audit log failed', {
+        patientId,
+        labReportId: result.labReportId,
+        error: auditErr instanceof Error ? auditErr.message : 'Unknown',
+      });
+    }
     return NextResponse.json(
       {
         success: true,
@@ -101,6 +110,13 @@ async function postHandler(
       { status: 201 }
     );
   } catch (err) {
+    logger.error('Bloodwork upload failed', {
+      route: 'POST /api/patients/[id]/bloodwork/upload',
+      userId: user.id,
+      patientId,
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return handleApiError(err, {
       route: 'POST /api/patients/[id]/bloodwork/upload',
       context: { userId: user.id, patientId },

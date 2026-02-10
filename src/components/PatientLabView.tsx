@@ -100,6 +100,7 @@ interface PatientLabViewProps {
 export default function PatientLabView({ patientId, patientName }: PatientLabViewProps) {
   const [reports, setReports] = useState<LabReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -110,18 +111,23 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
   const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
+      setListError(null);
       const res = await fetch(`/api/patients/${patientId}/bloodwork`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         setReports(data.reports ?? []);
       } else {
         setReports([]);
+        setListError(
+          typeof data?.error === 'string' ? data.error : 'Could not load lab reports. Please try again.'
+        );
       }
     } catch {
       setReports([]);
+      setListError('Could not load lab reports. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -413,6 +419,12 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
         <h1 className="text-2xl font-bold text-gray-900">Lab Results</h1>
         <p className="text-sm text-gray-600">Quest bloodwork — parsed results</p>
       </div>
+
+      {listError && (
+        <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 border border-amber-200">
+          {listError}
+        </div>
+      )}
 
       {/* Flagship hero: latest report summary or empty state */}
       <div

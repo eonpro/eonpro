@@ -7,10 +7,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { prisma } from '@/lib/db';
 import { logPHIAccess } from '@/lib/audit/hipaa-audit';
+import { Prisma } from '@prisma/client';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 
 type Params = { params: Promise<{ id: string }> };
+
+/** Return true if error indicates missing table/column or schema mismatch (should return 503). */
+function isSchemaOrTableError(err: unknown): boolean {
+  if (err && typeof err === 'object' && 'code' in err) {
+    const code = (err as { code?: string }).code;
+    if (code === 'P2021' || code === 'P2022' || code === 'P2010') return true;
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  return lower.includes('does not exist') || lower.includes('unknown field') || lower.includes('unknown argument');
+}
 
 export const GET = withAuthParams(
   async (req: NextRequest, user, { params }: Params) => {
@@ -76,6 +88,25 @@ export const GET = withAuthParams(
 
       return NextResponse.json({ reports: list });
     } catch (err) {
+      logger.error('Bloodwork list failed', {
+        route: 'GET /api/patients/[id]/bloodwork',
+        userId: user.id,
+        patientId,
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
+        return NextResponse.json(
+          { error: 'Lab reports are temporarily unavailable. If this persists, ask your administrator to run database migrations.' },
+          { status: 503 }
+        );
+      }
+      if (isSchemaOrTableError(err)) {
+        return NextResponse.json(
+          { error: 'Lab reports are temporarily unavailable. If this persists, ask your administrator to run database migrations.' },
+          { status: 503 }
+        );
+      }
       return handleApiError(err, {
         route: 'GET /api/patients/[id]/bloodwork',
         context: { userId: user.id, patientId },
