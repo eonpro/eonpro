@@ -38,16 +38,17 @@ function clearCookiesOnResponse(response: NextResponse, req: NextRequest): void 
   const host = getRequestHost(req);
   const isEonproIo =
     host && host.endsWith('.eonpro.io') && process.env.NODE_ENV === 'production';
-  const cookieDomain = isEonproIo ? '.eonpro.io' : undefined;
+  const clearOpts = {
+    value: '',
+    ...AUTH_CONFIG.cookie,
+    maxAge: 0,
+    expires: new Date(0),
+  };
   for (const name of COOKIE_NAMES) {
-    response.cookies.set({
-      name,
-      value: '',
-      ...AUTH_CONFIG.cookie,
-      maxAge: 0,
-      expires: new Date(0),
-      ...(cookieDomain && { domain: cookieDomain }),
-    });
+    if (isEonproIo) {
+      response.cookies.set({ ...clearOpts, name, domain: '.eonpro.io' });
+    }
+    response.cookies.set({ ...clearOpts, name });
   }
 }
 

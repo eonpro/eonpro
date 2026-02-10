@@ -774,6 +774,30 @@ async function loginHandler(req: NextRequest) {
       host && host.endsWith('.eonpro.io') && process.env.NODE_ENV === 'production';
     const cookieDomain = isEonproIo ? '.eonpro.io' : undefined;
 
+    if (cookieDomain) {
+      // Clear any host-only auth cookies so the server doesn't receive a stale token first
+      const authCookieNames = [
+        'auth-token',
+        'admin-token',
+        'provider-token',
+        'patient-token',
+        'influencer-token',
+        'super_admin-token',
+        'staff-token',
+        'support-token',
+        'selected-clinic',
+      ];
+      for (const name of authCookieNames) {
+        response.cookies.set({
+          name,
+          value: '',
+          path: '/',
+          maxAge: 0,
+          expires: new Date(0),
+        });
+      }
+    }
+
     response.cookies.set({
       name: `${userRole}-token`,
       value: token,

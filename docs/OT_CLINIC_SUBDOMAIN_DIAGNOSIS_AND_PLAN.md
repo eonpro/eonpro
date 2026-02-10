@@ -262,4 +262,16 @@ Ways to resolve or harden the issue beyond P0/P1.
 
 ---
 
+## 9. 401 / "Session Expired" on wellmedr.eonpro.io (or other clinic subdomains)
+
+**Symptom:** Admin (or provider) loads on e.g. wellmedr.eonpro.io but all API calls return 401 and the UI shows "Session Expired" / "Invalid session".
+
+**Cause:** Auth cookies were host-only (no `domain`), so a session created on one host (e.g. app.eonpro.io) was not sent to another (e.g. wellmedr.eonpro.io). The server received no token and returned 401.
+
+**Fix (in code):** Login sets auth cookies with `domain=.eonpro.io` when host is `*.eonpro.io` (production), and clears host-only auth cookies on that response so the browser does not send a stale token. Logout clears cookies both with `domain=.eonpro.io` and without domain when on `*.eonpro.io`.
+
+**After deploy:** Users must log in again on any `*.eonpro.io` host (or clear site cookies) so the new domain-scoped cookies are set.
+
+---
+
 This gives a single place (this doc + the code paths above) to diagnose “changes not applied only for OT” and a clear, ordered set of code and ops changes to fix it.
