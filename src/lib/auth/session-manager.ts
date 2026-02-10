@@ -1,11 +1,11 @@
 /**
  * Session Management Service
  * HIPAA-compliant session timeout and monitoring
- * 
+ *
  * SOC 2 Compliance: Uses Redis for session storage in production
  * to support horizontal scaling and token revocation.
  * Falls back to in-memory storage for development/testing.
- * 
+ *
  * @see docs/SOC2_REMEDIATION.md
  */
 
@@ -65,9 +65,9 @@ async function getSession(sessionId: string): Promise<SessionState | null> {
  */
 async function saveSession(sessionId: string, session: SessionState): Promise<void> {
   if (useRedis()) {
-    await cache.set(sessionId, session, { 
-      namespace: SESSION_NAMESPACE, 
-      ttl: SESSION_TTL_SECONDS 
+    await cache.set(sessionId, session, {
+      namespace: SESSION_NAMESPACE,
+      ttl: SESSION_TTL_SECONDS,
     });
   } else {
     localSessions.set(sessionId, session);
@@ -96,7 +96,7 @@ async function getUserSessionsFromStorage(userId: string): Promise<SessionState[
     // TODO: Implement user->sessions index in Redis for better performance
     const keys = await cache.keys(`${SESSION_NAMESPACE}:*`);
     const sessions: SessionState[] = [];
-    
+
     for (const key of keys) {
       const sessionId = key.replace(`${SESSION_NAMESPACE}:`, '');
       const session = await getSession(sessionId);
@@ -104,10 +104,10 @@ async function getUserSessionsFromStorage(userId: string): Promise<SessionState[
         sessions.push(session);
       }
     }
-    
+
     return sessions;
   }
-  
+
   // In-memory: iterate through local store
   const sessions: SessionState[] = [];
   for (const [_, session] of localSessions) {
@@ -137,6 +137,53 @@ export function generateSessionId(): string {
 }
 
 /**
+ * Create only the session record in storage (Redis or in-memory) and return sessionId.
+ * Use this when the login route builds its own JWT with full claims but needs a sessionId
+ * so that validateSession() can find the session in production.
+ */
+export async function createSessionRecord(
+  userId: string,
+  role: string,
+  clinicId: number | undefined,
+  request?: NextRequest
+): Promise<{ sessionId: string }> {
+  const sessionId = generateSessionId();
+  const now = Date.now();
+  const session: SessionState = {
+    userId,
+    sessionId,
+    createdAt: now,
+    lastActivity: now,
+    ipAddress: request?.headers.get('x-forwarded-for') || 'unknown',
+    userAgent: request?.headers.get('user-agent') || 'unknown',
+    role,
+    clinicId,
+    mfaVerified: false,
+    tokenVersion: 1,
+  };
+  await saveSession(sessionId, session);
+  if (request) {
+    await auditLog(request, {
+      userId,
+      userRole: role,
+      clinicId,
+      eventType: AuditEventType.LOGIN,
+      resourceType: 'Session',
+      resourceId: sessionId,
+      action: 'CREATE_SESSION',
+      outcome: 'SUCCESS',
+    });
+  }
+  logger.info('Session record created', {
+    userId,
+    sessionId,
+    role,
+    storage: useRedis() ? 'redis' : 'memory',
+  });
+  return { sessionId };
+}
+
+/**
  * Create new session
  * SOC 2 Compliance: Sessions stored in Redis for horizontal scaling
  */
@@ -153,7 +200,7 @@ export async function createSession(
 }> {
   const sessionId = generateSessionId();
   const now = Date.now();
-  
+
   // Create session state
   const session: SessionState = {
     userId,
@@ -167,10 +214,10 @@ export async function createSession(
     mfaVerified: false,
     tokenVersion: 1,
   };
-  
+
   // Store session in Redis (or in-memory fallback)
   await saveSession(sessionId, session);
-  
+
   // Generate tokens
   const accessToken = await new SignJWT({
     userId,
@@ -185,7 +232,7 @@ export async function createSession(
     .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
     .setJti(crypto.randomUUID())
     .sign(JWT_SECRET);
-  
+
   const refreshToken = await new SignJWT({
     userId,
     sessionId,
@@ -195,7 +242,7 @@ export async function createSession(
     .setIssuedAt()
     .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
     .sign(JWT_REFRESH_SECRET);
-  
+
   // Log session creation
   if (request) {
     await auditLog(request, {
@@ -209,7 +256,7 @@ export async function createSession(
       outcome: 'SUCCESS',
     });
   }
-  
+
   logger.info('Session created', {
     userId,
     sessionId,
@@ -217,7 +264,7 @@ export async function createSession(
     expiresIn: AUTH_CONFIG.tokenExpiryMs.access,
     storage: useRedis() ? 'redis' : 'memory',
   });
-  
+
   return {
     accessToken,
     refreshToken,
@@ -242,11 +289,11 @@ export async function validateSession(
   try {
     // Verify token signature
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    
+
     const sessionId = payload.sessionId as string;
     const userId = payload.userId as string;
-    const lastActivity = payload.lastActivity as number || 0;
-    
+    const lastActivity = (payload.lastActivity as number) || 0;
+
     // Check if session exists (Redis or in-memory)
     const session = await getSession(sessionId);
     if (!session) {
@@ -256,17 +303,17 @@ export async function validateSession(
         reason: 'Session not found',
       };
     }
-    
+
     // Check session timeout
     const now = Date.now();
     const idleTime = now - session.lastActivity;
     const absoluteTime = now - session.createdAt;
-    
+
     // Check idle timeout (15 minutes)
     if (idleTime > AUTH_CONFIG.tokenExpiryMs.sessionTimeout) {
       // Remove expired session
       await deleteSession(sessionId);
-      
+
       // Log timeout
       if (request) {
         await auditLog(request, {
@@ -282,19 +329,19 @@ export async function validateSession(
           },
         });
       }
-      
+
       return {
         valid: false,
         expired: true,
         reason: 'Session timeout due to inactivity',
       };
     }
-    
+
     // Check absolute timeout (8 hours)
     if (absoluteTime > AUTH_CONFIG.tokenExpiryMs.access * 8) {
       // Remove expired session
       await deleteSession(sessionId);
-      
+
       // Log absolute timeout
       if (request) {
         await auditLog(request, {
@@ -310,18 +357,18 @@ export async function validateSession(
           },
         });
       }
-      
+
       return {
         valid: false,
         expired: true,
         reason: 'Session expired - maximum duration exceeded',
       };
     }
-    
+
     // Update last activity
     session.lastActivity = now;
     await saveSession(sessionId, session);
-    
+
     return {
       valid: true,
       expired: false,
@@ -352,11 +399,11 @@ export async function refreshSession(
   try {
     // Verify refresh token
     const { payload } = await jwtVerify(refreshToken, JWT_REFRESH_SECRET);
-    
+
     const sessionId = payload.sessionId as string;
     const userId = payload.userId as string;
     const tokenVersion = payload.tokenVersion as number;
-    
+
     // Get session from Redis (or in-memory)
     const session = await getSession(sessionId);
     if (!session) {
@@ -365,7 +412,7 @@ export async function refreshSession(
         error: 'Session not found',
       };
     }
-    
+
     // Check token version (for revocation)
     if (session.tokenVersion !== tokenVersion) {
       return {
@@ -373,11 +420,11 @@ export async function refreshSession(
         error: 'Token has been revoked',
       };
     }
-    
+
     // Check if session is still valid
     const now = Date.now();
     const idleTime = now - session.lastActivity;
-    
+
     if (idleTime > AUTH_CONFIG.tokenExpiryMs.sessionTimeout) {
       await deleteSession(sessionId);
       return {
@@ -385,11 +432,11 @@ export async function refreshSession(
         error: 'Session expired',
       };
     }
-    
+
     // Update activity
     session.lastActivity = now;
     await saveSession(sessionId, session);
-    
+
     // Generate new access token
     const accessToken = await new SignJWT({
       userId,
@@ -404,9 +451,9 @@ export async function refreshSession(
       .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
       .setJti(crypto.randomUUID())
       .sign(JWT_SECRET);
-    
+
     logger.info('Session refreshed', { userId, sessionId });
-    
+
     return {
       success: true,
       accessToken,
@@ -430,14 +477,14 @@ export async function terminateSession(
   request?: NextRequest
 ): Promise<void> {
   const session = await getSession(sessionId);
-  
+
   if (session) {
     // Remove session from storage
     await deleteSession(sessionId);
-    
+
     // Increment token version to invalidate all tokens
     session.tokenVersion++;
-    
+
     // Log logout
     if (request) {
       await auditLog(request, {
@@ -452,7 +499,7 @@ export async function terminateSession(
         reason,
       });
     }
-    
+
     logger.info('Session terminated', {
       userId: session.userId,
       sessionId,
@@ -481,19 +528,19 @@ export async function terminateAllUserSessions(
 ): Promise<number> {
   const sessions = await getUserSessions(userId);
   let terminated = 0;
-  
+
   for (const session of sessions) {
     await terminateSession(session.sessionId, reason, request);
     terminated++;
   }
-  
+
   logger.info('All user sessions terminated', {
     userId,
     count: terminated,
     reason,
     storage: useRedis() ? 'redis' : 'memory',
   });
-  
+
   return terminated;
 }
 
@@ -501,9 +548,7 @@ export async function terminateAllUserSessions(
  * Check for concurrent sessions (HIPAA requirement)
  * Note: Now async due to Redis storage
  */
-export async function checkConcurrentSessions(
-  userId: string
-): Promise<{
+export async function checkConcurrentSessions(userId: string): Promise<{
   allowed: boolean;
   current: number;
   max: number;
@@ -511,7 +556,7 @@ export async function checkConcurrentSessions(
 }> {
   const sessions = await getUserSessions(userId);
   const maxAllowed = AUTH_CONFIG.security.concurrentSessions;
-  
+
   return {
     allowed: sessions.length < maxAllowed,
     current: sessions.length,
@@ -533,16 +578,16 @@ export function trackFailedAttempt(
 } {
   const key = `${identifier}_${request?.headers.get('x-forwarded-for') || 'unknown'}`;
   const attempts = (failedAttempts.get(key) || 0) + 1;
-  
+
   failedAttempts.set(key, attempts);
-  
+
   // Set expiry
   setTimeout(() => {
     failedAttempts.delete(key);
   }, AUTH_CONFIG.security.lockoutDuration);
-  
+
   const locked = attempts >= AUTH_CONFIG.security.maxLoginAttempts;
-  
+
   return {
     locked,
     attempts,
@@ -570,12 +615,12 @@ export async function getSessionMetrics(): Promise<{
     totalAge: 0,
     oldest: 0,
   };
-  
+
   if (useRedis()) {
     // Get all session keys from Redis
     const keys = await cache.keys(`${SESSION_NAMESPACE}:*`);
     metrics.total = keys.length;
-    
+
     // Get session data for metrics (sample if too many)
     const sampleSize = Math.min(keys.length, 100);
     for (let i = 0; i < sampleSize; i++) {
@@ -595,7 +640,7 @@ export async function getSessionMetrics(): Promise<{
   } else {
     // In-memory metrics
     metrics.total = localSessions.size;
-    
+
     for (const [_, session] of localSessions) {
       metrics.byRole[session.role] = (metrics.byRole[session.role] || 0) + 1;
       if (session.clinicId) {
@@ -607,7 +652,7 @@ export async function getSessionMetrics(): Promise<{
       metrics.oldest = Math.max(metrics.oldest, age);
     }
   }
-  
+
   return {
     total: metrics.total,
     byRole: metrics.byRole,
@@ -628,21 +673,23 @@ export function startSessionCleanup(): void {
     if (useRedis()) {
       return;
     }
-    
+
     const now = Date.now();
     let cleaned = 0;
-    
+
     for (const [sessionId, session] of localSessions) {
       const idleTime = now - session.lastActivity;
       const absoluteTime = now - session.createdAt;
-      
-      if (idleTime > AUTH_CONFIG.tokenExpiryMs.sessionTimeout ||
-          absoluteTime > AUTH_CONFIG.tokenExpiryMs.access * 8) {
+
+      if (
+        idleTime > AUTH_CONFIG.tokenExpiryMs.sessionTimeout ||
+        absoluteTime > AUTH_CONFIG.tokenExpiryMs.access * 8
+      ) {
         localSessions.delete(sessionId);
         cleaned++;
       }
     }
-    
+
     if (cleaned > 0) {
       logger.info('Session cleanup completed', { cleaned, storage: 'memory' });
     }

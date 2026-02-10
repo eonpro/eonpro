@@ -591,6 +591,7 @@ export default function LoginPage() {
   // Handle successful login
   const handleLoginSuccess = (data: {
     token?: string;
+    refreshToken?: string;
     user?: { email?: string; role?: string };
     clinics?: Array<{ id: number }>;
     activeClinicId?: number;
@@ -603,6 +604,10 @@ export default function LoginPage() {
     // Store tokens and user data (both keys for compatibility)
     localStorage.setItem('auth-token', data.token);
     localStorage.setItem('token', data.token); // Legacy key for compatibility
+    if (data.refreshToken) {
+      localStorage.setItem('refresh-token', data.refreshToken);
+      localStorage.setItem('refresh_token', data.refreshToken);
+    }
     localStorage.setItem('user', JSON.stringify(data.user));
 
     // Store clinic information for multi-clinic support

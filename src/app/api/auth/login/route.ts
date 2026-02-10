@@ -18,6 +18,7 @@ import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
 import { prisma, basePrisma } from '@/lib/db';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
+import { createSessionRecord } from '@/lib/auth/session-manager';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
 import { getRequestHost, getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
@@ -528,6 +529,14 @@ async function loginHandler(req: NextRequest) {
       }
     }
 
+    // Create session record so production auth (validateSession) can find it; JWT must include sessionId
+    const { sessionId } = await createSessionRecord(
+      String(user.id),
+      userRole,
+      activeClinicId ?? undefined,
+      req
+    );
+
     // Create JWT token
     const tokenPayload: {
       id: number;
@@ -539,6 +548,7 @@ async function loginHandler(req: NextRequest) {
       patientId?: number;
       permissions?: string[];
       features?: string[];
+      sessionId?: string;
     } = {
       id: user.id,
       email: user.email,
@@ -620,6 +630,8 @@ async function loginHandler(req: NextRequest) {
     if ('features' in user && user.features && Array.isArray(user.features)) {
       tokenPayload.features = user.features as string[];
     }
+
+    tokenPayload.sessionId = sessionId;
 
     const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
