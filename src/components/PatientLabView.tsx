@@ -13,13 +13,17 @@ import {
   FileText,
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { getAuthHeaders as getAuthHeadersFromUtil } from '@/lib/utils/auth-token';
 
 const PRIMARY = 'var(--brand-primary, #4fa77e)';
 
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
-  const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const headers = getAuthHeadersFromUtil();
+  if (typeof headers === 'object' && headers !== null && !Array.isArray(headers)) {
+    return headers as Record<string, string>;
+  }
+  return {};
 }
 
 interface LabReportSummary {
@@ -77,7 +81,16 @@ const CATEGORY_ICONS: Record<string, typeof Heart> = {
   other: TestTube,
 };
 
-const CATEGORY_ORDER = ['heart', 'metabolic', 'hormones', 'liver', 'kidney', 'blood', 'nutrients', 'other'];
+const CATEGORY_ORDER = [
+  'heart',
+  'metabolic',
+  'hormones',
+  'liver',
+  'kidney',
+  'blood',
+  'nutrients',
+  'other',
+];
 
 interface PatientLabViewProps {
   patientId: number;
@@ -173,7 +186,10 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
           fetchReports();
           setTimeout(() => setUploadSuccess(false), 3000);
         } else {
-          setUploadError(data.error || 'Upload failed. The patient name on the report may not match this profile.');
+          setUploadError(
+            data.error ||
+              'Upload failed. The patient name on the report may not match this profile.'
+          );
         }
       } catch (e) {
         logger.error('Bloodwork upload error', { error: e });
@@ -240,7 +256,8 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
     const { summary, results } = report;
     const total = summary.total || results.length;
     const optimal = summary.optimal ?? results.filter((r) => !r.flag).length;
-    const outOfRange = summary.outOfRange ?? results.filter((r) => r.flag === 'H' || r.flag === 'L').length;
+    const outOfRange =
+      summary.outOfRange ?? results.filter((r) => r.flag === 'H' || r.flag === 'L').length;
     const inRange = total - outOfRange;
     const byCategory = results.reduce<Record<string, ResultRow[]>>((acc, r) => {
       const cat = r.category || 'other';
@@ -368,7 +385,9 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                           {r.flag && (
                             <span
                               className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                                r.flag === 'H' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                                r.flag === 'H'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-amber-100 text-amber-700'
                               }`}
                             >
                               {r.flag === 'H' ? 'High' : 'Low'}
@@ -392,13 +411,17 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Lab Results</h1>
-        <p className="text-sm text-gray-600">Quest bloodwork — parsed results and trends</p>
+        <p className="text-sm text-gray-600">Quest bloodwork — parsed results</p>
       </div>
 
       {/* Flagship hero: latest report summary or empty state */}
       <div
         className="rounded-2xl border-2 border-gray-200 bg-white p-6 shadow-sm"
-        style={{ borderColor: latestReport ? 'var(--brand-primary-light, rgba(79, 167, 126, 0.3))' : undefined }}
+        style={{
+          borderColor: latestReport
+            ? 'var(--brand-primary-light, rgba(79, 167, 126, 0.3))'
+            : undefined,
+        }}
       >
         <div className="flex flex-wrap items-center gap-4">
           <div
@@ -412,7 +435,8 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
               <>
                 <h2 className="text-lg font-semibold text-gray-900">Latest report</h2>
                 <p className="text-sm text-gray-500">
-                  {latestReport.labName} · {formatDate(latestReport.reportedAt)} · {latestReport.resultCount} results
+                  {latestReport.labName} · {formatDate(latestReport.reportedAt)} ·{' '}
+                  {latestReport.resultCount} results
                 </p>
                 <button
                   type="button"
@@ -426,7 +450,9 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
             ) : (
               <>
                 <h2 className="text-lg font-semibold text-gray-900">No lab reports yet</h2>
-                <p className="text-sm text-gray-500">Upload a Quest Diagnostics PDF to see parsed results here.</p>
+                <p className="text-sm text-gray-500">
+                  Upload a Quest Diagnostics PDF to see parsed results here.
+                </p>
               </>
             )}
           </div>
@@ -443,7 +469,9 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
           <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{uploadError}</div>
         )}
         {uploadSuccess && (
-          <div className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">Report uploaded and parsed.</div>
+          <div className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">
+            Report uploaded and parsed.
+          </div>
         )}
         <div className="mt-4">
           <input
@@ -494,7 +522,10 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
         ) : (
           <ul className="divide-y divide-gray-200">
             {reports.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-gray-50/50">
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-gray-50/50"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-gray-900">{r.labName}</p>
                   <p className="text-sm text-gray-500">
