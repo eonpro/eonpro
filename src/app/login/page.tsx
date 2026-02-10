@@ -82,6 +82,19 @@ async function parseJsonResponse(response: Response): Promise<LoginResponseData>
   }
 }
 
+/** Infer role to send to login API when user arrives from a role-specific redirect (e.g. /login?redirect=/provider). */
+function getLoginRoleFromRedirect(
+  redirect: string | null
+): 'provider' | 'admin' | 'staff' | 'support' | undefined {
+  if (!redirect) return undefined;
+  const path = redirect.toLowerCase().split('?')[0];
+  if (path === '/provider' || path.startsWith('/provider/')) return 'provider';
+  if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
+  if (path === '/staff' || path.startsWith('/staff/')) return 'staff';
+  if (path === '/support' || path.startsWith('/support/')) return 'support';
+  return undefined;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -513,6 +526,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const redirectParam = searchParams.get('redirect');
+      const inferredRole = getLoginRoleFromRedirect(redirectParam);
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -520,6 +536,7 @@ export default function LoginPage() {
           email: identifier,
           password,
           clinicId: clinicId || selectedClinicId || resolvedClinicId,
+          ...(inferredRole && { role: inferredRole }),
         }),
       });
 
@@ -577,6 +594,9 @@ export default function LoginPage() {
     setRetryAfterCountdown(0);
 
     try {
+      const redirectParam = searchParams.get('redirect');
+      const inferredRole = getLoginRoleFromRedirect(redirectParam);
+
       // Re-authenticate with selected clinic
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -585,6 +605,7 @@ export default function LoginPage() {
           email: identifier,
           password,
           clinicId,
+          ...(inferredRole && { role: inferredRole }),
         }),
       });
 

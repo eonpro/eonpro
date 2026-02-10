@@ -108,6 +108,37 @@ npx prisma generate
 
 ## Database Issues
 
+### Database not loading (app down / 503 / "databases not loading")
+
+**Symptoms:** App is down or very slow; login shows "Service is busy"; pages don't load; it feels like the database never connects.
+
+**Do this first (production):**
+
+1. **Check if the app can reach the database** — run (replace `app.eonpro.io` with your domain):
+   ```bash
+   curl -s https://app.eonpro.io/api/ready
+   ```
+   - **200** and `"database": "operational"` → DB is reachable; issue may be pool exhaustion or another service.
+   - **503** and `"database": "down"` → The app **cannot** connect to the DB. Continue below.
+
+2. **Vercel env vars (most common fix):**  
+   Vercel → Project → **Settings** → **Environment Variables**.  
+   - **DATABASE_URL** must be set for **Production** (valid Postgres URL, no extra spaces).  
+   - If you use a **pooler** (Supabase/Neon pooled, PgBouncer, RDS Proxy), use that URL — not the direct instance URL.  
+   - **RDS:** Use RDS Proxy endpoint in `DATABASE_URL` if you have it; see `docs/infrastructure/RDS_PROXY_SETUP.md`.  
+   After changing env vars, **redeploy** (Deployments → Redeploy).
+
+3. **DB provider:**  
+   - **Supabase:** Project may be **Paused** → Restore it. Use **Transaction** pooler URL (port 6543) for `DATABASE_URL`.  
+   - **Neon:** Confirm project not suspended; use pooled connection string.  
+   - **AWS RDS:** Instance **Available**; security groups allow inbound from Vercel/your egress. Use RDS Proxy if Vercel can't reach RDS directly.
+
+4. **Recheck:** `curl -s https://app.eonpro.io/api/ready` → expect 200 and `"database": "operational"`. Then retry the app.
+
+**Test production DB from your machine:** Set `DATABASE_URL` to the same value as in Vercel and run `npx tsx scripts/check-database.ts`. If it fails, DB is unreachable or credentials wrong. If it succeeds but `/api/ready` in production is 503, the problem is Vercel (env or network).
+
+---
+
 ### Database Down / Nothing Showing in Platform
 
 **Symptoms:** Health check shows database unhealthy, dashboard is empty, lists don’t load, or you see generic 500/503 errors.
@@ -357,6 +388,17 @@ JWT_EXPIRES_IN=7d          # Token lifetime
 4. **Reduce pool size per instance:** In `schema.prisma` or `DATABASE_URL`, you can lower `?connection_limit=5` (or similar) so each serverless instance uses fewer connections; combine with a pooler.
 
 **Related:** `src/app/api/auth/login/route.ts` returns 503 only for P2024; other DB errors return 500 with details. `docs/BLOODWORK_TROUBLESHOOTING.md` has a similar 503/connection pattern for the Labs tab.
+
+### Provider login 503 or failing more than others
+
+**Why provider login can be affected first:** The provider login path does more database work than a simple admin login: User lookup (with includes), optional legacy Provider lookup, session creation, provider-by-email fallback, **ProviderClinic** assignments, and **Provider** lastLogin update. Under load or with a small connection pool, that can hit **P2024 (pool exhausted)** or timeouts, so providers see "Service is busy" or 503 more often.
+
+**What we did:**
+- When a provider opens login from a provider link (e.g. **Log In Again** from the provider dashboard error page), the URL is `/login?redirect=/provider`. The login page now **sends `role: 'provider'`** in the login request so the API uses the provider path from the start and avoids an extra legacy lookup.
+- Use the **provider entry link** when possible: `/login?redirect=/provider` (e.g. from provider error page or bookmarks). That keeps the request path optimal.
+
+**If provider login still fails with 503:**
+- Same remediation as **Login 503** above: connection pooler (RDS Proxy, PgBouncer, or pooled URL), retry after 10–30 seconds, and check server logs for `prismaCode: 'P2024'` or `step` to see how far the login got.
 
 ---
 
