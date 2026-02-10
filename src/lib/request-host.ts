@@ -30,11 +30,12 @@ export function getRequestHostWithUrlFallback(
 
 /**
  * True when we should set auth cookies with domain=.eonpro.io (shared across subdomains).
- * In production we always use .eonpro.io so wellmedr/ot/eonmeds get the cookie even when
- * the request host is wrong (e.g. Vercel internal URL). Set EONPRO_COOKIE_DOMAIN="" to disable.
+ * - If the request host is *.eonpro.io, always use shared cookie (so login on wellmedr sets it).
+ * - Else in production, default to .eonpro.io unless EONPRO_COOKIE_DOMAIN="".
  */
-export function shouldUseEonproCookieDomain(_host: string): boolean {
-  if (process.env.NODE_ENV !== 'production') return false;
+export function shouldUseEonproCookieDomain(host: string): boolean {
   if (process.env.EONPRO_COOKIE_DOMAIN === '') return false;
+  if (host && host.endsWith('.eonpro.io')) return true;
+  if (process.env.NODE_ENV !== 'production') return false;
   return process.env.EONPRO_COOKIE_DOMAIN === '.eonpro.io' || !process.env.EONPRO_COOKIE_DOMAIN;
 }

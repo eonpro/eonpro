@@ -276,7 +276,13 @@ Ways to resolve or harden the issue beyond P0/P1.
 
 **Fix (in code):** Login sets auth cookies with `domain=.eonpro.io` in production (default; set **`EONPRO_COOKIE_DOMAIN=""`** to disable for non-eonpro deployments). Clinic middleware uses **host with request-URL fallback** in Edge (`getRequestHostInEdge`) so SUBDOMAIN_CLINIC_ID_MAP gets the correct subdomain even when Vercel does not forward the original Host header. Logout clears cookies with and without `domain=.eonpro.io`.
 
-**After deploy:** Users must log in again on any `*.eonpro.io` host (or clear site cookies) so the new domain-scoped cookies are set. If 401 persists, ensure production sets auth cookies with `domain=.eonpro.io` (default in prod) and that SUBDOMAIN_CLINIC_ID_MAP is set so Edge has clinic context.
+**After deploy:** Users must log in again on any `*.eonpro.io` host (or clear site cookies) so the new domain-scoped cookies are set.
+
+**If 401 still persists — runbook:**
+1. **Log in on the same subdomain:** Open **https://wellmedr.eonpro.io/login** (not app.eonpro.io), log in, then go to **https://wellmedr.eonpro.io/admin**. The cookie is set for the request origin; logging in on wellmedr ensures the response sets the cookie for `.eonpro.io`.
+2. **Clear old cookies:** In DevTools → Application → Cookies → select `https://wellmedr.eonpro.io` (and optionally `https://app.eonpro.io`), remove all auth/selected-clinic cookies, then log in again at wellmedr.eonpro.io/login.
+3. **Verify cookie domain:** After logging in on wellmedr.eonpro.io, in Application → Cookies check that `auth-token` (or `admin-token`) has **Domain** = `.eonpro.io`. If Domain is empty or `wellmedr.eonpro.io` only, the server did not set the shared domain; ensure the latest deploy is live and that the login request host is `wellmedr.eonpro.io` (URL fallback in login uses `req.url`).
+4. **Vercel env:** Ensure `EONPRO_COOKIE_DOMAIN` is not set to `""` in Production (leave unset or set to `.eonpro.io`). Ensure `SUBDOMAIN_CLINIC_ID_MAP` includes `wellmedr:<id>`.
 
 ---
 
