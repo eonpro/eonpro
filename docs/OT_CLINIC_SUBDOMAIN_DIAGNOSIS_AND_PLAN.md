@@ -266,11 +266,17 @@ Ways to resolve or harden the issue beyond P0/P1.
 
 **Symptom:** Admin (or provider) loads on e.g. wellmedr.eonpro.io but all API calls return 401 and the UI shows "Session Expired" / "Invalid session".
 
-**Cause:** Auth cookies were host-only (no `domain`), so a session created on one host (e.g. app.eonpro.io) was not sent to another (e.g. wellmedr.eonpro.io). The server received no token and returned 401.
+**Relationship with SUBDOMAIN_CLINIC_ID_MAP:** The map and 401 are related but fix different things.
 
-**Fix (in code):** Login sets auth cookies with `domain=.eonpro.io` when host is `*.eonpro.io` (production), and clears host-only auth cookies on that response so the browser does not send a stale token. Logout clears cookies both with `domain=.eonpro.io` and without domain when on `*.eonpro.io`. Host is resolved from `x-forwarded-host` / `host`, then from the request URL (`nextUrl.hostname` or `req.url`) so it works even when the proxy does not forward the original host. Optional: set **`EONPRO_COOKIE_DOMAIN=.eonpro.io`** in production env to force shared cookies if the host is still wrong.
+- **SUBDOMAIN_CLINIC_ID_MAP** is used in **Edge** clinic middleware to resolve clinic from subdomain (e.g. `wellmedr` → clinic id) when there is **no** cookie/JWT yet. That avoids **400 "No clinic context"** so the request can reach the API. Without the map, unauthenticated or first-load requests to clinic subdomains would get 400 and never reach the API.
+- **401** is returned by the **API** auth layer (withAuth) when there is **no valid token** (no auth cookie or invalid/expired token). So after adding the map, requests that used to stop at middleware with 400 now reach the API and get 401 instead. Both mean “not fully authorized”; 401 is the correct response when the request has no auth cookie.
+- So you need **both**: (1) **SUBDOMAIN_CLINIC_ID_MAP** so Edge sets clinic context and you don’t get 400 on subdomains; (2) **shared auth cookie** (`domain=.eonpro.io`) so the browser sends the session to wellmedr.eonpro.io and the API gets a token (no 401).
 
-**After deploy:** Users must log in again on any `*.eonpro.io` host (or clear site cookies) so the new domain-scoped cookies are set. If 401 persists, set `EONPRO_COOKIE_DOMAIN=.eonpro.io` in Vercel (Production) and redeploy.
+**Cause of 401:** Auth cookies were host-only (no `domain`), so a session created on one host (e.g. app.eonpro.io) was not sent to another (e.g. wellmedr.eonpro.io). The server received no token and returned 401.
+
+**Fix (in code):** Login sets auth cookies with `domain=.eonpro.io` in production (default; set **`EONPRO_COOKIE_DOMAIN=""`** to disable for non-eonpro deployments). Clinic middleware uses **host with request-URL fallback** in Edge (`getRequestHostInEdge`) so SUBDOMAIN_CLINIC_ID_MAP gets the correct subdomain even when Vercel does not forward the original Host header. Logout clears cookies with and without `domain=.eonpro.io`.
+
+**After deploy:** Users must log in again on any `*.eonpro.io` host (or clear site cookies) so the new domain-scoped cookies are set. If 401 persists, ensure production sets auth cookies with `domain=.eonpro.io` (default in prod) and that SUBDOMAIN_CLINIC_ID_MAP is set so Edge has clinic context.
 
 ---
 

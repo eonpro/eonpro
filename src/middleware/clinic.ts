@@ -78,7 +78,7 @@ export async function clinicMiddleware(request: NextRequest) {
     });
   }
 
-  // Resolve clinic
+  // Resolve clinic (use host with URL fallback so SUBDOMAIN_CLINIC_ID_MAP works in Edge when Host header is wrong)
   const clinicId = await resolveClinic(request);
 
   // If no clinic found and route requires it, redirect to clinic selection
@@ -99,8 +99,8 @@ export async function clinicMiddleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-clinic-id', clinicId?.toString() || '');
 
-  // For subdomain-based routing, also set the clinic subdomain (use request host for proxy correctness)
-  const hostname = getRequestHost(request);
+  // For subdomain-based routing, also set the clinic subdomain (host with URL fallback for Edge)
+  const hostname = getRequestHostInEdge(request);
   const subdomain = extractSubdomain(hostname);
   if (subdomain) {
     requestHeaders.set('x-clinic-subdomain', subdomain);
@@ -111,6 +111,18 @@ export async function clinicMiddleware(request: NextRequest) {
       headers: requestHeaders,
     },
   });
+}
+
+/** In Edge, Host/x-forwarded-host may be wrong; use request URL as fallback so SUBDOMAIN_CLINIC_ID_MAP works. */
+function getRequestHostInEdge(request: NextRequest): string {
+  const fromHeaders = getRequestHost(request);
+  if (fromHeaders) return fromHeaders;
+  try {
+    if (request.url) return new URL(request.url).hostname;
+  } catch {
+    // ignore
+  }
+  return '';
 }
 
 async function resolveClinic(request: NextRequest): Promise<number | null> {
@@ -144,8 +156,8 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
     }
   }
 
-  // Priority 4: Check subdomain
-  const hostname = getRequestHost(request);
+  // Priority 4: Check subdomain (use host with URL fallback so SUBDOMAIN_CLINIC_ID_MAP works in Edge)
+  const hostname = getRequestHostInEdge(request);
   const subdomain = extractSubdomain(hostname);
   if (subdomain && !['www', 'app', 'api', 'admin'].includes(subdomain)) {
     // 4a: Optional env map so Edge can set clinicId without DB (e.g. SUBDOMAIN_CLINIC_ID_MAP=ot:5,wellmedr:2,eonmeds:3)
