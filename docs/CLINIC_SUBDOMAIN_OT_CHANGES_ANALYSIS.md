@@ -6,6 +6,14 @@
 
 This is not OT-specific; it affects **any** `*.eonpro.io` subdomain when the user is not logged in.
 
+### Critical fix (Feb 2026): Login flow was broken on clinic subdomains
+
+The login page calls **`/api/auth/send-otp`** (Continue), **`/api/auth/verify-otp`** (OTP step), and **`/api/auth/reset-password`** (forgot password). These were **not** in `PUBLIC_ROUTES`, so on `ot.eonpro.io` (and any clinic subdomain) those requests returned **400 No clinic context**. Result: clicking “Continue” or entering OTP did nothing (or failed silently). These routes are now in `PUBLIC_ROUTES` so the full login flow works on clinic subdomains.
+
+### Branding/settings “don’t update”: caching
+
+`GET /api/clinic/resolve` had no `Cache-Control` header, so browsers and CDNs could cache the response. After changing clinic branding in admin, `ot.eonpro.io` could still show old branding until cache expired. The resolve API now returns `Cache-Control: no-store, no-cache, must-revalidate` so branding changes take effect on next load.
+
 ---
 
 ## How It Works
@@ -70,6 +78,7 @@ So on `ot.eonpro.io/login`:
 See `src/middleware/clinic.ts`. As of this doc, the list includes (among others):
 
 - `/api/auth/login`, `/api/auth/refresh-token`
+- **`/api/auth/send-otp`**, **`/api/auth/verify-otp`**, **`/api/auth/reset-password`** (login flow before session)
 - `/api/webhooks`
 - `/api/clinic/resolve`, `/api/clinic/list`
 - `/api/health`, `/api/ready`, `/api/monitoring`
@@ -79,3 +88,11 @@ See `src/middleware/clinic.ts`. As of this doc, the list includes (among others)
 - `/api/tickets`
 
 Any new API used on the login page or before auth on a clinic subdomain should be added here.
+
+## Verification: Why OT might still show “no change”
+
+If `ot.eonpro.io` still doesn’t reflect changes after the fixes above:
+
+1. **Clinic resolve:** Confirm the clinic with **subdomain `ot`** exists and is **ACTIVE** in the same DB the deployed app uses. Call `GET /api/clinic/resolve?domain=ot.eonpro.io` and check for `clinicId` and branding in the response. If you get default EONPRO payload, the DB lookup failed (wrong subdomain, inactive clinic, or wrong environment).
+2. **Deploy target:** Ensure `ot.eonpro.io` points to the same deployment (Vercel project/branch) where you made the change. Different domains can point to different builds.
+3. **Hard refresh:** After deploy, use a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) or an incognito window to avoid stale cache.

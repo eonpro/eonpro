@@ -15,6 +15,38 @@ import { logger } from '@/lib/logger';
  *
  * Returns clinic branding info (public data only - no sensitive fields)
  */
+// Default EONPRO payload for main app / unknown subdomains (no DB)
+const defaultBrandingPayload = {
+  clinicId: null,
+  name: 'EONPRO',
+  subdomain: null,
+  customDomain: null,
+  isMainApp: true,
+  branding: {
+    logoUrl: null,
+    iconUrl: null,
+    faviconUrl: null,
+    primaryColor: '#4fa77e',
+    secondaryColor: '#3B82F6',
+    accentColor: '#d3f931',
+    buttonTextColor: 'auto' as const,
+  },
+  contact: {
+    supportEmail: 'support@eonpro.io',
+    phone: null,
+  },
+};
+
+function isMainAppDomain(domain: string): boolean {
+  const normalized = domain.split(':')[0].toLowerCase();
+  return (
+    normalized.includes('app.eonpro.io') ||
+    normalized === 'app.eonpro.io' ||
+    normalized === 'localhost' ||
+    normalized.startsWith('localhost:')
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -32,6 +64,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Short-circuit for main app domain: no DB call, avoids timeouts and load
+    if (isMainAppDomain(domain)) {
+      return NextResponse.json(defaultBrandingPayload, {
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+      });
+    }
+
     logger.info('[ClinicResolve] Resolving clinic for domain', { domain });
 
     // Try to resolve clinic
@@ -40,39 +79,6 @@ export async function GET(request: NextRequest) {
     if (!clinic) {
       logger.info('[ClinicResolve] No clinic found for domain', { domain });
 
-      // Default EONPRO branding payload (shared for main app and unknown subdomains)
-      const defaultBrandingPayload = {
-        clinicId: null,
-        name: 'EONPRO',
-        subdomain: null,
-        customDomain: null,
-        isMainApp: true,
-        branding: {
-          logoUrl: null,
-          iconUrl: null,
-          faviconUrl: null,
-          primaryColor: '#4fa77e',
-          secondaryColor: '#3B82F6',
-          accentColor: '#d3f931',
-          buttonTextColor: 'auto' as const,
-        },
-        contact: {
-          supportEmail: 'support@eonpro.io',
-          phone: null,
-        },
-      };
-
-      // For main app domain, return default EONPRO branding
-      const isMainApp =
-        domain.includes('app.eonpro.io') ||
-        domain === 'app.eonpro.io' ||
-        domain === 'localhost' ||
-        domain.startsWith('localhost:');
-
-      if (isMainApp) {
-        return NextResponse.json(defaultBrandingPayload);
-      }
-
       // For unknown *.eonpro.io subdomains (e.g. otmens.eonpro.io with no clinic yet),
       // return 200 with default branding so the login page still works and no 404 is thrown.
       const normalizedDomain = domain.split(':')[0].toLowerCase();
@@ -80,7 +86,9 @@ export async function GET(request: NextRequest) {
         logger.info('[ClinicResolve] Unknown eonpro.io subdomain, returning default branding', {
           domain: normalizedDomain,
         });
-        return NextResponse.json(defaultBrandingPayload);
+        return NextResponse.json(defaultBrandingPayload, {
+          headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+        });
       }
 
       return NextResponse.json(
@@ -89,33 +97,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    logger.info('[ClinicResolve] Clinic resolved', { domain, clinicId: clinic.id, clinicName: clinic.name });
+    logger.info('[ClinicResolve] Clinic resolved', {
+      domain,
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+    });
 
     // Return only public branding data
-    // Note: buttonTextColor and backgroundColor are optional - if columns don't exist yet, use defaults
-    const buttonTextColor = (clinic as any).buttonTextColor || 'auto';
-    const backgroundColor = (clinic as any).backgroundColor || '#F9FAFB';
+    const buttonTextColor = clinic.buttonTextColor ?? 'auto';
+    const backgroundColor = clinic.backgroundColor ?? '#F9FAFB';
 
-    return NextResponse.json({
-      clinicId: clinic.id,
-      name: clinic.name,
-      subdomain: clinic.subdomain,
-      customDomain: clinic.customDomain,
-      branding: {
-        logoUrl: clinic.logoUrl,
-        iconUrl: clinic.iconUrl,
-        faviconUrl: clinic.faviconUrl,
-        primaryColor: clinic.primaryColor || '#4fa77e',
-        secondaryColor: clinic.secondaryColor || '#3B82F6',
-        accentColor: clinic.accentColor || '#d3f931',
-        buttonTextColor: buttonTextColor,
-        backgroundColor: backgroundColor,
+    return NextResponse.json(
+      {
+        clinicId: clinic.id,
+        name: clinic.name,
+        subdomain: clinic.subdomain,
+        customDomain: clinic.customDomain,
+        branding: {
+          logoUrl: clinic.logoUrl,
+          iconUrl: clinic.iconUrl,
+          faviconUrl: clinic.faviconUrl,
+          primaryColor: clinic.primaryColor || '#4fa77e',
+          secondaryColor: clinic.secondaryColor || '#3B82F6',
+          accentColor: clinic.accentColor || '#d3f931',
+          buttonTextColor: buttonTextColor,
+          backgroundColor: backgroundColor,
+        },
+        contact: {
+          supportEmail: clinic.supportEmail,
+          phone: clinic.phone,
+        },
       },
-      contact: {
-        supportEmail: clinic.supportEmail,
-        phone: clinic.phone,
-      },
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
+    );
   } catch (error) {
     const errorId = crypto.randomUUID().slice(0, 8);
     const searchParams = new URL(request.url).searchParams;
@@ -177,6 +195,8 @@ async function resolveClinicFromDomain(domain: string) {
       accentColor: true,
       supportEmail: true,
       phone: true,
+      buttonTextColor: true,
+      backgroundColor: true,
     },
   });
 
@@ -214,6 +234,8 @@ async function resolveClinicFromDomain(domain: string) {
           accentColor: true,
           supportEmail: true,
           phone: true,
+          buttonTextColor: true,
+          backgroundColor: true,
         },
       });
     }
@@ -249,6 +271,8 @@ async function resolveClinicFromDomain(domain: string) {
           accentColor: true,
           supportEmail: true,
           phone: true,
+          buttonTextColor: true,
+          backgroundColor: true,
         },
       });
 
@@ -290,6 +314,8 @@ async function resolveClinicFromDomain(domain: string) {
           accentColor: true,
           supportEmail: true,
           phone: true,
+          buttonTextColor: true,
+          backgroundColor: true,
         },
       });
     }

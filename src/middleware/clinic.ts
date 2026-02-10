@@ -27,6 +27,9 @@ const getJwtSecret = () => {
 const PUBLIC_ROUTES = [
   '/api/auth/login',
   '/api/auth/refresh-token',
+  '/api/auth/send-otp',
+  '/api/auth/verify-otp',
+  '/api/auth/reset-password',
   '/api/webhooks',
   '/api/clinic/resolve',
   '/api/health',
