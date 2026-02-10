@@ -1,12 +1,12 @@
 /**
  * Middleware for multi-clinic support
  * Resolves clinic from subdomain, custom domain, or session
- * 
+ *
  * NOTE: This middleware runs in Edge Runtime, so it cannot use:
  * - Prisma (uses Node.js APIs)
  * - node:async_hooks
  * - node:crypto
- * 
+ *
  * Clinic resolution from database is done via API calls from the client,
  * or from the JWT token which already contains clinicId.
  */
@@ -23,7 +23,7 @@ const getJwtSecret = () => {
   return new TextEncoder().encode(secret);
 };
 
-// Routes that don't require clinic context
+// Routes that don't require clinic context (middleware skips clinic resolution; auth still applied in handlers)
 const PUBLIC_ROUTES = [
   '/api/auth/login',
   '/api/auth/refresh-token',
@@ -32,6 +32,7 @@ const PUBLIC_ROUTES = [
   '/api/health',
   '/api/ready',
   '/api/monitoring',
+  '/api/assets', // Static assets (e.g. EONPRO logo) used on login page before any clinic cookie
   '/_next',
   '/favicon.ico',
   '/clinic-select',
@@ -42,6 +43,7 @@ const PUBLIC_ROUTES = [
   '/api/affiliate/apply',
   '/affiliate/login',
   '/affiliate/apply',
+  '/api/tickets', // Tickets API enforces clinic in handler; returns empty list when no clinic
 ];
 
 // Routes that require super admin (no clinic context)
@@ -54,27 +56,27 @@ const SUPER_ADMIN_ROUTES = [
 
 export async function clinicMiddleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  
+
   // Skip public routes
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }
-  
+
   // Super admin routes don't need clinic context
-  if (SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route))) {
+  if (SUPER_ADMIN_ROUTES.some((route) => pathname.startsWith(route))) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-super-admin-route', 'true');
-    
+
     return NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     });
   }
-  
+
   // Resolve clinic
   const clinicId = await resolveClinic(request);
-  
+
   // If no clinic found and route requires it, redirect to clinic selection
   if (!clinicId && !isPublicRoute(pathname)) {
     // For API routes, return error
@@ -84,22 +86,22 @@ export async function clinicMiddleware(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // For web routes, redirect to clinic selection
     return NextResponse.redirect(new URL('/clinic-select', request.url));
   }
-  
+
   // Attach clinic ID to headers for API routes
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-clinic-id', clinicId?.toString() || '');
-  
+
   // For subdomain-based routing, also set the clinic subdomain
   const hostname = request.headers.get('host') || '';
   const subdomain = extractSubdomain(hostname);
   if (subdomain) {
     requestHeaders.set('x-clinic-subdomain', subdomain);
   }
-  
+
   return NextResponse.next({
     request: {
       headers: requestHeaders,
@@ -116,19 +118,19 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
       return clinicId;
     }
   }
-  
+
   // Priority 2: Check authorization header (for API access)
   const authHeader = request.headers.get('authorization');
   const tokenFromCookie = request.cookies.get('auth-token')?.value;
   const token = authHeader?.replace('Bearer ', '') || tokenFromCookie;
-  
+
   if (token) {
     const clinicId = await getClinicIdFromToken(token);
     if (clinicId) {
       return clinicId;
     }
   }
-  
+
   // Priority 3: Check x-clinic-id header (for API clients)
   const clinicIdHeader = request.headers.get('x-clinic-id');
   if (clinicIdHeader) {
@@ -137,7 +139,7 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
       return clinicId;
     }
   }
-  
+
   // Priority 4: Check subdomain (handled by client-side redirect if needed)
   // NOTE: We can't do DB lookups in Edge Runtime, so subdomain->clinicId
   // mapping must be done by the client calling /api/clinic/resolve
@@ -148,7 +150,7 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
     // The actual DB lookup happens in the API route
     return null; // Will trigger redirect to clinic-select or use default
   }
-  
+
   // Priority 5: Default clinic ID from env (for single-clinic deployments)
   const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
   if (defaultClinicId) {
@@ -157,7 +159,7 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
       return clinicId;
     }
   }
-  
+
   return null;
 }
 
@@ -171,29 +173,29 @@ function extractSubdomain(hostname: string): string | null {
     }
     return null;
   }
-  
+
   // For production domains
   const parts = hostname.split('.');
   if (parts.length >= 3) {
     return parts[0];
   }
-  
+
   return null;
 }
 
 function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+  return PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
 }
 
 async function getClinicIdFromToken(token: string): Promise<number | null> {
   try {
     const { payload } = await jwtVerify(token, getJwtSecret());
-    
+
     // Return clinicId from JWT payload
     if (payload.clinicId && typeof payload.clinicId === 'number') {
       return payload.clinicId;
     }
-    
+
     return null;
   } catch {
     // Token verification failed - invalid or expired
