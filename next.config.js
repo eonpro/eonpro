@@ -7,10 +7,15 @@ const withBundleAnalyzer = process.env.ANALYZE === 'true'
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
-  // TypeScript configuration
+  // Required for Docker: produces .next/standalone and server.js
+  output: 'standalone',
+
+  // PDF parsing (bloodwork upload): keep native canvas and pdfjs out of bundle so they load in serverless
+  serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'pdf-parse'],
+
+  // TypeScript: CI MUST run "npm run type-check" and fail on type errors (see .github/workflows/ci.yml).
+  // ignoreBuildErrors kept for Vercel OOM; production deploy is gated by CI type-check.
   typescript: {
-    // Skip type checking during build - CI handles this separately
-    // This prevents OOM errors on large codebases during Vercel builds
     ignoreBuildErrors: true,
   },
   
@@ -101,7 +106,19 @@ const nextConfig = {
     if (isServer && config.externals) {
       config.externals.push('@prisma/client');
     }
-    
+
+    // Resolve "node:" protocol as Node built-ins (avoids UnhandledSchemeError for node:async_hooks used in db.ts).
+    if (isServer) {
+      const externals = config.externals || [];
+      const handler = ({ request }, callback) => {
+        if (typeof request === 'string' && request.startsWith('node:')) {
+          return callback(null, `commonjs ${request}`);
+        }
+        callback();
+      };
+      config.externals = Array.isArray(externals) ? [...externals, handler] : [externals, handler];
+    }
+
     // Bundle analyzer requires webpack config
     if (process.env.ANALYZE === 'true') {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
