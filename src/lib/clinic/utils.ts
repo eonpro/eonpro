@@ -10,14 +10,14 @@ export async function getClinicIdFromRequest(request: NextRequest): Promise<numb
   if (headerClinicId) {
     return parseInt(headerClinicId);
   }
-  
+
   // Check cookies as fallback
   const cookieStore = await cookies();
   const clinicCookie = cookieStore.get('selected-clinic');
   if (clinicCookie?.value) {
     return parseInt(clinicCookie.value);
   }
-  
+
   return null;
 }
 
@@ -28,17 +28,17 @@ export async function getClinicIdFromRequest(request: NextRequest): Promise<numb
 export async function getCurrentClinicId(): Promise<number | null> {
   const cookieStore = await cookies();
   const clinicCookie = cookieStore.get('selected-clinic');
-  
+
   if (clinicCookie?.value) {
     return parseInt(clinicCookie.value);
   }
-  
+
   // In production, you might want to check subdomain here as well
   // For now, return default clinic ID if configured
   if (process.env.DEFAULT_CLINIC_ID) {
     return parseInt(process.env.DEFAULT_CLINIC_ID);
   }
-  
+
   return null;
 }
 
@@ -53,7 +53,7 @@ export function verifyClinicOwnership(
   if (!currentClinicId || !resourceClinicId) {
     return; // Skip check if either is not set (migration period)
   }
-  
+
   if (resourceClinicId !== currentClinicId) {
     throw new Error('Access denied: Resource belongs to different clinic');
   }
@@ -62,32 +62,47 @@ export function verifyClinicOwnership(
 /**
  * Check if user has access to a specific clinic
  */
-export async function userHasClinicAccess(
-  userId: number,
-  clinicId: number
-): Promise<boolean> {
+export async function userHasClinicAccess(userId: number, clinicId: number): Promise<boolean> {
   // Import here to avoid circular dependency
   const { prisma } = await import('@/lib/db');
-  
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { 
+    select: {
       clinicId: true,
-      role: true 
-    }
+      role: true,
+    },
   });
-  
+
   if (!user) {
     return false;
   }
-  
+
   // Super admins have access to all clinics
   if (user.role === 'super_admin') {
     return true;
   }
-  
+
   // Other users only have access to their assigned clinic
   return user.clinicId === clinicId;
+}
+
+/**
+ * Read a boolean clinic feature from raw features (e.g. patient.clinic.features).
+ * Use for admin UI that must respect clinic feature flags (e.g. BLOODWORK_LABS for Labs tab).
+ * Only explicit `false` turns the feature off; missing or true → enabled (avoids hiding by mistake).
+ */
+export function getClinicFeatureBoolean(
+  rawFeatures: unknown,
+  key: string,
+  defaultWhenMissing: boolean = true
+): boolean {
+  if (rawFeatures == null || typeof rawFeatures !== 'object' || Array.isArray(rawFeatures)) {
+    return defaultWhenMissing;
+  }
+  const value = (rawFeatures as Record<string, unknown>)[key];
+  if (value === undefined) return defaultWhenMissing;
+  return (value as boolean) !== false;
 }
 
 /**
@@ -97,13 +112,13 @@ export function getClinicUrl(subdomain: string, customDomain?: string | null): s
   if (customDomain) {
     return `https://${customDomain}`;
   }
-  
+
   const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'localhost:3001';
-  
+
   // Handle localhost specially
   if (baseDomain.includes('localhost')) {
     return `http://${subdomain}.${baseDomain}`;
   }
-  
+
   return `https://${subdomain}.${baseDomain}`;
 }
