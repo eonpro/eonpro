@@ -9,17 +9,19 @@
 
 ## Overview
 
-Wellmedr is a GLP-1 weight loss clinic using EONPRO for patient management. They have a custom intake form at https://intake.wellmedr.com that sends patient data to EONPRO via Airtable automation.
+Wellmedr is a GLP-1 weight loss clinic using EONPRO for patient management. They have a custom
+intake form at https://intake.wellmedr.com that sends patient data to EONPRO via Airtable
+automation.
 
 ---
 
 ## Intake Platform
 
-| Field | Value |
-|-------|-------|
-| **URL** | `https://intake.wellmedr.com` |
-| **Airtable Base** | `app3usm1VtzcWOvZW` |
-| **Airtable Table** | `tbln93c69GlrNGEqa` |
+| Field              | Value                         |
+| ------------------ | ----------------------------- |
+| **URL**            | `https://intake.wellmedr.com` |
+| **Airtable Base**  | `app3usm1VtzcWOvZW`           |
+| **Airtable Table** | `tbln93c69GlrNGEqa`           |
 
 ---
 
@@ -27,8 +29,8 @@ Wellmedr is a GLP-1 weight loss clinic using EONPRO for patient management. They
 
 ### EONPRO Side (app.eonpro.io)
 
-| Environment Variable | Value |
-|---------------------|-------|
+| Environment Variable             | Value                        |
+| -------------------------------- | ---------------------------- |
 | `WELLMEDR_INTAKE_WEBHOOK_SECRET` | `<configured in production>` |
 
 **Webhook Endpoint**: `https://app.eonpro.io/api/webhooks/wellmedr-intake`
@@ -37,12 +39,12 @@ Wellmedr is a GLP-1 weight loss clinic using EONPRO for patient management. They
 
 Configure the Airtable automation to send a POST request with:
 
-| Setting | Value |
-|---------|-------|
-| **URL** | `https://app.eonpro.io/api/webhooks/wellmedr-intake` |
-| **Method** | `POST` |
-| **Headers** | `x-webhook-secret: <your-secret>` |
-| **Body** | JSON with all intake form fields |
+| Setting     | Value                                                |
+| ----------- | ---------------------------------------------------- |
+| **URL**     | `https://app.eonpro.io/api/webhooks/wellmedr-intake` |
+| **Method**  | `POST`                                               |
+| **Headers** | `x-webhook-secret: <your-secret>`                    |
+| **Body**    | JSON with all intake form fields                     |
 
 ---
 
@@ -68,14 +70,64 @@ Patient → intake.wellmedr.com → Airtable (tbln93c69GlrNGEqa)
 
 ## Features Enabled
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Patient Intake | ✅ | Via webhook from Airtable |
-| PDF Generation | ✅ | Auto-generated, stored in S3 |
-| SOAP Notes | ✅ | AI-generated for complete submissions |
-| Referral Tracking | ✅ | Promo codes tracked |
-| Partial Leads | ✅ | Tagged as `partial-lead` when checkout incomplete |
-| Lifefile Pharmacy | ✅ | Credentials configured |
+| Feature           | Status | Notes                                             |
+| ----------------- | ------ | ------------------------------------------------- |
+| Patient Intake    | ✅     | Via webhook from Airtable                         |
+| PDF Generation    | ✅     | Auto-generated, stored in S3                      |
+| SOAP Notes        | ✅     | AI-generated for complete submissions             |
+| Referral Tracking | ✅     | Promo codes tracked                               |
+| Partial Leads     | ✅     | Tagged as `partial-lead` when checkout incomplete |
+| Lifefile Pharmacy | ✅     | Credentials configured                            |
+
+---
+
+## S3 Document Storage (wellmedr-documents)
+
+Patient documents (lab results, PDFs, imaging) are stored in AWS S3.
+
+### Bucket Configuration
+
+| Setting  | Value              |
+| -------- | ------------------ |
+| **Bucket** | `wellmedr-documents-{ACCOUNT_ID}` (e.g. `wellmedr-documents-147997129811`) |
+| **Region** | `us-east-2` (Ohio)   |
+
+*Note: S3 bucket names are globally unique. If `wellmedr-documents` is taken, the script uses `wellmedr-documents-{your-aws-account-id}`.*
+
+### Deploy the Bucket
+
+Run the script (requires AWS CLI with create-bucket permissions):
+
+```bash
+chmod +x scripts/aws/create-wellmedr-documents-bucket.sh
+./scripts/aws/create-wellmedr-documents-bucket.sh
+```
+
+The script prints the actual bucket name. Use that value in Vercel.
+
+### Vercel Environment Variables
+
+Set in **Vercel** → Project → **Settings** → **Environment Variables** (Production):
+
+| Variable | Value |
+| -------- | ----- |
+| `NEXT_PUBLIC_ENABLE_AWS_S3_STORAGE` | `true` |
+| `AWS_S3_DOCUMENTS_BUCKET_NAME` | `wellmedr-documents-147997129811` *(or output from script)* |
+| `AWS_S3_BUCKET_NAME` | same as above |
+| `AWS_REGION` | `us-east-2` |
+| `AWS_ACCESS_KEY_ID` | (IAM access key) |
+| `AWS_SECRET_ACCESS_KEY` | (IAM secret key) |
+
+**Redeploy** after changing `NEXT_PUBLIC_*` variables.
+
+### Verify
+
+```bash
+curl -s -H "Authorization: Bearer YOUR_TOKEN" \
+  "https://app.eonpro.io/api/diagnostics/document-upload"
+```
+
+Expect `"ok": true` when configured correctly.
 
 ---
 
@@ -83,34 +135,38 @@ Patient → intake.wellmedr.com → Airtable (tbln93c69GlrNGEqa)
 
 ### Patient Identity (7 fields → Patient model)
 
-| Wellmedr Field | Database Field | Notes |
-|----------------|----------------|-------|
-| `first-name` | `firstName` | Capitalized |
-| `last-name` | `lastName` | Capitalized |
-| `email` | `email` | Lowercase |
-| `phone` | `phone` | Digits only |
-| `state` | `state` | 2-letter code |
-| `dob` | `dob` | YYYY-MM-DD |
-| `sex` | `gender` | m/f |
+| Wellmedr Field | Database Field | Notes         |
+| -------------- | -------------- | ------------- |
+| `first-name`   | `firstName`    | Capitalized   |
+| `last-name`    | `lastName`     | Capitalized   |
+| `email`        | `email`        | Lowercase     |
+| `phone`        | `phone`        | Digits only   |
+| `state`        | `state`        | 2-letter code |
+| `dob`          | `dob`          | YYYY-MM-DD    |
+| `sex`          | `gender`       | m/f           |
 
 ### Body Metrics (5 fields)
+
 - `feet`, `inches` → Height
 - `weight` → Current weight (lbs)
 - `goal-weight` → Target weight (lbs)
 - `bmi` → Calculated BMI
 
 ### Vitals & Health (3 fields)
+
 - `avg-blood-pressure-range`
 - `avg-resting-heart-rate`
 - `weight-related-symptoms`
 
 ### Medical History (6 fields)
+
 - `health-conditions`, `health-conditions-2`
 - `type-2-diabetes`
 - `men2-history` ⚠️ GLP-1 contraindication flag
 - `bariatric`, `bariatric-details`
 
 ### Lifestyle & Goals (7 fields)
+
 - `reproductive-status`
 - `sleep-quality`
 - `primary-fitness-goal`
@@ -120,6 +176,7 @@ Patient → intake.wellmedr.com → Airtable (tbln93c69GlrNGEqa)
 - `affordability-potency`
 
 ### Medication Preferences & GLP-1 History (9 fields)
+
 - `preferred-meds` (Semaglutide/Tirzepatide/Open)
 - `injections-tablets`
 - `glp1-last-30` (Y/N)
@@ -130,10 +187,12 @@ Patient → intake.wellmedr.com → Airtable (tbln93c69GlrNGEqa)
 - `current-meds`, `current-meds-details`
 
 ### Risk Screening (3 fields)
+
 - `opioids`, `opioids-details`
 - `allergies`
 
 ### Compliance & Checkout (5 fields)
+
 - `additional-info`, `additional-info-details`
 - `hipaa-agreement`
 - `Checkout Completed` ← **Determines if complete submission**
@@ -143,10 +202,10 @@ Patient → intake.wellmedr.com → Airtable (tbln93c69GlrNGEqa)
 
 ## Submission Types
 
-| Condition | Type | Tags Applied | SOAP Generated |
-|-----------|------|--------------|----------------|
-| `Checkout Completed` = true | Complete | `complete-intake`, `wellmedr`, `glp1` | ✅ Yes |
-| `Checkout Completed` = false | Partial | `partial-lead`, `needs-followup`, `wellmedr`, `glp1` | ❌ No |
+| Condition                    | Type     | Tags Applied                                         | SOAP Generated |
+| ---------------------------- | -------- | ---------------------------------------------------- | -------------- |
+| `Checkout Completed` = true  | Complete | `complete-intake`, `wellmedr`, `glp1`                | ✅ Yes         |
+| `Checkout Completed` = false | Partial  | `partial-lead`, `needs-followup`, `wellmedr`, `glp1` | ❌ No          |
 
 ---
 
@@ -168,16 +227,16 @@ const payload = {
   'submission-date': new Date().toISOString(),
   'first-name': record.getCellValue('First Name'),
   'last-name': record.getCellValue('Last Name'),
-  'email': record.getCellValue('Email'),
-  'phone': record.getCellValue('Phone'),
-  'state': record.getCellValue('State'),
-  'dob': record.getCellValue('Date of Birth'),
-  'sex': record.getCellValue('Sex'),
-  'feet': record.getCellValue('Height Feet'),
-  'inches': record.getCellValue('Height Inches'),
-  'weight': record.getCellValue('Weight'),
+  email: record.getCellValue('Email'),
+  phone: record.getCellValue('Phone'),
+  state: record.getCellValue('State'),
+  dob: record.getCellValue('Date of Birth'),
+  sex: record.getCellValue('Sex'),
+  feet: record.getCellValue('Height Feet'),
+  inches: record.getCellValue('Height Inches'),
+  weight: record.getCellValue('Weight'),
   'goal-weight': record.getCellValue('Goal Weight'),
-  'bmi': record.getCellValue('BMI'),
+  bmi: record.getCellValue('BMI'),
   // ... add all other fields
   'Checkout Completed': record.getCellValue('Checkout Completed'),
 };
@@ -208,11 +267,13 @@ if (result.success && result.eonproPatientId) {
 ## Verification
 
 ### Check webhook health:
+
 ```bash
 curl -s "https://app.eonpro.io/api/webhooks/wellmedr-intake" | jq '.'
 ```
 
 Expected response:
+
 ```json
 {
   "status": "ok",
@@ -224,6 +285,7 @@ Expected response:
 ```
 
 ### Test webhook with sample data:
+
 ```bash
 curl -X POST "https://app.eonpro.io/api/webhooks/wellmedr-intake" \
   -H "Content-Type: application/json" \
@@ -285,94 +347,137 @@ Successful response includes EONPRO IDs for bidirectional sync:
 
 ## Contacts
 
-| Role | Contact |
-|------|---------|
-| Technical Support | EONPRO Team |
-| Clinic Admin | Dr. Sigle (rsigle@wellmedr.com) |
+| Role              | Contact                         |
+| ----------------- | ------------------------------- |
+| Technical Support | EONPRO Team                     |
+| Clinic Admin      | Dr. Sigle (rsigle@wellmedr.com) |
 
 ---
 
 ## History
 
-| Date | Change | Verified By |
-|------|--------|-------------|
-| 2026-01-24 | Initial webhook setup | System |
-| 2026-01-24 | Documented 47 form fields | System |
-| 2026-01-26 | Added invoice webhook for Airtable payment sync | System |
-| 2026-01-27 | Added Lifefile shipping webhook for tracking updates | System |
+| Date       | Change                                               | Verified By |
+| ---------- | ---------------------------------------------------- | ----------- |
+| 2026-01-24 | Initial webhook setup                                | System      |
+| 2026-01-24 | Documented 47 form fields                            | System      |
+| 2026-01-26 | Added invoice webhook for Airtable payment sync      | System      |
+| 2026-01-27 | Added Lifefile shipping webhook for tracking updates | System      |
 
 ---
 
 ## Invoice Webhook (Airtable → EONPRO)
 
 ### Purpose
+
 Creates invoices on patient profiles when a payment is detected in Airtable.
 
 ### Webhook Configuration
 
-| Setting | Value |
-|---------|-------|
-| **Endpoint** | `https://app.eonpro.io/api/webhooks/wellmedr-invoice` |
-| **Method** | `POST` |
-| **Headers** | `x-webhook-secret: <your-secret>` |
-| **Trigger** | When `method_payment_id` field has a value like `pm_...` |
+| Setting      | Value                                                    |
+| ------------ | -------------------------------------------------------- |
+| **Endpoint** | `https://app.eonpro.io/api/webhooks/wellmedr-invoice`    |
+| **Method**   | `POST`                                                   |
+| **Headers**  | `x-webhook-secret: <your-secret>`                        |
+| **Trigger**  | When `method_payment_id` field has a value like `pm_...` |
 
 ### Airtable Automation Script
+
+Use **input variables** in your Airtable "Run script" action. Map each variable to the correct field:
+
+| Variable             | Airtable Field                             | Required |
+| -------------------- | ------------------------------------------ | -------- |
+| `customer_email`     | Email / Customer Email                     | Yes      |
+| `payment_method_id`  | Payment Method ID / Stripe pm_*             | Yes      |
+| `patient_name`       | Patient Name / Customer Name / Name         | No*      |
+| `customer_name`      | Customer Name (fallback if no patient_name) | No       |
+| `product`            | Product                                    | No       |
+| `medication_type`    | Medication Type                            | No       |
+| `plan`               | Plan                                       | No       |
+| `price`              | Price / Amount                              | No       |
+| `shipping_address`   | Shipping Address                            | No       |
+| `created_at`         | Created At / Payment Date                   | No       |
+| `submission_id`      | Submission ID                               | No       |
+| `stripe_price_id`    | Stripe Price ID                             | No       |
+
+\* **patient_name is strongly recommended** – EONPRO matches by email first, then by name when email fails. This helps when the payment email differs slightly from the intake record.
 
 ```javascript
 // WellMedR Invoice Webhook - Airtable Automation Script
 // =====================================================
-// Trigger: When "method_payment_id" field is not empty and matches pm_* pattern
-// Action: Send patient data to EONPRO to create invoice
+// Trigger: When payment_method_id field has a pm_* value
+// Action: Send to EONPRO to create invoice and queue for prescription
 
 const WEBHOOK_URL = 'https://app.eonpro.io/api/webhooks/wellmedr-invoice';
-const WEBHOOK_SECRET = 'YOUR_WELLMEDR_INTAKE_WEBHOOK_SECRET'; // Same as intake webhook
+const WEBHOOK_SECRET = 'YOUR_WELLMEDR_INTAKE_WEBHOOK_SECRET'; // Must match EONPRO env
 
-// Get the record that triggered this automation
-let inputConfig = input.config();
-let record = inputConfig.record;
+let config = input.config();
 
-// Get field values from the record
-const methodPaymentId = record.getCellValueAsString('method_payment_id');
-
-// Only proceed if method_payment_id looks like a Stripe payment method
-if (!methodPaymentId || !methodPaymentId.startsWith('pm_')) {
-  console.log('Skipping - no valid payment method ID found');
-  output.set('status', 'skipped');
-  output.set('reason', 'No valid pm_* payment method ID');
+// Validate payment method (must start with pm_)
+if (!config.payment_method_id || !config.payment_method_id.toString().startsWith('pm_')) {
+  console.log('❌ Skipping - payment_method_id is empty or invalid');
   return;
 }
 
-// Build the payload from Airtable record
+if (!config.customer_email) {
+  console.log('❌ Skipping - customer_email is empty');
+  return;
+}
+
+// Parse shipping_address - handle both JSON and string formats
+let shippingAddress = {};
+let customerName = '';
+
+if (config.shipping_address) {
+  const rawAddress = String(config.shipping_address).trim();
+  if (rawAddress.startsWith('{')) {
+    try {
+      shippingAddress = JSON.parse(rawAddress);
+      customerName = shippingAddress.firstName && shippingAddress.lastName
+        ? `${shippingAddress.firstName} ${shippingAddress.lastName}`
+        : '';
+    } catch (e) {
+      console.log('⚠ JSON parse failed:', e.message);
+    }
+  } else {
+    const parts = rawAddress.split(',').map((p) => p.trim());
+    if (parts.length >= 4) {
+      shippingAddress = { address: parts[0], city: parts[1], state: parts[2], zipCode: parts[3] };
+    } else if (parts.length === 3 && /\d/.test(parts[0])) {
+      const stateZip = parts[2].split(/\s+/);
+      shippingAddress = { address: parts[0], city: parts[1], state: stateZip[0] || '', zipCode: stateZip[1] || '' };
+    } else {
+      shippingAddress = { address: rawAddress };
+    }
+  }
+}
+
+// Patient name: prefer explicit patient_name, then customer_name, then from address
+const patientName = (config.patient_name || config.customer_name || customerName || '').trim();
+
 const payload = {
-  // Required fields
-  customer_email: record.getCellValueAsString('customer_email'),
-  method_payment_id: methodPaymentId,
-  
-  // Optional fields - adjust field names to match your Airtable
-  customer_name: record.getCellValueAsString('customer_name') || 
-                 record.getCellValueAsString('cardholder_name'),
-  cardholder_name: record.getCellValueAsString('cardholder_name'),
-  product: record.getCellValueAsString('product'),
-  amount: parseAmountToCents(record.getCellValue('amount') || record.getCellValue('amount_paid')),
-  submission_id: record.getCellValueAsString('submission_id'),
-  order_status: record.getCellValueAsString('order_status'),
-  subscription_status: record.getCellValueAsString('subscription_status'),
+  customer_email: String(config.customer_email).trim(),
+  method_payment_id: String(config.payment_method_id),
+  patient_name: patientName || undefined,
+  customer_name: patientName || config.customer_name || undefined,
+  product: config.product || '',
+  medication_type: config.medication_type || '',
+  plan: config.plan || '',
+  price: config.price || '',
+  stripe_price_id: config.stripe_price_id || '',
+  submission_id: config.submission_id || '',
+  total_discount: config.total_discount || '',
+  coupon_code: config.coupon_code || '',
+  address: shippingAddress.address || '',
+  address_line2: shippingAddress.apt || shippingAddress.address_line2 || '',
+  city: shippingAddress.city || '',
+  state: shippingAddress.state || '',
+  zip: shippingAddress.zipCode || shippingAddress.zip || '',
+  country: 'US',
+  payment_date: config.created_at || '',
 };
 
-// Validate required email
-if (!payload.customer_email) {
-  console.error('Missing customer_email - cannot create invoice');
-  output.set('status', 'error');
-  output.set('reason', 'Missing customer_email');
-  return;
-}
+console.log('Sending to EONPRO:', payload.customer_email, patientName || '(no name)');
 
-console.log('Sending invoice request for:', payload.customer_email);
-console.log('Product:', payload.product);
-console.log('Amount:', payload.amount ? `$${(payload.amount / 100).toFixed(2)}` : 'default');
-
-// Send to EONPRO
 try {
   const response = await fetch(WEBHOOK_URL, {
     method: 'POST',
@@ -384,57 +489,16 @@ try {
   });
 
   const result = await response.json();
-  
+
   if (response.ok && result.success) {
-    console.log('✅ Invoice created successfully!');
-    console.log('Invoice ID:', result.invoice?.id);
-    console.log('Patient:', result.patient?.name);
-    console.log('Amount:', result.invoice?.amountFormatted);
-    console.log('Status:', result.invoice?.status);
-    
-    output.set('status', 'success');
-    output.set('invoiceId', result.invoice?.id);
-    output.set('eonproPatientId', result.patient?.id);
-    output.set('amount', result.invoice?.amountFormatted);
+    console.log('✅ SUCCESS - Invoice:', result.invoice?.id, 'Patient:', result.patient?.name);
   } else {
-    console.error('❌ Invoice creation failed:', result.error || result.message);
-    output.set('status', 'error');
-    output.set('error', result.error || result.message);
+    console.log('❌ FAILED:', response.status, result.error || result.message);
+    if (result.searchedEmail) console.log('   Searched email:', result.searchedEmail);
+    if (result.searchedName) console.log('   Searched name:', result.searchedName);
   }
 } catch (error) {
-  console.error('❌ Request failed:', error.message);
-  output.set('status', 'error');
-  output.set('error', error.message);
-}
-
-// Helper function to parse amount to cents
-function parseAmountToCents(amount) {
-  if (!amount) return null;
-  
-  // If it's a number
-  if (typeof amount === 'number') {
-    // If it looks like dollars (less than 1000), convert to cents
-    if (amount < 1000) {
-      return Math.round(amount * 100);
-    }
-    return Math.round(amount);
-  }
-  
-  // If it's a string, parse it
-  if (typeof amount === 'string') {
-    // Remove currency symbols and commas
-    const cleaned = amount.replace(/[$,]/g, '').trim();
-    const parsed = parseFloat(cleaned);
-    if (!isNaN(parsed)) {
-      // If it looks like dollars, convert to cents
-      if (parsed < 1000) {
-        return Math.round(parsed * 100);
-      }
-      return Math.round(parsed);
-    }
-  }
-  
-  return null;
+  console.log('❌ REQUEST ERROR:', error.message);
 }
 ```
 
@@ -443,23 +507,18 @@ function parseAmountToCents(amount) {
 1. **Go to Automations** in your Airtable base
 2. **Create new automation** named "Create EONPRO Invoice on Payment"
 3. **Add Trigger**: "When record matches conditions"
-   - Table: `Orders`
-   - Condition: `method_payment_id` is not empty AND starts with "pm_"
+   - Table: `Orders` (or your payments table)
+   - Condition: `payment_method_id` is not empty AND starts with `pm_`
 4. **Add Action**: "Run script"
    - Paste the script above
-   - Configure input: `record` = the triggering record
-5. **Configure output** (optional):
-   - `status` - success/error/skipped
-   - `invoiceId` - EONPRO invoice ID
-   - `eonproPatientId` - EONPRO patient ID
-   - `amount` - Invoice amount
-   - `error` - Error message if failed
-6. **Test** with a sample record
-7. **Turn on** the automation
+   - In **Input variables**, add each variable and map it to the matching Airtable field (see table above). At minimum: `customer_email`, `payment_method_id`. **Add `patient_name`** for better matching when email differs from intake.
+5. **Test** with a sample record that has `pm_*` in payment_method_id
+6. **Turn on** the automation
 
 ### Response Format
 
 Successful response:
+
 ```json
 {
   "success": true,
@@ -486,13 +545,33 @@ Successful response:
 
 ### Error Responses
 
-| Status | Error | Resolution |
-|--------|-------|------------|
-| 401 | Unauthorized | Check webhook secret in headers |
-| 404 | Patient not found | Patient must be created via intake webhook first |
-| 400 | Missing customer_email | Ensure email field is mapped correctly |
-| 400 | Invalid payment method format | Only pm_* values are accepted |
-| 500 | Database error | Check EONPRO server logs |
+| Status | Error                         | Resolution                                       |
+| ------ | ----------------------------- | ------------------------------------------------ |
+| 401    | Unauthorized                  | Check webhook secret in headers                  |
+| 404    | Patient not found             | Patient must be created via intake webhook first |
+| 400    | Missing customer_email        | Ensure email field is mapped correctly           |
+| 400    | Invalid payment method format | Only pm\_\* values are accepted                  |
+| 500    | Database error                | Check EONPRO server logs                         |
+
+### Troubleshooting "Not Working"
+
+1. **401 Unauthorized**
+   - The `x-webhook-secret` header must match `WELLMEDR_INTAKE_WEBHOOK_SECRET` or `WELLMEDR_INVOICE_WEBHOOK_SECRET` in EONPRO's environment.
+   - Ensure the secret in your Airtable script matches production exactly (no extra spaces, correct casing).
+
+2. **404 Patient not found**
+   - The patient must already exist from the intake webhook. Check that the intake automation ran before the payment automation.
+   - Add `patient_name` to your Airtable script – EONPRO matches by email first, then by name as fallback.
+   - Verify `customer_email` in the payment record matches the email used in the intake form.
+   - If emails differ (e.g., typo, different provider), include `patient_name` – EONPRO will try name-based matching.
+
+3. **Script runs but no invoice appears**
+   - Check Airtable automation run history for errors.
+   - Verify the response: `result.success === true` means success.
+   - Ensure `prescriptionProcessed: false` on the invoice so it shows in the prescription queue.
+
+4. **Health check**
+   - `GET https://app.eonpro.io/api/webhooks/wellmedr-invoice` returns endpoint status and `configured: true` when the secret is set.
 
 ---
 
@@ -501,16 +580,18 @@ Successful response:
 ## Lifefile Shipping Webhook (Lifefile → EONPRO)
 
 ### Purpose
-Receives shipping/tracking updates from Lifefile and stores them at the patient profile level. This allows providers to see prescription fulfillment history for each patient.
+
+Receives shipping/tracking updates from Lifefile and stores them at the patient profile level. This
+allows providers to see prescription fulfillment history for each patient.
 
 ### Webhook Configuration
 
-| Setting | Value |
-|---------|-------|
-| **Endpoint** | `https://app.eonpro.io/api/webhooks/wellmedr-shipping` |
-| **Method** | `POST` |
-| **Authentication** | Basic Auth (username:password) |
-| **Content-Type** | `application/json` |
+| Setting            | Value                                                  |
+| ------------------ | ------------------------------------------------------ |
+| **Endpoint**       | `https://app.eonpro.io/api/webhooks/wellmedr-shipping` |
+| **Method**         | `POST`                                                 |
+| **Authentication** | Basic Auth (username:password)                         |
+| **Content-Type**   | `application/json`                                     |
 
 ### Environment Variables
 
@@ -545,35 +626,35 @@ WELLMEDR_SHIPPING_WEBHOOK_PASSWORD=<secure-password>
 
 ### Field Reference
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `trackingNumber` | ✅ Yes | Carrier tracking number |
-| `orderId` | ✅ Yes | Lifefile order ID (LF-xxxxx) |
-| `deliveryService` | ✅ Yes | Carrier name (UPS, FedEx, USPS, etc.) |
-| `brand` | No | Clinic brand name (defaults to "Wellmedr") |
-| `status` | No | Shipping status (defaults to "shipped") |
-| `estimatedDelivery` | No | Expected delivery date (ISO 8601) |
-| `actualDelivery` | No | Actual delivery date (ISO 8601) |
-| `trackingUrl` | No | Direct link to carrier tracking page |
-| `medication` | No | Medication details object |
-| `patientEmail` | No | Patient email for lookup (fallback) |
-| `patientId` | No | EONPRO patient ID (fallback) |
-| `timestamp` | No | Event timestamp |
-| `notes` | No | Additional notes |
+| Field               | Required | Description                                |
+| ------------------- | -------- | ------------------------------------------ |
+| `trackingNumber`    | ✅ Yes   | Carrier tracking number                    |
+| `orderId`           | ✅ Yes   | Lifefile order ID (LF-xxxxx)               |
+| `deliveryService`   | ✅ Yes   | Carrier name (UPS, FedEx, USPS, etc.)      |
+| `brand`             | No       | Clinic brand name (defaults to "Wellmedr") |
+| `status`            | No       | Shipping status (defaults to "shipped")    |
+| `estimatedDelivery` | No       | Expected delivery date (ISO 8601)          |
+| `actualDelivery`    | No       | Actual delivery date (ISO 8601)            |
+| `trackingUrl`       | No       | Direct link to carrier tracking page       |
+| `medication`        | No       | Medication details object                  |
+| `patientEmail`      | No       | Patient email for lookup (fallback)        |
+| `patientId`         | No       | EONPRO patient ID (fallback)               |
+| `timestamp`         | No       | Event timestamp                            |
+| `notes`             | No       | Additional notes                           |
 
 ### Supported Status Values
 
-| Status | Description |
-|--------|-------------|
-| `pending` | Shipment not yet processed |
-| `label_created` | Shipping label generated |
-| `shipped` | Package picked up by carrier |
-| `in_transit` | Package in transit |
-| `out_for_delivery` | Package out for delivery |
-| `delivered` | Package delivered |
-| `returned` | Package returned to sender |
-| `exception` | Delivery exception occurred |
-| `cancelled` | Shipment cancelled |
+| Status             | Description                  |
+| ------------------ | ---------------------------- |
+| `pending`          | Shipment not yet processed   |
+| `label_created`    | Shipping label generated     |
+| `shipped`          | Package picked up by carrier |
+| `in_transit`       | Package in transit           |
+| `out_for_delivery` | Package out for delivery     |
+| `delivered`        | Package delivered            |
+| `returned`         | Package returned to sender   |
+| `exception`        | Delivery exception occurred  |
+| `cancelled`        | Shipment cancelled           |
 
 ### Sample cURL Request (from Lifefile)
 
@@ -599,6 +680,7 @@ curl -X POST https://app.eonpro.io/api/webhooks/wellmedr-shipping \
 ### Response Format
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -626,12 +708,12 @@ curl -X POST https://app.eonpro.io/api/webhooks/wellmedr-shipping \
 
 **Error Responses:**
 
-| Status | Error | Resolution |
-|--------|-------|------------|
-| 401 | Unauthorized | Check Basic Auth credentials |
-| 400 | Invalid payload | Check required fields (trackingNumber, orderId, deliveryService) |
-| 202 | Patient/order not found | Ensure patient exists before sending shipping updates |
-| 500 | Internal error | Check EONPRO server logs |
+| Status | Error                   | Resolution                                                       |
+| ------ | ----------------------- | ---------------------------------------------------------------- |
+| 401    | Unauthorized            | Check Basic Auth credentials                                     |
+| 400    | Invalid payload         | Check required fields (trackingNumber, orderId, deliveryService) |
+| 202    | Patient/order not found | Ensure patient exists before sending shipping updates            |
+| 500    | Internal error          | Check EONPRO server logs                                         |
 
 ### Where Data is Stored
 
@@ -642,6 +724,7 @@ curl -X POST https://app.eonpro.io/api/webhooks/wellmedr-shipping \
 ### Viewing Shipping History
 
 Shipping updates are visible in the EONPRO patient profile:
+
 - Navigate to Patient → Prescriptions tab
 - "Shipping History" section shows all updates
 - Click tracking numbers to open carrier tracking pages
@@ -653,6 +736,7 @@ curl https://app.eonpro.io/api/webhooks/wellmedr-shipping
 ```
 
 Expected response:
+
 ```json
 {
   "status": "ok",

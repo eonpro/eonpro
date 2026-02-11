@@ -11,6 +11,7 @@
  * {
  *   "customer_email": "patient@example.com",
  *   "customer_name": "John Doe",
+ *   "patient_name": "John Doe",
  *   "product": "Tirzepatide 5mg",
  *   "amount": 29900, // Amount in cents
  *   "method_payment_id": "pm_1StwAHDfH4PWyxxdppqIGipS",
@@ -31,6 +32,7 @@ import {
   extractAddressFromPayload,
 } from '@/lib/address';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { PHISearchService } from '@/lib/security/phi-search';
 
 /**
  * Safely decrypt a PHI field, returning original value if decryption fails
@@ -70,7 +72,7 @@ function parsePaymentDate(dateValue: string | undefined): Date {
   if (isNaN(parsed.getTime())) {
     logger.warn('[WELLMEDR-INVOICE] Could not parse payment date, using current date', {
       original: dateValue,
-      cleaned: cleanDate
+      cleaned: cleanDate,
     });
     return new Date();
   }
@@ -79,11 +81,13 @@ function parsePaymentDate(dateValue: string | undefined): Date {
 }
 
 // Auth configuration - reuses the wellmedr intake webhook secret
-const WEBHOOK_SECRET = process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET || process.env.WELLMEDR_INVOICE_WEBHOOK_SECRET;
+const WEBHOOK_SECRET =
+  process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET || process.env.WELLMEDR_INVOICE_WEBHOOK_SECRET;
 
 interface WellmedrInvoicePayload {
   customer_email: string;
   customer_name?: string;
+  patient_name?: string;
   cardholder_name?: string;
   product?: string;
   amount?: number;
@@ -153,18 +157,12 @@ export async function POST(req: NextRequest) {
 
   if (!WEBHOOK_SECRET) {
     logger.error(`[WELLMEDR-INVOICE ${requestId}] CRITICAL: No webhook secret configured!`);
-    return NextResponse.json(
-      { error: 'Server misconfigured' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
   }
 
   if (providedSecret !== WEBHOOK_SECRET) {
     logger.warn(`[WELLMEDR-INVOICE ${requestId}] Authentication FAILED`);
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   logger.debug(`[WELLMEDR-INVOICE ${requestId}] ✓ Authenticated`);
@@ -185,21 +183,19 @@ export async function POST(req: NextRequest) {
 
     if (!wellmedrClinic) {
       logger.error(`[WELLMEDR-INVOICE ${requestId}] CRITICAL: Wellmedr clinic not found!`);
-      return NextResponse.json(
-        { error: 'Wellmedr clinic not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Wellmedr clinic not configured' }, { status: 500 });
     }
 
     clinicId = wellmedrClinic.id;
-    logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ CLINIC VERIFIED: ID=${clinicId}, Name="${wellmedrClinic.name}"`);
+    logger.info(
+      `[WELLMEDR-INVOICE ${requestId}] ✓ CLINIC VERIFIED: ID=${clinicId}, Name="${wellmedrClinic.name}"`
+    );
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error(`[WELLMEDR-INVOICE ${requestId}] Database error finding clinic:`, { error: errMsg });
-    return NextResponse.json(
-      { error: 'Database error', message: errMsg },
-      { status: 500 }
-    );
+    logger.error(`[WELLMEDR-INVOICE ${requestId}] Database error finding clinic:`, {
+      error: errMsg,
+    });
+    return NextResponse.json({ error: 'Database error', message: errMsg }, { status: 500 });
   }
 
   // STEP 3: Parse payload
@@ -216,19 +212,13 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Failed to parse JSON payload`);
-    return NextResponse.json(
-      { error: 'Invalid JSON payload' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
   // STEP 4: Validate required fields
   if (!payload.customer_email) {
     logger.warn(`[WELLMEDR-INVOICE ${requestId}] Missing customer_email`);
-    return NextResponse.json(
-      { error: 'Missing required field: customer_email' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Missing required field: customer_email' }, { status: 400 });
   }
 
   if (!payload.method_payment_id) {
@@ -241,22 +231,36 @@ export async function POST(req: NextRequest) {
 
   // Validate payment method format (starts with pm_)
   if (!payload.method_payment_id.startsWith('pm_')) {
-    logger.warn(`[WELLMEDR-INVOICE ${requestId}] Invalid payment method format: ${payload.method_payment_id}`);
+    logger.warn(
+      `[WELLMEDR-INVOICE ${requestId}] Invalid payment method format: ${payload.method_payment_id}`
+    );
     return NextResponse.json(
       { error: 'Invalid payment method format - expected pm_...' },
       { status: 400 }
     );
   }
 
-  // STEP 5: Find patient by email
+  // STEP 5: Find patient by email (PHI-safe), then by name if email fails
+  // Patients come from WellMedR intake Airtable script - email/name must match
   const email = payload.customer_email.toLowerCase().trim();
-  let patient;
+  const patientName =
+    (payload.patient_name || payload.customer_name || payload.cardholder_name || '').trim();
+
+  let patient: {
+    id: number;
+    patientId: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+  } | null;
+
   try {
-    patient = await prisma.patient.findFirst({
-      where: {
-        email: { equals: email, mode: 'insensitive' },
-        clinicId: clinicId,
-      },
+    // Try email first - use PHISearchService because email is encrypted at rest
+    const emailResults = await PHISearchService.searchPatients({
+      baseQuery: { clinicId, profileStatus: 'ACTIVE' },
+      search: email,
+      searchFields: ['email'],
+      pagination: { limit: 1, offset: 0 },
       select: {
         id: true,
         patientId: true,
@@ -267,18 +271,71 @@ export async function POST(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!patient) {
-      logger.warn(`[WELLMEDR-INVOICE ${requestId}] Patient not found for email: ${email}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Patient not found',
-        message: `No patient found with email ${email} in WellMedR clinic. Please ensure the patient is registered first.`,
-        searchedEmail: email,
-        clinicId,
-      }, { status: 404 });
+    if (emailResults.data.length >= 1) {
+      // Verify exact email match (search does includes(); we need exact for security)
+      const candidate = emailResults.data[0] as { email?: string | null };
+      const decryptedEmail = safeDecrypt(candidate.email)?.toLowerCase().trim();
+      if (decryptedEmail === email) {
+        patient = emailResults.data[0] as typeof patient;
+      }
     }
 
-    logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient found`, { patientId: patient.id, clinicId: patient.clinicId });
+    // Fallback: try name-based match when email fails
+    if (!patient && patientName) {
+      logger.info(
+        `[WELLMEDR-INVOICE ${requestId}] Email match failed, trying name match: "${patientName}"`
+      );
+      const nameResults = await PHISearchService.searchPatients({
+        baseQuery: { clinicId, profileStatus: 'ACTIVE' },
+        search: patientName,
+        searchFields: ['firstName', 'lastName'],
+        pagination: { limit: 5, offset: 0 },
+        select: {
+          id: true,
+          patientId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (nameResults.data.length === 1) {
+        patient = nameResults.data[0] as typeof patient;
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient found by name`, {
+          patientId: patient.id,
+          matchedName: patientName,
+        });
+      } else if (nameResults.data.length > 1) {
+        logger.warn(
+          `[WELLMEDR-INVOICE ${requestId}] Multiple patients match name "${patientName}" - cannot disambiguate without email match`
+        );
+      }
+    }
+
+    if (!patient) {
+      logger.warn(`[WELLMEDR-INVOICE ${requestId}] Patient not found`, {
+        searchedEmail: email,
+        searchedName: patientName || '(not provided)',
+        clinicId,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Patient not found',
+          message: `No patient found with email ${email}${patientName ? ` or name "${patientName}"` : ''} in WellMedR clinic. Ensure the patient is registered via the intake webhook first, and that customer_email or patient_name matches the intake record.`,
+          searchedEmail: email,
+          searchedName: patientName || undefined,
+          clinicId,
+        },
+        { status: 404 }
+      );
+    }
+
+    logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient found`, {
+      patientId: patient.id,
+      clinicId,
+    });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Error finding patient:`, { error: errMsg });
@@ -302,7 +359,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingInvoice) {
-      logger.info(`[WELLMEDR-INVOICE ${requestId}] Invoice already exists for this payment: ${existingInvoice.id}`);
+      logger.info(
+        `[WELLMEDR-INVOICE ${requestId}] Invoice already exists for this payment: ${existingInvoice.id}`
+      );
       return NextResponse.json({
         success: true,
         duplicate: true,
@@ -347,14 +406,18 @@ export async function POST(req: NextRequest) {
   // We only auto-correct obvious dollar values (< 100, which would be < $1 in cents - unrealistic)
   // Note: This is a last-resort fallback - callers should send amount in cents as documented
   if (amountInCents > 0 && amountInCents < 100) {
-    logger.warn(`[WELLMEDR-INVOICE] Amount ${amountInCents} looks like dollars, converting to cents`);
+    logger.warn(
+      `[WELLMEDR-INVOICE] Amount ${amountInCents} looks like dollars, converting to cents`
+    );
     amountInCents = Math.round(amountInCents * 100);
   }
 
   // Default amount if not provided
   if (!amountInCents || amountInCents <= 0) {
     amountInCents = 29900; // Default $299.00
-    logger.warn(`[WELLMEDR-INVOICE ${requestId}] No amount provided, using default: $${(amountInCents / 100).toFixed(2)}`);
+    logger.warn(
+      `[WELLMEDR-INVOICE ${requestId}] No amount provided, using default: $${(amountInCents / 100).toFixed(2)}`
+    );
   }
 
   // Build line item description with product, medication type, and plan
@@ -382,51 +445,51 @@ export async function POST(req: NextRequest) {
   // Extract address from ALL possible field variations
   const rawExtractedAddress1 = String(
     payload.address ||
-    payload.address_line1 ||
-    payload.address_line_1 ||
-    payload.addressLine1 ||
-    payload.street_address ||
-    payload.streetAddress ||
-    payload.shipping_address ||
-    payload.shippingAddress || ''
+      payload.address_line1 ||
+      payload.address_line_1 ||
+      payload.addressLine1 ||
+      payload.street_address ||
+      payload.streetAddress ||
+      payload.shipping_address ||
+      payload.shippingAddress ||
+      ''
   ).trim();
 
   const rawExtractedAddress2 = String(
     payload.address_line2 ||
-    payload.address_line_2 ||
-    payload.addressLine2 ||
-    payload.apartment ||
-    payload.apt ||
-    payload.suite ||
-    payload.unit || ''
+      payload.address_line_2 ||
+      payload.addressLine2 ||
+      payload.apartment ||
+      payload.apt ||
+      payload.suite ||
+      payload.unit ||
+      ''
   ).trim();
 
   const rawExtractedCity = String(
-    payload.city ||
-    payload.shipping_city ||
-    payload.shippingCity || ''
+    payload.city || payload.shipping_city || payload.shippingCity || ''
   ).trim();
 
   const rawExtractedState = String(
-    payload.state ||
-    payload.shipping_state ||
-    payload.shippingState ||
-    payload.province || ''
+    payload.state || payload.shipping_state || payload.shippingState || payload.province || ''
   ).trim();
 
   const rawExtractedZip = String(
     payload.zip ||
-    payload.zip_code ||
-    payload.zipCode ||
-    payload.postal_code ||
-    payload.postalCode ||
-    payload.shipping_zip ||
-    payload.shippingZip || ''
+      payload.zip_code ||
+      payload.zipCode ||
+      payload.postal_code ||
+      payload.postalCode ||
+      payload.shipping_zip ||
+      payload.shippingZip ||
+      ''
   ).trim();
 
   // Check if we need to parse a combined address string for metadata
-  const metadataHasSeparateComponents = rawExtractedCity || rawExtractedState || rawExtractedZip || rawExtractedAddress2;
-  const metadataLooksCombined = rawExtractedAddress1 && rawExtractedAddress1.includes(',') && !metadataHasSeparateComponents;
+  const metadataHasSeparateComponents =
+    rawExtractedCity || rawExtractedState || rawExtractedZip || rawExtractedAddress2;
+  const metadataLooksCombined =
+    rawExtractedAddress1 && rawExtractedAddress1.includes(',') && !metadataHasSeparateComponents;
 
   let extractedAddress1 = rawExtractedAddress1;
   let extractedAddress2 = rawExtractedAddress2;
@@ -561,16 +624,10 @@ export async function POST(req: NextRequest) {
       payload.suite ||
       payload.unit;
 
-    const rawCityValue =
-      payload.city ||
-      payload.shipping_city ||
-      payload.shippingCity;
+    const rawCityValue = payload.city || payload.shipping_city || payload.shippingCity;
 
     const rawStateValue =
-      payload.state ||
-      payload.shipping_state ||
-      payload.shippingState ||
-      payload.province;
+      payload.state || payload.shipping_state || payload.shippingState || payload.province;
 
     const rawZipValue =
       payload.zip ||
@@ -581,10 +638,7 @@ export async function POST(req: NextRequest) {
       payload.shipping_zip ||
       payload.shippingZip;
 
-    const phoneValue =
-      payload.phone ||
-      payload.phone_number ||
-      payload.phoneNumber;
+    const phoneValue = payload.phone || payload.phone_number || payload.phoneNumber;
 
     // Determine final address values - may need to parse combined string
     let finalAddress1 = rawAddress1Value ? String(rawAddress1Value).trim() : '';
@@ -596,10 +650,10 @@ export async function POST(req: NextRequest) {
     // Check if we have a combined address string that needs parsing
     // This happens when Airtable sends "201 ELBRIDGE AVE, APT F, Cloverdale, California, 95425"
     // in the address field without separate city/state/zip fields
-    const hasSeparateAddressComponents = rawCityValue || rawStateValue || rawZipValue || rawAddress2Value;
-    const looksLikeCombinedAddress = finalAddress1 &&
-      finalAddress1.includes(',') &&
-      !hasSeparateAddressComponents;
+    const hasSeparateAddressComponents =
+      rawCityValue || rawStateValue || rawZipValue || rawAddress2Value;
+    const looksLikeCombinedAddress =
+      finalAddress1 && finalAddress1.includes(',') && !hasSeparateAddressComponents;
 
     if (looksLikeCombinedAddress) {
       logger.info(`[WELLMEDR-INVOICE ${requestId}] Detected combined address string, parsing...`, {
@@ -635,15 +689,16 @@ export async function POST(req: NextRequest) {
       wasParsed: looksLikeCombinedAddress,
       finalValues: { finalAddress1, finalAddress2, finalCity, finalState, finalZip },
       // Log raw keys to help debug what Airtable is sending
-      payloadKeys: Object.keys(payload).filter(k =>
-        k.toLowerCase().includes('address') ||
-        k.toLowerCase().includes('city') ||
-        k.toLowerCase().includes('state') ||
-        k.toLowerCase().includes('zip') ||
-        k.toLowerCase().includes('postal') ||
-        k.toLowerCase().includes('street') ||
-        k.toLowerCase().includes('shipping') ||
-        k.toLowerCase().includes('phone')
+      payloadKeys: Object.keys(payload).filter(
+        (k) =>
+          k.toLowerCase().includes('address') ||
+          k.toLowerCase().includes('city') ||
+          k.toLowerCase().includes('state') ||
+          k.toLowerCase().includes('zip') ||
+          k.toLowerCase().includes('postal') ||
+          k.toLowerCase().includes('street') ||
+          k.toLowerCase().includes('shipping') ||
+          k.toLowerCase().includes('phone')
       ),
     });
 
@@ -685,14 +740,20 @@ export async function POST(req: NextRequest) {
         }
       } catch (addrErr) {
         // Don't fail the whole request, just log the error
-        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Failed to update patient address (non-fatal):`, {
-          error: addrErr instanceof Error ? addrErr.message : 'Unknown error',
-        });
+        logger.warn(
+          `[WELLMEDR-INVOICE ${requestId}] Failed to update patient address (non-fatal):`,
+          {
+            error: addrErr instanceof Error ? addrErr.message : 'Unknown error',
+          }
+        );
       }
     } else {
-      logger.warn(`[WELLMEDR-INVOICE ${requestId}] ⚠️ No address data found in payload - prescription shipping will fail without an address!`, {
-        payloadKeys: Object.keys(payload),
-      });
+      logger.warn(
+        `[WELLMEDR-INVOICE ${requestId}] ⚠️ No address data found in payload - prescription shipping will fail without an address!`,
+        {
+          payloadKeys: Object.keys(payload),
+        }
+      );
     }
 
     // CRITICAL: Ensure SOAP note exists for paid invoices ready for prescription
@@ -763,7 +824,6 @@ export async function POST(req: NextRequest) {
         action: soapNoteAction,
       },
     });
-
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Failed to create invoice:`, { error: errMsg });
@@ -802,6 +862,7 @@ export async function GET() {
         plan: 'monthly, quarterly, 6-month (optional)',
         price: '$299.99 or amount in cents (optional)',
         customer_name: 'Customer name (optional)',
+        patient_name: 'Patient name for fallback matching (optional - use when email may differ)',
         submission_id: 'Airtable submission ID (optional)',
         stripe_price_id: 'price_... (optional)',
         address: 'Street address (optional)',
