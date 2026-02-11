@@ -1,11 +1,11 @@
-import lifefile, { LifefileOrderPayload, getEnvCredentials } from "@/lib/lifefile";
-import { getClinicLifefileClient, getClinicLifefileCredentials } from "@/lib/clinic-lifefile";
-import { prescriptionSchema } from "@/lib/validate";
-import { generatePrescriptionPDF } from "@/lib/pdf";
-import { MEDS } from "@/lib/medications";
-import { SHIPPING_METHODS } from "@/lib/shipping";
-import { prisma, basePrisma, withRetry } from "@/lib/db";
-import { Prisma } from "@prisma/client";
+import lifefile, { LifefileOrderPayload, getEnvCredentials } from '@/lib/lifefile';
+import { getClinicLifefileClient, getClinicLifefileCredentials } from '@/lib/clinic-lifefile';
+import { prescriptionSchema } from '@/lib/validate';
+import { generatePrescriptionPDF } from '@/lib/pdf';
+import { MEDS } from '@/lib/medications';
+import { SHIPPING_METHODS } from '@/lib/shipping';
+import { prisma, basePrisma, withRetry } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 type TransactionClient = Prisma.TransactionClient;
 import { logger } from '@/lib/logger';
@@ -21,32 +21,32 @@ import { platformFeeService } from '@/services/billing';
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
   const upperMedName = medicationName.toUpperCase();
 
-  if (upperMedName.includes("TIRZEPATIDE")) {
-    return "Beyond Medical Necessary - This individual patient would benefit from Tirzepatide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
+  if (upperMedName.includes('TIRZEPATIDE')) {
+    return 'Beyond Medical Necessary - This individual patient would benefit from Tirzepatide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.';
   }
 
-  if (upperMedName.includes("SEMAGLUTIDE")) {
-    return "Beyond Medical Necessary - This individual patient would benefit from Semaglutide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
+  if (upperMedName.includes('SEMAGLUTIDE')) {
+    return 'Beyond Medical Necessary - This individual patient would benefit from Semaglutide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.';
   }
 
-  if (upperMedName.includes("TESTOSTERONE")) {
-    return "Beyond medical necessary - This individual patient will benefit from Testosterone with grapeseed oil due to allergic reactions to commercially available one and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
+  if (upperMedName.includes('TESTOSTERONE')) {
+    return 'Beyond medical necessary - This individual patient will benefit from Testosterone with grapeseed oil due to allergic reactions to commercially available one and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.';
   }
 
   return undefined;
 }
 
 function normalizeDob(input: string): string {
-  if (!input) return "";
-  if (input.includes("-")) {
+  if (!input) return '';
+  if (input.includes('-')) {
     // Already ISO-like
     return input;
   }
-  const parts = input.split("/");
+  const parts = input.split('/');
   if (parts.length === 3) {
     const [mm, dd, yyyy] = parts;
     if (yyyy && mm && dd) {
-      return `${yyyy.padStart(4, "0")}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+      return `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
     }
   }
   return input;
@@ -83,7 +83,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         {
           error: 'Validation failed',
           details: parsed.error.flatten().fieldErrors,
-          formErrors: parsed.error.flatten().formErrors
+          formErrors: parsed.error.flatten().formErrors,
         },
         { status: 400 }
       );
@@ -110,7 +110,10 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       },
     });
     if (!provider) {
-      return NextResponse.json({ error: "Invalid providerId. Please ensure a provider profile is configured." }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid providerId. Please ensure a provider profile is configured.' },
+        { status: 400 }
+      );
     }
 
     // SECURITY: Verify user can prescribe as this provider
@@ -118,7 +121,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     if (user.role === 'provider') {
       const userData = await basePrisma.user.findUnique({
         where: { id: user.id },
-        select: { providerId: true, email: true }
+        select: { providerId: true, email: true },
       });
 
       const canPrescribe =
@@ -129,7 +132,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         logger.security('Provider attempted to prescribe as different provider', {
           userId: user.id,
           userProviderId: userData?.providerId,
-          requestedProviderId: provider.id
+          requestedProviderId: provider.id,
         });
         return NextResponse.json(
           { error: 'Not authorized to prescribe as this provider' },
@@ -161,7 +164,9 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           hasClinicAccess = !!providerClinicAssignment;
         } catch (err) {
           // ProviderClinic table may not exist yet (pre-migration)
-          logger.debug('[PRESCRIPTIONS] ProviderClinic check skipped - table may not exist', { error: err });
+          logger.debug('[PRESCRIPTIONS] ProviderClinic check skipped - table may not exist', {
+            error: err,
+          });
         }
       }
 
@@ -180,10 +185,10 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             userClinics: {
               where: {
                 clinicId: activeClinicId,
-                isActive: true
-              }
-            }
-          }
+                isActive: true,
+              },
+            },
+          },
         });
         hasClinicAccess = !!(providerUser?.userClinics && providerUser.userClinics.length > 0);
       }
@@ -193,7 +198,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           userId: user.id,
           providerId: provider.id,
           providerClinicId: provider.clinicId,
-          requestedClinicId: activeClinicId
+          requestedClinicId: activeClinicId,
         });
         return NextResponse.json(
           { error: 'Provider is not authorized to prescribe for this clinic' },
@@ -206,7 +211,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       requestClinicId: p.clinicId,
       userClinicId: user.clinicId,
       providerClinicId: provider.clinicId,
-      activeClinicId
+      activeClinicId,
     });
 
     // Get clinic-specific Lifefile credentials or fall back to env vars
@@ -218,10 +223,15 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         lifefileCredentials = await getClinicLifefileCredentials(activeClinicId);
         if (lifefileCredentials) {
           lifefileClient = await getClinicLifefileClient(activeClinicId);
-          logger.info(`[PRESCRIPTIONS] Using clinic ${activeClinicId} Lifefile credentials (practice: ${lifefileCredentials.practiceName})`);
+          logger.info(
+            `[PRESCRIPTIONS] Using clinic ${activeClinicId} Lifefile credentials (practice: ${lifefileCredentials.practiceName})`
+          );
         }
       } catch (err: unknown) {
-        logger.warn(`[PRESCRIPTIONS] Failed to get clinic ${activeClinicId} credentials, falling back to env vars:`, { error: err instanceof Error ? err.message : String(err) });
+        logger.warn(
+          `[PRESCRIPTIONS] Failed to get clinic ${activeClinicId} credentials, falling back to env vars:`,
+          { error: err instanceof Error ? err.message : String(err) }
+        );
       }
     }
 
@@ -229,12 +239,17 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     if (!lifefileClient) {
       lifefileClient = lifefile;
       lifefileCredentials = getEnvCredentials();
-      logger.info(`[PRESCRIPTIONS] Using environment variable Lifefile credentials (no clinic credentials found)`);
+      logger.info(
+        `[PRESCRIPTIONS] Using environment variable Lifefile credentials (no clinic credentials found)`
+      );
     }
 
     if (!lifefileCredentials) {
       return NextResponse.json(
-        { error: "Lifefile not configured. Please contact your administrator to set up pharmacy integration." },
+        {
+          error:
+            'Lifefile not configured. Please contact your administrator to set up pharmacy integration.',
+        },
         { status: 400 }
       );
     }
@@ -245,7 +260,9 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         where: { id: p.providerId },
         data: { signatureDataUrl: p.signatureDataUrl },
       });
-      logger.debug(`[PRESCRIPTIONS] Saved signature for provider ${provider.firstName} ${provider.lastName}`);
+      logger.debug(
+        `[PRESCRIPTIONS] Saved signature for provider ${provider.firstName} ${provider.lastName}`
+      );
     }
 
     let rxsWithMeds;
@@ -259,20 +276,20 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      return NextResponse.json(
-        { error: errorMessage ?? "Invalid medication" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: errorMessage ?? 'Invalid medication' }, { status: 400 });
     }
 
     const primary = rxsWithMeds[0];
 
     // Log medications for debugging
-    logger.debug(`[PRESCRIPTIONS] Processing ${rxsWithMeds.length} medications:`, rxsWithMeds.map(({ med }) => ({
-      name: med.name,
-      strength: med.strength,
-      form: med.form
-    })));
+    logger.debug(
+      `[PRESCRIPTIONS] Processing ${rxsWithMeds.length} medications:`,
+      rxsWithMeds.map(({ med }) => ({
+        name: med.name,
+        strength: med.strength,
+        form: med.form,
+      }))
+    );
 
     const now = new Date();
     const printableDate = now.toLocaleDateString();
@@ -305,7 +322,11 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           dea: provider.dea,
           licenseNumber: provider.licenseNumber,
           address1: lifefileCredentials.practiceAddress || process.env.LIFEFILE_PRACTICE_ADDRESS,
-          phone: lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE || provider.phone || undefined,
+          phone:
+            lifefileCredentials.practicePhone ||
+            process.env.LIFEFILE_PRACTICE_PHONE ||
+            provider.phone ||
+            undefined,
         },
         patient: {
           firstName: p.patient.firstName,
@@ -314,11 +335,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           email: p.patient.email,
           dob: dobIso,
           gender:
-            p.patient.gender === "m"
-              ? "Male"
-              : p.patient.gender === "f"
-              ? "Female"
-              : "Unknown",
+            p.patient.gender === 'm' ? 'Male' : p.patient.gender === 'f' ? 'Female' : 'Unknown',
           address1: p.patient.address1,
           address2: patientAddressLine2,
           city: p.patient.city,
@@ -346,9 +363,9 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      logger.error("[PRESCRIPTIONS/POST] PDF generation failed:", err);
+      logger.error('[PRESCRIPTIONS/POST] PDF generation failed:', err);
       return NextResponse.json(
-        { error: "Failed to generate prescription PDF", detail: errorMessage },
+        { error: 'Failed to generate prescription PDF', detail: errorMessage },
         { status: 500 }
       );
     }
@@ -360,7 +377,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       },
       order: {
         general: {
-          memo: "EONPro ePrescribing Platform",
+          memo: 'EONPro ePrescribing Platform',
           referenceId,
         },
         prescriber: {
@@ -370,12 +387,19 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           dea: provider.dea ?? undefined,
           firstName: provider.firstName,
           lastName: provider.lastName,
-          phone: provider.phone || lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE || undefined,
+          phone:
+            provider.phone ||
+            lifefileCredentials.practicePhone ||
+            process.env.LIFEFILE_PRACTICE_PHONE ||
+            undefined,
           email: provider.email ?? undefined,
         },
         practice: {
           id: lifefileCredentials.practiceId || process.env.LIFEFILE_PRACTICE_ID,
-          name: lifefileCredentials.practiceName || process.env.LIFEFILE_PRACTICE_NAME || "APOLLO BASED HEALTH LLC",
+          name:
+            lifefileCredentials.practiceName ||
+            process.env.LIFEFILE_PRACTICE_NAME ||
+            'APOLLO BASED HEALTH LLC',
         },
         patient: {
           firstName: p.patient.firstName,
@@ -391,7 +415,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           email: p.patient.email,
         },
         shipping: {
-          recipientType: "patient",
+          recipientType: 'patient',
           recipientFirstName: p.patient.firstName,
           recipientLastName: p.patient.lastName,
           recipientPhone: p.patient.phone,
@@ -404,19 +428,19 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           service: p.shippingMethod,
         },
         billing: {
-          payorType: "pat",
+          payorType: 'pat',
         },
         rxs: rxsWithMeds.map(({ rx, med }, index) => {
           const rxData = {
-            rxType: "new" as const,
+            rxType: 'new' as const,
             drugName: med.name,
             drugStrength: med.strength,
             drugForm: med.formLabel ?? med.form,
             lfProductID: med.id,
             quantity: rx.quantity,
-            quantityUnits: "EA",
+            quantityUnits: 'EA',
             directions: rx.sig,
-            refills: Number(rx.refills ?? "0"),
+            refills: Number(rx.refills ?? '0'),
             dateWritten,
             daysSupply: 30,
             clinicalDifferenceStatement: getClinicalDifferenceStatement(med.name),
@@ -426,7 +450,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           logger.debug(`[PRESCRIPTIONS] Rx #${index + 1}:`, {
             drugName: rxData.drugName,
             drugStrength: rxData.drugStrength,
-            lfProductID: rxData.lfProductID
+            lfProductID: rxData.lfProductID,
           });
 
           return rxData;
@@ -441,7 +465,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     if (!activeClinicId) {
       logger.error('[PRESCRIPTIONS] Cannot create patient without clinic context', {
         userId: user.id,
-        patientEmail: p.patient.email
+        patientEmail: p.patient.email,
       });
       return NextResponse.json(
         { error: 'Clinic context required to create patient' },
@@ -460,189 +484,196 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       };
 
       const transactionResult = await withRetry<TransactionResult>(
-        () => prisma.$transaction(async (tx: TransactionClient) => {
-        // Check for duplicate submission (idempotency)
-        const existingOrder = await tx.order.findFirst({
-          where: {
-            messageId,
-            clinicId: activeClinicId,
-          },
-          include: { patient: true },
-        });
+        () =>
+          prisma.$transaction(
+            async (tx: TransactionClient) => {
+              // Check for duplicate submission (idempotency)
+              const existingOrder = await tx.order.findFirst({
+                where: {
+                  messageId,
+                  clinicId: activeClinicId,
+                },
+                include: { patient: true },
+              });
 
-        if (existingOrder) {
-          logger.info('[PRESCRIPTIONS] Duplicate submission detected', {
-            messageId,
-            existingOrderId: existingOrder.id,
-          });
-          return {
-            order: existingOrder,
-            patient: existingOrder.patient,
-            isNew: false,
-          };
-        }
-
-        // Find or create patient within transaction
-        let patientRecord = null;
-        let patientClinicId = activeClinicId; // Default to active clinic
-
-        // CRITICAL FIX: If patientId is provided, use the existing patient directly
-        // This prevents duplicate patient creation across clinics when prescribing
-        // for an existing patient from their profile page
-        if (p.patientId) {
-          // Look up by ID using basePrisma to bypass clinic filter
-          patientRecord = await basePrisma.patient.findUnique({
-            where: { id: p.patientId },
-          });
-
-          if (patientRecord) {
-            // Use the patient's actual clinic for the order
-            patientClinicId = patientRecord.clinicId;
-            logger.info('[PRESCRIPTIONS] Using existing patient by ID', {
-              patientId: patientRecord.id,
-              patientClinicId: patientRecord.clinicId,
-              requestedClinicId: activeClinicId,
-            });
-
-            // SECURITY: Verify provider can prescribe for this patient's clinic
-            // Super admins can prescribe for any clinic
-            if (user.role !== 'super_admin') {
-              let canPrescribeForPatientClinic = false;
-
-              // Check ProviderClinic junction table
-              if (basePrisma.providerClinic) {
-                try {
-                  const assignment = await basePrisma.providerClinic.findFirst({
-                    where: {
-                      providerId: provider.id,
-                      clinicId: patientRecord.clinicId,
-                      isActive: true,
-                    },
-                  });
-                  canPrescribeForPatientClinic = !!assignment;
-                } catch {
-                  // Table may not exist
-                }
-              }
-
-              // Fallback: check provider's direct clinic assignment or shared status
-              if (!canPrescribeForPatientClinic) {
-                canPrescribeForPatientClinic =
-                  provider.clinicId === null || // Shared provider
-                  provider.clinicId === patientRecord.clinicId;
-              }
-
-              if (!canPrescribeForPatientClinic) {
-                logger.security('Provider not authorized for patient clinic', {
-                  userId: user.id,
-                  providerId: provider.id,
-                  providerClinicId: provider.clinicId,
-                  patientClinicId: patientRecord.clinicId,
+              if (existingOrder) {
+                logger.info('[PRESCRIPTIONS] Duplicate submission detected', {
+                  messageId,
+                  existingOrderId: existingOrder.id,
                 });
-                throw new Error('Provider is not authorized to prescribe for patients in this clinic');
+                return {
+                  order: existingOrder,
+                  patient: existingOrder.patient,
+                  isNew: false,
+                };
               }
-            }
-          } else {
-            logger.warn('[PRESCRIPTIONS] Patient ID provided but not found', {
-              patientId: p.patientId,
-            });
-            // Will fall through to name-based lookup below
-          }
-        }
 
-        // Fall back to name-based lookup if no patient found by ID
-        if (!patientRecord) {
-          patientRecord = await tx.patient.findFirst({
-            where: {
-              firstName: p.patient.firstName,
-              lastName: p.patient.lastName,
-              dob: p.patient.dob,
-              clinicId: activeClinicId,
-            },
-          });
-        }
+              // Find or create patient within transaction
+              let patientRecord = null;
+              let patientClinicId = activeClinicId; // Default to active clinic
 
-        // Create new patient if not found
-        if (!patientRecord) {
-          patientRecord = await tx.patient.create({
-            data: {
-              firstName: p.patient.firstName,
-              lastName: p.patient.lastName,
-              dob: p.patient.dob,
-              gender: p.patient.gender,
-              phone: p.patient.phone,
-              email: p.patient.email,
-              address1: p.patient.address1,
-              address2: patientAddressLine2 ?? null,
-              city: p.patient.city,
-              state: p.patient.state,
-              zip: p.patient.zip,
-              clinicId: activeClinicId,
-            },
-          });
-          patientClinicId = activeClinicId;
-          logger.info('[PRESCRIPTIONS] New patient created in transaction', {
-            patientId: patientRecord.id,
-            clinicId: activeClinicId,
-          });
-        }
+              // CRITICAL FIX: If patientId is provided, use the existing patient directly
+              // This prevents duplicate patient creation across clinics when prescribing
+              // for an existing patient from their profile page
+              // IMPORTANT: Use tx (not basePrisma) inside transaction - basePrisma would
+              // request a separate connection, causing pool exhaustion with connection_limit=1
+              if (p.patientId) {
+                patientRecord = await tx.patient.findUnique({
+                  where: { id: p.patientId },
+                });
 
-        // Create order within transaction
-        // CRITICAL: Use patientClinicId to ensure order is in same clinic as patient
-        // When queueForProvider: status = queued_for_provider, no Lifefile call (provider approves later)
-        const orderStatus = p.queueForProvider ? 'queued_for_provider' : 'PENDING';
-        const now = new Date();
-        const order = await tx.order.create({
-          data: {
-            messageId,
-            referenceId,
-            patientId: patientRecord.id,
-            providerId: p.providerId,
-            clinicId: patientClinicId, // Use patient's clinic, not activeClinicId
-            shippingMethod: p.shippingMethod,
-            primaryMedName: primary.med.name,
-            primaryMedStrength: primary.med.strength,
-            primaryMedForm: primary.med.formLabel ?? primary.med.form,
-            status: orderStatus,
-            requestJson: JSON.stringify(orderPayload),
-            ...(p.queueForProvider
-              ? {
-                  queuedForProviderAt: now,
-                  queuedByUserId: user.id,
+                if (patientRecord) {
+                  // Use the patient's actual clinic for the order
+                  patientClinicId = patientRecord.clinicId;
+                  logger.info('[PRESCRIPTIONS] Using existing patient by ID', {
+                    patientId: patientRecord.id,
+                    patientClinicId: patientRecord.clinicId,
+                    requestedClinicId: activeClinicId,
+                  });
+
+                  // SECURITY: Verify provider can prescribe for this patient's clinic
+                  // Super admins can prescribe for any clinic
+                  if (user.role !== 'super_admin') {
+                    let canPrescribeForPatientClinic = false;
+
+                    // Check ProviderClinic junction table (use tx to avoid connection pool deadlock)
+                    if (tx.providerClinic) {
+                      try {
+                        const assignment = await tx.providerClinic.findFirst({
+                          where: {
+                            providerId: provider.id,
+                            clinicId: patientRecord.clinicId,
+                            isActive: true,
+                          },
+                        });
+                        canPrescribeForPatientClinic = !!assignment;
+                      } catch {
+                        // Table may not exist
+                      }
+                    }
+
+                    // Fallback: check provider's direct clinic assignment or shared status
+                    if (!canPrescribeForPatientClinic) {
+                      canPrescribeForPatientClinic =
+                        provider.clinicId === null || // Shared provider
+                        provider.clinicId === patientRecord.clinicId;
+                    }
+
+                    if (!canPrescribeForPatientClinic) {
+                      logger.security('Provider not authorized for patient clinic', {
+                        userId: user.id,
+                        providerId: provider.id,
+                        providerClinicId: provider.clinicId,
+                        patientClinicId: patientRecord.clinicId,
+                      });
+                      throw new Error(
+                        'Provider is not authorized to prescribe for patients in this clinic'
+                      );
+                    }
+                  }
+                } else {
+                  logger.warn('[PRESCRIPTIONS] Patient ID provided but not found', {
+                    patientId: p.patientId,
+                  });
+                  // Will fall through to name-based lookup below
                 }
-              : {}),
-          },
-        });
+              }
 
-        // Create Rx items within transaction
-        await tx.rx.createMany({
-          data: rxsWithMeds.map(({ rx, med }) => ({
-            orderId: order.id,
-            medicationKey: rx.medicationKey,
-            medName: med.name,
-            strength: med.strength,
-            form: med.form,
-            quantity: rx.quantity,
-            refills: rx.refills,
-            sig: rx.sig,
-          })),
-        });
+              // Fall back to name-based lookup if no patient found by ID
+              if (!patientRecord) {
+                patientRecord = await tx.patient.findFirst({
+                  where: {
+                    firstName: p.patient.firstName,
+                    lastName: p.patient.lastName,
+                    dob: p.patient.dob,
+                    clinicId: activeClinicId,
+                  },
+                });
+              }
 
-        logger.info('[PRESCRIPTIONS] Transaction completed successfully', {
-          orderId: order.id,
-          patientId: patientRecord.id,
-          rxCount: rxsWithMeds.length,
-        });
+              // Create new patient if not found
+              if (!patientRecord) {
+                patientRecord = await tx.patient.create({
+                  data: {
+                    firstName: p.patient.firstName,
+                    lastName: p.patient.lastName,
+                    dob: p.patient.dob,
+                    gender: p.patient.gender,
+                    phone: p.patient.phone,
+                    email: p.patient.email,
+                    address1: p.patient.address1,
+                    address2: patientAddressLine2 ?? null,
+                    city: p.patient.city,
+                    state: p.patient.state,
+                    zip: p.patient.zip,
+                    clinicId: activeClinicId,
+                  },
+                });
+                patientClinicId = activeClinicId;
+                logger.info('[PRESCRIPTIONS] New patient created in transaction', {
+                  patientId: patientRecord.id,
+                  clinicId: activeClinicId,
+                });
+              }
 
-        return {
-          order,
-          patient: patientRecord,
-          isNew: true,
-        };
-      }, {
-        isolationLevel: 'Serializable',
-        timeout: 30000,
-      }),
+              // Create order within transaction
+              // CRITICAL: Use patientClinicId to ensure order is in same clinic as patient
+              // When queueForProvider: status = queued_for_provider, no Lifefile call (provider approves later)
+              const orderStatus = p.queueForProvider ? 'queued_for_provider' : 'PENDING';
+              const now = new Date();
+              const order = await tx.order.create({
+                data: {
+                  messageId,
+                  referenceId,
+                  patientId: patientRecord.id,
+                  providerId: p.providerId,
+                  clinicId: patientClinicId, // Use patient's clinic, not activeClinicId
+                  shippingMethod: p.shippingMethod,
+                  primaryMedName: primary.med.name,
+                  primaryMedStrength: primary.med.strength,
+                  primaryMedForm: primary.med.formLabel ?? primary.med.form,
+                  status: orderStatus,
+                  requestJson: JSON.stringify(orderPayload),
+                  ...(p.queueForProvider
+                    ? {
+                        queuedForProviderAt: now,
+                        queuedByUserId: user.id,
+                      }
+                    : {}),
+                },
+              });
+
+              // Create Rx items within transaction
+              await tx.rx.createMany({
+                data: rxsWithMeds.map(({ rx, med }) => ({
+                  orderId: order.id,
+                  medicationKey: rx.medicationKey,
+                  medName: med.name,
+                  strength: med.strength,
+                  form: med.form,
+                  quantity: rx.quantity,
+                  refills: rx.refills,
+                  sig: rx.sig,
+                })),
+              });
+
+              logger.info('[PRESCRIPTIONS] Transaction completed successfully', {
+                orderId: order.id,
+                patientId: patientRecord.id,
+                rxCount: rxsWithMeds.length,
+              });
+
+              return {
+                order,
+                patient: patientRecord,
+                isNew: true,
+              };
+            },
+            {
+              isolationLevel: 'Serializable',
+              timeout: 30000,
+            }
+          ),
         {
           maxRetries: 3,
           initialDelayMs: 200,
@@ -650,9 +681,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           // Retry on connection pool and timeout errors
           retryOn: (error) => {
             const msg = error.message.toLowerCase();
-            return msg.includes('connection') ||
-                   msg.includes('timeout') ||
-                   msg.includes('pool');
+            return msg.includes('connection') || msg.includes('timeout') || msg.includes('pool');
           },
         }
       );
@@ -699,7 +728,8 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           order,
           patientId: patientRecord.id,
           queuedForProvider: true,
-          message: 'Prescription queued for provider review. A provider can approve and send it to the pharmacy from the prescription queue.',
+          message:
+            'Prescription queued for provider review. A provider can approve and send it to the pharmacy from the prescription queue.',
         });
       }
 
@@ -710,7 +740,8 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         orderResponse = await lifefileClient.createFullOrder(orderPayload);
       } catch (lifefileError: unknown) {
         // Mark order as error but don't rollback DB - we have the record
-        const errorMessage = lifefileError instanceof Error ? lifefileError.message : 'Unknown Lifefile error';
+        const errorMessage =
+          lifefileError instanceof Error ? lifefileError.message : 'Unknown Lifefile error';
         logger.error('[PRESCRIPTIONS] Lifefile API call failed after DB commit', {
           orderId: order.id,
           error: errorMessage,
@@ -719,14 +750,14 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         await prisma.order.update({
           where: { id: order.id },
           data: {
-            status: "error",
+            status: 'error',
             errorMessage: `Lifefile submission failed: ${errorMessage}`,
           },
         });
 
         return NextResponse.json(
           {
-            error: "Failed to submit order to Lifefile",
+            error: 'Failed to submit order to Lifefile',
             detail: errorMessage,
             orderId: order.id,
             recoverable: true,
@@ -737,10 +768,8 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       const updated = await prisma.order.update({
         where: { id: order.id },
         data: {
-          lifefileOrderId: orderResponse.orderId
-            ? String(orderResponse.orderId)
-            : undefined,
-          status: orderResponse.status ?? "sent",
+          lifefileOrderId: orderResponse.orderId ? String(orderResponse.orderId) : undefined,
+          status: orderResponse.status ?? 'sent',
           responseJson: JSON.stringify(orderResponse),
         },
       });
@@ -804,11 +833,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
               providerId = userData?.providerId || null;
             }
 
-            refillResult = await markPrescribed(
-              linkedRefill.id,
-              providerId || user.id,
-              order.id
-            );
+            refillResult = await markPrescribed(linkedRefill.id, providerId || user.id, order.id);
 
             logger.info('[PRESCRIPTIONS] Linked refill marked as prescribed', {
               refillId: linkedRefill.id,
@@ -837,7 +862,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             invoiceId: p.invoiceId,
           }
         );
-        
+
         if (compensationEvent) {
           logger.info('[PRESCRIPTIONS] Compensation event recorded', {
             orderId: updated.id,
@@ -863,7 +888,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           updated.id,
           p.providerId
         );
-        
+
         if (platformFeeEvent) {
           logger.info('[PRESCRIPTIONS] Platform fee recorded', {
             orderId: updated.id,
@@ -872,14 +897,14 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             amountCents: platformFeeEvent.amountCents,
           });
         }
-    } catch (feeError) {
-      // Don't fail the prescription if fee recording fails
-      logger.error('[PRESCRIPTIONS] Failed to record platform fee', {
-        orderId: updated.id,
-        providerId: p.providerId,
-        error: feeError instanceof Error ? feeError.message : 'Unknown error',
-      });
-    }
+      } catch (feeError) {
+        // Don't fail the prescription if fee recording fails
+        logger.error('[PRESCRIPTIONS] Failed to record platform fee', {
+          orderId: updated.id,
+          providerId: p.providerId,
+          error: feeError instanceof Error ? feeError.message : 'Unknown error',
+        });
+      }
 
       // ENTERPRISE: Auto-send portal invite on first order (patient portal)
       try {
@@ -891,7 +916,9 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             where: { id: patientRecord.clinicId },
             select: { settings: true },
           });
-          const settings = (clinic?.settings as { patientPortal?: { autoInviteOnFirstOrder?: boolean } })?.patientPortal;
+          const settings = (
+            clinic?.settings as { patientPortal?: { autoInviteOnFirstOrder?: boolean } }
+          )?.patientPortal;
           if (settings?.autoInviteOnFirstOrder) {
             const { createAndSendPortalInvite } = await import('@/lib/portal-invite/service');
             await createAndSendPortalInvite(patientRecord.id, 'first_order');
@@ -908,36 +935,38 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         success: true,
         order: updated,
         lifefile: orderResponse,
-        refill: refillResult ? {
-          currentId: refillResult.current.id,
-          nextId: refillResult.next?.id,
-          nextRefillDate: refillResult.next?.nextRefillDate,
-        } : null,
+        refill: refillResult
+          ? {
+              currentId: refillResult.current.id,
+              nextId: refillResult.next?.id,
+              nextRefillDate: refillResult.next?.nextRefillDate,
+            }
+          : null,
       });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      logger.error("[PRESCRIPTIONS/POST] Lifefile createFullOrder failed:", err);
+      logger.error('[PRESCRIPTIONS/POST] Lifefile createFullOrder failed:', err);
       try {
         await prisma.order.updateMany({
           where: { messageId },
           data: {
-            status: "error",
-            errorMessage: errorMessage ?? "Unknown Lifefile error",
+            status: 'error',
+            errorMessage: errorMessage ?? 'Unknown Lifefile error',
           },
         });
       } catch (dbErr: any) {
-        logger.error("Failed to update order error state:", { value: dbErr });
+        logger.error('Failed to update order error state:', { value: dbErr });
       }
       return NextResponse.json(
-        { error: "Failed to submit order to Lifefile", detail: errorMessage },
+        { error: 'Failed to submit order to Lifefile', detail: errorMessage },
         { status: 502 }
       );
     }
   } catch (err: any) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    logger.error("[PRESCRIPTIONS/POST] Unexpected error:", err);
+    logger.error('[PRESCRIPTIONS/POST] Unexpected error:', err);
     return NextResponse.json(
-      { error: "Unexpected server error", detail: errorMessage ?? "Unknown error" },
+      { error: 'Unexpected server error', detail: errorMessage ?? 'Unknown error' },
       { status: 500 }
     );
   }
