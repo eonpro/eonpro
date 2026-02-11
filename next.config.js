@@ -48,7 +48,7 @@ const nextConfig = {
     } : false,
   },
   
-  // Experimental features compatible with Turbopack
+  // Experimental features
   experimental: {
     // Optimize specific package imports (reduces bundle size)
     optimizePackageImports: [
@@ -61,9 +61,6 @@ const nextConfig = {
     ],
   },
 
-  // Turbopack configuration (Next.js 16+ default bundler)
-  turbopack: {},
-  
   // Patient portal at /portal (eonmeds.eonpro.io/portal, wellmedr.eonpro.io/portal, etc.)
   // beforeFiles so /portal is rewritten before filesystem (avoids 404 when app/portal/ exists).
   // /portal/affiliate is unchanged (affiliate portal).
@@ -153,7 +150,10 @@ const sentryWebpackPluginOptions = {
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true, // Suppresses all logs
   dryRun: !process.env.SENTRY_AUTH_TOKEN, // Skip upload if no auth token
-  
+
+  // Tunnel requests through our domain to fix CORS and bypass ad-blockers
+  tunnelRoute: '/api/sentry',
+
   // Source maps
   hideSourceMaps: true,
   widenClientFileUpload: true,
