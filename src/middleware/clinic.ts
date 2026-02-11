@@ -26,6 +26,7 @@ const getJwtSecret = () => {
 
 // Routes that don't require clinic context (middleware skips clinic resolution; auth still applied in handlers)
 const PUBLIC_ROUTES = [
+  '/api/_health',
   '/api/auth/login',
   '/api/auth/refresh-token',
   '/api/auth/send-otp',
@@ -147,20 +148,14 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
     }
   }
 
-  // Priority 3: Check x-clinic-id header (for API clients)
-  const clinicIdHeader = request.headers.get('x-clinic-id');
-  if (clinicIdHeader) {
-    const clinicId = parseInt(clinicIdHeader);
-    if (!isNaN(clinicId)) {
-      return clinicId;
-    }
-  }
+  // x-clinic-id is NOT trusted for isolation. Only JWT (above) or subdomain/cookie set tenant.
+  // API routes that need x-clinic-id must validate: request is authenticated AND clinicId is in user's allowed clinics (done in auth layer).
 
-  // Priority 4: Check subdomain (use host with URL fallback so SUBDOMAIN_CLINIC_ID_MAP works in Edge)
+  // Priority 3: Check subdomain (use host with URL fallback so SUBDOMAIN_CLINIC_ID_MAP works in Edge)
   const hostname = getRequestHostInEdge(request);
   const subdomain = extractSubdomain(hostname);
   if (subdomain && !['www', 'app', 'api', 'admin'].includes(subdomain)) {
-    // 4a: Optional env map so Edge can set clinicId without DB (e.g. SUBDOMAIN_CLINIC_ID_MAP=ot:5,wellmedr:2,eonmeds:3)
+    // 3a: Optional env map so Edge can set clinicId without DB (e.g. SUBDOMAIN_CLINIC_ID_MAP=ot:5,wellmedr:2,eonmeds:3)
     const mapEnv = process.env.SUBDOMAIN_CLINIC_ID_MAP;
     if (mapEnv && typeof mapEnv === 'string') {
       const normalizedSub = subdomain.toLowerCase();
@@ -173,19 +168,11 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
         }
       }
     }
-    // 4b: No DB in Edge; API routes use x-clinic-subdomain for lookup
+    // 3b: No DB in Edge; API routes use x-clinic-subdomain for lookup
     return null;
   }
 
-  // Priority 5: Default clinic ID from env (for single-clinic deployments)
-  const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
-  if (defaultClinicId) {
-    const clinicId = parseInt(defaultClinicId);
-    if (!isNaN(clinicId)) {
-      return clinicId;
-    }
-  }
-
+  // No default/fallback tenant: do not use DEFAULT_CLINIC_ID or "first clinic" for protected routes.
   return null;
 }
 
