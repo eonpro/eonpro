@@ -12,6 +12,7 @@ import PatientSidebar from '@/components/PatientSidebar';
 import PatientTags from '@/components/PatientTags';
 import PatientPortalAccessBlock from '@/components/PatientPortalAccessBlock';
 import { prisma, runWithClinicContext } from '@/lib/db';
+import { getClinicFeatureBoolean } from '@/lib/clinic/utils';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
@@ -38,6 +39,33 @@ type PageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ tab?: string; submitted?: string; admin?: string }>;
 };
+
+/**
+ * When clinicSubdomain is null (e.g. patient.clinic not loaded) but clinicId matches
+ * known clinic env vars, return subdomain for intake section selection.
+ * Prevents tenant drift where OT/Wellmedr patients show default sections.
+ *
+ * OVERTIME_CLINIC_ID: ot.eonpro.io → 8 (verified 2026-02-10)
+ * OVERTIME_EONMEDS_CLINIC_ID: optional second OT instance on different domain
+ */
+function resolveFallbackSubdomain(
+  clinicSubdomain: string | null | undefined,
+  clinicId: number | null | undefined
+): string | null {
+  if (clinicSubdomain) return null; // Already have subdomain
+  if (!clinicId) return null;
+  const otId = process.env.OVERTIME_CLINIC_ID ? parseInt(process.env.OVERTIME_CLINIC_ID, 10) : NaN;
+  const otEonmedsId = process.env.OVERTIME_EONMEDS_CLINIC_ID
+    ? parseInt(process.env.OVERTIME_EONMEDS_CLINIC_ID, 10)
+    : NaN;
+  const wellmedrId = process.env.WELLMEDR_CLINIC_ID
+    ? parseInt(process.env.WELLMEDR_CLINIC_ID, 10)
+    : NaN;
+  if (!isNaN(otId) && clinicId === otId) return 'ot';
+  if (!isNaN(otEonmedsId) && clinicId === otEonmedsId) return 'ot';
+  if (!isNaN(wellmedrId) && clinicId === wellmedrId) return 'wellmedr';
+  return null;
+}
 
 export default async function PatientDetailPage({ params, searchParams }: PageProps) {
   try {
@@ -352,6 +380,14 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     const shippingLabelMap = new Map(
       SHIPPING_METHODS.map((method: any) => [method.id, method.label])
     );
+
+    // Labs tab visibility: driven by clinic feature BLOODWORK_LABS (default true).
+    const showLabsTab = getClinicFeatureBoolean(
+      patientWithDecryptedPHI.clinic?.features,
+      'BLOODWORK_LABS',
+      true
+    );
+
     const resolvedSearchParams = await searchParams;
     let activeTab = resolvedSearchParams?.tab || 'profile';
     // Support both ?tab=lab and ?tab=labs (normalize to 'lab')
@@ -363,7 +399,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       'soap-notes',
       'appointments',
       'progress',
-      'lab',
+      ...(showLabsTab ? ['lab'] : []),
       'photos',
       'billing',
       'chat',
@@ -801,7 +837,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
             affiliateCode={affiliateCode}
             currentSalesRep={patientWithDecryptedPHI.salesRepAssignments?.[0]?.salesRep || null}
             userRole={user.role}
-            showLabsTab={true}
+            showLabsTab={showLabsTab}
           />
 
           {/* Main Content Area */}
@@ -998,6 +1034,10 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
                 documents={documentsWithParsedData}
                 intakeFormSubmissions={patientWithDecryptedPHI.intakeSubmissions}
                 clinicSubdomain={patientWithDecryptedPHI.clinic?.subdomain}
+                fallbackSubdomainForSections={resolveFallbackSubdomain(
+                  patientWithDecryptedPHI.clinic?.subdomain,
+                  patientWithDecryptedPHI.clinicId
+                )}
               />
             ) : currentTab === 'soap-notes' ? (
               <PatientSOAPNotesView patientId={patientWithDecryptedPHI.id} />

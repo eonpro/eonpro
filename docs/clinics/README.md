@@ -4,10 +4,11 @@ This directory contains configuration documentation for each clinic using EONPRO
 
 ## Active Clinics
 
-| Clinic | ID | Status | Intake URL | Documentation |
-|--------|-----|--------|------------|---------------|
-| **EONMEDS** | 3 | ✅ Active | `intake.eonmeds.com` | [EONMEDS.md](./EONMEDS.md) |
-| **WELLMEDR** | - | ✅ Active | `intake.wellmedr.com` | [WELLMEDR.md](./WELLMEDR.md) |
+| Clinic       | ID  | Status    | Domain                | Documentation                |
+| ------------ | --- | --------- | --------------------- | ---------------------------- |
+| **EONMEDS**  | 3   | ✅ Active | eonmeds.eonpro.io     | [EONMEDS.md](./EONMEDS.md)   |
+| **WELLMEDR** | 7   | ✅ Active | wellmedr.eonpro.io    | [WELLMEDR.md](./WELLMEDR.md) |
+| **OVERTIME** | 8   | ✅ Active | ot.eonpro.io          | [OVERTIME.md](./OVERTIME.md) |
 
 ## Adding a New Clinic
 
@@ -24,11 +25,13 @@ When onboarding a new clinic:
 3. **Configure webhook** (choose one approach):
 
    ### Option A: Dedicated Webhook Endpoint
+
    Create a new webhook at `/api/webhooks/{clinic-name}` with:
    - Clinic-specific secret
    - Hardcoded clinic ID
-   
+
    ### Option B: Shared Webhook with Clinic Parameter
+
    Use existing `/api/webhooks/weightlossintake` with:
    - Clinic identifier in payload
    - Lookup clinic by subdomain/name
@@ -68,15 +71,15 @@ All webhooks MUST ensure clinic isolation:
 ```typescript
 // In webhook handler:
 const clinic = await prisma.clinic.findFirst({
-  where: { subdomain: "clinic-subdomain" }
+  where: { subdomain: 'clinic-subdomain' },
 });
 
 // All patient/document operations use clinic.id
 await prisma.patient.create({
   data: {
     ...patientData,
-    clinicId: clinic.id,  // REQUIRED!
-  }
+    clinicId: clinic.id, // REQUIRED!
+  },
 });
 ```
 
