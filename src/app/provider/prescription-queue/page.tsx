@@ -46,8 +46,8 @@ import {
   isZipCode,
   normalizeState,
   extractCityState,
-} from '@/lib/address';
-import type { ParsedAddress } from '@/lib/address';
+} from '@/lib/address/client';
+import type { ParsedAddress } from '@/lib/address/client';
 
 // ============================================================================
 // ADDRESS PARSING UTILITIES
