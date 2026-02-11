@@ -1,31 +1,37 @@
-import "../styles/globals.css";
-import type { ReactNode } from "react";
-import type { Viewport } from "next";
-import { Suspense } from "react";
-import Script from "next/script";
-import ConditionalHeader from "@/components/ConditionalHeader";
-import BeccaAIGlobalChat from "@/components/BeccaAIGlobalChat";
-import ErrorBoundary from "@/components/ErrorBoundary";
-import ConditionalLayout from "@/components/ConditionalLayout";
-import SessionExpirationHandler from "@/components/SessionExpirationHandler";
-import GlobalFetchInterceptor from "@/components/GlobalFetchInterceptor";
-import AffiliateTracker from "@/components/AffiliateTracker";
-import { ToastProvider } from "@/components/Toast";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/next";
+import '../styles/globals.css';
+import type { ReactNode } from 'react';
+import type { Viewport } from 'next';
+import { Suspense } from 'react';
+import Script from 'next/script';
+import ConditionalHeader from '@/components/ConditionalHeader';
+import BeccaAIGlobalChat from '@/components/BeccaAIGlobalChat';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import ConditionalLayout from '@/components/ConditionalLayout';
+import SessionExpirationHandler from '@/components/SessionExpirationHandler';
+import GlobalFetchInterceptor from '@/components/GlobalFetchInterceptor';
+import AffiliateTracker from '@/components/AffiliateTracker';
+import { ToastProvider } from '@/components/Toast';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Analytics } from '@vercel/analytics/next';
 // DevAuth removed for production
-import { ClientProviders } from "@/components/providers/ClientProviders";
+import { ClientProviders } from '@/components/providers/ClientProviders';
 // Using Outfit as fallback until Sofia Pro files are added
 // To use Sofia Pro: 1) Add font files to public/fonts/ 2) Switch import to './fonts'
-import { outfitFont as sofiaPro } from "./fonts-fallback";
+import { outfitFont as sofiaPro } from './fonts-fallback';
 // import { outfitFont as sofiaPro } from "./fonts-fallback";
 // import { sofiaPro } from "./fonts"; // Uncomment when Sofia Pro files are added // Uncomment when Sofia Pro files are added
 
-export const metadata = { title: "EONPRO" };
+// Default favicon: EONPRO logo from app origin (same as login page; avoids external Wix preload)
+const DEFAULT_FAVICON = '/api/assets/eonpro-logo';
+
+export const metadata = {
+  title: 'EONPRO',
+  icons: { icon: { url: DEFAULT_FAVICON, type: 'image/svg+xml' } },
+};
 
 /** White browser chrome (status bar + URL bar) on mobile for patient portal and app. */
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: '#ffffff',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -37,31 +43,30 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <meta name="theme-color" content="#ffffff" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <link rel="icon" href="https://static.wixstatic.com/media/c49a9b_2e6625f0f27d44068998ab51675c6d7b~mv2.png" />
       </head>
       <body className={sofiaPro.className} suppressHydrationWarning>
         <ErrorBoundary>
-        <ClientProviders>
-          <ToastProvider>
-            <Suspense fallback={null}>
-              <AffiliateTracker />
-            </Suspense>
-            <GlobalFetchInterceptor />
-            <SessionExpirationHandler />
-            <ConditionalHeader />
-            <ConditionalLayout>{children}</ConditionalLayout>
-            {/* Becca AI Assistant - Only shown for authenticated users with proper roles */}
-            <BeccaAIGlobalChat />
-          </ToastProvider>
-        </ClientProviders>
-{mapsKey ? (
-  <Script
-    async
-    defer
-    strategy="afterInteractive"
-    src={`https://maps.googleapis.com/maps/api/js?key=${mapsKey}&libraries=places&loading=async`}
-  />
-)  : undefined}
+          <ClientProviders>
+            <ToastProvider>
+              <Suspense fallback={null}>
+                <AffiliateTracker />
+              </Suspense>
+              <GlobalFetchInterceptor />
+              <SessionExpirationHandler />
+              <ConditionalHeader />
+              <ConditionalLayout>{children}</ConditionalLayout>
+              {/* Becca AI Assistant - Only shown for authenticated users with proper roles */}
+              <BeccaAIGlobalChat />
+            </ToastProvider>
+          </ClientProviders>
+          {mapsKey ? (
+            <Script
+              async
+              defer
+              strategy="afterInteractive"
+              src={`https://maps.googleapis.com/maps/api/js?key=${mapsKey}&libraries=places&loading=async`}
+            />
+          ) : undefined}
         </ErrorBoundary>
         <SpeedInsights />
         <Analytics />
