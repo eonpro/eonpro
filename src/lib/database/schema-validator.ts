@@ -15,7 +15,7 @@
  * 4. In pre-deployment CI/CD pipelines
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
 export interface SchemaValidationResult {
@@ -152,7 +152,9 @@ const CRITICAL_SCHEMA: Record<
  * Should be called at startup and before deployments
  */
 export async function validateDatabaseSchema(
-  providedPrisma?: PrismaClient
+  providedPrisma?: PrismaClient,
+  /** When set, orphan checks are scoped to this clinic to avoid cross-tenant leakage. */
+  clinicId?: number
 ): Promise<SchemaValidationResult> {
   const startTime = Date.now();
   const errors: SchemaError[] = [];
@@ -160,10 +162,12 @@ export async function validateDatabaseSchema(
   let tablesChecked = 0;
   let columnsChecked = 0;
 
-  // Use provided prisma or import singleton
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { prisma: singletonPrisma } = require('@/lib/db');
-  const db = providedPrisma || singletonPrisma;
+  // Use provided prisma or dynamic import (avoids pulling db/connection-pool into Edge instrumentation bundle)
+  let db = providedPrisma;
+  if (!db) {
+    const { prisma: singletonPrisma } = await import('@/lib/db');
+    db = singletonPrisma;
+  }
 
   try {
     logger.info('[SchemaValidator] Starting database schema validation...');
@@ -219,8 +223,8 @@ export async function validateDatabaseSchema(
       }
     }
 
-    // Check for orphaned foreign keys (data integrity)
-    const orphanChecks = await checkOrphanedRecords(db);
+    // Check for orphaned foreign keys (data integrity); scope to clinic when provided
+    const orphanChecks = await checkOrphanedRecords(db, clinicId);
     warnings.push(...orphanChecks);
 
     const duration = Date.now() - startTime;
@@ -279,18 +283,30 @@ export async function validateDatabaseSchema(
 }
 
 /**
- * Check for orphaned records that could indicate data integrity issues
+ * Check for orphaned records that could indicate data integrity issues.
+ * When clinicId is provided, raw SQL is scoped to that clinic to prevent cross-tenant leakage.
  */
-async function checkOrphanedRecords(db: PrismaClient): Promise<SchemaWarning[]> {
+async function checkOrphanedRecords(
+  db: PrismaClient,
+  clinicId?: number
+): Promise<SchemaWarning[]> {
   const warnings: SchemaWarning[] = [];
 
   try {
+    const clinicFilterInv =
+      clinicId != null ? Prisma.sql`AND i."clinicId" = ${clinicId}` : Prisma.sql``;
+    const clinicFilterPay =
+      clinicId != null ? Prisma.sql`AND pay."clinicId" = ${clinicId}` : Prisma.sql``;
+
     // Check for invoices without patients
-    const orphanedInvoices = await db.$queryRaw<Array<{ count: bigint }>>`
+    const orphanedInvoices = await db.$queryRaw<Array<{ count: bigint }>>(
+      Prisma.sql`
       SELECT COUNT(*) as count FROM "Invoice" i
       LEFT JOIN "Patient" p ON i."patientId" = p.id
       WHERE p.id IS NULL AND i."patientId" IS NOT NULL
-    `;
+      ${clinicFilterInv}
+    `
+    );
 
     if (orphanedInvoices[0] && Number(orphanedInvoices[0].count) > 0) {
       warnings.push({
@@ -301,11 +317,14 @@ async function checkOrphanedRecords(db: PrismaClient): Promise<SchemaWarning[]> 
     }
 
     // Check for payments without invoices
-    const orphanedPayments = await db.$queryRaw<Array<{ count: bigint }>>`
+    const orphanedPayments = await db.$queryRaw<Array<{ count: bigint }>>(
+      Prisma.sql`
       SELECT COUNT(*) as count FROM "Payment" pay
       LEFT JOIN "Invoice" i ON pay."invoiceId" = i.id
       WHERE i.id IS NULL AND pay."invoiceId" IS NOT NULL
-    `;
+      ${clinicFilterPay}
+    `
+    );
 
     if (orphanedPayments[0] && Number(orphanedPayments[0].count) > 0) {
       warnings.push({

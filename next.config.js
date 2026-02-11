@@ -10,9 +10,6 @@ const nextConfig = {
   // Required for Docker: produces .next/standalone and server.js
   output: 'standalone',
 
-  // PDF parsing (bloodwork upload): keep native canvas and pdfjs out of bundle so they load in serverless
-  serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'pdf-parse'],
-
   // TypeScript: CI MUST run "npm run type-check" and fail on type errors (see .github/workflows/ci.yml).
   // ignoreBuildErrors kept for Vercel OOM; production deploy is gated by CI type-check.
   typescript: {
@@ -50,6 +47,8 @@ const nextConfig = {
   
   // Experimental features (Turbopack is default in Next 16 - no --webpack)
   experimental: {
+    // Next 14: serverExternalPackages is experimental.serverComponentsExternalPackages
+    serverComponentsExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'pdf-parse'],
     // Optimize specific package imports (reduces bundle size)
     optimizePackageImports: [
       'lucide-react',

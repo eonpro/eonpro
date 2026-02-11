@@ -1,14 +1,14 @@
 /**
  * DATABASE CONNECTION POOL MANAGER
  * ================================
- * 
+ *
  * Enterprise-grade connection pool management for Prisma/PostgreSQL:
  * - Optimal pool sizing based on workload
  * - Connection health monitoring
  * - Automatic connection recycling
  * - Query queuing during pool exhaustion
  * - Metrics and alerting
- * 
+ *
  * @module ConnectionPool
  */
 
@@ -64,18 +64,24 @@ interface ConnectionInfo {
  * For SSDs, spindle_count ≈ 1
  */
 function calculateOptimalPoolSize(): { min: number; max: number } {
-  const cpuCount = typeof process !== 'undefined' 
-    ? require('os').cpus()?.length || 4 
-    : 4;
-  
+  let cpuCount = 4;
+  try {
+    if (typeof process !== 'undefined' && process.versions?.node) {
+      const os = require('node:os');
+      cpuCount = os.cpus()?.length || 4;
+    }
+  } catch {
+    // Edge runtime or build - node:os not available, use default
+  }
+
   // For web applications with mixed read/write workload
-  const optimal = (cpuCount * 2) + 1;
-  
+  const optimal = cpuCount * 2 + 1;
+
   // Leave headroom for other services
   const maxFromEnv = parseInt(process.env.DATABASE_POOL_MAX || '0', 10);
   const max = maxFromEnv || Math.min(optimal * 2, 50); // Cap at 50
   const min = Math.max(2, Math.floor(max / 4));
-  
+
   return { min, max };
 }
 
@@ -91,7 +97,7 @@ class ConnectionPoolManager {
 
   constructor() {
     const { min, max } = calculateOptimalPoolSize();
-    
+
     this.config = {
       minConnections: min,
       maxConnections: max,
@@ -124,7 +130,7 @@ class ConnectionPoolManager {
    */
   getConnectionUrl(): string {
     const baseUrl = process.env.DATABASE_URL || '';
-    
+
     if (!baseUrl) {
       logger.warn('[ConnectionPool] DATABASE_URL not set');
       return '';
@@ -132,14 +138,14 @@ class ConnectionPoolManager {
 
     // Parse URL and add pool parameters
     const url = new URL(baseUrl);
-    
+
     // Add connection pool parameters for Prisma
     url.searchParams.set('connection_limit', this.config.maxConnections.toString());
     url.searchParams.set('pool_timeout', Math.floor(this.config.acquireTimeout / 1000).toString());
-    
+
     // For PostgreSQL: add statement timeout
     url.searchParams.set('statement_timeout', '30000'); // 30s statement timeout
-    
+
     return url.toString();
   }
 
@@ -156,9 +162,7 @@ class ConnectionPoolManager {
           url: this.getConnectionUrl(),
         },
       },
-      log: process.env.NODE_ENV === 'development' 
-        ? ['warn', 'error'] 
-        : ['error'],
+      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
     };
   }
 
@@ -184,7 +188,7 @@ class ConnectionPoolManager {
       } catch (error) {
         this.metrics.healthCheckFailures++;
         logger.error('[ConnectionPool] Health check failed', { error });
-        
+
         // Attempt to reconnect
         try {
           await prisma.$disconnect();
@@ -212,14 +216,14 @@ class ConnectionPoolManager {
    */
   recordQuery(durationMs: number, success: boolean): void {
     this.metrics.totalAcquired++;
-    
+
     if (!success) {
       this.metrics.totalTimeouts++;
     }
 
     // Update average acquire time
-    this.metrics.avgAcquireTime = 
-      (this.metrics.avgAcquireTime * (this.metrics.totalAcquired - 1) + durationMs) / 
+    this.metrics.avgAcquireTime =
+      (this.metrics.avgAcquireTime * (this.metrics.totalAcquired - 1) + durationMs) /
       this.metrics.totalAcquired;
   }
 
@@ -240,14 +244,13 @@ class ConnectionPoolManager {
     status: 'healthy' | 'degraded' | 'unhealthy';
     details: Record<string, unknown>;
   } {
-    const failureRate = this.metrics.totalAcquired > 0
-      ? this.metrics.totalTimeouts / this.metrics.totalAcquired
-      : 0;
+    const failureRate =
+      this.metrics.totalAcquired > 0 ? this.metrics.totalTimeouts / this.metrics.totalAcquired : 0;
 
     const avgTime = this.metrics.avgAcquireTime;
-    
+
     let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-    
+
     if (failureRate > 0.1 || avgTime > 5000) {
       status = 'unhealthy';
     } else if (failureRate > 0.01 || avgTime > 1000) {
@@ -345,10 +348,7 @@ export async function withRetry<T>(
         throw lastError;
       }
 
-      const delay = Math.min(
-        initialDelayMs * Math.pow(2, attempt - 1),
-        maxDelayMs
-      );
+      const delay = Math.min(initialDelayMs * Math.pow(2, attempt - 1), maxDelayMs);
 
       logger.warn(`[ConnectionPool] Retrying query`, {
         attempt,
@@ -379,11 +379,11 @@ function isRetryableError(error: Error): boolean {
     'prepared statement',
   ];
 
-  return retryablePatterns.some(pattern => message.includes(pattern));
+  return retryablePatterns.some((pattern) => message.includes(pattern));
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // =============================================================================
