@@ -11,7 +11,7 @@ import PatientProgressView from '@/components/PatientProgressView';
 import PatientSidebar from '@/components/PatientSidebar';
 import PatientTags from '@/components/PatientTags';
 import PatientPortalAccessBlock from '@/components/PatientPortalAccessBlock';
-import { prisma, runWithClinicContext } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { getClinicFeatureBoolean } from '@/lib/clinic/utils';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { logger } from '@/lib/logger';
@@ -67,7 +67,10 @@ function resolveFallbackSubdomain(
   return null;
 }
 
+const PATIENTS_LIST_PATH = '/patients';
+
 export default async function PatientDetailPage({ params, searchParams }: PageProps) {
+  let patientIdForLog: number | undefined;
   try {
     // Verify user is authenticated via cookies
     const user = await getUserFromCookies();
@@ -78,6 +81,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
 
     const resolvedParams = await params;
     const id = Number(resolvedParams.id);
+    patientIdForLog = id;
 
     // Validate the ID
     if (isNaN(id) || id <= 0) {
@@ -85,7 +89,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         <div className="p-10">
           <p className="text-red-600">Invalid patient ID.</p>
           <Link
-            href="/provider/patients"
+            href={PATIENTS_LIST_PATH}
             className="mt-4 block underline"
             style={{ color: 'var(--brand-primary, #4fa77e)' }}
           >
@@ -96,90 +100,107 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     }
 
     // Fetch patient with clinic context for proper isolation
-    // Super admins can access any clinic, others are restricted to their clinic
-    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+    // Super admins can access any clinic (use basePrisma to bypass filter); others restricted to their clinic
+    const isSuperAdmin = user.role === 'super_admin';
+    const clinicId = isSuperAdmin ? undefined : user.clinicId ?? undefined;
+
+    // Non-super-admin must have clinic assignment
+    if (!isSuperAdmin && clinicId == null) {
+      return (
+        <div className="p-10">
+          <p className="text-red-600">You must be assigned to a clinic to view patients.</p>
+          <Link
+            href={PATIENTS_LIST_PATH}
+            className="mt-4 block underline"
+            style={{ color: 'var(--brand-primary, #4fa77e)' }}
+          >
+            ← Back to patients
+          </Link>
+        </div>
+      );
+    }
+
+    const patientInclude = {
+      user: { select: { id: true } },
+      clinic: {
+        select: { id: true, subdomain: true, name: true, features: true },
+      },
+      orders: {
+        orderBy: { createdAt: 'desc' } as const,
+        include: {
+          rxs: true,
+          provider: true,
+          events: { orderBy: { createdAt: 'desc' } as const },
+        },
+      },
+      documents: {
+        orderBy: { createdAt: 'desc' } as const,
+        select: {
+          id: true,
+          filename: true,
+          mimeType: true,
+          createdAt: true,
+          externalUrl: true,
+          category: true,
+          sourceSubmissionId: true,
+          data: true,
+        },
+      },
+      intakeSubmissions: {
+        orderBy: { createdAt: 'desc' } as const,
+        include: {
+          template: true,
+          responses: { include: { question: true } },
+        },
+      },
+      auditEntries: {
+        orderBy: { createdAt: 'desc' } as const,
+        take: 10,
+      },
+    };
 
     let patient;
     let salesRepAssignments: any[] = [];
     try {
-      // Wrap query in clinic context for proper multi-tenant isolation
-      patient = await runWithClinicContext(clinicId, async () => {
-        return prisma.patient.findUnique({
+      if (isSuperAdmin) {
+        // Super admin: bypass clinic filter (basePrisma allows patient in allowlist)
+        patient = await basePrisma.patient.findUnique({
           where: { id },
-          include: {
-            // Include clinic for subdomain (used for clinic-specific intake sections)
-            user: { select: { id: true } }, // Portal access (has portal if user exists)
-            clinic: {
-              select: {
-                id: true,
-                subdomain: true,
-                name: true,
-                features: true,
-              },
-            },
-            orders: {
-              orderBy: { createdAt: 'desc' },
-              include: {
-                rxs: true,
-                provider: true,
-                events: {
-                  orderBy: { createdAt: 'desc' },
-                },
-              },
-            },
-            documents: {
-              orderBy: { createdAt: 'desc' },
-              select: {
-                id: true,
-                filename: true,
-                mimeType: true,
-                createdAt: true,
-                externalUrl: true,
-                category: true,
-                sourceSubmissionId: true,
-                data: true,
-              },
-            },
-            intakeSubmissions: {
-              orderBy: { createdAt: 'desc' },
-              include: {
-                template: true,
-                responses: {
-                  include: {
-                    question: true,
-                  },
-                },
-              },
-            },
-            auditEntries: {
-              orderBy: { createdAt: 'desc' },
-              take: 10,
-            },
-          },
+          include: patientInclude,
         });
-      });
+      } else {
+        patient = await runWithClinicContext(clinicId ?? undefined, async () => {
+          return prisma.patient.findUnique({
+            where: { id },
+            include: patientInclude,
+          });
+        });
+      }
 
-      // Fetch sales rep assignments separately to handle table not existing gracefully
+      // Fetch sales rep assignments separately (use patient's clinicId for context when super_admin)
       if (patient) {
         try {
-          salesRepAssignments = await runWithClinicContext(clinicId, async () => {
-            return (
-              (prisma as any).patientSalesRepAssignment?.findMany?.({
-                where: { patientId: id, isActive: true },
-                orderBy: { assignedAt: 'desc' },
-                take: 1,
-                include: {
-                  salesRep: {
-                    select: {
-                      id: true,
-                      firstName: true,
-                      lastName: true,
+          const salesRepClinicId = isSuperAdmin ? patient.clinicId : clinicId;
+          if (salesRepClinicId != null) {
+            salesRepAssignments = await runWithClinicContext(salesRepClinicId, async () => {
+              return (
+                (prisma as any).patientSalesRepAssignment?.findMany?.({
+                  where: { patientId: id, isActive: true },
+                  orderBy: { assignedAt: 'desc' },
+                  take: 1,
+                  include: {
+                    salesRep: {
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                      },
                     },
                   },
-                },
-              }) ?? []
-            );
-          });
+                }) ?? []
+              );
+            });
+          }
         } catch (salesRepError) {
           // PatientSalesRepAssignment table may not exist yet - this is non-critical
           logger.warn('Could not fetch sales rep assignments (table may not exist):', {
@@ -200,7 +221,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
         <div className="p-10">
           <p className="text-red-600">Error loading patient data. Please try again.</p>
           <Link
-            href="/provider/patients"
+            href={PATIENTS_LIST_PATH}
             className="mt-4 block underline"
             style={{ color: 'var(--brand-primary, #4fa77e)' }}
           >
@@ -235,7 +256,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
             If you are a clinic admin, this patient may belong to a different clinic.
           </p>
           <Link
-            href="/provider/patients"
+            href={PATIENTS_LIST_PATH}
             className="mt-4 block underline"
             style={{ color: 'var(--brand-primary, #4fa77e)' }}
           >
@@ -283,8 +304,8 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       };
     }
 
-    // Parse intake document data from Buffer/Uint8Array to JSON
-    const documentsWithParsedData = patientWithDecryptedPHI.documents.map((doc: any) => {
+    // Parse intake document data from Buffer/Uint8Array to JSON (defensive: Prisma includes are arrays)
+    const documentsWithParsedData = (patientWithDecryptedPHI.documents ?? []).map((doc: any) => {
       if (doc.data && doc.category === 'MEDICAL_INTAKE_FORM') {
         try {
           let dataStr: string;
@@ -388,7 +409,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
       true
     );
 
-    const resolvedSearchParams = await searchParams;
+    const resolvedSearchParams = searchParams ? await searchParams : undefined;
     let activeTab = resolvedSearchParams?.tab || 'profile';
     // Support both ?tab=lab and ?tab=labs (normalize to 'lab')
     if (activeTab === 'labs') activeTab = 'lab';
@@ -422,7 +443,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     const timelineEvents: TimelineEvent[] = [];
 
     // Add intake form submissions
-    patientWithDecryptedPHI.intakeSubmissions.forEach((submission: any) => {
+    (patientWithDecryptedPHI.intakeSubmissions ?? []).forEach((submission: any) => {
       timelineEvents.push({
         id: `intake-${submission.id}`,
         date: new Date(submission.createdAt),
@@ -433,7 +454,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     });
 
     // Add prescriptions/orders
-    patientWithDecryptedPHI.orders.forEach((order: any) => {
+    (patientWithDecryptedPHI.orders ?? []).forEach((order: any) => {
       timelineEvents.push({
         id: `rx-${order.id}`,
         date: new Date(order.createdAt),
@@ -444,7 +465,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     });
 
     // Add documents
-    patientWithDecryptedPHI.documents.forEach((doc: any) => {
+    (patientWithDecryptedPHI.documents ?? []).forEach((doc: any) => {
       if (doc.category !== 'MEDICAL_INTAKE_FORM') {
         timelineEvents.push({
           id: `doc-${doc.id}`,
@@ -457,7 +478,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
     });
 
     // Add pharmacy tracking info
-    patientWithDecryptedPHI.orders.forEach((order: any) => {
+    (patientWithDecryptedPHI.orders ?? []).forEach((order: any) => {
       order.events?.forEach((event: any) => {
         if (event.type === 'TRACKING_UPDATE') {
           timelineEvents.push({
@@ -1095,6 +1116,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
   } catch (error) {
     // Global error handler - catch any unexpected errors
     logger.error('Unexpected error in PatientDetailPage:', {
+      patientId: patientIdForLog,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
@@ -1105,7 +1127,7 @@ export default async function PatientDetailPage({ params, searchParams }: PagePr
           Please try refreshing the page or contact support if the problem persists.
         </p>
         <Link
-          href="/provider/patients"
+          href={PATIENTS_LIST_PATH}
           className="mt-4 block underline"
           style={{ color: 'var(--brand-primary, #4fa77e)' }}
         >
