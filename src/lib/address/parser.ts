@@ -10,7 +10,6 @@
  * - "123 Main St, New York, NY 10001"
  */
 
-import { logger } from '@/lib/logger';
 import type { ParsedAddress, AddressParseOptions, RawAddressInput } from './types';
 import {
   STATE_NAME_TO_CODE,
@@ -254,11 +253,6 @@ export function parseAddressString(
       }
     }
   }
-
-  logger.debug('[AddressParser] Parsed address', {
-    input: originalInput.substring(0, 50),
-    result: { ...result, address1: result.address1.substring(0, 20) + '...' },
-  });
 
   return result;
 }
