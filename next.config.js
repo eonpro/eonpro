@@ -48,7 +48,7 @@ const nextConfig = {
     } : false,
   },
   
-  // Experimental features
+  // Experimental features (Turbopack is default in Next 16 - no --webpack)
   experimental: {
     // Optimize specific package imports (reduces bundle size)
     optimizePackageImports: [
@@ -60,6 +60,8 @@ const nextConfig = {
       'react-chartjs-2',
     ],
   },
+
+  turbopack: {},
 
   // Patient portal at /portal (eonmeds.eonpro.io/portal, wellmedr.eonpro.io/portal, etc.)
   // beforeFiles so /portal is rewritten before filesystem (avoids 404 when app/portal/ exists).
