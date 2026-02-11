@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
@@ -7,9 +7,7 @@ import { logger } from '@/lib/logger';
 /**
  * Middleware to check for Super Admin role
  */
-function withSuperAdminAuth(
-  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
-) {
+function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });
 }
 
@@ -76,17 +74,11 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     // Assignment status filter (assigned/unassigned)
     if (status === 'assigned') {
       whereConditions.push({
-        OR: [
-          { clinicId: { not: null } },
-          { providerClinics: { some: { isActive: true } } },
-        ],
+        OR: [{ clinicId: { not: null } }, { providerClinics: { some: { isActive: true } } }],
       });
     } else if (status === 'unassigned') {
       whereConditions.push({
-        AND: [
-          { clinicId: null },
-          { providerClinics: { none: { isActive: true } } },
-        ],
+        AND: [{ clinicId: null }, { providerClinics: { none: { isActive: true } } }],
       });
     }
 
@@ -161,7 +153,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     });
 
     // Calculate clinic counts for each provider
-    const providersWithStats = providers.map((provider: typeof providers[number]) => ({
+    const providersWithStats = providers.map((provider: (typeof providers)[number]) => ({
       ...provider,
       clinicCount: provider.providerClinics.length || (provider.clinicId ? 1 : 0),
       hasLinkedUser: !!provider.user,
@@ -261,7 +253,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     });
   } catch (error: any) {
     logger.error('[SUPER-ADMIN/PROVIDERS] Error creating provider:', error);
-    
+
     // Handle specific error types
     if (error.code === 'CONFLICT') {
       return NextResponse.json(
@@ -269,12 +261,9 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         { status: 409 }
       );
     }
-    
+
     if (error.code === 'VALIDATION_ERROR') {
-      return NextResponse.json(
-        { error: error.message, details: error.details },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: error.message, details: error.details }, { status: 400 });
     }
 
     return NextResponse.json(
