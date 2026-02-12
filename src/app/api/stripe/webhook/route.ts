@@ -1,9 +1,9 @@
 /**
  * Stripe Webhook Handler
  * ======================
- * 
+ *
  * CRITICAL PATH: Payment → Invoice → Prescription
- * 
+ *
  * This webhook MUST be bulletproof:
  * 1. NEVER return 500 to Stripe (causes unnecessary retries)
  * 2. ALWAYS log payment events for audit trail
@@ -14,7 +14,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import type Stripe from 'stripe';
+import { WebhookStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/db';
 
 // Critical payment event types that trigger prescriptions
 const CRITICAL_PAYMENT_EVENTS = [
@@ -25,11 +27,23 @@ const CRITICAL_PAYMENT_EVENTS = [
 ];
 
 // Events that can trigger commission reversals
-const REVERSAL_EVENTS = [
-  'charge.refunded',
-  'charge.dispute.created',
-  'payment_intent.canceled',
-];
+const REVERSAL_EVENTS = ['charge.refunded', 'charge.dispute.created', 'payment_intent.canceled'];
+
+/** Tenant-safe idempotency key: same event for different clinics is processed separately. */
+const STRIPE_IDEMPOTENCY_RESOURCE = 'stripe_webhook';
+
+/**
+ * Resolve clinicId from Stripe event before any DB writes.
+ * Uses metadata.clinicId on the event's data.object (payment_intent, charge, invoice, checkout.session).
+ * Returns 0 when unknown so idempotency key is always tenant-scoped.
+ */
+function getClinicIdFromStripeEvent(event: Stripe.Event): number {
+  const obj = event.data?.object as { metadata?: Record<string, string> } | undefined;
+  const raw = obj?.metadata?.clinicId;
+  if (raw == null || raw === '') return 0;
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) || n < 0 ? 0 : n;
+}
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -47,16 +61,14 @@ export async function POST(request: NextRequest) {
       extractPaymentDataFromPaymentIntent,
       extractPaymentDataFromCheckoutSession,
     } = await import('@/services/stripe/paymentMatchingService');
-    
+
     // Import affiliate commission service
-    const {
-      processPaymentForCommission,
-      reverseCommissionForRefund,
-      checkIfFirstPayment,
-    } = await import('@/services/affiliate/affiliateCommissionService');
-    
+    const { processPaymentForCommission, reverseCommissionForRefund, checkIfFirstPayment } =
+      await import('@/services/affiliate/affiliateCommissionService');
+
     // Import refill queue service for payment auto-matching
-    const { autoMatchPendingRefillsForPatient } = await import('@/services/refill/refillQueueService');
+    const { autoMatchPendingRefillsForPatient } =
+      await import('@/services/refill/refillQueueService');
 
     const stripeClient = getStripe();
     const body = await request.text();
@@ -84,14 +96,65 @@ export async function POST(request: NextRequest) {
     eventId = event.id;
     eventType = event.type;
 
+    // Tenant-safe idempotency: resolve clinic before any DB writes; key = stripe:${clinicId}:${eventId}
+    let clinicId = getClinicIdFromStripeEvent(event);
+
+    // EonMeds fallback: main webhook uses EONMEDS_STRIPE_WEBHOOK_SECRET; events are from EonMeds account.
+    // When metadata.clinicId is missing (Payment Links from Dashboard, external checkouts), default to
+    // DEFAULT_CLINIC_ID so payments are processed instead of dropped. Set DEFAULT_CLINIC_ID=3 for EonMeds.
+    if (clinicId === 0 && process.env.DEFAULT_CLINIC_ID) {
+      const fallback = parseInt(process.env.DEFAULT_CLINIC_ID, 10);
+      if (!Number.isNaN(fallback) && fallback > 0) {
+        clinicId = fallback;
+        logger.info('[STRIPE WEBHOOK] Using DEFAULT_CLINIC_ID fallback (metadata.clinicId missing)', {
+          eventId: event.id,
+          eventType: event.type,
+          clinicId: fallback,
+        });
+      }
+    }
+
+    const idempotencyKey = `stripe:${clinicId}:${event.id}`;
+    const existingIdem = await prisma.idempotencyRecord.findUnique({
+      where: { key: idempotencyKey },
+    });
+    if (existingIdem) {
+      logger.info('[STRIPE WEBHOOK] Duplicate event ignored (tenant-safe idempotency)', {
+        eventId: event.id,
+        eventType: event.type,
+        clinicId,
+      });
+      return NextResponse.json({
+        received: true,
+        eventId: event.id,
+        processed: true,
+        duplicate: true,
+      });
+    }
+
+    // Enterprise rule: when clinic cannot be resolved and event impacts tenant data, do not write tenant-scoped records
+    if (clinicId === 0 && CRITICAL_PAYMENT_EVENTS.includes(event.type)) {
+      logger.warn('[STRIPE WEBHOOK] Event would impact tenant data but clinicId unresolved — no-op + 200', {
+        eventId: event.id,
+        eventType: event.type,
+      });
+      await queueFailedEvent(event, 'CLINIC_UNRESOLVED: metadata.clinicId missing; no tenant write', body);
+      return NextResponse.json({
+        received: true,
+        eventId: event.id,
+        processed: false,
+        reason: 'clinic_unresolved',
+      });
+    }
+
     logger.info(`[STRIPE WEBHOOK] Received event`, {
       eventId,
       eventType,
       livemode: event.livemode,
     });
 
-    // Process the event with comprehensive error handling
-    const result = await processWebhookEvent(event, {
+    // Process the event with comprehensive error handling (pass clinicId so payment data gets it for matching)
+    const result = await processWebhookEvent(event, clinicId, {
       StripeInvoiceService,
       StripePaymentService,
       processStripePayment,
@@ -111,7 +174,32 @@ export async function POST(request: NextRequest) {
         eventId,
         eventType,
         duration,
+        clinicId,
         ...result.details,
+      });
+      // Tenant-safe idempotency: record so same event for same clinic returns 200 on retry
+      await prisma.idempotencyRecord.create({
+        data: {
+          key: idempotencyKey,
+          resource: STRIPE_IDEMPOTENCY_RESOURCE,
+          responseStatus: 200,
+          responseBody: { received: true, eventId: event.id, processed: true },
+        },
+      });
+      // Audit log with clinic for observability
+      await prisma.webhookLog.create({
+        data: {
+          source: 'stripe',
+          eventId: event.id,
+          eventType: event.type,
+          clinicId: clinicId > 0 ? clinicId : null,
+          endpoint: '/api/stripe/webhook',
+          method: 'POST',
+          status: WebhookStatus.SUCCESS,
+          statusCode: 200,
+          processingTimeMs: duration,
+          processedAt: new Date(),
+        },
       });
     } else {
       // Log failure but DON'T return 500 - queue for retry instead
@@ -138,7 +226,6 @@ export async function POST(request: NextRequest) {
       processed: result.success,
       duration,
     });
-
   } catch (error) {
     // Catastrophic error - still try to log and return 200
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -156,7 +243,10 @@ export async function POST(request: NextRequest) {
     try {
       const body = await request.clone().text();
       await queueFailedEvent(
-        { id: eventId || 'unknown', type: eventType || 'unknown' } as Pick<Stripe.Event, 'id' | 'type'>,
+        { id: eventId || 'unknown', type: eventType || 'unknown' } as Pick<
+          Stripe.Event,
+          'id' | 'type'
+        >,
         `CATASTROPHIC: ${errorMessage}`,
         body
       );
@@ -197,6 +287,7 @@ interface ProcessingResult {
 
 async function processWebhookEvent(
   event: Stripe.Event,
+  resolvedClinicId: number,
   services: ProcessingServices
 ): Promise<ProcessingResult> {
   const {
@@ -236,7 +327,8 @@ async function processWebhookEvent(
       // ================================================================
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const piInvoice = (paymentIntent as Stripe.PaymentIntent & { invoice?: string | null }).invoice;
+        const piInvoice = (paymentIntent as Stripe.PaymentIntent & { invoice?: string | null })
+          .invoice;
 
         // Skip if this is an invoice payment (handled by invoice.payment_succeeded)
         if (piInvoice) {
@@ -247,6 +339,9 @@ async function processWebhookEvent(
         }
 
         const intentPaymentData = extractPaymentDataFromPaymentIntent(paymentIntent);
+        if (resolvedClinicId > 0 && !intentPaymentData.metadata?.clinicId) {
+          intentPaymentData.metadata = { ...intentPaymentData.metadata, clinicId: String(resolvedClinicId) };
+        }
         const result = await processStripePayment(intentPaymentData, event.id, event.type);
 
         // Also update payment record
@@ -273,10 +368,10 @@ async function processWebhookEvent(
         let commissionResult = null;
         if (result.patient?.id && result.patient?.clinicId && processPaymentForCommission) {
           try {
-            const isFirstPayment = checkIfFirstPayment 
+            const isFirstPayment = checkIfFirstPayment
               ? await checkIfFirstPayment(result.patient.id, paymentIntent.id)
               : true;
-            
+
             commissionResult = await processPaymentForCommission({
               clinicId: result.patient.clinicId,
               patientId: result.patient.id,
@@ -354,6 +449,9 @@ async function processWebhookEvent(
         }
 
         const chargePaymentData = extractPaymentDataFromCharge(charge);
+        if (resolvedClinicId > 0 && !chargePaymentData.metadata?.clinicId) {
+          chargePaymentData.metadata = { ...chargePaymentData.metadata, clinicId: String(resolvedClinicId) };
+        }
         const result = await processStripePayment(chargePaymentData, event.id, event.type);
 
         if (!result.success) {
@@ -412,10 +510,11 @@ async function processWebhookEvent(
       case 'charge.dispute.created': {
         // Handle both Charge (refunded) and Dispute (created) objects
         const eventObject = event.data.object as Stripe.Charge | Stripe.Dispute;
-        const chargeId = 'charge' in eventObject && typeof eventObject.charge === 'string'
-          ? eventObject.charge
-          : eventObject.id;
-        
+        const chargeId =
+          'charge' in eventObject && typeof eventObject.charge === 'string'
+            ? eventObject.charge
+            : eventObject.id;
+
         logger.info('[STRIPE WEBHOOK] Processing refund/dispute for commission reversal', {
           eventType: event.type,
           chargeId,
@@ -428,7 +527,7 @@ async function processWebhookEvent(
             const { prisma } = await import('@/lib/db');
             const payment = await prisma.payment.findFirst({
               where: { stripeChargeId: chargeId },
-              select: { clinicId: true }
+              select: { clinicId: true },
             });
 
             if (payment?.clinicId) {
@@ -472,6 +571,9 @@ async function processWebhookEvent(
         }
 
         const sessionPaymentData = extractPaymentDataFromCheckoutSession(session);
+        if (resolvedClinicId > 0 && !sessionPaymentData.metadata?.clinicId) {
+          sessionPaymentData.metadata = { ...sessionPaymentData.metadata, clinicId: String(resolvedClinicId) };
+        }
         const result = await processStripePayment(sessionPaymentData, event.id, event.type);
 
         if (!result.success) {
@@ -486,10 +588,10 @@ async function processWebhookEvent(
         let commissionResult = null;
         if (result.patient?.id && result.patient?.clinicId && processPaymentForCommission) {
           try {
-            const isFirstPayment = checkIfFirstPayment 
+            const isFirstPayment = checkIfFirstPayment
               ? await checkIfFirstPayment(result.patient.id)
               : true;
-            
+
             commissionResult = await processPaymentForCommission({
               clinicId: result.patient.clinicId,
               patientId: result.patient.id,
@@ -515,7 +617,7 @@ async function processWebhookEvent(
             refillsMatched = await autoMatchPendingRefillsForPatient(
               result.patient.id,
               result.patient.clinicId,
-              session.payment_intent as string || undefined,
+              (session.payment_intent as string) || undefined,
               result.invoice?.id
             );
           } catch (e) {
@@ -546,13 +648,17 @@ async function processWebhookEvent(
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        const { syncSubscriptionFromStripe } = await import('@/services/stripe/subscriptionSyncService');
+        const { syncSubscriptionFromStripe } =
+          await import('@/services/stripe/subscriptionSyncService');
         const result = await syncSubscriptionFromStripe(subscription, event.id);
         if (!result.success) {
           return {
             success: false,
             error: result.error ?? 'Subscription sync failed',
-            details: { stripeSubscriptionId: subscription.id, subscriptionId: result.subscriptionId },
+            details: {
+              stripeSubscriptionId: subscription.id,
+              subscriptionId: result.subscriptionId,
+            },
           };
         }
         return {
@@ -568,7 +674,8 @@ async function processWebhookEvent(
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        const { cancelSubscriptionFromStripe } = await import('@/services/stripe/subscriptionSyncService');
+        const { cancelSubscriptionFromStripe } =
+          await import('@/services/stripe/subscriptionSyncService');
         const canceledAt = subscription.canceled_at
           ? new Date(subscription.canceled_at * 1000)
           : new Date();
@@ -594,9 +701,13 @@ async function processWebhookEvent(
       case 'customer.subscription.resumed':
       case 'customer.subscription.trial_will_end': {
         // Paused/resumed: re-sync to update status; trial_will_end: no DB change, just for notifications
-        if (event.type === 'customer.subscription.paused' || event.type === 'customer.subscription.resumed') {
+        if (
+          event.type === 'customer.subscription.paused' ||
+          event.type === 'customer.subscription.resumed'
+        ) {
           const subscription = event.data.object as Stripe.Subscription;
-          const { syncSubscriptionFromStripe } = await import('@/services/stripe/subscriptionSyncService');
+          const { syncSubscriptionFromStripe } =
+            await import('@/services/stripe/subscriptionSyncService');
           const result = await syncSubscriptionFromStripe(subscription, event.id);
           if (!result.success) {
             return {
@@ -643,15 +754,17 @@ async function queueFailedEvent(
   try {
     const { prisma } = await import('@/lib/db');
 
-    // Store in WebhookLog table as failed event
+    // Store in WebhookLog table as failed event (parse payload safely to avoid double throw)
+    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+    const payload: unknown = rawBody ? safeParseJsonString(rawBody) : null;
     await prisma.webhookLog.create({
       data: {
         source: 'stripe',
         eventId: event.id,
         eventType: event.type,
-        status: 'FAILED',
+        status: 'ERROR',
         errorMessage: error,
-        payload: rawBody ? JSON.parse(rawBody) : null,
+        payload: payload as object | null,
         retryCount: 0,
         processedAt: null,
         metadata: {
@@ -681,20 +794,17 @@ async function queueFailedEvent(
 // Alerting
 // ============================================================================
 
-async function alertPaymentFailure(
-  event: Stripe.Event,
-  error: string
-): Promise<void> {
+async function alertPaymentFailure(event: Stripe.Event, error: string): Promise<void> {
   // Extract payment-related data from various Stripe event object types
   const paymentData = event.data.object;
-  
+
   // Helper to safely extract amount from different Stripe object types
   const getAmount = (): number | undefined => {
     if ('amount' in paymentData) return paymentData.amount as number;
     if ('amount_total' in paymentData) return paymentData.amount_total as number;
     return undefined;
   };
-  
+
   // Helper to safely extract email from different Stripe object types
   const getEmail = (): string | undefined => {
     if ('billing_details' in paymentData && paymentData.billing_details?.email) {

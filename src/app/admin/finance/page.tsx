@@ -79,56 +79,61 @@ export default function FinanceOverviewPage() {
   const [syncingFromStripe, setSyncingFromStripe] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  const loadData = useCallback(async (showRefresh = false) => {
-    if (showRefresh) setRefreshing(true);
-    
-    try {
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('super_admin-token') || 
-                    localStorage.getItem('admin-token') ||
-                    localStorage.getItem('token');
+  const loadData = useCallback(
+    async (showRefresh = false) => {
+      if (showRefresh) setRefreshing(true);
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      try {
+        const token =
+          localStorage.getItem('auth-token') ||
+          localStorage.getItem('super_admin-token') ||
+          localStorage.getItem('admin-token') ||
+          localStorage.getItem('token');
 
-      // Fetch KPIs from the finance metrics endpoint
-      const [metricsRes, activityRes] = await Promise.all([
-        fetch(`/api/finance/metrics?range=${dateRange}`, {
-          credentials: 'include',
-          headers,
-        }),
-        fetch('/api/finance/activity?limit=10', {
-          credentials: 'include',
-          headers,
-        }),
-      ]);
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      if (metricsRes.ok) {
-        const data = await metricsRes.json();
-        setKpis(data);
+        // Fetch KPIs from the finance metrics endpoint
+        const [metricsRes, activityRes] = await Promise.all([
+          fetch(`/api/finance/metrics?range=${dateRange}`, {
+            credentials: 'include',
+            headers,
+          }),
+          fetch('/api/finance/activity?limit=10', {
+            credentials: 'include',
+            headers,
+          }),
+        ]);
+
+        if (metricsRes.ok) {
+          const data = await metricsRes.json();
+          setKpis(data);
+        }
+
+        if (activityRes.ok) {
+          const data = await activityRes.json();
+          setRecentActivity(data.activities || []);
+        }
+
+        setLastUpdated(new Date());
+      } catch (error) {
+        console.error('Failed to load finance data:', error);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      if (activityRes.ok) {
-        const data = await activityRes.json();
-        setRecentActivity(data.activities || []);
-      }
-
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to load finance data:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [dateRange]);
+    },
+    [dateRange]
+  );
 
   const syncFromStripe = useCallback(async () => {
     setSyncingFromStripe(true);
     setSyncMessage(null);
     try {
-      const token = localStorage.getItem('auth-token') ||
+      const token =
+        localStorage.getItem('auth-token') ||
         localStorage.getItem('super_admin-token') ||
         localStorage.getItem('admin-token') ||
         localStorage.getItem('token');
@@ -169,7 +174,7 @@ export default function FinanceOverviewPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
       </div>
     );
@@ -245,6 +250,7 @@ export default function FinanceOverviewPage() {
 
   const quickActions = [
     { label: 'View Revenue Analytics', href: '/admin/finance/revenue', icon: TrendingUp },
+    { label: 'Incoming Payments', href: '/admin/finance/incoming-payments', icon: CreditCard },
     { label: 'Patient Payment Insights', href: '/admin/finance/patients', icon: Users },
     { label: 'Reconcile Payments', href: '/admin/finance/reconciliation', icon: RefreshCcw },
     { label: 'Generate Reports', href: '/admin/finance/reports', icon: FileText },
@@ -253,35 +259,39 @@ export default function FinanceOverviewPage() {
 
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case 'payment': return <CreditCard className="h-4 w-4 text-green-500" />;
-      case 'invoice': return <FileText className="h-4 w-4 text-blue-500" />;
-      case 'subscription': return <Users className="h-4 w-4 text-purple-500" />;
-      case 'refund': return <RefreshCcw className="h-4 w-4 text-orange-500" />;
-      case 'payout': return <Wallet className="h-4 w-4 text-emerald-500" />;
-      default: return <Activity className="h-4 w-4 text-gray-500" />;
+      case 'payment':
+        return <CreditCard className="h-4 w-4 text-green-500" />;
+      case 'invoice':
+        return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'subscription':
+        return <Users className="h-4 w-4 text-purple-500" />;
+      case 'refund':
+        return <RefreshCcw className="h-4 w-4 text-orange-500" />;
+      case 'payout':
+        return <Wallet className="h-4 w-4 text-emerald-500" />;
+      default:
+        return <Activity className="h-4 w-4 text-gray-500" />;
     }
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Financial Overview</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            {lastUpdated && (
-              <>Last updated: {lastUpdated.toLocaleTimeString()}</>
-            )}
+          <p className="mt-1 text-sm text-gray-500">
+            {lastUpdated && <>Last updated: {lastUpdated.toLocaleTimeString()}</>}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {/* Date Range Selector */}
-          <div className="flex bg-white rounded-lg border border-gray-200 p-1">
+          <div className="flex rounded-lg border border-gray-200 bg-white p-1">
             {(['7d', '30d', '90d', 'ytd'] as const).map((range) => (
               <button
                 key={range}
                 onClick={() => setDateRange(range)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                   dateRange === range
                     ? 'bg-emerald-100 text-emerald-700'
                     : 'text-gray-500 hover:text-gray-700'
@@ -291,12 +301,12 @@ export default function FinanceOverviewPage() {
               </button>
             ))}
           </div>
-          
+
           {/* Sync from Stripe - backfill subscriptions so MRR/ARR match Stripe */}
           <button
             onClick={syncFromStripe}
             disabled={syncingFromStripe}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
           >
             <RefreshCcw className={`h-4 w-4 ${syncingFromStripe ? 'animate-spin' : ''}`} />
             Sync from Stripe
@@ -305,7 +315,7 @@ export default function FinanceOverviewPage() {
           <button
             onClick={() => loadData(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
             <RefreshCcw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -313,36 +323,40 @@ export default function FinanceOverviewPage() {
         </div>
       </div>
       {syncMessage && (
-        <p className={`text-sm ${syncMessage.startsWith('Synced') ? 'text-emerald-600' : 'text-amber-600'}`}>
+        <p
+          className={`text-sm ${syncMessage.startsWith('Synced') ? 'text-emerald-600' : 'text-amber-600'}`}
+        >
           {syncMessage}
         </p>
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map((kpi, index) => {
           const Icon = kpi.icon;
           const change = kpi.change ?? 0;
           const isPositive = kpi.invertTrend ? change <= 0 : change >= 0;
-          
+
           return (
             <Link
               key={index}
               href={kpi.href}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow"
+              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-start justify-between">
-                <div className={`p-2 rounded-lg bg-${kpi.color}-50`}>
+                <div className={`rounded-lg p-2 bg-${kpi.color}-50`}>
                   <Icon className={`h-5 w-5 text-${kpi.color}-600`} />
                 </div>
                 {change !== 0 && (
-                  <span className={`flex items-center text-sm font-medium ${
-                    isPositive ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <span
+                    className={`flex items-center text-sm font-medium ${
+                      isPositive ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
                     {isPositive ? (
-                      <ArrowUpRight className="h-4 w-4 mr-0.5" />
+                      <ArrowUpRight className="mr-0.5 h-4 w-4" />
                     ) : (
-                      <ArrowDownRight className="h-4 w-4 mr-0.5" />
+                      <ArrowDownRight className="mr-0.5 h-4 w-4" />
                     )}
                     {formatPercentage(change)}
                   </span>
@@ -350,10 +364,8 @@ export default function FinanceOverviewPage() {
               </div>
               <div className="mt-4">
                 <h3 className="text-2xl font-bold text-gray-900">{kpi.value}</h3>
-                {kpi.subValue && (
-                  <p className="text-sm text-gray-500">{kpi.subValue}</p>
-                )}
-                <p className="text-sm text-gray-500 mt-1">{kpi.label}</p>
+                {kpi.subValue && <p className="text-sm text-gray-500">{kpi.subValue}</p>}
+                <p className="mt-1 text-sm text-gray-500">{kpi.label}</p>
               </div>
             </Link>
           );
@@ -361,14 +373,14 @@ export default function FinanceOverviewPage() {
       </div>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Recent Activity */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-gray-200 p-5">
             <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-            <Link 
+            <Link
               href="/admin/finance/invoices"
-              className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+              className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
             >
               View all
             </Link>
@@ -376,42 +388,45 @@ export default function FinanceOverviewPage() {
           <div className="divide-y divide-gray-100">
             {recentActivity.length === 0 ? (
               <div className="p-8 text-center">
-                <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <Activity className="mx-auto mb-3 h-12 w-12 text-gray-300" />
                 <p className="text-gray-500">No recent activity</p>
-                <p className="text-sm text-gray-400 mt-1">Transactions will appear here</p>
+                <p className="mt-1 text-sm text-gray-400">Transactions will appear here</p>
               </div>
             ) : (
               recentActivity.map((activity) => (
-                <div key={activity.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div key={activity.id} className="p-4 transition-colors hover:bg-gray-50">
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      {getActivityIcon(activity.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                    <div className="mt-0.5">{getActivityIcon(activity.type)}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-gray-900">
                         {activity.description}
                       </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                          activity.status === 'completed' || activity.status === 'succeeded'
-                            ? 'bg-green-100 text-green-700'
-                            : activity.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-gray-100 text-gray-700'
-                        }`}>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            activity.status === 'completed' || activity.status === 'succeeded'
+                              ? 'bg-green-100 text-green-700'
+                              : activity.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
                           {activity.status}
                         </span>
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-xs text-gray-400">
                           <Clock className="h-3 w-3" />
                           {activity.timestamp}
                         </span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-semibold ${
-                        activity.type === 'refund' ? 'text-red-600' : 'text-gray-900'
-                      }`}>
-                        {activity.type === 'refund' ? '-' : '+'}{formatCurrencyFull(activity.amount || 0)}
+                      <p
+                        className={`text-sm font-semibold ${
+                          activity.type === 'refund' ? 'text-red-600' : 'text-gray-900'
+                        }`}
+                      >
+                        {activity.type === 'refund' ? '-' : '+'}
+                        {formatCurrencyFull(activity.amount || 0)}
                       </p>
                     </div>
                   </div>
@@ -425,19 +440,19 @@ export default function FinanceOverviewPage() {
         <div className="space-y-6">
           {/* Alerts */}
           {(kpis?.outstandingInvoices || 0) > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+            <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+                <AlertCircle className="mt-0.5 h-5 w-5 text-orange-500" />
                 <div>
                   <h4 className="text-sm font-semibold text-orange-800">
                     {kpis?.outstandingInvoices} Outstanding Invoices
                   </h4>
-                  <p className="text-sm text-orange-600 mt-1">
+                  <p className="mt-1 text-sm text-orange-600">
                     {formatCurrency(kpis?.outstandingAmount || 0)} in pending payments
                   </p>
-                  <Link 
+                  <Link
                     href="/admin/finance/invoices?status=open"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-orange-700 hover:text-orange-800 mt-2"
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-orange-700 hover:text-orange-800"
                   >
                     Review invoices
                     <ChevronRight className="h-4 w-4" />
@@ -448,19 +463,17 @@ export default function FinanceOverviewPage() {
           )}
 
           {(kpis?.churnRate || 0) > 5 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
               <div className="flex items-start gap-3">
-                <TrendingDown className="h-5 w-5 text-red-500 mt-0.5" />
+                <TrendingDown className="mt-0.5 h-5 w-5 text-red-500" />
                 <div>
-                  <h4 className="text-sm font-semibold text-red-800">
-                    High Churn Alert
-                  </h4>
-                  <p className="text-sm text-red-600 mt-1">
+                  <h4 className="text-sm font-semibold text-red-800">High Churn Alert</h4>
+                  <p className="mt-1 text-sm text-red-600">
                     Monthly churn rate is {kpis?.churnRate.toFixed(1)}%
                   </p>
-                  <Link 
+                  <Link
                     href="/admin/finance/patients?filter=at-risk"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-800 mt-2"
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-800"
                   >
                     View at-risk patients
                     <ChevronRight className="h-4 w-4" />
@@ -471,8 +484,8 @@ export default function FinanceOverviewPage() {
           )}
 
           {/* Quick Actions */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="p-4 border-b border-gray-200">
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 p-4">
               <h3 className="text-base font-semibold text-gray-900">Quick Actions</h3>
             </div>
             <div className="p-2">
@@ -482,11 +495,11 @@ export default function FinanceOverviewPage() {
                   <Link
                     key={index}
                     href={action.href}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
                   >
                     <Icon className="h-4 w-4" />
                     <span className="text-sm font-medium">{action.label}</span>
-                    <ChevronRight className="h-4 w-4 ml-auto text-gray-400" />
+                    <ChevronRight className="ml-auto h-4 w-4 text-gray-400" />
                   </Link>
                 );
               })}
