@@ -1463,7 +1463,7 @@ export default function PrescriptionQueuePage() {
                                   </div>
                                 </div>
                                 <a
-                                  href={`/patients/${patientDetails.patient.id}?tab=soap`}
+                                  href={`/provider/patients/${patientDetails.patient.id}?tab=soap`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-xs font-medium text-rose-600 hover:text-rose-700"

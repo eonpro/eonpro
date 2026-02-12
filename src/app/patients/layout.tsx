@@ -103,6 +103,13 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
         return;
       }
       setUserRole(role);
+      // Providers should use /provider/patients/[id] for consistent ProviderLayout context
+      if (role === 'provider' && pathname?.startsWith('/patients/') && !pathname.startsWith('/provider/patients/')) {
+        const patientId = pathname.replace(/^\/patients\//, '').split('?')[0];
+        const query = typeof window !== 'undefined' ? window.location.search : '';
+        router.replace(`/provider/patients/${patientId}${query}`);
+        return;
+      }
       setLoading(false);
     } catch {
       localStorage.removeItem('user');

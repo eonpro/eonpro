@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { useRouter } from "next/navigation";
+import { useRouter } from 'next/navigation';
 
-import { Users, Search, UserPlus, X, Loader2, ChevronDown } from "lucide-react";
+import { Users, Search, UserPlus, X, Loader2, ChevronDown } from 'lucide-react';
 
 interface Patient {
   id: number;
@@ -29,16 +29,16 @@ const PAGE_SIZE = 50; // Load 50 at a time for better UX
 
 export default function ProviderPatientsPage() {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false); // New: for search-in-progress indicator
   const [loadingMore, setLoadingMore] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [meta, setMeta] = useState<PaginationMeta>({ count: 0, total: 0, hasMore: false });
   const [offset, setOffset] = useState(0);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -46,17 +46,17 @@ export default function ProviderPatientsPage() {
 
   // New patient form
   const [newPatient, setNewPatient] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    dob: "",
-    gender: "male",
-    address1: "",
-    address2: "",
-    city: "",
-    state: "",
-    zip: "",
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dob: '',
+    gender: 'male',
+    address1: '',
+    address2: '',
+    city: '',
+    state: '',
+    zip: '',
   });
 
   // Debounce search input
@@ -75,75 +75,78 @@ export default function ProviderPatientsPage() {
   }, [searchTerm]);
 
   // Fetch patients function
-  const fetchPatients = useCallback(async (currentOffset: number, isNewSearch = false, searchQuery = "") => {
-    try {
-      // Only show full loading spinner on initial page load
-      // For searches, show a subtle searching indicator without clearing the list
-      if (isNewSearch && isInitialLoadRef.current) {
-        setLoading(true);
-      } else if (isNewSearch) {
-        setSearching(true);
-      } else {
-        setLoadingMore(true);
-      }
-
-      const token = localStorage.getItem("auth-token") || localStorage.getItem("provider-token");
-
-      // Build query params with server-side search and pagination
-      const params = new URLSearchParams({
-        includeContact: "true",
-        limit: PAGE_SIZE.toString(),
-        offset: currentOffset.toString(),
-      });
-
-      // Add server-side search if present
-      if (searchQuery.trim()) {
-        params.set("search", searchQuery.trim());
-      }
-
-      const response = await fetch(`/api/patients?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Map API response to component interface
-        const mapped = (data.patients || []).map((p: any) => ({
-          id: p.id,
-          firstName: p.firstName || '',
-          lastName: p.lastName || '',
-          email: p.email || '',
-          phone: p.phone || '',
-          dateOfBirth: p.dateOfBirth || '',
-          gender: p.gender || '',
-          status: p.status || 'active', // Default to active if no status
-          createdAt: p.createdAt || '',
-        }));
-
-        if (isNewSearch) {
-          setPatients(mapped);
-          isInitialLoadRef.current = false;
+  const fetchPatients = useCallback(
+    async (currentOffset: number, isNewSearch = false, searchQuery = '') => {
+      try {
+        // Only show full loading spinner on initial page load
+        // For searches, show a subtle searching indicator without clearing the list
+        if (isNewSearch && isInitialLoadRef.current) {
+          setLoading(true);
+        } else if (isNewSearch) {
+          setSearching(true);
         } else {
-          setPatients(prev => [...prev, ...mapped]);
+          setLoadingMore(true);
         }
 
-        setMeta({
-          count: data.meta?.count || mapped.length,
-          total: data.meta?.total || mapped.length,
-          hasMore: data.meta?.hasMore || false,
+        const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+
+        // Build query params with server-side search and pagination
+        const params = new URLSearchParams({
+          includeContact: 'true',
+          limit: PAGE_SIZE.toString(),
+          offset: currentOffset.toString(),
         });
-        setOffset(currentOffset + mapped.length);
+
+        // Add server-side search if present
+        if (searchQuery.trim()) {
+          params.set('search', searchQuery.trim());
+        }
+
+        const response = await fetch(`/api/patients?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Map API response to component interface
+          const mapped = (data.patients || []).map((p: any) => ({
+            id: p.id,
+            firstName: p.firstName || '',
+            lastName: p.lastName || '',
+            email: p.email || '',
+            phone: p.phone || '',
+            dateOfBirth: p.dateOfBirth || '',
+            gender: p.gender || '',
+            status: p.status || 'active', // Default to active if no status
+            createdAt: p.createdAt || '',
+          }));
+
+          if (isNewSearch) {
+            setPatients(mapped);
+            isInitialLoadRef.current = false;
+          } else {
+            setPatients((prev) => [...prev, ...mapped]);
+          }
+
+          setMeta({
+            count: data.meta?.count || mapped.length,
+            total: data.meta?.total || mapped.length,
+            hasMore: data.meta?.hasMore || false,
+          });
+          setOffset(currentOffset + mapped.length);
+        }
+      } catch (err) {
+        console.error('Error fetching patients:', err);
+      } finally {
+        setLoading(false);
+        setSearching(false);
+        setLoadingMore(false);
       }
-    } catch (err) {
-      console.error("Error fetching patients:", err);
-    } finally {
-      setLoading(false);
-      setSearching(false);
-      setLoadingMore(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   // Fetch patients when search changes (including initial load)
   useEffect(() => {
@@ -163,21 +166,21 @@ export default function ProviderPatientsPage() {
     // Load all remaining patients
     let currentOffset = offset;
     setLoadingMore(true);
-    
+
     try {
-      const token = localStorage.getItem("auth-token") || localStorage.getItem("provider-token");
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       let hasMore = true;
       let allNewPatients: Patient[] = [];
-      
+
       while (hasMore) {
         const params = new URLSearchParams({
-          includeContact: "true",
-          limit: "500", // Max limit to load faster
+          includeContact: 'true',
+          limit: '500', // Max limit to load faster
           offset: currentOffset.toString(),
         });
-        
+
         if (debouncedSearch.trim()) {
-          params.set("search", debouncedSearch.trim());
+          params.set('search', debouncedSearch.trim());
         }
 
         const response = await fetch(`/api/patients?${params.toString()}`, {
@@ -199,11 +202,11 @@ export default function ProviderPatientsPage() {
             status: p.status || 'active',
             createdAt: p.createdAt || '',
           }));
-          
+
           allNewPatients = [...allNewPatients, ...mapped];
           currentOffset += mapped.length;
           hasMore = data.meta?.hasMore || false;
-          
+
           setMeta({
             count: data.meta?.count || 0,
             total: data.meta?.total || 0,
@@ -213,11 +216,11 @@ export default function ProviderPatientsPage() {
           break;
         }
       }
-      
-      setPatients(prev => [...prev, ...allNewPatients]);
+
+      setPatients((prev) => [...prev, ...allNewPatients]);
       setOffset(currentOffset);
     } catch (err) {
-      console.error("Error loading all patients:", err);
+      console.error('Error loading all patients:', err);
     } finally {
       setLoadingMore(false);
     }
@@ -226,14 +229,14 @@ export default function ProviderPatientsPage() {
   const handleCreatePatient = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreating(true);
-    setError("");
+    setError('');
 
     try {
-      const token = localStorage.getItem("auth-token") || localStorage.getItem("provider-token");
-      const response = await fetch("/api/patients", {
-        method: "POST",
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+      const response = await fetch('/api/patients', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(newPatient),
@@ -244,50 +247,54 @@ export default function ProviderPatientsPage() {
       if (response.ok) {
         setShowAddModal(false);
         setNewPatient({
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          dob: "",
-          gender: "male",
-          address1: "",
-          address2: "",
-          city: "",
-          state: "",
-          zip: "",
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          dob: '',
+          gender: 'male',
+          address1: '',
+          address2: '',
+          city: '',
+          state: '',
+          zip: '',
         });
         // Reset search and refresh the patient list
-        setSearchTerm("");
-        setDebouncedSearch("");
+        setSearchTerm('');
+        setDebouncedSearch('');
         setOffset(0);
         setPatients([]);
-        fetchPatients(0, true, "");
+        fetchPatients(0, true, '');
       } else {
         // Parse validation errors if present
         if (data.issues) {
-          const messages = data.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join(', ');
+          const messages = data.issues
+            .map((i: any) => `${i.path.join('.')}: ${i.message}`)
+            .join(', ');
           setError(messages);
         } else {
-          setError(data.error || "Failed to create patient");
+          setError(data.error || 'Failed to create patient');
         }
       }
     } catch (err: any) {
-      setError(err.message || "Failed to create patient");
+      setError(err.message || 'Failed to create patient');
     } finally {
       setCreating(false);
     }
   };
 
   const calculateAge = (dob: string) => {
-    if (!dob) {return "-";}
+    if (!dob) {
+      return '-';
+    }
     // Check if the value looks like encrypted data (contains colons and base64-like characters)
     if (dob.includes(':') && dob.length > 50) {
-      return "-"; // Encrypted data, can't calculate age
+      return '-'; // Encrypted data, can't calculate age
     }
     const birthDate = new Date(dob);
     // Check if date is valid
     if (isNaN(birthDate.getTime())) {
-      return "-";
+      return '-';
     }
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -299,22 +306,26 @@ export default function ProviderPatientsPage() {
   };
 
   const getStatusColor = (status: string) => {
-    switch(status?.toLowerCase()) {
-      case "active": return "bg-green-100 text-green-800";
-      case "critical": return "bg-red-100 text-red-800";
-      case "inactive": return "bg-gray-100 text-gray-800";
-      default: return "bg-blue-100 text-blue-800";
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'critical':
+        return 'bg-red-100 text-red-800';
+      case 'inactive':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-blue-100 text-blue-800';
     }
   };
 
   // Client-side filtering only for status (search is now server-side)
-  const filteredPatients = patients.filter(patient => {
-    return filterStatus === "all" || patient.status?.toLowerCase() === filterStatus;
+  const filteredPatients = patients.filter((patient) => {
+    return filterStatus === 'all' || patient.status?.toLowerCase() === filterStatus;
   });
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-green-600" />
       </div>
     );
@@ -323,15 +334,17 @@ export default function ProviderPatientsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+      <div className="rounded-lg bg-white p-6 shadow">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
             <Users className="h-6 w-6" />
             My Patients
           </h1>
           <button
-            onClick={() => { setShowAddModal(true); }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+            onClick={() => {
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
           >
             <UserPlus className="h-4 w-4" />
             Add Patient
@@ -340,24 +353,28 @@ export default function ProviderPatientsPage() {
 
         {/* Search and Filter */}
         <div className="flex gap-4">
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             {searching ? (
-              <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500 animate-spin" />
+              <Loader2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform animate-spin text-green-500" />
             ) : (
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
             )}
             <input
               type="text"
               placeholder="Search patients by name..."
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); }}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+              }}
+              className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-green-500"
             />
           </div>
           <select
             value={filterStatus}
-            onChange={(e) => { setFilterStatus(e.target.value); }}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+            onChange={(e) => {
+              setFilterStatus(e.target.value);
+            }}
+            className="rounded-lg border px-4 py-2 focus:ring-2 focus:ring-green-500"
           >
             <option value="all">All Patients</option>
             <option value="active">Active</option>
@@ -367,48 +384,53 @@ export default function ProviderPatientsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="rounded-lg bg-white p-4 shadow">
           <div className="text-2xl font-bold text-gray-900">{meta.total}</div>
           <div className="text-sm text-gray-600">Total Patients</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="rounded-lg bg-white p-4 shadow">
           <div className="text-2xl font-bold text-green-600">{patients.length}</div>
           <div className="text-sm text-gray-600">
-            Loaded {meta.hasMore && <span className="text-xs text-gray-400">(of {meta.total})</span>}
+            Loaded{' '}
+            {meta.hasMore && <span className="text-xs text-gray-400">(of {meta.total})</span>}
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="rounded-lg bg-white p-4 shadow">
           <div className="text-2xl font-bold text-gray-600">
-            {patients.filter(p => p.status?.toLowerCase() === "inactive").length}
+            {patients.filter((p) => p.status?.toLowerCase() === 'inactive').length}
           </div>
           <div className="text-sm text-gray-600">Inactive</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="rounded-lg bg-white p-4 shadow">
           <div className="text-2xl font-bold text-blue-600">
-            {patients.filter(p => {
-              const created = new Date(p.createdAt);
-              const weekAgo = new Date();
-              weekAgo.setDate(weekAgo.getDate() - 7);
-              return created > weekAgo;
-            }).length}
+            {
+              patients.filter((p) => {
+                const created = new Date(p.createdAt);
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return created > weekAgo;
+              }).length
+            }
           </div>
           <div className="text-sm text-gray-600">New This Week</div>
         </div>
       </div>
 
       {/* Patients List */}
-      <div className="bg-white rounded-lg shadow">
+      <div className="rounded-lg bg-white shadow">
         <div className="p-6">
           {filteredPatients.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <div className="py-12 text-center">
+              <Users className="mx-auto mb-4 h-12 w-12 text-gray-300" />
               <p className="text-gray-500">
-                {searchTerm ? "No patients match your search" : "No patients yet"}
+                {searchTerm ? 'No patients match your search' : 'No patients yet'}
               </p>
               <button
-                onClick={() => { setShowAddModal(true); }}
-                className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                onClick={() => {
+                  setShowAddModal(true);
+                }}
+                className="mt-4 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
               >
                 Add Your First Patient
               </button>
@@ -418,66 +440,78 @@ export default function ProviderPatientsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4">Patient</th>
-                    <th className="text-left py-3 px-4">Contact</th>
-                    <th className="text-left py-3 px-4">Age/Gender</th>
-                    <th className="text-left py-3 px-4">Status</th>
-                    <th className="text-left py-3 px-4">Added</th>
-                    <th className="text-left py-3 px-4">Actions</th>
+                    <th className="px-4 py-3 text-left">Patient</th>
+                    <th className="px-4 py-3 text-left">Contact</th>
+                    <th className="px-4 py-3 text-left">Age/Gender</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Added</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredPatients.map((patient) => (
                     <tr
                       key={patient.id}
-                      className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => { window.location.href = `/patients/${patient.id}`; }}
+                      className="cursor-pointer border-b transition-colors hover:bg-gray-50"
+                      onClick={() => {
+                        window.location.href = `/provider/patients/${patient.id}`;
+                      }}
                     >
-                      <td className="py-3 px-4">
-                        <div className="font-medium">{patient.firstName} {patient.lastName}</div>
-                        <div className="text-sm text-gray-500">ID: {patient.patientId || patient.id}</div>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">
+                          {patient.firstName} {patient.lastName}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          ID: {patient.patientId || patient.id}
+                        </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="text-sm">{patient.email || <span className="text-gray-400">No email</span>}</div>
-                        <div className="text-sm text-gray-500">{patient.phone || <span className="text-gray-400">No phone</span>}</div>
+                      <td className="px-4 py-3">
+                        <div className="text-sm">
+                          {patient.email || <span className="text-gray-400">No email</span>}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {patient.phone || <span className="text-gray-400">No phone</span>}
+                        </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="px-4 py-3">
                         <div>
-                          {calculateAge(patient.dateOfBirth) !== "-" 
-                            ? `${calculateAge(patient.dateOfBirth)} years` 
-                            : "N/A"}
+                          {calculateAge(patient.dateOfBirth) !== '-'
+                            ? `${calculateAge(patient.dateOfBirth)} years`
+                            : 'N/A'}
                         </div>
-                        <div className="text-sm text-gray-500 capitalize">
-                          {patient.gender ? patient.gender.charAt(0).toUpperCase() : "-"}
+                        <div className="text-sm capitalize text-gray-500">
+                          {patient.gender ? patient.gender.charAt(0).toUpperCase() : '-'}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(patient.status)}`}>
-                          {patient.status || "Active"}
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs ${getStatusColor(patient.status)}`}
+                        >
+                          {patient.status || 'Active'}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-gray-500">
                         {new Date(patient.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
+                            onClick={(e) => {
+                              e.stopPropagation();
                               e.preventDefault();
-                              window.location.href = `/patients/${patient.id}`; 
+                              window.location.href = `/provider/patients/${patient.id}`;
                             }}
-                            className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
+                            className="rounded bg-green-100 px-3 py-1 text-sm text-green-700 hover:bg-green-200"
                           >
                             View
                           </button>
                           <button
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
+                            onClick={(e) => {
+                              e.stopPropagation();
                               e.preventDefault();
-                              window.location.href = `/patients/${patient.id}?tab=chat`; 
+                              window.location.href = `/provider/patients/${patient.id}?tab=chat`;
                             }}
-                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                            className="rounded bg-blue-100 px-3 py-1 text-sm text-blue-700 hover:bg-blue-200"
                           >
                             Message
                           </button>
@@ -487,14 +521,14 @@ export default function ProviderPatientsPage() {
                   ))}
                 </tbody>
               </table>
-              
+
               {/* Load More / Load All */}
               {meta.hasMore && (
-                <div className="flex items-center justify-center gap-4 py-6 border-t mt-4">
+                <div className="mt-4 flex items-center justify-center gap-4 border-t py-6">
                   <button
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                    className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
                   >
                     {loadingMore ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -506,15 +540,15 @@ export default function ProviderPatientsPage() {
                   <button
                     onClick={loadAll}
                     disabled={loadingMore}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
                   >
                     Load All ({meta.total - patients.length} remaining)
                   </button>
                 </div>
               )}
-              
+
               {/* Pagination info */}
-              <div className="text-center text-sm text-gray-500 py-4">
+              <div className="py-4 text-center text-sm text-gray-500">
                 Showing {filteredPatients.length} of {meta.total} patients
                 {debouncedSearch && ` matching "${debouncedSearch}"`}
               </div>
@@ -525,18 +559,25 @@ export default function ProviderPatientsPage() {
 
       {/* Add Patient Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto py-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 my-auto">
-            <div className="flex items-center justify-between p-6 border-b">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 py-4">
+          <div className="mx-4 my-auto w-full max-w-lg rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b p-6">
               <h3 className="text-lg font-semibold">Add New Patient</h3>
-              <button onClick={() => { setShowAddModal(false); }}>
+              <button
+                onClick={() => {
+                  setShowAddModal(false);
+                }}
+              >
                 <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
               </button>
             </div>
 
-            <form onSubmit={handleCreatePatient} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+            <form
+              onSubmit={handleCreatePatient}
+              className="max-h-[70vh] space-y-4 overflow-y-auto p-6"
+            >
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {error}
                 </div>
               )}
@@ -544,27 +585,31 @@ export default function ProviderPatientsPage() {
               {/* Name */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     First Name *
                   </label>
                   <input
                     type="text"
                     required
                     value={newPatient.firstName}
-                    onChange={(e) => { setNewPatient({ ...newPatient, firstName: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, firstName: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Last Name *
                   </label>
                   <input
                     type="text"
                     required
                     value={newPatient.lastName}
-                    onChange={(e) => { setNewPatient({ ...newPatient, lastName: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, lastName: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
@@ -572,27 +617,27 @@ export default function ProviderPatientsPage() {
               {/* Contact */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Email *</label>
                   <input
                     type="email"
                     required
                     value={newPatient.email}
-                    onChange={(e) => { setNewPatient({ ...newPatient, email: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, email: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone *
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Phone *</label>
                   <input
                     type="tel"
                     required
                     value={newPatient.phone}
-                    onChange={(e) => { setNewPatient({ ...newPatient, phone: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, phone: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                     placeholder="(555) 123-4567"
                   />
                 </div>
@@ -601,26 +646,28 @@ export default function ProviderPatientsPage() {
               {/* DOB and Gender */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Date of Birth *
                   </label>
                   <input
                     type="date"
                     required
                     value={newPatient.dob}
-                    onChange={(e) => { setNewPatient({ ...newPatient, dob: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, dob: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender *
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Gender *</label>
                   <select
                     required
                     value={newPatient.gender}
-                    onChange={(e) => { setNewPatient({ ...newPatient, gender: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, gender: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   >
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -631,54 +678,56 @@ export default function ProviderPatientsPage() {
 
               {/* Address */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address *
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Address *</label>
                 <input
                   type="text"
                   required
                   value={newPatient.address1}
-                  onChange={(e) => { setNewPatient({ ...newPatient, address1: e.target.value }); }}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setNewPatient({ ...newPatient, address1: e.target.value });
+                  }}
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   placeholder="Street address"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Address Line 2
                 </label>
                 <input
                   type="text"
                   value={newPatient.address2}
-                  onChange={(e) => { setNewPatient({ ...newPatient, address2: e.target.value }); }}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setNewPatient({ ...newPatient, address2: e.target.value });
+                  }}
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   placeholder="Apt, suite, etc. (optional)"
                 />
               </div>
 
               <div className="grid grid-cols-6 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City *
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">City *</label>
                   <input
                     type="text"
                     required
                     value={newPatient.city}
-                    onChange={(e) => { setNewPatient({ ...newPatient, city: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, city: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State *
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">State *</label>
                   <select
                     required
                     value={newPatient.state}
-                    onChange={(e) => { setNewPatient({ ...newPatient, state: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, state: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Select</option>
                     <option value="AL">AL</option>
@@ -734,32 +783,34 @@ export default function ProviderPatientsPage() {
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ZIP *
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">ZIP *</label>
                   <input
                     type="text"
                     required
                     value={newPatient.zip}
-                    onChange={(e) => { setNewPatient({ ...newPatient, zip: e.target.value }); }}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => {
+                      setNewPatient({ ...newPatient, zip: e.target.value });
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
                     placeholder="12345"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+              <div className="mt-4 flex justify-end gap-3 border-t pt-4">
                 <button
                   type="button"
-                  onClick={() => { setShowAddModal(false); }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  onClick={() => {
+                    setShowAddModal(false);
+                  }}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                  className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
                 >
                   {creating && <Loader2 className="h-4 w-4 animate-spin" />}
                   Create Patient

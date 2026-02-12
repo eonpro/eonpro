@@ -38,6 +38,8 @@ import { Patient, Provider, Order } from '@/types/models';
 type PageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ tab?: string; submitted?: string; admin?: string }>;
+  /** When rendered from /provider/patients/[id], pass '/provider/patients' for back links */
+  patientsListPath?: string;
 };
 
 /**
@@ -67,9 +69,14 @@ function resolveFallbackSubdomain(
   return null;
 }
 
-const PATIENTS_LIST_PATH = '/patients';
+const DEFAULT_PATIENTS_LIST_PATH = '/patients';
 
-export default async function PatientDetailPage({ params, searchParams }: PageProps) {
+export default async function PatientDetailPage({
+  params,
+  searchParams,
+  patientsListPath = DEFAULT_PATIENTS_LIST_PATH,
+}: PageProps) {
+  const PATIENTS_LIST_PATH = patientsListPath;
   let patientIdForLog: number | undefined;
   try {
     // Verify user is authenticated via cookies

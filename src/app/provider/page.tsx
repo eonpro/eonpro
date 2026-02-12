@@ -4,8 +4,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Users, Calendar, Clock, FileText, TestTube,
-  Pill, MessageSquare, Loader2, AlertCircle
+  Users,
+  Calendar,
+  Clock,
+  FileText,
+  TestTube,
+  Pill,
+  MessageSquare,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -48,15 +55,19 @@ export default function ProviderDashboard() {
       router.push('/login');
       return;
     }
-
-    const data = JSON.parse(user);
-    if (data.role?.toLowerCase() !== 'provider') {
+    try {
+      const data = JSON.parse(user);
+      if (data.role?.toLowerCase() !== 'provider') {
+        router.push('/login');
+        return;
+      }
+      setUserData(data);
+      fetchDashboardData();
+    } catch {
+      localStorage.removeItem('user');
       router.push('/login');
       return;
     }
-
-    setUserData(data);
-    fetchDashboardData();
   }, [router]);
 
   const fetchDashboardData = async () => {
@@ -69,9 +80,9 @@ export default function ProviderDashboard() {
       if (patientsRes.ok) {
         const patientsData = await patientsRes.json();
         setRecentPatients(patientsData.patients || []);
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
-          totalIntakes: patientsData.meta?.total || patientsData.patients?.length || 0
+          totalIntakes: patientsData.meta?.total || patientsData.patients?.length || 0,
         }));
       }
 
@@ -79,23 +90,25 @@ export default function ProviderDashboard() {
       const ordersRes = await fetch('/api/orders?limit=100', { headers });
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json();
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
-          recentPrescriptions: ordersData.count || ordersData.orders?.length || 0
+          recentPrescriptions: ordersData.count || ordersData.orders?.length || 0,
         }));
       }
 
       // Fetch appointments for today
       const today = new Date().toISOString().split('T')[0];
       try {
-        const appointmentsRes = await fetch(`/api/scheduling/appointments?date=${today}`, { headers });
+        const appointmentsRes = await fetch(`/api/scheduling/appointments?date=${today}`, {
+          headers,
+        });
         if (appointmentsRes.ok) {
           const appointmentsData = await appointmentsRes.json();
           const todayAppts = appointmentsData.appointments || [];
           setAppointments(todayAppts);
-          setStats(prev => ({
+          setStats((prev) => ({
             ...prev,
-            todayAppointments: todayAppts.length
+            todayAppointments: todayAppts.length,
           }));
         }
       } catch {
@@ -111,18 +124,20 @@ export default function ProviderDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-green-600" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 lg:p-8 min-h-screen">
+    <div className="min-h-screen p-6 lg:p-8">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-[#4fa77e] to-[#3d9268] rounded-2xl p-6 text-white mb-8 shadow-sm">
-        <h1 className="text-2xl font-bold mb-2">
-          Welcome back, Dr. {userData?.lastName || userData?.name?.split(' ').pop() || userData?.email?.split('@')[0]}!
+      <div className="mb-8 rounded-2xl bg-gradient-to-r from-[#4fa77e] to-[#3d9268] p-6 text-white shadow-sm">
+        <h1 className="mb-2 text-2xl font-bold">
+          Welcome back, Dr.{' '}
+          {userData?.lastName || userData?.name?.split(' ').pop() || userData?.email?.split('@')[0]}
+          !
         </h1>
         <p className="text-green-100">
           {stats.totalIntakes > 0
@@ -132,50 +147,62 @@ export default function ProviderDashboard() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
-        <Link href="/provider/patients" className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-green-200 transition-colors">
+      <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-4">
+        <Link
+          href="/provider/patients"
+          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-green-200"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Intakes</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalIntakes}</p>
+              <p className="mt-1 text-3xl font-bold text-gray-900">{stats.totalIntakes}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-[#4fa77e] flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#4fa77e]">
               <Users className="h-6 w-6 text-white" />
             </div>
           </div>
         </Link>
 
-        <Link href="/provider/soap-notes" className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-blue-200 transition-colors">
+        <Link
+          href="/provider/soap-notes"
+          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-blue-200"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">SOAP Notes</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.pendingSOAPNotes}</p>
+              <p className="mt-1 text-3xl font-bold text-gray-900">{stats.pendingSOAPNotes}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500">
               <FileText className="h-6 w-6 text-white" />
             </div>
           </div>
         </Link>
 
-        <Link href="/provider/prescriptions" className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-purple-200 transition-colors">
+        <Link
+          href="/provider/prescriptions"
+          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-purple-200"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Prescriptions</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.recentPrescriptions}</p>
+              <p className="mt-1 text-3xl font-bold text-gray-900">{stats.recentPrescriptions}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-purple-500 flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500">
               <Pill className="h-6 w-6 text-white" />
             </div>
           </div>
         </Link>
 
-        <Link href="/provider/calendar" className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-cyan-200 transition-colors">
+        <Link
+          href="/provider/calendar"
+          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-cyan-200"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Today's Appointments</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.todayAppointments}</p>
+              <p className="mt-1 text-3xl font-bold text-gray-900">{stats.todayAppointments}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-cyan-500 flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500">
               <Calendar className="h-6 w-6 text-white" />
             </div>
           </div>
@@ -183,9 +210,9 @@ export default function ProviderDashboard() {
       </div>
 
       {/* Today's Schedule & Recent Patients */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Today's Schedule</h2>
             <Link href="/provider/calendar" className="text-sm text-[#4fa77e] hover:underline">
               View all
@@ -193,9 +220,9 @@ export default function ProviderDashboard() {
           </div>
           <div className="p-4">
             {appointments.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">No appointments scheduled for today</p>
+              <div className="py-8 text-center">
+                <Calendar className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                <p className="text-sm text-gray-500">No appointments scheduled for today</p>
                 <Link
                   href="/provider/calendar"
                   className="mt-3 inline-block text-sm text-[#4fa77e] hover:underline"
@@ -206,16 +233,24 @@ export default function ProviderDashboard() {
             ) : (
               <div className="space-y-3">
                 {appointments.slice(0, 5).map((appointment) => (
-                  <div key={appointment.id} className="flex items-center justify-between p-3 bg-gray-50/80 rounded-xl">
+                  <div
+                    key={appointment.id}
+                    className="flex items-center justify-between rounded-xl bg-gray-50/80 p-3"
+                  >
                     <div className="flex items-center">
-                      <Clock className="h-4 w-4 text-gray-400 mr-3" />
+                      <Clock className="mr-3 h-4 w-4 text-gray-400" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{appointment.patientName}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {appointment.patientName}
+                        </p>
                         <p className="text-xs text-gray-500">{appointment.type}</p>
                       </div>
                     </div>
-                    <span className="text-sm text-gray-600 font-medium">
-                      {new Date(appointment.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <span className="text-sm font-medium text-gray-600">
+                      {new Date(appointment.scheduledAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </span>
                   </div>
                 ))}
@@ -224,8 +259,8 @@ export default function ProviderDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Recent Intakes</h2>
             <Link href="/provider/patients" className="text-sm text-[#4fa77e] hover:underline">
               View all
@@ -233,9 +268,9 @@ export default function ProviderDashboard() {
           </div>
           <div className="p-4">
             {recentPatients.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">No intakes yet</p>
+              <div className="py-8 text-center">
+                <Users className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                <p className="text-sm text-gray-500">No intakes yet</p>
                 <Link
                   href="/provider/patients"
                   className="mt-3 inline-block text-sm text-[#4fa77e] hover:underline"
@@ -248,13 +283,14 @@ export default function ProviderDashboard() {
                 {recentPatients.map((patient) => (
                   <Link
                     key={patient.id}
-                    href={`/patients/${patient.id}`}
-                    className="flex items-center justify-between p-3 bg-gray-50/80 rounded-xl hover:bg-gray-100 transition-colors"
+                    href={`/provider/patients/${patient.id}`}
+                    className="flex items-center justify-between rounded-xl bg-gray-50/80 p-3 transition-colors hover:bg-gray-100"
                   >
                     <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-[#4fa77e]/10 flex items-center justify-center mr-3">
+                      <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-[#4fa77e]/10">
                         <span className="text-sm font-medium text-[#4fa77e]">
-                          {patient.firstName?.[0]}{patient.lastName?.[0]}
+                          {patient.firstName?.[0]}
+                          {patient.lastName?.[0]}
                         </span>
                       </div>
                       <div>
@@ -275,38 +311,38 @@ export default function ProviderDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-6 py-5">
           <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
         </div>
         <div className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <button
               onClick={() => router.push('/provider/patients')}
-              className="p-4 bg-[#4fa77e]/10 text-[#4fa77e] rounded-xl hover:bg-[#4fa77e]/20 transition-colors flex flex-col items-center"
+              className="flex flex-col items-center rounded-xl bg-[#4fa77e]/10 p-4 text-[#4fa77e] transition-colors hover:bg-[#4fa77e]/20"
             >
-              <Users className="h-6 w-6 mb-2" />
+              <Users className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">View Intakes</span>
             </button>
             <button
               onClick={() => router.push('/provider/soap-notes')}
-              className="p-4 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-colors flex flex-col items-center"
+              className="flex flex-col items-center rounded-xl bg-blue-50 p-4 text-blue-700 transition-colors hover:bg-blue-100"
             >
-              <FileText className="h-6 w-6 mb-2" />
+              <FileText className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">SOAP Notes</span>
             </button>
             <button
               onClick={() => router.push('/provider/prescriptions')}
-              className="p-4 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition-colors flex flex-col items-center"
+              className="flex flex-col items-center rounded-xl bg-purple-50 p-4 text-purple-700 transition-colors hover:bg-purple-100"
             >
-              <Pill className="h-6 w-6 mb-2" />
+              <Pill className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Prescriptions</span>
             </button>
             <button
               onClick={() => router.push('/provider/calendar')}
-              className="p-4 bg-cyan-50 text-cyan-700 rounded-xl hover:bg-cyan-100 transition-colors flex flex-col items-center"
+              className="flex flex-col items-center rounded-xl bg-cyan-50 p-4 text-cyan-700 transition-colors hover:bg-cyan-100"
             >
-              <Calendar className="h-6 w-6 mb-2" />
+              <Calendar className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Calendar</span>
             </button>
           </div>

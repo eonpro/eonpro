@@ -254,8 +254,12 @@ export default function PrescriptionForm({
         setUserRole(role);
 
         // Try /api/providers/me first (works for providers with linked profile)
-        // Avoids relying on client-side role which can be stale
-        const meRes = await fetch('/api/providers/me', { headers });
+        // credentials: include sends cookies (API may read provider-token from cookie)
+        const meRes = await fetch('/api/providers/me', {
+          headers,
+          credentials: 'include',
+          cache: 'no-store',
+        });
         let meData: {
           provider?: { id: number; firstName?: string; lastName?: string; titleLine?: string | null; npi?: string; signatureDataUrl?: string | null };
           isComplete?: boolean;
@@ -300,7 +304,11 @@ export default function PrescriptionForm({
             activeClinicId && !Number.isNaN(parseInt(activeClinicId, 10))
               ? `/api/providers?clinicId=${encodeURIComponent(activeClinicId)}`
               : '/api/providers';
-          const listRes = await fetch(url, { headers });
+          const listRes = await fetch(url, {
+            headers,
+            credentials: 'include',
+            cache: 'no-store',
+          });
           let listData: { providers?: ProviderOption[]; error?: string } = {};
           try {
             listData = await listRes.json();
