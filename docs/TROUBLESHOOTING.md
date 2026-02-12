@@ -371,9 +371,13 @@ JWT_EXPIRES_IN=7d          # Token lifetime
 
 ### Login stuck on "Logging in..." (browser/extension issues)
 
-**Symptoms:** The login button shows "Logging in..." with a spinner and never completes; the browser console shows errors such as `FrameIsBrowserFrameError`, `strUrl is not defined`, or `Failed to load resource: net::ERR_FILE_NOT_FOUND` for files like `utils.js`, `extensionState.js`, or `heuristicsRedefinitions.js`.
+**Symptoms:** The login button shows "Logging in..." with a spinner and never completes; the browser console shows errors such as:
+- `FrameDoesNotExistError: Frame [ID] does not exist in tab [Tab ID]` (from `background.js`)
+- `Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache`
+- `FrameIsBrowserFrameError`, `strUrl is not defined`
+- `Failed to load resource: net::ERR_FILE_NOT_FOUND` for files like `utils.js`, `extensionState.js`, or `heuristicsRedefinitions.js`
 
-**Cause:** Those errors usually come from **browser extensions** (e.g. password managers, ad blockers, or security tools), not from the app. They can block or break the login request so the page never receives a response.
+**Cause:** Those errors come from **browser extensions** (e.g. password managers, ad blockers, autofill tools, or security extensions), not from EONPRO. `background.js`, `extensionState.js`, and `heuristicsRedefinitions.js` are extension scripts. Extensions can inject into or intercept the page and block or break the login request so the response never reaches the app.
 
 **What to do:**
 
@@ -383,6 +387,8 @@ JWT_EXPIRES_IN=7d          # Token lifetime
 4. **Safety net:** The login page now clears the "Logging in..." state after 30 seconds and shows a message suggesting incognito or disabling extensions if the request never completes.
 
 **Related:** `/api/auth/login` is a public route; clinic subdomains (e.g. wellmedr.eonpro.io) resolve clinic via `/api/clinic/resolve` and send `clinicId` in the login body. If the request never reaches the server, the issue is client or network, not backend.
+
+**Enterprise strategy:** For a long-term, multi-pillar approach to login resilience (resilience, observability, UX, infrastructure, runbooks), see `docs/ENTERPRISE_LOGIN_RESILIENCE_STRATEGY.md`.
 
 ### Login 503 — "Service is busy. Please try again in a moment."
 

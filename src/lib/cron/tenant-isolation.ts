@@ -40,7 +40,7 @@ export function verifyCronAuth(request: NextRequest): boolean {
 export async function getClinicIdsForCron(): Promise<number[]> {
   const clinics = await basePrisma.clinic.findMany({
     select: { id: true },
-    where: { isActive: true },
+    where: { status: 'ACTIVE' },
   });
   return clinics.map((c) => c.id);
 }
