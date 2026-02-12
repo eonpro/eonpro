@@ -66,6 +66,45 @@ Patient → intake.wellmedr.com → Airtable (tbln93c69GlrNGEqa)
                     └────────────────────────────────────────┘
 ```
 
+### ⚠️ TWO Automations Required for Prescription Queue
+
+| Automation | Webhook | Purpose | When It Runs |
+| --------- | ------- | ------- | ------------- |
+| **Intake** | `wellmedr-intake` | Creates patient, SOAP note | When intake record has data (Checkout Completed) |
+| **Invoice** | `wellmedr-invoice` | Creates invoice → **Rx Queue** | When payment detected (`method_payment_id` has `pm_*`) |
+
+**The intake webhook alone does NOT put patients in the prescription queue.** Patients appear in the Rx Queue only after the **invoice webhook** creates a paid invoice. Ensure both automations are configured.
+
+---
+
+## Airtable Intake Script Troubleshooting
+
+### "Patient not created when they pay" / "Not in prescription queue"
+
+1. **Check trigger timing**
+   - Trigger: "When record matches conditions" with `Checkout Completed` is checked
+   - Or: "When record is updated" + condition `Checkout Completed` is checked
+   - If you use "When record is created" only, the record may be created before payment (partial lead). Use "record updated" so it runs again when Checkout Completed becomes true.
+
+2. **Table name**
+   - Set `CONFIG.TABLE_NAME` in the script to your **exact** Airtable table name (e.g. `Onboarding`, `2026 Q1 Fillout Intake - 1`).
+
+3. **Invoice automation**
+   - The prescription queue is populated by **invoices**, not intakes. You must have the **Invoice** automation (see "Invoice Webhook" section below) that sends to `wellmedr-invoice` when payment is recorded. Without it, patients are created but never appear in Rx Queue.
+
+4. **Field names**
+   - Ensure your Airtable columns match: `first-name`, `last-name`, `email`, `phone`, `Checkout Completed`. Case and hyphens matter.
+
+5. **Webhook secret**
+   - The script's `WEBHOOK_SECRET` must exactly match `WELLMEDR_INTAKE_WEBHOOK_SECRET` in EONPRO (Vercel env vars). A 401 error means mismatch.
+
+6. **Input variable**
+   - The automation must pass `recordId` to the script. Map it to "Record ID" from the trigger step.
+
+### Script Location
+
+- `scripts/airtable/wellmedr-intake-automation.js`
+
 ---
 
 ## Features Enabled
@@ -369,7 +408,18 @@ Successful response includes EONPRO IDs for bidirectional sync:
 
 ### Purpose
 
-Creates invoices on patient profiles when a payment is detected in Airtable.
+Creates invoices on patient profiles when a payment is detected in Airtable. **Comprehensive prescription matching**: The webhook uses `product`, `medication_type`, and `plan` to match the prescription to what the patient paid for. For 6-month and 12-month plans, it automatically schedules future refills at 90-day intervals (pharmacy BUD limit).
+
+### Airtable Data Model (Orders + Products)
+
+Your base typically has:
+
+| Table    | Key Fields                                                                 | Purpose                                                                 |
+| -------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Orders** | `submission_id`, `payment_status`, `order_status`, `customer_email`, `customer_name`, `created_at`, `shipping_address`, `billing_address`, `method_payment_id` | Patient orders with payment status                                     |
+| **Products** | `product` (semaglutide, tirzepatide), `medication_type` (injections), `plan` (6-month, monthly, quarterly, 12-month), `$ price`, `stripe_price_id` | Product catalog with medication, plan duration, and Stripe price mapping |
+
+**Linking**: Orders link to Products via `stripe_price_id` (or a lookup/linked record). When building the webhook payload, resolve the Order's price to the Product record to get `product`, `medication_type`, and `plan`.
 
 ### Webhook Configuration
 
@@ -384,15 +434,15 @@ Creates invoices on patient profiles when a payment is detected in Airtable.
 
 Use **input variables** in your Airtable "Run script" action. Map each variable to the correct field:
 
-| Variable             | Airtable Field                             | Required |
-| -------------------- | ------------------------------------------ | -------- |
-| `customer_email`     | Email / Customer Email                     | Yes      |
-| `payment_method_id`  | Payment Method ID / Stripe pm_*             | Yes      |
-| `patient_name`       | Patient Name / Customer Name / Name         | No*      |
-| `customer_name`      | Customer Name (fallback if no patient_name) | No       |
-| `product`            | Product                                    | No       |
-| `medication_type`    | Medication Type                            | No       |
-| `plan`               | Plan                                       | No       |
+| Variable             | Airtable Field                             | Required | Notes |
+| -------------------- | ------------------------------------------ | -------- | ----- |
+| `customer_email`     | Email / Customer Email                     | Yes      |       |
+| `payment_method_id`  | Payment Method ID / Stripe pm_*             | Yes      |       |
+| `patient_name`       | Patient Name / Customer Name / Name         | No*      |       |
+| `customer_name`      | Customer Name (fallback if no patient_name) | No       |       |
+| `product`            | Product / Medication name                  | No       | **Use medication name** (Tirzepatide 2.5mg, Semaglutide 0.25mg), NOT plan-only (1mo/3mo Injections) |
+| `medication_type`    | Medication Type / Medication               | No       | Strength or full drug (e.g. "2.5mg", "Tirzepatide 2.5mg"). Alt: `medication`, `treatment`, `product_name` |
+| `plan`               | Plan / Duration                            | No       | 1mo, 3mo, 6-month, 12-month, Monthly, Quarterly, Annual. **Required for refill scheduling** |
 | `price`              | Price / Amount                              | No       |
 | `shipping_address`   | Shipping Address                            | No       |
 | `created_at`         | Created At / Payment Date                   | No       |
@@ -400,6 +450,22 @@ Use **input variables** in your Airtable "Run script" action. Map each variable 
 | `stripe_price_id`    | Stripe Price ID                             | No       |
 
 \* **patient_name is strongly recommended** – EONPRO matches by email first, then by name when email fails. This helps when the payment email differs slightly from the intake record.
+
+### Refill Scheduling (6-Month and 12-Month Plans)
+
+**Pharmacy constraint**: Medications have a 90-day Beyond Use Date (BUD). The pharmacy can only ship 3 months at a time.
+
+| Plan      | Shipments   | Refill dates (from prescription date)        |
+| --------- | ----------- | -------------------------------------------- |
+| 6-month   | 2           | Initial + 90 days                            |
+| 12-month  | 4           | Initial + 90, 180, 270 days                  |
+
+When the webhook receives a 6-month or 12-month plan, it automatically:
+1. Creates the invoice (queues initial prescription in Rx Queue)
+2. Schedules future RefillQueue entries at 90, 180, 270 days
+3. The refill cron moves due refills to the Refill Queue when their date arrives
+
+No manual lookup needed – refills appear in Admin → Refill Queue when due.
 
 ```javascript
 // WellMedR Invoice Webhook - Airtable Automation Script
@@ -454,13 +520,15 @@ if (config.shipping_address) {
 // Patient name: prefer explicit patient_name, then customer_name, then from address
 const patientName = (config.patient_name || config.customer_name || customerName || '').trim();
 
+// IMPORTANT: product = medication name (Tirzepatide 2.5mg), plan = duration (1mo, 3mo)
+// If your Product column has "1mo Injections", map Medication/Medication Type to medication_type instead
 const payload = {
   customer_email: String(config.customer_email).trim(),
   method_payment_id: String(config.payment_method_id),
   patient_name: patientName || undefined,
   customer_name: patientName || config.customer_name || undefined,
-  product: config.product || '',
-  medication_type: config.medication_type || '',
+  product: config.product || config.medication || '', // Prefer medication name over plan-only
+  medication_type: config.medication_type || config.medication || config.treatment || '',
   plan: config.plan || '',
   price: config.price || '',
   stripe_price_id: config.stripe_price_id || '',
@@ -512,8 +580,25 @@ try {
 4. **Add Action**: "Run script"
    - Paste the script above
    - In **Input variables**, add each variable and map it to the matching Airtable field (see table above). At minimum: `customer_email`, `payment_method_id`. **Add `patient_name`** for better matching when email differs from intake.
-5. **Test** with a sample record that has `pm_*` in payment_method_id
-6. **Turn on** the automation
+5. **Add input variables**: Map `product`, `medication_type`, `plan`, `stripe_price_id`, `created_at`. **If Orders link to Products** (or you look up by stripe_price_id), map the linked Product's `product`, `medication_type`, and `plan` fields – these are critical for Rx Queue display and refill scheduling.
+6. **Test** with a sample record that has `pm_*` in payment_method_id
+7. **Turn on** the automation
+
+**Script with linked Product**: If your Order record has a linked "Product" or "Price" record, resolve product/plan from it:
+
+```javascript
+// Resolve product and plan from linked Product record (if Orders → Product link exists)
+let product = config.product || '';
+let medication_type = config.medication_type || '';
+let plan = config.plan || '';
+if (config.linked_product && config.linked_product.length > 0) {
+  const p = config.linked_product[0];
+  product = p.fields?.product || p.product || product;
+  medication_type = p.fields?.medication_type || p.medication_type || medication_type;
+  plan = p.fields?.plan || p.plan || plan;
+}
+// Then use product, medication_type, plan in payload
+```
 
 ### Response Format
 
@@ -569,6 +654,12 @@ Successful response:
    - Check Airtable automation run history for errors.
    - Verify the response: `result.success === true` means success.
    - Ensure `prescriptionProcessed: false` on the invoice so it shows in the prescription queue.
+
+4. **Rx Queue shows "1mo Injections" or "3mo Injections" instead of medication name**
+   - **Root cause**: The `product` field in Airtable contains plan/duration (1mo, 3mo) instead of the medication name.
+   - **Fix (Airtable)**: Map `product` to the **medication name** (Tirzepatide 2.5mg, Semaglutide 0.25mg). Map `plan` to duration (1mo, 3mo, Monthly, Quarterly).
+   - **Fix (alternate)**: If your base has medication in a separate column (e.g. "Medication", "Treatment"), add that as `medication_type` in the script – the webhook accepts `medication`, `treatment`, and `product_name` as alternates.
+   - **Fallback**: EONPRO derives medication from the patient's intake form when the invoice has plan-only product. Ensure the intake ran before payment so the preferred medication is in the document.
 
 4. **Health check**
    - `GET https://app.eonpro.io/api/webhooks/wellmedr-invoice` returns endpoint status and `configured: true` when the secret is set.

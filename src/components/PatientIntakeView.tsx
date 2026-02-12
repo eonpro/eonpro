@@ -1,13 +1,55 @@
-"use client";
+'use client';
 
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
-import { FileText, Download, ChevronDown, ChevronUp, User, Activity, Pill, Heart, Brain, ClipboardList, Pencil, Save, X, Loader2, Check, Shield } from 'lucide-react';
+import {
+  FileText,
+  Download,
+  ChevronDown,
+  ChevronUp,
+  User,
+  Activity,
+  Pill,
+  Heart,
+  Brain,
+  ClipboardList,
+  Pencil,
+  Save,
+  X,
+  Loader2,
+  Check,
+  Shield,
+} from 'lucide-react';
+import { calculateBMI as calcBMI } from '@/lib/calculators/bmi';
 import { WELLMEDR_INTAKE_SECTIONS, hasCustomIntakeSections } from '@/lib/wellmedr/intakeSections';
-import { getOvertimeIntakeSections, hasOvertimeIntakeSections } from '@/lib/overtime/intakeSections';
+import {
+  getOvertimeIntakeSections,
+  hasOvertimeIntakeSections,
+} from '@/lib/overtime/intakeSections';
 import type { OvertimeTreatmentType } from '@/lib/overtime/treatmentTypes';
+
+/** Parse weight string (e.g. "218", "218 lbs") to pounds. */
+function parseWeightToLbs(str: string): number | null {
+  if (!str || typeof str !== 'string') return null;
+  const n = parseFloat(str.replace(/[^0-9.]/g, ''));
+  return typeof n === 'number' && !isNaN(n) && n > 0 ? n : null;
+}
+
+/** Parse height string (e.g. "5'6\"", "5'8", "68") to inches. */
+function parseHeightToInches(str: string): number | null {
+  if (!str || typeof str !== 'string') return null;
+  const trimmed = str.trim();
+  const feetInchMatch = trimmed.match(/(\d+)['']\s*(\d+)/);
+  if (feetInchMatch) {
+    const feet = parseInt(feetInchMatch[1], 10);
+    const inches = parseInt(feetInchMatch[2], 10);
+    if (!isNaN(feet) && !isNaN(inches)) return feet * 12 + inches;
+  }
+  const asNumber = parseFloat(trimmed.replace(/[^0-9.]/g, ''));
+  return typeof asNumber === 'number' && !isNaN(asNumber) && asNumber > 0 ? asNumber : null;
+}
 
 /**
  * Default intake display sections - maps fields from WeightLossIntake (eonmeds and other clinics)
@@ -17,138 +59,465 @@ import type { OvertimeTreatmentType } from '@/lib/overtime/treatmentTypes';
  */
 const DEFAULT_INTAKE_SECTIONS = [
   {
-    title: "Patient Profile",
+    title: 'Patient Profile',
     icon: User,
     editable: false, // Patient profile is edited on the Profile tab
     fields: [
-      { id: "patient-name", label: "Full Name" },
-      { id: "patient-dob", label: "Date of Birth" },
-      { id: "patient-gender", label: "Gender" },
-      { id: "patient-phone", label: "Phone" },
-      { id: "patient-email", label: "Email" },
-      { id: "patient-address", label: "Address" },
+      { id: 'patient-name', label: 'Full Name' },
+      { id: 'patient-dob', label: 'Date of Birth' },
+      { id: 'patient-gender', label: 'Gender' },
+      { id: 'patient-phone', label: 'Phone' },
+      { id: 'patient-email', label: 'Email' },
+      { id: 'patient-address', label: 'Address' },
     ],
   },
   {
-    title: "Physical Measurements",
+    title: 'Physical Measurements',
     icon: Activity,
     editable: true,
     fields: [
-      { id: "weight", label: "Starting Weight", aliases: ["startingweight", "currentweight"], inputType: "text", placeholder: "e.g., 180 lbs" },
-      { id: "idealWeight", label: "Ideal Weight", aliases: ["idealweight", "goalweight", "targetweight"], inputType: "text", placeholder: "e.g., 150 lbs" },
-      { id: "height", label: "Height", aliases: [], inputType: "text", placeholder: "e.g., 5'8\"" },
-      { id: "bmi", label: "BMI", aliases: ["bodymassindex"], inputType: "text", placeholder: "e.g., 27.4" },
-      { id: "bloodPressure", label: "Blood Pressure", aliases: ["bloodpressure", "bp"], inputType: "text", placeholder: "e.g., 120/80" },
+      {
+        id: 'weight',
+        label: 'Starting Weight',
+        aliases: ['startingweight', 'currentweight'],
+        inputType: 'text',
+        placeholder: 'e.g., 180 lbs',
+      },
+      {
+        id: 'idealWeight',
+        label: 'Ideal Weight',
+        aliases: ['idealweight', 'goalweight', 'targetweight'],
+        inputType: 'text',
+        placeholder: 'e.g., 150 lbs',
+      },
+      { id: 'height', label: 'Height', aliases: [], inputType: 'text', placeholder: 'e.g., 5\'8"' },
+      {
+        id: 'bmi',
+        label: 'BMI',
+        aliases: ['bodymassindex'],
+        inputType: 'text',
+        placeholder: 'e.g., 27.4',
+      },
+      {
+        id: 'bloodPressure',
+        label: 'Blood Pressure',
+        aliases: ['bloodpressure', 'bp'],
+        inputType: 'text',
+        placeholder: 'e.g., 120/80',
+      },
     ],
   },
   {
-    title: "Medical History",
+    title: 'Medical History',
     icon: Heart,
     editable: true,
     fields: [
-      { id: "medicalConditions", label: "Medical Conditions", aliases: ["medicalconditions", "conditions"], inputType: "textarea", placeholder: "List any medical conditions..." },
-      { id: "currentMedications", label: "Current Medications", aliases: ["currentmedications", "medications"], inputType: "textarea", placeholder: "List current medications..." },
-      { id: "allergies", label: "Allergies", aliases: ["allergy"], inputType: "textarea", placeholder: "List any allergies..." },
-      { id: "familyHistory", label: "Family Medical History", aliases: ["familyhistory", "familymedicalhistory"], inputType: "textarea", placeholder: "Family medical history..." },
-      { id: "surgicalHistory", label: "Surgical History", aliases: ["surgicalhistory", "surgeries"], inputType: "textarea", placeholder: "List any surgeries..." },
+      {
+        id: 'medicalConditions',
+        label: 'Medical Conditions',
+        aliases: ['medicalconditions', 'conditions'],
+        inputType: 'textarea',
+        placeholder: 'List any medical conditions...',
+      },
+      {
+        id: 'currentMedications',
+        label: 'Current Medications',
+        aliases: ['currentmedications', 'medications'],
+        inputType: 'textarea',
+        placeholder: 'List current medications...',
+      },
+      {
+        id: 'allergies',
+        label: 'Allergies',
+        aliases: ['allergy'],
+        inputType: 'textarea',
+        placeholder: 'List any allergies...',
+      },
+      {
+        id: 'familyHistory',
+        label: 'Family Medical History',
+        aliases: ['familyhistory', 'familymedicalhistory'],
+        inputType: 'textarea',
+        placeholder: 'Family medical history...',
+      },
+      {
+        id: 'surgicalHistory',
+        label: 'Surgical History',
+        aliases: ['surgicalhistory', 'surgeries'],
+        inputType: 'textarea',
+        placeholder: 'List any surgeries...',
+      },
     ],
   },
   {
-    title: "Medical Flags",
+    title: 'Medical Flags',
     icon: Heart,
     editable: true,
     fields: [
-      { id: "pregnancyStatus", label: "Pregnancy Status", aliases: ["pregnancystatus", "pregnant"], inputType: "select", options: ["Not Pregnant", "Pregnant", "Trying to Conceive", "N/A"] },
-      { id: "hasDiabetes", label: "Has Diabetes", aliases: ["hasdiabetes", "diabetes", "type2diabetes"], inputType: "select", options: ["No", "Yes - Type 1", "Yes - Type 2", "Pre-diabetic"] },
-      { id: "hasGastroparesis", label: "Has Gastroparesis", aliases: ["hasgastroparesis", "gastroparesis"], inputType: "select", options: ["No", "Yes"] },
-      { id: "hasPancreatitis", label: "Has Pancreatitis", aliases: ["haspancreatitis", "pancreatitis"], inputType: "select", options: ["No", "Yes", "History of"] },
-      { id: "hasThyroidCancer", label: "Has Thyroid Cancer", aliases: ["hasthyroidcancer", "thyroidcancer", "medularythyroid"], inputType: "select", options: ["No", "Yes", "Family History"] },
+      {
+        id: 'pregnancyStatus',
+        label: 'Pregnancy Status',
+        aliases: ['pregnancystatus', 'pregnant'],
+        inputType: 'select',
+        options: ['Not Pregnant', 'Pregnant', 'Trying to Conceive', 'N/A'],
+      },
+      {
+        id: 'hasDiabetes',
+        label: 'Has Diabetes',
+        aliases: ['hasdiabetes', 'diabetes', 'type2diabetes'],
+        inputType: 'select',
+        options: ['No', 'Yes - Type 1', 'Yes - Type 2', 'Pre-diabetic'],
+      },
+      {
+        id: 'hasGastroparesis',
+        label: 'Has Gastroparesis',
+        aliases: ['hasgastroparesis', 'gastroparesis'],
+        inputType: 'select',
+        options: ['No', 'Yes'],
+      },
+      {
+        id: 'hasPancreatitis',
+        label: 'Has Pancreatitis',
+        aliases: ['haspancreatitis', 'pancreatitis'],
+        inputType: 'select',
+        options: ['No', 'Yes', 'History of'],
+      },
+      {
+        id: 'hasThyroidCancer',
+        label: 'Has Thyroid Cancer',
+        aliases: ['hasthyroidcancer', 'thyroidcancer', 'medularythyroid'],
+        inputType: 'select',
+        options: ['No', 'Yes', 'Family History'],
+      },
     ],
   },
   {
-    title: "Mental Health",
+    title: 'Mental Health',
     icon: Brain,
     editable: true,
     fields: [
-      { id: "mentalHealthHistory", label: "Mental Health History", aliases: ["mentalhealthhistory", "mentalhealth", "mentalHealthConditions", "psychiatrichistory", "anxietydepression", "mentalhealthdiagnosis"], inputType: "textarea", placeholder: "Mental health history..." },
+      {
+        id: 'mentalHealthHistory',
+        label: 'Mental Health History',
+        aliases: [
+          'mentalhealthhistory',
+          'mentalhealth',
+          'mentalHealthConditions',
+          'psychiatrichistory',
+          'anxietydepression',
+          'mentalhealthdiagnosis',
+        ],
+        inputType: 'textarea',
+        placeholder: 'Mental health history...',
+      },
     ],
   },
   {
-    title: "Lifestyle",
+    title: 'Lifestyle',
     icon: Activity,
     editable: true,
     fields: [
-      { id: "activityLevel", label: "Daily Physical Activity", aliases: ["activitylevel", "physicalactivity", "dailyphysicalactivity"], inputType: "select", options: ["Sedentary", "Lightly Active", "Moderately Active", "Very Active", "Extremely Active"] },
-      { id: "alcoholUse", label: "Alcohol Intake", aliases: ["alcoholuse", "alcoholintake", "alcohol"], inputType: "select", options: ["None", "Occasional", "Moderate", "Heavy"] },
-      { id: "recreationalDrugs", label: "Recreational Drug Use", aliases: ["recreationaldrugs", "recreationaldruguse", "druguse"], inputType: "select", options: ["None", "Occasional", "Regular"] },
-      { id: "weightLossHistory", label: "Weight Loss History", aliases: ["weightlosshistory"], inputType: "textarea", placeholder: "Previous weight loss attempts..." },
+      {
+        id: 'activityLevel',
+        label: 'Daily Physical Activity',
+        aliases: ['activitylevel', 'physicalactivity', 'dailyphysicalactivity'],
+        inputType: 'select',
+        options: [
+          'Sedentary',
+          'Lightly Active',
+          'Moderately Active',
+          'Very Active',
+          'Extremely Active',
+        ],
+      },
+      {
+        id: 'alcoholUse',
+        label: 'Alcohol Intake',
+        aliases: ['alcoholuse', 'alcoholintake', 'alcohol'],
+        inputType: 'select',
+        options: ['None', 'Occasional', 'Moderate', 'Heavy'],
+      },
+      {
+        id: 'recreationalDrugs',
+        label: 'Recreational Drug Use',
+        aliases: ['recreationaldrugs', 'recreationaldruguse', 'druguse'],
+        inputType: 'select',
+        options: ['None', 'Occasional', 'Regular'],
+      },
+      {
+        id: 'weightLossHistory',
+        label: 'Weight Loss History',
+        aliases: ['weightlosshistory'],
+        inputType: 'textarea',
+        placeholder: 'Previous weight loss attempts...',
+      },
     ],
   },
   {
-    title: "GLP-1 Medications",
+    title: 'GLP-1 Medications',
     icon: Pill,
     editable: true,
     fields: [
-      { id: "glp1History", label: "GLP-1 Medication History", aliases: ["glp1history", "glp1medicationhistory"], inputType: "select", options: ["Never Used", "Currently Using", "Previously Used"] },
-      { id: "glp1Type", label: "Current GLP-1 Medication", aliases: ["glp1type", "currentglp1medication", "currentglp1"], inputType: "select", options: ["None", "Semaglutide (Ozempic/Wegovy)", "Tirzepatide (Mounjaro/Zepbound)", "Liraglutide (Saxenda)", "Other"] },
-      { id: "medicationPreference", label: "Medication Preference", aliases: ["medicationpreference"], inputType: "select", options: ["No Preference", "Semaglutide", "Tirzepatide", "Other"] },
-      { id: "semaglutideDosage", label: "Semaglutide Dose", aliases: ["semaglutidedosage", "semaglutidedose"], inputType: "text", placeholder: "e.g., 0.5mg weekly" },
-      { id: "tirzepatideDosage", label: "Tirzepatide Dose", aliases: ["tirzepatidedosage", "tirzepatidedose"], inputType: "text", placeholder: "e.g., 2.5mg weekly" },
-      { id: "previousSideEffects", label: "Previous Side Effects", aliases: ["previoussideeffects", "sideeffects"], inputType: "textarea", placeholder: "Any side effects experienced..." },
+      {
+        id: 'glp1History',
+        label: 'GLP-1 Medication History',
+        aliases: ['glp1history', 'glp1medicationhistory'],
+        inputType: 'select',
+        options: ['Never Used', 'Currently Using', 'Previously Used'],
+      },
+      {
+        id: 'glp1Type',
+        label: 'Current GLP-1 Medication',
+        aliases: ['glp1type', 'currentglp1medication', 'currentglp1'],
+        inputType: 'select',
+        options: [
+          'None',
+          'Semaglutide (Ozempic/Wegovy)',
+          'Tirzepatide (Mounjaro/Zepbound)',
+          'Liraglutide (Saxenda)',
+          'Other',
+        ],
+      },
+      {
+        id: 'medicationPreference',
+        label: 'Medication Preference',
+        aliases: ['medicationpreference'],
+        inputType: 'select',
+        options: ['No Preference', 'Semaglutide', 'Tirzepatide', 'Other'],
+      },
+      {
+        id: 'semaglutideDosage',
+        label: 'Semaglutide Dose',
+        aliases: ['semaglutidedosage', 'semaglutidedose'],
+        inputType: 'text',
+        placeholder: 'e.g., 0.5mg weekly',
+      },
+      {
+        id: 'tirzepatideDosage',
+        label: 'Tirzepatide Dose',
+        aliases: ['tirzepatidedosage', 'tirzepatidedose'],
+        inputType: 'text',
+        placeholder: 'e.g., 2.5mg weekly',
+      },
+      {
+        id: 'previousSideEffects',
+        label: 'Previous Side Effects',
+        aliases: ['previoussideeffects', 'sideeffects'],
+        inputType: 'textarea',
+        placeholder: 'Any side effects experienced...',
+      },
     ],
   },
   {
-    title: "Visit Information",
+    title: 'Visit Information',
     icon: ClipboardList,
     editable: true,
     fields: [
-      { id: "reasonForVisit", label: "Reason for Visit", aliases: ["reasonforvisit"], inputType: "textarea", placeholder: "Reason for visit..." },
-      { id: "chiefComplaint", label: "Chief Complaint", aliases: ["chiefcomplaint"], inputType: "textarea", placeholder: "Chief complaint..." },
-      { id: "healthGoals", label: "Health Goals", aliases: ["healthgoals", "goals"], inputType: "textarea", placeholder: "Health goals..." },
+      {
+        id: 'reasonForVisit',
+        label: 'Reason for Visit',
+        aliases: ['reasonforvisit'],
+        inputType: 'textarea',
+        placeholder: 'Reason for visit...',
+      },
+      {
+        id: 'chiefComplaint',
+        label: 'Chief Complaint',
+        aliases: ['chiefcomplaint'],
+        inputType: 'textarea',
+        placeholder: 'Chief complaint...',
+      },
+      {
+        id: 'healthGoals',
+        label: 'Health Goals',
+        aliases: ['healthgoals', 'goals'],
+        inputType: 'textarea',
+        placeholder: 'Health goals...',
+      },
     ],
   },
   {
-    title: "Referral & Promo Code",
+    title: 'Referral & Promo Code',
     icon: ClipboardList,
     editable: true,
     fields: [
-      { id: "affiliateCode", label: "Affiliate Code", aliases: ["affiliatecode", "affiliate-code", "promocode", "promo-code", "influencercode", "influencer-code", "whorecommended", "whorecommendedus"], inputType: "text", placeholder: "Affiliate/promo code..." },
-      { id: "referralSource", label: "How Did You Hear About Us?", aliases: ["referralsource", "howdidyouhearaboutus", "howdidyouhear"], inputType: "text", placeholder: "How did they hear about us?" },
-      { id: "referredBy", label: "Referred By", aliases: ["referredby"], inputType: "text", placeholder: "Referred by..." },
-      { id: "qualified", label: "Qualified Status", aliases: ["qualifiedstatus"], inputType: "select", options: ["Pending", "Qualified", "Not Qualified"] },
-      { id: "language", label: "Preferred Language", aliases: ["preferredlanguage"], inputType: "select", options: ["English", "Spanish", "French", "Other"] },
-      { id: "intakeSource", label: "Intake Source", aliases: ["intakesource"], inputType: "text", placeholder: "Source of intake..." },
-      { id: "intakeNotes", label: "Intake Notes", aliases: ["intakenotes", "notes"], inputType: "textarea", placeholder: "Additional notes..." },
+      {
+        id: 'affiliateCode',
+        label: 'Affiliate Code',
+        aliases: [
+          'affiliatecode',
+          'affiliate-code',
+          'promocode',
+          'promo-code',
+          'influencercode',
+          'influencer-code',
+          'whorecommended',
+          'whorecommendedus',
+        ],
+        inputType: 'text',
+        placeholder: 'Affiliate/promo code...',
+      },
+      {
+        id: 'referralSource',
+        label: 'How Did You Hear About Us?',
+        aliases: ['referralsource', 'howdidyouhearaboutus', 'howdidyouhear'],
+        inputType: 'text',
+        placeholder: 'How did they hear about us?',
+      },
+      {
+        id: 'referredBy',
+        label: 'Referred By',
+        aliases: ['referredby'],
+        inputType: 'text',
+        placeholder: 'Referred by...',
+      },
+      {
+        id: 'qualified',
+        label: 'Qualified Status',
+        aliases: ['qualifiedstatus'],
+        inputType: 'select',
+        options: ['Pending', 'Qualified', 'Not Qualified'],
+      },
+      {
+        id: 'language',
+        label: 'Preferred Language',
+        aliases: ['preferredlanguage'],
+        inputType: 'select',
+        options: ['English', 'Spanish', 'French', 'Other'],
+      },
+      {
+        id: 'intakeSource',
+        label: 'Intake Source',
+        aliases: ['intakesource'],
+        inputType: 'text',
+        placeholder: 'Source of intake...',
+      },
+      {
+        id: 'intakeNotes',
+        label: 'Intake Notes',
+        aliases: ['intakenotes', 'notes'],
+        inputType: 'textarea',
+        placeholder: 'Additional notes...',
+      },
     ],
   },
   {
-    title: "Consent & Acknowledgments",
+    title: 'Consent & Acknowledgments',
     icon: Shield,
     editable: false, // Consent records should not be editable
     fields: [
       // Privacy & Terms
-      { id: "privacyPolicyConsent", label: "Privacy Policy", aliases: ["privacypolicyconsent", "privacypolicy", "acceptedprivacy", "privacypolicyaccepted"], inputType: "text" },
-      { id: "termsConsent", label: "Terms of Service", aliases: ["termsconsent", "termsandconditions", "acceptedterms", "termsofuseaccepted"], inputType: "text" },
+      {
+        id: 'privacyPolicyConsent',
+        label: 'Privacy Policy',
+        aliases: [
+          'privacypolicyconsent',
+          'privacypolicy',
+          'acceptedprivacy',
+          'privacypolicyaccepted',
+        ],
+        inputType: 'text',
+      },
+      {
+        id: 'termsConsent',
+        label: 'Terms of Service',
+        aliases: ['termsconsent', 'termsandconditions', 'acceptedterms', 'termsofuseaccepted'],
+        inputType: 'text',
+      },
       // Telehealth & Communication
-      { id: "telehealthConsent", label: "Telehealth Consent", aliases: ["telehealthconsent", "telehealth", "telehealthconsentaccepted"], inputType: "text" },
-      { id: "smsConsent", label: "SMS Consent", aliases: ["smsconsent", "sms", "communicationconsent", "smsconsentaccepted"], inputType: "text" },
-      { id: "emailConsent", label: "Email Consent", aliases: ["emailconsent", "email", "emailconsentaccepted"], inputType: "text" },
+      {
+        id: 'telehealthConsent',
+        label: 'Telehealth Consent',
+        aliases: ['telehealthconsent', 'telehealth', 'telehealthconsentaccepted'],
+        inputType: 'text',
+      },
+      {
+        id: 'smsConsent',
+        label: 'SMS Consent',
+        aliases: ['smsconsent', 'sms', 'communicationconsent', 'smsconsentaccepted'],
+        inputType: 'text',
+      },
+      {
+        id: 'emailConsent',
+        label: 'Email Consent',
+        aliases: ['emailconsent', 'email', 'emailconsentaccepted'],
+        inputType: 'text',
+      },
       // Policy & Medical
-      { id: "cancellationPolicyConsent", label: "Cancellation Policy", aliases: ["cancellationpolicyconsent", "cancellationpolicy", "cancellationpolicyaccepted"], inputType: "text" },
-      { id: "medicalWeightConsent", label: "Weight Loss Treatment", aliases: ["medicalweightconsent", "weightlossconsent", "weightlosstreatmentconsentaccepted"], inputType: "text" },
+      {
+        id: 'cancellationPolicyConsent',
+        label: 'Cancellation Policy',
+        aliases: ['cancellationpolicyconsent', 'cancellationpolicy', 'cancellationpolicyaccepted'],
+        inputType: 'text',
+      },
+      {
+        id: 'medicalWeightConsent',
+        label: 'Weight Loss Treatment',
+        aliases: [
+          'medicalweightconsent',
+          'weightlossconsent',
+          'weightlosstreatmentconsentaccepted',
+        ],
+        inputType: 'text',
+      },
       // HIPAA & Legal
-      { id: "hipaaConsent", label: "HIPAA Authorization", aliases: ["hipaaconsent", "hipaa", "hipaaauthorizationaccepted"], inputType: "text" },
-      { id: "floridaBillOfRights", label: "Florida Bill of Rights", aliases: ["floridabillofrights", "floridabillofrightsaccepted"], inputType: "text" },
+      {
+        id: 'hipaaConsent',
+        label: 'HIPAA Authorization',
+        aliases: ['hipaaconsent', 'hipaa', 'hipaaauthorizationaccepted'],
+        inputType: 'text',
+      },
+      {
+        id: 'floridaBillOfRights',
+        label: 'Florida Bill of Rights',
+        aliases: ['floridabillofrights', 'floridabillofrightsaccepted'],
+        inputType: 'text',
+      },
       // E-Signature Metadata
-      { id: "consentTimestamp", label: "Consent Date/Time", aliases: ["consenttimestamp", "consentdate", "consenttime", "timestamp"], inputType: "text" },
-      { id: "consentIpAddress", label: "IP Address", aliases: ["consentipaddress", "ipaddress", "ip", "consentip"], inputType: "text" },
-      { id: "consentUserAgent", label: "Device/Browser", aliases: ["consentuseragent", "useragent", "device"], inputType: "text" },
+      {
+        id: 'consentTimestamp',
+        label: 'Consent Date/Time',
+        aliases: ['consenttimestamp', 'consentdate', 'consenttime', 'timestamp'],
+        inputType: 'text',
+      },
+      {
+        id: 'consentIpAddress',
+        label: 'IP Address',
+        aliases: ['consentipaddress', 'ipaddress', 'ip', 'consentip'],
+        inputType: 'text',
+      },
+      {
+        id: 'consentUserAgent',
+        label: 'Device/Browser',
+        aliases: ['consentuseragent', 'useragent', 'device'],
+        inputType: 'text',
+      },
       // Geolocation
-      { id: "consentCity", label: "City", aliases: ["consentcity", "city"], inputType: "text" },
-      { id: "consentRegion", label: "State/Region", aliases: ["consentregion", "region", "state"], inputType: "text" },
-      { id: "consentCountry", label: "Country", aliases: ["consentcountry", "country"], inputType: "text" },
-      { id: "consentTimezone", label: "Timezone", aliases: ["consenttimezone", "timezone"], inputType: "text" },
-      { id: "consentISP", label: "Internet Provider", aliases: ["consentisp", "isp"], inputType: "text" },
+      { id: 'consentCity', label: 'City', aliases: ['consentcity', 'city'], inputType: 'text' },
+      {
+        id: 'consentRegion',
+        label: 'State/Region',
+        aliases: ['consentregion', 'region', 'state'],
+        inputType: 'text',
+      },
+      {
+        id: 'consentCountry',
+        label: 'Country',
+        aliases: ['consentcountry', 'country'],
+        inputType: 'text',
+      },
+      {
+        id: 'consentTimezone',
+        label: 'Timezone',
+        aliases: ['consenttimezone', 'timezone'],
+        inputType: 'text',
+      },
+      {
+        id: 'consentISP',
+        label: 'Internet Provider',
+        aliases: ['consentisp', 'isp'],
+        inputType: 'text',
+      },
     ],
   },
 ];
@@ -268,20 +637,26 @@ type Props = {
   /**
    * Clinic subdomain for clinic-specific field mappings
    * - 'wellmedr': Uses Wellmedr-specific sections from src/lib/wellmedr/intakeSections.ts
+   * - 'ot': Uses Overtime sections from src/lib/overtime/intakeSections.ts
    * - Other clinics: Uses default sections (eonmeds structure)
    */
   clinicSubdomain?: string | null;
+  /**
+   * Fallback when clinicSubdomain is null (e.g. patient.clinic not loaded) but clinic is known.
+   * Set when patient.clinicId matches OVERTIME_CLINIC_ID or WELLMEDR_CLINIC_ID.
+   */
+  fallbackSubdomainForSections?: string | null;
 };
 
 // Helper to normalize keys for matching
 const normalizeKey = (value?: string) => {
-  if (!value) return "";
-  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!value) return '';
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
 
 // Helper to format answer values for display
 const formatAnswerValue = (value: unknown): string => {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === '') return '—';
 
   let cleanValue = String(value)
     .replace(/\u00e2\u0080\u0099/g, "'")
@@ -294,41 +669,58 @@ const formatAnswerValue = (value: unknown): string => {
   try {
     const parsed = JSON.parse(cleanValue);
     if (typeof parsed === 'object' && parsed !== null) {
-      if ('checked' in parsed) return parsed.checked ? "Yes" : "No";
+      if ('checked' in parsed) return parsed.checked ? 'Yes' : 'No';
       if (Array.isArray(parsed)) {
-        return parsed.filter((item: any) => item && item !== "None of the above").join(", ") || "None";
+        return (
+          parsed.filter((item: any) => item && item !== 'None of the above').join(', ') || 'None'
+        );
       }
-      return Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(", ");
+      return Object.entries(parsed)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ');
     }
   } catch {
     // Not JSON
   }
 
-  if (cleanValue === "true" || cleanValue === "True") return "Yes";
-  if (cleanValue === "false" || cleanValue === "False") return "No";
+  if (cleanValue === 'true' || cleanValue === 'True') return 'Yes';
+  if (cleanValue === 'false' || cleanValue === 'False') return 'No';
 
   return cleanValue.replace(/\s+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
 };
 
 // Helper to get raw value for editing
 const getRawValue = (value: unknown): string => {
-  if (value === null || value === undefined || value === "" || value === "—") return "";
+  if (value === null || value === undefined || value === '' || value === '—') return '';
   return String(value).trim();
 };
 
 // Helper to format consent values with timestamp
 const formatConsentValue = (value: boolean | string, timestamp?: string): string => {
-  const accepted = value === true || value === "true" || value === "Yes" || value === "yes" || value === "Accepted";
+  const accepted =
+    value === true ||
+    value === 'true' ||
+    value === 'Yes' ||
+    value === 'yes' ||
+    value === 'Accepted';
   if (accepted) {
-    return timestamp ? `Accepted on ${timestamp}` : "Accepted";
+    return timestamp ? `Accepted on ${timestamp}` : 'Accepted';
   }
   return String(value);
 };
 
-export default function PatientIntakeView({ patient, documents, intakeFormSubmissions = [], clinicSubdomain }: Props) {
+export default function PatientIntakeView({
+  patient,
+  documents,
+  intakeFormSubmissions = [],
+  clinicSubdomain,
+  fallbackSubdomainForSections,
+}: Props) {
   const router = useRouter();
 
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(DEFAULT_INTAKE_SECTIONS.map(s => s.title)));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(DEFAULT_INTAKE_SECTIONS.map((s) => s.title))
+  );
   const [showSendModal, setShowSendModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -338,7 +730,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
   // Find and parse the latest intake document
   const intakeDoc = documents.find(
-    (doc: any) => doc.category === "MEDICAL_INTAKE_FORM" && (doc.intakeData || doc.data)
+    (doc: any) => doc.category === 'MEDICAL_INTAKE_FORM' && (doc.intakeData || doc.data)
   );
 
   // Parse intake data and extract treatment type
@@ -349,9 +741,10 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     if (intakeDoc) {
       if (intakeDoc.intakeData) {
         try {
-          parsed = typeof intakeDoc.intakeData === 'string'
-            ? JSON.parse(intakeDoc.intakeData)
-            : intakeDoc.intakeData;
+          parsed =
+            typeof intakeDoc.intakeData === 'string'
+              ? JSON.parse(intakeDoc.intakeData)
+              : intakeDoc.intakeData;
         } catch (error: any) {
           logger.error('Error parsing intakeData field:', error);
         }
@@ -364,7 +757,11 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
             rawData = new TextDecoder().decode(rawData);
           } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer(rawData)) {
             rawData = rawData.toString('utf8');
-          } else if (typeof rawData === 'object' && rawData?.type === 'Buffer' && Array.isArray(rawData.data)) {
+          } else if (
+            typeof rawData === 'object' &&
+            rawData?.type === 'Buffer' &&
+            Array.isArray(rawData.data)
+          ) {
             rawData = new TextDecoder().decode(new Uint8Array(rawData.data));
           }
 
@@ -385,13 +782,21 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
       // Extract treatment type from parsed data
       // Check multiple possible field names
-      const rawTreatment = (parsed as any).treatmentType
-        || (parsed as any).treatment_type
-        || (parsed as any).treatment?.type;
+      const rawTreatment =
+        (parsed as any).treatmentType ||
+        (parsed as any).treatment_type ||
+        (parsed as any).treatment?.type;
 
       if (rawTreatment && typeof rawTreatment === 'string') {
         // Validate it's a known Overtime treatment type
-        const validTypes: OvertimeTreatmentType[] = ['weight_loss', 'peptides', 'nad_plus', 'better_sex', 'testosterone', 'baseline_bloodwork'];
+        const validTypes: OvertimeTreatmentType[] = [
+          'weight_loss',
+          'peptides',
+          'nad_plus',
+          'better_sex',
+          'testosterone',
+          'baseline_bloodwork',
+        ];
         if (validTypes.includes(rawTreatment as OvertimeTreatmentType)) {
           treatment = rawTreatment as OvertimeTreatmentType;
         }
@@ -403,17 +808,19 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
   // Select the appropriate intake sections based on clinic and treatment type
   // Wellmedr and Overtime use custom field mappings; other clinics use default
+  // Fallback: when clinicSubdomain is null (e.g. patient.clinic missing) but clinic is known via OVERTIME_CLINIC_ID
+  const effectiveSubdomain = clinicSubdomain ?? fallbackSubdomainForSections ?? null;
   const activeSections = useMemo(() => {
     // Check for Wellmedr clinic
-    if (hasCustomIntakeSections(clinicSubdomain)) {
+    if (hasCustomIntakeSections(effectiveSubdomain)) {
       return WELLMEDR_INTAKE_SECTIONS;
     }
     // Check for Overtime Men's Clinic - use treatment-specific sections
-    if (hasOvertimeIntakeSections(clinicSubdomain)) {
+    if (hasOvertimeIntakeSections(effectiveSubdomain)) {
       return getOvertimeIntakeSections(treatmentType);
     }
     return DEFAULT_INTAKE_SECTIONS;
-  }, [clinicSubdomain, treatmentType]);
+  }, [effectiveSubdomain, treatmentType]);
 
   // Build a map of all answers from various sources
   const buildAnswerMap = useCallback(() => {
@@ -424,7 +831,8 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         if (section.entries && Array.isArray(section.entries)) {
           for (const entry of section.entries) {
             if (entry.id) answerMap.set(normalizeKey(entry.id), formatAnswerValue(entry.value));
-            if (entry.label) answerMap.set(normalizeKey(entry.label), formatAnswerValue(entry.value));
+            if (entry.label)
+              answerMap.set(normalizeKey(entry.label), formatAnswerValue(entry.value));
           }
         }
       }
@@ -433,7 +841,8 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     if (intakeData.answers && Array.isArray(intakeData.answers)) {
       for (const answer of intakeData.answers) {
         if (answer.id) answerMap.set(normalizeKey(answer.id), formatAnswerValue(answer.value));
-        if (answer.label) answerMap.set(normalizeKey(answer.label), formatAnswerValue(answer.value));
+        if (answer.label)
+          answerMap.set(normalizeKey(answer.label), formatAnswerValue(answer.value));
       }
     }
 
@@ -448,7 +857,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       }
     }
 
-    // Add consent metadata from intakeData
+    // Add consent and metadata from intakeData (Wellmedr/other webhooks store at top level)
     if (intakeData.receivedAt) {
       answerMap.set(normalizeKey('consentTimestamp'), intakeData.receivedAt);
       answerMap.set(normalizeKey('consentDateTime'), intakeData.receivedAt);
@@ -456,6 +865,13 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     if (intakeData.submissionId) {
       answerMap.set(normalizeKey('intakeId'), intakeData.submissionId);
       answerMap.set(normalizeKey('submissionId'), intakeData.submissionId);
+    }
+    if (intakeData.checkoutCompleted !== undefined) {
+      const val = intakeData.checkoutCompleted;
+      const display =
+        val === true || val === 'true' || val === 'Yes' ? 'Yes' : val === false || val === 'false' ? 'No' : String(val);
+      answerMap.set(normalizeKey('checkoutCompleted'), display);
+      answerMap.set(normalizeKey('Checkout Completed'), display);
     }
     if (intakeData.ipAddress) {
       answerMap.set(normalizeKey('consentIpAddress'), intakeData.ipAddress);
@@ -485,21 +901,45 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
       const ts = cd.timestamp || intakeData.receivedAt;
 
       // Privacy & Terms
-      if (cd.privacyPolicyConsent) answerMap.set(normalizeKey('privacyPolicyConsent'), formatConsentValue(cd.privacyPolicyConsent, ts));
-      if (cd.termsConsent) answerMap.set(normalizeKey('termsConsent'), formatConsentValue(cd.termsConsent, ts));
+      if (cd.privacyPolicyConsent)
+        answerMap.set(
+          normalizeKey('privacyPolicyConsent'),
+          formatConsentValue(cd.privacyPolicyConsent, ts)
+        );
+      if (cd.termsConsent)
+        answerMap.set(normalizeKey('termsConsent'), formatConsentValue(cd.termsConsent, ts));
 
       // Telehealth & Communication
-      if (cd.telehealthConsent) answerMap.set(normalizeKey('telehealthConsent'), formatConsentValue(cd.telehealthConsent, ts));
-      if (cd.smsConsent) answerMap.set(normalizeKey('smsConsent'), formatConsentValue(cd.smsConsent, ts));
-      if (cd.emailConsent) answerMap.set(normalizeKey('emailConsent'), formatConsentValue(cd.emailConsent, ts));
+      if (cd.telehealthConsent)
+        answerMap.set(
+          normalizeKey('telehealthConsent'),
+          formatConsentValue(cd.telehealthConsent, ts)
+        );
+      if (cd.smsConsent)
+        answerMap.set(normalizeKey('smsConsent'), formatConsentValue(cd.smsConsent, ts));
+      if (cd.emailConsent)
+        answerMap.set(normalizeKey('emailConsent'), formatConsentValue(cd.emailConsent, ts));
 
       // Policy & Medical
-      if (cd.cancellationPolicyConsent) answerMap.set(normalizeKey('cancellationPolicyConsent'), formatConsentValue(cd.cancellationPolicyConsent, ts));
-      if (cd.medicalWeightConsent) answerMap.set(normalizeKey('medicalWeightConsent'), formatConsentValue(cd.medicalWeightConsent, ts));
+      if (cd.cancellationPolicyConsent)
+        answerMap.set(
+          normalizeKey('cancellationPolicyConsent'),
+          formatConsentValue(cd.cancellationPolicyConsent, ts)
+        );
+      if (cd.medicalWeightConsent)
+        answerMap.set(
+          normalizeKey('medicalWeightConsent'),
+          formatConsentValue(cd.medicalWeightConsent, ts)
+        );
 
       // HIPAA & Legal
-      if (cd.hipaaConsent) answerMap.set(normalizeKey('hipaaConsent'), formatConsentValue(cd.hipaaConsent, ts));
-      if (cd.floridaBillOfRights) answerMap.set(normalizeKey('floridaBillOfRights'), formatConsentValue(cd.floridaBillOfRights, ts));
+      if (cd.hipaaConsent)
+        answerMap.set(normalizeKey('hipaaConsent'), formatConsentValue(cd.hipaaConsent, ts));
+      if (cd.floridaBillOfRights)
+        answerMap.set(
+          normalizeKey('floridaBillOfRights'),
+          formatConsentValue(cd.floridaBillOfRights, ts)
+        );
 
       // Metadata
       if (cd.timestamp) answerMap.set(normalizeKey('consentTimestamp'), cd.timestamp);
@@ -515,71 +955,96 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   // Fields that should default to "No" when not present in the intake
   // (because a previous question filtered them out or they weren't asked)
   const FIELDS_DEFAULTING_TO_NO = new Set([
-    'hasdiabetes', 'hasgastroparesis', 'haspancreatitis', 'hasthyroidcancer',
-    'diabetes', 'gastroparesis', 'pancreatitis', 'thyroidcancer',
-    'type2diabetes', 'medularythyroid',
+    'hasdiabetes',
+    'hasgastroparesis',
+    'haspancreatitis',
+    'hasthyroidcancer',
+    'diabetes',
+    'gastroparesis',
+    'pancreatitis',
+    'thyroidcancer',
+    'type2diabetes',
+    'medularythyroid',
   ]);
 
   // Fields that should default to "None" when not present
   const FIELDS_DEFAULTING_TO_NONE = new Set([
-    'currentmedications', 'medications', 'allergies', 'allergy',
+    'currentmedications',
+    'medications',
+    'allergies',
+    'allergy',
   ]);
 
   // Consent fields that should show "Accepted" with timestamp when intake exists
   const CONSENT_FIELDS = new Set([
-    'telehealthconsent', 'privacypolicyconsent', 'termsconsent', 'smsconsent',
-    'emailconsent', 'cancellationpolicyconsent', 'medicalweightconsent',
-    'hipaaconsent', 'floridabillofrights', 'informedconsent', 'patientacknowledgment',
+    'telehealthconsent',
+    'privacypolicyconsent',
+    'termsconsent',
+    'smsconsent',
+    'emailconsent',
+    'cancellationpolicyconsent',
+    'medicalweightconsent',
+    'hipaaconsent',
+    'floridabillofrights',
+    'informedconsent',
+    'patientacknowledgment',
   ]);
 
   // Find answer for a field
   const findAnswer = (field: { id: string; label: string; aliases?: string[] }): string => {
     const byId = answerMap.get(normalizeKey(field.id));
-    if (byId && byId !== "—") return byId;
+    if (byId && byId !== '—') return byId;
 
     const byLabel = answerMap.get(normalizeKey(field.label));
-    if (byLabel && byLabel !== "—") return byLabel;
+    if (byLabel && byLabel !== '—') return byLabel;
 
     if (field.aliases) {
       for (const alias of field.aliases) {
         const byAlias = answerMap.get(normalizeKey(alias));
-        if (byAlias && byAlias !== "—") return byAlias;
+        if (byAlias && byAlias !== '—') return byAlias;
       }
     }
 
     // Apply default values for fields that should have them
     const normalizedId = normalizeKey(field.id);
     if (FIELDS_DEFAULTING_TO_NO.has(normalizedId)) {
-      return "No";
+      return 'No';
     }
     if (FIELDS_DEFAULTING_TO_NONE.has(normalizedId)) {
-      return "None";
+      return 'None';
     }
     // For consent fields, show "Accepted" with timestamp if we have intake data
     if (CONSENT_FIELDS.has(normalizedId) && intakeData.receivedAt) {
       return `Accepted on ${intakeData.receivedAt}`;
     }
 
-    return "—";
+    return '—';
   };
 
   // Get patient profile data
   const getPatientValue = (fieldId: string): string => {
     switch (fieldId) {
-      case "patient-name": return `${patient.firstName} ${patient.lastName}`;
-      case "patient-dob": return formatDob(patient.dob);
-      case "patient-gender": return formatGender(patient.gender);
-      case "patient-phone": return patient.phone || "—";
-      case "patient-email": return patient.email || "—";
-      case "patient-address": return buildAddress();
-      default: return "—";
+      case 'patient-name':
+        return `${patient.firstName} ${patient.lastName}`;
+      case 'patient-dob':
+        return formatDob(patient.dob);
+      case 'patient-gender':
+        return formatGender(patient.gender);
+      case 'patient-phone':
+        return patient.phone || '—';
+      case 'patient-email':
+        return patient.email || '—';
+      case 'patient-address':
+        return buildAddress();
+      default:
+        return '—';
     }
   };
 
   const formatDob = (dob: string) => {
-    if (!dob) return "—";
-    if (dob.includes("/")) return dob;
-    const parts = dob.split("-");
+    if (!dob) return '—';
+    if (dob.includes('/')) return dob;
+    const parts = dob.split('-');
     if (parts.length === 3) {
       return `${parts[1]}/${parts[2]}/${parts[0]}`;
     }
@@ -587,10 +1052,10 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
   };
 
   const formatGender = (gender?: string | null) => {
-    if (!gender) return "—";
+    if (!gender) return '—';
     const g = gender.toLowerCase().trim();
-    if (g === 'f' || g === 'female' || g === 'woman') return "Female";
-    if (g === 'm' || g === 'male' || g === 'man') return "Male";
+    if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+    if (g === 'm' || g === 'male' || g === 'man') return 'Male';
     return gender;
   };
 
@@ -598,10 +1063,10 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     const parts = [
       patient.address1,
       patient.address2,
-      [patient.city, patient.state].filter(Boolean).join(", "),
-      patient.zip
+      [patient.city, patient.state].filter(Boolean).join(', '),
+      patient.zip,
     ].filter(Boolean);
-    return parts.join(", ") || "—";
+    return parts.join(', ') || '—';
   };
 
   const toggleSection = (title: string) => {
@@ -623,9 +1088,28 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
     return getRawValue(answer);
   };
 
-  // Handle field change
+  // Handle field change (auto-calculate BMI when height or weight changes)
   const handleFieldChange = (fieldId: string, value: string) => {
-    setEditedValues(prev => ({ ...prev, [fieldId]: value }));
+    setEditedValues((prev) => {
+      const next = { ...prev, [fieldId]: value };
+      if (fieldId !== 'weight' && fieldId !== 'height') return next;
+
+      const allFields = activeSections.flatMap((s) => s.fields);
+      const weightField = allFields.find((f) => f.id === 'weight');
+      const heightField = allFields.find((f) => f.id === 'height');
+      const weightStr =
+        fieldId === 'weight' ? value : (prev.weight ?? (weightField ? getRawValue(findAnswer(weightField)) : ''));
+      const heightStr =
+        fieldId === 'height' ? value : (prev.height ?? (heightField ? getRawValue(findAnswer(heightField)) : ''));
+
+      const weightLbs = parseWeightToLbs(weightStr);
+      const heightInches = parseHeightToInches(heightStr);
+      if (weightLbs != null && heightInches != null) {
+        const bmi = calcBMI(weightLbs, heightInches);
+        next.bmi = bmi > 0 ? String(bmi) : '';
+      }
+      return next;
+    });
   };
 
   // Start editing
@@ -712,8 +1196,8 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
             const key = normalizeKey(entry.id || entry.label);
             if (!usedKeys.has(key) && entry.value) {
               additional.push({
-                label: entry.label || entry.id || "Unknown Field",
-                value: formatAnswerValue(entry.value)
+                label: entry.label || entry.id || 'Unknown Field',
+                value: formatAnswerValue(entry.value),
               });
               usedKeys.add(key);
             }
@@ -727,8 +1211,8 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         const key = normalizeKey(answer.id || answer.label);
         if (!usedKeys.has(key) && answer.value) {
           additional.push({
-            label: answer.label || answer.id || "Unknown Field",
-            value: formatAnswerValue(answer.value)
+            label: answer.label || answer.id || 'Unknown Field',
+            value: formatAnswerValue(answer.value),
           });
           usedKeys.add(key);
         }
@@ -750,11 +1234,13 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         <select
           value={value}
           onChange={(e) => handleFieldChange(field.id, e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
         >
           <option value="">Select...</option>
           {field.options.map((opt: string) => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
           ))}
         </select>
       );
@@ -767,7 +1253,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
           onChange={(e) => handleFieldChange(field.id, e.target.value)}
           placeholder={field.placeholder}
           rows={2}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent resize-none"
+          className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
         />
       );
     }
@@ -778,7 +1264,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
         value={value}
         onChange={(e) => handleFieldChange(field.id, e.target.value)}
         placeholder={field.placeholder}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
       />
     );
   };
@@ -794,20 +1280,20 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
               <button
                 onClick={cancelEditing}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
                 Cancel
               </button>
               <button
                 onClick={saveChanges}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660] disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3f8660] disabled:opacity-50"
               >
                 {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Save className="w-4 h-4" />
+                  <Save className="h-4 w-4" />
                 )}
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -819,24 +1305,24 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
                   href={intakeDoc.externalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="h-4 w-4" />
                   Download PDF
                 </a>
               )}
               <button
                 onClick={startEditing}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                <Pencil className="w-4 h-4" />
+                <Pencil className="h-4 w-4" />
                 Edit Intake
               </button>
               <button
                 onClick={() => setShowSendModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660]"
+                className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3f8660]"
               >
-                <FileText className="w-4 h-4" />
+                <FileText className="h-4 w-4" />
                 Send New Intake
               </button>
             </>
@@ -846,27 +1332,35 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
       {/* Save Success */}
       {saveSuccess && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800 flex items-center gap-2">
-          <Check className="w-4 h-4" />
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          <Check className="h-4 w-4" />
           <span>Intake data saved successfully! Refreshing...</span>
         </div>
       )}
 
       {/* Save Error */}
       {saveError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <strong>Error:</strong> {saveError}
         </div>
       )}
 
       {/* Submission Info */}
       {intakeData.submissionId && !isEditing && (
-        <div className="bg-[#f6f2a2] border border-[#13a97b]/30 rounded-lg p-4">
+        <div className="rounded-lg border border-[#13a97b]/30 bg-[#f6f2a2] p-4">
           <div className="flex flex-wrap gap-4 text-sm text-gray-700">
-            <span><strong>Submission ID:</strong> {intakeData.submissionId}</span>
-            {intakeData.source && <span><strong>Source:</strong> {intakeData.source}</span>}
+            <span>
+              <strong>Submission ID:</strong> {intakeData.submissionId}
+            </span>
+            {intakeData.source && (
+              <span>
+                <strong>Source:</strong> {intakeData.source}
+              </span>
+            )}
             {intakeData.receivedAt && (
-              <span suppressHydrationWarning><strong>Received:</strong> {new Date(intakeData.receivedAt).toLocaleString()}</span>
+              <span suppressHydrationWarning>
+                <strong>Received:</strong> {new Date(intakeData.receivedAt).toLocaleString()}
+              </span>
             )}
           </div>
         </div>
@@ -874,27 +1368,28 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
       {/* Edit Mode Notice */}
       {isEditing && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-          <strong>Edit Mode:</strong> Make changes to intake fields below. Patient Profile is edited on the Profile tab.
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <strong>Edit Mode:</strong> Make changes to intake fields below. Patient Profile is edited
+          on the Profile tab.
         </div>
       )}
 
       {!hasIntakeData && !isEditing ? (
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-          <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Intake Form Submitted</h3>
-          <p className="text-gray-500 mb-4">This patient has not completed an intake form yet.</p>
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+          <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+          <h3 className="mb-2 text-lg font-medium text-gray-900">No Intake Form Submitted</h3>
+          <p className="mb-4 text-gray-500">This patient has not completed an intake form yet.</p>
           <div className="flex justify-center gap-2">
             <button
               onClick={startEditing}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              <Pencil className="w-4 h-4 inline mr-2" />
+              <Pencil className="mr-2 inline h-4 w-4" />
               Enter Manually
             </button>
             <button
               onClick={() => setShowSendModal(true)}
-              className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg text-sm font-medium hover:bg-[#3f8660]"
+              className="rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3f8660]"
             >
               Send Intake Form
             </button>
@@ -906,30 +1401,39 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
           {activeSections.map((section) => {
             const Icon = section.icon;
             const isExpanded = expandedSections.has(section.title);
-            const isPatientProfile = section.title === "Patient Profile";
+            const isPatientProfile = section.title === 'Patient Profile';
             const isSectionEditable = section.editable && isEditing;
 
             return (
-              <div key={section.title} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              <div
+                key={section.title}
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white"
+              >
                 <button
                   onClick={() => toggleSection(section.title)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                  className="flex w-full items-center justify-between p-4 transition-colors hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      isSectionEditable ? 'bg-amber-100' : 'bg-[#4fa77e]/10'
-                    }`}>
-                      <Icon className={`w-5 h-5 ${isSectionEditable ? 'text-amber-600' : 'text-[#4fa77e]'}`} />
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                        isSectionEditable ? 'bg-amber-100' : 'bg-[#4fa77e]/10'
+                      }`}
+                    >
+                      <Icon
+                        className={`h-5 w-5 ${isSectionEditable ? 'text-amber-600' : 'text-[#4fa77e]'}`}
+                      />
                     </div>
                     <h2 className="text-lg font-semibold text-gray-900">{section.title}</h2>
                     {isSectionEditable && (
-                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Editing</span>
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                        Editing
+                      </span>
                     )}
                   </div>
                   {isExpanded ? (
-                    <ChevronUp className="w-5 h-5 text-gray-400" />
+                    <ChevronUp className="h-5 w-5 text-gray-400" />
                   ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
                   )}
                 </button>
 
@@ -941,16 +1445,18 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
                           ? getPatientValue(field.id)
                           : findAnswer(field);
                         const editValue = getFieldValue(field);
-                        const hasValue = displayValue !== "—";
+                        const hasValue = displayValue !== '—';
 
                         return (
-                          <div key={field.id} className="flex px-6 py-3 items-start">
-                            <div className="w-1/3 text-sm text-gray-500 pt-2">{field.label}</div>
+                          <div key={field.id} className="flex items-start px-6 py-3">
+                            <div className="w-1/3 pt-2 text-sm text-gray-500">{field.label}</div>
                             <div className="w-2/3">
                               {isSectionEditable ? (
                                 renderFieldInput(field, editValue)
                               ) : (
-                                <div className={`text-sm pt-2 ${hasValue ? 'text-gray-900' : 'text-gray-400'}`}>
+                                <div
+                                  className={`pt-2 text-sm ${hasValue ? 'text-gray-900' : 'text-gray-400'}`}
+                                >
                                   {displayValue}
                                 </div>
                               )}
@@ -967,26 +1473,26 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
           {/* Additional Responses (not in predefined sections) */}
           {additionalAnswers.length > 0 && !isEditing && (
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
               <button
-                onClick={() => toggleSection("Additional Responses")}
-                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                onClick={() => toggleSection('Additional Responses')}
+                className="flex w-full items-center justify-between p-4 transition-colors hover:bg-gray-50"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                    <ClipboardList className="w-5 h-5 text-purple-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
+                    <ClipboardList className="h-5 w-5 text-purple-600" />
                   </div>
                   <h2 className="text-lg font-semibold text-gray-900">Additional Responses</h2>
                   <span className="text-sm text-gray-500">({additionalAnswers.length} items)</span>
                 </div>
-                {expandedSections.has("Additional Responses") ? (
-                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                {expandedSections.has('Additional Responses') ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
                 )}
               </button>
 
-              {expandedSections.has("Additional Responses") && (
+              {expandedSections.has('Additional Responses') && (
                 <div className="border-t border-gray-100">
                   <div className="divide-y divide-gray-100">
                     {additionalAnswers.map((item, idx) => (
@@ -1005,10 +1511,7 @@ export default function PatientIntakeView({ patient, documents, intakeFormSubmis
 
       {/* Send Intake Form Modal */}
       {showSendModal && (
-        <SendIntakeFormModal
-          patient={patient}
-          onClose={() => setShowSendModal(false)}
-        />
+        <SendIntakeFormModal patient={patient} onClose={() => setShowSendModal(false)} />
       )}
     </div>
   );

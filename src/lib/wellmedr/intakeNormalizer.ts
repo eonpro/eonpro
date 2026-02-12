@@ -234,6 +234,23 @@ function buildWellmedrSections(payload: Record<string, unknown>): IntakeSection[
   }
 
   const bodyEntries = createEntries(bodyMetricsFields);
+
+  // Add combined height when both feet and inches present (for Intake tab display)
+  const feetVal = payload['feet'];
+  const inchesVal = payload['inches'];
+  if (feetVal != null && feetVal !== '' && inchesVal != null && inchesVal !== '') {
+    const feetStr = String(feetVal).trim();
+    const inchesStr = String(inchesVal).trim();
+    if (feetStr && inchesStr) {
+      bodyEntries.push({
+        id: 'height',
+        label: 'Height',
+        value: `${feetStr}'${inchesStr}"`,
+        rawValue: `${feetStr}'${inchesStr}"`,
+      });
+    }
+  }
+
   if (bodyEntries.length > 0) {
     sections.push({ title: 'Body Metrics', entries: bodyEntries });
   }
