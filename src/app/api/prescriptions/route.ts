@@ -90,6 +90,15 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     }
     const p = parsed.data;
 
+    // Resolve providerId: request body > authenticated user's providerId
+    const providerId = p.providerId ?? user.providerId ?? undefined;
+    if (!providerId) {
+      return NextResponse.json(
+        { error: 'Provider selection required. Please select a provider before submitting.' },
+        { status: 400 }
+      );
+    }
+
     // Queue-for-provider is admin-only (compliance: admin queues, provider approves)
     if (p.queueForProvider && !['admin', 'super_admin'].includes(user.role)) {
       logger.security('Non-admin attempted to queue prescription for provider', {
@@ -104,7 +113,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
 
     // Use basePrisma to bypass clinic filtering for provider lookup
     const provider = await basePrisma.provider.findUnique({
-      where: { id: p.providerId },
+      where: { id: providerId },
       include: {
         clinic: true,
       },
@@ -257,7 +266,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     // If a new signature is provided and provider doesn't have one, save it
     if (p.signatureDataUrl && !provider.signatureDataUrl) {
       await prisma.provider.update({
-        where: { id: p.providerId },
+        where: { id: providerId },
         data: { signatureDataUrl: p.signatureDataUrl },
       });
       logger.debug(
@@ -626,7 +635,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
                   messageId,
                   referenceId,
                   patientId: patientRecord.id,
-                  providerId: p.providerId,
+                  providerId: providerId,
                   clinicId: patientClinicId, // Use patient's clinic, not activeClinicId
                   shippingMethod: p.shippingMethod,
                   primaryMedName: primary.med.name,
@@ -715,7 +724,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             patientId: patientRecord.id,
             action: 'prescription_queued_for_provider',
             outcome: 'SUCCESS',
-            metadata: { orderId: order.id, providerId: p.providerId },
+            metadata: { orderId: order.id, providerId: providerId },
           });
         } catch (auditErr) {
           logger.error('[PRESCRIPTIONS] Audit log failed for queued prescription', {
@@ -854,7 +863,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       try {
         const compensationEvent = await providerCompensationService.recordPrescription(
           updated.id,
-          p.providerId,
+          providerId,
           {
             patientId: patientRecord.id,
             patientState: p.patient.state,
@@ -867,7 +876,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           logger.info('[PRESCRIPTIONS] Compensation event recorded', {
             orderId: updated.id,
             eventId: compensationEvent.id,
-            providerId: p.providerId,
+            providerId: providerId,
             amountCents: compensationEvent.amountCents,
           });
         }
@@ -875,7 +884,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         // Don't fail the prescription if compensation recording fails
         logger.error('[PRESCRIPTIONS] Failed to record compensation event', {
           orderId: updated.id,
-          providerId: p.providerId,
+          providerId: providerId,
           error: compError instanceof Error ? compError.message : 'Unknown error',
         });
       }
@@ -886,7 +895,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       try {
         const platformFeeEvent = await platformFeeService.recordPrescriptionFee(
           updated.id,
-          p.providerId
+          providerId
         );
 
         if (platformFeeEvent) {
@@ -901,7 +910,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         // Don't fail the prescription if fee recording fails
         logger.error('[PRESCRIPTIONS] Failed to record platform fee', {
           orderId: updated.id,
-          providerId: p.providerId,
+          providerId: providerId,
           error: feeError instanceof Error ? feeError.message : 'Unknown error',
         });
       }

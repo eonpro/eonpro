@@ -1,9 +1,9 @@
-import { US_STATE_CODE_LIST, US_STATE_OPTIONS } from "@/lib/usStates";
-import { z } from "zod";
+import { US_STATE_CODE_LIST, US_STATE_OPTIONS } from '@/lib/usStates';
+import { z } from 'zod';
 
 // Create a map of state names to codes for normalization
 const stateNameToCode: Record<string, string> = {};
-US_STATE_OPTIONS.forEach(s => {
+US_STATE_OPTIONS.forEach((s) => {
   stateNameToCode[s.label.toLowerCase()] = s.value;
   stateNameToCode[s.value.toLowerCase()] = s.value;
 });
@@ -11,7 +11,7 @@ US_STATE_OPTIONS.forEach(s => {
 // Custom state transformer that accepts both codes and full names
 const stateSchema = z.string().transform((val, ctx) => {
   if (!val) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "State is required" });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'State is required' });
     return z.NEVER;
   }
   const normalized = val.trim();
@@ -31,7 +31,7 @@ const stateSchema = z.string().transform((val, ctx) => {
 // Custom gender transformer that accepts various formats and normalizes to 'm' or 'f'
 const genderSchema = z.string().transform((val, ctx) => {
   if (!val) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Gender is required" });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Gender is required' });
     return z.NEVER;
   }
   const normalized = val.trim().toLowerCase();
@@ -63,25 +63,35 @@ export const patientSchema = z.object({
   city: z.string(),
   state: stateSchema,
   zip: z.string(),
-  notes: z.string().optional().or(z.literal("")).transform((val: any) => val || undefined),
+  notes: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .transform((val: any) => val || undefined),
   tags: z.array(z.string()).optional(),
   clinicId: z.number().nullable().optional(),
 });
 
 export const rxSchema = z.object({
-  medicationKey: z.string(),
-  sig: z.string(),
-  quantity: z.string(),
-  refills: z.string(),
+  medicationKey: z.string().min(1, 'Medication is required'),
+  sig: z.string().min(1, 'Prescription instructions (SIG) are required'),
+  quantity: z.union([z.string(), z.number()]).transform((v) => String(v ?? '')),
+  refills: z.union([z.string(), z.number()]).transform((v) => String(v ?? '')),
 });
+
+// Accept null/undefined providerId - API resolves from user.providerId when missing
+const providerIdSchema = z
+  .union([z.number(), z.null(), z.undefined()])
+  .optional()
+  .transform((v) => (v === null || v === undefined ? undefined : v));
 
 export const prescriptionSchema = z.object({
   patient: patientSchema,
   patientId: z.number().nullable().optional(), // Existing patient ID - if provided, skips name-based lookup
-  rxs: z.array(rxSchema).min(1),
-  shippingMethod: z.number(),
+  rxs: z.array(rxSchema).min(1, 'At least one medication is required'),
+  shippingMethod: z.union([z.number(), z.string()]).transform((v) => (typeof v === 'string' ? parseInt(v, 10) : v)),
   signatureDataUrl: z.string().nullable().optional(),
-  providerId: z.number().default(1),
+  providerId: providerIdSchema,
   clinicId: z.number().nullable().optional(), // User's active clinic for multi-tenant support
   refillId: z.number().nullable().optional(), // Link to refill queue item if this is a refill prescription
   invoiceId: z.number().nullable().optional(), // Link to invoice (for refill auto-linking)
