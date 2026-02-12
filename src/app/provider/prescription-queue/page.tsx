@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   ClipboardList,
   Search,
-  Check,
+  Check as CheckIcon,
+  CheckCircle2,
   Loader2,
   AlertCircle,
   User,
@@ -304,6 +305,13 @@ interface PrescriptionFormState {
   zip: string;
 }
 
+// Pre-selection keys: new GLP-1 users (never used before)
+const SEMAGLUTIDE_NEW_USER_KEY = '203448971'; // Semaglutide 2.5mg/1ml
+const TIRZEPATIDE_NEW_USER_KEY = '203448972'; // Tirzepatide 10mg/1ml
+
+// WellMedR default: 2-day shipping
+const WELLMEDR_DEFAULT_SHIPPING_ID = '8200'; // UPS - 2nd Day Air
+
 // Helper to create a new empty medication
 const createEmptyMedication = (): MedicationItem => ({
   id: crypto.randomUUID(),
@@ -591,20 +599,25 @@ export default function PrescriptionQueuePage() {
     if (details) {
       setPrescriptionPanel({ item, details });
       const parsedAddress = getPatientAddress(details.patient);
+      const isWellmedr = item.clinic?.subdomain?.toLowerCase().includes('wellmedr');
       setPrescriptionForm({
         medications: [createEmptyMedication()],
-        shippingMethod: '8115',
+        shippingMethod: isWellmedr ? WELLMEDR_DEFAULT_SHIPPING_ID : '8115',
         address1: parsedAddress.address1,
         address2: parsedAddress.address2,
         city: parsedAddress.city,
         state: parsedAddress.state,
         zip: parsedAddress.zip,
       });
-      autoSelectMedication(item.treatment, details);
+      autoSelectMedication(item.treatment, details, item.glp1Info);
     }
   };
 
-  const autoSelectMedication = (treatment: string, details: PatientDetails) => {
+  const autoSelectMedication = (
+    treatment: string,
+    details: PatientDetails,
+    glp1Info?: { usedGlp1: boolean; glp1Type: string | null; lastDose: string | null }
+  ) => {
     const treatmentLower = treatment.toLowerCase();
     const metadata = details.invoice.metadata as Record<string, string>;
 
@@ -625,7 +638,42 @@ export default function PrescriptionQueuePage() {
       treatmentLower.includes('ozempic') ||
       treatmentLower.includes('wegovy');
 
-    // Find matching medication - prioritize exact medication type matches
+    // Pre-select for new GLP-1 users (never used before): Semaglutide → 2.5mg/1ml, Tirzepatide → 10mg/1ml
+    const isNewUser = glp1Info && !glp1Info.usedGlp1;
+    if (isNewUser) {
+      if (isSemaglutide) {
+        const med = MEDS[SEMAGLUTIDE_NEW_USER_KEY];
+        if (med) {
+          matchedKey = SEMAGLUTIDE_NEW_USER_KEY;
+          if (med.sigTemplates?.[0]) {
+            matchedSig = med.sigTemplates[0].sig;
+            matchedQty = med.sigTemplates[0].quantity;
+            matchedRefills = med.sigTemplates[0].refills;
+          } else if (med.defaultSig) {
+            matchedSig = med.defaultSig;
+            matchedQty = med.defaultQuantity || '1';
+            matchedRefills = med.defaultRefills || '0';
+          }
+        }
+      } else if (isTirzepatide) {
+        const med = MEDS[TIRZEPATIDE_NEW_USER_KEY];
+        if (med) {
+          matchedKey = TIRZEPATIDE_NEW_USER_KEY;
+          if (med.sigTemplates?.[0]) {
+            matchedSig = med.sigTemplates[0].sig;
+            matchedQty = med.sigTemplates[0].quantity;
+            matchedRefills = med.sigTemplates[0].refills;
+          } else if (med.defaultSig) {
+            matchedSig = med.defaultSig;
+            matchedQty = med.defaultQuantity || '1';
+            matchedRefills = med.defaultRefills || '0';
+          }
+        }
+      }
+    }
+
+    // If no new-user pre-select, find matching medication - prioritize exact medication type matches
+    if (!matchedKey) {
     for (const [key, med] of Object.entries(MEDS)) {
       const nameLower = med.name.toLowerCase();
 
@@ -669,6 +717,7 @@ export default function PrescriptionQueuePage() {
           break;
         }
       }
+    }
     }
 
     // Update the first medication in the array
@@ -1027,7 +1076,7 @@ export default function PrescriptionQueuePage() {
         {successMessage && (
           <div className="animate-in slide-in-from-top flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-4 duration-300">
             <div className="rounded-full bg-green-100 p-1.5">
-              <Check className="h-4 w-4 text-green-600" />
+              <CheckIcon className="h-4 w-4 text-green-600" />
             </div>
             <span className="font-medium text-green-800">{successMessage}</span>
           </div>
@@ -1066,7 +1115,7 @@ export default function PrescriptionQueuePage() {
         ) : filteredItems.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <Check className="h-8 w-8 text-green-600" />
+              <CheckIcon className="h-8 w-8 text-green-600" />
             </div>
             <h3 className="mb-2 text-lg font-semibold text-gray-900">
               {searchTerm ? 'No matching results' : 'All caught up!'}
@@ -1261,7 +1310,7 @@ export default function PrescriptionQueuePage() {
                               {processing === item.invoiceId ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <Check className="h-4 w-4" />
+                                <CheckIcon className="h-4 w-4" />
                               )}
                               <span className="hidden 2xl:inline">Done</span>
                             </button>
@@ -1650,10 +1699,20 @@ export default function PrescriptionQueuePage() {
       {prescriptionPanel && (
         <div className="fixed inset-0 z-50 overflow-hidden">
           <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setPrescriptionPanel(null)}
+            className="absolute inset-0 z-0 bg-black/50"
+            aria-hidden
+            onMouseDown={(e) => {
+              // Only close when clicking the backdrop itself, not when clicks bubble from panel
+              if (e.target === e.currentTarget) {
+                setPrescriptionPanel(null);
+              }
+            }}
           />
-          <div className="absolute inset-y-0 right-0 flex max-w-full pl-10">
+          <div
+            className="absolute inset-y-0 right-0 z-10 flex max-w-full pl-10"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <div className="w-screen max-w-lg transform transition-transform duration-300 ease-in-out">
               <div className="flex h-full flex-col bg-white shadow-xl">
                 {/* Panel Header */}
@@ -1886,7 +1945,7 @@ export default function PrescriptionQueuePage() {
                                 {approvingSoapNote === prescriptionPanel.details.soapNote.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <Check className="h-4 w-4" />
+                                  <CheckIcon className="h-4 w-4" />
                                 )}
                                 Approve SOAP Note
                               </button>
@@ -2293,31 +2352,54 @@ export default function PrescriptionQueuePage() {
                           Shipping Method
                         </h3>
                         <div className="space-y-2">
-                          {SHIPPING_METHODS.map((method) => (
-                            <label
-                              key={method.id}
-                              className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
-                                prescriptionForm.shippingMethod === String(method.id)
-                                  ? 'border-rose-400 bg-rose-50'
-                                  : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <input
-                                type="radio"
-                                name="shippingMethod"
-                                value={String(method.id)}
-                                checked={prescriptionForm.shippingMethod === String(method.id)}
-                                onChange={(e) =>
-                                  setPrescriptionForm((prev) => ({
-                                    ...prev,
-                                    shippingMethod: e.target.value,
-                                  }))
-                                }
-                                className="h-4 w-4 text-rose-500 focus:ring-rose-400"
-                              />
-                              <p className="font-medium text-gray-900">{method.label}</p>
-                            </label>
-                          ))}
+                          {SHIPPING_METHODS.map((method) => {
+                            const isSelected =
+                              prescriptionForm.shippingMethod === String(method.id);
+                            return (
+                              <label
+                                key={method.id}
+                                className={`flex cursor-pointer items-center gap-4 rounded-xl border-2 p-3 transition-all ${
+                                  isSelected
+                                    ? 'border-rose-500 bg-rose-50 shadow-sm ring-2 ring-rose-200'
+                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="shippingMethod"
+                                  value={String(method.id)}
+                                  checked={isSelected}
+                                  onChange={(e) =>
+                                    setPrescriptionForm((prev) => ({
+                                      ...prev,
+                                      shippingMethod: e.target.value,
+                                    }))
+                                  }
+                                  className="sr-only"
+                                />
+                                <div
+                                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
+                                    isSelected
+                                      ? 'border-emerald-600 bg-emerald-600 text-white ring-2 ring-emerald-300 shadow-md'
+                                      : 'border-gray-300 bg-white'
+                                  }`}
+                                >
+                                  {isSelected ? (
+                                    <CheckCircle2 className="h-6 w-6" strokeWidth={2.5} />
+                                  ) : (
+                                    <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                                  )}
+                                </div>
+                                <p
+                                  className={`font-medium ${
+                                    isSelected ? 'text-rose-900' : 'text-gray-900'
+                                  }`}
+                                >
+                                  {method.label}
+                                </p>
+                              </label>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -2337,7 +2419,7 @@ export default function PrescriptionQueuePage() {
                               !hasValidMedication() ||
                               !isAddressComplete(prescriptionForm)
                             }
-                            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {submittingPrescription ? (
                               <>
