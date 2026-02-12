@@ -143,11 +143,40 @@ export default function LoginPage() {
 
   // 503 Service Unavailable: show retry countdown (from Retry-After / retryAfter)
   const [retryAfterCountdown, setRetryAfterCountdown] = useState(0);
+  const [showRetryButton, setShowRetryButton] = useState(false); // true when we got 503; show Retry when countdown hits 0
+
+  // Pre-login health: true only when /api/ready explicitly returns 503 (fail-open: timeout/error → allow login)
+  const [systemUnavailable, setSystemUnavailable] = useState(false);
 
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Resolve clinic from domain and load branding
+  // Pre-login health check (fail-open: only block when /api/ready explicitly returns 503)
+  useEffect(() => {
+    if (!isBrowser) return;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout → fail open
+
+    fetch('/api/ready', { signal: controller.signal })
+      .then((res) => {
+        if (res.status === 503) setSystemUnavailable(true);
+        // 200 or other → allow login
+      })
+      .catch(() => {
+        // Timeout, network error, abort → fail open, do not block login
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
+      });
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, []);
+
+  // Resolve clinic from domain and load branding (non-blocking: on failure use default/main app)
   useEffect(() => {
     // SSR guard
     if (!isBrowser) return;
@@ -163,7 +192,6 @@ export default function LoginPage() {
           // Check if this is the main app (not a white-labeled clinic)
           if (data.isMainApp) {
             setIsMainApp(true);
-            // Don't set branding for main app - use default EONPRO branding
             return;
           }
 
@@ -191,12 +219,14 @@ export default function LoginPage() {
             document.head.appendChild(link);
           }
 
-          // Update page title
           document.title = `Login | ${data.name}`;
+        } else {
+          // 500, 404, etc. → use default branding so login is never blocked
+          setIsMainApp(true);
         }
-      } catch (err) {
-        // Silently fail - use default branding
-        console.log('Using default branding');
+      } catch {
+        // Network error, parse error → use default branding so login is never blocked
+        setIsMainApp(true);
       }
     };
 
@@ -532,14 +562,18 @@ export default function LoginPage() {
   };
 
   const LOGIN_TIMEOUT_MS = 25000;
+  const RETRY_DELAY_MS = 2500;
 
-  // Handle email/password login (with timeout so spinner doesn't hang)
-  const handlePasswordLogin = async (e: React.FormEvent, clinicId?: number) => {
+  // Handle email/password login (with timeout so spinner doesn't hang; auto-retry once on 5xx/AbortError)
+  const handlePasswordLogin = async (e: React.FormEvent, clinicId?: number, isRetry = false) => {
     e?.preventDefault?.();
-    setError('');
-    setWrongClinicRedirectUrl(null);
-    setWrongClinicName(null);
-    setRetryAfterCountdown(0);
+    if (!isRetry) {
+      setError('');
+      setWrongClinicRedirectUrl(null);
+      setWrongClinicName(null);
+      setRetryAfterCountdown(0);
+      setShowRetryButton(false);
+    }
     setLoading(true);
 
     try {
@@ -585,8 +619,14 @@ export default function LoginPage() {
         if (response.status === 503 && typeof data.retryAfter === 'number' && data.retryAfter > 0) {
           setError(data.error || 'Service is busy. Please try again in a moment.');
           setRetryAfterCountdown(data.retryAfter);
+          setShowRetryButton(true);
           setLoading(false);
           return;
+        }
+        // 5xx (other than 503): retry once if we haven't already
+        if (!isRetry && response.status >= 500) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          return handlePasswordLogin(e, clinicId, true);
         }
         throw new Error(data.error || 'Login failed');
       }
@@ -605,6 +645,11 @@ export default function LoginPage() {
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
     } catch (err: any) {
       const isTimeout = err?.name === 'AbortError';
+      // AbortError (timeout): retry once if we haven't already
+      if (!isRetry && isTimeout) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        return handlePasswordLogin(e, clinicId, true);
+      }
       setError(
         isTimeout
           ? 'Login is taking too long. Check your connection and try again, or use the Provider login link below.'
@@ -615,12 +660,15 @@ export default function LoginPage() {
     }
   };
 
-  // Handle clinic selection and complete login
-  const handleClinicSelect = async (clinicId: number) => {
+  // Handle clinic selection and complete login (auto-retry once on 5xx/AbortError)
+  const handleClinicSelect = async (clinicId: number, isRetry = false) => {
     setSelectedClinicId(clinicId);
+    if (!isRetry) {
+      setError('');
+      setRetryAfterCountdown(0);
+      setShowRetryButton(false);
+    }
     setLoading(true);
-    setError('');
-    setRetryAfterCountdown(0);
 
     try {
       const redirectParam = searchParams.get('redirect');
@@ -658,8 +706,14 @@ export default function LoginPage() {
         if (response.status === 503 && typeof data.retryAfter === 'number' && data.retryAfter > 0) {
           setError(data.error || 'Service is busy. Please try again in a moment.');
           setRetryAfterCountdown(data.retryAfter);
+          setShowRetryButton(true);
           setLoading(false);
           return;
+        }
+        // 5xx (other than 503): retry once if we haven't already
+        if (!isRetry && response.status >= 500) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          return handleClinicSelect(clinicId, true);
         }
         throw new Error(data.error || 'Login failed');
       }
@@ -669,6 +723,11 @@ export default function LoginPage() {
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
     } catch (err: any) {
       const isTimeout = err?.name === 'AbortError';
+      // AbortError (timeout): retry once if we haven't already
+      if (!isRetry && isTimeout) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        return handleClinicSelect(clinicId, true);
+      }
       setError(
         isTimeout
           ? 'Login is taking too long. Check your connection and try again.'
@@ -859,6 +918,18 @@ export default function LoginPage() {
 
         {/* Main Content */}
         <div className="flex flex-1 flex-col items-center px-6 pt-8">
+          {/* System unavailable banner (only when /api/ready explicitly returns 503) */}
+          {systemUnavailable && (
+            <div className="mb-6 w-full max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+              <p className="text-sm font-medium text-amber-800">
+                System temporarily unavailable. We&apos;ll be back shortly.
+              </p>
+              <p className="mt-1 text-xs text-amber-700">
+                Please try again in a few minutes.
+              </p>
+            </div>
+          )}
+
           {/* Welcome Text */}
           <h1 className="mb-4 text-5xl font-light tracking-tight text-gray-900 md:text-6xl">
             Welcome
@@ -908,12 +979,12 @@ export default function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || systemUnavailable}
                   className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
-                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
+                    loading || systemUnavailable ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
                   }`}
                   style={{
-                    backgroundColor: loading ? '#9CA3AF' : primaryColor,
+                    backgroundColor: loading || systemUnavailable ? '#9CA3AF' : primaryColor,
                     color: buttonTextColor,
                   }}
                 >
@@ -995,6 +1066,24 @@ export default function LoginPage() {
                         You can try again in {retryAfterCountdown} second{retryAfterCountdown !== 1 ? 's' : ''}.
                       </p>
                     )}
+                    {showRetryButton && retryAfterCountdown === 0 && (
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            setError('');
+                            setShowRetryButton(false);
+                            handlePasswordLogin(e, selectedClinicId ?? undefined);
+                          }}
+                          disabled={loading}
+                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                          style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Retry
+                        </button>
+                      </div>
+                    )}
                     {wrongClinicRedirectUrl && (
                       <div className="text-center">
                         <a
@@ -1014,12 +1103,15 @@ export default function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || retryAfterCountdown > 0}
+                  disabled={loading || retryAfterCountdown > 0 || systemUnavailable}
                   className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
-                    loading || retryAfterCountdown > 0 ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
+                    loading || retryAfterCountdown > 0 || systemUnavailable
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:opacity-90'
                   }`}
                   style={{
-                    backgroundColor: loading || retryAfterCountdown > 0 ? '#9CA3AF' : primaryColor,
+                    backgroundColor:
+                      loading || retryAfterCountdown > 0 || systemUnavailable ? '#9CA3AF' : primaryColor,
                     color: buttonTextColor,
                   }}
                 >
@@ -1404,9 +1496,11 @@ export default function LoginPage() {
                     <button
                       key={clinic.id}
                       onClick={() => handleClinicSelect(clinic.id)}
-                      disabled={loading}
+                      disabled={loading || retryAfterCountdown > 0 || systemUnavailable}
                       className={`w-full rounded-2xl border-2 p-4 text-left transition-all ${
-                        loading ? 'cursor-not-allowed opacity-50' : ''
+                        loading || retryAfterCountdown > 0 || systemUnavailable
+                          ? 'cursor-not-allowed opacity-50'
+                          : ''
                       }`}
                       style={{
                         borderColor: selectedClinicId === clinic.id ? primaryColor : '#e5e7eb',
@@ -1455,8 +1549,31 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
                     <p className="text-center text-sm text-red-600">{error}</p>
+                    {retryAfterCountdown > 0 && (
+                      <p className="text-center text-sm text-red-600">
+                        You can try again in {retryAfterCountdown} second{retryAfterCountdown !== 1 ? 's' : ''}.
+                      </p>
+                    )}
+                    {showRetryButton && retryAfterCountdown === 0 && selectedClinicId && (
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setError('');
+                            setShowRetryButton(false);
+                            handleClinicSelect(selectedClinicId);
+                          }}
+                          disabled={loading}
+                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                          style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Retry
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
