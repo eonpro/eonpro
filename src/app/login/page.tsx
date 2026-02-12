@@ -843,15 +843,22 @@ export default function LoginPage() {
   const buttonTextMode = branding?.buttonTextColor || 'auto';
   const buttonTextColor = getTextColorForBg(primaryColor, buttonTextMode);
 
+  // Provider login screen: hide redundant link, use distinct background
+  const redirectParam = searchParams.get('redirect');
+  const isProviderLogin =
+    !!redirectParam && redirectParam.toLowerCase().split('?')[0].startsWith('/provider');
+
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Gradient Background - uses branding colors */}
+      {/* Gradient Background - provider screen: cooler blue-tinted; default: green/yellow */}
       <div
         className="absolute inset-0"
         style={{
-          background: branding
-            ? `linear-gradient(135deg, ${primaryColor}08 0%, ${primaryColor}12 25%, ${secondaryColor}10 50%, ${accentColor}15 75%, ${accentColor}20 100%)`
-            : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
+          background: isProviderLogin
+            ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 25%, #e0e7ff 50%, #e0f2fe 75%, #ecfeff 100%)'
+            : branding
+              ? `linear-gradient(135deg, ${primaryColor}08 0%, ${primaryColor}12 25%, ${secondaryColor}10 50%, ${accentColor}15 75%, ${accentColor}20 100%)`
+              : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
         }}
       />
 
@@ -859,13 +866,17 @@ export default function LoginPage() {
       <div
         className="absolute inset-0 opacity-30"
         style={{
-          backgroundImage: branding
-            ? `radial-gradient(circle at 20% 50%, ${primaryColor}15 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, ${accentColor}20 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, ${secondaryColor}15 0%, transparent 50%)`
-            : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.15) 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.1) 0%, transparent 50%)`,
+          backgroundImage: isProviderLogin
+            ? `radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+               radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+               radial-gradient(circle at 40% 80%, rgba(6, 182, 212, 0.1) 0%, transparent 50%)`
+            : branding
+              ? `radial-gradient(circle at 20% 50%, ${primaryColor}15 0%, transparent 50%),
+                 radial-gradient(circle at 80% 20%, ${accentColor}20 0%, transparent 50%),
+                 radial-gradient(circle at 40% 80%, ${secondaryColor}15 0%, transparent 50%)`
+              : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+                 radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.15) 0%, transparent 50%),
+                 radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.1) 0%, transparent 50%)`,
         }}
       />
 
@@ -1160,12 +1171,14 @@ export default function LoginPage() {
                       Not you? Log in here
                     </button>
                   </div>
-                  <a
-                    href="/login?redirect=/provider"
-                    className="text-sm text-gray-600 underline underline-offset-2 transition-colors hover:text-gray-900"
-                  >
-                    Provider? Log in as provider
-                  </a>
+                  {!isProviderLogin && (
+                    <a
+                      href="/login?redirect=/provider"
+                      className="text-sm text-gray-600 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    >
+                      Provider? Log in as provider
+                    </a>
+                  )}
                 </div>
               </form>
             )}
