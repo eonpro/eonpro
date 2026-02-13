@@ -101,8 +101,21 @@ const nextConfig = {
       ? { type: 'memory' }
       : { type: 'filesystem' };
 
-    // Resolve "node:" protocol as Node built-ins (avoids UnhandledSchemeError for node:async_hooks used in db.ts).
-    if (isServer) {
+    // Handle "node:" built-in imports for different server runtimes.
+    if (isServer && nextRuntime === 'edge') {
+      // Edge Runtime: node:* modules must NOT appear as externals.
+      // Vercel rejects Edge Functions that reference unsupported Node.js modules.
+      // Use IgnorePlugin to silently eliminate node:* imports from the edge bundle.
+      // This is safe because edge code never executes the Node.js code paths
+      // (instrumentation.ts guards with NEXT_RUNTIME !== 'nodejs').
+      const webpack = require('next/dist/compiled/webpack/webpack');
+      config.plugins.push(
+        new webpack.webpack.IgnorePlugin({
+          resourceRegExp: /^node:/,
+        })
+      );
+    } else if (isServer) {
+      // Node.js Runtime: externalize node:* as commonjs requires.
       const externals = config.externals || [];
       const handler = ({ request }, callback) => {
         if (typeof request === 'string' && request.startsWith('node:')) {
