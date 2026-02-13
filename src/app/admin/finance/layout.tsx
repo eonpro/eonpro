@@ -25,7 +25,7 @@ const financeNavItems = [
   { icon: FileText, path: '/admin/finance/invoices', label: 'Invoices' },
   { icon: PieChart, path: '/admin/finance/subscriptions', label: 'Subscriptions' },
   { icon: UserPlus, path: '/admin/finance/pending-profiles', label: 'Pending Profiles' },
-  { icon: FileBarChart, path: '/admin/finance/reports', label: 'Reports' },
+  { icon: FileBarChart, path: '/admin/finance/reports', label: 'Report Center' },
   { icon: Settings, path: '/admin/finance/settings', label: 'Settings' },
 ];
 

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { basePrisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { withApiHandler } from '@/domains/shared/errors';
 
 /**
  * GET /api/clinic/resolve
@@ -155,35 +156,33 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const errorId = crypto.randomUUID().slice(0, 8);
     const searchParams = new URL(request.url).searchParams;
+    const domainParam = searchParams.get('domain') || searchParams.get('_main');
 
-    // Handle database connection errors gracefully
-    if (
-      error instanceof Prisma.PrismaClientInitializationError ||
-      (error instanceof Prisma.PrismaClientKnownRequestError &&
-        ['P1001', 'P1002', 'P1008', 'P1017'].includes(error.code))
-    ) {
-      logger.error(`[CLINIC_RESOLVE_GET] Database connection error ${errorId}:`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        domain: searchParams.get('domain') || searchParams.get('_main'),
-      });
-      return NextResponse.json(
-        { error: 'Service temporarily unavailable', errorId, code: 'SERVICE_UNAVAILABLE' },
-        { status: 503, headers: { 'Retry-After': '5' } }
-      );
-    }
-
-    logger.error(`[CLINIC_RESOLVE_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    // Log full error for debugging (Sentry, Vercel logs)
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errCode =
+      error instanceof Prisma.PrismaClientKnownRequestError ? error.code : undefined;
+    logger.error(`[CLINIC_RESOLVE_GET] Error ${errorId} - returning default branding:`, {
+      error: errMessage,
+      prismaCode: errCode,
       stack: error instanceof Error ? error.stack : undefined,
-      domain: searchParams.get('domain') || searchParams.get('_main'),
+      domain: domainParam,
       url: request.url,
     });
-    return NextResponse.json(
-      { error: 'Failed to resolve clinic', errorId, code: 'CLINIC_RESOLVE_ERROR' },
-      { status: 500 }
-    );
+
+    // NEVER return 500/503 from this endpoint - login must never be blocked.
+    // Return 200 with default EONPRO branding so users can always log in.
+    return NextResponse.json(defaultBrandingPayload, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'X-Clinic-Resolve-Fallback': 'true',
+        'X-Clinic-Resolve-Error-Id': errorId,
+      },
+    });
   }
 }
+
+export const GET = withApiHandler(resolveHandler);
 
 /**
  * Resolve clinic from domain string.

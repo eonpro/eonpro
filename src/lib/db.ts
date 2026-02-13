@@ -10,6 +10,7 @@ import {
   checkDatabaseHealth,
   getPoolStats,
 } from './database/serverless-pool';
+import { TenantContextRequiredError } from './tenant-context';
 
 // Re-export Prisma namespace for TransactionClient and other types
 export { Prisma } from '@prisma/client';
@@ -68,53 +69,134 @@ function buildConnectionUrl(): string {
   }
 }
 
-// Models that require clinic isolation (lowercase for comparison)
-// IMPORTANT: Any model with clinicId should be in this list
-const CLINIC_ISOLATED_MODELS = [
-  // Core clinical models
-  'patient',
-  'provider',
-  'order',
-  'prescription',
-  'soapnote',
+// Models that require clinic isolation (lowercase for comparison).
+// MUST include every Prisma model that has a clinicId column. See tests/tenant-isolation/clinic-isolated-models.test.ts.
+export const CLINIC_ISOLATED_MODELS: readonly string[] = [
+  'addressvalidationlog',
+  'affiliate',
+  'affiliateapplication',
+  'affiliateattributionconfig',
+  'affiliatecommission',
+  'affiliatecommissionevent',
+  'affiliatecommissionplan',
+  'affiliatecompetition',
+  'affiliatefraudalert',
+  'affiliatefraudconfig',
+  'affiliatepayout',
+  'affiliateplanassignment',
+  'affiliateprogram',
+  'affiliaterefcode',
+  'affiliatereferral',
+  'affiliatetouch',
+  'aiconversation',
+  'apikey',
   'appointment',
-  'careplan', // Treatment plans
-
-  // Billing models
-  'invoice',
-  'payment',
-  'subscription',
-  'superbill', // Medical billing
-
-  // Documents & forms
-  'patientdocument',
-  'intakeformtemplate',
-
-  // Communication
-  'internalmessage',
-  'patientchatmessage',
-
-  // Support tickets (clinic-specific)
-  'ticket',
-  'ticketcomment',
-  'ticketworklog',
-  'ticketassignment',
-
-  // NOTE: Patient health tracking models (patientweightlog, patientmedicationreminder, etc.)
-  // are NOT in this list because they don't have a clinicId field directly.
-  // They are already isolated via their Patient relationship (patient->clinicId).
-
-  // Patient photos (clinic-isolated for ID verification and progress photos)
-  'patientphoto',
-
-  // Affiliate/influencer (clinic-specific programs)
+  'appointmenttypeconfig',
+  'auditlog',
+  'billingcode',
+  'calendarsubscription',
+  'careplan',
+  'careplantemplate',
+  'challenge',
+  'clinicauditlog',
+  'clinicinvitecode',
+  'clinicplatformfeeconfig',
+  'clinicplatforminvoice',
+  'commission',
+  'discountcode',
+  'emaillog',
+  'financialmetrics',
+  'hipaaauditentry',
   'influencer',
-
-  // Products (clinic-specific catalog)
+  'intakeformtemplate',
+  'integration',
+  'internalmessage',
+  'invoice',
+  'labreport',
+  'notification',
+  'order',
+  'patient',
+  'patientchatmessage',
+  'patientcounter',
+  'patientdocument',
+  'patientexerciselog',
+  'patientnutritionlog',
+  'patientphoto',
+  'patientprescriptioncycle',
+  'patientsalesrepassignment',
+  'patientshippingupdate',
+  'patientsleeplog',
+  'patientwaterlog',
+  'payment',
+  'paymentmethod',
+  'paymentreconciliation',
+  'platformfeeevent',
+  'policyacknowledgment',
+  'pricingrule',
   'product',
-
-  // Refill queue (prescription refill scheduling)
+  'productbundle',
+  'promotion',
+  'provider',
+  'provideravailability',
+  'providercalendarintegration',
+  'providerclinic',
+  'providercompensationevent',
+  'providercompensationplan',
+  'providerroutingconfig',
+  'providertimeoff',
+  'referraltracking',
   'refillqueue',
+  'reportexport',
+  'retentionoffer',
+  'savedreport',
+  'scheduledemail',
+  'slapolicyconfig',
+  'smslog',
+  'smsoptout',
+  'smsquiethours',
+  'smsratelimit',
+  'soapnote',
+  'subscription',
+  'superbill',
+  'systemsettings',
+  'telehealthsession',
+  'ticket',
+  'ticketautomationrule',
+  'ticketbusinesshours',
+  'ticketmacro',
+  'ticketsavedview',
+  'ticketteam',
+  'tickettemplate',
+  'user',
+  'userclinic',
+  'webhookconfig',
+  'webhooklog',
+] as const;
+
+/**
+ * Allow-list for basePrisma: only these clinic-scoped or global models may be used with basePrisma.
+ * All other tenant-scoped access MUST use prisma (wrapper) with runWithClinicContext(clinicId, ...).
+ * - clinic: tenant lookup (resolve, auth)
+ * - user: auth (login, session)
+ * - userClinic, providerClinic: auth / clinic access checks
+ * - provider: auth login (lookup by email before clinic is set)
+ * - hIPAAAuditEntry: audit write (cross-clinic for super-admin; write-only)
+ * - patient: webhook/cron lookup by non-tenant key (e.g. phone) to resolve clinicId only; writes must use prisma with that clinicId
+ * - affiliate*, platformfeeevent: super-admin cross-tenant only (must be guarded by withSuperAdminAuth)
+ */
+const BASE_PRISMA_ALLOWLIST: readonly string[] = [
+  'clinic',
+  'user',
+  'userclinic',
+  'providerclinic',
+  'provider',
+  'patient',
+  'hipaaauditentry',
+  'affiliate',
+  'affiliateapplication',
+  'affiliatecommissionplan',
+  'affiliateplanassignment',
+  'platformfeeevent',
 ];
 
 /**
@@ -161,9 +243,9 @@ function createPrismaClient() {
         const result = await next(params);
         const duration = Date.now() - start;
 
-        // Log slow queries (> 1 second)
-        if (duration > 1000) {
-          logger.warn('Slow database query detected', {
+        // Log slow queries (> 100ms)
+        if (duration > 100) {
+          logger.warn('[Prisma] Slow query', {
             model: params.model,
             action: params.action,
             duration,
@@ -242,16 +324,34 @@ function registerShutdownHandlers(client: PrismaClient): void {
   }
 }
 
-// Create the base client
-const basePrisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = basePrisma;
-}
+// Create the base client (singleton per process to avoid connection pool exhaustion)
+const _rawBasePrisma = globalForPrisma.prisma ?? createPrismaClient();
+globalForPrisma.prisma = _rawBasePrisma;
 
 // Initialize health monitoring and shutdown handlers
-startHealthMonitoring(basePrisma);
-registerShutdownHandlers(basePrisma);
+startHealthMonitoring(_rawBasePrisma);
+registerShutdownHandlers(_rawBasePrisma);
+
+/** In production, throw if basePrisma is used for a clinic-isolated model not in BASE_PRISMA_ALLOWLIST. */
+function createGuardedBasePrisma(client: PrismaClient): PrismaClient {
+  if (process.env.NODE_ENV !== 'production') return client;
+  return new Proxy(client, {
+    get(target, prop: string) {
+      const delegate = (target as any)[prop];
+      if (
+        delegate &&
+        typeof prop === 'string' &&
+        (CLINIC_ISOLATED_MODELS as readonly string[]).includes(prop.toLowerCase()) &&
+        !BASE_PRISMA_ALLOWLIST.includes(prop.toLowerCase())
+      ) {
+        throw new Error(
+          `basePrisma.${prop} is not allowed in production. Use prisma with runWithClinicContext or add to BASE_PRISMA_ALLOWLIST.`
+        );
+      }
+      return delegate;
+    },
+  }) as PrismaClient;
+}
 
 /**
  * Wrapper for Prisma client with clinic filtering
@@ -298,10 +398,25 @@ class PrismaWithClinicFilter {
   }
 
   /**
-   * Apply clinic filter to where clause
+   * Apply clinic filter to where clause.
+   * NEVER returns unmodified where for clinic-isolated models when tenant context is missing — THROWS instead.
    */
-  private applyClinicFilter(where: any = {}): any {
+  private applyClinicFilter(where: any = {}, modelName?: string): any {
     const clinicId = this.getClinicId();
+    const isClinicIsolated =
+      modelName && (CLINIC_ISOLATED_MODELS as readonly string[]).includes(modelName.toLowerCase());
+
+    if (isClinicIsolated && (clinicId === undefined || clinicId === null)) {
+      if (!this.shouldBypassFilter()) {
+        logger.security('Tenant context required for clinic-isolated query', {
+          model: modelName,
+          code: 'TENANT_CONTEXT_REQUIRED',
+        });
+        throw new TenantContextRequiredError(
+          `Tenant context is required for ${modelName}. Set clinic context via auth middleware or runWithClinicContext.`
+        );
+      }
+    }
 
     if (!clinicId || this.shouldBypassFilter()) {
       return where;
@@ -314,10 +429,25 @@ class PrismaWithClinicFilter {
   }
 
   /**
-   * Apply clinic ID to data for creates
+   * Apply clinic ID to data for creates.
+   * NEVER allows create on clinic-isolated models without tenant context — THROWS instead.
    */
-  private applyClinicToData(data: any): any {
+  private applyClinicToData(data: any, modelName?: string): any {
     const clinicId = this.getClinicId();
+    const isClinicIsolated =
+      modelName && (CLINIC_ISOLATED_MODELS as readonly string[]).includes(modelName.toLowerCase());
+
+    if (isClinicIsolated && (clinicId === undefined || clinicId === null)) {
+      if (!this.shouldBypassFilter()) {
+        logger.security('Tenant context required for clinic-isolated create', {
+          model: modelName,
+          code: 'TENANT_CONTEXT_REQUIRED',
+        });
+        throw new TenantContextRequiredError(
+          `Tenant context is required for ${modelName}. Set clinic context via auth middleware or runWithClinicContext.`
+        );
+      }
+    }
 
     if (!clinicId || this.shouldBypassFilter()) {
       return data;
@@ -337,10 +467,25 @@ class PrismaWithClinicFilter {
   }
 
   /**
-   * Apply clinic filter to groupBy args
+   * Apply clinic filter to groupBy args.
+   * NEVER allows groupBy on clinic-isolated models without tenant context — THROWS instead.
    */
-  private applyClinicToGroupBy(args: any = {}): any {
+  private applyClinicToGroupBy(args: any = {}, modelName?: string): any {
     const clinicId = this.getClinicId();
+    const isClinicIsolated =
+      modelName && (CLINIC_ISOLATED_MODELS as readonly string[]).includes(modelName.toLowerCase());
+
+    if (isClinicIsolated && (clinicId === undefined || clinicId === null)) {
+      if (!this.shouldBypassFilter()) {
+        logger.security('Tenant context required for clinic-isolated groupBy', {
+          model: modelName,
+          code: 'TENANT_CONTEXT_REQUIRED',
+        });
+        throw new TenantContextRequiredError(
+          `Tenant context is required for ${modelName}. Set clinic context via auth middleware or runWithClinicContext.`
+        );
+      }
+    }
 
     if (!clinicId || this.shouldBypassFilter()) {
       return args;
@@ -353,6 +498,13 @@ class PrismaWithClinicFilter {
         clinicId: clinicId,
       },
     };
+  }
+
+  /**
+   * Return clinic-filtered delegate for a model by name. Used by export Proxy for dynamic model access.
+   */
+  getModelDelegate(modelName: string): any {
+    return this.createModelProxy(modelName);
   }
 
   /**
@@ -414,7 +566,7 @@ class PrismaWithClinicFilter {
           let modifiedArgs = { ...args };
           const method = prop as string;
 
-          // Apply clinic filter based on method type
+          // Apply clinic filter based on method type (pass modelName for strict tenant enforcement)
           if (
             [
               'findUnique',
@@ -426,21 +578,21 @@ class PrismaWithClinicFilter {
               'aggregate',
             ].includes(method)
           ) {
-            modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where);
+            modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where, modelName);
           } else if (method === 'groupBy') {
-            modifiedArgs = this.applyClinicToGroupBy(modifiedArgs);
+            modifiedArgs = this.applyClinicToGroupBy(modifiedArgs, modelName);
           } else if (
             method === 'create' ||
             method === 'createMany' ||
             method === 'createManyAndReturn'
           ) {
-            modifiedArgs.data = this.applyClinicToData(modifiedArgs.data);
+            modifiedArgs.data = this.applyClinicToData(modifiedArgs.data, modelName);
           } else if (['update', 'updateMany', 'delete', 'deleteMany'].includes(method)) {
-            modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where);
+            modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where, modelName);
           } else if (method === 'upsert') {
             // Upsert needs both where filter and create data with clinicId
-            modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where);
-            modifiedArgs.create = this.applyClinicToData(modifiedArgs.create);
+            modifiedArgs.where = this.applyClinicFilter(modifiedArgs.where, modelName);
+            modifiedArgs.create = this.applyClinicToData(modifiedArgs.create, modelName);
             // Update clause should NOT override clinicId
             if (modifiedArgs.update && typeof modifiedArgs.update === 'object') {
               delete modifiedArgs.update.clinicId; // Prevent changing clinic via upsert
@@ -666,6 +818,9 @@ class PrismaWithClinicFilter {
   }
   get webhookLog() {
     return this.client.webhookLog;
+  }
+  get idempotencyRecord() {
+    return this.client.idempotencyRecord;
   }
 
   // Audit logs (need cross-clinic visibility for super admin)
@@ -961,7 +1116,7 @@ class PrismaWithClinicFilter {
 
   // Expose transaction support with proper options forwarding
   async $transaction<T>(
-    fn: (tx: any) => Promise<T>,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
     options?: {
       maxWait?: number;
       timeout?: number;
@@ -1037,12 +1192,23 @@ type ClinicFilteredTransactionFn = {
  *
  * @see CLINIC_ISOLATED_MODELS for list of models with automatic filtering
  */
-export const prisma = new PrismaWithClinicFilter(basePrisma) as unknown as PrismaClient & {
+const clinicFilterWrapper = new PrismaWithClinicFilter(_rawBasePrisma);
+export const prisma = new Proxy(clinicFilterWrapper, {
+  get(target: PrismaWithClinicFilter, prop: string) {
+    if (prop in target) return (target as any)[prop];
+    const client = (target as any).client as PrismaClient;
+    const delegate = (client as any)[prop];
+    if (delegate && typeof prop === 'string' && (CLINIC_ISOLATED_MODELS as readonly string[]).includes(prop.toLowerCase())) {
+      return target.getModelDelegate(prop);
+    }
+    return delegate;
+  },
+}) as unknown as PrismaClient & {
   $transaction: ClinicFilteredTransactionFn;
 };
 
-// Export the base client for public endpoints (no clinic filtering)
-export { basePrisma };
+// Export the base client for allow-listed use only; in production, throws if used for non-allow-listed clinic-isolated models
+export const basePrisma = createGuardedBasePrisma(_rawBasePrisma);
 
 /**
  * Set the current clinic context for queries

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withApiHandler } from '@/domains/shared/errors';
 
 interface ServiceCheck {
   name: string;
@@ -26,9 +27,7 @@ async function checkDatabase(): Promise<ServiceCheck> {
       status: 'operational',
       responseTime: Date.now() - startTime,
     };
-  } catch (error: any) {
-    // @ts-ignore
-   
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       name: 'database',
@@ -44,7 +43,7 @@ async function checkDatabase(): Promise<ServiceCheck> {
  */
 async function checkLifefileAPI(): Promise<ServiceCheck> {
   const startTime = Date.now();
-  
+
   if (!process.env.LIFEFILE_BASE_URL) {
     return {
       name: 'lifefile_api',
@@ -56,22 +55,20 @@ async function checkLifefileAPI(): Promise<ServiceCheck> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-    
+
     const response = await fetch(`${process.env.LIFEFILE_BASE_URL}/health`, {
       method: 'HEAD',
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     return {
       name: 'lifefile_api',
       status: response.ok ? 'operational' : 'degraded',
       responseTime: Date.now() - startTime,
     };
-  } catch (error: any) {
-    // @ts-ignore
-   
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       name: 'lifefile_api',
@@ -103,26 +100,20 @@ async function checkRedis(): Promise<ServiceCheck> {
 }
 
 /**
- * Check required environment variables
+ * Check required environment variables (aligned with env schema: DATABASE_URL, JWT_SECRET).
+ * Used for informational checks only; minimal readiness is DB-only per enterprise audit B4.
  */
 function checkEnvironment(): ServiceCheck {
-  const requiredVars = [
-    'DATABASE_URL',
-    'JWT_SECRET',
-    'LIFEFILE_USERNAME',
-    'LIFEFILE_PASSWORD',
-  ];
-
-  const missingVars = requiredVars.filter((varName: any) => !process.env[varName]);
+  const requiredVars = ['DATABASE_URL', 'JWT_SECRET'];
+  const missingVars = requiredVars.filter((varName: string) => !process.env[varName]);
 
   if (missingVars.length > 0) {
     return {
       name: 'environment',
       status: 'down',
-      error: `Missing required variables: ${missingVars.join(', ')}`,
+      error: `Missing: ${missingVars.join(', ')}`,
     };
   }
-
   return {
     name: 'environment',
     status: 'operational',
@@ -131,12 +122,13 @@ function checkEnvironment(): ServiceCheck {
 
 /**
  * GET /api/ready
- * Comprehensive readiness check - verifies all dependencies are operational
+ * Minimal readiness: 200 if DB is operational (k8s/orchestrator use).
+ * Other checks (Lifefile, Redis, env) are informational; only DB down → 503.
+ * See docs/REMEDIATION_CHECKLIST.md B4.
  */
-export async function GET(req: NextRequest) {
+async function monitoringReadyHandler(req: NextRequest) {
   const startTime = Date.now();
 
-  // Run all checks in parallel
   const checks = await Promise.all([
     checkDatabase(),
     checkLifefileAPI(),
@@ -144,14 +136,15 @@ export async function GET(req: NextRequest) {
     Promise.resolve(checkEnvironment()),
   ]);
 
-  // Determine overall status
-  const hasDown = checks.some((check: any) => check.status === 'down');
-  const hasDegraded = checks.some((check: any) => check.status === 'degraded');
-  
+  const dbCheck = checks[0];
+  const hasDbDown = dbCheck.status === 'down';
+  const hasAnyDown = checks.some((c) => c.status === 'down');
+  const hasDegraded = checks.some((c) => c.status === 'degraded');
+
   let overallStatus: 'ready' | 'degraded' | 'not_ready';
-  if (hasDown) {
+  if (hasDbDown) {
     overallStatus = 'not_ready';
-  } else if (hasDegraded) {
+  } else if (hasDegraded || hasAnyDown) {
     overallStatus = 'degraded';
   } else {
     overallStatus = 'ready';
@@ -161,25 +154,31 @@ export async function GET(req: NextRequest) {
     status: overallStatus,
     timestamp: new Date().toISOString(),
     responseTime: Date.now() - startTime,
-    checks: checks.reduce((acc, check) => {
-      acc[check.name] = {
-        status: check.status,
-        responseTime: check.responseTime,
-        error: check.error,
-      };
-      return acc;
-    }, {} as Record<string, any>),
+    checks: checks.reduce(
+      (acc, check) => {
+        acc[check.name] = {
+          status: check.status,
+          responseTime: check.responseTime,
+          error: check.error,
+        };
+        return acc;
+      },
+      {} as Record<string, { status: string; responseTime?: number; error?: string }>
+    ),
   };
 
   // Return appropriate status code based on overall status
-  const statusCode = (overallStatus as any) === "ready" ? 200 : (overallStatus as any) === "degraded" ? 200 : 503;
+  const statusCode =
+    overallStatus === 'ready' ? 200 : overallStatus === 'degraded' ? 200 : 503;
 
   return NextResponse.json(response, {
     status: statusCode,
     headers: {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
+      Pragma: 'no-cache',
+      Expires: '0',
     },
   });
 }
+
+export const GET = withApiHandler(monitoringReadyHandler);

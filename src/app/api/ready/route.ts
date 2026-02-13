@@ -3,16 +3,17 @@
  * @route GET /api/ready
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withApiHandler } from '@/domains/shared/errors';
 
-export async function GET() {
+async function readyHandler(_req: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
     // Check database connectivity
     await prisma.$queryRaw`SELECT 1`;
-    
+
     return NextResponse.json(
       {
         status: 'ready',
@@ -50,12 +51,14 @@ export async function GET() {
   }
 }
 
+export const GET = withApiHandler(readyHandler);
+
 // Support HEAD requests for load balancers
-export async function HEAD() {
+export const HEAD = withApiHandler(async () => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     return new Response(null, { status: 200 });
   } catch {
     return new Response(null, { status: 503 });
   }
-}
+});

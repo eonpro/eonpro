@@ -2,7 +2,7 @@
  * PLATFORM HEALTH CHECK API
  * ==========================
  * Comprehensive health monitoring endpoint that checks all critical services
- * 
+ *
  * GET /api/health - Quick health check (public)
  * GET /api/health?full=true - Full system check (requires auth)
  */
@@ -17,6 +17,7 @@ import {
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth/middleware';
+import { withApiHandler } from '@/domains/shared/errors';
 
 interface HealthCheck {
   name: string;
@@ -44,33 +45,60 @@ interface HealthReport {
 // Track server start time for uptime
 const startTime = Date.now();
 
+const DB_HEALTH_TIMEOUT_MS = 4000; // Fail fast to avoid holding pool for 15s on P2024
+
+function withTimeout<T>(p: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(timeoutMessage)), ms)
+    ),
+  ]);
+}
+
 /**
- * Check database connectivity
+ * Check database connectivity (with timeout to avoid worsening pool exhaustion)
  */
 async function checkDatabase(): Promise<HealthCheck> {
   const start = Date.now();
   try {
-    // Use the serverless-optimized health check
-    const healthResult = await checkDatabaseHealth(prisma);
+    const healthResult = await withTimeout(
+      checkDatabaseHealth(prisma),
+      DB_HEALTH_TIMEOUT_MS,
+      'Database health check timed out (connection pool may be busy)'
+    );
 
     if (!healthResult.healthy) {
       return {
         name: 'Database',
         status: 'unhealthy',
         responseTime: healthResult.latencyMs,
-        message: healthResult.error || 'Connection failed'
+        message: healthResult.error || 'Connection failed',
       };
     }
 
-    // Check if we can read from a table
-    const patientCount = await prisma.patient.count();
+    // Quick read check (same timeout so we don't block 15s)
+    const patientCount = await withTimeout(
+      prisma.patient.count(),
+      DB_HEALTH_TIMEOUT_MS,
+      'Query timed out'
+    ).catch(() => null);
+
+    if (patientCount === null) {
+      return {
+        name: 'Database',
+        status: 'unhealthy',
+        responseTime: Date.now() - start,
+        message: 'Query timed out (connection pool may be busy)',
+      };
+    }
 
     return {
       name: 'Database',
       status: healthResult.latencyMs > 500 ? 'degraded' : 'healthy',
       responseTime: Date.now() - start,
       message: 'Connected and responsive',
-      details: { patientCount, latencyMs: healthResult.latencyMs }
+      details: { patientCount, latencyMs: healthResult.latencyMs },
     };
   } catch (error: any) {
     logger.error('Database health check failed', { error: error.message });
@@ -78,7 +106,7 @@ async function checkDatabase(): Promise<HealthCheck> {
       name: 'Database',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -99,9 +127,11 @@ async function checkConnectionPool(): Promise<HealthCheck> {
     const poolHealth = getConnectionPoolHealth();
 
     // Calculate utilization
-    const utilization = poolStats.maxConnections > 0
-      ? ((poolStats.activeConnections + poolStats.idleConnections) / poolStats.maxConnections) * 100
-      : 0;
+    const utilization =
+      poolStats.maxConnections > 0
+        ? ((poolStats.activeConnections + poolStats.idleConnections) / poolStats.maxConnections) *
+          100
+        : 0;
 
     // Determine status based on utilization
     let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
@@ -131,14 +161,14 @@ async function checkConnectionPool(): Promise<HealthCheck> {
           usePgBouncer: config.usePgBouncer,
         },
         poolManagerStatus: poolHealth.status,
-      }
+      },
     };
   } catch (error: any) {
     return {
       name: 'Connection Pool',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: `Unable to get pool stats: ${error.message}`
+      message: `Unable to get pool stats: ${error.message}`,
     };
   }
 }
@@ -154,13 +184,13 @@ async function checkStripe(): Promise<HealthCheck> {
         name: 'Stripe',
         status: 'degraded',
         responseTime: Date.now() - start,
-        message: 'Stripe API key not configured'
+        message: 'Stripe API key not configured',
       };
     }
 
     const Stripe = require('stripe');
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2026-01-28.clover'
+      apiVersion: '2026-01-28.clover',
     });
 
     // Quick balance check to verify API key
@@ -170,7 +200,7 @@ async function checkStripe(): Promise<HealthCheck> {
       name: 'Stripe',
       status: 'healthy',
       responseTime: Date.now() - start,
-      message: 'Connected and authenticated'
+      message: 'Connected and authenticated',
     };
   } catch (error: any) {
     logger.error('Stripe health check failed', { error: error.message });
@@ -178,7 +208,7 @@ async function checkStripe(): Promise<HealthCheck> {
       name: 'Stripe',
       status: error.message?.includes('API key') ? 'degraded' : 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -194,13 +224,13 @@ async function checkTwilio(): Promise<HealthCheck> {
         name: 'Twilio',
         status: 'degraded',
         responseTime: Date.now() - start,
-        message: 'Twilio credentials not configured'
+        message: 'Twilio credentials not configured',
       };
     }
 
     const twilio = require('twilio');
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    
+
     // Verify account
     const account = await client.api.accounts(process.env.TWILIO_ACCOUNT_SID).fetch();
 
@@ -209,7 +239,7 @@ async function checkTwilio(): Promise<HealthCheck> {
       status: account.status === 'active' ? 'healthy' : 'degraded',
       responseTime: Date.now() - start,
       message: `Account status: ${account.status}`,
-      details: { accountStatus: account.status }
+      details: { accountStatus: account.status },
     };
   } catch (error: any) {
     logger.error('Twilio health check failed', { error: error.message });
@@ -217,7 +247,7 @@ async function checkTwilio(): Promise<HealthCheck> {
       name: 'Twilio',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -230,13 +260,13 @@ async function checkCache(): Promise<HealthCheck> {
   try {
     // Try to import and check Redis
     const cache = require('@/lib/cache/redis').default;
-    
+
     if (!cache.isReady()) {
       return {
         name: 'Cache (Redis)',
         status: 'degraded',
         responseTime: Date.now() - start,
-        message: 'Redis not connected, using in-memory fallback'
+        message: 'Redis not connected, using in-memory fallback',
       };
     }
 
@@ -250,14 +280,14 @@ async function checkCache(): Promise<HealthCheck> {
       name: 'Cache (Redis)',
       status: value === 'test' ? 'healthy' : 'degraded',
       responseTime: Date.now() - start,
-      message: 'Connected and responsive'
+      message: 'Connected and responsive',
     };
   } catch (error: any) {
     return {
       name: 'Cache (Redis)',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: 'Using in-memory fallback'
+      message: 'Using in-memory fallback',
     };
   }
 }
@@ -273,13 +303,13 @@ async function checkOpenAI(): Promise<HealthCheck> {
         name: 'OpenAI',
         status: 'degraded',
         responseTime: Date.now() - start,
-        message: 'OpenAI API key not configured'
+        message: 'OpenAI API key not configured',
       };
     }
 
     const OpenAI = require('openai');
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    
+
     // Quick models list to verify API key
     await openai.models.list();
 
@@ -287,7 +317,7 @@ async function checkOpenAI(): Promise<HealthCheck> {
       name: 'OpenAI',
       status: 'healthy',
       responseTime: Date.now() - start,
-      message: 'Connected and authenticated'
+      message: 'Connected and authenticated',
     };
   } catch (error: any) {
     logger.error('OpenAI health check failed', { error: error.message });
@@ -295,7 +325,7 @@ async function checkOpenAI(): Promise<HealthCheck> {
       name: 'OpenAI',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -311,7 +341,7 @@ async function checkLifefile(): Promise<HealthCheck> {
         name: 'Lifefile (Pharmacy)',
         status: 'degraded',
         responseTime: Date.now() - start,
-        message: 'Lifefile API key not configured'
+        message: 'Lifefile API key not configured',
       };
     }
 
@@ -323,15 +353,15 @@ async function checkLifefile(): Promise<HealthCheck> {
       message: 'Configured',
       details: {
         practiceId: process.env.LIFEFILE_PRACTICE_NAME ? 'Set' : 'Not set',
-        locationId: process.env.LIFEFILE_LOCATION_ID ? 'Set' : 'Not set'
-      }
+        locationId: process.env.LIFEFILE_LOCATION_ID ? 'Set' : 'Not set',
+      },
     };
   } catch (error: any) {
     return {
       name: 'Lifefile (Pharmacy)',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -347,7 +377,7 @@ async function checkAuth(): Promise<HealthCheck> {
         name: 'Authentication',
         status: 'unhealthy',
         responseTime: Date.now() - start,
-        message: 'JWT_SECRET not configured'
+        message: 'JWT_SECRET not configured',
       };
     }
 
@@ -359,14 +389,14 @@ async function checkAuth(): Promise<HealthCheck> {
       status: 'healthy',
       responseTime: Date.now() - start,
       message: 'JWT configured, user table accessible',
-      details: { userCount }
+      details: { userCount },
     };
   } catch (error: any) {
     return {
       name: 'Authentication',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -377,7 +407,7 @@ async function checkAuth(): Promise<HealthCheck> {
 async function checkAPIRoutes(): Promise<HealthCheck> {
   const start = Date.now();
   const results: { route: string; status: string }[] = [];
-  
+
   try {
     // Check patients API (basic connectivity)
     const patientCount = await prisma.patient.count();
@@ -395,21 +425,21 @@ async function checkAPIRoutes(): Promise<HealthCheck> {
     const productCount = await prisma.product.count();
     results.push({ route: '/api/products', status: 'ok' });
 
-    const allOk = results.every(r => r.status === 'ok' || r.status === 'no data');
+    const allOk = results.every((r) => r.status === 'ok' || r.status === 'no data');
 
     return {
       name: 'API Routes',
       status: allOk ? 'healthy' : 'degraded',
       responseTime: Date.now() - start,
-      message: `${results.filter(r => r.status === 'ok').length}/${results.length} routes operational`,
-      details: results
+      message: `${results.filter((r) => r.status === 'ok').length}/${results.length} routes operational`,
+      details: results,
     };
   } catch (error: any) {
     return {
       name: 'API Routes',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -425,7 +455,7 @@ async function checkEncryption(): Promise<HealthCheck> {
         name: 'PHI Encryption',
         status: 'degraded',
         responseTime: Date.now() - start,
-        message: 'PHI encryption key not configured'
+        message: 'PHI encryption key not configured',
       };
     }
 
@@ -437,14 +467,14 @@ async function checkEncryption(): Promise<HealthCheck> {
       name: 'PHI Encryption',
       status: isValidKeyLength ? 'healthy' : 'degraded',
       responseTime: Date.now() - start,
-      message: isValidKeyLength ? 'AES-256-GCM configured' : 'Invalid key length'
+      message: isValidKeyLength ? 'AES-256-GCM configured' : 'Invalid key length',
     };
   } catch (error: any) {
     return {
       name: 'PHI Encryption',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -456,21 +486,25 @@ async function checkMigrations(): Promise<HealthCheck> {
   const start = Date.now();
   try {
     // Check if _prisma_migrations table exists and query it
-    const migrations = await prisma.$queryRaw<Array<{
-      id: string;
-      migration_name: string;
-      finished_at: Date | null;
-      applied_steps_count: number;
-    }>>`
+    const migrations = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        migration_name: string;
+        finished_at: Date | null;
+        applied_steps_count: number;
+      }>
+    >`
       SELECT id, migration_name, finished_at, applied_steps_count 
       FROM "_prisma_migrations" 
       ORDER BY started_at DESC 
       LIMIT 10
     `;
-    
+
     // Check for failed migrations (finished_at is null or steps_count mismatch)
-    const failedMigrations = migrations.filter((m: { finished_at: Date | null }) => m.finished_at === null);
-    
+    const failedMigrations = migrations.filter(
+      (m: { finished_at: Date | null }) => m.finished_at === null
+    );
+
     if (failedMigrations.length > 0) {
       return {
         name: 'Migrations',
@@ -479,11 +513,13 @@ async function checkMigrations(): Promise<HealthCheck> {
         message: `${failedMigrations.length} migration(s) in failed state`,
         details: {
           totalMigrations: migrations.length,
-          failedMigrations: failedMigrations.map((m: { migration_name: string }) => m.migration_name),
-        }
+          failedMigrations: failedMigrations.map(
+            (m: { migration_name: string }) => m.migration_name
+          ),
+        },
       };
     }
-    
+
     return {
       name: 'Migrations',
       status: 'healthy',
@@ -492,7 +528,7 @@ async function checkMigrations(): Promise<HealthCheck> {
       details: {
         totalMigrations: migrations.length,
         latestMigration: migrations[0]?.migration_name || 'none',
-      }
+      },
     };
   } catch (error: any) {
     // If table doesn't exist, migrations haven't been run
@@ -504,17 +540,17 @@ async function checkMigrations(): Promise<HealthCheck> {
         message: 'Migration history table not found - using db push?',
       };
     }
-    
+
     return {
       name: 'Migrations',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message
+      message: error.message,
     };
   }
 }
 
-export async function GET(req: NextRequest) {
+async function healthHandler(req: NextRequest) {
   const startTime = Date.now();
   const { searchParams } = new URL(req.url);
   const fullCheck = searchParams.get('full') === 'true';
@@ -522,7 +558,7 @@ export async function GET(req: NextRequest) {
   try {
     // Basic check (always public)
     const dbCheck = await checkDatabase();
-    
+
     // Quick response for basic health check (includes deploy identity for verifying which code is live)
     if (!fullCheck) {
       const payload: Record<string, unknown> = {
@@ -542,14 +578,20 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Full check requires authentication for security
+    // Full check is super_admin only (control center)
     const authResult = await verifyAuth(req);
     const isDevelopment = process.env.NODE_ENV === 'development';
-    
+
     if (!authResult.success && !isDevelopment) {
       return NextResponse.json(
         { error: 'Authentication required for full health check' },
         { status: 401 }
+      );
+    }
+    if (authResult.success && authResult.user?.role !== 'super_admin' && !isDevelopment) {
+      return NextResponse.json(
+        { error: 'Control Center access is restricted to super admins' },
+        { status: 403 }
       );
     }
 
@@ -571,9 +613,9 @@ export async function GET(req: NextRequest) {
     // Calculate summary
     const summary = {
       total: checks.length,
-      healthy: checks.filter(c => c.status === 'healthy').length,
-      degraded: checks.filter(c => c.status === 'degraded').length,
-      unhealthy: checks.filter(c => c.status === 'unhealthy').length,
+      healthy: checks.filter((c) => c.status === 'healthy').length,
+      degraded: checks.filter((c) => c.status === 'degraded').length,
+      unhealthy: checks.filter((c) => c.status === 'unhealthy').length,
     };
 
     // Determine overall status
@@ -600,18 +642,20 @@ export async function GET(req: NextRequest) {
       status: overallStatus === 'unhealthy' ? 503 : 200,
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-      }
+      },
     });
-
-  } catch (error: any) {
-    logger.error('Health check failed', { error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error('Health check failed', { error: msg });
     return NextResponse.json(
       {
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
-        error: error.message,
+        error: msg,
       },
       { status: 503 }
     );
   }
 }
+
+export const GET = withApiHandler(healthHandler);

@@ -1,373 +1,211 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  FileBarChart,
-  Plus,
-  Calendar,
-  Download,
-  Loader2,
-  Clock,
-  Play,
-  Trash2,
-  Edit2,
-  Copy,
-  MoreVertical,
-  Filter,
+  TrendingUp,
+  Users,
   BarChart3,
   PieChart,
   LineChart,
-  Table,
-  Mail,
+  Wallet,
+  RefreshCcw,
+  FileBarChart,
+  Plus,
+  ArrowRight,
+  Sparkles,
+  Download,
+  Calendar,
 } from 'lucide-react';
 
-interface SavedReport {
-  id: number;
-  name: string;
-  description: string | null;
-  type: string;
-  isScheduled: boolean;
-  schedule: string | null;
-  lastRunAt: string | null;
-  nextRunAt: string | null;
-  createdAt: string;
-}
-
-const REPORT_TEMPLATES = [
+// Report catalog — one-click access to every report
+const REPORTS = [
   {
-    id: 'revenue-summary',
-    name: 'Revenue Summary',
-    description: 'Monthly revenue breakdown with trends',
-    type: 'REVENUE',
-    icon: BarChart3,
+    id: 'revenue',
+    name: 'Revenue Analytics',
+    description: 'Gross revenue, MRR, trends, forecast & payment methods',
+    href: '/admin/finance/revenue',
+    icon: TrendingUp,
+    accent: 'emerald',
+    featured: true,
   },
   {
-    id: 'patient-ltv',
-    name: 'Patient LTV Report',
-    description: 'Lifetime value analysis by cohort',
-    type: 'PATIENTS',
-    icon: LineChart,
+    id: 'demographics',
+    name: 'Patient Demographics',
+    description: 'Patients by state, age, gender — M/F ratio & export',
+    href: '/admin/finance/reports/demographics',
+    icon: Users,
+    accent: 'teal',
+    featured: true,
   },
   {
-    id: 'payout-report',
-    name: 'Payout Report',
-    description: 'Bank deposits and fee breakdown',
-    type: 'PAYOUTS',
-    icon: Table,
+    id: 'incoming-payments',
+    name: 'Incoming Payments',
+    description: 'Stripe payment stream, reconciliation status',
+    href: '/admin/finance/incoming-payments',
+    icon: Download,
+    accent: 'blue',
+    featured: false,
   },
   {
-    id: 'subscription-metrics',
-    name: 'Subscription Metrics',
-    description: 'MRR, churn, and retention analysis',
-    type: 'SUBSCRIPTIONS',
-    icon: PieChart,
+    id: 'reconciliation',
+    name: 'Payment Reconciliation',
+    description: 'Unmatched payments, match history, retry',
+    href: '/admin/finance/reconciliation',
+    icon: RefreshCcw,
+    accent: 'amber',
+    featured: false,
   },
   {
-    id: 'reconciliation-report',
-    name: 'Reconciliation Report',
-    description: 'Unmatched payments and match history',
-    type: 'RECONCILIATION',
-    icon: Table,
+    id: 'invoices',
+    name: 'Invoices',
+    description: 'Invoice list, status, amounts',
+    href: '/admin/finance/invoices',
+    icon: FileBarChart,
+    accent: 'purple',
+    featured: false,
+  },
+  {
+    id: 'builder',
+    name: 'Report Builder',
+    description: 'Custom metrics, charts, dimensions & schedules',
+    href: '/admin/finance/reports/builder',
+    icon: Plus,
+    accent: 'slate',
+    featured: true,
   },
 ];
 
+const accentStyles: Record<string, string> = {
+  emerald:
+    'from-emerald-500/10 to-emerald-600/5 border-emerald-200/60 text-emerald-700 hover:border-emerald-300',
+  teal: 'from-teal-500/10 to-teal-600/5 border-teal-200/60 text-teal-700 hover:border-teal-300',
+  blue: 'from-blue-500/10 to-blue-600/5 border-blue-200/60 text-blue-700 hover:border-blue-300',
+  amber: 'from-amber-500/10 to-amber-600/5 border-amber-200/60 text-amber-700 hover:border-amber-300',
+  purple: 'from-purple-500/10 to-purple-600/5 border-purple-200/60 text-purple-700 hover:border-purple-300',
+  slate: 'from-slate-500/10 to-slate-600/5 border-slate-200/60 text-slate-700 hover:border-slate-300',
+};
+
+const iconBgStyles: Record<string, string> = {
+  emerald: 'bg-emerald-500/12 text-emerald-600',
+  teal: 'bg-teal-500/12 text-teal-600',
+  blue: 'bg-blue-500/12 text-blue-600',
+  amber: 'bg-amber-500/12 text-amber-600',
+  purple: 'bg-purple-500/12 text-purple-600',
+  slate: 'bg-slate-500/12 text-slate-600',
+};
+
 export default function ReportsPage() {
-  const [loading, setLoading] = useState(true);
-  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
-  const [activeTab, setActiveTab] = useState<'saved' | 'templates' | 'scheduled'>('saved');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-
-  useEffect(() => {
-    loadReports();
-  }, []);
-
-  const loadReports = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('super_admin-token') ||
-                    localStorage.getItem('token');
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const response = await fetch('/api/reports', {
-        credentials: 'include',
-        headers,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSavedReports(data.reports || []);
-      }
-    } catch (error) {
-      console.error('Failed to load reports:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Mock saved reports for demonstration
-  const mockReports: SavedReport[] = savedReports.length ? savedReports : [
-    {
-      id: 1,
-      name: 'Monthly Revenue Report',
-      description: 'Comprehensive monthly revenue analysis',
-      type: 'REVENUE',
-      isScheduled: true,
-      schedule: '0 9 1 * *',
-      lastRunAt: '2024-03-01T09:00:00Z',
-      nextRunAt: '2024-04-01T09:00:00Z',
-      createdAt: '2024-01-15T10:00:00Z',
-    },
-    {
-      id: 2,
-      name: 'Weekly Churn Analysis',
-      description: 'Track at-risk patients and churn trends',
-      type: 'PATIENTS',
-      isScheduled: true,
-      schedule: '0 9 * * 1',
-      lastRunAt: '2024-03-04T09:00:00Z',
-      nextRunAt: '2024-03-11T09:00:00Z',
-      createdAt: '2024-02-01T14:30:00Z',
-    },
-    {
-      id: 3,
-      name: 'Quarterly Payout Summary',
-      description: 'Payout history and fee analysis',
-      type: 'PAYOUTS',
-      isScheduled: false,
-      schedule: null,
-      lastRunAt: '2024-02-15T11:00:00Z',
-      nextRunAt: null,
-      createdAt: '2024-01-20T09:00:00Z',
-    },
-  ];
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'REVENUE': return 'bg-emerald-100 text-emerald-700';
-      case 'PATIENTS': return 'bg-blue-100 text-blue-700';
-      case 'PAYOUTS': return 'bg-purple-100 text-purple-700';
-      case 'SUBSCRIPTIONS': return 'bg-amber-100 text-amber-700';
-      case 'RECONCILIATION': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const scheduledReports = mockReports.filter(r => r.isScheduled);
+  const featured = REPORTS.filter((r) => r.featured);
+  const others = REPORTS.filter((r) => !r.featured);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Reports</h2>
-          <p className="text-sm text-gray-500 mt-1">Create, schedule, and export financial reports</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/finance/reports/builder"
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
-          >
-            <Plus className="h-4 w-4" />
-            New Report
-          </Link>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 bg-white rounded-lg border border-gray-200 p-1 w-fit">
-        {(['saved', 'templates', 'scheduled'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === tab
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Saved Reports */}
-      {activeTab === 'saved' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Saved Reports</h3>
+    <div className="mx-auto max-w-6xl">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-8 py-10 text-white shadow-xl">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.15),transparent)]" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-emerald-200">
+              <Sparkles className="h-4 w-4" />
+              Report Center
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Insights at a glance
+            </h1>
+            <p className="mt-2 max-w-xl text-base text-gray-300">
+              One-click access to revenue, demographics, payments & custom reports. Export anytime.
+            </p>
           </div>
-          
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+          <div className="hidden sm:flex">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/5">
+              <BarChart3 className="h-10 w-10 text-emerald-400/80" />
             </div>
-          ) : mockReports.length === 0 ? (
-            <div className="p-12 text-center">
-              <FileBarChart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No saved reports yet</p>
-              <p className="text-sm text-gray-400 mt-1">Create your first report to get started</p>
-              <Link
-                href="/admin/finance/reports/builder"
-                className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
-              >
-                <Plus className="h-4 w-4" />
-                Create Report
-              </Link>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {mockReports.map((report) => (
-                <div key={report.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      <FileBarChart className="h-5 w-5 text-gray-600" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900">{report.name}</p>
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getTypeColor(report.type)}`}>
-                          {report.type}
-                        </span>
-                        {report.isScheduled && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-full">
-                            <Clock className="h-3 w-3" />
-                            Scheduled
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">{report.description}</p>
-                      {report.lastRunAt && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Last run: {new Date(report.lastRunAt).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-gray-100 rounded" title="Run Now">
-                      <Play className="h-4 w-4 text-gray-500" />
-                    </button>
-                    <button className="p-2 hover:bg-gray-100 rounded" title="Download">
-                      <Download className="h-4 w-4 text-gray-500" />
-                    </button>
-                    <button className="p-2 hover:bg-gray-100 rounded" title="Edit">
-                      <Edit2 className="h-4 w-4 text-gray-500" />
-                    </button>
-                    <button className="p-2 hover:bg-gray-100 rounded" title="More">
-                      <MoreVertical className="h-4 w-4 text-gray-500" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
-      )}
+      </div>
 
-      {/* Templates */}
-      {activeTab === 'templates' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {REPORT_TEMPLATES.map((template) => {
-            const Icon = template.icon;
+      {/* Featured Reports */}
+      <section className="mt-8">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+          Quick Access
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {featured.map((report) => {
+            const Icon = report.icon;
+            const accent = accentStyles[report.accent] ?? accentStyles.slate;
+            const iconBg = iconBgStyles[report.accent] ?? iconBgStyles.slate;
             return (
-              <div
-                key={template.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+              <Link
+                key={report.id}
+                href={report.href}
+                className={`group relative flex flex-col gap-4 rounded-xl border bg-gradient-to-br p-6 transition-all duration-200 ${accent} hover:shadow-lg`}
               >
                 <div className="flex items-start justify-between">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <Icon className="h-5 w-5 text-gray-600" />
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconBg}`}>
+                    <Icon className="h-6 w-6" />
                   </div>
-                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getTypeColor(template.type)}`}>
-                    {template.type}
-                  </span>
+                  <ArrowRight className="h-5 w-5 text-gray-400 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mt-4">{template.name}</h3>
-                <p className="text-sm text-gray-500 mt-2">{template.description}</p>
-                <Link
-                  href={`/admin/finance/reports/builder?template=${template.id}`}
-                  className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-emerald-600 hover:text-emerald-700"
-                >
-                  Use Template
-                  <span className="text-lg">→</span>
-                </Link>
-              </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">{report.name}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
+                    {report.description}
+                  </p>
+                </div>
+                <span className="text-sm font-medium opacity-0 transition-opacity group-hover:opacity-100">
+                  View report →
+                </span>
+              </Link>
             );
           })}
-
-          {/* Custom Report Card */}
-          <Link
-            href="/admin/finance/reports/builder"
-            className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl border-2 border-dashed border-emerald-300 p-6 hover:border-emerald-400 transition-colors flex flex-col items-center justify-center text-center"
-          >
-            <div className="p-3 bg-white rounded-full shadow-sm">
-              <Plus className="h-6 w-6 text-emerald-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-emerald-900 mt-4">Custom Report</h3>
-            <p className="text-sm text-emerald-700 mt-2">Build a report from scratch with custom metrics</p>
-          </Link>
         </div>
-      )}
+      </section>
 
-      {/* Scheduled Reports */}
-      {activeTab === 'scheduled' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Scheduled Reports</h3>
-            <p className="text-sm text-gray-500 mt-1">Reports that run automatically</p>
-          </div>
-          
-          {scheduledReports.length === 0 ? (
-            <div className="p-12 text-center">
-              <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No scheduled reports</p>
-              <p className="text-sm text-gray-400 mt-1">Schedule a report to receive it automatically</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {scheduledReports.map((report) => (
-                <div key={report.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                      <Mail className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{report.name}</p>
-                      <p className="text-sm text-gray-500">{report.description}</p>
-                      <div className="flex items-center gap-4 mt-2">
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {report.schedule === '0 9 1 * *' ? 'Monthly (1st)' :
-                           report.schedule === '0 9 * * 1' ? 'Weekly (Mon)' :
-                           report.schedule}
-                        </span>
-                        {report.nextRunAt && (
-                          <span className="text-xs text-gray-400 flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Next: {new Date(report.nextRunAt).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded hover:bg-gray-200">
-                      Edit Schedule
-                    </button>
-                    <button className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded hover:bg-red-100">
-                      Disable
-                    </button>
-                  </div>
+      {/* All Reports */}
+      <section className="mt-10">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+          All Reports
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {others.map((report) => {
+            const Icon = report.icon;
+            const accent = accentStyles[report.accent] ?? accentStyles.slate;
+            const iconBg = iconBgStyles[report.accent] ?? iconBgStyles.slate;
+            return (
+              <Link
+                key={report.id}
+                href={report.href}
+                className={`group relative flex items-center gap-4 rounded-xl border bg-white p-5 transition-all duration-200 ${accent} hover:shadow-md`}
+              >
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+                  <Icon className="h-5 w-5" />
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-gray-900">{report.name}</h3>
+                  <p className="mt-0.5 truncate text-sm text-gray-500">{report.description}</p>
+                </div>
+                <ArrowRight className="h-5 w-5 shrink-0 text-gray-400 transition-transform group-hover:translate-x-1" />
+              </Link>
+            );
+          })}
         </div>
-      )}
+      </section>
+
+      {/* Tip */}
+      <div className="mt-10 rounded-xl border border-gray-200 bg-gray-50/50 px-6 py-4">
+        <div className="flex items-start gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
+            <Calendar className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900">Date ranges</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Each report supports flexible date ranges: day, week, month, quarter, semester, year,
+              and custom. Use the date picker inside each report to filter data.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -14,12 +14,9 @@ import {
   handleRefreshTokenReuse,
   rotateSessionRefreshToken,
 } from '@/lib/auth/refresh-token-rotation';
+import { withApiHandler } from '@/domains/shared/errors';
 
-/**
- * POST /api/auth/refresh-token
- * Refresh the access token using a valid refresh token
- */
-export async function POST(req: NextRequest) {
+async function refreshTokenHandler(req: NextRequest) {
   try {
     // Get refresh token from Authorization header
     const authHeader = req.headers.get('authorization');
@@ -271,3 +268,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to refresh token' }, { status: 500 });
   }
 }
+
+export const POST = withApiHandler(refreshTokenHandler);

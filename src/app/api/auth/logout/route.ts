@@ -19,6 +19,7 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
+import { withApiHandler } from '@/domains/shared/errors';
 
 const LOGOUT_CLEANUP_TIMEOUT_MS = 4000; // Don't block response; avoid holding DB connection
 
@@ -55,7 +56,7 @@ function clearCookiesOnResponse(response: NextResponse, req: NextRequest): void 
  * POST /api/auth/logout
  * Logout endpoint - clears cookies and returns immediately; session/audit cleanup is best-effort.
  */
-export async function POST(req: NextRequest) {
+async function logoutHandler(req: NextRequest) {
   try {
     let userId: string | undefined;
     let sessionId: string | undefined;
@@ -149,3 +150,5 @@ export async function POST(req: NextRequest) {
     return response;
   }
 }
+
+export const POST = withApiHandler(logoutHandler);

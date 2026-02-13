@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { withApiHandler } from '@/domains/shared/errors';
 
 /**
  * Webhook Health Check Endpoint
- * 
+ *
  * GET /api/webhooks/health
- * 
+ *
  * Returns the health status of all webhook integrations.
  * Use this for external monitoring (Uptime Robot, Pingdom, etc.)
- * 
+ *
  * Public endpoint - no auth required (for monitoring services)
  */
 
@@ -26,21 +27,24 @@ interface WebhookHealth {
   avgResponseTime: string | null;
 }
 
-export async function GET(req: NextRequest) {
+async function webhookHealthHandler(req: NextRequest) {
   const startTime = Date.now();
   const { searchParams } = new URL(req.url);
-  
+
   // SECURITY: Patient search functionality has been removed from this health check endpoint
   // Patient searches must use proper authenticated admin endpoints
   const patientSearch = searchParams.get('patient');
   if (patientSearch) {
     logger.security('[WebhookHealth] Blocked patient search attempt on public health endpoint');
     return NextResponse.json(
-      { error: 'Patient search not available on this endpoint. Use /api/admin/patients with proper authentication.' },
+      {
+        error:
+          'Patient search not available on this endpoint. Use /api/admin/patients with proper authentication.',
+      },
       { status: 403 }
     );
   }
-  
+
   try {
     // SECURITY NOTE: Patient search functionality has been removed from this endpoint
     // Patient data must only be accessed through properly authenticated admin endpoints
@@ -68,12 +72,14 @@ export async function GET(req: NextRequest) {
         },
       }),
       // Failed webhook attempts (if logged)
-      prisma.auditLog.count({
-        where: {
-          action: 'WEBHOOK_ERROR',
-          createdAt: { gte: last24h },
-        },
-      }).catch(() => 0),
+      prisma.auditLog
+        .count({
+          where: {
+            action: 'WEBHOOK_ERROR',
+            createdAt: { gte: last24h },
+          },
+        })
+        .catch(() => 0),
       // Last successful intake
       prisma.auditLog.findFirst({
         where: {
@@ -92,10 +98,7 @@ export async function GET(req: NextRequest) {
       // Check EONMEDS clinic exists
       prisma.clinic.findFirst({
         where: {
-          OR: [
-            { subdomain: 'eonmeds' },
-            { name: { contains: 'EONMEDS', mode: 'insensitive' } },
-          ],
+          OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
         },
         select: { id: true, name: true },
       }),
@@ -105,9 +108,8 @@ export async function GET(req: NextRequest) {
 
     // Calculate health status
     const totalIntake = intakeSuccessCount + intakeErrorCount;
-    const successRate = totalIntake > 0 
-      ? ((intakeSuccessCount / totalIntake) * 100).toFixed(1) 
-      : '100.0';
+    const successRate =
+      totalIntake > 0 ? ((intakeSuccessCount / totalIntake) * 100).toFixed(1) : '100.0';
 
     // Determine webhook health status
     let webhookStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
@@ -119,7 +121,7 @@ export async function GET(req: NextRequest) {
 
     // Check if we've received any webhooks recently (last hour)
     const lastSuccessTime = lastIntakeSuccess?.createdAt;
-    const hoursSinceLastSuccess = lastSuccessTime 
+    const hoursSinceLastSuccess = lastSuccessTime
       ? (now.getTime() - lastSuccessTime.getTime()) / (1000 * 60 * 60)
       : null;
 
@@ -143,11 +145,13 @@ export async function GET(req: NextRequest) {
       webhookSecret: process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET ? 'configured' : 'missing',
     };
 
-    const overallStatus = 
-      !dbHealthy ? 'down' :
-      !eonmedsClinic ? 'degraded' :
-      !process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET ? 'degraded' :
-      webhookStatus;
+    const overallStatus = !dbHealthy
+      ? 'down'
+      : !eonmedsClinic
+        ? 'degraded'
+        : !process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET
+          ? 'degraded'
+          : webhookStatus;
 
     const responseTime = Date.now() - startTime;
 
@@ -182,30 +186,33 @@ export async function GET(req: NextRequest) {
     });
 
     // Return appropriate status code based on health
-    const statusCode = overallStatus === 'healthy' ? 200 : 
-                       overallStatus === 'degraded' ? 200 : 503;
+    const statusCode = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
 
-    return NextResponse.json(response, { 
+    return NextResponse.json(response, {
       status: statusCode,
       headers: {
         'Cache-Control': 'no-store, max-age=0',
       },
     });
-
   } catch (error) {
     logger.error('[WEBHOOK HEALTH] Health check failed:', error);
-    
-    return NextResponse.json({
-      status: 'down',
-      timestamp: new Date().toISOString(),
-      responseTime: `${Date.now() - startTime}ms`,
-      error: 'Health check failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    }, { 
-      status: 503,
-      headers: {
-        'Cache-Control': 'no-store, max-age=0',
+
+    return NextResponse.json(
+      {
+        status: 'down',
+        timestamp: new Date().toISOString(),
+        responseTime: `${Date.now() - startTime}ms`,
+        error: 'Health check failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
       },
-    });
+      {
+        status: 503,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+        },
+      }
+    );
   }
 }
+
+export const GET = withApiHandler(webhookHealthHandler);

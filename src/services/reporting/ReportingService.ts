@@ -2,14 +2,14 @@
  * COMPREHENSIVE REPORTING SERVICE
  * ================================
  * Enterprise-grade reporting for clinic management
- * 
+ *
  * Features:
  * - Patient metrics (new, active, churned)
  * - Revenue analytics (daily, weekly, monthly, quarterly, yearly, custom)
  * - Subscription tracking (recurring revenue, treatment months, cancellations)
  * - Payment history and forecasting
  * - Treatment progression tracking
- * 
+ *
  * @module services/reporting
  * @version 1.0.0
  */
@@ -41,6 +41,7 @@ function safeDecrypt(value: string | null | undefined): string {
 // Helper types for Prisma groupBy results
 type PatientSourceGroupBy = { source: string | null; _count: number };
 type PatientGenderGroupBy = { gender: string | null; _count: number };
+type PatientStateGroupBy = { state: string; _count: number };
 type SubscriptionStatusGroupBy = { status: string; _count: number };
 type PaymentStatusGroupBy = { status: string; _count: number; _sum: { amount: number | null } };
 type PaymentMethodGroupBy = { paymentMethod: string | null; _count: number };
@@ -54,7 +55,10 @@ type SubscriptionAmountSelect = Pick<Subscription, 'amount'>;
 type SubscriptionMRRSelect = Pick<Subscription, 'amount' | 'interval' | 'intervalCount'>;
 type SubscriptionStartDateSelect = Pick<Subscription, 'startDate'>;
 type SubscriptionEndedSelect = Pick<Subscription, 'startDate' | 'endedAt'>;
-type SubscriptionPlanSelect = Pick<Subscription, 'amount' | 'interval' | 'intervalCount' | 'planName'>;
+type SubscriptionPlanSelect = Pick<
+  Subscription,
+  'amount' | 'interval' | 'intervalCount' | 'planName'
+>;
 type OrderFulfillmentSelect = Pick<Order, 'createdAt' | 'lastWebhookAt'>;
 
 // Helper types for includes
@@ -85,7 +89,7 @@ type PatientsOnMonthGroup = { month: number; count: number; patients: PatientOnM
 // Recurring revenue breakdown
 type PlanBreakdown = { count: number; mrr: number };
 
-export type DateRange = 
+export type DateRange =
   | 'today'
   | 'yesterday'
   | 'this_week'
@@ -117,6 +121,40 @@ export interface PatientMetrics {
   averagePatientAge: number;
   patientRetentionRate: number;
 }
+
+// Demographics reporting
+export interface DemographicsSummary {
+  totalPatients: number;
+  newInPeriod: number;
+  activePatients: number;
+  averageAge: number;
+  maleCount: number;
+  femaleCount: number;
+  otherCount: number;
+  maleFemaleRatio: number; // male/female; 0 if no females
+  genderBreakdown: Array<{ value: string; count: number; percentage: number }>;
+}
+
+export interface PatientsByStateEntry {
+  state: string;
+  count: number;
+  percentage: number;
+}
+
+export interface PatientsByAgeBucketEntry {
+  bucket: string;
+  count: number;
+  percentage: number;
+}
+
+const DEFAULT_AGE_BUCKETS = [
+  { label: '18-24', min: 18, max: 24 },
+  { label: '25-34', min: 25, max: 34 },
+  { label: '35-44', min: 35, max: 44 },
+  { label: '45-54', min: 45, max: 54 },
+  { label: '55-64', min: 55, max: 64 },
+  { label: '65+', min: 65, max: 150 },
+];
 
 export interface RevenueMetrics {
   totalRevenue: number;
@@ -222,35 +260,39 @@ export interface ComprehensiveReport {
 /**
  * Calculate date range based on preset or custom dates
  */
-export function calculateDateRange(params: DateRangeParams): { start: Date; end: Date; label: string } {
+export function calculateDateRange(params: DateRangeParams): {
+  start: Date;
+  end: Date;
+  label: string;
+} {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
+
   switch (params.range) {
     case 'today':
       return {
         start: today,
         end: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1),
-        label: 'Today'
+        label: 'Today',
       };
-      
+
     case 'yesterday':
       const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
       return {
         start: yesterday,
         end: new Date(today.getTime() - 1),
-        label: 'Yesterday'
+        label: 'Yesterday',
       };
-      
+
     case 'this_week':
       const weekStart = new Date(today);
       weekStart.setDate(today.getDate() - today.getDay());
       return {
         start: weekStart,
         end: now,
-        label: 'This Week'
+        label: 'This Week',
       };
-      
+
     case 'last_week':
       const lastWeekEnd = new Date(today);
       lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
@@ -259,77 +301,82 @@ export function calculateDateRange(params: DateRangeParams): { start: Date; end:
       return {
         start: lastWeekStart,
         end: lastWeekEnd,
-        label: 'Last Week'
+        label: 'Last Week',
       };
-      
+
     case 'this_month':
       return {
         start: new Date(now.getFullYear(), now.getMonth(), 1),
         end: now,
-        label: 'This Month'
+        label: 'This Month',
       };
-      
+
     case 'last_month':
       return {
         start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
         end: new Date(now.getFullYear(), now.getMonth(), 0),
-        label: 'Last Month'
+        label: 'Last Month',
       };
-      
+
     case 'this_quarter':
       const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
       return {
         start: quarterStart,
         end: now,
-        label: 'This Quarter'
+        label: 'This Quarter',
       };
-      
+
     case 'last_quarter':
       const lastQuarterEnd = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 0);
-      const lastQuarterStart = new Date(lastQuarterEnd.getFullYear(), lastQuarterEnd.getMonth() - 2, 1);
+      const lastQuarterStart = new Date(
+        lastQuarterEnd.getFullYear(),
+        lastQuarterEnd.getMonth() - 2,
+        1
+      );
       return {
         start: lastQuarterStart,
         end: lastQuarterEnd,
-        label: 'Last Quarter'
+        label: 'Last Quarter',
       };
-      
+
     case 'this_semester':
-      const semesterStart = now.getMonth() < 6
-        ? new Date(now.getFullYear(), 0, 1)
-        : new Date(now.getFullYear(), 6, 1);
+      const semesterStart =
+        now.getMonth() < 6 ? new Date(now.getFullYear(), 0, 1) : new Date(now.getFullYear(), 6, 1);
       return {
         start: semesterStart,
         end: now,
-        label: 'This Semester'
+        label: 'This Semester',
       };
-      
+
     case 'last_semester':
-      const lastSemesterEnd = now.getMonth() < 6
-        ? new Date(now.getFullYear() - 1, 11, 31)
-        : new Date(now.getFullYear(), 5, 30);
-      const lastSemesterStart = now.getMonth() < 6
-        ? new Date(now.getFullYear() - 1, 6, 1)
-        : new Date(now.getFullYear(), 0, 1);
+      const lastSemesterEnd =
+        now.getMonth() < 6
+          ? new Date(now.getFullYear() - 1, 11, 31)
+          : new Date(now.getFullYear(), 5, 30);
+      const lastSemesterStart =
+        now.getMonth() < 6
+          ? new Date(now.getFullYear() - 1, 6, 1)
+          : new Date(now.getFullYear(), 0, 1);
       return {
         start: lastSemesterStart,
         end: lastSemesterEnd,
-        label: 'Last Semester'
+        label: 'Last Semester',
       };
-      
+
     case 'this_year':
       return {
         start: new Date(now.getFullYear(), 0, 1),
         end: now,
-        label: 'This Year'
+        label: 'This Year',
       };
-      
+
     case 'last_year':
       return {
         start: new Date(now.getFullYear() - 1, 0, 1),
         end: new Date(now.getFullYear() - 1, 11, 31),
-        label: 'Last Year'
+        label: 'Last Year',
       };
-      
+
     case 'custom':
       if (!params.startDate || !params.endDate) {
         throw new Error('Custom date range requires startDate and endDate');
@@ -337,14 +384,14 @@ export function calculateDateRange(params: DateRangeParams): { start: Date; end:
       return {
         start: params.startDate,
         end: params.endDate,
-        label: `${params.startDate.toLocaleDateString()} - ${params.endDate.toLocaleDateString()}`
+        label: `${params.startDate.toLocaleDateString()} - ${params.endDate.toLocaleDateString()}`,
       };
-      
+
     default:
       return {
         start: new Date(now.getFullYear(), now.getMonth(), 1),
         end: now,
-        label: 'This Month'
+        label: 'This Month',
       };
   }
 }
@@ -402,15 +449,15 @@ export class ReportingService {
 
     // Total patients
     const totalPatients = await prisma.patient.count({
-      where: clinicFilter
+      where: clinicFilter,
     });
 
     // New patients in date range
     const newPatients = await prisma.patient.count({
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
-      }
+        createdAt: { gte: start, lte: end },
+      },
     });
 
     // Patients with recent activity (orders, payments, appointments in last 90 days)
@@ -423,10 +470,10 @@ export class ReportingService {
         OR: [
           { orders: { some: { createdAt: { gte: ninetyDaysAgo } } } },
           { payments: { some: { createdAt: { gte: ninetyDaysAgo } } } },
-          { subscriptions: { some: { status: 'ACTIVE' } } }
-        ]
+          { subscriptions: { some: { status: 'ACTIVE' } } },
+        ],
       },
-      select: { id: true }
+      select: { id: true },
     });
     const activePatients = activePatientIds.length;
     const inactivePatients = totalPatients - activePatients;
@@ -436,9 +483,9 @@ export class ReportingService {
       by: ['source'],
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
-      _count: true
+      _count: true,
     });
     const patientsBySource: Record<string, number> = {};
     patientsBySourceRaw.forEach((p: PatientSourceGroupBy) => {
@@ -450,9 +497,9 @@ export class ReportingService {
       by: ['gender'],
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
-      _count: true
+      _count: true,
     });
     const patientsByGender: Record<string, number> = {};
     patientsByGenderRaw.forEach((p: PatientGenderGroupBy) => {
@@ -467,28 +514,33 @@ export class ReportingService {
     const previousNewPatients = await prisma.patient.count({
       where: {
         ...clinicFilter,
-        createdAt: { gte: previousStart, lte: previousEnd }
-      }
+        createdAt: { gte: previousStart, lte: previousEnd },
+      },
     });
 
-    const patientGrowthRate = previousNewPatients > 0
-      ? ((newPatients - previousNewPatients) / previousNewPatients) * 100
-      : newPatients > 0 ? 100 : 0;
+    const patientGrowthRate =
+      previousNewPatients > 0
+        ? ((newPatients - previousNewPatients) / previousNewPatients) * 100
+        : newPatients > 0
+          ? 100
+          : 0;
 
     // Average patient age
     const allPatients = await prisma.patient.findMany({
       where: clinicFilter,
-      select: { dob: true }
+      select: { dob: true },
     });
-    const ages = allPatients.map((p: PatientDobSelect) => calculateAge(p.dob)).filter((a: number) => a > 0);
-    const averagePatientAge = ages.length > 0
-      ? Math.round(ages.reduce((a: number, b: number) => a + b, 0) / ages.length)
-      : 0;
+    const ages = allPatients
+      .map((p: PatientDobSelect) => calculateAge(p.dob))
+      .filter((a: number) => a > 0);
+    const averagePatientAge =
+      ages.length > 0
+        ? Math.round(ages.reduce((a: number, b: number) => a + b, 0) / ages.length)
+        : 0;
 
     // Retention rate (patients who made a purchase in both this period and previous period)
-    const patientRetentionRate = totalPatients > 0
-      ? Math.round((activePatients / totalPatients) * 100)
-      : 0;
+    const patientRetentionRate =
+      totalPatients > 0 ? Math.round((activePatients / totalPatients) * 100) : 0;
 
     return {
       totalPatients,
@@ -499,7 +551,194 @@ export class ReportingService {
       patientsByGender,
       patientGrowthRate: Math.round(patientGrowthRate * 10) / 10,
       averagePatientAge,
-      patientRetentionRate
+      patientRetentionRate,
+    };
+  }
+
+  // ==========================================================================
+  // DEMOGRAPHICS
+  // ==========================================================================
+
+  /**
+   * Normalize gender for consistent grouping
+   */
+  private normalizeGender(raw: string | null): 'Male' | 'Female' | 'Other' {
+    if (!raw || typeof raw !== 'string') return 'Other';
+    const v = raw.trim().toLowerCase();
+    if (['m', 'male'].includes(v)) return 'Male';
+    if (['f', 'female'].includes(v)) return 'Female';
+    return 'Other';
+  }
+
+  /**
+   * Get patients grouped by state
+   */
+  async getPatientsByState(
+    dateRange: DateRangeParams
+  ): Promise<PatientsByStateEntry[]> {
+    const { start, end } = calculateDateRange(dateRange);
+    const clinicFilter = this.getClinicFilter();
+
+    const byState = await prisma.patient.groupBy({
+      by: ['state'],
+      where: {
+        ...clinicFilter,
+        createdAt: { gte: start, lte: end },
+      },
+      _count: true,
+    });
+
+    const total = byState.reduce((sum: number, r: PatientStateGroupBy) => sum + r._count, 0);
+    return (byState as PatientStateGroupBy[])
+      .map((r) => ({
+        state: r.state || 'Unknown',
+        count: r._count,
+        percentage: total > 0 ? Math.round((r._count / total) * 10000) / 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
+   * Get patients grouped by age bucket
+   */
+  async getPatientsByAgeBucket(
+    dateRange: DateRangeParams,
+    buckets = DEFAULT_AGE_BUCKETS
+  ): Promise<PatientsByAgeBucketEntry[]> {
+    const { start, end } = calculateDateRange(dateRange);
+    const clinicFilter = this.getClinicFilter();
+
+    const patients = await prisma.patient.findMany({
+      where: {
+        ...clinicFilter,
+        createdAt: { gte: start, lte: end },
+      },
+      select: { dob: true },
+    });
+
+    const bucketCounts = new Map<string, number>();
+    buckets.forEach((b) => bucketCounts.set(b.label, 0));
+
+    let validCount = 0;
+    patients.forEach((p: PatientDobSelect) => {
+      const rawDob = safeDecrypt(p.dob) || p.dob;
+      const age = calculateAge(rawDob);
+      if (age > 0 && age < 150) {
+        validCount++;
+        for (const b of buckets) {
+          if (age >= b.min && age <= b.max) {
+            bucketCounts.set(b.label, (bucketCounts.get(b.label) || 0) + 1);
+            break;
+          }
+        }
+      }
+    });
+
+    const total = validCount;
+    return buckets.map((b) => ({
+      bucket: b.label,
+      count: bucketCounts.get(b.label) || 0,
+      percentage: total > 0 ? Math.round(((bucketCounts.get(b.label) || 0) / total) * 10000) / 100 : 0,
+    }));
+  }
+
+  /**
+   * Get demographics summary with male/female ratio and gender breakdown
+   */
+  async getDemographicsSummary(
+    dateRange: DateRangeParams
+  ): Promise<DemographicsSummary> {
+    const { start, end } = calculateDateRange(dateRange);
+    const clinicFilter = this.getClinicFilter();
+
+    const [totalCount, newCount, activeCount, byGenderRaw, patientsForAge] =
+      await Promise.all([
+        prisma.patient.count({ where: clinicFilter }),
+        prisma.patient.count({
+          where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
+        }),
+        (async () => {
+          const ninetyDaysAgo = new Date();
+          ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+          return prisma.patient.count({
+            where: {
+              ...clinicFilter,
+              OR: [
+                { orders: { some: { createdAt: { gte: ninetyDaysAgo } } } },
+                { payments: { some: { createdAt: { gte: ninetyDaysAgo } } } },
+                { subscriptions: { some: { status: 'ACTIVE' } } },
+              ],
+            },
+          });
+        })(),
+        prisma.patient.groupBy({
+          by: ['gender'],
+          where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
+          _count: true,
+        }),
+        prisma.patient.findMany({
+          where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
+          select: { dob: true, gender: true },
+        }),
+      ]);
+
+    // Normalize gender and compute ratio
+    const male: number[] = [];
+    const female: number[] = [];
+    const other: number[] = [];
+    (byGenderRaw as PatientGenderGroupBy[]).forEach((g) => {
+      const norm = this.normalizeGender(g.gender);
+      const c = g._count;
+      if (norm === 'Male') male.push(c);
+      else if (norm === 'Female') female.push(c);
+      else other.push(c);
+    });
+    const maleCount = male.reduce((a, b) => a + b, 0);
+    const femaleCount = female.reduce((a, b) => a + b, 0);
+    const otherCount = other.reduce((a, b) => a + b, 0);
+    const maleFemaleRatio = femaleCount > 0 ? Math.round((maleCount / femaleCount) * 100) / 100 : 0;
+
+    const genderTotal = maleCount + femaleCount + otherCount;
+    const genderBreakdown: Array<{ value: string; count: number; percentage: number }> = [];
+    if (maleCount > 0)
+      genderBreakdown.push({
+        value: 'Male',
+        count: maleCount,
+        percentage: genderTotal > 0 ? Math.round((maleCount / genderTotal) * 10000) / 100 : 0,
+      });
+    if (femaleCount > 0)
+      genderBreakdown.push({
+        value: 'Female',
+        count: femaleCount,
+        percentage: genderTotal > 0 ? Math.round((femaleCount / genderTotal) * 10000) / 100 : 0,
+      });
+    if (otherCount > 0)
+      genderBreakdown.push({
+        value: 'Other',
+        count: otherCount,
+        percentage: genderTotal > 0 ? Math.round((otherCount / genderTotal) * 10000) / 100 : 0,
+      });
+
+    // Average age
+    const ages = patientsForAge
+      .map((p: { dob: string; gender: string | null }) => {
+        const rawDob = safeDecrypt(p.dob) || p.dob;
+        return calculateAge(rawDob);
+      })
+      .filter((a: number) => a > 0);
+    const averageAge =
+      ages.length > 0 ? Math.round(ages.reduce((a: number, b: number) => a + b, 0) / ages.length) : 0;
+
+    return {
+      totalPatients: totalCount,
+      newInPeriod: newCount,
+      activePatients: activeCount,
+      averageAge,
+      maleCount,
+      femaleCount,
+      otherCount,
+      maleFemaleRatio,
+      genderBreakdown,
     };
   }
 
@@ -516,13 +755,13 @@ export class ReportingService {
       where: {
         ...clinicFilter,
         status: 'SUCCEEDED',
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
       select: {
         amount: true,
         createdAt: true,
-        subscriptionId: true
-      }
+        subscriptionId: true,
+      },
     });
 
     const totalRevenue = payments.reduce((sum: number, p: PaymentSelect) => sum + p.amount, 0);
@@ -535,7 +774,7 @@ export class ReportingService {
     const orders = await prisma.order.findMany({
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
       include: {
         patient: {
@@ -543,31 +782,34 @@ export class ReportingService {
             payments: {
               where: {
                 status: 'SUCCEEDED',
-                createdAt: { gte: start, lte: end }
-              }
-            }
-          }
-        }
-      }
+                createdAt: { gte: start, lte: end },
+              },
+            },
+          },
+        },
+      },
     });
 
-    const orderValues = orders.map((o: OrderWithPatientPayments) => 
-      o.patient.payments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
-    ).filter((v: number) => v > 0);
-    
-    const averageOrderValue = orderValues.length > 0
-      ? Math.round(orderValues.reduce((a: number, b: number) => a + b, 0) / orderValues.length)
-      : 0;
+    const orderValues = orders
+      .map((o: OrderWithPatientPayments) =>
+        o.patient.payments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
+      )
+      .filter((v: number) => v > 0);
+
+    const averageOrderValue =
+      orderValues.length > 0
+        ? Math.round(orderValues.reduce((a: number, b: number) => a + b, 0) / orderValues.length)
+        : 0;
 
     // Revenue by day
     const revenueByDay: Array<{ date: string; amount: number }> = [];
     const dayMap = new Map<string, number>();
-    
+
     payments.forEach((p: PaymentSelect) => {
       const dateKey = p.createdAt.toISOString().split('T')[0];
       dayMap.set(dateKey, (dayMap.get(dateKey) || 0) + p.amount);
     });
-    
+
     dayMap.forEach((amount: number, date: string) => {
       revenueByDay.push({ date, amount });
     });
@@ -578,17 +820,17 @@ export class ReportingService {
     const ordersWithPayments = await prisma.order.findMany({
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
       include: {
         patient: {
           include: {
             payments: {
-              where: { status: 'SUCCEEDED' }
-            }
-          }
-        }
-      }
+              where: { status: 'SUCCEEDED' },
+            },
+          },
+        },
+      },
     });
 
     ordersWithPayments.forEach((order: OrderWithPatientPayments) => {
@@ -608,25 +850,31 @@ export class ReportingService {
       where: {
         ...clinicFilter,
         status: 'SUCCEEDED',
-        createdAt: { gte: previousStart, lte: previousEnd }
+        createdAt: { gte: previousStart, lte: previousEnd },
       },
-      _sum: { amount: true }
+      _sum: { amount: true },
     });
 
     const previousRevenue = previousPayments._sum.amount || 0;
-    const revenueGrowthRate = previousRevenue > 0
-      ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
-      : totalRevenue > 0 ? 100 : 0;
+    const revenueGrowthRate =
+      previousRevenue > 0
+        ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
+        : totalRevenue > 0
+          ? 100
+          : 0;
 
     // Projected revenue (based on current MRR)
     const activeSubscriptions = await prisma.subscription.findMany({
       where: {
         ...clinicFilter,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       },
-      select: { amount: true }
+      select: { amount: true },
     });
-    const monthlyRecurring = activeSubscriptions.reduce((sum: number, s: SubscriptionAmountSelect) => sum + s.amount, 0);
+    const monthlyRecurring = activeSubscriptions.reduce(
+      (sum: number, s: SubscriptionAmountSelect) => sum + s.amount,
+      0
+    );
     const projectedRevenue = monthlyRecurring * 12;
 
     return {
@@ -637,7 +885,7 @@ export class ReportingService {
       revenueByDay,
       revenueByTreatment,
       projectedRevenue,
-      revenueGrowthRate: Math.round(revenueGrowthRate * 10) / 10
+      revenueGrowthRate: Math.round(revenueGrowthRate * 10) / 10,
     };
   }
 
@@ -653,7 +901,7 @@ export class ReportingService {
     const subscriptionCounts = await prisma.subscription.groupBy({
       by: ['status'],
       where: clinicFilter,
-      _count: true
+      _count: true,
     });
 
     let totalActiveSubscriptions = 0;
@@ -670,59 +918,64 @@ export class ReportingService {
     const activeSubscriptions = await prisma.subscription.findMany({
       where: {
         ...clinicFilter,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       },
-      select: { amount: true, interval: true, intervalCount: true }
+      select: { amount: true, interval: true, intervalCount: true },
     });
 
-    const monthlyRecurringRevenue = activeSubscriptions.reduce((sum: number, s: SubscriptionMRRSelect) => {
-      if (s.interval === 'month') return sum + (s.amount / s.intervalCount);
-      if (s.interval === 'year') return sum + (s.amount / 12);
-      return sum + s.amount;
-    }, 0);
+    const monthlyRecurringRevenue = activeSubscriptions.reduce(
+      (sum: number, s: SubscriptionMRRSelect) => {
+        if (s.interval === 'month') return sum + s.amount / s.intervalCount;
+        if (s.interval === 'year') return sum + s.amount / 12;
+        return sum + s.amount;
+      },
+      0
+    );
 
     const annualRecurringRevenue = monthlyRecurringRevenue * 12;
 
-    const averageSubscriptionValue = activeSubscriptions.length > 0
-      ? Math.round(activeSubscriptions.reduce((sum: number, s: SubscriptionMRRSelect) => sum + s.amount, 0) / activeSubscriptions.length)
-      : 0;
+    const averageSubscriptionValue =
+      activeSubscriptions.length > 0
+        ? Math.round(
+            activeSubscriptions.reduce(
+              (sum: number, s: SubscriptionMRRSelect) => sum + s.amount,
+              0
+            ) / activeSubscriptions.length
+          )
+        : 0;
 
     // Churn rate (cancelled in period / total at start of period)
     const cancelledInPeriod = await prisma.subscription.count({
       where: {
         ...clinicFilter,
         status: 'CANCELED',
-        canceledAt: { gte: start, lte: end }
-      }
+        canceledAt: { gte: start, lte: end },
+      },
     });
 
     const totalAtStart = await prisma.subscription.count({
       where: {
         ...clinicFilter,
         createdAt: { lt: start },
-        OR: [
-          { status: 'ACTIVE' },
-          { canceledAt: { gte: start } }
-        ]
-      }
+        OR: [{ status: 'ACTIVE' }, { canceledAt: { gte: start } }],
+      },
     });
 
-    const churnRate = totalAtStart > 0
-      ? Math.round((cancelledInPeriod / totalAtStart) * 100 * 10) / 10
-      : 0;
+    const churnRate =
+      totalAtStart > 0 ? Math.round((cancelledInPeriod / totalAtStart) * 100 * 10) / 10 : 0;
 
     // Subscriptions by treatment month
     const allActiveSubscriptions = await prisma.subscription.findMany({
       where: {
         ...clinicFilter,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       },
-      select: { startDate: true }
+      select: { startDate: true },
     });
 
     const subscriptionsByMonth: Record<number, number> = {};
     const now = new Date();
-    
+
     allActiveSubscriptions.forEach((s: SubscriptionStartDateSelect) => {
       const months = monthsBetween(s.startDate, now) + 1;
       subscriptionsByMonth[months] = (subscriptionsByMonth[months] || 0) + 1;
@@ -733,15 +986,15 @@ export class ReportingService {
       where: {
         ...clinicFilter,
         status: 'CANCELED',
-        canceledAt: { gte: start, lte: end }
+        canceledAt: { gte: start, lte: end },
       },
       include: {
         patient: {
-          select: { id: true, firstName: true, lastName: true }
-        }
+          select: { id: true, firstName: true, lastName: true },
+        },
       },
       orderBy: { canceledAt: 'desc' },
-      take: 20
+      take: 20,
     });
 
     // Recent pauses
@@ -749,15 +1002,15 @@ export class ReportingService {
       where: {
         ...clinicFilter,
         status: 'PAUSED',
-        pausedAt: { gte: start, lte: end }
+        pausedAt: { gte: start, lte: end },
       },
       include: {
         patient: {
-          select: { id: true, firstName: true, lastName: true }
-        }
+          select: { id: true, firstName: true, lastName: true },
+        },
       },
       orderBy: { pausedAt: 'desc' },
-      take: 20
+      take: 20,
     });
 
     return {
@@ -771,16 +1024,18 @@ export class ReportingService {
       subscriptionsByMonth,
       recentCancellations: recentCancellations.map((s: SubscriptionWithPatient) => ({
         patientId: s.patient.id,
-        patientName: `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
+        patientName:
+          `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
         cancelledAt: s.canceledAt!,
-        monthsActive: monthsBetween(s.startDate, s.canceledAt || new Date())
+        monthsActive: monthsBetween(s.startDate, s.canceledAt || new Date()),
       })),
       recentPauses: recentPauses.map((s: SubscriptionWithPatient) => ({
         patientId: s.patient.id,
-        patientName: `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
+        patientName:
+          `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
         pausedAt: s.pausedAt!,
-        resumeAt: s.resumeAt || undefined
-      }))
+        resumeAt: s.resumeAt || undefined,
+      })),
     };
   }
 
@@ -797,10 +1052,10 @@ export class ReportingService {
       by: ['status'],
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
       _count: true,
-      _sum: { amount: true }
+      _sum: { amount: true },
     });
 
     let totalPayments = 0;
@@ -821,13 +1076,11 @@ export class ReportingService {
       if (p.status === 'REFUNDED') refundedPayments = p._count;
     });
 
-    const paymentSuccessRate = totalPayments > 0
-      ? Math.round((successfulPayments / totalPayments) * 100)
-      : 0;
+    const paymentSuccessRate =
+      totalPayments > 0 ? Math.round((successfulPayments / totalPayments) * 100) : 0;
 
-    const averagePaymentAmount = successfulPayments > 0
-      ? Math.round(totalAmount / successfulPayments)
-      : 0;
+    const averagePaymentAmount =
+      successfulPayments > 0 ? Math.round(totalAmount / successfulPayments) : 0;
 
     // Payments by method
     const paymentsByMethodRaw = await prisma.payment.groupBy({
@@ -835,9 +1088,9 @@ export class ReportingService {
       where: {
         ...clinicFilter,
         status: 'SUCCEEDED',
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
-      _count: true
+      _count: true,
     });
 
     const paymentsByMethod: Record<string, number> = {};
@@ -848,26 +1101,30 @@ export class ReportingService {
     // Yesterday's payments
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+    const yesterdayStart = new Date(
+      yesterday.getFullYear(),
+      yesterday.getMonth(),
+      yesterday.getDate()
+    );
     const yesterdayEnd = new Date(yesterdayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
 
     const yesterdayPaymentsRaw = await prisma.payment.findMany({
       where: {
         ...clinicFilter,
         status: 'SUCCEEDED',
-        createdAt: { gte: yesterdayStart, lte: yesterdayEnd }
+        createdAt: { gte: yesterdayStart, lte: yesterdayEnd },
       },
       include: {
         patient: {
           include: {
             orders: {
               orderBy: { createdAt: 'desc' },
-              take: 1
-            }
-          }
-        }
+              take: 1,
+            },
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     const yesterdayPayments = yesterdayPaymentsRaw.map((p: PaymentWithPatientOrders) => ({
@@ -875,7 +1132,7 @@ export class ReportingService {
       patientName: `${safeDecrypt(p.patient.firstName)} ${safeDecrypt(p.patient.lastName)}`.trim(),
       amount: p.amount,
       treatment: p.patient.orders[0]?.primaryMedName || 'Unknown',
-      paidAt: p.createdAt
+      paidAt: p.createdAt,
     }));
 
     return {
@@ -887,7 +1144,7 @@ export class ReportingService {
       paymentSuccessRate,
       averagePaymentAmount,
       paymentsByMethod,
-      yesterdayPayments
+      yesterdayPayments,
     };
   }
 
@@ -897,112 +1154,114 @@ export class ReportingService {
 
   async getTreatmentMetrics(dateRange: DateRangeParams): Promise<TreatmentMetrics> {
     try {
-    const clinicFilter = this.getClinicFilter();
-    const now = new Date();
+      const clinicFilter = this.getClinicFilter();
+      const now = new Date();
 
-    // Get all active subscriptions with patient info
-    const subscriptions = await prisma.subscription.findMany({
-      where: {
-        ...clinicFilter,
-        status: 'ACTIVE'
-      },
-      include: {
-        patient: true
-      }
-    });
-
-    // Group by treatment month
-    const patientsByTreatmentMonth: Record<number, number> = {};
-    const patientsOnMonth: Array<{
-      month: number;
-      count: number;
-      patients: Array<{ id: number; name: string; startDate: Date; treatment: string }>;
-    }> = [];
-
-    const monthGroups = new Map<number, Array<{ id: number; name: string; startDate: Date; treatment: string }>>();
-
-    subscriptions.forEach((s: SubscriptionWithPatientFull) => {
-      const months = monthsBetween(s.startDate, now) + 1;
-      patientsByTreatmentMonth[months] = (patientsByTreatmentMonth[months] || 0) + 1;
-
-      if (!monthGroups.has(months)) {
-        monthGroups.set(months, []);
-      }
-      monthGroups.get(months)!.push({
-        id: s.patient.id,
-        name: `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
-        startDate: s.startDate,
-        treatment: s.planName
+      // Get all active subscriptions with patient info
+      const subscriptions = await prisma.subscription.findMany({
+        where: {
+          ...clinicFilter,
+          status: 'ACTIVE',
+        },
+        include: {
+          patient: true,
+        },
       });
-    });
 
-    monthGroups.forEach((patients: PatientOnMonthEntry[], month: number) => {
-      patientsOnMonth.push({
-        month,
-        count: patients.length,
-        patients
+      // Group by treatment month
+      const patientsByTreatmentMonth: Record<number, number> = {};
+      const patientsOnMonth: Array<{
+        month: number;
+        count: number;
+        patients: Array<{ id: number; name: string; startDate: Date; treatment: string }>;
+      }> = [];
+
+      const monthGroups = new Map<
+        number,
+        Array<{ id: number; name: string; startDate: Date; treatment: string }>
+      >();
+
+      subscriptions.forEach((s: SubscriptionWithPatientFull) => {
+        const months = monthsBetween(s.startDate, now) + 1;
+        patientsByTreatmentMonth[months] = (patientsByTreatmentMonth[months] || 0) + 1;
+
+        if (!monthGroups.has(months)) {
+          monthGroups.set(months, []);
+        }
+        monthGroups.get(months)!.push({
+          id: s.patient.id,
+          name: `${safeDecrypt(s.patient.firstName)} ${safeDecrypt(s.patient.lastName)}`.trim(),
+          startDate: s.startDate,
+          treatment: s.planName,
+        });
       });
-    });
-    patientsOnMonth.sort((a: PatientsOnMonthGroup, b: PatientsOnMonthGroup) => a.month - b.month);
 
-    // Treatment completion rate (completed subscriptions / total ended)
-    const completedSubscriptions = await prisma.subscription.count({
-      where: {
-        ...clinicFilter,
-        status: 'EXPIRED',
-        endedAt: { not: null }
-      }
-    });
+      monthGroups.forEach((patients: PatientOnMonthEntry[], month: number) => {
+        patientsOnMonth.push({
+          month,
+          count: patients.length,
+          patients,
+        });
+      });
+      patientsOnMonth.sort((a: PatientsOnMonthGroup, b: PatientsOnMonthGroup) => a.month - b.month);
 
-    const totalEndedSubscriptions = await prisma.subscription.count({
-      where: {
-        ...clinicFilter,
-        OR: [
-          { status: 'EXPIRED' },
-          { status: 'CANCELED' }
-        ]
-      }
-    });
+      // Treatment completion rate (completed subscriptions / total ended)
+      const completedSubscriptions = await prisma.subscription.count({
+        where: {
+          ...clinicFilter,
+          status: 'EXPIRED',
+          endedAt: { not: null },
+        },
+      });
 
-    const treatmentCompletionRate = totalEndedSubscriptions > 0
-      ? Math.round((completedSubscriptions / totalEndedSubscriptions) * 100)
-      : 0;
+      const totalEndedSubscriptions = await prisma.subscription.count({
+        where: {
+          ...clinicFilter,
+          OR: [{ status: 'EXPIRED' }, { status: 'CANCELED' }],
+        },
+      });
 
-    // Average treatment duration
-    const endedSubscriptions = await prisma.subscription.findMany({
-      where: {
-        ...clinicFilter,
-        endedAt: { not: null }
-      },
-      select: { startDate: true, endedAt: true }
-    });
+      const treatmentCompletionRate =
+        totalEndedSubscriptions > 0
+          ? Math.round((completedSubscriptions / totalEndedSubscriptions) * 100)
+          : 0;
 
-    const durations = endedSubscriptions.map((s: SubscriptionEndedSelect) => 
-      monthsBetween(s.startDate, s.endedAt!)
-    );
-    const averageTreatmentDuration = durations.length > 0
-      ? Math.round(durations.reduce((a: number, b: number) => a + b, 0) / durations.length)
-      : 0;
+      // Average treatment duration
+      const endedSubscriptions = await prisma.subscription.findMany({
+        where: {
+          ...clinicFilter,
+          endedAt: { not: null },
+        },
+        select: { startDate: true, endedAt: true },
+      });
 
-    // Treatments by type
-    const treatmentsByType: Record<string, number> = {};
-    const orders = await prisma.order.groupBy({
-      by: ['primaryMedName'],
-      where: clinicFilter,
-      _count: true
-    });
+      const durations = endedSubscriptions.map((s: SubscriptionEndedSelect) =>
+        monthsBetween(s.startDate, s.endedAt!)
+      );
+      const averageTreatmentDuration =
+        durations.length > 0
+          ? Math.round(durations.reduce((a: number, b: number) => a + b, 0) / durations.length)
+          : 0;
 
-    orders.forEach((o: OrderMedicationGroupBy) => {
-      treatmentsByType[o.primaryMedName || 'Unknown'] = o._count;
-    });
+      // Treatments by type
+      const treatmentsByType: Record<string, number> = {};
+      const orders = await prisma.order.groupBy({
+        by: ['primaryMedName'],
+        where: clinicFilter,
+        _count: true,
+      });
 
-    return {
-      patientsByTreatmentMonth,
-      treatmentCompletionRate,
-      averageTreatmentDuration,
-      treatmentsByType,
-      patientsOnMonth
-    };
+      orders.forEach((o: OrderMedicationGroupBy) => {
+        treatmentsByType[o.primaryMedName || 'Unknown'] = o._count;
+      });
+
+      return {
+        patientsByTreatmentMonth,
+        treatmentCompletionRate,
+        averageTreatmentDuration,
+        treatmentsByType,
+        patientsOnMonth,
+      };
     } catch (error) {
       logger.error('Error in getTreatmentMetrics', error as Error);
       // Return empty metrics on error
@@ -1011,7 +1270,7 @@ export class ReportingService {
         treatmentCompletionRate: 0,
         averageTreatmentDuration: 0,
         treatmentsByType: {},
-        patientsOnMonth: []
+        patientsOnMonth: [],
       };
     }
   }
@@ -1028,8 +1287,8 @@ export class ReportingService {
     const totalOrders = await prisma.order.count({
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
-      }
+        createdAt: { gte: start, lte: end },
+      },
     });
 
     // Orders by status
@@ -1037,9 +1296,9 @@ export class ReportingService {
       by: ['status'],
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
-      _count: true
+      _count: true,
     });
 
     const ordersByStatus: Record<string, number> = {};
@@ -1050,7 +1309,7 @@ export class ReportingService {
     ordersByStatusRaw.forEach((o: OrderStatusGroupBy) => {
       const status = o.status || 'unknown';
       ordersByStatus[status] = o._count;
-      
+
       if (['pending', 'processing', 'submitted'].includes(status.toLowerCase())) {
         pendingOrders += o._count;
       }
@@ -1067,9 +1326,9 @@ export class ReportingService {
       by: ['primaryMedName'],
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
-      _count: true
+      _count: true,
     });
 
     const ordersByMedication: Record<string, number> = {};
@@ -1081,44 +1340,53 @@ export class ReportingService {
     const ordersWithPayments = await prisma.order.findMany({
       where: {
         ...clinicFilter,
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
       include: {
         patient: {
           include: {
             payments: {
-              where: { status: 'SUCCEEDED' }
-            }
-          }
-        }
-      }
+              where: { status: 'SUCCEEDED' },
+            },
+          },
+        },
+      },
     });
 
-    const orderValues = ordersWithPayments.map((o: OrderWithPatientPayments) => 
-      o.patient.payments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
-    ).filter((v: number) => v > 0);
+    const orderValues = ordersWithPayments
+      .map((o: OrderWithPatientPayments) =>
+        o.patient.payments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
+      )
+      .filter((v: number) => v > 0);
 
-    const averageOrderValue = orderValues.length > 0
-      ? Math.round(orderValues.reduce((a: number, b: number) => a + b, 0) / orderValues.length)
-      : 0;
+    const averageOrderValue =
+      orderValues.length > 0
+        ? Math.round(orderValues.reduce((a: number, b: number) => a + b, 0) / orderValues.length)
+        : 0;
 
     // Average fulfillment time (from created to shipped)
     const fulfilledOrders = await prisma.order.findMany({
       where: {
         ...clinicFilter,
         createdAt: { gte: start, lte: end },
-        shippingStatus: { not: null }
+        shippingStatus: { not: null },
       },
-      select: { createdAt: true, lastWebhookAt: true }
+      select: { createdAt: true, lastWebhookAt: true },
     });
 
     const fulfillmentTimes = fulfilledOrders
       .filter((o: OrderFulfillmentSelect) => o.lastWebhookAt)
-      .map((o: OrderFulfillmentSelect) => (o.lastWebhookAt!.getTime() - o.createdAt.getTime()) / (1000 * 60 * 60)); // hours
+      .map(
+        (o: OrderFulfillmentSelect) =>
+          (o.lastWebhookAt!.getTime() - o.createdAt.getTime()) / (1000 * 60 * 60)
+      ); // hours
 
-    const averageFulfillmentTime = fulfillmentTimes.length > 0
-      ? Math.round(fulfillmentTimes.reduce((a: number, b: number) => a + b, 0) / fulfillmentTimes.length)
-      : 0;
+    const averageFulfillmentTime =
+      fulfillmentTimes.length > 0
+        ? Math.round(
+            fulfillmentTimes.reduce((a: number, b: number) => a + b, 0) / fulfillmentTimes.length
+          )
+        : 0;
 
     return {
       totalOrders,
@@ -1128,7 +1396,7 @@ export class ReportingService {
       averageOrderValue,
       ordersByStatus,
       ordersByMedication,
-      averageFulfillmentTime
+      averageFulfillmentTime,
     };
   }
 
@@ -1143,7 +1411,7 @@ export class ReportingService {
       clinicId: this.clinicId,
       dateRange: label,
       start: start.toISOString(),
-      end: end.toISOString()
+      end: end.toISOString(),
     });
 
     const [patients, revenue, subscriptions, payments, treatments, orders] = await Promise.all([
@@ -1152,7 +1420,7 @@ export class ReportingService {
       this.getSubscriptionMetrics(dateRange),
       this.getPaymentMetrics(dateRange),
       this.getTreatmentMetrics(dateRange),
-      this.getOrderMetrics(dateRange)
+      this.getOrderMetrics(dateRange),
     ]);
 
     return {
@@ -1164,7 +1432,7 @@ export class ReportingService {
       subscriptions,
       payments,
       treatments,
-      orders
+      orders,
     };
   }
 
@@ -1186,7 +1454,7 @@ export class ReportingService {
       where: {
         ...clinicFilter,
         status: 'SUCCEEDED',
-        createdAt: { gte: start, lte: end }
+        createdAt: { gte: start, lte: end },
       },
       include: {
         patient: {
@@ -1198,17 +1466,17 @@ export class ReportingService {
             phone: true,
             subscriptions: {
               where: { status: 'ACTIVE' },
-              select: { planName: true, startDate: true, amount: true }
+              select: { planName: true, startDate: true, amount: true },
             },
             orders: {
               orderBy: { createdAt: 'desc' },
               take: 1,
-              select: { primaryMedName: true, primaryMedStrength: true }
-            }
-          }
-        }
+              select: { primaryMedName: true, primaryMedStrength: true },
+            },
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -1222,7 +1490,7 @@ export class ReportingService {
     const subscriptions = await prisma.subscription.findMany({
       where: {
         ...clinicFilter,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       },
       include: {
         patient: {
@@ -1231,10 +1499,10 @@ export class ReportingService {
             firstName: true,
             lastName: true,
             email: true,
-            phone: true
-          }
-        }
-      }
+            phone: true,
+          },
+        },
+      },
     });
 
     return subscriptions
@@ -1247,7 +1515,7 @@ export class ReportingService {
         subscriptionId: s.id,
         planName: s.planName,
         startDate: s.startDate,
-        monthsActive: month
+        monthsActive: month,
       }));
   }
 
@@ -1262,7 +1530,7 @@ export class ReportingService {
       where: {
         ...clinicFilter,
         status: 'CANCELED',
-        canceledAt: { gte: start, lte: end }
+        canceledAt: { gte: start, lte: end },
       },
       include: {
         patient: {
@@ -1271,15 +1539,15 @@ export class ReportingService {
             firstName: true,
             lastName: true,
             email: true,
-            phone: true
-          }
+            phone: true,
+          },
         },
         payments: {
           orderBy: { createdAt: 'desc' },
-          take: 5
-        }
+          take: 5,
+        },
       },
-      orderBy: { canceledAt: 'desc' }
+      orderBy: { canceledAt: 'desc' },
     });
   }
 
@@ -1292,7 +1560,7 @@ export class ReportingService {
     return prisma.subscription.findMany({
       where: {
         ...clinicFilter,
-        status: 'PAUSED'
+        status: 'PAUSED',
       },
       include: {
         patient: {
@@ -1301,11 +1569,11 @@ export class ReportingService {
             firstName: true,
             lastName: true,
             email: true,
-            phone: true
-          }
-        }
+            phone: true,
+          },
+        },
       },
-      orderBy: { pausedAt: 'desc' }
+      orderBy: { pausedAt: 'desc' },
     });
   }
 
@@ -1318,14 +1586,14 @@ export class ReportingService {
     const subscriptions = await prisma.subscription.findMany({
       where: {
         ...clinicFilter,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       },
       select: {
         amount: true,
         interval: true,
         intervalCount: true,
-        planName: true
-      }
+        planName: true,
+      },
     });
 
     const byPlan: Record<string, { count: number; mrr: number }> = {};
@@ -1333,7 +1601,7 @@ export class ReportingService {
     subscriptions.forEach((s: SubscriptionPlanSelect) => {
       const plan = s.planName || 'Unknown';
       let monthlyAmount = s.amount;
-      
+
       if (s.interval === 'year') {
         monthlyAmount = s.amount / 12;
       } else if (s.interval === 'month' && s.intervalCount > 1) {
@@ -1347,13 +1615,16 @@ export class ReportingService {
       byPlan[plan].mrr += monthlyAmount;
     });
 
-    const totalMRR = Object.values(byPlan).reduce((sum: number, p: PlanBreakdown) => sum + p.mrr, 0);
+    const totalMRR = Object.values(byPlan).reduce(
+      (sum: number, p: PlanBreakdown) => sum + p.mrr,
+      0
+    );
 
     return {
       totalMRR: Math.round(totalMRR),
       totalARR: Math.round(totalMRR * 12),
       byPlan,
-      subscriptionCount: subscriptions.length
+      subscriptionCount: subscriptions.length,
     };
   }
 }

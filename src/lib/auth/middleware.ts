@@ -15,6 +15,11 @@ import { setClinicContext, runWithClinicContext, prisma, basePrisma } from '@/li
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
+import {
+  getClinicBySubdomainCache,
+  setClinicBySubdomainCache,
+} from '@/lib/cache/request-scoped';
+import { handleApiError } from '@/domains/shared/errors';
 
 // Track last activity update to avoid too frequent DB writes
 const lastActivityUpdates = new Map<number, number>();
@@ -525,23 +530,30 @@ export function withAuth<T = unknown>(
         !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())
       ) {
         try {
-          const subdomainClinic = await basePrisma.clinic.findFirst({
-            where: {
-              subdomain: { equals: subdomain, mode: 'insensitive' },
-              status: 'ACTIVE',
-            },
-            select: { id: true },
-          });
-          if (subdomainClinic && subdomainClinic.id !== effectiveClinicId) {
+          let subdomainClinicId = getClinicBySubdomainCache(subdomain);
+          if (subdomainClinicId == null) {
+            const subdomainClinic = await basePrisma.clinic.findFirst({
+              where: {
+                subdomain: { equals: subdomain, mode: 'insensitive' },
+                status: 'ACTIVE',
+              },
+              select: { id: true },
+            });
+            if (subdomainClinic) {
+              subdomainClinicId = subdomainClinic.id;
+              setClinicBySubdomainCache(subdomain, subdomainClinic.id);
+            }
+          }
+          if (subdomainClinicId != null && subdomainClinicId !== effectiveClinicId) {
             const hasAccess =
-              user.clinicId === subdomainClinic.id ||
-              (await userHasAccessToClinic(user, subdomainClinic.id));
+              user.clinicId === subdomainClinicId ||
+              (await userHasAccessToClinic(user, subdomainClinicId));
             if (hasAccess) {
-              effectiveClinicId = subdomainClinic.id;
+              effectiveClinicId = subdomainClinicId;
               logger.debug('[Auth] Using subdomain clinic for context', {
                 userId: user.id,
                 subdomain,
-                clinicId: subdomainClinic.id,
+                clinicId: subdomainClinicId,
               });
             }
           }
@@ -595,6 +607,17 @@ export function withAuth<T = unknown>(
       // Add security headers to response
       const finalResponse = addSecurityHeaders(response, requestId);
 
+      // Structured request summary (SOC2 / incident response; no PHI)
+      logger.requestSummary({
+        requestId,
+        clinicId: effectiveClinicId ?? undefined,
+        userId: user.id,
+        route: new URL(req.url).pathname,
+        method: req.method,
+        status: finalResponse.status,
+        durationMs: Date.now() - startTime,
+      });
+
       // Log successful access for high-privilege operations
       if (shouldLogAccess(user.role, req.method)) {
         logger.api(req.method, new URL(req.url).pathname, {
@@ -618,7 +641,7 @@ export function withAuth<T = unknown>(
           errorType: 'DATABASE_CONNECTION',
         });
 
-        return NextResponse.json(
+        const res503 = NextResponse.json(
           {
             error: 'Service temporarily unavailable. Please try again.',
             code: 'SERVICE_UNAVAILABLE',
@@ -627,23 +650,32 @@ export function withAuth<T = unknown>(
           },
           {
             status: 503,
-            headers: {
-              'Retry-After': '5',
-            },
+            headers: { 'Retry-After': '5' },
           }
         );
+        logger.requestSummary({
+          requestId,
+          route: new URL(req.url).pathname,
+          method: req.method,
+          status: 503,
+          durationMs: Date.now() - startTime,
+        });
+        return res503;
       }
 
-      logger.error('Authentication middleware error', error as Error, { requestId });
-
-      return NextResponse.json(
-        {
-          error: 'Internal authentication error',
-          code: 'AUTH_ERROR',
-          requestId,
-        },
-        { status: 500 }
-      );
+      const res = handleApiError(error, {
+        requestId,
+        route: `${req.method} ${new URL(req.url).pathname}`,
+        context: { errorType: 'AUTH_MIDDLEWARE' },
+      });
+      logger.requestSummary({
+        requestId,
+        route: new URL(req.url).pathname,
+        method: req.method,
+        status: res.status,
+        durationMs: Date.now() - startTime,
+      });
+      return res;
     }
   };
 }

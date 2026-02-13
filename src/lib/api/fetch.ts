@@ -282,23 +282,50 @@ async function handleResponseError(response: Response): Promise<Response> {
  * });
  * ```
  */
+/**
+ * True when url targets same-origin /api/* - use cookie auth, skip localStorage token.
+ */
+function isSameOriginApiRequest(url: string): boolean {
+  if (typeof window === 'undefined') return false;
+  if (url.startsWith('/api') || url.startsWith('/')) {
+    try {
+      const u = new URL(url, window.location.origin);
+      return u.origin === window.location.origin && u.pathname.startsWith('/api');
+    } catch {
+      return false;
+    }
+  }
+  try {
+    const u = new URL(url);
+    return u.origin === window.location.origin && u.pathname.startsWith('/api');
+  } catch {
+    return false;
+  }
+}
+
 export async function apiFetch(
   url: string,
   options: RequestInit = {},
   retryCount = 0
 ): Promise<Response> {
-  // Get valid token (with automatic refresh if needed)
-  const token = await ensureValidToken();
+  // Same-origin API: prefer httpOnly cookie auth; only use localStorage token for cross-origin
+  const useCookieAuth = isSameOriginApiRequest(url);
+  const token = useCookieAuth ? null : await ensureValidToken();
 
+  // Do NOT set Content-Type for FormData - browser must set multipart/form-data with boundary
+  const isFormData = options.body instanceof FormData;
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...options.headers,
   };
 
-  // Add auth header if token exists
+  // Add auth header only for cross-origin; same-origin relies on credentials: 'include'
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
+
+  // Signal to GlobalFetchInterceptor to skip 401 handling - apiFetch will retry with refreshed token
+  (headers as Record<string, string>)['X-Eonpro-Auth-Retry'] = '1';
 
   try {
     const response = await fetch(url, {

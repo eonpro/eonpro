@@ -262,12 +262,13 @@ export async function POST(req: NextRequest) {
       const { getStripe } = await import('@/lib/stripe');
       const stripe = getStripe();
 
-      const days = body.days || 7;
+      const days = body.days ?? 7;
+      const limit = Math.min(body.limit ?? 100, 500);
       const since = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
 
       const paymentIntents = await stripe.paymentIntents.list({
         created: { gte: since },
-        limit: 100,
+        limit,
       });
 
       const successfulPayments = paymentIntents.data.filter((pi) => pi.status === 'succeeded');
@@ -288,6 +289,7 @@ export async function POST(req: NextRequest) {
         total: successfulPayments.length,
         processed: existingRecords.length,
         missing: missingPayments.length,
+        hasMore: !!paymentIntents.has_more,
         missingPayments: missingPayments.map((pi) => ({
           id: pi.id,
           amount: pi.amount,
@@ -300,9 +302,100 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (action === 'sync_from_stripe') {
+      // Bulk sync missing Stripe payments into the platform (for EonMeds 10k+ backlog)
+      const { getStripe } = await import('@/lib/stripe');
+      const stripe = getStripe();
+      const {
+        processStripePayment,
+        extractPaymentDataFromPaymentIntent,
+      } = await import('@/services/stripe/paymentMatchingService');
+
+      const days = body.days ?? 30;
+      const batchSize = Math.min(body.batchSize ?? 50, 100);
+      const clinicId =
+        body.clinicId ?? parseInt(process.env.DEFAULT_CLINIC_ID || '0', 10);
+      const endingBefore = body.endingBefore as string | undefined;
+      if (!clinicId) {
+        return NextResponse.json(
+          { error: 'clinicId or DEFAULT_CLINIC_ID required for sync' },
+          { status: 400 }
+        );
+      }
+
+      const since = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
+      const listParams: Record<string, unknown> = {
+        created: { gte: since },
+        limit: Math.min(batchSize * 4, 500),
+      };
+      if (endingBefore) listParams.ending_before = endingBefore;
+
+      const paymentIntents = await stripe.paymentIntents.list(listParams as any);
+      const successful = paymentIntents.data.filter((pi) => pi.status === 'succeeded');
+      const piIds = successful.map((pi) => pi.id);
+      const existing = await prisma.paymentReconciliation.findMany({
+        where: { stripePaymentIntentId: { in: piIds } },
+        select: { stripePaymentIntentId: true },
+      });
+      const processedIds = new Set(existing.map((r: any) => r.stripePaymentIntentId));
+      const toProcess = successful.filter((pi) => !processedIds.has(pi.id)).slice(0, batchSize);
+
+      const results: { id: string; success: boolean; error?: string }[] = [];
+      for (const pi of toProcess) {
+        try {
+          const paymentData = extractPaymentDataFromPaymentIntent(pi);
+          if (!paymentData.metadata?.clinicId) {
+            paymentData.metadata = { ...paymentData.metadata, clinicId: String(clinicId) };
+          }
+          const result = await processStripePayment(
+            paymentData,
+            `sync_${pi.id}_${Date.now()}`,
+            'payment_intent.succeeded'
+          );
+          results.push({ id: pi.id, success: result.success, error: result.error ?? undefined });
+        } catch (err) {
+          results.push({
+            id: pi.id,
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      const processed = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success);
+
+      logger.info('[Payment Reconciliation] Stripe sync completed', {
+        days,
+        batchSize,
+        clinicId,
+        processed,
+        failed: failed.length,
+        user: auth.user.email,
+      });
+
+      const oldestInBatch =
+        paymentIntents.data.length > 0
+          ? paymentIntents.data[paymentIntents.data.length - 1].id
+          : null;
+
+      return NextResponse.json({
+        success: true,
+        syncSummary: {
+          processed,
+          failed: failed.length,
+          total: toProcess.length,
+          hasMore: paymentIntents.has_more,
+          missingInBatch: successful.filter((pi) => !processedIds.has(pi.id)).length,
+          endingBefore: oldestInBatch,
+        },
+        results: failed.length > 0 ? failed : undefined,
+      });
+    }
+
     if (action === 'process_missing_payment') {
       // Manually process a payment that was missed
-      const { paymentIntentId } = body;
+      const { paymentIntentId, clinicId: overrideClinicId } = body;
       if (!paymentIntentId) {
         return NextResponse.json({ error: 'paymentIntentId required' }, { status: 400 });
       }
@@ -320,6 +413,13 @@ export async function POST(req: NextRequest) {
         await import('@/services/stripe/paymentMatchingService');
 
       const paymentData = extractPaymentDataFromPaymentIntent(paymentIntent);
+      // Inject clinicId when missing (EonMeds/IntakeQ payments from Payment Links lack metadata)
+      const fallbackClinicId =
+        overrideClinicId ??
+        parseInt(process.env.DEFAULT_CLINIC_ID || '0', 10);
+      if (fallbackClinicId > 0 && !paymentData.metadata?.clinicId) {
+        paymentData.metadata = { ...paymentData.metadata, clinicId: String(fallbackClinicId) };
+      }
       const result = await processStripePayment(
         paymentData,
         `manual_${paymentIntentId}_${Date.now()}`,

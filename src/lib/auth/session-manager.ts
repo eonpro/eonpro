@@ -15,6 +15,11 @@ import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from './config';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 import cache from '@/lib/cache/redis';
+import {
+  getSessionFromCache,
+  setSessionInCache,
+  invalidateSessionCache,
+} from '@/lib/cache/request-scoped';
 import crypto from 'crypto';
 
 // Session state tracking
@@ -52,18 +57,28 @@ function useRedis(): boolean {
 
 /**
  * Get session from storage (Redis or in-memory)
+ * Uses request-scoped cache (60s TTL) to reduce Redis hits
  */
 async function getSession(sessionId: string): Promise<SessionState | null> {
+  const cached = getSessionFromCache(sessionId) as SessionState | null;
+  if (cached) return cached;
+
+  let session: SessionState | null;
   if (useRedis()) {
-    return cache.get<SessionState>(sessionId, { namespace: SESSION_NAMESPACE });
+    session = await cache.get<SessionState>(sessionId, { namespace: SESSION_NAMESPACE });
+  } else {
+    session = localSessions.get(sessionId) || null;
   }
-  return localSessions.get(sessionId) || null;
+  if (session) setSessionInCache(sessionId, session);
+  return session;
 }
 
 /**
  * Save session to storage (Redis or in-memory)
+ * Updates request-scoped cache
  */
 async function saveSession(sessionId: string, session: SessionState): Promise<void> {
+  setSessionInCache(sessionId, session);
   if (useRedis()) {
     await cache.set(sessionId, session, {
       namespace: SESSION_NAMESPACE,
@@ -76,8 +91,10 @@ async function saveSession(sessionId: string, session: SessionState): Promise<vo
 
 /**
  * Delete session from storage (Redis or in-memory)
+ * Invalidates request-scoped cache
  */
 async function deleteSession(sessionId: string): Promise<void> {
+  invalidateSessionCache(sessionId);
   if (useRedis()) {
     await cache.delete(sessionId, { namespace: SESSION_NAMESPACE });
   } else {

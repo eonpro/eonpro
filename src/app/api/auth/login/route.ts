@@ -24,6 +24,7 @@ import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
 import { getRequestHost, getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
 import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
+import { withApiHandler } from '@/domains/shared/errors';
 
 const AUTH_LOCKOUT_AFTER_ATTEMPTS = parseInt(process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '5', 10);
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
@@ -1158,8 +1159,8 @@ function extractSubdomain(hostname: string): string | null {
   return null;
 }
 
-// Export handler directly - rate limiting is handled inside with enterprise features
-export const POST = loginHandler;
+// Export with global error wrapper - rate limiting handled inside
+export const POST = withApiHandler(loginHandler);
 
 /**
  * OPTIONS /api/auth/login
