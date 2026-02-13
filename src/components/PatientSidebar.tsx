@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Trash2, GitMerge } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
@@ -309,15 +308,17 @@ export default function PatientSidebar({
           </div>
         )}
 
-        {/* Navigation */}
+        {/* Navigation - use router.push for tab switching (Next.js Link has issues with searchParams on same path) */}
         <nav className="mb-6 space-y-1">
           {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems).map((item) => {
             const isActive = currentTab === item.id;
+            const href = `${patientDetailBasePath}/${patient.id}?tab=${item.id}`;
             return (
-              <Link
+              <button
                 key={item.id}
-                href={`${patientDetailBasePath}/${patient.id}?tab=${item.id}`}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+                type="button"
+                onClick={() => router.push(href, { scroll: false })}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
                   isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
                 }`}
               >
@@ -335,7 +336,7 @@ export default function PatientSidebar({
                 >
                   {item.label}
                 </span>
-              </Link>
+              </button>
             );
           })}
         </nav>
