@@ -9,7 +9,7 @@
  * @version 1.0.0
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
@@ -110,7 +110,16 @@ export function handleApiError(
     response.errors = appError.errors;
   }
 
-  return NextResponse.json(response, { status: appError.statusCode });
+  const headers = new Headers();
+  if (
+    appError instanceof ServiceUnavailableError &&
+    appError.retryAfter != null &&
+    appError.retryAfter > 0
+  ) {
+    headers.set('Retry-After', String(appError.retryAfter));
+  }
+
+  return NextResponse.json(response, { status: appError.statusCode, headers });
 }
 
 // ============================================================================
@@ -153,11 +162,21 @@ function normalizeError(error: unknown): AppError {
       return new AppError(error.message, 'FORBIDDEN', 403);
     }
 
+    // P2024 / connection pool - return 503 so clients can retry instead of treating as 500
+    if (
+      message.includes('p2024') ||
+      message.includes('connection pool') ||
+      message.includes('timed out fetching')
+    ) {
+      return new ServiceUnavailableError(
+        'Service is busy. Please try again in a moment.',
+        10
+      );
+    }
+
     // Unknown error - treat as internal
     return new InternalError(
-      process.env.NODE_ENV === 'production'
-        ? GENERIC_ERROR_MESSAGE
-        : error.message
+      process.env.NODE_ENV === 'production' ? GENERIC_ERROR_MESSAGE : error.message
     );
   }
 
@@ -196,15 +215,30 @@ function isPrismaError(error: unknown): error is Prisma.PrismaClientKnownRequest
  * Connection-related errors (P1xxx) return 503 Service Unavailable
  * to properly indicate the service is temporarily unavailable.
  */
-function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma.PrismaClientUnknownRequestError | Prisma.PrismaClientValidationError | Prisma.PrismaClientInitializationError): AppError {
+function convertPrismaError(
+  error:
+    | Prisma.PrismaClientKnownRequestError
+    | Prisma.PrismaClientUnknownRequestError
+    | Prisma.PrismaClientValidationError
+    | Prisma.PrismaClientInitializationError
+): AppError {
   // Known request errors
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     switch (error.code) {
       // Unique constraint violation
       case 'P2002': {
         const metaTarget = error.meta?.target;
-        const target = Array.isArray(metaTarget) ? metaTarget.join(', ') : 'field';
-        return new ConflictError(`A record with this ${target} already exists`);
+        const targetArr = Array.isArray(metaTarget) ? metaTarget : [];
+        const targetStr = typeof metaTarget === 'string' ? metaTarget : targetArr.join(', ');
+        const isPatientConstraint =
+          targetArr.some(
+            (t) =>
+              typeof t === 'string' &&
+              ['clinicId', 'patientId', 'email'].some((k) => t.toLowerCase().includes(k))
+          ) || targetStr.toLowerCase().includes('patient');
+        return new ConflictError(
+          isPatientConstraint ? 'This patient already exists.' : `A record with this ${targetStr || 'field'} already exists`
+        );
       }
 
       // Foreign key constraint violation
@@ -271,28 +305,41 @@ function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma
 
       // P1002: Database server timed out
       case 'P1002':
-        return new ServiceUnavailableError(
-          'Database connection timed out. Please try again.',
-          5
-        );
+        return new ServiceUnavailableError('Database connection timed out. Please try again.', 5);
 
       // P1008: Operations timed out
       case 'P1008':
-        return new ServiceUnavailableError(
-          'Database operation timed out. Please try again.',
-          5
-        );
+        return new ServiceUnavailableError('Database operation timed out. Please try again.', 5);
 
       // P1017: Server closed the connection
       case 'P1017':
+        return new ServiceUnavailableError('Database connection was closed. Please try again.', 3);
+
+      // P2024: Connection pool exhausted (timed out waiting for a connection)
+      case 'P2024':
         return new ServiceUnavailableError(
-          'Database connection was closed. Please try again.',
-          3
+          'Service is busy. Please try again in a moment.',
+          10 // Retry-After: 10 seconds
         );
 
-      // Default
-      default:
+      // Default - check for connection/pool errors that may slip through
+      default: {
+        const code = String(error.code || '');
+        const msg = (error.message || '').toLowerCase();
+        const isPoolOrConnection =
+          code === 'P2024' ||
+          code.includes('P2024') ||
+          msg.includes('p2024') ||
+          msg.includes('connection pool') ||
+          msg.includes('timed out fetching');
+        if (isPoolOrConnection) {
+          return new ServiceUnavailableError(
+            'Service is busy. Please try again in a moment.',
+            10
+          );
+        }
         return new DatabaseError(`Database error: ${error.code}`);
+      }
     }
   }
 
@@ -331,10 +378,7 @@ function convertPrismaError(error: Prisma.PrismaClientKnownRequestError | Prisma
     errorMessage.includes('econnreset') ||
     errorMessage.includes('pool')
   ) {
-    return new ServiceUnavailableError(
-      'Database connection issue. Please try again.',
-      5
-    );
+    return new ServiceUnavailableError('Database connection issue. Please try again.', 5);
   }
 
   return new DatabaseError('Database operation failed');
@@ -371,10 +415,7 @@ function shouldLogError(error: AppError): boolean {
 /**
  * Log error details
  */
-function logErrorDetails(
-  error: AppError,
-  context?: Record<string, unknown>
-): void {
+function logErrorDetails(error: AppError, context?: Record<string, unknown>): void {
   const logData = {
     ...error.toLogObject(),
     ...context,
@@ -415,6 +456,37 @@ export function withErrorHandler<T extends unknown[]>(
 }
 
 /**
+ * Global API handler wrapper - use for ALL API routes.
+ * Catches errors, adds requestId, returns structured response via handleApiError.
+ *
+ * Use with or without auth:
+ *   export const GET = withApiHandler(handler);
+ *   export const GET = withAuth(withApiHandler(handler));
+ *
+ * Note: withAuth already uses handleApiError in its catch - use withApiHandler
+ * for routes that don't use withAuth (webhooks, public, etc).
+ */
+export function withApiHandler<
+  T extends [NextRequest, ...unknown[]],
+  R extends Promise<Response>,
+>(
+  handler: (...args: T) => R
+): (...args: T) => Promise<Response> {
+  return async (...args: T): Promise<Response> => {
+    const req = args[0] as NextRequest;
+    const requestId = req?.headers?.get?.('x-request-id') ?? crypto.randomUUID();
+    try {
+      return await handler(...args);
+    } catch (error) {
+      return handleApiError(error, {
+        requestId,
+        route: req ? `${req.method} ${new URL(req.url).pathname}` : 'unknown',
+      });
+    }
+  };
+}
+
+/**
  * Assert condition and throw error if false
  *
  * @example
@@ -423,10 +495,7 @@ export function withErrorHandler<T extends unknown[]>(
  * // patient is now non-null
  * ```
  */
-export function assertOrThrow<T>(
-  value: T | null | undefined,
-  error: AppError
-): asserts value is T {
+export function assertOrThrow<T>(value: T | null | undefined, error: AppError): asserts value is T {
   if (value === null || value === undefined) {
     throw error;
   }

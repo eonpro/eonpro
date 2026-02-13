@@ -8,6 +8,7 @@
  * @module domains/patient/services
  */
 
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
 import {
@@ -23,10 +24,7 @@ import type { UserContext } from '@/domains/shared/types';
 import { logPHIAccess, logPHIAccessDenied } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 
-import {
-  type PatientRepository,
-  patientRepository as defaultRepo,
-} from '../repositories';
+import { type PatientRepository, patientRepository as defaultRepo } from '../repositories';
 
 import type {
   PatientEntity,
@@ -48,32 +46,122 @@ import type {
  * US state codes for validation
  */
 const US_STATE_CODES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
-  'DC', 'PR', 'VI', 'GU', 'AS', 'MP',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'DC',
+  'PR',
+  'VI',
+  'GU',
+  'AS',
+  'MP',
 ] as const;
 
 /**
  * State name to code mapping for normalization
  */
 const STATE_NAME_TO_CODE: Record<string, string> = {
-  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR',
-  'california': 'CA', 'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE',
-  'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI', 'idaho': 'ID',
-  'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA', 'kansas': 'KS',
-  'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
-  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
-  'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV',
-  'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
-  'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK',
-  'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
-  'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT',
-  'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV',
-  'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC',
-  'puerto rico': 'PR', 'virgin islands': 'VI', 'guam': 'GU',
+  alabama: 'AL',
+  alaska: 'AK',
+  arizona: 'AZ',
+  arkansas: 'AR',
+  california: 'CA',
+  colorado: 'CO',
+  connecticut: 'CT',
+  delaware: 'DE',
+  florida: 'FL',
+  georgia: 'GA',
+  hawaii: 'HI',
+  idaho: 'ID',
+  illinois: 'IL',
+  indiana: 'IN',
+  iowa: 'IA',
+  kansas: 'KS',
+  kentucky: 'KY',
+  louisiana: 'LA',
+  maine: 'ME',
+  maryland: 'MD',
+  massachusetts: 'MA',
+  michigan: 'MI',
+  minnesota: 'MN',
+  mississippi: 'MS',
+  missouri: 'MO',
+  montana: 'MT',
+  nebraska: 'NE',
+  nevada: 'NV',
+  'new hampshire': 'NH',
+  'new jersey': 'NJ',
+  'new mexico': 'NM',
+  'new york': 'NY',
+  'north carolina': 'NC',
+  'north dakota': 'ND',
+  ohio: 'OH',
+  oklahoma: 'OK',
+  oregon: 'OR',
+  pennsylvania: 'PA',
+  'rhode island': 'RI',
+  'south carolina': 'SC',
+  'south dakota': 'SD',
+  tennessee: 'TN',
+  texas: 'TX',
+  utah: 'UT',
+  vermont: 'VT',
+  virginia: 'VA',
+  washington: 'WA',
+  'west virginia': 'WV',
+  wisconsin: 'WI',
+  wyoming: 'WY',
+  'district of columbia': 'DC',
+  'puerto rico': 'PR',
+  'virgin islands': 'VI',
+  guam: 'GU',
 };
 
 // Add codes as keys too
@@ -144,7 +232,10 @@ const phoneSchema = z.string().transform((val, ctx) => {
 /**
  * Email validation
  */
-const emailSchema = z.string().email('Invalid email format').transform((val) => val.toLowerCase().trim());
+const emailSchema = z
+  .string()
+  .email('Invalid email format')
+  .transform((val) => val.toLowerCase().trim());
 
 /**
  * Date of birth validation (accepts various formats)
@@ -230,13 +321,13 @@ export const updatePatientSchema = createPatientSchema.partial();
  */
 function preprocessUpdateData(data: unknown): Record<string, unknown> {
   if (!data || typeof data !== 'object') return {};
-  
+
   const input = data as Record<string, unknown>;
   const result: Record<string, unknown> = {};
-  
+
   // Fields where empty string should be treated as "no update"
   const optionalFields = ['address1', 'address2', 'city', 'state', 'zip'];
-  
+
   for (const [key, value] of Object.entries(input)) {
     // Skip empty strings for optional fields
     if (optionalFields.includes(key) && value === '') {
@@ -247,7 +338,7 @@ function preprocessUpdateData(data: unknown): Record<string, unknown> {
       result[key] = value;
     }
   }
-  
+
   return result;
 }
 
@@ -293,19 +384,12 @@ export interface PatientService {
   /**
    * Create a new patient with validation
    */
-  createPatient(
-    data: unknown,
-    user: UserContext
-  ): Promise<PatientEntity>;
+  createPatient(data: unknown, user: UserContext): Promise<PatientEntity>;
 
   /**
    * Update a patient with validation and authorization
    */
-  updatePatient(
-    id: number,
-    data: unknown,
-    user: UserContext
-  ): Promise<PatientEntity>;
+  updatePatient(id: number, data: unknown, user: UserContext): Promise<PatientEntity>;
 
   /**
    * Delete a patient (admin only)
@@ -335,12 +419,18 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       // Require clinic for non-super-admin
       if (user.role !== 'super_admin' && !clinicId) {
         // HIPAA: Log access denial
-        logPHIAccessDenied(null, {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          clinicId: user.clinicId,
-        }, 'Patient', id, 'No clinic context for non-super-admin').catch((err) => {
+        logPHIAccessDenied(
+          null,
+          {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            clinicId: user.clinicId,
+          },
+          'Patient',
+          id,
+          'No clinic context for non-super-admin'
+        ).catch((err) => {
           logger.error('Failed to log PHI access denial', { error: err });
         });
         throw new ForbiddenError(ERR_NO_CLINIC);
@@ -349,26 +439,40 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       const patient = await repo.findById(id, clinicId);
 
       // Additional check for patient role - can only see own record
-      if (user.role === 'patient' && user.patientId !== patient.id) {
+      // Coerce patientId to number so string "2695" from JWT matches number 2695
+      const userPatientId = user.patientId != null ? Number(user.patientId) : undefined;
+      if (user.role === 'patient' && userPatientId !== patient.id) {
         // HIPAA: Log access denial
-        logPHIAccessDenied(null, {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          clinicId: user.clinicId,
-        }, 'Patient', id, 'Patient attempted to access another patient record').catch((err) => {
+        logPHIAccessDenied(
+          null,
+          {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            clinicId: user.clinicId,
+          },
+          'Patient',
+          id,
+          'Patient attempted to access another patient record'
+        ).catch((err) => {
           logger.error('Failed to log PHI access denial', { error: err });
         });
         throw new ForbiddenError('You can only access your own patient record');
       }
 
       // HIPAA: Log successful PHI access
-      logPHIAccess(null, {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        clinicId: user.clinicId,
-      }, 'Patient', patient.id, patient.id).catch((err) => {
+      logPHIAccess(
+        null,
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          clinicId: user.clinicId,
+        },
+        'Patient',
+        patient.id,
+        patient.id
+      ).catch((err) => {
         logger.error('Failed to log PHI access', { error: err });
       });
 
@@ -456,7 +560,9 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       // Check for duplicate email in clinic
       const existingEmail = await repo.findByEmail(parsed.data.email, clinicId);
       if (existingEmail) {
-        throw new ConflictError(`A patient with email ${parsed.data.email} already exists in this clinic`);
+        throw new ConflictError(
+          `A patient with email ${parsed.data.email} already exists in this clinic`
+        );
       }
 
       // Build input
@@ -480,13 +586,21 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
         actorId: user.id,
       };
 
-      return repo.create(input, audit);
+      try {
+        return await repo.create(input, audit);
+      } catch (err) {
+        // P2002 = unique constraint violation (e.g. duplicate email, patientId)
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          throw new ConflictError('This patient already exists.');
+        }
+        throw err;
+      }
     },
 
     async updatePatient(id: number, data: unknown, user: UserContext): Promise<PatientEntity> {
       // Preprocess: filter out empty strings for optional address fields
       const preprocessed = preprocessUpdateData(data);
-      
+
       // Validate input
       const parsed = updatePatientSchema.safeParse(preprocessed);
       if (!parsed.success) {
@@ -518,13 +632,11 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
 
       // Check email uniqueness if changing email
       if (parsed.data.email && parsed.data.email !== existing.email) {
-        const emailExists = await this.isEmailRegistered(
-          parsed.data.email,
-          existing.clinicId,
-          id
-        );
+        const emailExists = await this.isEmailRegistered(parsed.data.email, existing.clinicId, id);
         if (emailExists) {
-          throw new ConflictError(`A patient with email ${parsed.data.email} already exists in this clinic`);
+          throw new ConflictError(
+            `A patient with email ${parsed.data.email} already exists in this clinic`
+          );
         }
       }
 
