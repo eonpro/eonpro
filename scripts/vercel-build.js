@@ -32,5 +32,5 @@ if (skipMigrate) {
 } else {
   run('node scripts/pre-migrate.js && npx prisma migrate deploy', 'Migrations');
 }
-// Run next build --webpack directly (Next 16 defaults to Turbopack; explicit flag required)
-run('rm -rf node_modules/.prisma && npx prisma generate && npx next build --webpack', 'Build');
+// Use Turbopack to avoid webpack minify WebpackError bug (--webpack hits minify-webpack-plugin)
+run('rm -rf node_modules/.prisma && npx prisma generate && npx next build --turbopack', 'Build');
