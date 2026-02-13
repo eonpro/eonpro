@@ -197,6 +197,7 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'affiliatecommissionplan',
   'affiliateplanassignment',
   'platformfeeevent',
+  'scheduledemail', // cron needs to query system-level emails (clinicId = null)
 ];
 
 /**

@@ -22,7 +22,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
 import {
@@ -31,6 +31,7 @@ import {
   normalizeZip,
   extractAddressFromPayload,
 } from '@/lib/address';
+import { scheduleFutureRefillsFromInvoice } from '@/lib/shipment-schedule';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { PHISearchService } from '@/lib/security/phi-search';
 
@@ -97,9 +98,12 @@ interface WellmedrInvoicePayload {
   submission_id?: string;
   order_status?: string;
   subscription_status?: string;
-  // Treatment details
+  // Treatment details (product = medication name, medication_type = strength/details, plan = duration)
   plan?: string;
   medication_type?: string;
+  medication?: string; // Alternate: Airtable may use "Medication" instead of "Medication Type"
+  treatment?: string; // Alternate: Full treatment string (e.g. "Tirzepatide 2.5mg")
+  product_name?: string; // Alternate: Some bases use "Product Name" for medication
   stripe_price_id?: string;
   // Address fields - support ALL possible Airtable field name variations
   address?: string;
@@ -168,9 +172,10 @@ export async function POST(req: NextRequest) {
   logger.debug(`[WELLMEDR-INVOICE ${requestId}] ✓ Authenticated`);
 
   // STEP 2: Get WellMedR clinic
+  // Use basePrisma since we haven't resolved clinic context yet
   let clinicId: number;
   try {
-    const wellmedrClinic = await prisma.clinic.findFirst({
+    const wellmedrClinic = await basePrisma.clinic.findFirst({
       where: {
         OR: [
           { subdomain: WELLMEDR_CLINIC_SUBDOMAIN },
@@ -197,6 +202,13 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ error: 'Database error', message: errMsg }, { status: 500 });
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Run remaining steps within tenant (clinic) context
+  // This is REQUIRED for all clinic-isolated model operations
+  // (patient, invoice, auditLog, etc.)
+  // ═══════════════════════════════════════════════════════════════════
+  return runWithClinicContext(clinicId, async () => {
 
   // STEP 3: Parse payload
   let payload: WellmedrInvoicePayload;
@@ -421,9 +433,39 @@ export async function POST(req: NextRequest) {
   }
 
   // Build line item description with product, medication type, and plan
-  const product = payload.product || 'GLP-1';
-  const medicationType = payload.medication_type || '';
+  // CRITICAL: product should be medication name (Tirzepatide, Semaglutide), NOT plan-only (1mo/3mo Injections)
+  // Accept alternate Airtable field names: medication, treatment, product_name
+  let product = payload.product || 'GLP-1';
+  let medicationType =
+    payload.medication_type ||
+    payload.medication ||
+    payload.treatment ||
+    payload.product_name ||
+    '';
   const plan = payload.plan || '';
+
+  // If product looks like plan-only (1mo/3mo Injections) but we have medication in alternate fields, use it
+  const productLower = product.toLowerCase();
+  const isPlanOnly =
+    !productLower.includes('tirzepatide') &&
+    !productLower.includes('semaglutide') &&
+    !productLower.includes('mounjaro') &&
+    !productLower.includes('zepbound') &&
+    !productLower.includes('ozempic') &&
+    !productLower.includes('wegovy') &&
+    /(\d+\s*mo|\d+\s*month|injections?)/i.test(product);
+  if (isPlanOnly && medicationType) {
+    // medicationType has the drug name - use it as product, keep original product as plan context
+    product = medicationType;
+    medicationType = '';
+  } else if (isPlanOnly && (payload.medication || payload.treatment || payload.product_name)) {
+    const altMed =
+      payload.medication || payload.treatment || payload.product_name || '';
+    if (altMed && /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(String(altMed))) {
+      product = String(altMed);
+      medicationType = '';
+    }
+  }
 
   // Build a descriptive product name like "Tirzepatide Injections (Monthly)"
   let productName = product.charAt(0).toUpperCase() + product.slice(1).toLowerCase();
@@ -602,6 +644,39 @@ export async function POST(req: NextRequest) {
         clinic: true,
       },
     });
+
+    // STEP 7b: Schedule future refills for 6-month and 12-month packages
+    // Pharmacy ships 3 months at a time (90-day BUD). For longer plans, queue refills at 90, 180, 270 days.
+    const planLower = (plan || '').toLowerCase();
+    if (/6\s*month|6month|12\s*month|12month|annual|yearly/.test(planLower)) {
+      try {
+        const medicationName =
+          product && medicationType
+            ? `${product} ${medicationType}`.trim()
+            : product || medicationType || 'GLP-1';
+        const refills = await scheduleFutureRefillsFromInvoice({
+          clinicId,
+          patientId: patient.id,
+          invoiceId: invoice.id,
+          medicationName,
+          planName: plan || productName,
+          prescriptionDate: parsePaymentDate(payload.payment_date),
+        });
+        if (refills.length > 0) {
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] Scheduled ${refills.length} future refill(s)`, {
+            invoiceId: invoice.id,
+            plan,
+            nextDates: refills.map((r) => r.nextRefillDate),
+          });
+        }
+      } catch (refillErr) {
+        const msg = refillErr instanceof Error ? refillErr.message : 'Unknown';
+        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Refill scheduling failed (non-fatal)`, {
+          error: msg,
+          invoiceId: invoice.id,
+        });
+      }
+    }
 
     // STEP 8: Update patient address if provided in payload
     // Support ALL possible Airtable field name variations
@@ -838,6 +913,7 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+  }); // end runWithClinicContext
 }
 
 // GET - Health check

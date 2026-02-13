@@ -254,7 +254,6 @@ function validateTokenClaims(payload: JWTPayload): string | null {
     'patient',
     'staff',
     'support',
-    'sales_rep',
   ];
 
   if (!validRoles.includes(payload.role as UserRole)) {
@@ -585,13 +584,10 @@ export function withAuth<T = unknown>(
       }
 
       // Create a new NextRequest with the modified headers
-      // IMPORTANT: Do NOT pass body for GET/HEAD - Fetch API spec throws TypeError
-      // if body is non-null for these methods (can happen after Edge middleware processes the request)
-      const isBodyMethod = !['GET', 'HEAD'].includes(req.method.toUpperCase());
       const modifiedReq = new NextRequest(req.url, {
         method: req.method,
         headers,
-        ...(isBodyMethod && req.body ? { body: req.body } : {}),
+        body: req.body,
       });
 
       // Pass user with effective clinic so handlers see subdomain clinic when overridden
@@ -741,7 +737,13 @@ async function userHasAccessToClinic(user: AuthUser, clinicId: number): Promise<
 function isDatabaseConnectionError(error: unknown): boolean {
   // Prisma known request errors with connection-related codes
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    const connectionErrorCodes = ['P1001', 'P1002', 'P1008', 'P1017'];
+    const connectionErrorCodes = [
+      'P1001', // Can't reach database server
+      'P1002', // Database server timed out
+      'P1008', // Operations timed out
+      'P1017', // Server has closed the connection
+      'P2024', // Timed out fetching a new connection from the connection pool
+    ];
     return connectionErrorCodes.includes(error.code);
   }
 

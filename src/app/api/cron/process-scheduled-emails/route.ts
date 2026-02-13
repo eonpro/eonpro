@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { prisma, runWithClinicContext } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 
@@ -54,7 +54,8 @@ async function processScheduledEmails(req: NextRequest) {
     });
 
     // Process emails with no clinic (clinicId null)
-    const nullResult = await runWithClinicContext(undefined, () => processScheduledEmailsForClinic(null));
+    // Use basePrisma directly since these are system-level emails without tenant context
+    const nullResult = await processNullClinicEmails();
 
     const aggregated = clinicResults.reduce(
       (acc, r) => {
@@ -203,6 +204,122 @@ async function processScheduledEmailsForClinic(clinicId: number | null): Promise
   const cleaned = await prisma.scheduledEmail.deleteMany({
     where: {
       clinicId: clinicId === null ? null : clinicId,
+      status: { in: ['SENT', 'CANCELLED'] },
+      processedAt: { lt: cleanupCutoff },
+    },
+  });
+  result.cleanedUp = cleaned.count;
+
+  return result;
+}
+
+/**
+ * Process scheduled emails with clinicId = null (system-level emails).
+ * Uses basePrisma directly because these have no tenant context,
+ * and the scheduledEmail model is clinic-isolated in the prisma wrapper.
+ */
+async function processNullClinicEmails(): Promise<PerClinicResult> {
+  const now = new Date();
+  const result: PerClinicResult = { sent: 0, failed: 0, skipped: 0, errors: [], cleanedUp: 0 };
+
+  const pendingEmails = await basePrisma.scheduledEmail.findMany({
+    where: {
+      clinicId: null,
+      status: 'PENDING',
+      scheduledFor: { lte: now },
+      retryCount: { lt: MAX_RETRIES },
+    },
+    orderBy: [{ priority: 'desc' }, { scheduledFor: 'asc' }],
+    take: BATCH_SIZE,
+    include: {
+      recipientUser: {
+        select: { id: true, emailNotificationsEnabled: true },
+      },
+    },
+  });
+
+  if (pendingEmails.length === 0) {
+    const cleanupCutoff = new Date();
+    cleanupCutoff.setDate(cleanupCutoff.getDate() - 30);
+    const cleaned = await basePrisma.scheduledEmail.deleteMany({
+      where: {
+        clinicId: null,
+        status: { in: ['SENT', 'CANCELLED'] },
+        processedAt: { lt: cleanupCutoff },
+      },
+    });
+    result.cleanedUp = cleaned.count;
+    return result;
+  }
+
+  const emailIds = pendingEmails.map((e) => e.id);
+  await basePrisma.scheduledEmail.updateMany({
+    where: { id: { in: emailIds }, status: 'PENDING' },
+    data: { status: 'PROCESSING' },
+  });
+
+  for (const scheduledEmail of pendingEmails) {
+    try {
+      if (scheduledEmail.recipientUser && !scheduledEmail.recipientUser.emailNotificationsEnabled) {
+        await basePrisma.scheduledEmail.update({
+          where: { id: scheduledEmail.id },
+          data: { status: 'CANCELLED', processedAt: new Date(), errorMessage: 'User has disabled email notifications' },
+        });
+        result.skipped++;
+        continue;
+      }
+
+      const emailResult = await sendTemplatedEmail({
+        to: scheduledEmail.recipientEmail,
+        template: scheduledEmail.template as EmailTemplate,
+        data: scheduledEmail.templateData as Record<string, unknown>,
+        subject: scheduledEmail.subject || undefined,
+        userId: scheduledEmail.recipientUserId || undefined,
+        clinicId: undefined,
+        sourceType: 'automation',
+        sourceId: scheduledEmail.automationTrigger || `scheduled-${scheduledEmail.id}`,
+      });
+
+      if (emailResult.success) {
+        await basePrisma.scheduledEmail.update({
+          where: { id: scheduledEmail.id },
+          data: { status: 'SENT', processedAt: new Date() },
+        });
+        result.sent++;
+      } else {
+        const newRetryCount = scheduledEmail.retryCount + 1;
+        const shouldRetry = newRetryCount < scheduledEmail.maxRetries;
+        await basePrisma.scheduledEmail.update({
+          where: { id: scheduledEmail.id },
+          data: {
+            status: shouldRetry ? 'PENDING' : 'FAILED',
+            retryCount: newRetryCount,
+            errorMessage: emailResult.error,
+          },
+        });
+        result.failed++;
+        result.errors.push(`ID ${scheduledEmail.id}: ${emailResult.error}${shouldRetry ? ' (will retry)' : ''}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await basePrisma.scheduledEmail.update({
+        where: { id: scheduledEmail.id },
+        data: {
+          status: scheduledEmail.retryCount + 1 < MAX_RETRIES ? 'PENDING' : 'FAILED',
+          retryCount: { increment: 1 },
+          errorMessage: errorMessage,
+        },
+      });
+      result.failed++;
+      result.errors.push(`ID ${scheduledEmail.id}: ${errorMessage}`);
+    }
+  }
+
+  const cleanupCutoff = new Date();
+  cleanupCutoff.setDate(cleanupCutoff.getDate() - 30);
+  const cleaned = await basePrisma.scheduledEmail.deleteMany({
+    where: {
+      clinicId: null,
       status: { in: ['SENT', 'CANCELLED'] },
       processedAt: { lt: cleanupCutoff },
     },

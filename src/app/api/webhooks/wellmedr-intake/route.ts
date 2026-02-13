@@ -1,14 +1,15 @@
-import { NextRequest } from "next/server";
-import { PatientDocumentCategory, Clinic, Patient, Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
-import { normalizeWellmedrPayload, isCheckoutComplete } from "@/lib/wellmedr/intakeNormalizer";
-import type { WellmedrPayload } from "@/lib/wellmedr/types";
-import { generateIntakePdf } from "@/services/intakePdfService";
-import { storeIntakePdf } from "@/services/storage/intakeStorage";
-import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
-import { trackReferral } from "@/services/influencerService";
-import { notificationService } from "@/services/notification";
+import { NextRequest } from 'next/server';
+import { PatientDocumentCategory, Clinic, Patient, Prisma } from '@prisma/client';
+import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
+import { normalizeWellmedrPayload, isCheckoutComplete } from '@/lib/wellmedr/intakeNormalizer';
+import type { WellmedrPayload } from '@/lib/wellmedr/types';
+import { generateIntakePdf } from '@/services/intakePdfService';
+import { storeIntakePdf } from '@/services/storage/intakeStorage';
+import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
+import { trackReferral } from '@/services/influencerService';
+import { notificationService } from '@/services/notification';
 import { logger } from '@/lib/logger';
+import { createHash } from 'crypto';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
@@ -57,22 +58,20 @@ function safeDecrypt(value: string | null | undefined): string | null {
 // ═══════════════════════════════════════════════════════════════════
 // These values ensure ALL data goes ONLY to the Wellmedr clinic.
 // DO NOT CHANGE without understanding the security implications.
-const WELLMEDR_CLINIC_SUBDOMAIN = "wellmedr";
+const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
 const EXPECTED_WELLMEDR_CLINIC_ID = process.env.WELLMEDR_CLINIC_ID
   ? parseInt(process.env.WELLMEDR_CLINIC_ID, 10)
   : null;
 
 // Startup validation - log warning if env var not set
 if (!EXPECTED_WELLMEDR_CLINIC_ID) {
-  logger.warn('[WELLMEDR-INTAKE] WELLMEDR_CLINIC_ID env var not set - will use dynamic lookup only');
+  logger.warn(
+    '[WELLMEDR-INTAKE] WELLMEDR_CLINIC_ID env var not set - will use dynamic lookup only'
+  );
 }
 
 // Retry helper for database operations
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  retries = 3,
-  delay = 500
-): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 500): Promise<T> {
   let lastError: Error | null = null;
   for (let i = 0; i <= retries; i++) {
     try {
@@ -80,7 +79,7 @@ async function withRetry<T>(
     } catch (error) {
       lastError = error as Error;
       if (i < retries) {
-        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        await new Promise((resolve) => setTimeout(resolve, delay * (i + 1)));
       }
     }
   }
@@ -111,22 +110,23 @@ export async function POST(req: NextRequest) {
   if (!configuredSecret) {
     logger.error(`[WELLMEDR-INTAKE ${requestId}] CRITICAL: No webhook secret configured!`);
     return Response.json(
-      { error: "Server configuration error", code: "NO_SECRET_CONFIGURED", requestId },
+      { error: 'Server configuration error', code: 'NO_SECRET_CONFIGURED', requestId },
       { status: 500 }
     );
   }
 
   const providedSecret =
-    req.headers.get("x-webhook-secret") ||
-    req.headers.get("x-api-key") ||
-    req.headers.get("authorization")?.replace("Bearer ", "");
+    req.headers.get('x-webhook-secret') ||
+    req.headers.get('x-api-key') ||
+    req.headers.get('authorization')?.replace('Bearer ', '');
 
   if (providedSecret !== configuredSecret) {
     logger.warn(`[WELLMEDR-INTAKE ${requestId}] Authentication FAILED`);
-    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    recordAuthFailure("wellmedr-intake", ipAddress, providedSecret || undefined);
+    const ipAddress =
+      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    recordAuthFailure('wellmedr-intake', ipAddress, providedSecret || undefined);
     return Response.json(
-      { error: "Unauthorized", code: "INVALID_SECRET", requestId },
+      { error: 'Unauthorized', code: 'INVALID_SECRET', requestId },
       { status: 401 }
     );
   }
@@ -139,26 +139,33 @@ export async function POST(req: NextRequest) {
   let clinicId: number;
   try {
     // Select only needed fields for backwards compatibility with schema changes
-    const wellmedrClinic = await withRetry<{ id: number; name: string; subdomain: string | null } | null>(() => prisma.clinic.findFirst({
-      where: {
-        OR: [
-          { subdomain: WELLMEDR_CLINIC_SUBDOMAIN },
-          { subdomain: { contains: "wellmedr", mode: "insensitive" } },
-          { name: { contains: "Wellmedr", mode: "insensitive" } },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        subdomain: true,
-      },
-    }));
+    // Use basePrisma since we haven't resolved clinic context yet
+    const wellmedrClinic = await withRetry<{
+      id: number;
+      name: string;
+      subdomain: string | null;
+    } | null>(() =>
+      basePrisma.clinic.findFirst({
+        where: {
+          OR: [
+            { subdomain: WELLMEDR_CLINIC_SUBDOMAIN },
+            { subdomain: { contains: 'wellmedr', mode: 'insensitive' } },
+            { name: { contains: 'Wellmedr', mode: 'insensitive' } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          subdomain: true,
+        },
+      })
+    );
 
     if (!wellmedrClinic) {
       logger.error(`[WELLMEDR-INTAKE ${requestId}] CRITICAL: Wellmedr clinic not found!`);
-      recordError("wellmedr-intake", "Wellmedr clinic not found in database", { requestId });
+      recordError('wellmedr-intake', 'Wellmedr clinic not found in database', { requestId });
       return Response.json(
-        { error: "Clinic not found", code: "CLINIC_NOT_FOUND", requestId },
+        { error: 'Clinic not found', code: 'CLINIC_NOT_FOUND', requestId },
         { status: 500 }
       );
     }
@@ -176,13 +183,17 @@ export async function POST(req: NextRequest) {
         clinicName: wellmedrClinic.name,
         clinicSubdomain: wellmedrClinic.subdomain,
       });
-      recordError("wellmedr-intake", `SECURITY: Clinic ID mismatch - expected ${EXPECTED_WELLMEDR_CLINIC_ID}, got ${clinicId}`, {
-        requestId,
-        expected: EXPECTED_WELLMEDR_CLINIC_ID,
-        found: clinicId,
-      });
+      recordError(
+        'wellmedr-intake',
+        `SECURITY: Clinic ID mismatch - expected ${EXPECTED_WELLMEDR_CLINIC_ID}, got ${clinicId}`,
+        {
+          requestId,
+          expected: EXPECTED_WELLMEDR_CLINIC_ID,
+          found: clinicId,
+        }
+      );
       return Response.json(
-        { error: "Clinic configuration error", code: "CLINIC_ID_MISMATCH", requestId },
+        { error: 'Clinic configuration error', code: 'CLINIC_ID_MISMATCH', requestId },
         { status: 500 }
       );
     }
@@ -193,18 +204,26 @@ export async function POST(req: NextRequest) {
         expected: 'wellmedr',
         found: wellmedrClinic.subdomain,
       });
-      recordError("wellmedr-intake", `SECURITY: Clinic subdomain mismatch`, { requestId });
+      recordError('wellmedr-intake', `SECURITY: Clinic subdomain mismatch`, { requestId });
       return Response.json(
-        { error: "Clinic configuration error", code: "CLINIC_SUBDOMAIN_MISMATCH", requestId },
+        { error: 'Clinic configuration error', code: 'CLINIC_SUBDOMAIN_MISMATCH', requestId },
         { status: 500 }
       );
     }
 
-    logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ CLINIC VERIFIED: ID=${clinicId}, Name="${wellmedrClinic.name}", Subdomain="${wellmedrClinic.subdomain}"`);
+    logger.info(
+      `[WELLMEDR-INTAKE ${requestId}] ✓ CLINIC VERIFIED: ID=${clinicId}, Name="${wellmedrClinic.name}", Subdomain="${wellmedrClinic.subdomain}"`
+    );
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error(`[WELLMEDR-INTAKE ${requestId}] Database error finding clinic:`, { error: errMsg });
-    recordError("wellmedr-intake", `Database error: ${err instanceof Error ? err.message : 'Unknown'}`, { requestId });
+    logger.error(`[WELLMEDR-INTAKE ${requestId}] Database error finding clinic:`, {
+      error: errMsg,
+    });
+    recordError(
+      'wellmedr-intake',
+      `Database error: ${err instanceof Error ? err.message : 'Unknown'}`,
+      { requestId }
+    );
 
     // Queue to DLQ for retry - get raw body for requeueing
     if (isDLQConfigured()) {
@@ -220,13 +239,46 @@ export async function POST(req: NextRequest) {
         logger.info(`[WELLMEDR-INTAKE ${requestId}] Queued to DLQ for retry`);
       } catch (dlqErr) {
         const dlqErrMsg = dlqErr instanceof Error ? dlqErr.message : 'Unknown error';
-        logger.error(`[WELLMEDR-INTAKE ${requestId}] Failed to queue to DLQ:`, { error: dlqErrMsg });
+        logger.error(`[WELLMEDR-INTAKE ${requestId}] Failed to queue to DLQ:`, {
+          error: dlqErrMsg,
+        });
       }
     }
 
     return Response.json(
-      { error: "Database error", code: "DB_ERROR", requestId, queued: isDLQConfigured() },
+      { error: 'Database error', code: 'DB_ERROR', requestId, queued: isDLQConfigured() },
       { status: 500 }
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 2.5+: Run remaining steps within tenant (clinic) context
+  // This is REQUIRED for all clinic-isolated model operations
+  // (patient, patientDocument, auditLog, notification, etc.)
+  // ═══════════════════════════════════════════════════════════════════
+  const rawBody = await req.text();
+
+  return runWithClinicContext(clinicId, async () => {
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 2.5: IDEMPOTENCY CHECK
+  // ═══════════════════════════════════════════════════════════════════
+  const idempotencyKey = `wellmedr-intake_${createHash('sha256').update(rawBody).digest('hex')}`;
+
+  const existingIdempotencyRecord = await prisma.idempotencyRecord.findUnique({
+    where: { key: idempotencyKey },
+  }).catch((err) => {
+    logger.warn(`[WELLMEDR-INTAKE ${requestId}] Idempotency lookup failed, proceeding`, { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  });
+
+  if (existingIdempotencyRecord) {
+    logger.info(`[WELLMEDR-INTAKE ${requestId}] Duplicate webhook detected, returning cached response`, {
+      idempotencyKey,
+      originalCreatedAt: existingIdempotencyRecord.createdAt,
+    });
+    return Response.json(
+      { received: true, status: 'duplicate', requestId, originalResponse: existingIdempotencyRecord.responseBody },
+      { status: existingIdempotencyRecord.responseStatus }
     );
   }
 
@@ -235,7 +287,7 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   let payload: WellmedrPayload = {};
   try {
-    const text = await req.text();
+    const text = rawBody;
     payload = (safeParseJSON(text) || {}) as WellmedrPayload;
 
     // Log payload structure
@@ -250,14 +302,15 @@ export async function POST(req: NextRequest) {
     });
 
     // Log address-related fields for debugging
-    const addressKeys = allKeys.filter(k =>
-      k.toLowerCase().includes('address') ||
-      k.toLowerCase().includes('street') ||
-      k.toLowerCase().includes('city') ||
-      k.toLowerCase().includes('zip') ||
-      k.toLowerCase().includes('postal') ||
-      k.includes('38a5bae0') || // Heyflow address component
-      k.includes('0d142f9e')    // Heyflow apartment component
+    const addressKeys = allKeys.filter(
+      (k) =>
+        k.toLowerCase().includes('address') ||
+        k.toLowerCase().includes('street') ||
+        k.toLowerCase().includes('city') ||
+        k.toLowerCase().includes('zip') ||
+        k.toLowerCase().includes('postal') ||
+        k.includes('38a5bae0') || // Heyflow address component
+        k.includes('0d142f9e') // Heyflow apartment component
     );
 
     if (addressKeys.length > 0) {
@@ -271,19 +324,25 @@ export async function POST(req: NextRequest) {
         values: addressData,
       });
     } else {
-      logger.warn(`[WELLMEDR-INTAKE ${requestId}] ⚠️ No address fields found in payload! Only State field will be used.`);
+      logger.warn(
+        `[WELLMEDR-INTAKE ${requestId}] ⚠️ No address fields found in payload! Only State field will be used.`
+      );
     }
 
     // Log state field specifically
-    const stateValue = payload['state'] || payload['State'] || payload['Address [State]'] ||
-                       payload['id-38a5bae0-state'] || payload['id-38a5bae0-state_code'];
+    const stateValue =
+      payload['state'] ||
+      payload['State'] ||
+      payload['Address [State]'] ||
+      payload['id-38a5bae0-state'] ||
+      payload['id-38a5bae0-state_code'];
     logger.info(`[WELLMEDR-INTAKE ${requestId}] State field:`, {
       stateValue,
-      hasState: !!stateValue
+      hasState: !!stateValue,
     });
   } catch (err) {
     logger.warn(`[WELLMEDR-INTAKE ${requestId}] Failed to parse payload, using empty object`);
-    errors.push("Failed to parse JSON payload");
+    errors.push('Failed to parse JSON payload');
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -302,31 +361,43 @@ export async function POST(req: NextRequest) {
       state: normalized.patient.state,
       zip: normalized.patient.zip,
     };
-    const hasFullAddress = !!(extractedAddress.address1 && extractedAddress.city && extractedAddress.state && extractedAddress.zip);
+    const hasFullAddress = !!(
+      extractedAddress.address1 &&
+      extractedAddress.city &&
+      extractedAddress.state &&
+      extractedAddress.zip
+    );
     logger.info(`[WELLMEDR-INTAKE ${requestId}] Extracted address:`, {
       ...extractedAddress,
       hasFullAddress,
-      onlyHasState: !!(extractedAddress.state && !extractedAddress.address1 && !extractedAddress.city && !extractedAddress.zip),
+      onlyHasState: !!(
+        extractedAddress.state &&
+        !extractedAddress.address1 &&
+        !extractedAddress.city &&
+        !extractedAddress.zip
+      ),
     });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[WELLMEDR-INTAKE ${requestId}] Normalization failed, using fallback:`, { error: errMsg });
-    errors.push("Normalization failed, using fallback data");
+    logger.warn(`[WELLMEDR-INTAKE ${requestId}] Normalization failed, using fallback:`, {
+      error: errMsg,
+    });
+    errors.push('Normalization failed, using fallback data');
     normalized = {
       submissionId: `fallback-${requestId}`,
       submittedAt: new Date(),
       patient: {
-        firstName: "Unknown",
-        lastName: "Lead",
+        firstName: 'Unknown',
+        lastName: 'Lead',
         email: `unknown-${Date.now()}@intake.wellmedr.com`,
-        phone: "",
-        dob: "",
-        gender: "",
-        address1: "",
-        address2: "",
-        city: "",
-        state: "",
-        zip: "",
+        phone: '',
+        dob: '',
+        gender: '',
+        address1: '',
+        address2: '',
+        city: '',
+        state: '',
+        zip: '',
       },
       sections: [],
       answers: [],
@@ -339,7 +410,9 @@ export async function POST(req: NextRequest) {
   const isComplete = isCheckoutComplete(payload);
   const isPartialSubmission = !isComplete;
 
-  logger.info(`[WELLMEDR-INTAKE ${requestId}] Type: ${isComplete ? 'COMPLETE' : 'PARTIAL'}, Checkout: ${payload['Checkout Completed']}`);
+  logger.info(
+    `[WELLMEDR-INTAKE ${requestId}] Type: ${isComplete ? 'COMPLETE' : 'PARTIAL'}, Checkout: ${payload['Checkout Completed']}`
+  );
 
   // ═══════════════════════════════════════════════════════════════════
   // STEP 6: UPSERT PATIENT (with retry and fallbacks)
@@ -350,10 +423,10 @@ export async function POST(req: NextRequest) {
   const patientData = normalizePatientData(normalized.patient);
 
   // Build tags
-  const baseTags = ["wellmedr-intake", "wellmedr", "glp1"];
+  const baseTags = ['wellmedr-intake', 'wellmedr', 'glp1'];
   const submissionTags = isPartialSubmission
-    ? [...baseTags, "partial-lead", "needs-followup"]
-    : [...baseTags, "complete-intake"];
+    ? [...baseTags, 'partial-lead', 'needs-followup']
+    : [...baseTags, 'complete-intake'];
 
   // Build notes
   const buildNotes = (existing: string | null | undefined) => {
@@ -361,7 +434,9 @@ export async function POST(req: NextRequest) {
     if (existing && !existing.includes(normalized.submissionId)) {
       parts.push(existing);
     }
-    parts.push(`[${new Date().toISOString()}] ${isPartialSubmission ? "PARTIAL" : "COMPLETE"}: ${normalized.submissionId}`);
+    parts.push(
+      `[${new Date().toISOString()}] ${isPartialSubmission ? 'PARTIAL' : 'COMPLETE'}: ${normalized.submissionId}`
+    );
 
     // Add GLP-1 specific notes if available
     if (payload['glp1-last-30'] === 'Yes' || payload['glp1-last-30'] === 'yes') {
@@ -372,10 +447,10 @@ export async function POST(req: NextRequest) {
 
     // Add contraindication flags
     if (payload['men2-history'] === 'Yes' || payload['men2-history'] === 'yes') {
-      parts.push("⚠️ MEN2 HISTORY - GLP-1 CONTRAINDICATION");
+      parts.push('⚠️ MEN2 HISTORY - GLP-1 CONTRAINDICATION');
     }
 
-    return parts.join("\n");
+    return parts.join('\n');
   };
 
   try {
@@ -389,11 +464,13 @@ export async function POST(req: NextRequest) {
 
     // Fetch recent patients from this clinic to check for duplicates
     // (fetching all would be too slow, so limit to recent 500)
-    const recentPatients = await withRetry<Patient[]>(() => prisma.patient.findMany({
-      where: { clinicId: clinicId },
-      orderBy: { createdAt: 'desc' },
-      take: 500,
-    }));
+    const recentPatients = await withRetry<Patient[]>(() =>
+      prisma.patient.findMany({
+        where: { clinicId: clinicId },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      })
+    );
 
     // Decrypt and compare each patient's PHI to find match
     const searchEmail = patientData.email?.toLowerCase().trim();
@@ -410,28 +487,41 @@ export async function POST(req: NextRequest) {
       const decryptedDob = safeDecrypt(p.dob);
 
       // 1. Match by email (strongest - skip placeholder emails)
-      if (searchEmail && searchEmail !== "unknown@example.com" &&
-          decryptedEmail && decryptedEmail === searchEmail) {
+      if (
+        searchEmail &&
+        searchEmail !== 'unknown@example.com' &&
+        decryptedEmail &&
+        decryptedEmail === searchEmail
+      ) {
         existingPatient = p;
         logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by email: ${p.id}`);
         break;
       }
 
       // 2. Match by phone (skip placeholder phones)
-      if (searchPhone && searchPhone !== "0000000000" &&
-          decryptedPhone && decryptedPhone === searchPhone) {
+      if (
+        searchPhone &&
+        searchPhone !== '0000000000' &&
+        decryptedPhone &&
+        decryptedPhone === searchPhone
+      ) {
         existingPatient = p;
         logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by phone: ${p.id}`);
         break;
       }
 
       // 3. Match by name + DOB (for patients who changed email/phone)
-      if (searchFirstName && searchFirstName !== "unknown" &&
-          searchLastName && searchLastName !== "unknown" &&
-          searchDob && searchDob !== "1900-01-01" &&
-          decryptedFirstName === searchFirstName &&
-          decryptedLastName === searchLastName &&
-          decryptedDob === searchDob) {
+      if (
+        searchFirstName &&
+        searchFirstName !== 'unknown' &&
+        searchLastName &&
+        searchLastName !== 'unknown' &&
+        searchDob &&
+        searchDob !== '1900-01-01' &&
+        decryptedFirstName === searchFirstName &&
+        decryptedLastName === searchLastName &&
+        decryptedDob === searchDob
+      ) {
         existingPatient = p;
         logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by name+DOB: ${p.id}`);
         break;
@@ -446,25 +536,33 @@ export async function POST(req: NextRequest) {
       // ═══════════════════════════════════════════════════════════════════
       // UPDATE EXISTING PATIENT
       // ═══════════════════════════════════════════════════════════════════
-      const existingTags = Array.isArray(existingPatient.tags) ? existingPatient.tags as string[] : [];
-      const wasPartial = existingTags.includes("partial-lead");
+      const existingTags = Array.isArray(existingPatient.tags)
+        ? (existingPatient.tags as string[])
+        : [];
+      const wasPartial = existingTags.includes('partial-lead');
       const upgradedFromPartial = wasPartial && !isPartialSubmission;
 
       let updatedTags = mergeTags(existingPatient.tags, submissionTags);
       if (upgradedFromPartial) {
-        updatedTags = updatedTags.filter((t: string) => t !== "partial-lead" && t !== "needs-followup");
+        updatedTags = updatedTags.filter(
+          (t: string) => t !== 'partial-lead' && t !== 'needs-followup'
+        );
         logger.info(`[WELLMEDR-INTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
       }
 
-      patient = await withRetry(() => prisma.patient.update({
-        where: { id: existingPatient!.id },
-        data: {
-          ...patientData,
-          tags: updatedTags,
-          notes: buildNotes(existingPatient!.notes),
-        },
-      }));
-      logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Updated patient: ${patient.id} → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`);
+      patient = await withRetry(() =>
+        prisma.patient.update({
+          where: { id: existingPatient!.id },
+          data: {
+            ...patientData,
+            tags: updatedTags,
+            notes: buildNotes(existingPatient!.notes),
+          },
+        })
+      );
+      logger.info(
+        `[WELLMEDR-INTAKE ${requestId}] ✓ Updated patient: ${patient.id} → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`
+      );
     } else {
       // ═══════════════════════════════════════════════════════════════════
       // CREATE NEW PATIENT - with retry on patientId conflict
@@ -483,39 +581,40 @@ export async function POST(req: NextRequest) {
               clinicId: clinicId,
               tags: submissionTags,
               notes: buildNotes(null),
-              source: "webhook",
+              source: 'webhook',
               sourceMetadata: {
-                type: "wellmedr-intake",
+                type: 'wellmedr-intake',
                 submissionId: normalized.submissionId,
                 checkoutCompleted: isComplete,
-                intakeUrl: "https://intake.wellmedr.com",
+                intakeUrl: 'https://intake.wellmedr.com',
                 timestamp: new Date().toISOString(),
                 clinicId,
-                clinicName: "Wellmedr",
+                clinicName: 'Wellmedr',
               },
             },
           });
           isNewPatient = true;
           created = true;
-          logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`);
+          logger.info(
+            `[WELLMEDR-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`
+          );
         } catch (createErr: any) {
           // Check if this is a unique constraint violation on patientId
           if (createErr?.code === 'P2002' && createErr?.meta?.target?.includes('patientId')) {
             retryCount++;
-            logger.warn(`[WELLMEDR-INTAKE ${requestId}] PatientId conflict, retrying (${retryCount}/${MAX_RETRIES})...`);
+            logger.warn(
+              `[WELLMEDR-INTAKE ${requestId}] PatientId conflict, retrying (${retryCount}/${MAX_RETRIES})...`
+            );
 
             // Wait a bit before retrying to avoid race conditions
-            await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+            await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
 
             // If this keeps happening, the patient might actually exist - try to find them again
             if (retryCount >= 3) {
               const refetchPatient = await prisma.patient.findFirst({
                 where: {
                   clinicId: clinicId,
-                  OR: [
-                    { email: patientData.email },
-                    { phone: patientData.phone },
-                  ],
+                  OR: [{ email: patientData.email }, { phone: patientData.phone }],
                 },
               });
 
@@ -530,7 +629,9 @@ export async function POST(req: NextRequest) {
                   },
                 });
                 created = true;
-                logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Found and updated patient on retry: ${patient.id}`);
+                logger.info(
+                  `[WELLMEDR-INTAKE ${requestId}] ✓ Found and updated patient on retry: ${patient.id}`
+                );
               }
             }
           } else {
@@ -541,17 +642,19 @@ export async function POST(req: NextRequest) {
       }
 
       if (!created) {
-        throw new Error(`Failed to create patient after ${MAX_RETRIES} retries due to patientId conflicts`);
+        throw new Error(
+          `Failed to create patient after ${MAX_RETRIES} retries due to patientId conflicts`
+        );
       }
     }
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
     const errorStack = err instanceof Error ? err.stack : undefined;
     const prismaError = (err as any)?.code || (err as any)?.meta;
 
     logger.error(`[WELLMEDR-INTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {
       error: errorMsg,
-      stack: errorStack,
+      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
       prismaCode: (err as any)?.code,
       prismaMeta: (err as any)?.meta,
       patientData: {
@@ -559,9 +662,9 @@ export async function POST(req: NextRequest) {
         firstName: patientData?.firstName,
         lastName: patientData?.lastName,
         clinicId,
-      }
+      },
     });
-    recordError("wellmedr-intake", `Patient creation failed: ${errorMsg}`, { requestId });
+    recordError('wellmedr-intake', `Patient creation failed: ${errorMsg}`, { requestId });
 
     // Queue to DLQ for retry
     if (isDLQConfigured()) {
@@ -581,19 +684,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return Response.json({
-      error: `Failed to create patient: ${errorMsg}`,
-      code: "PATIENT_ERROR",
-      requestId,
-      message: errorMsg,
-      prismaError: prismaError || null,
-      debug: {
-        clinicId,
-        patientEmail: patientData?.email,
+    return Response.json(
+      {
+        error: `Failed to create patient: ${errorMsg}`,
+        code: 'PATIENT_ERROR',
+        requestId,
+        message: errorMsg,
+        prismaError: prismaError || null,
+        debug: {
+          clinicId,
+          patientEmail: patientData?.email,
+        },
+        partialSuccess: false,
+        queued: isDLQConfigured(),
       },
-      partialSuccess: false,
-      queued: isDLQConfigured(),
-    }, { status: 500 });
+      { status: 500 }
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -605,8 +711,10 @@ export async function POST(req: NextRequest) {
     logger.debug(`[WELLMEDR-INTAKE ${requestId}] ✓ PDF: ${pdfContent.byteLength} bytes`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[WELLMEDR-INTAKE ${requestId}] PDF generation failed (continuing):`, { error: errMsg });
-    errors.push("PDF generation failed");
+    logger.warn(`[WELLMEDR-INTAKE ${requestId}] PDF generation failed (continuing):`, {
+      error: errMsg,
+    });
+    errors.push('PDF generation failed');
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -620,11 +728,15 @@ export async function POST(req: NextRequest) {
         submissionId: normalized.submissionId,
         pdfBuffer: pdfContent,
       });
-      logger.debug(`[WELLMEDR-INTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`);
+      logger.debug(
+        `[WELLMEDR-INTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`
+      );
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WELLMEDR-INTAKE ${requestId}] PDF preparation failed (continuing):`, { error: errMsg });
-      errors.push("PDF preparation failed");
+      logger.warn(`[WELLMEDR-INTAKE ${requestId}] PDF preparation failed (continuing):`, {
+        error: errMsg,
+      });
+      errors.push('PDF preparation failed');
     }
   }
 
@@ -651,12 +763,16 @@ export async function POST(req: NextRequest) {
         pdfExternalUrl = s3Result.url;
         logger.debug(`[WELLMEDR-INTAKE ${requestId}] ✓ PDF uploaded to S3: ${s3Result.key}`);
       } else {
-        logger.debug(`[WELLMEDR-INTAKE ${requestId}] S3 not configured, PDF stored in database only`);
+        logger.debug(
+          `[WELLMEDR-INTAKE ${requestId}] S3 not configured, PDF stored in database only`
+        );
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WELLMEDR-INTAKE ${requestId}] S3 upload failed (continuing):`, { error: errMsg });
-      errors.push("S3 PDF upload failed");
+      logger.warn(`[WELLMEDR-INTAKE ${requestId}] S3 upload failed (continuing):`, {
+        error: errMsg,
+      });
+      errors.push('S3 PDF upload failed');
     }
   }
 
@@ -670,8 +786,9 @@ export async function POST(req: NextRequest) {
     });
 
     // Capture consent and metadata from request headers
-    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const userAgent = req.headers.get("user-agent") || "unknown";
+    const ipAddress =
+      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    const userAgent = req.headers.get('user-agent') || 'unknown';
     const consentTimestamp = new Date().toISOString();
 
     // Store intake data as JSON for display on Intake tab
@@ -679,8 +796,8 @@ export async function POST(req: NextRequest) {
       submissionId: normalized.submissionId,
       sections: normalized.sections,
       answers: normalized.answers,
-      source: "wellmedr-intake",
-      intakeUrl: "https://intake.wellmedr.com",
+      source: 'wellmedr-intake',
+      intakeUrl: 'https://intake.wellmedr.com',
       clinicId: clinicId,
       receivedAt: consentTimestamp,
       pdfGenerated: !!pdfContent,
@@ -719,11 +836,11 @@ export async function POST(req: NextRequest) {
           patientId: patient.id,
           clinicId: clinicId,
           filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
-          mimeType: "application/json",
+          mimeType: 'application/json',
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
           externalUrl: pdfExternalUrl,
-          source: "wellmedr-intake",
+          source: 'wellmedr-intake',
           sourceSubmissionId: normalized.submissionId,
         },
       });
@@ -732,7 +849,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INTAKE ${requestId}] Document record failed:`, { error: errMsg });
-    errors.push("Document record creation failed");
+    errors.push('Document record creation failed');
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -749,23 +866,31 @@ export async function POST(req: NextRequest) {
       logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ SOAP Note generated: ID ${soapNoteId}`);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WELLMEDR-INTAKE ${requestId}] SOAP generation failed (non-fatal):`, { error: errMsg });
+      logger.warn(`[WELLMEDR-INTAKE ${requestId}] SOAP generation failed (non-fatal):`, {
+        error: errMsg,
+      });
       errors.push(`SOAP generation failed: ${errMsg}`);
     }
   } else if (isPartialSubmission) {
-    logger.debug(`[WELLMEDR-INTAKE ${requestId}] Skipping SOAP for partial submission (Checkout not completed)`);
+    logger.debug(
+      `[WELLMEDR-INTAKE ${requestId}] Skipping SOAP for partial submission (Checkout not completed)`
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════
   // STEP 12: TRACK PROMO CODE (non-critical)
   // ═══════════════════════════════════════════════════════════════════
   // Check for promo code in various possible fields
-  const promoCode = payload['promo-code'] || payload['promoCode'] || payload['referral-code'] || payload['referralCode'];
+  const promoCode =
+    payload['promo-code'] ||
+    payload['promoCode'] ||
+    payload['referral-code'] ||
+    payload['referralCode'];
 
   if (promoCode) {
     const code = String(promoCode).trim().toUpperCase();
     try {
-      await trackReferral(patient.id, code, "wellmedr-intake", {
+      await trackReferral(patient.id, code, 'wellmedr-intake', {
         submissionId: normalized.submissionId,
         intakeDate: normalized.submittedAt,
         patientEmail: patient.email,
@@ -785,23 +910,23 @@ export async function POST(req: NextRequest) {
   try {
     await prisma.auditLog.create({
       data: {
-        action: isPartialSubmission ? "PARTIAL_INTAKE_RECEIVED" : "PATIENT_INTAKE_RECEIVED",
-        resource: "Patient",
+        action: isPartialSubmission ? 'PARTIAL_INTAKE_RECEIVED' : 'PATIENT_INTAKE_RECEIVED',
+        resource: 'Patient',
         resourceId: patient.id,
         userId: 0,
         details: {
-          source: "wellmedr-intake",
+          source: 'wellmedr-intake',
           submissionId: normalized.submissionId,
           checkoutCompleted: isComplete,
           clinicId,
-          clinicName: "Wellmedr",
+          clinicName: 'Wellmedr',
           isNewPatient,
           isPartialSubmission,
           documentId: patientDocument?.id,
           soapNoteId: soapNoteId,
           errors: errors.length > 0 ? errors : undefined,
         },
-        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "webhook",
+        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'webhook',
       },
     });
   } catch (err) {
@@ -815,7 +940,7 @@ export async function POST(req: NextRequest) {
   const duration = Date.now() - startTime;
 
   // Record success for monitoring
-  recordSuccess("wellmedr-intake", duration);
+  recordSuccess('wellmedr-intake', duration);
 
   // Decrypt patient PHI for display in notifications and response
   const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
@@ -852,7 +977,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`);
+  logger.info(
+    `[WELLMEDR-INTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`
+  );
+
+  // Record idempotency key for duplicate detection
+  await prisma.idempotencyRecord.create({
+    data: {
+      key: idempotencyKey,
+      resource: 'wellmedr-intake',
+      responseStatus: 200,
+      responseBody: { success: true, requestId, patientId: patient.id, submissionId: normalized.submissionId },
+    },
+  }).catch((err) => {
+    logger.warn(`[WELLMEDR-INTAKE ${requestId}] Failed to store idempotency record`, { error: err instanceof Error ? err.message : String(err) });
+  });
 
   // Response format for Airtable integration
   return Response.json({
@@ -862,8 +1001,8 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════
     // BIDIRECTIONAL SYNC FIELDS - Store these in Airtable!
     // ═══════════════════════════════════════════════════════════════════
-    eonproPatientId: patient.patientId,  // Formatted ID like "000059"
-    eonproDatabaseId: patient.id,        // Database ID
+    eonproPatientId: patient.patientId, // Formatted ID like "000059"
+    eonproDatabaseId: patient.id, // Database ID
     submissionId: normalized.submissionId,
 
     // Detailed patient info
@@ -880,30 +1019,35 @@ export async function POST(req: NextRequest) {
       isPartial: isPartialSubmission,
     },
     // Document info
-    document: patientDocument ? {
-      id: patientDocument.id,
-      filename: stored?.filename,
-      pdfUrl: pdfExternalUrl,
-    } : null,
+    document: patientDocument
+      ? {
+          id: patientDocument.id,
+          filename: stored?.filename,
+          pdfUrl: pdfExternalUrl,
+        }
+      : null,
     // SOAP note (if generated)
-    soapNote: soapNoteId ? {
-      id: soapNoteId,
-      status: "DRAFT",
-    } : null,
+    soapNote: soapNoteId
+      ? {
+          id: soapNoteId,
+          status: 'DRAFT',
+        }
+      : null,
     // Clinic info
     clinic: {
       id: clinicId,
-      name: "Wellmedr",
+      name: 'Wellmedr',
     },
     // Metadata
     processingTimeMs: duration,
     processingTime: `${duration}ms`,
-    message: isNewPatient ? "Patient created successfully" : "Patient updated successfully",
+    message: isNewPatient ? 'Patient created successfully' : 'Patient updated successfully',
     warnings: errors.length > 0 ? errors : undefined,
 
     // Legacy field names (for backwards compatibility)
     patientId: patient.id,
   });
+  }); // end runWithClinicContext
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -912,17 +1056,19 @@ export async function POST(req: NextRequest) {
 
 function normalizePatientData(patient: any) {
   return {
-    firstName: capitalize(patient.firstName) || "Unknown",
-    lastName: capitalize(patient.lastName) || "Unknown",
-    email: patient.email?.toLowerCase()?.trim() || "unknown@example.com",
+    firstName: capitalize(patient.firstName) || 'Unknown',
+    lastName: capitalize(patient.lastName) || 'Unknown',
+    email: patient.email?.toLowerCase()?.trim() || 'unknown@example.com',
     phone: sanitizePhone(patient.phone),
     dob: normalizeDate(patient.dob),
     gender: normalizeGender(patient.gender),
-    address1: String(patient.address1 || "").trim(),
-    address2: String(patient.address2 || "").trim(),
-    city: String(patient.city || "").trim(),
-    state: String(patient.state || "").toUpperCase().trim(),
-    zip: String(patient.zip || "").trim(),
+    address1: String(patient.address1 || '').trim(),
+    address2: String(patient.address2 || '').trim(),
+    city: String(patient.city || '').trim(),
+    state: String(patient.state || '')
+      .toUpperCase()
+      .trim(),
+    zip: String(patient.zip || '').trim(),
   };
 }
 
@@ -933,25 +1079,25 @@ async function getNextPatientId(clinicId: number): Promise<string> {
 }
 
 function sanitizePhone(value?: string) {
-  if (!value) return "0000000000";
-  const digits = String(value).replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) {
+  if (!value) return '0000000000';
+  const digits = String(value).replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
     return digits.slice(1);
   }
-  return digits || "0000000000";
+  return digits || '0000000000';
 }
 
 function normalizeGender(value?: string) {
-  if (!value) return "m";
+  if (!value) return 'm';
   const lower = String(value).toLowerCase().trim();
-  if (lower === 'f' || lower === 'female' || lower === 'woman') return "f";
-  if (lower === 'm' || lower === 'male' || lower === 'man') return "m";
-  if (lower.startsWith("f") || lower.startsWith("w")) return "f";
-  return "m";
+  if (lower === 'f' || lower === 'female' || lower === 'woman') return 'f';
+  if (lower === 'm' || lower === 'male' || lower === 'man') return 'm';
+  if (lower.startsWith('f') || lower.startsWith('w')) return 'f';
+  return 'm';
 }
 
 function normalizeDate(value?: string) {
-  if (!value) return "1900-01-01";
+  if (!value) return '1900-01-01';
   const str = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
 
@@ -959,27 +1105,27 @@ function normalizeDate(value?: string) {
   const slashParts = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (slashParts) {
     const [, mm, dd, yyyy] = slashParts;
-    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
   }
 
   // Try MMDDYYYY format
-  const parts = str.replace(/[^0-9]/g, "").match(/(\d{2})(\d{2})(\d{4})/);
+  const parts = str.replace(/[^0-9]/g, '').match(/(\d{2})(\d{2})(\d{4})/);
   if (parts) {
     const [, mm, dd, yyyy] = parts;
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  return "1900-01-01";
+  return '1900-01-01';
 }
 
 function capitalize(value?: string) {
-  if (!value) return "";
+  if (!value) return '';
   return String(value)
     .toLowerCase()
     .trim()
     .split(/\s+/)
     .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
-    .join(" ");
+    .join(' ');
 }
 
 function mergeTags(existing: any, incoming: string[]) {
@@ -993,17 +1139,17 @@ function mergeTags(existing: any, incoming: string[]) {
 // ═══════════════════════════════════════════════════════════════════
 export async function GET(req: NextRequest) {
   return Response.json({
-    status: "ok",
-    endpoint: "/api/webhooks/wellmedr-intake",
-    clinic: "Wellmedr",
+    status: 'ok',
+    endpoint: '/api/webhooks/wellmedr-intake',
+    clinic: 'Wellmedr',
     clinicIsolation: {
       enforced: true,
-      expectedClinicId: EXPECTED_WELLMEDR_CLINIC_ID || "dynamic-lookup",
+      expectedClinicId: EXPECTED_WELLMEDR_CLINIC_ID || 'dynamic-lookup',
       subdomain: WELLMEDR_CLINIC_SUBDOMAIN,
-      note: "ALL data from this webhook goes ONLY to Wellmedr clinic",
+      note: 'ALL data from this webhook goes ONLY to Wellmedr clinic',
     },
-    intakeUrl: "https://intake.wellmedr.com",
-    version: "1.1.0",
+    intakeUrl: 'https://intake.wellmedr.com',
+    version: '1.1.0',
     timestamp: new Date().toISOString(),
     configured: !!process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET,
   });
