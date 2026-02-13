@@ -101,24 +101,9 @@ const nextConfig = {
       ? { type: 'memory' }
       : { type: 'filesystem' };
 
-    if (isServer && nextRuntime === 'edge') {
-      // Edge Runtime: stub Node.js built-ins that are unavailable.
-      // Sentry's dependency chain (via @sentry/node-core) pulls in node:os;
-      // providing false here makes webpack resolve it to an empty module.
-      config.resolve = config.resolve || {};
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        os: false,
-        'node:os': false,
-        fs: false,
-        'node:fs': false,
-        path: false,
-        'node:path': false,
-        child_process: false,
-        'node:child_process': false,
-      };
-    } else if (isServer) {
-      // Node.js server: externalize node: protocol modules.
+    // All server builds: externalize node:* protocol as commonjs.
+    // This prevents "UnhandledSchemeError: Reading from node:os" during compilation.
+    if (isServer) {
       const externals = config.externals || [];
       const handler = ({ request }, callback) => {
         if (typeof request === 'string' && request.startsWith('node:')) {
@@ -127,6 +112,22 @@ const nextConfig = {
         callback();
       };
       config.externals = Array.isArray(externals) ? [...externals, handler] : [externals, handler];
+    }
+
+    // Edge Runtime: additionally alias Node.js built-ins to empty modules.
+    // Vercel's post-build validation rejects Edge Functions that reference
+    // unsupported Node.js modules; aliasing to false makes them empty.
+    if (isServer && nextRuntime === 'edge') {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'node:os': false,
+        'node:fs': false,
+        'node:path': false,
+        'node:child_process': false,
+        'node:async_hooks': false,
+        'node:crypto': require.resolve('next/dist/compiled/crypto-browserify'),
+      };
     }
 
     // Bundle analyzer requires webpack config
