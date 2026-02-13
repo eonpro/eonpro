@@ -35,6 +35,8 @@ interface PatientSidebarProps {
   userRole?: string;
   /** Show Labs tab (bloodwork). Default true. Set from clinic feature BLOODWORK_LABS so OT and all clinics can show it. */
   showLabsTab?: boolean;
+  /** Base path for patient detail links. Use /provider/patients when rendered from provider route. */
+  patientDetailBasePath?: string;
 }
 
 const navItems = [
@@ -58,6 +60,7 @@ export default function PatientSidebar({
   currentSalesRep,
   userRole,
   showLabsTab = true,
+  patientDetailBasePath = '/patients',
 }: PatientSidebarProps) {
   const router = useRouter();
   const [showEditModal, setShowEditModal] = useState(false);
@@ -308,14 +311,12 @@ export default function PatientSidebar({
 
         {/* Navigation */}
         <nav className="mb-6 space-y-1">
-          {navItems
-            .filter((item) => (item.id === 'lab' ? showLabsTab : true))
-            .map((item) => {
+          {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems).map((item) => {
             const isActive = currentTab === item.id;
             return (
               <Link
                 key={item.id}
-                href={`/patients/${patient.id}?tab=${item.id}`}
+                href={`${patientDetailBasePath}/${patient.id}?tab=${item.id}`}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
                   isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
                 }`}

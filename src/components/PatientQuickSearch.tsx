@@ -20,12 +20,15 @@ interface PatientQuickSearchProps {
   placeholder?: string;
   /** Additional class names */
   className?: string;
+  /** Base path for patient links. Use /provider/patients when on provider route. */
+  patientDetailBasePath?: string;
 }
 
 export default function PatientQuickSearch({
   currentPatientId,
   placeholder = 'Search patients...',
   className = '',
+  patientDetailBasePath = '/patients',
 }: PatientQuickSearchProps) {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -38,40 +41,43 @@ export default function PatientQuickSearch({
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Debounced search function
-  const searchPatients = useCallback(async (searchQuery: string) => {
-    if (searchQuery.length < 2) {
-      setResults([]);
-      setIsOpen(false);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/patients?search=${encodeURIComponent(searchQuery)}&limit=10&includeContact=true`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Search failed');
+  const searchPatients = useCallback(
+    async (searchQuery: string) => {
+      if (searchQuery.length < 2) {
+        setResults([]);
+        setIsOpen(false);
+        return;
       }
 
-      const data = await response.json();
-      
-      // Filter out current patient and format results
-      const filtered = (data.patients || [])
-        .filter((p: PatientResult) => p.id !== currentPatientId)
-        .slice(0, 8); // Limit to 8 results for UX
-      
-      setResults(filtered);
-      setIsOpen(filtered.length > 0);
-      setSelectedIndex(-1);
-    } catch (error) {
-      console.error('Patient search failed:', error);
-      setResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPatientId]);
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `/api/patients?search=${encodeURIComponent(searchQuery)}&limit=10&includeContact=true`
+        );
+
+        if (!response.ok) {
+          throw new Error('Search failed');
+        }
+
+        const data = await response.json();
+
+        // Filter out current patient and format results
+        const filtered = (data.patients || [])
+          .filter((p: PatientResult) => p.id !== currentPatientId)
+          .slice(0, 8); // Limit to 8 results for UX
+
+        setResults(filtered);
+        setIsOpen(filtered.length > 0);
+        setSelectedIndex(-1);
+      } catch (error) {
+        console.error('Patient search failed:', error);
+        setResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [currentPatientId]
+  );
 
   // Handle input change with debounce
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,7 +134,7 @@ export default function PatientQuickSearch({
     setQuery('');
     setResults([]);
     setIsOpen(false);
-    router.push(`/patients/${patientId}`);
+    router.push(`${patientDetailBasePath}/${patientId}`);
   };
 
   // Close dropdown when clicking outside
@@ -165,7 +171,7 @@ export default function PatientQuickSearch({
     <div ref={containerRef} className={`relative ${className}`}>
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           ref={inputRef}
           type="text"
@@ -176,21 +182,21 @@ export default function PatientQuickSearch({
             if (results.length > 0) setIsOpen(true);
           }}
           placeholder={placeholder}
-          className="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl border border-gray-200 bg-white
-                     focus:outline-none focus:ring-2 focus:ring-opacity-50 transition-all
-                     placeholder:text-gray-400"
-          style={{
-            '--tw-ring-color': 'var(--brand-primary, #4fa77e)',
-          } as React.CSSProperties}
+          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm transition-all placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+          style={
+            {
+              '--tw-ring-color': 'var(--brand-primary, #4fa77e)',
+            } as React.CSSProperties
+          }
         />
         {/* Loading or Clear button */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           {isLoading ? (
-            <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
           ) : query ? (
             <button
               onClick={handleClear}
-              className="p-0.5 rounded-full hover:bg-gray-100 transition-colors"
+              className="rounded-full p-0.5 transition-colors hover:bg-gray-100"
             >
               <X className="h-4 w-4 text-gray-400" />
             </button>
@@ -200,39 +206,39 @@ export default function PatientQuickSearch({
 
       {/* Results Dropdown */}
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
           <ul className="max-h-80 overflow-y-auto py-1">
             {results.map((patient, index) => (
               <li key={patient.id}>
                 <button
                   onClick={() => navigateToPatient(patient.id)}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${
-                    selectedIndex === index
-                      ? 'bg-gray-50'
-                      : 'hover:bg-gray-50'
+                  className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
+                    selectedIndex === index ? 'bg-gray-50' : 'hover:bg-gray-50'
                   }`}
                 >
                   {/* Avatar */}
                   <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))' }}
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+                    style={{
+                      backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
+                    }}
                   >
-                    <User className="w-4 h-4" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
+                    <User className="h-4 w-4" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
                   </div>
                   {/* Patient Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-gray-900">
                       {patient.firstName} {patient.lastName}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="truncate text-xs text-gray-500">
                       {patient.patientId ? `#${patient.patientId}` : `ID ${patient.id}`}
                       {patient.email && ` · ${patient.email}`}
                     </p>
                   </div>
                   {/* Clinic badge for multi-clinic users */}
                   {patient.clinicName && (
-                    <span className="text-xs text-gray-400 flex-shrink-0">
+                    <span className="flex-shrink-0 text-xs text-gray-400">
                       {patient.clinicName}
                     </span>
                   )}
@@ -241,10 +247,11 @@ export default function PatientQuickSearch({
             ))}
           </ul>
           {/* Footer hint */}
-          <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-2">
             <p className="text-xs text-gray-400">
-              Press <kbd className="px-1.5 py-0.5 bg-white rounded border text-gray-500">↵</kbd> to select
-              · <kbd className="px-1.5 py-0.5 bg-white rounded border text-gray-500">↑↓</kbd> to navigate
+              Press <kbd className="rounded border bg-white px-1.5 py-0.5 text-gray-500">↵</kbd> to
+              select · <kbd className="rounded border bg-white px-1.5 py-0.5 text-gray-500">↑↓</kbd>{' '}
+              to navigate
             </p>
           </div>
         </div>
@@ -252,10 +259,8 @@ export default function PatientQuickSearch({
 
       {/* No results message */}
       {isOpen && query.length >= 2 && !isLoading && results.length === 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-gray-200 shadow-lg z-50 p-4">
-          <p className="text-sm text-gray-500 text-center">
-            No patients found for "{query}"
-          </p>
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+          <p className="text-center text-sm text-gray-500">No patients found for "{query}"</p>
         </div>
       )}
     </div>

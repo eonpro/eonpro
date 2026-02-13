@@ -866,6 +866,7 @@ export default async function PatientDetailPage({
             currentSalesRep={patientWithDecryptedPHI.salesRepAssignments?.[0]?.salesRep || null}
             userRole={user.role}
             showLabsTab={showLabsTab}
+            patientDetailBasePath={PATIENTS_LIST_PATH}
           />
 
           {/* Main Content Area */}
@@ -876,6 +877,7 @@ export default async function PatientDetailPage({
                 currentPatientId={patientWithDecryptedPHI.id}
                 placeholder="Search for another patient..."
                 className="max-w-md"
+                patientDetailBasePath={PATIENTS_LIST_PATH}
               />
             </div>
 
