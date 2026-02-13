@@ -15,6 +15,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { AGGREGATION_TAKE_UI, parseTakeFromParams } from '@/lib/pagination';
 
 const PAGE_SIZE = 25;
 
@@ -27,7 +28,7 @@ const safeDecrypt = (value: string | null): string | null => {
   try {
     const parts = value.split(':');
     // Min length of 2 to handle short encrypted values like state codes
-    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+    if (parts.length === 3 && parts.every((p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
       return decryptPHI(value);
     }
     return value; // Not encrypted, return as-is
@@ -45,8 +46,8 @@ const safeDecrypt = (value: string | null): string | null => {
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = parseTakeFromParams(searchParams);
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
     const search = searchParams.get('search') || '';
     const includeContact = searchParams.get('includeContact') === 'true';
     const salesRepId = searchParams.get('salesRepId'); // Filter by specific sales rep (admin only)
@@ -64,6 +65,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           isActive: true,
         },
         select: { patientId: true },
+        take: AGGREGATION_TAKE_UI,
       });
       const mappedIds = assignments.map((a: { patientId: number }) => a.patientId);
       assignedPatientIds = mappedIds;
@@ -82,7 +84,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
     }
 
-    // Get all patient IDs that have successful payments or orders (converted patients)
+    // Get all patient IDs that have successful payments or orders (converted patients); capped for scale
     const [patientsWithPayments, patientsWithOrders] = await Promise.all([
       prisma.payment.findMany({
         where: {
@@ -91,6 +93,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
         select: { patientId: true },
         distinct: ['patientId'],
+        take: AGGREGATION_TAKE_UI,
       }),
       prisma.order.findMany({
         where: {
@@ -98,6 +101,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
         select: { patientId: true },
         distinct: ['patientId'],
+        take: AGGREGATION_TAKE_UI,
       }),
     ]);
 
@@ -136,6 +140,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           ...(clinicId && { clinicId }),
         },
         select: { patientId: true },
+        take: AGGREGATION_TAKE_UI,
       });
       const salesRepPatientIds = salesRepAssignments.map((a: { patientId: number }) => a.patientId);
       whereClause.id = { in: filteredIds.filter((id) => salesRepPatientIds.includes(id)) };
@@ -149,15 +154,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Only add patientId search at DB level (it's not encrypted)
     if (search && !search.includes('@')) {
       // Try to match patientId which is NOT encrypted
-      whereClause.OR = [
-        { patientId: { contains: search, mode: 'insensitive' } },
-      ];
+      whereClause.OR = [{ patientId: { contains: search, mode: 'insensitive' } }];
     }
 
     // Query converted patients
     // When searching, fetch more to filter in memory after decryption
     const fetchLimit = search ? 2000 : limit; // Fetch more for search filtering
-    const fetchOffset = search ? 0 : offset;  // Start from beginning for search
+    const fetchOffset = search ? 0 : offset; // Start from beginning for search
 
     const [patients, totalWithoutSearch] = await Promise.all([
       prisma.patient.findMany({
@@ -170,23 +173,40 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               subdomain: true,
             },
           },
-          // Include latest payment for display
+          // Include payments (for display + invoice items for medication names)
           payments: {
             where: { status: 'SUCCEEDED' },
             orderBy: { paidAt: 'desc' },
-            take: 1,
+            take: 5,
             select: {
               paidAt: true,
               amount: true,
+              invoiceId: true,
+              invoice: {
+                select: {
+                  items: {
+                    select: {
+                      description: true,
+                      product: { select: { name: true } },
+                    },
+                  },
+                },
+              },
             },
           },
-          // Include latest order for display
+          // Include recent orders with rx/medication info for Treatment column
           orders: {
             orderBy: { createdAt: 'desc' },
-            take: 1,
+            take: 5,
             select: {
               createdAt: true,
               status: true,
+              primaryMedName: true,
+              primaryMedStrength: true,
+              primaryMedForm: true,
+              rxs: {
+                select: { medName: true, strength: true, form: true },
+              },
             },
           },
           // Include active sales rep assignment
@@ -212,7 +232,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         take: fetchLimit,
         skip: fetchOffset,
       }),
-      prisma.patient.count({ where: search ? { id: { in: filteredIds }, ...(clinicId && { clinicId }) } : whereClause }),
+      prisma.patient.count({
+        where: search ? { id: { in: filteredIds }, ...(clinicId && { clinicId }) } : whereClause,
+      }),
     ]);
 
     // For search: decrypt and filter patients in memory
@@ -223,22 +245,23 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const searchLower = search.toLowerCase().trim();
       const searchTerms = searchLower.split(/\s+/).filter(Boolean);
 
-      filteredPatients = patients.filter((patient: typeof patients[number]) => {
+      filteredPatients = patients.filter((patient: (typeof patients)[number]) => {
         const decryptedFirst = safeDecrypt(patient.firstName)?.toLowerCase() || '';
         const decryptedLast = safeDecrypt(patient.lastName)?.toLowerCase() || '';
         const decryptedEmail = safeDecrypt(patient.email)?.toLowerCase() || '';
         const patientIdLower = patient.patientId?.toLowerCase() || '';
 
         // Check if any search term matches
-        return searchTerms.some(term =>
-          decryptedFirst.includes(term) ||
-          decryptedLast.includes(term) ||
-          decryptedEmail.includes(term) ||
-          patientIdLower.includes(term)
-        ) || (
+        return (
+          searchTerms.some(
+            (term) =>
+              decryptedFirst.includes(term) ||
+              decryptedLast.includes(term) ||
+              decryptedEmail.includes(term) ||
+              patientIdLower.includes(term)
+          ) ||
           // Also check full name match (first + last)
-          searchTerms.length >= 2 &&
-          (decryptedFirst + ' ' + decryptedLast).includes(searchLower)
+          (searchTerms.length >= 2 && (decryptedFirst + ' ' + decryptedLast).includes(searchLower))
         );
       });
 
@@ -249,10 +272,40 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     // Transform response
-    const patientsData = filteredPatients.map((patient: typeof patients[number]) => {
+    const patientsData = filteredPatients.map((patient: (typeof patients)[number]) => {
       const lastPayment = patient.payments?.[0];
       const lastOrder = patient.orders?.[0];
       const salesRepAssignment = patient.salesRepAssignments?.[0];
+
+      // Build medication names from orders (Rx medName or Order.primaryMedName)
+      // and from paid invoices (Product.name or InvoiceItem.description)
+      const medicationNames = new Set<string>();
+      for (const order of patient.orders || []) {
+        if (order.rxs && order.rxs.length > 0) {
+          for (const rx of order.rxs) {
+            if (rx.medName?.trim()) {
+              const display = rx.strength?.trim()
+                ? `${rx.medName.trim()} (${rx.strength})`
+                : rx.medName.trim();
+              medicationNames.add(display);
+            }
+          }
+        } else if (order.primaryMedName?.trim()) {
+          const display = order.primaryMedStrength?.trim()
+            ? `${order.primaryMedName.trim()} (${order.primaryMedStrength})`
+            : order.primaryMedName.trim();
+          medicationNames.add(display);
+        }
+      }
+      // Add product names from paid invoices (for payment-only or supplement)
+      for (const payment of patient.payments || []) {
+        const inv = payment.invoice;
+        if (!inv?.items) continue;
+        for (const item of inv.items) {
+          const name = item.product?.name?.trim() || item.description?.trim();
+          if (name && name.length > 2) medicationNames.add(name);
+        }
+      }
 
       // Determine conversion date
       const paymentDate = lastPayment?.paidAt;
@@ -270,6 +323,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         lastName: safeDecrypt(patient.lastName),
         gender: safeDecrypt(patient.gender),
         tags: patient.tags || [],
+        medicationNames: Array.from(medicationNames),
         source: patient.source,
         createdAt: patient.createdAt,
         clinicId: patient.clinicId,
@@ -315,7 +369,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       clinicId,
       total,
       returned: patientsData.length,
-      search: search || undefined
+      search: search || undefined,
     });
 
     return NextResponse.json({
@@ -324,14 +378,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         count: patientsData.length,
         total,
         hasMore: offset + patientsData.length < total,
-        type: 'patients'
-      }
+        type: 'patients',
+      },
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[ADMIN-PATIENTS] Error listing patients', {
       error: errorMessage,
-      userId: user.id
+      userId: user.id,
     });
     return NextResponse.json(
       { error: 'Failed to fetch patients', details: errorMessage },
