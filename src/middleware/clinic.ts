@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 const PUBLIC_ROUTES = [
-  '/api/ping', '/api/version', '/api/ready', '/api/health', '/api/_health', '/api/sentry',
+  '/api/ping', '/api/version', '/api/ready', '/api/health', '/api/_health', '/api/sentry', '/api/debug-auth',
   '/api/auth/login', '/api/auth/refresh-token', '/api/auth/send-otp', '/api/auth/verify-otp',
   '/api/auth/reset-password', '/api/auth/validate-clinic-code', '/api/auth/verify-email',
   '/api/webhooks', '/api/webhooks/ping', '/api/clinic/resolve', '/api/clinic/list',
