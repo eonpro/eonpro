@@ -633,6 +633,19 @@ export function withAuth<T = unknown>(
     } catch (error) {
       setClinicContext(undefined);
 
+      // TEMPORARY DIAGNOSTIC: Capture exact error for debugging systemic 500s
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const errName = error instanceof Error ? error.constructor.name : 'Unknown';
+      const errStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '';
+      logger.error('AUTH_MIDDLEWARE_CATCH', {
+        requestId,
+        errorName: errName,
+        errorMessage: errMsg,
+        errorStack: errStack,
+        route: new URL(req.url).pathname,
+        method: req.method,
+      });
+
       // Distinguish database connection errors from authentication errors
       // This helps with debugging and allows clients to retry on transient failures
       if (isDatabaseConnectionError(error)) {
@@ -663,19 +676,24 @@ export function withAuth<T = unknown>(
         return res503;
       }
 
-      const res = handleApiError(error, {
-        requestId,
-        route: `${req.method} ${new URL(req.url).pathname}`,
-        context: { errorType: 'AUTH_MIDDLEWARE' },
-      });
+      // TEMPORARY: Include error detail in response for debugging (remove after fix)
+      const diagRes = NextResponse.json(
+        {
+          error: errMsg,
+          code: errName,
+          requestId,
+          _diag: errStack,
+        },
+        { status: 500 }
+      );
       logger.requestSummary({
         requestId,
         route: new URL(req.url).pathname,
         method: req.method,
-        status: res.status,
+        status: diagRes.status,
         durationMs: Date.now() - startTime,
       });
-      return res;
+      return diagRes;
     }
   };
 }
