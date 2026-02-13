@@ -192,7 +192,10 @@ export function decryptPHI(encryptedData: string | null | undefined): string | n
   }
 
   try {
-    const parts = encryptedData.split(':');
+    // Normalize: trim, remove internal whitespace, restore + if corrupted (URL encoding)
+    const parts = encryptedData
+      .split(':')
+      .map((p) => p.trim().replace(/\s/g, ''));
 
     if (parts.length !== 3) {
       // Data might be unencrypted (migration period)
@@ -311,31 +314,25 @@ export function decryptPatientPHI<T extends Record<string, unknown>>(
     if (patient[field]) {
       try {
         const value = String(patient[field]);
-        // Attempt decryption if value looks like our format (base64:base64:base64)
-        // Relaxed: accept 3 colon-separated parts, trim whitespace, allow flexible base64
-        const parts = value.split(':').map((p) => p.trim());
+        // Attempt decryption for values that look encrypted (base64:base64:base64)
+        const parts = value.split(':').map((p) => p.trim().replace(/\s/g, ''));
         const looksEncrypted =
           parts.length === 3 &&
-          parts.every(
-            (part) =>
-              part.length >= 2 &&
-              /^[A-Za-z0-9+/]+=*$/.test(part.replace(/\s/g, '')) &&
-              part.length <= 10000
-          );
+          parts.every((p) => p.length >= 2 && p.length <= 10000 && /^[A-Za-z0-9+/]+=*$/.test(p));
 
         if (looksEncrypted) {
           const decryptedValue = decryptPHI(value);
           (decrypted[field] as unknown) = decryptedValue;
-        } else if (value.includes(':') && value.length > 20) {
-          // Fallback: try decryptPHI anyway for values that might be encrypted
-          // (handles edge cases, different encodings, or strictness mismatches)
+        } else if (parts.length === 3 && value.includes(':') && value.length > 20) {
+          // Fallback: parts count matches, try decrypt with normalized value (no internal spaces)
+          const normalized = parts.join(':');
           try {
-            const decryptedValue = decryptPHI(value);
+            const decryptedValue = decryptPHI(normalized);
             if (decryptedValue && decryptedValue !== value) {
               (decrypted[field] as unknown) = decryptedValue;
             }
           } catch {
-            // Keep original if fallback decryption fails
+            // Keep original
           }
         }
       } catch (error) {
