@@ -1,6 +1,6 @@
 /**
  * Token refresh endpoint
- * Allows clients to get a new access token using their refresh token
+ * Enterprise: hashed storage, rotate on use, revoke all on reuse.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -8,6 +8,12 @@ import { jwtVerify, SignJWT } from 'jose';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { logger } from '@/lib/logger';
 import { basePrisma as prisma } from '@/lib/db';
+import {
+  hashRefreshToken,
+  findSessionByRefreshHash,
+  handleRefreshTokenReuse,
+  rotateSessionRefreshToken,
+} from '@/lib/auth/refresh-token-rotation';
 
 /**
  * POST /api/auth/refresh-token
@@ -135,23 +141,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Try User table (unified: admin, staff, support, patient, sales_rep)
-    const appUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        clinicId: true,
-        providerId: true,
-        patientId: true,
-        permissions: true,
-        features: true,
-      },
-    });
+    // User table: session-backed rotation + reuse detection (when session has refreshTokenHash)
+    const tokenHash = hashRefreshToken(refreshToken);
+    const session = await findSessionByRefreshHash(tokenHash);
 
+    if (session) {
+      const appUser = session.user;
     if (appUser) {
       const expiry =
         String(appUser.role).toUpperCase() === 'PATIENT'
@@ -164,10 +159,14 @@ export async function POST(req: NextRequest) {
         role: appUser.role,
       };
       if (appUser.clinicId != null) payload.clinicId = appUser.clinicId;
-      if (appUser.providerId != null) payload.providerId = appUser.providerId;
-      if (appUser.patientId != null) payload.patientId = appUser.patientId;
-      if (Array.isArray(appUser.permissions)) payload.permissions = appUser.permissions;
-      if (Array.isArray(appUser.features)) payload.features = appUser.features;
+      if ((appUser as { providerId?: number }).providerId != null)
+        payload.providerId = (appUser as { providerId?: number }).providerId;
+      if ((appUser as { patientId?: number }).patientId != null)
+        payload.patientId = (appUser as { patientId?: number }).patientId;
+      const perms = (appUser as { permissions?: unknown }).permissions;
+      const feats = (appUser as { features?: unknown }).features;
+      if (Array.isArray(perms)) payload.permissions = perms;
+      if (Array.isArray(feats)) payload.features = feats;
 
       const newAccessToken = await new SignJWT(payload)
         .setProtectedHeader({ alg: 'HS256' })
@@ -184,10 +183,12 @@ export async function POST(req: NextRequest) {
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
         .sign(JWT_SECRET);
 
+      await rotateSessionRefreshToken(session.id, newRefreshToken);
+
       logger.info('Token refreshed for user', {
         userId: appUser.id,
         role: appUser.role,
-        clinicId: appUser.clinicId ?? undefined,
+        clinicId: (appUser as { clinicId?: number }).clinicId ?? undefined,
       });
 
       return NextResponse.json({
@@ -200,11 +201,31 @@ export async function POST(req: NextRequest) {
           lastName: appUser.lastName,
           name: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim() || appUser.email,
           role: appUser.role,
-          clinicId: appUser.clinicId ?? undefined,
-          providerId: appUser.providerId ?? undefined,
-          patientId: appUser.patientId ?? undefined,
+          clinicId: (appUser as { clinicId?: number }).clinicId ?? undefined,
+          providerId: (appUser as { providerId?: number }).providerId ?? undefined,
+          patientId: (appUser as { patientId?: number }).patientId ?? undefined,
         },
       });
+    }
+    }
+
+    // No session with this hash: differentiate legacy (REAUTH) vs reuse (TOKEN_REUSE)
+    const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (userExists) {
+      const hasRotatedSessions = await prisma.userSession.count({
+        where: { userId, refreshTokenHash: { not: null } },
+      });
+      if (hasRotatedSessions > 0) {
+        await handleRefreshTokenReuse(userId);
+        return NextResponse.json(
+          { error: 'Refresh token was already used. Please log in again.', code: 'TOKEN_REUSE' },
+          { status: 401 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'Please log in again.', code: 'REAUTH_REQUIRED' },
+        { status: 401 }
+      );
     }
 
     // Check for admin (special case)

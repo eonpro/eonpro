@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { requireServiceAuthForJob } from '@/lib/pagination';
 
 // Simple auth for this endpoint
 const INTEGRATION_SECRET = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest) {
     req.headers.get('x-webhook-secret') ||
     req.headers.get('authorization')?.replace('Bearer ', '');
 
-  if (!INTEGRATION_SECRET || providedSecret !== INTEGRATION_SECRET) {
+  const authVerified = !!INTEGRATION_SECRET && providedSecret === INTEGRATION_SECRET;
+  if (!authVerified) {
     logger.warn(`[Reconcile ${requestId}] Unauthorized access attempt`);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -92,6 +94,7 @@ export async function POST(req: NextRequest) {
         updatedAt: true,
         sourceMetadata: true,
       },
+      take: requireServiceAuthForJob(authVerified),
     });
 
     // Create lookup map - type from Prisma select
@@ -230,6 +233,7 @@ export async function GET(req: NextRequest) {
         sourceMetadata: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: requireServiceAuthForJob(authVerified),
     });
 
     return NextResponse.json({
