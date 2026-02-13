@@ -118,6 +118,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   const prevUnreadCountRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastMessageIdRef = useRef<number>(0);
+  const unreadPollFailuresRef = useRef(0);
+  const messagesPollFailuresRef = useRef(0);
 
   // Initialize notification sound
   useEffect(() => {
@@ -152,8 +154,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     }
   }, [currentUserId]);
 
-  const fetchMessages = useCallback(async () => {
-    if (!selectedRecipient) return;
+  const fetchMessages = useCallback(async (): Promise<boolean> => {
+    if (!selectedRecipient) return true;
 
     setLoading(true);
     try {
@@ -279,15 +281,18 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
         }
 
         setMessages(filteredMessages);
+        return true;
       }
+      return false;
     } catch (error) {
       logger.error('Error fetching messages:', error);
+      return false;
     } finally {
       setLoading(false);
     }
   }, [selectedRecipient, currentUserId]);
 
-  const fetchUnreadCount = useCallback(async () => {
+  const fetchUnreadCount = useCallback(async (): Promise<boolean> => {
     try {
       const response = await apiGet('/api/internal/messages?unreadOnly=true');
       if (response.ok) {
@@ -344,9 +349,13 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
         prevUnreadCountRef.current = newCount;
         setUnreadCount(newCount);
+        return true;
       }
+      // 500/503 = server/pool stress - signal for backoff
+      return false;
     } catch (error) {
       logger.error('Error fetching unread count:', error);
+      return false;
     }
   }, [isOpen, selectedRecipient, lastUnreadMessages, notificationPermission]);
 
@@ -366,16 +375,48 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     }
   }, []);
 
-  // Poll for unread messages - balanced for real-time feel without overloading database
+  // Poll for unread messages with exponential backoff on 500/503 (connection pool stress)
   useEffect(() => {
-    fetchUnreadCount(); // Initial fetch
-    // Poll every 5 seconds when closed, 4 seconds when open
-    // This balances responsiveness with database load
-    const pollInterval = isOpen ? 4000 : 5000;
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, pollInterval);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const BASE_MS = isOpen ? 4000 : 5000;
+    const MAX_MS = 60000;
+
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const delay = Math.min(
+        BASE_MS * Math.pow(2, unreadPollFailuresRef.current),
+        MAX_MS
+      );
+      timeoutId = setTimeout(() => {
+        timeoutId = null;
+        if (cancelled) return;
+        fetchUnreadCount().then((ok) => {
+          if (cancelled) return;
+          if (ok) {
+            unreadPollFailuresRef.current = 0;
+          } else {
+            unreadPollFailuresRef.current = Math.min(
+              unreadPollFailuresRef.current + 1,
+              8
+            );
+          }
+          scheduleNext();
+        });
+      }, delay);
+    };
+
+    fetchUnreadCount().then((ok) => {
+      if (cancelled) return;
+      if (ok) unreadPollFailuresRef.current = 0;
+      else unreadPollFailuresRef.current = 1;
+      scheduleNext();
+    });
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [fetchUnreadCount, isOpen]);
 
   useEffect(() => {
@@ -414,16 +455,48 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   }, [activeReactionPicker]);
 
   useEffect(() => {
-    if (isOpen && selectedRecipient) {
-      // Poll every 4 seconds for near real-time message updates
-      // Balances responsiveness with database connection pool limits
-      const interval = setInterval(() => {
-        fetchMessages();
-      }, 4000);
-      return () => clearInterval(interval);
-    }
-    // No cleanup needed when chat is closed or no recipient selected
-    return undefined;
+    if (!isOpen || !selectedRecipient) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const BASE_MS = 4000;
+    const MAX_MS = 60000;
+
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const delay = Math.min(
+        BASE_MS * Math.pow(2, messagesPollFailuresRef.current),
+        MAX_MS
+      );
+      timeoutId = setTimeout(() => {
+        timeoutId = null;
+        if (cancelled) return;
+        fetchMessages().then((ok) => {
+          if (cancelled) return;
+          if (ok) {
+            messagesPollFailuresRef.current = 0;
+          } else {
+            messagesPollFailuresRef.current = Math.min(
+              messagesPollFailuresRef.current + 1,
+              8
+            );
+          }
+          scheduleNext();
+        });
+      }, delay);
+    };
+
+    fetchMessages().then((ok) => {
+      if (cancelled) return;
+      if (ok) messagesPollFailuresRef.current = 0;
+      else messagesPollFailuresRef.current = 1;
+      scheduleNext();
+    });
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [isOpen, selectedRecipient, fetchMessages]);
 
   // ===========================================================================
