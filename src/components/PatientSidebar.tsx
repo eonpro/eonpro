@@ -308,17 +308,16 @@ export default function PatientSidebar({
           </div>
         )}
 
-        {/* Navigation - use router.push for tab switching (Next.js Link has issues with searchParams on same path) */}
+        {/* Navigation - use native <a> tags for reliability (router.push/Link had issues with searchParams) */}
         <nav className="mb-6 space-y-1">
           {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems).map((item) => {
             const isActive = currentTab === item.id;
             const href = `${patientDetailBasePath}/${patient.id}?tab=${item.id}`;
             return (
-              <button
+              <a
                 key={item.id}
-                type="button"
-                onClick={() => router.push(href, { scroll: false })}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
+                href={href}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
                   isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
                 }`}
               >
@@ -336,7 +335,7 @@ export default function PatientSidebar({
                 >
                   {item.label}
                 </span>
-              </button>
+              </a>
             );
           })}
         </nav>
