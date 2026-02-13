@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -46,7 +46,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     });
 
     // Build where clause based on parameters
-    // Using basePrisma since InternalMessage is user-scoped, not clinic-scoped
+    // InternalMessage is user-scoped (senderId/recipientId), not clinic-scoped — use basePrisma
     type WhereClause = {
       recipientId?: number;
       isRead?: boolean;
@@ -147,9 +147,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       },
     };
 
-    let messages: Awaited<ReturnType<typeof prisma.internalMessage.findMany>>;
+    let messages: Awaited<ReturnType<typeof basePrisma.internalMessage.findMany>>;
     try {
-      messages = await prisma.internalMessage.findMany({
+      messages = await basePrisma.internalMessage.findMany({
         where: whereClause,
         include: unreadOnly ? simpleInclude : fullInclude,
         orderBy: {
@@ -169,7 +169,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       if (unreadOnly) {
         // Unread-only: second try with no includes (avoids any relation/table missing issues)
         try {
-          const bare = await prisma.internalMessage.findMany({
+          const bare = await basePrisma.internalMessage.findMany({
             where: whereClause,
             orderBy: { createdAt: 'desc' },
             take: limit,
@@ -212,7 +212,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       } else {
         // Full list: try with sender/recipient only (no replies, no reactions)
         try {
-          messages = await prisma.internalMessage.findMany({
+          messages = await basePrisma.internalMessage.findMany({
             where: whereClause,
             include: {
               sender: {
@@ -233,7 +233,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         } catch (fallbackError) {
           // Last resort: no includes
           try {
-            const bare = await prisma.internalMessage.findMany({
+            const bare = await basePrisma.internalMessage.findMany({
               where: whereClause,
               orderBy: { createdAt: 'desc' },
               take: limit,
@@ -279,7 +279,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         .map((m) => m.id);
 
       if (unreadMessageIds.length > 0) {
-        await prisma.internalMessage.updateMany({
+        await basePrisma.internalMessage.updateMany({
           where: {
             id: { in: unreadMessageIds },
             recipientId: userId, // Extra safety check
@@ -460,7 +460,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 
     // Validate recipient exists if provided
     if (recipientId) {
-      const recipientExists = await prisma.user.findUnique({
+      const recipientExists = await basePrisma.user.findUnique({
         where: { id: Number(recipientId) },
         select: { id: true },
       });
@@ -472,7 +472,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 
     // Validate parent message if this is a reply
     if (parentMessageId) {
-      const parentMessage = await prisma.internalMessage.findUnique({
+      const parentMessage = await basePrisma.internalMessage.findUnique({
         where: { id: Number(parentMessageId) },
         select: { id: true },
       });
@@ -485,7 +485,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
     // Sanitize message content (basic XSS prevention)
     const sanitizedMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
 
-    const newMessage = await prisma.internalMessage.create({
+    const newMessage = await basePrisma.internalMessage.create({
       data: {
         senderId,
         recipientId: recipientId ? Number(recipientId) : null,

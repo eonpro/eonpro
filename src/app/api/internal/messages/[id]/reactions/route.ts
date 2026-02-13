@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -38,7 +38,7 @@ async function postHandler(
     }
 
     // Verify message exists and user has access (is sender or recipient)
-    const message = await prisma.internalMessage.findFirst({
+    const message = await basePrisma.internalMessage.findFirst({
       where: {
         id: messageId,
         OR: [{ senderId: userId }, { recipientId: userId }],
@@ -50,7 +50,7 @@ async function postHandler(
     }
 
     // Add reaction (upsert to handle duplicate attempts gracefully)
-    const reaction = await prisma.messageReaction.upsert({
+    const reaction = await basePrisma.messageReaction.upsert({
       where: {
         messageId_userId_emoji: {
           messageId,
@@ -128,7 +128,7 @@ async function deleteHandler(
     }
 
     // Delete the reaction (only if it belongs to this user)
-    const deleted = await prisma.messageReaction.deleteMany({
+    const deleted = await basePrisma.messageReaction.deleteMany({
       where: {
         messageId,
         userId,
@@ -174,7 +174,7 @@ async function getHandler(
     }
 
     // Verify user has access to this message
-    const message = await prisma.internalMessage.findFirst({
+    const message = await basePrisma.internalMessage.findFirst({
       where: {
         id: messageId,
         OR: [{ senderId: userId }, { recipientId: userId }],
@@ -185,7 +185,7 @@ async function getHandler(
       return NextResponse.json({ error: 'Message not found or access denied' }, { status: 404 });
     }
 
-    const reactions = await prisma.messageReaction.findMany({
+    const reactions = await basePrisma.messageReaction.findMany({
       where: { messageId },
       include: {
         user: {

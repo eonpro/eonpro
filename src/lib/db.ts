@@ -198,6 +198,7 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'affiliateplanassignment',
   'platformfeeevent',
   'scheduledemail', // cron needs to query system-level emails (clinicId = null)
+  'internalmessage', // user-scoped (senderId/recipientId), not clinic-scoped; clinicId is optional context only
 ];
 
 /**

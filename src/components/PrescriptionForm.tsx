@@ -282,7 +282,16 @@ export default function PrescriptionForm({
         const data = await safeJson<
           | { provider: { id: number; firstName?: string; lastName?: string; titleLine?: string | null; npi?: string; signatureDataUrl?: string | null }; role: 'provider'; isComplete?: boolean; missing?: { npi?: boolean; dea?: boolean } }
           | { providers: ProviderOption[]; role: 'admin' | 'super_admin' }
+          | null
         >(res);
+
+        // Guard against null/undefined response body
+        if (!data || typeof data !== 'object') {
+          logger.error('[PrescriptionForm] Invalid response body', { data: String(data), status: res.status });
+          setProviderLoadError('Unexpected server response. Please refresh and try again.');
+          setIsLoadingProvider(false);
+          return;
+        }
 
         trace('Parsed', { hasProvider: 'provider' in data && !!data.provider, hasProviders: 'providers' in data, role: 'provider' in data ? 'provider' : 'admin' });
 
@@ -341,7 +350,11 @@ export default function PrescriptionForm({
               : err.message
           );
         } else {
-          logger.error('[PrescriptionForm] Provider load failed', { err });
+          logger.error('[PrescriptionForm] Provider load failed (non-Error)', {
+            errType: typeof err,
+            errStr: String(err),
+            errKeys: err && typeof err === 'object' ? Object.keys(err) : [],
+          });
           setProviderLoadError('Failed to load provider information. Please try again.');
         }
       } finally {

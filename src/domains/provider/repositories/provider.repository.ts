@@ -9,7 +9,7 @@
  */
 
 import { type Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
   Provider,
@@ -122,8 +122,12 @@ export const providerRepository = {
   /**
    * Find provider by ID
    */
+  // NOTE: All provider read queries use basePrisma because Provider is a multi-clinic entity.
+  // Providers can work across clinics, so clinic-scoped prisma would incorrectly filter results.
+  // Access control is enforced at the service layer (providerService.getById checks clinic access).
+
   async findById(id: number): Promise<Provider | null> {
-    const provider = await prisma.provider.findUnique({
+    const provider = await basePrisma.provider.findUnique({
       where: { id },
       select: PROVIDER_BASE_SELECT,
     });
@@ -135,7 +139,7 @@ export const providerRepository = {
    * Find provider by ID with clinic information
    */
   async findByIdWithClinic(id: number): Promise<ProviderWithClinic | null> {
-    const provider = await prisma.provider.findUnique({
+    const provider = await basePrisma.provider.findUnique({
       where: { id },
       select: PROVIDER_WITH_CLINIC_SELECT,
     });
@@ -147,7 +151,7 @@ export const providerRepository = {
    * Find provider by NPI
    */
   async findByNpi(npi: string): Promise<Provider | null> {
-    const provider = await prisma.provider.findUnique({
+    const provider = await basePrisma.provider.findUnique({
       where: { npi },
       select: PROVIDER_BASE_SELECT,
     });
@@ -159,7 +163,7 @@ export const providerRepository = {
    * Find provider by email
    */
   async findByEmail(email: string): Promise<Provider | null> {
-    const provider = await prisma.provider.findFirst({
+    const provider = await basePrisma.provider.findFirst({
       where: { email: email.toLowerCase() },
       select: PROVIDER_BASE_SELECT,
     });
@@ -261,7 +265,9 @@ export const providerRepository = {
       })),
     });
 
-    const providers = await prisma.provider.findMany({
+    // Use basePrisma: provider queries need cross-clinic visibility (multi-clinic providers,
+    // shared providers with clinicId=null). The where clause above already handles access control.
+    const providers = await basePrisma.provider.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       select: PROVIDER_WITH_CLINIC_SELECT,
@@ -293,7 +299,8 @@ export const providerRepository = {
    * List all providers (for super admin)
    */
   async listAll(): Promise<ProviderWithClinic[]> {
-    const providers = await prisma.provider.findMany({
+    // Use basePrisma: super_admin needs cross-clinic visibility without tenant context
+    const providers = await basePrisma.provider.findMany({
       orderBy: { createdAt: 'desc' },
       select: PROVIDER_WITH_CLINIC_SELECT,
     });
