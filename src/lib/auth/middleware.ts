@@ -254,6 +254,7 @@ function validateTokenClaims(payload: JWTPayload): string | null {
     'patient',
     'staff',
     'support',
+    'sales_rep',
   ];
 
   if (!validRoles.includes(payload.role as UserRole)) {
@@ -584,10 +585,13 @@ export function withAuth<T = unknown>(
       }
 
       // Create a new NextRequest with the modified headers
+      // IMPORTANT: Do NOT pass body for GET/HEAD - Fetch API spec throws TypeError
+      // if body is non-null for these methods (can happen after Edge middleware processes the request)
+      const isBodyMethod = !['GET', 'HEAD'].includes(req.method.toUpperCase());
       const modifiedReq = new NextRequest(req.url, {
         method: req.method,
         headers,
-        body: req.body,
+        ...(isBodyMethod && req.body ? { body: req.body } : {}),
       });
 
       // Pass user with effective clinic so handlers see subdomain clinic when overridden
