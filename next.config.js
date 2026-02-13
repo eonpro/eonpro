@@ -151,6 +151,10 @@ const sentryWebpackPluginOptions = {
   // Tunnel requests through our domain to fix CORS and bypass ad-blockers
   tunnelRoute: '/api/sentry',
 
+  // Do NOT auto-wrap middleware — Sentry's Edge SDK pulls in node:os which
+  // is unsupported in Vercel Edge Runtime and causes the deploy to fail.
+  autoInstrumentMiddleware: false,
+
   // Source maps
   hideSourceMaps: true,
   widenClientFileUpload: true,
