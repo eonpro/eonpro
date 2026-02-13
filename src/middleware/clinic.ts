@@ -25,23 +25,30 @@ const getJwtSecret = () => {
 };
 
 // Routes that don't require clinic context (middleware skips clinic resolution; auth still applied in handlers)
+// Free/public routes: no clinic cookie, no JWT — avoids timeout on cold start
 const PUBLIC_ROUTES = [
+  '/api/ping',
+  '/api/version',
+  '/api/ready',
+  '/api/health',
   '/api/_health',
+  '/api/sentry', // Sentry tunnel - must be public so events reach ingest without clinic context
   '/api/auth/login',
   '/api/auth/refresh-token',
   '/api/auth/send-otp',
   '/api/auth/verify-otp',
   '/api/auth/reset-password',
+  '/api/auth/validate-clinic-code',
+  '/api/auth/verify-email',
   '/api/webhooks',
+  '/api/webhooks/ping',
   '/api/clinic/resolve',
-  '/api/health',
-  '/api/ready',
+  '/api/clinic/list',
   '/api/monitoring',
   '/api/assets', // Static assets (e.g. EONPRO logo) used on login page before any clinic cookie
   '/_next',
   '/favicon.ico',
   '/clinic-select',
-  '/api/clinic/list',
   '/login',
   '/register',
   '/api/affiliate/auth',
@@ -49,6 +56,7 @@ const PUBLIC_ROUTES = [
   '/affiliate/login',
   '/affiliate/apply',
   '/api/tickets', // Tickets API enforces clinic in handler; returns empty list when no clinic
+  '/status', // Status page
 ];
 
 // Routes that require super admin (no clinic context)

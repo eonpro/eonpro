@@ -1,21 +1,11 @@
 {
   "buildCommand": "npm run vercel-build",
   "crons": [
-    {
-      "path": "/api/integrations/overtime/sync",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/process-scheduled-emails",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/email-digest",
-      "schedule": "0 9 * * 1"
-    },
-    {
-      "path": "/api/cron/platform-fees",
-      "schedule": "0 0 * * 1"
-    }
+    {"path": "/api/ping", "schedule": "*/5 * * * *"},
+    {"path": "/api/ready", "schedule": "*/5 * * * *"},
+    {"path": "/api/integrations/overtime/sync", "schedule": "*/15 * * * *"},
+    {"path": "/api/cron/process-scheduled-emails", "schedule": "*/5 * * * *"},
+    {"path": "/api/cron/email-digest", "schedule": "0 9 * * 1"},
+    {"path": "/api/cron/platform-fees", "schedule": "0 0 * * 1"}
   ]
 }
