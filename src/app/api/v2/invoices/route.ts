@@ -2,7 +2,7 @@
  * COMPREHENSIVE INVOICE API
  * =========================
  * Full invoice management with Stripe-level capabilities
- * 
+ *
  * GET    /api/v2/invoices          - List invoices with filters
  * POST   /api/v2/invoices          - Create new invoice
  */
@@ -10,19 +10,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
-import { createInvoiceManager, LineItem, InvoiceDiscount, InvoiceTax } from '@/services/billing/InvoiceManager';
+import {
+  createInvoiceManager,
+  LineItem,
+  InvoiceDiscount,
+  InvoiceTax,
+} from '@/services/billing/InvoiceManager';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 // Schemas
 const lineItemSchema = z.object({
   description: z.string().min(1),
   quantity: z.number().min(1).default(1),
   unitPrice: z.number().min(0),
-  discount: z.object({
-    type: z.enum(['percentage', 'fixed']),
-    value: z.number().min(0),
-  }).optional(),
+  discount: z
+    .object({
+      type: z.enum(['percentage', 'fixed']),
+      value: z.number().min(0),
+    })
+    .optional(),
   taxRate: z.number().min(0).max(100).optional(),
   metadata: z.record(z.string()).optional(),
 });
@@ -43,35 +51,35 @@ const taxSchema = z.object({
 const createInvoiceSchema = z.object({
   patientId: z.number(),
   lineItems: z.array(lineItemSchema).min(1),
-  
+
   // Optional fields
   description: z.string().optional(),
   memo: z.string().optional(),
   footer: z.string().optional(),
   dueInDays: z.number().min(1).max(365).optional(),
   dueDate: z.string().datetime().optional(),
-  
+
   // Discounts & taxes
   discount: discountSchema.optional(),
   taxes: z.array(taxSchema).optional(),
-  
+
   // Settings
   autoSend: z.boolean().optional(),
   autoCharge: z.boolean().optional(),
   collectionMethod: z.enum(['charge_automatically', 'send_invoice']).optional(),
   isDraft: z.boolean().optional(),
-  
+
   // Custom fields
   customFields: z.record(z.string()).optional(),
   invoiceNumber: z.string().optional(),
   poNumber: z.string().optional(),
-  
+
   // Related
   orderId: z.number().optional(),
-  
+
   // Payment terms
   paymentTerms: z.string().optional(),
-  
+
   metadata: z.record(z.string()).optional(),
 });
 
@@ -96,12 +104,12 @@ async function getInvoicesHandler(req: NextRequest, user: AuthUser): Promise<Res
     const url = new URL(req.url);
     const params = Object.fromEntries(url.searchParams);
     const query = querySchema.parse(params);
-    
+
     const invoiceManager = createInvoiceManager(user.clinicId);
-    
+
     const result = await invoiceManager.getInvoices({
       patientId: query.patientId ? parseInt(query.patientId) : undefined,
-      status: query.status ? query.status.split(',') as any : undefined,
+      status: query.status ? (query.status.split(',') as any) : undefined,
       fromDate: query.fromDate ? new Date(query.fromDate) : undefined,
       toDate: query.toDate ? new Date(query.toDate) : undefined,
       minAmount: query.minAmount ? parseInt(query.minAmount) : undefined,
@@ -113,15 +121,31 @@ async function getInvoicesHandler(req: NextRequest, user: AuthUser): Promise<Res
       orderBy: query.orderBy,
       orderDir: query.orderDir,
     });
-    
-    return NextResponse.json(result);
-    
+
+    // Decrypt patient PHI before returning
+    const invoices = result.invoices.map((inv: any) => {
+      if (inv.patient) {
+        try {
+          inv.patient = decryptPatientPHI(inv.patient as Record<string, unknown>, [
+            'firstName',
+            'lastName',
+            'email',
+            'phone',
+          ]);
+        } catch (decryptErr) {
+          logger.warn('[v2 Invoices] Failed to decrypt patient PHI', {
+            patientId: inv.patient?.id,
+            error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+          });
+        }
+      }
+      return inv;
+    });
+
+    return NextResponse.json({ ...result, invoices });
   } catch (error: any) {
     logger.error('Failed to get invoices', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to get invoices' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Failed to get invoices' }, { status: 500 });
   }
 }
 
@@ -130,11 +154,11 @@ async function createInvoiceHandler(req: NextRequest, user: AuthUser): Promise<R
   try {
     const body = await req.json();
     const validated = createInvoiceSchema.parse(body);
-    
+
     const invoiceManager = createInvoiceManager(user.clinicId);
-    
+
     // Convert line items
-    const lineItems: LineItem[] = validated.lineItems.map(item => ({
+    const lineItems: LineItem[] = validated.lineItems.map((item) => ({
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
@@ -142,9 +166,9 @@ async function createInvoiceHandler(req: NextRequest, user: AuthUser): Promise<R
       taxRate: item.taxRate,
       metadata: item.metadata,
     }));
-    
+
     let result;
-    
+
     if (validated.isDraft) {
       // Create draft invoice
       result = await invoiceManager.createDraftInvoice({
@@ -165,13 +189,12 @@ async function createInvoiceHandler(req: NextRequest, user: AuthUser): Promise<R
         paymentTerms: validated.paymentTerms,
         metadata: validated.metadata,
       });
-      
+
       return NextResponse.json({
         success: true,
         invoice: result,
         isDraft: true,
       });
-      
     } else {
       // Create and finalize invoice
       result = await invoiceManager.createInvoice({
@@ -195,20 +218,21 @@ async function createInvoiceHandler(req: NextRequest, user: AuthUser): Promise<R
         paymentTerms: validated.paymentTerms,
         metadata: validated.metadata,
       });
-      
+
       return NextResponse.json({
         success: true,
         invoice: result.invoice,
-        stripeInvoice: result.stripeInvoice ? {
-          id: result.stripeInvoice.id,
-          number: result.stripeInvoice.number,
-          hostedUrl: result.stripeInvoice.hosted_invoice_url,
-          pdfUrl: result.stripeInvoice.invoice_pdf,
-        } : null,
+        stripeInvoice: result.stripeInvoice
+          ? {
+              id: result.stripeInvoice.id,
+              number: result.stripeInvoice.number,
+              hostedUrl: result.stripeInvoice.hosted_invoice_url,
+              pdfUrl: result.stripeInvoice.invoice_pdf,
+            }
+          : null,
         summary: result.summary,
       });
     }
-    
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -216,7 +240,7 @@ async function createInvoiceHandler(req: NextRequest, user: AuthUser): Promise<R
         { status: 400 }
       );
     }
-    
+
     logger.error('Failed to create invoice', error);
     return NextResponse.json(
       { error: error.message || 'Failed to create invoice' },

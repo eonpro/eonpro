@@ -16,8 +16,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { tenantNotFoundResponse } from '@/lib/tenant-response';
 import { syncInvoiceFromStripe } from '@/services/stripe/paymentMatchingService';
 import { prisma } from '@/lib/db';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -29,20 +31,14 @@ async function handlePost(
   context?: RouteContext
 ): Promise<Response> {
   if (!context?.params) {
-    return NextResponse.json(
-      { error: 'Missing route parameters' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Missing route parameters' }, { status: 400 });
   }
 
   const { id } = await context.params;
   const invoiceId = parseInt(id, 10);
 
   if (isNaN(invoiceId)) {
-    return NextResponse.json(
-      { error: 'Invalid invoice ID' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
   }
 
   try {
@@ -50,9 +46,7 @@ async function handlePost(
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
-        ...(user.role !== 'super_admin' && user.clinicId
-          ? { clinicId: user.clinicId }
-          : {}),
+        ...(user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : {}),
       },
       include: {
         patient: {
@@ -66,12 +60,7 @@ async function handlePost(
       },
     });
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: 'Invoice not found or access denied' },
-        { status: 404 }
-      );
-    }
+    if (!invoice) return tenantNotFoundResponse();
 
     // Sync from Stripe
     const result = await syncInvoiceFromStripe(invoiceId);
@@ -82,10 +71,7 @@ async function handlePost(
         error: result.error,
         userId: user.id,
       });
-      return NextResponse.json(
-        { error: result.error || 'Sync failed' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: result.error || 'Sync failed' }, { status: 400 });
     }
 
     // Get updated invoice
@@ -118,14 +104,26 @@ async function handlePost(
       userId: user.id,
     });
 
+    if (updatedInvoice?.patient) {
+      try {
+        updatedInvoice.patient = decryptPatientPHI(
+          updatedInvoice.patient as Record<string, unknown>,
+          ['firstName', 'lastName', 'email']
+        ) as typeof updatedInvoice.patient;
+      } catch (decryptErr) {
+        logger.warn('[Invoice Sync] Failed to decrypt patient PHI', {
+          patientId: updatedInvoice.patient?.id,
+          error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+        });
+      }
+    }
+
     return NextResponse.json({
       success: true,
       updated: result.updated,
       changes: result.changes,
       invoice: updatedInvoice,
-      message: result.updated
-        ? 'Invoice synced successfully'
-        : 'Invoice is already up to date',
+      message: result.updated ? 'Invoice synced successfully' : 'Invoice is already up to date',
     });
   } catch (error) {
     logger.error('[Invoice Sync] Error', {
@@ -133,11 +131,10 @@ async function handlePost(
       error: error instanceof Error ? error.message : 'Unknown error',
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to sync invoice' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to sync invoice' }, { status: 500 });
   }
 }
 
-export const POST = withAuth<RouteContext>(handlePost, { roles: ['super_admin', 'admin', 'staff'] });
+export const POST = withAuth<RouteContext>(handlePost, {
+  roles: ['super_admin', 'admin', 'staff'],
+});

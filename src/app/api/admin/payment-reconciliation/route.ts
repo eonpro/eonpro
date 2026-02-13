@@ -1,10 +1,10 @@
 /**
  * Payment Reconciliation Admin API
  * =================================
- * 
+ *
  * CRITICAL: This API is for monitoring and managing payment-to-invoice matching.
  * Missed payments = missed prescriptions.
- * 
+ *
  * GET  - List failed/pending reconciliation records
  * POST - Retry failed payment processing
  */
@@ -13,6 +13,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { AGGREGATION_TAKE } from '@/lib/pagination';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 export async function GET(req: NextRequest) {
   const auth = await verifyAuth(req);
@@ -83,10 +85,23 @@ export async function GET(req: NextRequest) {
       period: `Last ${days} days`,
     };
 
-    return NextResponse.json({
-      success: true,
-      summary,
-      reconciliations: reconciliations.map((r: any) => ({
+    const formatReconciliation = (r: (typeof reconciliations)[number]) => {
+      let patient = r.patient;
+      if (patient) {
+        try {
+          patient = decryptPatientPHI(patient as Record<string, unknown>, [
+            'firstName',
+            'lastName',
+            'email',
+          ]) as typeof patient;
+        } catch (decryptErr) {
+          logger.warn('[Payment Reconciliation] Failed to decrypt patient PHI', {
+            patientId: patient.id,
+            error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+          });
+        }
+      }
+      return {
         id: r.id,
         createdAt: r.createdAt,
         status: r.status,
@@ -102,11 +117,17 @@ export async function GET(req: NextRequest) {
         matchedBy: r.matchedBy,
         matchConfidence: r.matchConfidence,
         patientCreated: r.patientCreated,
-        patient: r.patient,
+        patient,
         invoice: r.invoice,
         errorMessage: r.errorMessage,
         processedAt: r.processedAt,
-      })),
+      };
+    };
+
+    return NextResponse.json({
+      success: true,
+      summary,
+      reconciliations: reconciliations.map(formatReconciliation),
       failedWebhooks: failedWebhooks.map((w: any) => ({
         id: w.id,
         eventId: w.eventId,
@@ -118,10 +139,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     logger.error('[Payment Reconciliation] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch reconciliation data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch reconciliation data' }, { status: 500 });
   }
 }
 
@@ -243,37 +261,34 @@ export async function POST(req: NextRequest) {
       // Fetch recent payments directly from Stripe for manual reconciliation
       const { getStripe } = await import('@/lib/stripe');
       const stripe = getStripe();
-      
+
       const days = body.days || 7;
-      const since = Math.floor(Date.now() / 1000) - (days * 24 * 60 * 60);
+      const since = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
 
       const paymentIntents = await stripe.paymentIntents.list({
         created: { gte: since },
         limit: 100,
       });
 
-      const successfulPayments = paymentIntents.data.filter(
-        pi => pi.status === 'succeeded'
-      );
+      const successfulPayments = paymentIntents.data.filter((pi) => pi.status === 'succeeded');
 
       // Check which ones we have records for
-      const piIds = successfulPayments.map(pi => pi.id);
+      const piIds = successfulPayments.map((pi) => pi.id);
       const existingRecords = await prisma.paymentReconciliation.findMany({
         where: { stripePaymentIntentId: { in: piIds } },
         select: { stripePaymentIntentId: true },
+        take: AGGREGATION_TAKE,
       });
       const processedIds = new Set(existingRecords.map((r: any) => r.stripePaymentIntentId));
 
-      const missingPayments = successfulPayments.filter(
-        pi => !processedIds.has(pi.id)
-      );
+      const missingPayments = successfulPayments.filter((pi) => !processedIds.has(pi.id));
 
       return NextResponse.json({
         success: true,
         total: successfulPayments.length,
         processed: existingRecords.length,
         missing: missingPayments.length,
-        missingPayments: missingPayments.map(pi => ({
+        missingPayments: missingPayments.map((pi) => ({
           id: pi.id,
           amount: pi.amount,
           currency: pi.currency,
@@ -296,12 +311,12 @@ export async function POST(req: NextRequest) {
       const stripe = getStripe();
 
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-      
+
       if (paymentIntent.status !== 'succeeded') {
         return NextResponse.json({ error: 'Payment not succeeded' }, { status: 400 });
       }
 
-      const { processStripePayment, extractPaymentDataFromPaymentIntent } = 
+      const { processStripePayment, extractPaymentDataFromPaymentIntent } =
         await import('@/services/stripe/paymentMatchingService');
 
       const paymentData = extractPaymentDataFromPaymentIntent(paymentIntent);

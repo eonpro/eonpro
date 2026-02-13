@@ -29,6 +29,7 @@ import {
   BadRequestError,
 } from '@/domains/shared/errors';
 import { subDays } from 'date-fns';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 const VALID_STATUSES = ['MATCHED', 'CREATED', 'FAILED', 'PENDING', 'SKIPPED'] as const;
 
@@ -135,27 +136,44 @@ export async function GET(request: NextRequest) {
         byStatus,
         period: `Last ${days} days`,
       },
-      payments: payments.map((r) => ({
-        id: r.id,
-        createdAt: r.createdAt,
-        status: r.status,
-        stripeEventId: r.stripeEventId,
-        stripeEventType: r.stripeEventType,
-        stripePaymentIntentId: r.stripePaymentIntentId,
-        stripeChargeId: r.stripeChargeId,
-        amount: r.amount,
-        currency: r.currency,
-        customerEmail: r.customerEmail,
-        customerName: r.customerName,
-        customerPhone: r.customerPhone,
-        matchedBy: r.matchedBy,
-        matchConfidence: r.matchConfidence,
-        patientCreated: r.patientCreated,
-        patient: r.patient,
-        invoice: r.invoice,
-        errorMessage: r.errorMessage,
-        clinicId: r.clinicId,
-      })),
+      payments: payments.map((r) => {
+        let patient = r.patient;
+        if (patient) {
+          try {
+            patient = decryptPatientPHI(patient as Record<string, unknown>, [
+              'firstName',
+              'lastName',
+              'email',
+            ]) as typeof patient;
+          } catch (decryptErr) {
+            logger.warn('[Incoming Payments] Failed to decrypt patient PHI', {
+              patientId: patient.id,
+              error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+            });
+          }
+        }
+        return {
+          id: r.id,
+          createdAt: r.createdAt,
+          status: r.status,
+          stripeEventId: r.stripeEventId,
+          stripeEventType: r.stripeEventType,
+          stripePaymentIntentId: r.stripePaymentIntentId,
+          stripeChargeId: r.stripeChargeId,
+          amount: r.amount,
+          currency: r.currency,
+          customerEmail: r.customerEmail,
+          customerName: r.customerName,
+          customerPhone: r.customerPhone,
+          matchedBy: r.matchedBy,
+          matchConfidence: r.matchConfidence,
+          patientCreated: r.patientCreated,
+          patient,
+          invoice: r.invoice,
+          errorMessage: r.errorMessage,
+          clinicId: r.clinicId,
+        };
+      }),
     };
 
     const res = NextResponse.json(response);

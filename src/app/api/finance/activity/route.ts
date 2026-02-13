@@ -1,6 +1,6 @@
 /**
  * Finance Activity API
- * 
+ *
  * GET /api/finance/activity
  * Returns recent financial activity feed
  */
@@ -11,6 +11,22 @@ import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
 import { formatDistanceToNow } from 'date-fns';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+
+function safePatientName(patient: { firstName: string; lastName: string } | null): string {
+  if (!patient) return 'Unknown';
+  try {
+    const decrypted = decryptPatientPHI(patient as Record<string, unknown>, [
+      'firstName',
+      'lastName',
+    ]);
+    const first = (decrypted.firstName as string) || patient.firstName;
+    const last = (decrypted.lastName as string) || patient.lastName;
+    return `${first} ${last}`.trim() || 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
+}
 
 interface Activity {
   id: number;
@@ -111,17 +127,15 @@ export async function GET(request: NextRequest) {
       const activities: Activity[] = [];
 
       // Add payments
-      payments.forEach((payment: typeof payments[number]) => {
-        const patientName = payment.patient 
-          ? `${payment.patient.firstName} ${payment.patient.lastName}`
-          : 'Unknown';
+      payments.forEach((payment: (typeof payments)[number]) => {
+        const patientName = safePatientName(payment.patient);
 
         const isRefund = payment.status === 'REFUNDED';
-        
+
         activities.push({
           id: payment.id,
           type: isRefund ? 'refund' : 'payment',
-          description: isRefund 
+          description: isRefund
             ? `Refund processed for ${patientName}`
             : `Payment received from ${patientName}`,
           amount: payment.amount,
@@ -132,10 +146,8 @@ export async function GET(request: NextRequest) {
       });
 
       // Add invoices
-      invoices.forEach((invoice: typeof invoices[number]) => {
-        const patientName = invoice.patient 
-          ? `${invoice.patient.firstName} ${invoice.patient.lastName}`
-          : 'Unknown';
+      invoices.forEach((invoice: (typeof invoices)[number]) => {
+        const patientName = safePatientName(invoice.patient);
 
         let description = '';
         switch (invoice.status) {
@@ -165,10 +177,8 @@ export async function GET(request: NextRequest) {
       });
 
       // Add subscription actions
-      subscriptionActions.forEach((action: typeof subscriptionActions[number]) => {
-        const patientName = action.subscription?.patient 
-          ? `${action.subscription.patient.firstName} ${action.subscription.patient.lastName}`
-          : 'Unknown';
+      subscriptionActions.forEach((action: (typeof subscriptionActions)[number]) => {
+        const patientName = safePatientName(action.subscription?.patient ?? null);
 
         let description = '';
         let amount = action.subscription?.amount || 0;
@@ -219,9 +229,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Failed to fetch finance activity', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch finance activity' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch finance activity' }, { status: 500 });
   }
 }

@@ -2,9 +2,9 @@
  * INVOICE SUMMARY & REPORTING API
  * ================================
  * Get invoice summaries and reports
- * 
+ *
  * GET /api/v2/invoices/summary
- * 
+ *
  * Query params:
  * - patientId: Get summary for specific patient
  * - range: today, this_week, this_month, this_quarter, this_year, custom
@@ -16,14 +16,19 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 type DateRange = 'today' | 'this_week' | 'this_month' | 'this_quarter' | 'this_year' | 'custom';
 
-function getDateRange(range: DateRange, startDate?: string, endDate?: string): { from: Date; to: Date } {
+function getDateRange(
+  range: DateRange,
+  startDate?: string,
+  endDate?: string
+): { from: Date; to: Date } {
   const now = new Date();
   const to = endDate ? new Date(endDate) : now;
   let from: Date;
-  
+
   switch (range) {
     case 'today':
       from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -48,7 +53,7 @@ function getDateRange(range: DateRange, startDate?: string, endDate?: string): {
     default:
       from = new Date(now.getFullYear(), now.getMonth(), 1);
   }
-  
+
   return { from, to };
 }
 
@@ -59,21 +64,23 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
     const range = (url.searchParams.get('range') || 'this_month') as DateRange;
     const startDate = url.searchParams.get('startDate') || undefined;
     const endDate = url.searchParams.get('endDate') || undefined;
-    
+
     const { from, to } = getDateRange(range, startDate, endDate);
-    
+
     const whereClause: any = {
       createdAt: { gte: from, lte: to },
       ...(user.clinicId && { clinicId: user.clinicId }),
       ...(patientId && { patientId: parseInt(patientId) }),
     };
-    
+
     // Get all invoices in range
     const invoices = await prisma.invoice.findMany({
       where: whereClause,
       include: { payments: true },
+      orderBy: { createdAt: 'desc' },
+      take: 10_000,
     });
-    
+
     // Calculate metrics
     const now = new Date();
     let totalInvoiced = 0;
@@ -85,19 +92,19 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
     let paidCount = 0;
     let voidCount = 0;
     let overdueCount = 0;
-    
+
     const byStatus: Record<string, number> = {};
     const byMonth: Record<string, { invoiced: number; collected: number }> = {};
     const recentInvoices: any[] = [];
-    
+
     for (const inv of invoices) {
       const invAmount = inv.amount ?? 0;
       totalInvoiced += invAmount;
       totalPaid += inv.amountPaid || 0;
-      
+
       // Count by status
       byStatus[inv.status] = (byStatus[inv.status] || 0) + 1;
-      
+
       // Group by month
       const monthKey = `${inv.createdAt.getFullYear()}-${String(inv.createdAt.getMonth() + 1).padStart(2, '0')}`;
       if (!byMonth[monthKey]) {
@@ -105,10 +112,12 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
       }
       byMonth[monthKey].invoiced += invAmount;
       byMonth[monthKey].collected += inv.amountPaid || 0;
-      
+
       // Status counts
       switch (inv.status) {
-        case 'DRAFT': draftCount++; break;
+        case 'DRAFT':
+          draftCount++;
+          break;
         case 'OPEN':
           openCount++;
           totalOutstanding += inv.amountDue ?? invAmount;
@@ -117,11 +126,15 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
             overdueAmount += inv.amountDue ?? invAmount;
           }
           break;
-        case 'PAID': paidCount++; break;
-        case 'VOID': voidCount++; break;
+        case 'PAID':
+          paidCount++;
+          break;
+        case 'VOID':
+          voidCount++;
+          break;
       }
     }
-    
+
     // Get recent invoices
     const recent = await prisma.invoice.findMany({
       where: {
@@ -134,7 +147,7 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
       orderBy: { createdAt: 'desc' },
       take: 10,
     });
-    
+
     // Get overdue invoices
     const overdue = await prisma.invoice.findMany({
       where: {
@@ -149,22 +162,24 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
       orderBy: { dueDate: 'asc' },
       take: 20,
     });
-    
+
     // Calculate collection rate
     const collectionRate = totalInvoiced > 0 ? (totalPaid / totalInvoiced) * 100 : 0;
-    
+
     // Calculate average payment time
-    type InvoiceType = typeof invoices[number];
+    type InvoiceType = (typeof invoices)[number];
     const paidInvoices = invoices.filter((i: InvoiceType) => i.status === 'PAID' && i.paidAt);
     let avgPaymentDays = 0;
     if (paidInvoices.length > 0) {
       const totalDays = paidInvoices.reduce((sum: number, inv: InvoiceType) => {
-        const days = Math.floor((inv.paidAt!.getTime() - inv.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        const days = Math.floor(
+          (inv.paidAt!.getTime() - inv.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+        );
         return sum + days;
       }, 0);
       avgPaymentDays = Math.round(totalDays / paidInvoices.length);
     }
-    
+
     return NextResponse.json({
       period: { from, to, range },
       summary: {
@@ -184,38 +199,69 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
         overdue: overdueCount,
       },
       byStatus,
-      byMonth: Object.entries(byMonth).map(([month, data]) => ({
-        month,
-        ...data,
-      })).sort((a, b) => a.month.localeCompare(b.month)),
-      recentInvoices: recent.map((inv: typeof recent[number]) => ({
-        id: inv.id,
-        patient: `${inv.patient.firstName} ${inv.patient.lastName}`,
-        amount: inv.amount,
-        status: inv.status,
-        dueDate: inv.dueDate,
-        createdAt: inv.createdAt,
-      })),
-      overdueInvoices: overdue.map((inv: typeof overdue[number]) => ({
-        id: inv.id,
-        patient: {
-          name: `${inv.patient.firstName} ${inv.patient.lastName}`,
-          email: inv.patient.email,
-          phone: inv.patient.phone,
-        },
-        amount: inv.amount,
-        amountDue: inv.amountDue,
-        dueDate: inv.dueDate,
-        daysPastDue: Math.floor((now.getTime() - (inv.dueDate?.getTime() || 0)) / (1000 * 60 * 60 * 24)),
-      })),
+      byMonth: Object.entries(byMonth)
+        .map(([month, data]) => ({
+          month,
+          ...data,
+        }))
+        .sort((a, b) => a.month.localeCompare(b.month)),
+      recentInvoices: recent.map((inv: (typeof recent)[number]) => {
+        let patientName = 'Unknown';
+        if (inv.patient) {
+          try {
+            const decrypted = decryptPatientPHI(inv.patient as Record<string, unknown>, [
+              'firstName',
+              'lastName',
+            ]);
+            patientName =
+              `${decrypted.firstName || ''} ${decrypted.lastName || ''}`.trim() || 'Unknown';
+          } catch {
+            patientName = 'Unknown';
+          }
+        }
+        return {
+          id: inv.id,
+          patient: patientName,
+          amount: inv.amount,
+          status: inv.status,
+          dueDate: inv.dueDate,
+          createdAt: inv.createdAt,
+        };
+      }),
+      overdueInvoices: overdue.map((inv: (typeof overdue)[number]) => {
+        let patientData = { name: 'Unknown', email: inv.patient?.email, phone: inv.patient?.phone };
+        if (inv.patient) {
+          try {
+            const decrypted = decryptPatientPHI(inv.patient as Record<string, unknown>, [
+              'firstName',
+              'lastName',
+              'email',
+              'phone',
+            ]);
+            patientData = {
+              name: `${decrypted.firstName || ''} ${decrypted.lastName || ''}`.trim() || 'Unknown',
+              email: (decrypted.email as string) || inv.patient?.email || undefined,
+              phone: (decrypted.phone as string) || inv.patient?.phone || undefined,
+            };
+          } catch {
+            patientData.name = 'Unknown';
+          }
+        }
+        return {
+          id: inv.id,
+          patient: patientData,
+          amount: inv.amount,
+          amountDue: inv.amountDue,
+          dueDate: inv.dueDate,
+          daysPastDue: Math.floor(
+            (now.getTime() - (inv.dueDate?.getTime() || 0)) / (1000 * 60 * 60 * 24)
+          ),
+        };
+      }),
     });
-    
   } catch (error: any) {
     logger.error('Failed to get invoice summary', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to get summary' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Failed to get summary' }, { status: 500 });
   }
 }
 

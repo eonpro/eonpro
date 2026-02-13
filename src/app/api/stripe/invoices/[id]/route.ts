@@ -10,34 +10,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ensureTenantResource, tenantNotFoundResponse } from '@/lib/tenant-response';
+import { getAuthUser } from '@/lib/auth';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
+import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { z } from 'zod';
 import { isStripeConfigured } from '@/lib/stripe/config';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 // Schema for updating an invoice
-const updateInvoiceSchema = z.object({
-  description: z.string().optional(),
-  dueDate: z.string().datetime().optional(),
-  dueInDays: z.number().min(0).optional(),
-  memo: z.string().optional(),
-  footer: z.string().optional(),
-  lineItems: z.array(z.object({
-    id: z.string().optional(), // Stripe line item ID for updates
-    description: z.string(),
-    amount: z.number().min(0),
-    quantity: z.number().min(1).optional(),
-  })).optional(),
-  // For adding single items
-  addLineItem: z.object({
-    description: z.string(),
-    amount: z.number().min(0),
-    quantity: z.number().min(1).optional(),
-  }).optional(),
-  // For removing items
-  removeLineItemId: z.string().optional(),
-  metadata: z.record(z.string()).optional(),
-}).refine(data => Object.keys(data).length > 0, {
-  message: 'At least one field must be provided for update',
-});
+const updateInvoiceSchema = z
+  .object({
+    description: z.string().optional(),
+    dueDate: z.string().datetime().optional(),
+    dueInDays: z.number().min(0).optional(),
+    memo: z.string().optional(),
+    footer: z.string().optional(),
+    lineItems: z
+      .array(
+        z.object({
+          id: z.string().optional(), // Stripe line item ID for updates
+          description: z.string(),
+          amount: z.number().min(0),
+          quantity: z.number().min(1).optional(),
+        })
+      )
+      .optional(),
+    // For adding single items
+    addLineItem: z
+      .object({
+        description: z.string(),
+        amount: z.number().min(0),
+        quantity: z.number().min(1).optional(),
+      })
+      .optional(),
+    // For removing items
+    removeLineItemId: z.string().optional(),
+    metadata: z.record(z.string()).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided for update',
+  });
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -45,17 +58,17 @@ type Params = {
 
 export async function GET(request: NextRequest, { params }: Params) {
   try {
+    const user = await getAuthUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    requirePermission(toPermissionContext(user), 'invoice:view');
+
     const resolvedParams = await params;
     const id = parseInt(resolvedParams.id, 10);
 
     if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'Invalid invoice ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
     }
 
-    // Try full query first, fall back to simpler query if InvoiceItem table doesn't exist
     let invoice;
     try {
       invoice = await prisma.invoice.findUnique({
@@ -118,18 +131,33 @@ export async function GET(request: NextRequest, { params }: Params) {
       });
     }
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
-      );
+    if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
+
+    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'invoice:view', {
+      patientId: invoice.patientId ?? undefined,
+      route: 'GET /api/stripe/invoices/[id]',
+    }));
+
+    if (invoice.patient) {
+      try {
+        invoice.patient = decryptPatientPHI(invoice.patient as Record<string, unknown>, [
+          'firstName',
+          'lastName',
+          'email',
+          'phone',
+        ]) as typeof invoice.patient;
+      } catch (decryptErr) {
+        logger.warn('[API] Failed to decrypt invoice patient PHI', {
+          patientId: invoice.patient?.id,
+          error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+        });
+      }
     }
 
     return NextResponse.json({
       success: true,
       invoice,
     });
-
   } catch (error: any) {
     logger.error('[API] Error fetching invoice:', error);
 
@@ -142,14 +170,14 @@ export async function GET(request: NextRequest, { params }: Params) {
 
 export async function POST(request: NextRequest, { params }: Params) {
   try {
+    const user = await getAuthUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const resolvedParams = await params;
     const id = parseInt(resolvedParams.id, 10);
 
     if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'Invalid invoice ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -160,12 +188,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       include: { patient: true },
     });
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
-      );
-    }
+    if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
 
     switch (action) {
       case 'send': {
@@ -238,12 +261,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
       case 'mark_paid': {
         // Support for marking as paid externally with additional details
-        const {
-          paymentMethod,
-          paymentNotes,
-          paymentDate,
-          amount: customAmount
-        } = body;
+        const { paymentMethod, paymentNotes, paymentDate, amount: customAmount } = body;
 
         const paidAmount = customAmount || invoice.amountDue || invoice.amount;
         const paidDate = paymentDate ? new Date(paymentDate) : new Date();
@@ -359,10 +377,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         const { amount, description: creditDescription } = body;
 
         if (!amount || amount <= 0) {
-          return NextResponse.json(
-            { error: 'Credit amount must be positive' },
-            { status: 400 }
-          );
+          return NextResponse.json({ error: 'Credit amount must be positive' }, { status: 400 });
         }
 
         if (invoice.status === 'PAID' || invoice.status === 'VOID') {
@@ -440,14 +455,16 @@ export async function POST(request: NextRequest, { params }: Params) {
           data: {
             patientId: invoice.patientId,
             clinicId: invoice.clinicId,
-            description: invoice.description ? `Copy of: ${invoice.description}` : 'Copy of invoice',
+            description: invoice.description
+              ? `Copy of: ${invoice.description}`
+              : 'Copy of invoice',
             amount: invoice.amount,
             amountDue: invoice.amountDue,
             status: 'DRAFT',
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             lineItems: invoice.lineItems,
             metadata: {
-              ...(invoice.metadata as any || {}),
+              ...((invoice.metadata as any) || {}),
               duplicatedFrom: invoice.id,
             },
             createSubscription: invoice.createSubscription,
@@ -519,11 +536,12 @@ export async function POST(request: NextRequest, { params }: Params) {
 
       default:
         return NextResponse.json(
-          { error: `Unknown action: ${action}. Available actions: send, void, mark_paid, finalize, add_credit, duplicate, mark_uncollectible, resend` },
+          {
+            error: `Unknown action: ${action}. Available actions: send, void, mark_paid, finalize, add_credit, duplicate, mark_uncollectible, resend`,
+          },
           { status: 400 }
         );
     }
-
   } catch (error: any) {
     logger.error('[API] Error processing invoice action:', error);
 
@@ -541,14 +559,14 @@ export async function POST(request: NextRequest, { params }: Params) {
  */
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
+    const user = await getAuthUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const resolvedParams = await params;
     const id = parseInt(resolvedParams.id, 10);
 
     if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'Invalid invoice ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -559,26 +577,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       include: { patient: true },
     });
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
-      );
-    }
+    if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
 
     // Check if invoice can be edited
     if (invoice.status === 'PAID') {
-      return NextResponse.json(
-        { error: 'Cannot edit a paid invoice' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Cannot edit a paid invoice' }, { status: 400 });
     }
 
     if (invoice.status === 'VOID') {
-      return NextResponse.json(
-        { error: 'Cannot edit a voided invoice' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Cannot edit a voided invoice' }, { status: 400 });
     }
 
     // Prepare update data
@@ -596,7 +603,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (validatedData.metadata) {
       updateData.metadata = {
-        ...(invoice.metadata as any || {}),
+        ...((invoice.metadata as any) || {}),
         ...validatedData.metadata,
       };
     }
@@ -609,28 +616,48 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       if (validatedData.lineItems) {
         currentLineItems = validatedData.lineItems;
         updateData.lineItems = currentLineItems;
-        updateData.amountDue = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+        updateData.amountDue = currentLineItems.reduce(
+          (sum: number, item: any) => sum + item.amount,
+          0
+        );
       }
 
       // Add single line item
       if (validatedData.addLineItem) {
         currentLineItems.push(validatedData.addLineItem);
         updateData.lineItems = currentLineItems;
-        updateData.amountDue = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+        updateData.amountDue = currentLineItems.reduce(
+          (sum: number, item: any) => sum + item.amount,
+          0
+        );
       }
 
       // Remove line item by index
       if (validatedData.removeLineItemId !== undefined) {
         const indexToRemove = parseInt(validatedData.removeLineItemId, 10);
-        if (!isNaN(indexToRemove) && indexToRemove >= 0 && indexToRemove < currentLineItems.length) {
+        if (
+          !isNaN(indexToRemove) &&
+          indexToRemove >= 0 &&
+          indexToRemove < currentLineItems.length
+        ) {
           currentLineItems.splice(indexToRemove, 1);
           updateData.lineItems = currentLineItems;
-          updateData.amountDue = currentLineItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+          updateData.amountDue = currentLineItems.reduce(
+            (sum: number, item: any) => sum + item.amount,
+            0
+          );
         }
       }
-    } else if (validatedData.lineItems || validatedData.addLineItem || validatedData.removeLineItemId) {
+    } else if (
+      validatedData.lineItems ||
+      validatedData.addLineItem ||
+      validatedData.removeLineItemId
+    ) {
       return NextResponse.json(
-        { error: 'Line items can only be edited on DRAFT invoices. Void this invoice and create a new one.' },
+        {
+          error:
+            'Line items can only be edited on DRAFT invoices. Void this invoice and create a new one.',
+        },
         { status: 400 }
       );
     }
@@ -702,7 +729,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       invoice,
       message: 'No changes applied',
     });
-
   } catch (error: any) {
     logger.error('[API] Error updating invoice:', error);
 
@@ -727,14 +753,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
  */
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    const user = await getAuthUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const resolvedParams = await params;
     const id = parseInt(resolvedParams.id, 10);
 
     if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'Invalid invoice ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
     }
 
     const invoice = await prisma.invoice.findUnique({
@@ -742,12 +768,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       include: { payments: true },
     });
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
-      );
-    }
+    if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
 
     // Check if invoice can be deleted
     if (invoice.status === 'PAID') {
@@ -796,7 +817,9 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         });
       } catch (error: unknown) {
         // Table might not exist - continue with invoice deletion
-        logger.warn('[API] InvoiceItem table may not exist', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.warn('[API] InvoiceItem table may not exist', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
 
       // Delete the invoice from database
@@ -812,7 +835,6 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       message: 'Invoice deleted successfully',
       deletedId: id,
     });
-
   } catch (error: any) {
     logger.error('[API] Error deleting invoice:', error);
 

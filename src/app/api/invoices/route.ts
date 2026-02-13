@@ -1,24 +1,23 @@
 /**
  * Invoices API
- * 
+ *
  * GET /api/invoices - List invoices (for admin dashboard)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
+import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 export async function GET(req: NextRequest) {
   const auth = await verifyAuth(req);
   if (!auth.success || !auth.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  // Only admins can view all invoices
-  if (!['admin', 'super_admin', 'provider', 'staff'].includes(auth.user.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  requirePermission(toPermissionContext(auth.user), 'invoice:view');
 
   try {
     const { searchParams } = new URL(req.url);
@@ -29,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     // Build where clause
     const where: any = {};
-    
+
     // Multi-tenant: filter by clinic unless super_admin
     if (auth.user.clinicId && auth.user.role !== 'super_admin') {
       where.clinicId = auth.user.clinicId;
@@ -65,26 +64,48 @@ export async function GET(req: NextRequest) {
       prisma.invoice.count({ where }),
     ]);
 
-    // Transform for frontend
-    const formattedInvoices = invoices.map((inv: typeof invoices[number]) => ({
-      id: inv.id,
-      stripeInvoiceId: inv.stripeInvoiceId,
-      stripeInvoiceUrl: inv.stripeInvoiceUrl,
-      patient: inv.patient,
-      description: inv.description,
-      amount: inv.amount,
-      amountDue: inv.amountDue,
-      amountPaid: inv.amountPaid,
-      total: inv.amount, // Alias for compatibility
-      currency: inv.currency,
-      status: inv.status,
-      dueDate: inv.dueDate,
-      paidAt: inv.paidAt,
-      lineItems: inv.lineItems,
-      metadata: inv.metadata, // Include metadata for refund info and source
-      createdAt: inv.createdAt,
-      updatedAt: inv.updatedAt,
+    await auditPhiAccess(req, buildAuditPhiOptions(req, auth.user, 'invoice:view', {
+      route: 'GET /api/invoices',
+      patientId: patientId ? parseInt(patientId, 10) : undefined,
     }));
+
+    // Transform for frontend (decrypt patient PHI before sending)
+    const formattedInvoices = invoices.map((inv: (typeof invoices)[number]) => {
+      let patient = inv.patient;
+      if (patient) {
+        try {
+          patient = decryptPatientPHI(patient as Record<string, unknown>, [
+            'firstName',
+            'lastName',
+            'email',
+          ]) as typeof patient;
+        } catch (decryptErr) {
+          logger.warn('[Invoices API] Failed to decrypt patient PHI', {
+            patientId: patient.id,
+            error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+          });
+        }
+      }
+      return {
+        id: inv.id,
+        stripeInvoiceId: inv.stripeInvoiceId,
+        stripeInvoiceUrl: inv.stripeInvoiceUrl,
+        patient,
+        description: inv.description,
+        amount: inv.amount,
+        amountDue: inv.amountDue,
+        amountPaid: inv.amountPaid,
+        total: inv.amount, // Alias for compatibility
+        currency: inv.currency,
+        status: inv.status,
+        dueDate: inv.dueDate,
+        paidAt: inv.paidAt,
+        lineItems: inv.lineItems,
+        metadata: inv.metadata, // Include metadata for refund info and source
+        createdAt: inv.createdAt,
+        updatedAt: inv.updatedAt,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -95,9 +116,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     logger.error('[Invoices API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch invoices' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch invoices' }, { status: 500 });
   }
 }

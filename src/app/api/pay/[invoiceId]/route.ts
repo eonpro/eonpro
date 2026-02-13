@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 export async function GET(
   request: NextRequest,
@@ -17,13 +18,16 @@ export async function GET(
     const resolvedParams = await context.params;
     const invoiceIdParam = resolvedParams.invoiceId;
     const invoiceId = parseInt(invoiceIdParam);
-    
+
     logger.debug('Invoice payment page request', { invoiceIdParam, invoiceId });
-    
+
     if (isNaN(invoiceId)) {
-      return NextResponse.json({ error: 'Invalid invoice ID', received: invoiceIdParam }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid invoice ID', received: invoiceIdParam },
+        { status: 400 }
+      );
     }
-    
+
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
@@ -40,12 +44,28 @@ export async function GET(
         },
       },
     });
-    
+
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
-    
-    // Return limited data for security (no sensitive patient info)
+
+    let patientDisplay = { firstName: invoice.patient.firstName, lastName: invoice.patient.lastName };
+    try {
+      const decrypted = decryptPatientPHI(invoice.patient as Record<string, unknown>, [
+        'firstName',
+        'lastName',
+      ]);
+      patientDisplay = {
+        firstName: (decrypted.firstName as string) || patientDisplay.firstName,
+        lastName: (decrypted.lastName as string) || patientDisplay.lastName,
+      };
+    } catch (decryptErr) {
+      logger.warn('[Pay Invoice] Failed to decrypt patient PHI', {
+        patientId: invoice.patient.id,
+        error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+      });
+    }
+
     return NextResponse.json({
       invoice: {
         id: invoice.id,
@@ -57,19 +77,12 @@ export async function GET(
         dueDate: invoice.dueDate,
         stripeInvoiceUrl: invoice.stripeInvoiceUrl,
         lineItems: invoice.lineItems || [],
-        patient: {
-          firstName: invoice.patient.firstName,
-          lastName: invoice.patient.lastName,
-        },
+        patient: patientDisplay,
         clinic: invoice.clinic,
       },
     });
-    
   } catch (error: any) {
     logger.error('Failed to fetch invoice for payment', error);
-    return NextResponse.json(
-      { error: 'Failed to load invoice' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to load invoice' }, { status: 500 });
   }
 }
