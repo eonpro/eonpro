@@ -116,10 +116,11 @@ export default function PatientFinancePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('super_admin-token') || 
-                    localStorage.getItem('admin-token') ||
-                    localStorage.getItem('token');
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('admin-token') ||
+        localStorage.getItem('token');
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -148,7 +149,7 @@ export default function PatientFinancePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
       </div>
     );
@@ -167,17 +168,80 @@ export default function PatientFinancePage() {
       churnRate: 4.8,
     },
     segments: [
-      { segment: 'VIP', count: 125, totalRevenue: 18750000, averageLTV: 150000, percentageOfTotal: 10 },
-      { segment: 'Regular', count: 375, totalRevenue: 15000000, averageLTV: 40000, percentageOfTotal: 30 },
-      { segment: 'Occasional', count: 450, totalRevenue: 5400000, averageLTV: 12000, percentageOfTotal: 36 },
+      {
+        segment: 'VIP',
+        count: 125,
+        totalRevenue: 18750000,
+        averageLTV: 150000,
+        percentageOfTotal: 10,
+      },
+      {
+        segment: 'Regular',
+        count: 375,
+        totalRevenue: 15000000,
+        averageLTV: 40000,
+        percentageOfTotal: 30,
+      },
+      {
+        segment: 'Occasional',
+        count: 450,
+        totalRevenue: 5400000,
+        averageLTV: 12000,
+        percentageOfTotal: 36,
+      },
       { segment: 'New', count: 300, totalRevenue: 990000, averageLTV: 3300, percentageOfTotal: 24 },
     ],
     atRisk: [
-      { patientId: 1, patientName: 'Sarah Johnson', email: 'sarah@example.com', riskScore: 85, riskFactors: ['No payment in 60+ days', 'Recent failed payment'], lastPaymentDate: '2024-01-15', subscriptionStatus: 'PAST_DUE', totalRevenue: 125000 },
-      { patientId: 2, patientName: 'Michael Chen', email: 'michael@example.com', riskScore: 72, riskFactors: ['Subscription paused', 'No payment in 30+ days'], lastPaymentDate: '2024-02-01', subscriptionStatus: 'PAUSED', totalRevenue: 89000 },
-      { patientId: 3, patientName: 'Emily Davis', email: 'emily@example.com', riskScore: 68, riskFactors: ['Multiple failed payments'], lastPaymentDate: '2024-01-28', subscriptionStatus: 'ACTIVE', totalRevenue: 67500 },
-      { patientId: 4, patientName: 'David Wilson', email: 'david@example.com', riskScore: 55, riskFactors: ['No payment in 30+ days'], lastPaymentDate: '2024-02-05', subscriptionStatus: 'ACTIVE', totalRevenue: 45000 },
-      { patientId: 5, patientName: 'Jessica Brown', email: 'jessica@example.com', riskScore: 52, riskFactors: ['Subscription canceled'], lastPaymentDate: '2024-01-20', subscriptionStatus: 'CANCELED', totalRevenue: 112000 },
+      {
+        patientId: 1,
+        patientName: 'Sarah Johnson',
+        email: 'sarah@example.com',
+        riskScore: 85,
+        riskFactors: ['No payment in 60+ days', 'Recent failed payment'],
+        lastPaymentDate: '2024-01-15',
+        subscriptionStatus: 'PAST_DUE',
+        totalRevenue: 125000,
+      },
+      {
+        patientId: 2,
+        patientName: 'Michael Chen',
+        email: 'michael@example.com',
+        riskScore: 72,
+        riskFactors: ['Subscription paused', 'No payment in 30+ days'],
+        lastPaymentDate: '2024-02-01',
+        subscriptionStatus: 'PAUSED',
+        totalRevenue: 89000,
+      },
+      {
+        patientId: 3,
+        patientName: 'Emily Davis',
+        email: 'emily@example.com',
+        riskScore: 68,
+        riskFactors: ['Multiple failed payments'],
+        lastPaymentDate: '2024-01-28',
+        subscriptionStatus: 'ACTIVE',
+        totalRevenue: 67500,
+      },
+      {
+        patientId: 4,
+        patientName: 'David Wilson',
+        email: 'david@example.com',
+        riskScore: 55,
+        riskFactors: ['No payment in 30+ days'],
+        lastPaymentDate: '2024-02-05',
+        subscriptionStatus: 'ACTIVE',
+        totalRevenue: 45000,
+      },
+      {
+        patientId: 5,
+        patientName: 'Jessica Brown',
+        email: 'jessica@example.com',
+        riskScore: 52,
+        riskFactors: ['Subscription canceled'],
+        lastPaymentDate: '2024-01-20',
+        subscriptionStatus: 'CANCELED',
+        totalRevenue: 112000,
+      },
     ],
     cohorts: [
       { cohort: '2024-01', size: 85, retention: { 0: 100, 1: 82, 2: 75 }, averageLTV: 28000 },
@@ -216,27 +280,28 @@ export default function PatientFinancePage() {
     return 'text-green-600 bg-green-50';
   };
 
-  const filteredAtRisk = displayData.atRisk.filter(p => 
-    p.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredAtRisk = displayData.atRisk.filter(
+    (p) =>
+      p.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Patient Payment Analytics</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="mt-1 text-sm text-gray-500">
             LTV analysis, cohort retention, and at-risk patient identification
           </p>
         </div>
-        <div className="flex bg-white rounded-lg border border-gray-200 p-1">
+        <div className="flex rounded-lg border border-gray-200 bg-white p-1">
           {(['overview', 'atRisk', 'cohorts'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab
                   ? 'bg-emerald-100 text-emerald-700'
                   : 'text-gray-500 hover:text-gray-700'
@@ -252,89 +317,99 @@ export default function PatientFinancePage() {
       {activeTab === 'overview' && (
         <>
           {/* Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <div className="p-2 bg-blue-50 rounded-lg w-fit">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="w-fit rounded-lg bg-blue-50 p-2">
                 <Users className="h-5 w-5 text-blue-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mt-4">
+              <h3 className="mt-4 text-2xl font-bold text-gray-900">
                 {displayData.metrics.totalPatients.toLocaleString()}
               </h3>
-              <p className="text-sm text-gray-500 mt-1">Total Patients</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="mt-1 text-sm text-gray-500">Total Patients</p>
+              <p className="mt-1 text-xs text-gray-400">
                 {displayData.metrics.patientsWithPayments} with payments
               </p>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <div className="p-2 bg-emerald-50 rounded-lg w-fit">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="w-fit rounded-lg bg-emerald-50 p-2">
                 <DollarSign className="h-5 w-5 text-emerald-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mt-4">
+              <h3 className="mt-4 text-2xl font-bold text-gray-900">
                 {formatCurrency(displayData.metrics.averageLTV)}
               </h3>
-              <p className="text-sm text-gray-500 mt-1">Average LTV</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="mt-1 text-sm text-gray-500">Average LTV</p>
+              <p className="mt-1 text-xs text-gray-400">
                 Median: {formatCurrency(displayData.metrics.medianLTV)}
               </p>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <div className="p-2 bg-purple-50 rounded-lg w-fit">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="w-fit rounded-lg bg-purple-50 p-2">
                 <TrendingUp className="h-5 w-5 text-purple-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mt-4">
+              <h3 className="mt-4 text-2xl font-bold text-gray-900">
                 {displayData.metrics.activeSubscriptions}
               </h3>
-              <p className="text-sm text-gray-500 mt-1">Active Subscriptions</p>
+              <p className="mt-1 text-sm text-gray-500">Active Subscriptions</p>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-red-50 rounded-lg">
+                <div className="rounded-lg bg-red-50 p-2">
                   <TrendingDown className="h-5 w-5 text-red-600" />
                 </div>
                 {displayData.metrics.churnRate > 5 && (
                   <AlertTriangle className="h-5 w-5 text-red-500" />
                 )}
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mt-4">
+              <h3 className="mt-4 text-2xl font-bold text-gray-900">
                 {displayData.metrics.churnRate.toFixed(1)}%
               </h3>
-              <p className="text-sm text-gray-500 mt-1">Monthly Churn Rate</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="mt-1 text-sm text-gray-500">Monthly Churn Rate</p>
+              <p className="mt-1 text-xs text-gray-400">
                 {displayData.metrics.churnedLast30Days} churned last 30 days
               </p>
             </div>
           </div>
 
           {/* Segments and Payment Behavior */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Patient Segments */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Patient Segments</h3>
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">Patient Segments</h3>
               <div className="space-y-4">
                 {displayData.segments.map((segment) => (
                   <div key={segment.segment} className="flex items-center gap-4">
-                    <div 
-                      className="w-3 h-12 rounded-full"
-                      style={{ backgroundColor: SEGMENT_COLORS[segment.segment as keyof typeof SEGMENT_COLORS] || '#6B7280' }}
+                    <div
+                      className="h-12 w-3 rounded-full"
+                      style={{
+                        backgroundColor:
+                          SEGMENT_COLORS[segment.segment as keyof typeof SEGMENT_COLORS] ||
+                          '#6B7280',
+                      }}
                     />
                     <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="mb-1 flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-900">{segment.segment}</span>
                         <span className="text-sm text-gray-500">{segment.count} patients</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Avg LTV: {formatCurrency(segment.averageLTV)}</span>
-                        <span className="font-medium text-gray-900">{formatCurrency(segment.totalRevenue)}</span>
+                        <span className="text-gray-500">
+                          Avg LTV: {formatCurrency(segment.averageLTV)}
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(segment.totalRevenue)}
+                        </span>
                       </div>
-                      <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+                        <div
                           className="h-full rounded-full transition-all"
-                          style={{ 
+                          style={{
                             width: `${segment.percentageOfTotal}%`,
-                            backgroundColor: SEGMENT_COLORS[segment.segment as keyof typeof SEGMENT_COLORS] || '#6B7280'
+                            backgroundColor:
+                              SEGMENT_COLORS[segment.segment as keyof typeof SEGMENT_COLORS] ||
+                              '#6B7280',
                           }}
                         />
                       </div>
@@ -345,44 +420,58 @@ export default function PatientFinancePage() {
             </div>
 
             {/* Payment Behavior */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Behavior</h3>
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">Payment Behavior</h3>
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart 
+                <BarChart
                   data={[
-                    { name: 'On Time', value: displayData.paymentBehavior.onTimePayments, fill: '#10B981' },
-                    { name: 'Late', value: displayData.paymentBehavior.latePayments, fill: '#F59E0B' },
-                    { name: 'Failed', value: displayData.paymentBehavior.failedPayments, fill: '#EF4444' },
+                    {
+                      name: 'On Time',
+                      value: displayData.paymentBehavior.onTimePayments,
+                      fill: '#10B981',
+                    },
+                    {
+                      name: 'Late',
+                      value: displayData.paymentBehavior.latePayments,
+                      fill: '#F59E0B',
+                    },
+                    {
+                      name: 'Failed',
+                      value: displayData.paymentBehavior.failedPayments,
+                      fill: '#EF4444',
+                    },
                   ]}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
-                  />
+                  <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {[
-                      { fill: '#10B981' },
-                      { fill: '#F59E0B' },
-                      { fill: '#EF4444' },
-                    ].map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
+                    {[{ fill: '#10B981' }, { fill: '#F59E0B' }, { fill: '#EF4444' }].map(
+                      (entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      )
+                    )}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+              <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-green-600">{displayData.paymentBehavior.onTimePercentage}%</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {displayData.paymentBehavior.onTimePercentage}%
+                  </p>
                   <p className="text-xs text-gray-500">On Time</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-amber-600">{displayData.paymentBehavior.latePercentage}%</p>
+                  <p className="text-2xl font-bold text-amber-600">
+                    {displayData.paymentBehavior.latePercentage}%
+                  </p>
                   <p className="text-xs text-gray-500">Late</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-red-600">{displayData.paymentBehavior.failedPercentage}%</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {displayData.paymentBehavior.failedPercentage}%
+                  </p>
                   <p className="text-xs text-gray-500">Failed</p>
                 </div>
               </div>
@@ -393,23 +482,23 @@ export default function PatientFinancePage() {
 
       {/* At Risk Tab */}
       {activeTab === 'atRisk' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">At-Risk Patients</h3>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="mt-1 text-sm text-gray-500">
                   Patients showing signs of potential churn
                 </p>
               </div>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search patients..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -417,25 +506,27 @@ export default function PatientFinancePage() {
           <div className="divide-y divide-gray-100">
             {filteredAtRisk.length === 0 ? (
               <div className="p-12 text-center">
-                <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <Users className="mx-auto mb-3 h-12 w-12 text-gray-300" />
                 <p className="text-gray-500">No at-risk patients found</p>
               </div>
             ) : (
               filteredAtRisk.map((patient) => (
-                <div key={patient.patientId} className="p-4 hover:bg-gray-50 transition-colors">
+                <div key={patient.patientId} className="p-4 transition-colors hover:bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${getRiskColor(patient.riskScore)}`}>
+                      <div
+                        className={`rounded-full px-3 py-1 text-sm font-medium ${getRiskColor(patient.riskScore)}`}
+                      >
                         {patient.riskScore}
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">{patient.patientName}</h4>
                         <p className="text-sm text-gray-500">{patient.email}</p>
-                        <div className="flex flex-wrap gap-1 mt-2">
+                        <div className="mt-2 flex flex-wrap gap-1">
                           {patient.riskFactors.map((factor, index) => (
-                            <span 
+                            <span
                               key={index}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"
+                              className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
                             >
                               <AlertTriangle className="h-3 w-3" />
                               {factor}
@@ -448,18 +539,16 @@ export default function PatientFinancePage() {
                       <p className="text-sm font-medium text-gray-900">
                         {formatCurrency(patient.totalRevenue)}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Total Revenue
-                      </p>
+                      <p className="mt-1 text-xs text-gray-500">Total Revenue</p>
                       {patient.lastPaymentDate && (
-                        <p className="text-xs text-gray-400 mt-1 flex items-center justify-end gap-1">
+                        <p className="mt-1 flex items-center justify-end gap-1 text-xs text-gray-400">
                           <Clock className="h-3 w-3" />
                           Last: {new Date(patient.lastPaymentDate).toLocaleDateString()}
                         </p>
                       )}
-                      <Link 
+                      <Link
                         href={`/admin/patients?id=${patient.patientId}`}
-                        className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 mt-2"
+                        className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700"
                       >
                         View profile
                         <ChevronRight className="h-3 w-3" />
@@ -477,16 +566,19 @@ export default function PatientFinancePage() {
       {activeTab === 'cohorts' && (
         <>
           {/* Retention Heatmap */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Retention Matrix</h3>
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">Retention Matrix</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left">
-                    <th className="pb-3 pr-4 text-gray-500 font-medium">Cohort</th>
-                    <th className="pb-3 pr-4 text-gray-500 font-medium">Size</th>
+                    <th className="pb-3 pr-4 font-medium text-gray-500">Cohort</th>
+                    <th className="pb-3 pr-4 font-medium text-gray-500">Size</th>
                     {['M0', 'M1', 'M2', 'M3', 'M4', 'M5'].map((month) => (
-                      <th key={month} className="pb-3 pr-4 text-gray-500 font-medium text-center w-16">
+                      <th
+                        key={month}
+                        className="w-16 pb-3 pr-4 text-center font-medium text-gray-500"
+                      >
                         {month}
                       </th>
                     ))}
@@ -500,8 +592,8 @@ export default function PatientFinancePage() {
                       {row.retention.map((value, index) => (
                         <td key={index} className="py-2 pr-4">
                           {value > 0 ? (
-                            <div 
-                              className="w-16 h-8 rounded flex items-center justify-center text-xs font-medium"
+                            <div
+                              className="flex h-8 w-16 items-center justify-center rounded text-xs font-medium"
                               style={{
                                 backgroundColor: `rgba(16, 185, 129, ${value / 100})`,
                                 color: value > 50 ? 'white' : '#374151',
@@ -510,7 +602,7 @@ export default function PatientFinancePage() {
                               {value}%
                             </div>
                           ) : (
-                            <div className="w-16 h-8 rounded bg-gray-50 flex items-center justify-center text-gray-300">
+                            <div className="flex h-8 w-16 items-center justify-center rounded bg-gray-50 text-gray-300">
                               -
                             </div>
                           )}
@@ -523,7 +615,7 @@ export default function PatientFinancePage() {
                     <td className="py-3 pr-4">-</td>
                     {displayData.retentionMatrix.averageRetention.map((value, index) => (
                       <td key={index} className="py-3 pr-4">
-                        <div className="w-16 h-8 rounded bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-700">
+                        <div className="flex h-8 w-16 items-center justify-center rounded bg-gray-100 text-xs font-bold text-gray-700">
                           {value}%
                         </div>
                       </td>
@@ -535,17 +627,17 @@ export default function PatientFinancePage() {
           </div>
 
           {/* Cohort LTV Chart */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Cohort LTV Comparison</h3>
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">Cohort LTV Comparison</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={displayData.cohorts}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="cohort" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                <YAxis 
+                <YAxis
                   tick={{ fontSize: 12, fill: '#6B7280' }}
                   tickFormatter={(value) => `$${(value / 100).toFixed(0)}`}
                 />
-                <Tooltip 
+                <Tooltip
                   formatter={(value) => formatCurrency(value as number)}
                   contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
                 />

@@ -320,19 +320,19 @@ export default function PendingProfilesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Pending Profiles</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="mt-1 text-sm text-gray-500">
             Review and complete patient profiles created from Stripe payments
           </p>
         </div>
@@ -340,7 +340,7 @@ export default function PendingProfilesPage() {
           <button
             onClick={bulkSyncFromStripe}
             disabled={bulkSyncing}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {bulkSyncing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -351,7 +351,7 @@ export default function PendingProfilesPage() {
           </button>
           <button
             onClick={loadProfiles}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
@@ -361,7 +361,7 @@ export default function PendingProfilesPage() {
 
       {/* Sync Results Banner */}
       {syncResults && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <CheckCircle className="h-5 w-5 text-blue-600" />
@@ -389,62 +389,60 @@ export default function PendingProfilesPage() {
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <div className="p-2 bg-amber-50 rounded-lg w-fit">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="w-fit rounded-lg bg-amber-50 p-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mt-4">
-              {stats.pendingCompletion}
-            </h3>
-            <p className="text-sm text-gray-500 mt-1">Pending Completion</p>
+            <h3 className="mt-4 text-2xl font-bold text-gray-900">{stats.pendingCompletion}</h3>
+            <p className="mt-1 text-sm text-gray-500">Pending Completion</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <div className="p-2 bg-green-50 rounded-lg w-fit">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="w-fit rounded-lg bg-green-50 p-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mt-4">{stats.active}</h3>
-            <p className="text-sm text-gray-500 mt-1">Active Profiles</p>
+            <h3 className="mt-4 text-2xl font-bold text-gray-900">{stats.active}</h3>
+            <p className="mt-1 text-sm text-gray-500">Active Profiles</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <div className="p-2 bg-blue-50 rounded-lg w-fit">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="w-fit rounded-lg bg-blue-50 p-2">
               <GitMerge className="h-5 w-5 text-blue-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mt-4">{stats.merged}</h3>
-            <p className="text-sm text-gray-500 mt-1">Merged</p>
+            <h3 className="mt-4 text-2xl font-bold text-gray-900">{stats.merged}</h3>
+            <p className="mt-1 text-sm text-gray-500">Merged</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <div className="p-2 bg-gray-50 rounded-lg w-fit">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="w-fit rounded-lg bg-gray-50 p-2">
               <Archive className="h-5 w-5 text-gray-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mt-4">{stats.archived}</h3>
-            <p className="text-sm text-gray-500 mt-1">Archived</p>
+            <h3 className="mt-4 text-2xl font-bold text-gray-900">{stats.archived}</h3>
+            <p className="mt-1 text-sm text-gray-500">Archived</p>
           </div>
         </div>
       )}
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
               placeholder="Search by name, email, or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
         </div>
       </div>
 
       {/* Profiles List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 p-4">
           <h3 className="text-lg font-semibold text-gray-900">
             Profiles Requiring Action ({profiles.length})
           </h3>
@@ -452,31 +450,25 @@ export default function PendingProfilesPage() {
 
         {profiles.length === 0 ? (
           <div className="p-12 text-center">
-            <UserPlus className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <UserPlus className="mx-auto mb-3 h-12 w-12 text-gray-300" />
             <p className="text-gray-500">No pending profiles found</p>
-            <p className="text-sm text-gray-400 mt-1">
-              All patient profiles are complete
-            </p>
+            <p className="mt-1 text-sm text-gray-400">All patient profiles are complete</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
             {profiles.map((profile) => (
-              <div
-                key={profile.id}
-                className="p-4 hover:bg-gray-50 transition-colors"
-              >
+              <div key={profile.id} className="p-4 transition-colors hover:bg-gray-50">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-amber-50 rounded-lg">
+                    <div className="mb-2 flex items-center gap-3">
+                      <div className="rounded-lg bg-amber-50 p-2">
                         <User className="h-5 w-5 text-amber-600" />
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">
                           {profile.firstName} {profile.lastName}
-                          {(profile.firstName === 'Unknown' ||
-                            profile.lastName === 'Customer') && (
-                            <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                          {(profile.firstName === 'Unknown' || profile.lastName === 'Customer') && (
+                            <span className="ml-2 rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-600">
                               Incomplete Name
                             </span>
                           )}
@@ -487,14 +479,12 @@ export default function PendingProfilesPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                    <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Mail className="h-4 w-4 text-gray-400" />
                         <span
                           className={
-                            profile.email.includes('@placeholder.local')
-                              ? 'text-amber-600'
-                              : ''
+                            profile.email.includes('@placeholder.local') ? 'text-amber-600' : ''
                           }
                         >
                           {profile.email.includes('@placeholder.local')
@@ -509,8 +499,8 @@ export default function PendingProfilesPage() {
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <DollarSign className="h-4 w-4 text-gray-400" />
                         <span>
-                          {formatCurrency(profile.totalPayments)} ({profile.invoiceCount}{' '}
-                          invoice{profile.invoiceCount !== 1 ? 's' : ''})
+                          {formatCurrency(profile.totalPayments)} ({profile.invoiceCount} invoice
+                          {profile.invoiceCount !== 1 ? 's' : ''})
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -521,8 +511,8 @@ export default function PendingProfilesPage() {
 
                     {/* Match Candidates */}
                     {profile.matchCandidates && profile.matchCandidates.length > 0 && (
-                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                        <p className="text-xs font-medium text-blue-700 mb-2">
+                      <div className="mt-3 rounded-lg bg-blue-50 p-3">
+                        <p className="mb-2 text-xs font-medium text-blue-700">
                           Potential Matches Found:
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -533,14 +523,12 @@ export default function PendingProfilesPage() {
                                 setSelectedProfile(profile);
                                 setShowMergeModal(true);
                               }}
-                              className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded ${getConfidenceColor(
+                              className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs ${getConfidenceColor(
                                 candidate.confidence
                               )}`}
                             >
                               {candidate.firstName} {candidate.lastName}
-                              <span className="opacity-60">
-                                ({candidate.matchType})
-                              </span>
+                              <span className="opacity-60">({candidate.matchType})</span>
                               <ChevronRight className="h-3 w-3" />
                             </button>
                           ))}
@@ -566,10 +554,10 @@ export default function PendingProfilesPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="ml-4 flex items-center gap-2">
                     <button
                       onClick={() => openCompleteModal(profile)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+                      className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
                     >
                       <CheckCircle className="h-4 w-4" />
                       Complete
@@ -580,7 +568,7 @@ export default function PendingProfilesPage() {
                           setSelectedProfile(profile);
                           setShowMergeModal(true);
                         }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                        className="flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
                       >
                         <GitMerge className="h-4 w-4" />
                         Merge
@@ -588,7 +576,7 @@ export default function PendingProfilesPage() {
                     )}
                     <button
                       onClick={() => handleArchive(profile)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
                     >
                       <Archive className="h-4 w-4" />
                     </button>
@@ -602,12 +590,10 @@ export default function PendingProfilesPage() {
 
       {/* Complete Profile Modal */}
       {showCompleteModal && selectedProfile && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Complete Profile
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Complete Profile</h3>
               <button
                 onClick={() => {
                   setShowCompleteModal(false);
@@ -619,76 +605,60 @@ export default function PendingProfilesPage() {
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="mb-4 text-sm text-gray-600">
               Update the missing information to complete this patient profile.
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  First Name
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">First Name</label>
                 <input
                   type="text"
                   value={completeForm.firstName}
-                  onChange={(e) =>
-                    setCompleteForm({ ...completeForm, firstName: e.target.value })
-                  }
+                  onChange={(e) => setCompleteForm({ ...completeForm, firstName: e.target.value })}
                   placeholder="Enter first name"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Last Name
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Last Name</label>
                 <input
                   type="text"
                   value={completeForm.lastName}
-                  onChange={(e) =>
-                    setCompleteForm({ ...completeForm, lastName: e.target.value })
-                  }
+                  onChange={(e) => setCompleteForm({ ...completeForm, lastName: e.target.value })}
                   placeholder="Enter last name"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
                 <input
                   type="email"
                   value={completeForm.email}
-                  onChange={(e) =>
-                    setCompleteForm({ ...completeForm, email: e.target.value })
-                  }
+                  onChange={(e) => setCompleteForm({ ...completeForm, email: e.target.value })}
                   placeholder="Enter email address"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Phone</label>
                 <input
                   type="tel"
                   value={completeForm.phone}
-                  onChange={(e) =>
-                    setCompleteForm({ ...completeForm, phone: e.target.value })
-                  }
+                  onChange={(e) => setCompleteForm({ ...completeForm, phone: e.target.value })}
                   placeholder="Enter phone number"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowCompleteModal(false);
                   setSelectedProfile(null);
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
               >
                 Cancel
               </button>
@@ -696,11 +666,9 @@ export default function PendingProfilesPage() {
                 onClick={handleComplete}
                 disabled={
                   processing ||
-                  (!completeForm.firstName &&
-                    !completeForm.lastName &&
-                    !completeForm.email)
+                  (!completeForm.firstName && !completeForm.lastName && !completeForm.email)
                 }
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {processing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -716,12 +684,10 @@ export default function PendingProfilesPage() {
 
       {/* Merge Modal */}
       {showMergeModal && selectedProfile && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Merge Profile
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Merge Profile</h3>
               <button
                 onClick={() => {
                   setShowMergeModal(false);
@@ -733,31 +699,31 @@ export default function PendingProfilesPage() {
               </button>
             </div>
 
-            <div className="p-3 bg-amber-50 rounded-lg mb-4">
+            <div className="mb-4 rounded-lg bg-amber-50 p-3">
               <p className="text-sm text-amber-700">
                 <strong>Source Profile:</strong> {selectedProfile.firstName}{' '}
                 {selectedProfile.lastName} ({selectedProfile.email})
               </p>
-              <p className="text-xs text-amber-600 mt-1">
+              <p className="mt-1 text-xs text-amber-600">
                 This profile will be merged into the selected target and deleted.
               </p>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="mb-4 text-sm text-gray-600">
               Select the existing patient to merge this profile into:
             </p>
 
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="max-h-64 space-y-2 overflow-y-auto">
               {selectedProfile.matchCandidates?.map((candidate) => (
                 <button
                   key={candidate.id}
                   onClick={() => handleMerge(candidate.id)}
                   disabled={processing}
-                  className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 p-3 transition-colors hover:bg-gray-50 disabled:opacity-50"
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`px-2 py-1 text-xs rounded ${getConfidenceColor(
+                      className={`rounded px-2 py-1 text-xs ${getConfidenceColor(
                         candidate.confidence
                       )}`}
                     >
@@ -778,13 +744,13 @@ export default function PendingProfilesPage() {
               ))}
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowMergeModal(false);
                   setSelectedProfile(null);
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
               >
                 Cancel
               </button>

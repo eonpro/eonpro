@@ -120,12 +120,12 @@ export default function ReportBuilderPage() {
   };
 
   const removeMetric = (metricId: string) => {
-    setSelectedMetrics(selectedMetrics.filter(m => m !== metricId));
+    setSelectedMetrics(selectedMetrics.filter((m) => m !== metricId));
   };
 
   const getMetricName = (id: string) => {
     for (const category of Object.values(METRICS)) {
-      const metric = category.find(m => m.id === id);
+      const metric = category.find((m) => m.id === id);
       if (metric) return metric.name;
     }
     return id;
@@ -143,12 +143,15 @@ export default function ReportBuilderPage() {
     }
 
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+      const token =
+        localStorage.getItem('token') ||
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('admin-token');
       const response = await fetch('/api/admin/reports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           name: reportName,
@@ -195,19 +198,25 @@ export default function ReportBuilderPage() {
     const filename = `${reportName.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`;
 
     // Use preview data for export
-    const exportData = previewData.map(row => ({
+    const exportData = previewData.map((row) => ({
       name: row.name,
-      ...selectedMetrics.reduce((acc, metric) => ({
-        ...acc,
-        [metric]: (row as Record<string, any>)[metric] || Math.floor(Math.random() * 10000),
-      }), {}),
+      ...selectedMetrics.reduce(
+        (acc, metric) => ({
+          ...acc,
+          [metric]: (row as Record<string, any>)[metric] || Math.floor(Math.random() * 10000),
+        }),
+        {}
+      ),
     }));
 
     if (format === 'csv') {
-      const headers = ['Period', ...selectedMetrics.map(m => getMetricName(m))];
+      const headers = ['Period', ...selectedMetrics.map((m) => getMetricName(m))];
       content = headers.join(',') + '\n';
-      exportData.forEach(row => {
-        const values = [row.name, ...selectedMetrics.map(m => (row as Record<string, any>)[m] || 0)];
+      exportData.forEach((row) => {
+        const values = [
+          row.name,
+          ...selectedMetrics.map((m) => (row as Record<string, any>)[m] || 0),
+        ];
         content += values.join(',') + '\n';
       });
 
@@ -221,14 +230,18 @@ export default function ReportBuilderPage() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } else if (format === 'json') {
-      content = JSON.stringify({
-        report: reportName,
-        exportedAt: new Date().toISOString(),
-        metrics: selectedMetrics,
-        dateRange,
-        groupBy,
-        data: exportData,
-      }, null, 2);
+      content = JSON.stringify(
+        {
+          report: reportName,
+          exportedAt: new Date().toISOString(),
+          metrics: selectedMetrics,
+          dateRange,
+          groupBy,
+          data: exportData,
+        },
+        null,
+        2
+      );
 
       const blob = new Blob([content], { type: 'application/json;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
@@ -241,10 +254,13 @@ export default function ReportBuilderPage() {
       window.URL.revokeObjectURL(url);
     } else if (format === 'excel') {
       // Excel format - use CSV with .xls extension (Excel can open CSV)
-      const headers = ['Period', ...selectedMetrics.map(m => getMetricName(m))];
+      const headers = ['Period', ...selectedMetrics.map((m) => getMetricName(m))];
       content = headers.join('\t') + '\n';
-      exportData.forEach(row => {
-        const values = [row.name, ...selectedMetrics.map(m => (row as Record<string, any>)[m] || 0)];
+      exportData.forEach((row) => {
+        const values = [
+          row.name,
+          ...selectedMetrics.map((m) => (row as Record<string, any>)[m] || 0),
+        ];
         content += values.join('\t') + '\n';
       });
 
@@ -264,13 +280,13 @@ export default function ReportBuilderPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             href="/admin/finance/reports"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="rounded-lg p-2 transition-colors hover:bg-gray-100"
           >
             <ArrowLeft className="h-5 w-5 text-gray-500" />
           </Link>
@@ -278,37 +294,37 @@ export default function ReportBuilderPage() {
             type="text"
             value={reportName}
             onChange={(e) => setReportName(e.target.value)}
-            className="text-2xl font-bold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded px-2 -mx-2"
+            className="-mx-2 rounded border-none bg-transparent px-2 text-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             placeholder="Report Name"
           />
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowSchedule(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
           >
             <Clock className="h-4 w-4" />
             Schedule
           </button>
-          <div className="relative group">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+          <div className="group relative">
+            <button className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
               <Download className="h-4 w-4" />
               Export
             </button>
-            <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 hidden group-hover:block z-10">
-              <button 
+            <div className="absolute right-0 z-10 mt-2 hidden w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg group-hover:block">
+              <button
                 onClick={() => handleExport('csv')}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               >
                 Export as CSV
               </button>
-              <button 
+              <button
                 onClick={() => handleExport('excel')}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               >
                 Export as Excel
               </button>
-              <button 
+              <button
                 onClick={() => handleExport('pdf')}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               >
@@ -318,7 +334,7 @@ export default function ReportBuilderPage() {
           </div>
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
             <Save className="h-4 w-4" />
             Save Report
@@ -327,29 +343,31 @@ export default function ReportBuilderPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         {/* Sidebar - Metrics */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="space-y-4 lg:col-span-1">
           {/* Date Range */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
               <Calendar className="h-4 w-4" />
               Date Range
             </h3>
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
             >
               {DATE_RANGES.map((range) => (
-                <option key={range.id} value={range.id}>{range.name}</option>
+                <option key={range.id} value={range.id}>
+                  {range.name}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Chart Type */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Chart Type</h3>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-gray-900">Chart Type</h3>
             <div className="grid grid-cols-2 gap-2">
               {CHART_TYPES.map((type) => {
                 const Icon = type.icon;
@@ -357,7 +375,7 @@ export default function ReportBuilderPage() {
                   <button
                     key={type.id}
                     onClick={() => setChartType(type.id)}
-                    className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition-colors ${
+                    className={`flex flex-col items-center gap-1 rounded-lg border p-3 transition-colors ${
                       chartType === type.id
                         ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                         : 'border-gray-200 hover:border-gray-300'
@@ -372,12 +390,12 @@ export default function ReportBuilderPage() {
           </div>
 
           {/* Group By */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Group By</h3>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-gray-900">Group By</h3>
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
             >
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
@@ -387,22 +405,22 @@ export default function ReportBuilderPage() {
           </div>
 
           {/* Metrics Selector */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Available Metrics</h3>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-gray-900">Available Metrics</h3>
+            <div className="max-h-[400px] space-y-3 overflow-y-auto">
               {Object.entries(METRICS).map(([category, metrics]) => (
                 <div key={category}>
-                  <p className="text-xs font-medium text-gray-400 uppercase mb-2">{category}</p>
+                  <p className="mb-2 text-xs font-medium uppercase text-gray-400">{category}</p>
                   <div className="space-y-1">
                     {metrics.map((metric) => (
                       <button
                         key={metric.id}
                         onClick={() => addMetric(metric.id)}
                         disabled={selectedMetrics.includes(metric.id)}
-                        className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
+                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                           selectedMetrics.includes(metric.id)
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'hover:bg-gray-50 text-gray-700'
+                            ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                            : 'text-gray-700 hover:bg-gray-50'
                         }`}
                       >
                         <span className="flex items-center justify-between">
@@ -421,26 +439,28 @@ export default function ReportBuilderPage() {
         </div>
 
         {/* Preview Area */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="space-y-4 lg:col-span-3">
           {/* Selected Metrics */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Selected Metrics</h3>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-gray-900">Selected Metrics</h3>
             {selectedMetrics.length === 0 ? (
-              <p className="text-sm text-gray-400">Select metrics from the sidebar to add to your report</p>
+              <p className="text-sm text-gray-400">
+                Select metrics from the sidebar to add to your report
+              </p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {selectedMetrics.map((metricId, index) => (
                   <span
                     key={metricId}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium"
-                    style={{ backgroundColor: `${COLORS[index % COLORS.length]}20`, color: COLORS[index % COLORS.length] }}
+                    className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium"
+                    style={{
+                      backgroundColor: `${COLORS[index % COLORS.length]}20`,
+                      color: COLORS[index % COLORS.length],
+                    }}
                   >
                     <GripVertical className="h-3 w-3 cursor-move" />
                     {getMetricName(metricId)}
-                    <button
-                      onClick={() => removeMetric(metricId)}
-                      className="hover:opacity-70"
-                    >
+                    <button onClick={() => removeMetric(metricId)} className="hover:opacity-70">
                       <X className="h-3 w-3" />
                     </button>
                   </span>
@@ -450,12 +470,12 @@ export default function ReportBuilderPage() {
           </div>
 
           {/* Chart Preview */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Preview</h3>
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold text-gray-900">Preview</h3>
             {selectedMetrics.length === 0 ? (
-              <div className="h-80 flex items-center justify-center text-gray-400">
+              <div className="flex h-80 items-center justify-center text-gray-400">
                 <div className="text-center">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <BarChart3 className="mx-auto mb-3 h-12 w-12 opacity-50" />
                   <p>Add metrics to see a preview</p>
                 </div>
               </div>
@@ -469,7 +489,7 @@ export default function ReportBuilderPage() {
                     <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
                     <Legend />
                     {selectedMetrics.map((metric, index) => (
-                      <Bar 
+                      <Bar
                         key={metric}
                         dataKey={metric}
                         name={getMetricName(metric)}
@@ -486,7 +506,7 @@ export default function ReportBuilderPage() {
                     <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
                     <Legend />
                     {selectedMetrics.map((metric, index) => (
-                      <Line 
+                      <Line
                         key={metric}
                         type="monotone"
                         dataKey={metric}
@@ -519,9 +539,12 @@ export default function ReportBuilderPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 font-medium text-gray-500">Period</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-500">Period</th>
                           {selectedMetrics.map((metric) => (
-                            <th key={metric} className="text-right py-3 px-4 font-medium text-gray-500">
+                            <th
+                              key={metric}
+                              className="px-4 py-3 text-right font-medium text-gray-500"
+                            >
                               {getMetricName(metric)}
                             </th>
                           ))}
@@ -530,9 +553,9 @@ export default function ReportBuilderPage() {
                       <tbody>
                         {previewData.map((row) => (
                           <tr key={row.name} className="border-b border-gray-100">
-                            <td className="py-3 px-4 font-medium text-gray-900">{row.name}</td>
+                            <td className="px-4 py-3 font-medium text-gray-900">{row.name}</td>
                             {selectedMetrics.map((metric) => (
-                              <td key={metric} className="text-right py-3 px-4 text-gray-600">
+                              <td key={metric} className="px-4 py-3 text-right text-gray-600">
                                 ${((row as any)[metric] / 100).toLocaleString()}
                               </td>
                             ))}
@@ -550,9 +573,9 @@ export default function ReportBuilderPage() {
 
       {/* Schedule Modal */}
       {showSchedule && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Schedule Report</h3>
               <button onClick={() => setShowSchedule(false)}>
                 <X className="h-5 w-5 text-gray-400" />
@@ -560,35 +583,39 @@ export default function ReportBuilderPage() {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                <select className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Frequency</label>
+                <select className="w-full rounded-lg border border-gray-200 px-3 py-2">
                   <option>Daily</option>
                   <option>Weekly</option>
                   <option>Monthly</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                <input type="time" defaultValue="09:00" className="w-full px-3 py-2 border border-gray-200 rounded-lg" />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Time</label>
+                <input
+                  type="time"
+                  defaultValue="09:00"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Recipients</label>
-                <input 
-                  type="email" 
-                  placeholder="Enter email addresses" 
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                <label className="mb-1 block text-sm font-medium text-gray-700">Recipients</label>
+                <input
+                  type="email"
+                  placeholder="Enter email addresses"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
                 />
               </div>
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowSchedule(false)}
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+                  className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => setShowSchedule(false)}
-                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+                  className="flex-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
                 >
                   Save Schedule
                 </button>

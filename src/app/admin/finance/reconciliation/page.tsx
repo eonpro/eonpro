@@ -69,10 +69,11 @@ export default function ReconciliationPage() {
   useEffect(() => {
     const loadReconciliationData = async () => {
       try {
-        const token = localStorage.getItem('auth-token') || 
-                      localStorage.getItem('super_admin-token') || 
-                      localStorage.getItem('admin-token') ||
-                      localStorage.getItem('token');
+        const token =
+          localStorage.getItem('auth-token') ||
+          localStorage.getItem('super_admin-token') ||
+          localStorage.getItem('admin-token') ||
+          localStorage.getItem('token');
 
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -84,13 +85,15 @@ export default function ReconciliationPage() {
 
         if (response.ok) {
           const data = await response.json();
-          setStats(data.stats || {
-            totalUnmatched: 0,
-            matchedToday: 0,
-            createdToday: 0,
-            skippedToday: 0,
-            autoMatchRate: 0,
-          });
+          setStats(
+            data.stats || {
+              totalUnmatched: 0,
+              matchedToday: 0,
+              createdToday: 0,
+              skippedToday: 0,
+              autoMatchRate: 0,
+            }
+          );
           setUnmatchedPayments(data.unmatchedPayments || []);
           setRules(data.rules || []);
         } else {
@@ -128,8 +131,8 @@ export default function ReconciliationPage() {
     setProcessing(true);
     // Simulate API call
     setTimeout(() => {
-      setUnmatchedPayments(prev => 
-        prev.map(p => p.id === paymentId ? { ...p, status: 'matched' as const } : p)
+      setUnmatchedPayments((prev) =>
+        prev.map((p) => (p.id === paymentId ? { ...p, status: 'matched' as const } : p))
       );
       setProcessing(false);
     }, 500);
@@ -139,16 +142,16 @@ export default function ReconciliationPage() {
     setProcessing(true);
     // Simulate API call
     setTimeout(() => {
-      setUnmatchedPayments(prev => 
-        prev.map(p => p.id === paymentId ? { ...p, status: 'created' as const } : p)
+      setUnmatchedPayments((prev) =>
+        prev.map((p) => (p.id === paymentId ? { ...p, status: 'created' as const } : p))
       );
       setProcessing(false);
     }, 500);
   };
 
   const handleSkipPayment = async (paymentId: number) => {
-    setUnmatchedPayments(prev => 
-      prev.map(p => p.id === paymentId ? { ...p, status: 'skipped' as const } : p)
+    setUnmatchedPayments((prev) =>
+      prev.map((p) => (p.id === paymentId ? { ...p, status: 'skipped' as const } : p))
     );
   };
 
@@ -156,10 +159,10 @@ export default function ReconciliationPage() {
     setProcessing(true);
     // Simulate API call
     setTimeout(() => {
-      setUnmatchedPayments(prev => 
-        prev.map(p => 
-          selectedPayments.includes(p.id) && p.suggestedPatientId 
-            ? { ...p, status: 'matched' as const } 
+      setUnmatchedPayments((prev) =>
+        prev.map((p) =>
+          selectedPayments.includes(p.id) && p.suggestedPatientId
+            ? { ...p, status: 'matched' as const }
             : p
         )
       );
@@ -172,28 +175,26 @@ export default function ReconciliationPage() {
     setProcessing(true);
     // Simulate running auto-match rules
     setTimeout(() => {
-      setUnmatchedPayments(prev => 
-        prev.map(p => 
-          p.confidence >= 80 && p.suggestedPatientId 
-            ? { ...p, status: 'matched' as const } 
-            : p
+      setUnmatchedPayments((prev) =>
+        prev.map((p) =>
+          p.confidence >= 80 && p.suggestedPatientId ? { ...p, status: 'matched' as const } : p
         )
       );
       setProcessing(false);
     }, 2000);
   };
 
-  const filteredPayments = unmatchedPayments.filter(p => 
-    p.status === 'pending' && (
-      p.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.stripePaymentId.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+  const filteredPayments = unmatchedPayments.filter(
+    (p) =>
+      p.status === 'pending' &&
+      (p.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.stripePaymentId.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const toggleSelectPayment = (id: number) => {
-    setSelectedPayments(prev => 
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    setSelectedPayments((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
   };
 
@@ -201,13 +202,13 @@ export default function ReconciliationPage() {
     if (selectedPayments.length === filteredPayments.length) {
       setSelectedPayments([]);
     } else {
-      setSelectedPayments(filteredPayments.map(p => p.id));
+      setSelectedPayments(filteredPayments.map((p) => p.id));
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
       </div>
     );
@@ -221,20 +222,18 @@ export default function ReconciliationPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Reconciliation Center</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Match Stripe payments to patients
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Match Stripe payments to patients</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleRunAutoMatch}
             disabled={processing}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             <Play className="h-4 w-4" />
             Run Auto-Match
@@ -243,10 +242,10 @@ export default function ReconciliationPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-50 rounded-lg">
+            <div className="rounded-lg bg-amber-50 p-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
             </div>
             <div>
@@ -256,9 +255,9 @@ export default function ReconciliationPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg">
+            <div className="rounded-lg bg-green-50 p-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <div>
@@ -268,9 +267,9 @@ export default function ReconciliationPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
+            <div className="rounded-lg bg-blue-50 p-2">
               <User className="h-5 w-5 text-blue-600" />
             </div>
             <div>
@@ -280,9 +279,9 @@ export default function ReconciliationPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-50 rounded-lg">
+            <div className="rounded-lg bg-gray-50 p-2">
               <XCircle className="h-5 w-5 text-gray-600" />
             </div>
             <div>
@@ -292,9 +291,9 @@ export default function ReconciliationPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-50 rounded-lg">
+            <div className="rounded-lg bg-purple-50 p-2">
               <RefreshCcw className="h-5 w-5 text-purple-600" />
             </div>
             <div>
@@ -306,12 +305,12 @@ export default function ReconciliationPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 bg-white rounded-lg border border-gray-200 p-1 w-fit">
+      <div className="flex w-fit gap-2 rounded-lg border border-gray-200 bg-white p-1">
         {(['queue', 'rules', 'history'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === tab
                 ? 'bg-emerald-100 text-emerald-700'
                 : 'text-gray-500 hover:text-gray-700'
@@ -324,24 +323,24 @@ export default function ReconciliationPage() {
 
       {/* Queue Tab */}
       {activeTab === 'queue' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by email, name, or payment ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-80 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-80 rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               {selectedPayments.length > 0 && (
                 <button
                   onClick={handleBulkMatch}
                   disabled={processing}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
                   <LinkIcon className="h-4 w-4" />
                   Match Selected ({selectedPayments.length})
@@ -357,23 +356,36 @@ export default function ReconciliationPage() {
                   <th className="px-4 py-3 text-left">
                     <input
                       type="checkbox"
-                      checked={selectedPayments.length === filteredPayments.length && filteredPayments.length > 0}
+                      checked={
+                        selectedPayments.length === filteredPayments.length &&
+                        filteredPayments.length > 0
+                      }
                       onChange={toggleSelectAll}
                       className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Match</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                    Payment
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                    Customer
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                    Amount
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                    Match
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredPayments.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-12 text-center">
-                      <CheckCircle className="h-12 w-12 text-green-300 mx-auto mb-3" />
+                      <CheckCircle className="mx-auto mb-3 h-12 w-12 text-green-300" />
                       <p className="text-gray-500">All payments are matched!</p>
                     </td>
                   </tr>
@@ -389,13 +401,15 @@ export default function ReconciliationPage() {
                         />
                       </td>
                       <td className="px-4 py-4">
-                        <p className="text-sm font-mono text-gray-600">{payment.stripePaymentId}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="font-mono text-sm text-gray-600">{payment.stripePaymentId}</p>
+                        <p className="mt-1 text-xs text-gray-400">
                           {new Date(payment.date).toLocaleString()}
                         </p>
                       </td>
                       <td className="px-4 py-4">
-                        <p className="text-sm font-medium text-gray-900">{payment.name || 'Unknown'}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {payment.name || 'Unknown'}
+                        </p>
                         <p className="text-sm text-gray-500">{payment.email}</p>
                       </td>
                       <td className="px-4 py-4">
@@ -407,11 +421,13 @@ export default function ReconciliationPage() {
                         {payment.suggestedPatientId ? (
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getConfidenceColor(payment.confidence)}`}>
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getConfidenceColor(payment.confidence)}`}
+                              >
                                 {payment.confidence}% match
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="mt-1 text-sm text-gray-600">
                               {payment.suggestedPatientName}
                             </p>
                           </div>
@@ -423,9 +439,11 @@ export default function ReconciliationPage() {
                         <div className="flex items-center gap-2">
                           {payment.suggestedPatientId && (
                             <button
-                              onClick={() => handleMatchPayment(payment.id, payment.suggestedPatientId!)}
+                              onClick={() =>
+                                handleMatchPayment(payment.id, payment.suggestedPatientId!)
+                              }
                               disabled={processing}
-                              className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded text-xs font-medium hover:bg-emerald-200 disabled:opacity-50"
+                              className="rounded bg-emerald-100 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-200 disabled:opacity-50"
                             >
                               Match
                             </button>
@@ -433,13 +451,13 @@ export default function ReconciliationPage() {
                           <button
                             onClick={() => handleCreatePatient(payment.id)}
                             disabled={processing}
-                            className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 disabled:opacity-50"
+                            className="rounded bg-blue-100 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-200 disabled:opacity-50"
                           >
                             Create
                           </button>
                           <button
                             onClick={() => handleSkipPayment(payment.id)}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200"
+                            className="rounded bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
                           >
                             Skip
                           </button>
@@ -456,35 +474,41 @@ export default function ReconciliationPage() {
 
       {/* Rules Tab */}
       {activeTab === 'rules' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-200 p-4">
             <h3 className="text-lg font-semibold text-gray-900">Matching Rules</h3>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+            <button className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
               <Settings className="h-4 w-4" />
               Configure
             </button>
           </div>
           <div className="divide-y divide-gray-100">
             {rules.map((rule) => (
-              <div key={rule.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+              <div key={rule.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-8 h-8 bg-gray-100 rounded-full text-sm font-medium text-gray-600">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-medium text-gray-600">
                     {rule.priority}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-gray-900">{rule.name}</p>
-                      <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
-                        rule.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}>
+                      <span
+                        className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${
+                          rule.isActive
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
                         {rule.isActive ? 'Active' : 'Disabled'}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">{rule.description}</p>
+                    <p className="mt-1 text-sm text-gray-500">{rule.description}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{rule.matchCount.toLocaleString()}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {rule.matchCount.toLocaleString()}
+                  </p>
                   <p className="text-xs text-gray-500">matches</p>
                 </div>
               </div>
@@ -495,10 +519,10 @@ export default function ReconciliationPage() {
 
       {/* History Tab */}
       {activeTab === 'history' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-          <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <Clock className="mx-auto mb-3 h-12 w-12 text-gray-300" />
           <p className="text-gray-500">Reconciliation history coming soon</p>
-          <p className="text-sm text-gray-400 mt-1">View past matching activity and audit trails</p>
+          <p className="mt-1 text-sm text-gray-400">View past matching activity and audit trails</p>
         </div>
       )}
     </div>
