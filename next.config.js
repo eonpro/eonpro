@@ -94,15 +94,31 @@ const nextConfig = {
   },
   
   // Webpack configuration (when using --webpack for production)
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, nextRuntime }) => {
     // Vercel: memory cache to avoid filesystem cache exceeding 1GB upload limit.
     // CI/Docker: filesystem cache for faster rebuilds.
     config.cache = process.env.VERCEL
       ? { type: 'memory' }
       : { type: 'filesystem' };
 
-    // Resolve "node:" protocol as Node built-ins (avoids UnhandledSchemeError for node:async_hooks used in db.ts).
-    if (isServer) {
+    if (isServer && nextRuntime === 'edge') {
+      // Edge Runtime: stub Node.js built-ins that are unavailable.
+      // Sentry's dependency chain (via @sentry/node-core) pulls in node:os;
+      // providing false here makes webpack resolve it to an empty module.
+      config.resolve = config.resolve || {};
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        os: false,
+        'node:os': false,
+        fs: false,
+        'node:fs': false,
+        path: false,
+        'node:path': false,
+        child_process: false,
+        'node:child_process': false,
+      };
+    } else if (isServer) {
+      // Node.js server: externalize node: protocol modules.
       const externals = config.externals || [];
       const handler = ({ request }, callback) => {
         if (typeof request === 'string' && request.startsWith('node:')) {
@@ -140,23 +156,21 @@ const nextConfig = {
   },
 };
 
-// Sentry configuration wrapper
+// Sentry configuration wrapper (v10 API)
 const sentryWebpackPluginOptions = {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: true, // Suppresses all logs
-  dryRun: !process.env.SENTRY_AUTH_TOKEN, // Skip upload if no auth token
+  silent: true,
+  dryRun: !process.env.SENTRY_AUTH_TOKEN,
 
   // Tunnel requests through our domain to fix CORS and bypass ad-blockers
   tunnelRoute: '/api/sentry',
 
-  // Do NOT auto-wrap middleware — Sentry's Edge SDK pulls in node:os which
-  // is unsupported in Vercel Edge Runtime and causes the deploy to fail.
-  autoInstrumentMiddleware: false,
-
   // Source maps
-  hideSourceMaps: true,
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
   widenClientFileUpload: true,
   
   // Release configuration
@@ -167,9 +181,13 @@ const sentryWebpackPluginOptions = {
       env: process.env.NODE_ENV || 'development',
     },
   },
-  
-  // Disable in development
-  disableLogger: process.env.NODE_ENV !== 'production',
+
+  // Webpack-specific build options (Sentry v10 API).
+  // autoInstrumentMiddleware: false prevents Sentry from wrapping the middleware
+  // with its Edge SDK, which transitively pulls in node:os (unsupported in Edge Runtime).
+  webpack: {
+    autoInstrumentMiddleware: false,
+  },
 };
 
 // Export with Sentry only if DSN is configured
