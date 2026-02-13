@@ -10,7 +10,7 @@ import {
   checkDatabaseHealth,
   getPoolStats,
 } from './database/serverless-pool';
-import { TenantContextRequiredError } from './tenant-context';
+import { TenantContextRequiredError } from './tenant-context-errors';
 
 // Re-export Prisma namespace for TransactionClient and other types
 export { Prisma } from '@prisma/client';

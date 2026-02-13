@@ -51,7 +51,7 @@ function isMainAppDomain(domain: string): boolean {
   );
 }
 
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     // Support both 'domain' and '_main' parameters (some proxies may rename params)
@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export const GET = withApiHandler(resolveHandler);
+export const GET = withApiHandler(handler);
 
 /**
  * Resolve clinic from domain string.
